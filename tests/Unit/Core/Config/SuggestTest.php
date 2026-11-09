@@ -21,6 +21,26 @@ it('suggests changes by default, and none where suggest.enabled is false, laying
         ->and(Configs::problems(Configs::layer(['suggest' => ['enabled' => 'no']]))[0] ?? '')->toStartWith('suggest.enabled: ');
 });
 
+it('notes an empty tests.holding by default, and not where suggest.emptyHolding or suggest.enabled is false, laying a later layer\'s over an earlier one\'s', function (): void {
+    expect(Layer::standard()->reports()->suggest()->emptyHolding())->toBeTrue()
+        ->and(Configs::valid(['suggest' => ['emptyHolding' => false]])->reports()->suggest()->emptyHolding())->toBeFalse()
+        ->and(Configs::valid(['suggest' => ['emptyHolding' => true]])->reports()->suggest()->emptyHolding())->toBeTrue()
+        ->and(Configs::valid(['suggest' => ['enabled' => false, 'emptyHolding' => true]])->reports()->suggest()->emptyHolding())->toBeFalse()
+        ->and(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: false)))->over(Layer::of(Reports::suggesting(Suggest::of(idleJudged: 3))))->reports()->suggest()->emptyHolding())->toBeFalse()
+        ->and(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: false)))->over(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: true))))->reports()->suggest()->emptyHolding())->toBeTrue()
+        ->and(Configs::problems(Configs::layer(['suggest' => ['emptyHolding' => 'no']]))[0] ?? '')->toStartWith('suggest.emptyHolding: ');
+});
+
+it('writes suggest.emptyHolding where a layer sets it, and the builder calls for it, as the builder writes them', function (): void {
+    $off = Layer::of(Reports::suggesting(Suggest::of(emptyHolding: false)));
+
+    expect($off->written(ProjectRoot::origin())->line())->toBe('{"suggest":{"emptyHolding":false}}')
+        ->and($off->php(ProjectRoot::origin())->code())->toContain('Suggest::emptyHoldingSilent()')
+        ->and(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: true)))->php(ProjectRoot::origin())->code())->toContain('Suggest::emptyHoldingNoted()')
+        ->and(Configs::written(Gate::configure()->with(SuggestBuilder::emptyHoldingSilent())))->toBe(['suggest' => ['emptyHolding' => false]])
+        ->and(Configs::written(Gate::configure()->with(SuggestBuilder::emptyHoldingNoted())))->toBe(['suggest' => ['emptyHolding' => true]]);
+});
+
 it('writes suggest.enabled where a layer sets it, and the builder calls for it, as the builder writes it', function (): void {
     $off = Layer::of(Reports::suggesting(Suggest::of(enabled: false)));
     $on = Layer::of(Reports::suggesting(Suggest::of(enabled: true)));

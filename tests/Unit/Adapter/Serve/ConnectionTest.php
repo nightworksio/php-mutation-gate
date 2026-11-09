@@ -80,15 +80,13 @@ it('never refuses a client that connects the moment the socket is there', functi
     foreach (range(1, 50) as $round) {
         $kept = sprintf('%s/connected-%d', (string) getcwd(), $round);
         $child = ServedProjects::aside(static function () use ($kept): void {
-            $look = Waiting::every(Seconds::of(0.000_05));
-
             for ($looked = 0; $looked < 40_000 && ! ServedProjects::socket()->isThere(); $looked++) {
-                $look();
+                Waiting::between(Seconds::of(0.000_05));
             }
 
             file_put_contents($kept, Connection::to(ServedProjects::SOCKET) instanceof Connection ? 'connected' : 'refused');
         });
-        Waiting::every(Seconds::of(0.002))();
+        Waiting::between(Seconds::of(0.002));
         $listener = Listener::boundTo(ServedProjects::SOCKET);
         ServedProjects::waitedFor($child);
         $found[] = (string) file_get_contents($kept);

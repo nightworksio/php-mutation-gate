@@ -116,7 +116,10 @@ final readonly class RecheckRuns
     {
         $names = array_map(static fn(JudgedMutant $survivor): string => $survivor->mutant()->mutator(), $survivors);
         $request = RunRequest::of($this->adapters, $this->settings, Paths::of($file), $unit->judgedBy())
-            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers()))
+            ->across(
+                Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
+                    ->pacedBy($this->settings->runner()->pace()),
+            )
             ->reusingCoverage(Handed::maps(Workspace::verdictCoverage(), Workspace::coverage()));
         $result = $this->adapters->runner->mutate($request->narrowedTo(
             Paths::of($file),

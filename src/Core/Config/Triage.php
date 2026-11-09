@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
@@ -52,6 +53,8 @@ final readonly class Triage implements Part
         private SuiteLists $lists,
         private PerTestSetting $perTest,
         private Seconds|Absent $controlMost,
+        private Seconds|Absent $startUp,
+        private LearnedBounds $learned,
     ) {
     }
 
@@ -69,6 +72,8 @@ final readonly class Triage implements Part
         int|false|Absent $perTest = new Absent(),
         Seconds|Absent $testFloor = new Absent(),
         Seconds|Absent $controlMost = new Absent(),
+        Seconds|Absent $startUp = new Absent(),
+        LearnedBounds|Absent $learned = new Absent(),
     ): self {
         return new self(
             $budget,
@@ -83,6 +88,8 @@ final readonly class Triage implements Part
             $lists instanceof SuiteLists ? $lists : SuiteLists::of(),
             PerTestSetting::of($perTest, $testFloor),
             $controlMost,
+            $startUp,
+            LearnedBounds::orNone($learned),
         );
     }
 
@@ -102,9 +109,12 @@ final readonly class Triage implements Part
             confirmSurvivors: $none->confirmSurvivors(),
             order: $none->order(),
             survivorsFirst: $none->survivorsFirst()->resolved(),
-            tighter: $none->tighter(),
+            tighter: TighterSilence::standard(),
+            multiple: MutantLimit::FACTOR,
             perTest: PerTestLimit::MULTIPLE,
             testFloor: Seconds::of(PerTestLimit::FLOOR),
+            startUp: Seconds::of(MutantLimit::START_UP),
+            learned: LearnedBounds::standard(),
         );
     }
 
@@ -124,6 +134,8 @@ final readonly class Triage implements Part
                 $this->lists->over($later->lists),
                 $this->perTest->over($later->perTest),
                 Absent::laid($this->controlMost, $later->controlMost),
+                Absent::laid($this->startUp, $later->startUp),
+                $this->learned->over($later->learned),
             )
             : $this;
     }
@@ -172,13 +184,10 @@ final readonly class Triage implements Part
             : Seconds::of(max(self::CONTROL_MOST, $this->most()->seconds()));
     }
 
-    /**
-     * `timeouts.tighter`: the mutators, by their short names, whose silence
-     * limit has a lower floor, and that floor.
-     */
-    public function tighter(): TighterSilence
+    /** `timeouts.learned`: how a learned timeout multiple is read from a ledger's kills. */
+    public function learned(): LearnedBounds
     {
-        return $this->tighter instanceof TighterSilence ? $this->tighter : TighterSilence::standard();
+        return $this->learned;
     }
 
     /**
@@ -189,8 +198,9 @@ final readonly class Triage implements Part
      */
     public function bounds(): LimitBounds
     {
-        $bounds = LimitBounds::between($this->limit(), $this->most())
-            ->tighterFor($this->tighter())
+        $startUp = $this->startUp instanceof Seconds ? $this->startUp->seconds() : MutantLimit::START_UP;
+        $bounds = LimitBounds::between($this->limit(), $this->most(), $startUp)
+            ->tighterFor($this->tighter instanceof TighterSilence ? $this->tighter : TighterSilence::standard())
             ->multipliedBy(match (true) {
                 $this->multiple instanceof Absent => Multiple::standard(),
                 $this->multiple instanceof Learned => Learned::Learned,
@@ -215,7 +225,7 @@ final readonly class Triage implements Part
             $controls < $most => Invalid::because(
                 Problem::at('timeouts.controlMost', sprintf(self::UNDER_THE_MOST, $most, $controls)),
             ),
-            default => Absent::setting(),
+            default => $this->learned->refusal(),
         };
     }
 
@@ -250,7 +260,7 @@ final readonly class Triage implements Part
     public function written(PathOrigin $origin): Json
     {
         return Json::object(
-            Member::of('budget', $this->budget instanceof Seconds ? $this->budget->written() : $this->budget),
+            Member::of('budget', WholeSeconds::duration($this->budget)),
             Member::unlessEmpty(
                 'timeouts',
                 Json::object(
@@ -258,8 +268,10 @@ final readonly class Triage implements Part
                     Member::of('seconds', LimitCalls::secondsWritten($this->limit)),
                     Member::of('most', WholeSeconds::written($this->most)),
                     Member::of('multiple', LimitCalls::multipleWritten($this->multiple)),
+                    Member::of('startUp', WholeSeconds::duration($this->startUp)),
                     Member::of('tighter', LimitCalls::tighterWritten($this->tighter)),
                     Member::of('controlMost', WholeSeconds::written($this->controlMost)),
+                    $this->learned->written(),
                     ...$this->perTest->written(),
                 ),
             ),
@@ -285,11 +297,11 @@ final readonly class Triage implements Part
             ...$this->mode instanceof TimeoutMode ? [$this->mode->php()] : [],
             ...LimitCalls::seconds($this->limit),
             ...LimitCalls::multiple($this->multiple),
+            ...$this->startUp instanceof Seconds
+                ? [sprintf('Timeouts::startUp(%s)', PhpCalls::literal($this->startUp->written()))]
+                : [],
             ...$this->most instanceof Seconds ? [sprintf('Timeouts::most(%d)', intval($this->most->seconds()))] : [],
-            ...$this->tighter instanceof TighterSilence ? [sprintf(
-                'Timeouts::tighter(%s)',
-                PhpCalls::literals(intval($this->tighter->floor()->seconds()), ...$this->tighter),
-            )] : [],
+            ...LimitCalls::tighter($this->tighter),
             ...$this->perTest->calls(),
             ...$this->controlMost instanceof Seconds
                 ? [sprintf('Timeouts::controlMost(%d)', intval($this->controlMost->seconds()))]
@@ -298,7 +310,7 @@ final readonly class Triage implements Part
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],
             ...$this->orderCalls(),
-        ])->and($this->survivorsFirst->calls())->and($this->lists->calls());
+        ])->and($this->survivorsFirst->calls())->and($this->lists->calls())->and($this->learned->php());
     }
 
     /** @return list<string> the builder's call for the order of each mutant's tests */

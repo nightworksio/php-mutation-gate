@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -62,13 +63,14 @@ final readonly class Timing
 
     /**
      * This measurement, smoothed over an earlier timing of the same unit:
-     * weighing `NEWEST` itself, and the earlier timing the rest.
+     * weighing `timing.newest` itself, and the earlier timing the rest.
      */
-    public function smoothedOver(self $earlier): self
+    public function smoothedOver(self $earlier, TimingWeight|NotGiven $newest = new NotGiven()): self
     {
-        $seconds = self::NEWEST * $this->seconds->seconds() + (1 - self::NEWEST) * $earlier->seconds->seconds();
+        $weight = $newest instanceof TimingWeight ? $newest : TimingWeight::of(self::NEWEST);
+        $seconds = $weight->smoothed($this->seconds, $earlier->seconds);
 
-        return new self($this->unit, Seconds::of($seconds), $this->runner, $this->at, $this->gate);
+        return new self($this->unit, $seconds, $this->runner, $this->at, $this->gate);
     }
 
     public function unit(): Path

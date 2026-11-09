@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Analysis\RejectionRate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Cost\MutatorTallies;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
@@ -900,7 +901,7 @@ it('reads a format 4 ledger written before the learned limits as having learned 
         ->and($read->proofs())->toEqual($makeReadBack()->proofs())
         ->and($read->proofs())->not->toHaveCount(0)
         ->and($read->learned()->limits())->toEqual(LimitHistory::none())
-        ->and($read->learned()->limits()->multiple())->toBeInstanceOf(NotGiven::class);
+        ->and($read->learned()->limits()->multiple(LearnedBounds::standard()))->toBeInstanceOf(NotGiven::class);
 });
 
 it('keeps each positive number of the learned limits\' sections, and drops anything else', function () use ($data, $written, $makeReadBack): void {

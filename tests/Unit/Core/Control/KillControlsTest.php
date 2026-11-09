@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
@@ -49,7 +50,7 @@ function killedBy(string $file, string $nativeId, MutantStatus $status, string .
 /** A map that times LoopTest::a at two seconds, and LoopTest::b not at all. */
 function killersMap(): CoverageMap
 {
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
         ->timed(TestId::of('LoopTest::a'), Seconds::of(2.0));
 }
@@ -194,7 +195,7 @@ it('names, for a kill whose tests fail without it, the tests its control recorde
 ]);
 
 it('controls a kill whose run left its filter out by the test files that run loaded, its limit theirs, not by the file\'s other killers', function (): void {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
         ->timed(TestId::of('LoopTest::a'), Seconds::of(2.0))
         ->timed(TestId::of('LoopTest::b'), Seconds::of(30.0));
@@ -216,4 +217,44 @@ it('controls a kill whose run left its filter out by the test files that run loa
         ->and($alone->selected())->toEqual(NotGiven::value())
         ->and(array_map(static fn(TestId $test): string => $test->value(), [...$alone->tests()]))->toBe(['LoopTest::a'])
         ->and([...$controls->fallback($failed, Controls::none())])->toBe([]);
+});
+
+it('controls a file\'s kills whose runs left their filter out together first, by every test file those runs loaded, each on its own where that fails, and one that ran every test file by itself', function (): void {
+    $map = CoverageMap::of()
+        ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
+        ->timed(TestId::of('LoopTest::a'), Seconds::of(2.0))
+        ->timed(TestId::of('RateTest::b'), Seconds::of(3.0));
+    $one = killedBy('src/Loop.php', '1', MutantStatus::Killed, 'LoopTest::a');
+    $two = killedBy('src/Loop.php', '2', MutantStatus::Killed, 'RateTest::b');
+    $other = killedBy('src/Rate.php', '3', MutantStatus::Killed, 'RateTest::b');
+    $whole = killedBy('src/Tax.php', '4', MutantStatus::Killed, 'LoopTest::a');
+    $named = killedBy('src/Tax.php', '5', MutantStatus::Killed, 'RateTest::b');
+    $loading = static fn(string ...$files): Evidence => Evidence::none()
+        ->withPrefix(Prefix::at(1))
+        ->loadingUnfiltered(Paths::of(...array_map(Path::of(...), $files)));
+    $controls = KillControls::of(
+        Mutants::of($one, $two, $other, $whole, $named),
+        Evidences::none()
+            ->with($one->id(), $loading('tests/LoopTest.php'))
+            ->with($two->id(), $loading('tests/RateTest.php'))
+            ->with($other->id(), $loading('tests/RateTest.php'))
+            ->with($whole->id(), Evidence::none()->withPrefix(Prefix::at(1))->loadingUnfiltered(WholeSuite::tests())),
+        $map,
+        new LoadingUnfiltered(),
+        killBounds(),
+    );
+    [$loop, , $tax] = [...$controls->asked()];
+    $failed = ControlRuns::none()->with($loop, ControlRun::failed(TestIds::none()));
+
+    expect(askedKillControls($controls))->toBe([
+        ['src/Loop.php', ['LoopTest::a', 'RateTest::b'], 20.0],
+        ['src/Rate.php', ['RateTest::b'], 14.0],
+        ['src/Tax.php', ['LoopTest::a'], 11.0],
+        ['src/Tax.php', ['RateTest::b'], 14.0],
+    ])
+        ->and($tax->selected())->toEqual(WholeSuite::tests())
+        ->and($loop->selected())->toEqual(Paths::of(Path::of('tests/LoopTest.php'), Path::of('tests/RateTest.php')))
+        ->and(array_map(static fn(Control $own): ?Paths => $own->selected() instanceof Paths ? $own->selected() : null, [...$controls->fallback($failed, Controls::none())]))
+        ->toEqual([Paths::of(Path::of('tests/LoopTest.php')), Paths::of(Path::of('tests/RateTest.php'))])
+        ->and([...$controls->fallback(ControlRuns::none()->with($loop, ControlRun::passed(Seconds::of(1.0))), Controls::none())])->toBe([]);
 });

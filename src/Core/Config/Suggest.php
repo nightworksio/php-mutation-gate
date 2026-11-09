@@ -43,6 +43,7 @@ final readonly class Suggest
         private int|Absent $ignoredMutants,
         private int|Absent $timeoutCluster,
         private bool|Absent $enabled = new Absent(),
+        private bool|Absent $emptyHolding = new Absent(),
     ) {
     }
 
@@ -54,6 +55,7 @@ final readonly class Suggest
         int|Absent $ignoredMutants = new Absent(),
         int|Absent $timeoutCluster = new Absent(),
         bool|Absent $enabled = new Absent(),
+        bool|Absent $emptyHolding = new Absent(),
     ): self {
         return new self(
             $idleJudged,
@@ -63,6 +65,22 @@ final readonly class Suggest
             $ignoredMutants,
             $timeoutCluster,
             $enabled,
+            $emptyHolding,
+        );
+    }
+
+    /** Every key at the value it takes where every layer leaves it out. */
+    public static function standard(): self
+    {
+        return self::of(
+            self::IDLE_JUDGED,
+            self::IDLE_SURVIVORS,
+            self::IDLE_SHARE,
+            self::IGNORED_SHARE,
+            self::IGNORED_MUTANTS,
+            self::TIMEOUT_CLUSTER,
+            enabled: true,
+            emptyHolding: true,
         );
     }
 
@@ -77,16 +95,28 @@ final readonly class Suggest
             Absent::laid($this->ignoredMutants, $later->ignoredMutants),
             Absent::laid($this->timeoutCluster, $later->timeoutCluster),
             Absent::laid($this->enabled, $later->enabled),
+            Absent::laid($this->emptyHolding, $later->emptyHolding),
         );
     }
 
     /**
      * `suggest.enabled`: whether the gate suggests changes: what `config:suggest` proposes, what stopping a doomed
-     * run would have saved, and the files a holding group would hold; it does by default.
+     * run would have saved, the files a holding group would hold, and what an empty `tests.holding` means; it does by
+     * default.
      */
     public function enabled(): bool
     {
         return $this->enabled !== false;
+    }
+
+    /**
+     * `suggest.emptyHolding`: whether the verdict notes what `tests.holding`
+     * written as an empty list means, where `suggest.enabled` lets it; it does
+     * by default.
+     */
+    public function emptyHolding(): bool
+    {
+        return $this->enabled() && $this->emptyHolding !== false;
     }
 
     /** `suggest.idle.judged`: how many of a mutator's mutants must be judged before it can be idle. */
@@ -141,6 +171,7 @@ final readonly class Suggest
 
         $suggest = Json::object(
             Member::of('enabled', $this->enabled),
+            Member::of('emptyHolding', $this->emptyHolding),
             Member::unlessEmpty('idle', $idle),
             Member::unlessEmpty('ignored', $ignored),
             Member::unlessEmpty('timeouts', $timeouts),
@@ -160,11 +191,18 @@ final readonly class Suggest
             'ignoredMutants' => $this->ignoredMutants,
             'timeoutCluster' => $this->timeoutCluster,
         ];
-        $written = match ($this->enabled) {
-            true => ['Suggest::on()'],
-            false => ['Suggest::off()'],
-            default => [],
-        };
+        $written = [
+            ...match ($this->enabled) {
+                true => ['Suggest::on()'],
+                false => ['Suggest::off()'],
+                default => [],
+            },
+            ...match ($this->emptyHolding) {
+                true => ['Suggest::emptyHoldingNoted()'],
+                false => ['Suggest::emptyHoldingSilent()'],
+                default => [],
+            },
+        ];
 
         foreach ($calls as $method => $value) {
             $written = $value instanceof Absent

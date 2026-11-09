@@ -28,7 +28,7 @@ use function sprintf;
  */
 final readonly class Survivors
 {
-    /** How many survivors the overview names; the files below hold every one. */
+    /** How many survivors the overview names by default, as the digest does; the files below hold every one. */
     public const int SHOWN = 25;
 
     private const string CARD = <<<'HTML'
@@ -58,22 +58,23 @@ final readonly class Survivors
 
     private const string NOTHING = '<p class="empty">No mutant was judged.</p>';
 
-    public static function html(Mutants $mutants): string
+    public static function html(Mutants $mutants, int $shown): string
     {
         $survivors = $mutants->survivors();
         $items = [];
 
-        foreach (array_slice($survivors, 0, self::SHOWN) as $mutant) {
+        foreach (array_slice($survivors, 0, $shown) as $mutant) {
             $items[] = self::item($mutant);
         }
 
-        $shown = match (true) {
+        $listed = match (true) {
             $mutants->count() === 0 => self::NOTHING,
             $survivors === [] => self::NONE,
-            default => sprintf(self::LIST, implode('', $items), self::more(count($survivors))),
+            $items === [] => self::more(count($survivors), $shown),
+            default => sprintf(self::LIST, implode('', $items), self::more(count($survivors), $shown)),
         };
 
-        return sprintf(self::CARD, count($survivors), $shown);
+        return sprintf(self::CARD, count($survivors), $listed);
     }
 
     /** @param MutantEntry $mutant */
@@ -99,8 +100,8 @@ final readonly class Survivors
         );
     }
 
-    private static function more(int $survivors): string
+    private static function more(int $survivors, int $shown): string
     {
-        return $survivors > self::SHOWN ? sprintf(self::MORE, $survivors - self::SHOWN) : '';
+        return $survivors > $shown ? sprintf(self::MORE, $survivors - $shown) : '';
     }
 }

@@ -101,6 +101,7 @@ final readonly class ServedCommands
                     return $code;
                 },
                 new InlineForking(),
+                Seconds::of(5.0),
             )->served();
         });
         register_shutdown_function(static fn() => ServedProjects::waitedFor($child));

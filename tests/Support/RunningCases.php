@@ -123,7 +123,7 @@ final readonly class RunningCases
         );
     }
 
-    /** @return array{string, string, string, int, string}|string what a result's doom names, or that there is none */
+    /** @return array{string, string, string, int, string, string}|string what a result's doom names, how it ended, or that there is none */
     public static function doomOf(ShardResult|CannotJudge $result): array|string
     {
         return $result instanceof ShardResult && $result->doomed() instanceof Doomed

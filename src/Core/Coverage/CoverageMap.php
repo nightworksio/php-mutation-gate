@@ -9,7 +9,6 @@ use function array_map;
 
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Line;
-use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -34,13 +33,12 @@ final readonly class CoverageMap
      * @param array<string, Seconds>  $durations each timed test's duration, by id
      * @param ByPath<ExecutedMethods> $methods   each file's executed methods
      */
-    private function __construct(private LineTests $lines, private array $durations, private ByPath $methods)
-    {
-    }
-
-    public static function empty(): self
-    {
-        return new self(LineTests::none(), [], ByPath::none());
+    private function __construct(
+        private LineTests $lines,
+        private array $durations,
+        private ByPath $methods,
+        private LoadedPackages $loaded,
+    ) {
     }
 
     /**
@@ -50,19 +48,25 @@ final readonly class CoverageMap
      */
     public static function of(CoveredLine ...$covered): self
     {
-        return new self(LineTests::of(...$covered), [], ByPath::none());
+        return new self(LineTests::of(...$covered), [], ByPath::none(), LoadedPackages::unrecorded());
     }
 
     /** A map of lines held as its file writes them, with each timed test's duration, by id. */
     public static function placed(LineTests $lines, TimedTest ...$timed): self
     {
-        return new self($lines, [], ByPath::none())->timedEach(...$timed);
+        return new self($lines, [], ByPath::none(), LoadedPackages::unrecorded())
+            ->timedEach(...$timed);
     }
 
     /** This map, with these tests covering a line. */
     public function covered(Path $file, Line $line, TestId ...$tests): self
     {
-        return new self($this->lines->covered($file, $line, ...$tests), $this->durations, $this->methods);
+        return new self(
+            $this->lines->covered($file, $line, ...$tests),
+            $this->durations,
+            $this->methods,
+            $this->loaded,
+        );
     }
 
     /** This map, with how long a test took. */
@@ -82,7 +86,7 @@ final readonly class CoverageMap
 
         $tests = array_map(static fn(TimedTest $each): TestId => $each->test(), $timed);
 
-        return new self($this->lines->knowing(...$tests), $durations, $this->methods);
+        return new self($this->lines->knowing(...$tests), $durations, $this->methods, $this->loaded);
     }
 
     /** This map, covering only these files: every test it knows and how long each took, and the lines of these. */
@@ -94,7 +98,19 @@ final readonly class CoverageMap
             $methods = $files->has($file) ? $methods->with($file, $executed) : $methods;
         }
 
-        return new self($this->lines->onlyFor($files), $this->durations, $methods);
+        return new self($this->lines->onlyFor($files), $this->durations, $methods, $this->loaded);
+    }
+
+    /** This map, with what its tests loaded. */
+    public function loading(LoadedPackages $loaded): self
+    {
+        return new self($this->lines, $this->durations, $this->methods, $loaded);
+    }
+
+    /** What the map's tests loaded, where the run recorded it. */
+    public function loaded(): LoadedPackages
+    {
+        return $this->loaded;
     }
 
     /** This map, with these methods of a file executed, after any it already holds for it. */
@@ -110,6 +126,7 @@ final readonly class CoverageMap
             $this->lines,
             $this->durations,
             $this->methods->with($file, ExecutedMethods::of(...$held, ...$methods)),
+            $this->loaded,
         );
     }
 
@@ -165,11 +182,6 @@ final readonly class CoverageMap
     public function lineSets(Path $file): LineSets
     {
         return $this->lines->setsOn($file);
-    }
-
-    public function linesCovered(Path $file): Lines
-    {
-        return $this->lines->coveredIn($file);
     }
 
     /** Every test that covers any line of a file from the first to the last, each once. */

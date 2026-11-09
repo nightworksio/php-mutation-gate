@@ -35,30 +35,36 @@ final readonly class Trend
     /** The file it is written to, beside the badge. */
     public const string FILE = 'trend.json';
 
-    private const int FORMAT = 1;
+    /** How many entries it keeps, the newest, unless the badge's `trendKept` says otherwise. */
+    public const int KEPT = 500;
 
-    /** How many entries it keeps, the newest. */
-    private const int KEPT = 500;
+    /** The key under `badge`, and the badge's option, that holds how many entries it keeps. */
+    public const string KEPT_OPTION = 'trendKept';
+
+    private const int FORMAT = 1;
 
     /**
      * @param list<Entry> $runs oldest first
      */
-    private function __construct(private array $runs)
+    private function __construct(private array $runs, private int $kept)
     {
     }
 
     public static function none(): self
     {
-        return new self([]);
+        return new self([], self::KEPT);
     }
 
-    /** A trend as `trend.json` holds it; text that is not one reads as none. */
-    public static function decode(string $json): self
+    /**
+     * A trend as `trend.json` holds it, keeping as many of the newest entries as `badge.trendKept` says, or 500;
+     * text that is not one reads as none.
+     */
+    public static function decode(string $json, int $kept = self::KEPT): self
     {
         try {
             $items = Node::decode($json)->field('runs')->items();
         } catch (NotInShape) {
-            return self::none();
+            return new self([], $kept);
         }
 
         $runs = [];
@@ -71,7 +77,7 @@ final readonly class Trend
             }
         }
 
-        return new self($runs);
+        return new self($runs, $kept);
     }
 
     /** This trend, and a verdict's entry, keeping the newest. */
@@ -79,7 +85,7 @@ final readonly class Trend
     {
         $runs = [...$this->runs, TrendRecord::of($verdict, $commit, $time)];
 
-        return new self(array_slice($runs, -self::KEPT));
+        return new self(array_slice($runs, -$this->kept), $this->kept);
     }
 
     public function json(): string

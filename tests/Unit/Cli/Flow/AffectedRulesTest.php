@@ -54,7 +54,7 @@ function affectedByRules(array $now, Change ...$changes): array
     $settings = Flows::settings();
     $read = Inventory::of($adapters, $settings);
     $inventory = $read instanceof Inventory ? $read : throw new LogicException($read->why());
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Price.php'), Line::of(7), TestId::of('MoneyTest::adds'));
     $places = TestsOfTheSuite::placed($adapters, $inventory->suite, $map);

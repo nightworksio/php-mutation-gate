@@ -31,7 +31,7 @@ it('reads which tests cover which line of each file, as the project spells it, a
     ], ['Tests\MoneyTest' => 0.5], ['Tests\MoneyTest::adds' => 0.25, 'Tests\MoneyTest::large' => 0.125]);
     $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
 
-    expect(CoverageXml::read($project, DiskPath::of(sprintf('%s/coverage', $root))))->toEqual(CoverageMap::empty()
+    expect(CoverageXml::read($project, DiskPath::of(sprintf('%s/coverage', $root))))->toEqual(CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(16), TestId::of('Tests\MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(16), TestId::of('Tests\MoneyTest::large'))
@@ -92,7 +92,7 @@ it('reads a report at its own path where the index names no project source', fun
     $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
 
     expect(CoverageXml::read($project, DiskPath::of(sprintf('%s/coverage', $root))))
-        ->toEqual(CoverageMap::empty()->covered(Path::of('A.php'), Line::of(3), TestId::of('T::a')));
+        ->toEqual(CoverageMap::of()->covered(Path::of('A.php'), Line::of(3), TestId::of('T::a')));
 });
 
 it('cannot judge coverage whose index names a file report that is not there', function (): void {

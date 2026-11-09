@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Alert\Alert;
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
 use NightWorksIO\MutationGate\Core\Alert\AlertLines;
+use NightWorksIO\MutationGate\Core\Alert\AlertShape;
 use NightWorksIO\MutationGate\Core\Alert\Chat;
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -38,7 +39,7 @@ $makeWas = static fn(): TrendEntry => TrendEntry::none()->withScore(Path::of('sr
 it('says of a failure each tree below its floor, the failures no floor decides, and the first survivors', function () use ($makeWas): void {
     $was = $makeWas();
 
-    expect(AlertLines::of(Alert::of(AlertEvent::Failed, Verdicts::failing(), $was), Chat::Slack))->toBe([
+    expect(AlertLines::of(Alert::of(AlertEvent::Failed, Verdicts::failing(), $was), Chat::Slack, AlertShape::standard()))->toBe([
         ['Below the floor', ['`src`: 44.44%, below its floor of 80.00%; it was 81.00%.']],
         ['Failures', ['The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.']],
         ['Survivors', [
@@ -59,26 +60,30 @@ it('names at most five survivors, then how many more there are, and leaves out a
     }
 
     $verdict = Verdicts::of(Floor::of(90), ...$survivors);
-    [[$heading, $lines], [$survivorHeading, $named]] = AlertLines::of(Alert::of(AlertEvent::Failed, $verdict, TrendEntry::none()), Chat::Discord);
+    [[$heading, $lines], [$survivorHeading, $named]] = AlertLines::of(Alert::of(AlertEvent::Failed, $verdict, TrendEntry::none()), Chat::Discord, AlertShape::standard());
 
     expect($heading)->toBe('Below the floor')
         ->and($lines)->toBe(['`src`: 0.00%, below its floor of 90.00%.'])
         ->and($survivorHeading)->toBe('Survivors')
         ->and($named)->toHaveCount(6)
         ->and($named[5])->toBe('And 2 more.');
+
+    [, [, $shaped]] = AlertLines::of(Alert::of(AlertEvent::Failed, $verdict, TrendEntry::none()), Chat::Discord, AlertShape::of(1, 8));
+
+    expect($shaped)->toBe(['`src/A.p…` Plus, survived', 'And 6 more.']);
 });
 
 it('says why the run cannot judge', function (): void {
     $verdict = Verdicts::passing()->withCannotJudge(CannotJudge::because('Shard 2 wrote no result, so <its> units are unjudged.'));
 
-    expect(AlertLines::of(Alert::of(AlertEvent::CannotJudge, $verdict, TrendEntry::none()), Chat::Slack))
+    expect(AlertLines::of(Alert::of(AlertEvent::CannotJudge, $verdict, TrendEntry::none()), Chat::Slack, AlertShape::standard()))
         ->toBe([['Why', ['Shard 2 wrote no result, so &lt;its&gt; units are unjudged.']]]);
 });
 
 it('says of a recovery each passing tree against its floor', function () use ($makeWas): void {
     $was = $makeWas();
 
-    expect(AlertLines::of(Alert::of(AlertEvent::Recovered, Verdicts::passing(), $was), Chat::Slack))
+    expect(AlertLines::of(Alert::of(AlertEvent::Recovered, Verdicts::passing(), $was), Chat::Slack, AlertShape::standard()))
         ->toBe([['Trees', ['`src`: 100.00% against its floor of 80.00%; it was 81.00%.']]]);
 });
 
@@ -96,7 +101,7 @@ it('says of each lowered floor where it went, and why, where the baseline says',
     ));
     $entry = TrendEntry::none()->withFloor(Path::of('app'), Floor::of(90))->withFloor(Path::of('lib'), Floor::of(75));
 
-    expect(AlertLines::of(Alert::of(AlertEvent::FloorLowered, $verdict, $entry), Chat::Slack))->toBe([['Floors lowered', [
+    expect(AlertLines::of(Alert::of(AlertEvent::FloorLowered, $verdict, $entry), Chat::Slack, AlertShape::standard()))->toBe([['Floors lowered', [
         sprintf('`app`: its floor went from 90.00%% to 70.00%%. Legacy code joined the tree%s…', str_repeat('!', 92)),
         '`lib`: its floor went from 75.00% to 70.00%. The baseline gives no reason.',
     ]]]);
@@ -105,7 +110,7 @@ it('says of each lowered floor where it went, and why, where the baseline says',
 it('names each security set below its floor when a run fails', function () use ($makeWas): void {
     $was = $makeWas();
 
-    $groups = AlertLines::of(Alert::of(AlertEvent::Failed, Verdicts::secured(), $was), Chat::Slack);
+    $groups = AlertLines::of(Alert::of(AlertEvent::Failed, Verdicts::secured(), $was), Chat::Slack, AlertShape::standard());
 
     expect($groups[1] ?? null)->toBe(['Security below its floor', ['Security: 0.00%, below its floor of 100.00%.']]);
 });
@@ -123,7 +128,7 @@ it('names every security set below its floor, each on its own line', function ()
         $set('packages/billing', 'packages/billing/src/Refund.php'),
     )));
 
-    expect(AlertLines::of(Alert::of(AlertEvent::Failed, $verdict, TrendEntry::none()), Chat::Slack)[1] ?? null)->toBe([
+    expect(AlertLines::of(Alert::of(AlertEvent::Failed, $verdict, TrendEntry::none()), Chat::Slack, AlertShape::standard())[1] ?? null)->toBe([
         'Security below its floor',
         ['Security: 0.00%, below its floor of 100.00%.', 'Security in packages/billing: 0.00%, below its floor of 100.00%.'],
     ]);
@@ -133,12 +138,12 @@ it('says of a recovery a passing tree no floor holds by its score alone', functi
     $killed = Secured::mutant(MutantJudgement::Killed);
     $verdict = Verdict::of(TreeVerdicts::of(Secured::tree('src', Package::at(Path::root()), Undeclared::floor(), $killed)));
 
-    expect(AlertLines::of(Alert::of(AlertEvent::Recovered, $verdict, TrendEntry::none()), Chat::Slack))
+    expect(AlertLines::of(Alert::of(AlertEvent::Recovered, $verdict, TrendEntry::none()), Chat::Slack, AlertShape::standard()))
         ->toBe([['Trees', ['`src`: 100.00%.']]]);
 });
 
 it('names each owner below its floor when a run fails, and none that meets it', function (): void {
-    $groups = AlertLines::of(Alert::of(AlertEvent::Failed, Owners::floored(), TrendEntry::none()), Chat::Slack);
+    $groups = AlertLines::of(Alert::of(AlertEvent::Failed, Owners::floored(), TrendEntry::none()), Chat::Slack, AlertShape::standard());
 
     expect($groups[1] ?? null)->toBe([
         'Owners below their floor',
@@ -150,7 +155,7 @@ it('names every owner below its floor, each on its own line', function (): void 
     $floors = OwnerFloorVerdicts::of(Owners::trees(), Owners::codeOwners(), Uncovered::Count, Owners::floorsOf(['@acme/payments' => 50, '@jo' => 50]));
     $verdict = Verdict::of(Owners::trees())->withSets(HeldSets::none()->owned(Owners::verdicts())->floored($floors));
 
-    expect(AlertLines::of(Alert::of(AlertEvent::Failed, $verdict, TrendEntry::none()), Chat::Slack)[1] ?? null)->toBe([
+    expect(AlertLines::of(Alert::of(AlertEvent::Failed, $verdict, TrendEntry::none()), Chat::Slack, AlertShape::standard())[1] ?? null)->toBe([
         'Owners below their floor',
         ['Code owned by @acme/payments: 33.33%, below its floor of 50.00%.', 'Code owned by @jo: 33.33%, below its floor of 50.00%.'],
     ]);

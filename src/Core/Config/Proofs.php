@@ -42,6 +42,7 @@ final readonly class Proofs implements Part
         private Copies|Absent $copies,
         private bool|Absent $ownScope,
         private Compressed $compressed,
+        private Retained $retained,
     ) {
     }
 
@@ -55,6 +56,7 @@ final readonly class Proofs implements Part
         bool|Absent $ownScope = new Absent(),
         Compression|Absent $compression = new Absent(),
         int|Absent $compressionLevel = new Absent(),
+        Retained|Absent $retained = new Absent(),
     ): self {
         return new self(
             $store,
@@ -64,6 +66,7 @@ final readonly class Proofs implements Part
             $copies,
             $ownScope,
             Compressed::of($compression, $compressionLevel),
+            $retained instanceof Retained ? $retained : Retained::of(),
         );
     }
 
@@ -84,6 +87,7 @@ final readonly class Proofs implements Part
             $none->copies(),
             compression: $none->compression(),
             compressionLevel: $none->compressionLevel(),
+            retained: Retained::standard(),
         );
     }
 
@@ -103,6 +107,7 @@ final readonly class Proofs implements Part
                 Absent::laid($this->copies, $later->copies),
                 Absent::laid($this->ownScope, $later->ownScope),
                 $this->compressed->over($later->compressed),
+                $this->retained->over($later->retained),
             )
             : $this;
     }
@@ -162,6 +167,12 @@ final readonly class Proofs implements Part
         return $this->compressed->level();
     }
 
+    /** `proofs.keep` and `proofs.limits`: what a ledger keeps and how large what the gate reads may be. */
+    public function retained(): Retained
+    {
+        return $this->retained;
+    }
+
     /**
      * Whether a run measures again only the test files whose coverage could
      * have moved, keeping the rest from the map kept beside the ledger
@@ -177,7 +188,7 @@ final readonly class Proofs implements Part
         return Json::object(
             Member::unlessEmpty(
                 'proofs',
-                Json::object(
+                $this->retained->into(Json::object(
                     Member::of(
                         'store',
                         $this->store instanceof Choice ? $this->storeFrom($origin)->written() : $this->store,
@@ -192,7 +203,7 @@ final readonly class Proofs implements Part
                     Member::of('copies', $this->copies instanceof Copies ? $this->copies->value : $this->copies),
                     Member::of('ownScope', $this->ownScope),
                     ...$this->compressed->members(),
-                ),
+                )),
             ),
             Member::unlessEmpty('coverage', Json::object(Member::of('incremental', $this->incremental))),
         );
@@ -209,34 +220,30 @@ final readonly class Proofs implements Part
                 Writing::Auto => 'Proofs::writing()',
                 Writing::Never => 'Proofs::readOnly()',
             }] : [],
-            ...$this->copiesCalls(),
-            ...$this->ownScopeCalls(),
+            ...$this->choiceCalls(),
             ...$this->compressed->calls(),
             ...$this->incremental instanceof Absent
                 ? []
                 : [$this->incremental ? 'Coverage::incremental()' : 'Coverage::full()'],
-        ]);
+        ])->and($this->retained->php());
     }
 
-    /** @return list<string> the call that chooses the copy of a ledger a run reads, where the config chooses one */
-    private function copiesCalls(): array
+    /** @return list<string> the calls that choose the copy of a ledger a run reads and its scope's proofs */
+    private function choiceCalls(): array
     {
-        return match ($this->copies) {
-            Copies::Newest => ['Proofs::newestCopy()'],
-            Copies::Together => ['Proofs::copiesTogether()'],
-            Copies::Merged => ['Proofs::mergedCopies()'],
-            default => [],
-        };
-    }
-
-    /** @return list<string> the call that says whether a run takes its own scope's proofs, where the config says */
-    private function ownScopeCalls(): array
-    {
-        return match ($this->ownScope) {
-            true => ['Proofs::ownScope()'],
-            false => ['Proofs::defaultBranchOnly()'],
-            default => [],
-        };
+        return [
+            ...match ($this->copies) {
+                Copies::Newest => ['Proofs::newestCopy()'],
+                Copies::Together => ['Proofs::copiesTogether()'],
+                Copies::Merged => ['Proofs::mergedCopies()'],
+                default => [],
+            },
+            ...match ($this->ownScope) {
+                true => ['Proofs::ownScope()'],
+                false => ['Proofs::defaultBranchOnly()'],
+                default => [],
+            },
+        ];
     }
 
     /** The store chosen, with the directory store's path named from the origin. */

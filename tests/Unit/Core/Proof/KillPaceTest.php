@@ -28,7 +28,7 @@ $paced = static fn(int $line, MutantStatus $status, Seconds|Unmeasured $took): M
 );
 
 it('paces each mutant a test killed by its run\'s time over its covering tests\' own time, and no other', function () use ($paced): void {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'), TestId::of('MoneyTest::rounds'))
         ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('MoneyTest::untimed'))
         ->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('MoneyTest::instant'))

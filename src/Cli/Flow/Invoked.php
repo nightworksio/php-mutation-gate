@@ -5,15 +5,17 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
+use NightWorksIO\MutationGate\Core\Analysis\UncheckedIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 
 /**
  * What one invocation of a shard came to: its mutants, the survivors a
  * second run killed, those proven equivalent, what static analysis's checks
- * of its survivors came to, the survivors they took up, those a check that
- * never ran may yet kill, and those judged by one part of the test files
- * alone (ADR-0117).
+ * of its survivors came to, the survivors they took up, those they left
+ * unchecked, by why, and those judged by one part of the test files alone
+ * (ADR-0117).
  *
  * @internal
  */
@@ -25,18 +27,18 @@ final readonly class Invoked
         public MutantIds $equivalent,
         public SurvivorChecks $checks,
         public MutantIds $checked,
-        public MutantIds $unsettled,
+        public UncheckedIds $unchecked,
         public MutantIds $parted,
     ) {
     }
 
     /**
-     * The survivors that doom no run: those proven equivalent, those a check
-     * that never ran may yet kill, and those judged by one part of the test
-     * files alone, which another part may yet kill (ADR-0117).
+     * The survivors that doom no run: those proven equivalent, those left
+     * unchecked for a reason it waits on, and those judged by one part of the
+     * test files alone, which another part may yet kill (ADR-0117).
      */
-    public function passedOver(): MutantIds
+    public function passedOver(Unchecked ...$waits): MutantIds
     {
-        return $this->equivalent->and($this->unsettled)->and($this->parted);
+        return $this->equivalent->and($this->unchecked->for(...$waits))->and($this->parted);
     }
 }

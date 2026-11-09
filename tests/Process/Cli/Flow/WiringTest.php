@@ -36,21 +36,25 @@ use NightWorksIO\MutationGate\Cli\Flow\Cores;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Config\Ci;
+use NightWorksIO\MutationGate\Config\CostModel;
 use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
+use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Tests as TestsSetting;
 use NightWorksIO\MutationGate\Config\Timeouts;
+use NightWorksIO\MutationGate\Config\VersionControl;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -66,6 +70,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -102,6 +107,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -113,6 +119,9 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\ProofStore;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -180,10 +189,10 @@ function wiringEveryCi(): Withheld
 }
 
 /** The adapters these settings choose, started in these variables. */
-function wiredOf(Settings $settings, Variables $environment): Adapters
+function wiredOf(Settings $settings, Variables $environment, string $project = ''): Adapters
 {
     $adapters = new Wiring(Wirings::registry(), $environment, Wirings::detected())
-        ->adapters($settings, Directory::at(Flows::project()));
+        ->adapters($settings, Directory::at($project === '' ? Flows::project() : $project));
 
     return $adapters instanceof Adapters ? $adapters : throw new RuntimeException('The adapters could not be wired.');
 }
@@ -225,22 +234,26 @@ it('counts a plan\'s mutants with the default set, where the set is registered',
         ->toEqual($set instanceof MutatorSet ? Enabled::of($set)->engine() : $set);
 })->group(...$holds);
 
-it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the config names', function (): void {
+it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the config names, each in the project it gates', function (): void {
     $settings = Flows::settings(Proofs::s3('ledgers'));
     $keys = ['AWS_ACCESS_KEY_ID' => 'AKIA', 'AWS_SECRET_ACCESS_KEY' => 'secret'];
-    $local = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of([])));
-    $ci = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true'])));
+    $project = Flows::project();
+    $root = Root::of($project);
+    $local = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of([]), $project));
+    $ci = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true']), $project));
 
-    expect($local->proofs)->toEqual(encodedAs(FetchedCopies::over(LocalLedgers::over(keptUnder($ci->proofs)), Copies::Newest)))
-        ->and($ci->proofs)->toEqual(encodedAs(FetchedCopies::over(keptUnder($ci->proofs), Copies::Newest)))
+    expect($local->proofs)->toEqual(encodedAs(FetchedCopies::over(LocalLedgers::over(keptUnder($ci->proofs), $root), Copies::Newest, $root)))
+        ->and($ci->proofs)->toEqual(encodedAs(FetchedCopies::over(keptUnder($ci->proofs), Copies::Newest, $root)))
         ->and(keptUnder($ci->proofs))->toBeInstanceOf(BucketLedger::class)
-        ->and(wiredOf(Flows::settings(Proofs::directory('cache/ledger')), Variables::of([]))->proofs)
-        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('cache/ledger'), Copies::Newest)));
+        ->and(wiredOf(Flows::settings(Proofs::directory('cache/ledger')), Variables::of([]), $project)->proofs)
+        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('cache/ledger'), Copies::Newest, $root)));
 })->group(...$holds);
 
 it('reads the copy of a ledger fetch wrote beside the one the run keeps, as proofs.copies chooses', function (Proofs $copies, Copies $chosen): void {
-    expect(wiredOf(Flows::settings($copies), Variables::of(['CI' => 'true']))->proofs)
-        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), $chosen)));
+    $project = Flows::project();
+
+    expect(wiredOf(Flows::settings($copies), Variables::of(['CI' => 'true']), $project)->proofs)
+        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), $chosen, Root::of($project))));
 })->with([
     'the newest' => [fn(): Proofs => Proofs::newestCopy(), Copies::Newest],
     'the store\'s, where they move together' => [fn(): Proofs => Proofs::copiesTogether(), Copies::Together],
@@ -248,10 +261,13 @@ it('reads the copy of a ledger fetch wrote beside the one the run keeps, as proo
 ])->group(...$holds);
 
 it('writes and reads every ledger as proofs.compression and proofs.compressionLevel say, zstd where it is here by default', function (): void {
-    expect(wiredOf(Flows::settings(Proofs::compression('gzip'), Proofs::compressionLevel(3)), Variables::of(['CI' => 'true']))->proofs)
-        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest), Compression::Gzip, 3))
-        ->and(wiredOf(Flows::settings(), Variables::of(['CI' => 'true']))->proofs)
-        ->not->toEqual(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest));
+    $project = Flows::project();
+    $root = Root::of($project);
+
+    expect(wiredOf(Flows::settings(Proofs::compression('gzip'), Proofs::compressionLevel(3)), Variables::of(['CI' => 'true']), $project)->proofs)
+        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest, $root), Compression::Gzip, 3))
+        ->and(wiredOf(Flows::settings(), Variables::of(['CI' => 'true']), $project)->proofs)
+        ->not->toEqual(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest, $root));
 })->group(...$holds);
 
 /**
@@ -397,6 +413,52 @@ it('hands git what a run withholds, so no process git starts sees a CI token eit
     expect($adapters->changes)->toEqual($wired)
         ->and($adapters->repository)->toEqual($wired)
         ->and($adapters->changes)->not->toEqual($plain);
+})->group(...$holds);
+
+it('takes the cost model and the version control an extension registers where the config names them, handing each its options', function (): void {
+    $costs = new CostModelFake(Seconds::of(1.0));
+    $repository = RepositoryFake::onMain(Revision::ref('abc'));
+    $changes = Flows::checkout();
+    $handed = [];
+    $registry = Wirings::registry()
+        ->withCostModel(Name::of('acme'), static function (Options $options) use ($costs, &$handed): CostModelFake {
+            $handed['costs'] = $options->written()->line();
+
+            return $costs;
+        })
+        ->withChangeSource(Name::of('hg'), static function (Options $options) use ($changes, &$handed): ChangeSourceFake {
+            $handed['changes'] = $options->written()->line();
+
+            return $changes;
+        })
+        ->withRepository(Name::of('hg'), static fn(): RepositoryFake => $repository);
+    $settings = Flows::settings(CostModel::uses('acme', Option::of('rate', 2)), VersionControl::uses('hg', Option::of('branch', 'tip')));
+    $adapters = new Wiring($registry, Variables::of([]), Wirings::detected())->adapters($settings, Directory::at(Flows::project()));
+
+    expect($adapters instanceof Adapters ? $adapters->costs : $adapters)->toBe($costs)
+        ->and($adapters instanceof Adapters ? $adapters->changes : $adapters)->toBe($changes)
+        ->and($adapters instanceof Adapters ? $adapters->repository : $adapters)->toBe($repository)
+        ->and($handed['costs'])->toBe('{"secondsPerLine":{"":0.2},"rate":2}')
+        ->and($handed['changes'])->toContain('"check":"mutation / verdict"')
+        ->and($handed['changes'])->toContain('"branch":"tip"');
+})->group(...$holds);
+
+it('reads changes through git where the config names it, under GitHub Actions too, and through GitHub where it names that, anywhere', function (): void {
+    $actions = Variables::of(['GITHUB_ACTIONS' => 'true', 'CI' => 'true']);
+    $variables = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'];
+    $git = Environment::during($variables, static fn(): Adapters => wiredOf(Flows::settings(VersionControl::git()), $actions));
+    $github = Environment::during($variables, static fn(): Adapters => wiredOf(Flows::settings(VersionControl::github()), Variables::of([])));
+
+    expect($git->changes)->toBeInstanceOf(Git::class)
+        ->and($github->changes)->not->toBeInstanceOf(Git::class);
+})->group(...$holds);
+
+it('says which key names a cost model or a version control nothing registers', function (): void {
+    $wired = static fn(Setting $setting): Adapters|Invalid|CannotJudge => new Wiring(Wirings::registry(), Variables::of([]), Wirings::detected())
+        ->adapters(Flows::settings($setting), Directory::at(Flows::project()));
+
+    expect($wired(CostModel::uses('nothing')))->toBeInstanceOf(CannotJudge::class)
+        ->and($wired(VersionControl::uses('nothing')))->toBeInstanceOf(CannotJudge::class);
 })->group(...$holds);
 
 it('withholds the tokens of the CI the job runs on, whichever plan the config names', function (): void {
@@ -602,7 +664,7 @@ function wiringCarriesStaticKill(AnalyserIdentity|NoAnalyser|CannotJudge $then, 
         ProvedKills::none(),
         Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
     )->withInputs(Inputs::of($source instanceof Digest ? $source : Digest::of('none'), $recorded->mutation()));
-    $carrying = Carrying::against(wiringDigestsWith($now), Digest::sha256Of('base'), TestNames::none(), CoverageMap::empty(), ChangesSince::none());
+    $carrying = Carrying::against(wiringDigestsWith($now), Digest::sha256Of('base'), TestNames::none(), CoverageMap::of(), ChangesSince::none());
     $counted = $carrying->counted($proof);
 
     return $counted instanceof Proof ? $carrying->carry($counted, $rejected) : $counted;

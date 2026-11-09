@@ -78,7 +78,8 @@ final readonly class SharedRecheck
 
     /**
      * What the part the options ask for says, a line each; or why it cannot
-     * be done.
+     * be done. Where nothing reads the re-checked state, no job runs it and
+     * a share or the pairing re-checks nothing.
      *
      * @return list<string>|CannotJudge
      */
@@ -87,7 +88,14 @@ final readonly class SharedRecheck
         Plan $plan,
         InputInterface $input,
         OutputInterface $aside,
+        bool $isRead,
     ): array|CannotJudge {
+        if (! $isRead) {
+            return $input->getOption(self::JOBS) === true
+                ? [RecheckJobs::none($composed->settings->triage()->survivorsFirst())->encode()]
+                : [SurvivorsCommand::UNREAD];
+        }
+
         $rechecking = new Rechecking($composed->adapters, $composed->settings, $composed->setup);
         $from = self::text($input, FlowOptions::FROM);
         $of = self::text($input, self::OF);

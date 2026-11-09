@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Config\Definition\CiKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\CommentKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ContextsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\CoverageKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\DigestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Field;
 use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\HeatmapKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\OutputsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\OwnersKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PathsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PestKeys;
@@ -156,6 +159,9 @@ final readonly class Definition
             ...ReportsKeys::fields($origin),
             ...SuggestKeys::fields(),
             ...HeatmapKeys::fields(),
+            ...DigestKeys::fields(),
+            ...OutputsKeys::fields(),
+            ...CommentKeys::fields(),
             ...PublishingKeys::fields(),
             ...PestKeys::fields(),
             ...SplitStreamKeys::fields(),

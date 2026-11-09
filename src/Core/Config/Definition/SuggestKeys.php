@@ -31,17 +31,31 @@ final readonly class SuggestKeys
         $ignored = Field::section('ignored', self::ignored());
         $timeouts = Field::section('timeouts', self::timeouts());
         $enabled = Field::optional('enabled', Flag::boolean(), Effect::JudgesOrReportsOnly);
+        $emptyHolding = Field::optional('emptyHolding', Flag::boolean(), Effect::JudgesOrReportsOnly);
 
         return [Field::section(
             'suggest',
             Section::of(
-                static function (Node $suggest) use ($idle, $ignored, $timeouts, $enabled): Layer|Invalid {
+                static function (Node $suggest) use (
+                    $idle,
+                    $ignored,
+                    $timeouts,
+                    $enabled,
+                    $emptyHolding,
+                ): Layer|Invalid {
                     $on = $enabled->read($suggest);
+                    $noted = $emptyHolding->read($suggest);
                     $parts = [$idle->read($suggest), $ignored->read($suggest), $timeouts->read($suggest)];
 
-                    return Reading::built(static fn(): Layer => self::laid($on->value(), ...$parts), $on, ...$parts);
+                    return Reading::built(
+                        static fn(): Layer => self::laid($on->value(), $noted->value(), ...$parts),
+                        $on,
+                        $noted,
+                        ...$parts,
+                    );
                 },
                 $enabled,
+                $emptyHolding,
                 $idle,
                 $ignored,
                 $timeouts,
@@ -50,9 +64,15 @@ final readonly class SuggestKeys
     }
 
     /** @param Reading<Suggest> ...$parts */
-    private static function laid(object|string|int|float|bool $on, Reading ...$parts): Layer
-    {
-        $suggest = Suggest::of(enabled: is_bool($on) ? $on : Absent::setting());
+    private static function laid(
+        object|string|int|float|bool $on,
+        object|string|int|float|bool $noted,
+        Reading ...$parts,
+    ): Layer {
+        $suggest = Suggest::of(
+            enabled: is_bool($on) ? $on : Absent::setting(),
+            emptyHolding: is_bool($noted) ? $noted : Absent::setting(),
+        );
 
         foreach ($parts as $part) {
             $suggest = $suggest->over($part->must());

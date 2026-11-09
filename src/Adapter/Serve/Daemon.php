@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Serve;
 
+use function ceil;
+
 use Closure;
 
 use function hrtime;
@@ -46,9 +48,6 @@ final class Daemon
 
     private const string OTHER_USER = 'The daemon serves only its own user.';
 
-    /** How long a client may take to send its request, in seconds. */
-    private const int REQUEST = 5;
-
     /** The longest wait between two looks at the children, in microseconds. */
     private const int LOOK = Seconds::MICROSECONDS;
 
@@ -67,6 +66,7 @@ final class Daemon
         private readonly Seconds $idle,
         private readonly Closure $run,
         Forking $forking,
+        private readonly Seconds $request,
     ) {
         $this->listener = NotGiven::value();
         $this->children = new Children($forking);
@@ -136,7 +136,7 @@ final class Daemon
     private function answered(Connection $connection): void
     {
         $this->last = hrtime(as_number: true);
-        $line = $connection->waitingAtMost(self::REQUEST)->line();
+        $line = $connection->waitingAtMost((int) ceil($this->request->seconds()))->line();
         $request = $line instanceof NotGiven ? $line : ServeRequest::readFrom($line);
         $refused = match (true) {
             ! $this->socket->isOwnPeer($connection) => self::OTHER_USER,

@@ -124,3 +124,9 @@ it('takes a pipeline\'s name, keeping the run\'s number', function (): void {
         ->and(CiRun::of('o/r', 'refs/heads/main', 'c', 'u')->id())->toBe('')
         ->and($numbered instanceof CiRun ? $numbered->inPipeline('mutation')->id() : $numbered)->toBe('gitlab:9');
 });
+
+it('links the run of each CI it names, and none of any other', function (): void {
+    expect(CiRun::urlIn(Variables::of(['BUILDKITE' => 'true', 'BUILDKITE_BUILD_URL' => 'https://buildkite.com/acme/gate/builds/4'])))
+        ->toBe('https://buildkite.com/acme/gate/builds/4')
+        ->and(CiRun::urlIn(Variables::of(['CI' => 'true'])))->toBe('');
+});

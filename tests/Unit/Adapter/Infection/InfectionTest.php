@@ -172,7 +172,7 @@ it('runs the suite or a group under coverage into a directory and reads the map 
     $map = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())
         ->coverage(CoverageRun::of(Group::named('slow'), Path::of('.gate/planned')));
 
-    expect($map)->toEqual(CoverageMap::empty()
+    expect($map)->toEqual(CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)))
         ->and(InfectionCases::ran($shell)[0])->toContain(sprintf('--coverage-xml=%s/.gate/planned/coverage-xml', $at->root()))
@@ -269,7 +269,7 @@ it('cannot judge a coverage run that fails, with what PHPUnit said, or one over 
 
 it('names the tests of a map whose classes some test files declare', function (): void {
     $at = InfectionCases::project();
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('Tests\HeldTest::holds'));
     $adapter = new Infection($at, InfectionCases::shell($at, []), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory());
@@ -280,7 +280,7 @@ it('names the tests of a map whose classes some test files declare', function ()
 
 it('names the files of the test classes whose tests cover a file, and none for a file nothing covers', function (): void {
     $at = InfectionCases::project();
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('Tests\MoneyTest::adds with data set #1'))
         ->covered(Path::of('src/Held.php'), Line::of(3), TestId::of('Tests\MoneyTest::adds'));
@@ -387,7 +387,7 @@ it('names the steps its time went to: the coverage it readies and reads, prepari
 it('cannot judge a handed-on map whose test class no test file declares', function (): void {
     $at = InfectionCases::project();
     Scratch::write($at->root(), 'planned/map.json.gz', CoverageMapFile::encode(
-        CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\GoneTest::adds')),
+        CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\GoneTest::adds')),
         Unplaced::map(),
     ));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));

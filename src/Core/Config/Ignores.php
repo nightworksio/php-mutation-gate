@@ -28,6 +28,7 @@ final readonly class Ignores implements Part
         private int|Absent $maxDays,
         private NativeMarkers|Absent $native,
         private bool|Absent $staticEquivalence,
+        private int|Absent $notice,
     ) {
     }
 
@@ -37,8 +38,9 @@ final readonly class Ignores implements Part
         int|Absent $maxDays = new Absent(),
         NativeMarkers|Absent $native = new Absent(),
         bool|Absent $staticEquivalence = new Absent(),
+        int|Absent $notice = new Absent(),
     ): self {
-        return new self($entries, $maxDays, $native, $staticEquivalence);
+        return new self($entries, $maxDays, $native, $staticEquivalence, $notice);
     }
 
     public static function none(): self
@@ -54,6 +56,7 @@ final readonly class Ignores implements Part
             entries: $none->entries(),
             native: $none->native(),
             staticEquivalence: $none->staticEquivalence(),
+            notice: $none->notice(),
         );
     }
 
@@ -72,6 +75,7 @@ final readonly class Ignores implements Part
                 Absent::laid($this->maxDays, $later->maxDays),
                 Absent::laid($this->native, $later->native),
                 Absent::laid($this->staticEquivalence, $later->staticEquivalence),
+                Absent::laid($this->notice, $later->notice),
             )
             : $this;
     }
@@ -123,6 +127,12 @@ final readonly class Ignores implements Part
         return $late === [] ? Absent::setting() : Invalid::because(...$late);
     }
 
+    /** `ignores.notice`: how many days ahead an ignore's end is named. */
+    public function notice(): int
+    {
+        return $this->notice instanceof Absent ? Expiry::NOTICE : $this->notice;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         $entries = $this->entries instanceof Listed ? Json::items(...array_map(
@@ -137,6 +147,7 @@ final readonly class Ignores implements Part
                     Member::of('entries', $entries),
                     Member::of('maxDays', $this->maxDays),
                     Member::of('native', $this->native instanceof NativeMarkers ? $this->native->value : $this->native),
+                    Member::of('notice', $this->notice),
                 ),
             ),
             Member::unlessEmpty('equivalence', Json::object(Member::of('static', $this->staticEquivalence))),
@@ -175,6 +186,7 @@ final readonly class Ignores implements Part
     {
         return [
             ...$this->maxDays instanceof Absent ? [] : [sprintf('Ignores::within(%d)', $this->maxDays)],
+            ...$this->notice instanceof Absent ? [] : [sprintf('Ignores::notice(%d)', $this->notice)],
             ...$this->native instanceof NativeMarkers ? [match ($this->native) {
                 NativeMarkers::Refuse => 'Ignores::refusingNativeMarkers()',
                 NativeMarkers::Allow => 'Ignores::allowingNativeMarkers()',

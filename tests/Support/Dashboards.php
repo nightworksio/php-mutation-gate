@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Report\Summary;
 use NightWorksIO\MutationGate\Core\Report\Trend;
@@ -29,7 +31,7 @@ final class Dashboards
             Revision::ref('3f9a1c2'),
             Moment::at('2026-09-30T10:00:00Z'),
             Floor::of(95),
-            Seconds::of(147_600.0),
+            SavedLately::of(Seconds::of(147_600.0), SavingsWindow::standard()),
         );
     }
 

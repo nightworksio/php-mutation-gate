@@ -3,8 +3,12 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\PackageWatch;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\LoadedPackages;
+use NightWorksIO\MutationGate\Core\Coverage\ProcessLoads;
+use NightWorksIO\MutationGate\Core\Coverage\TestLoad;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -94,10 +98,10 @@ it('reads every line that names a test and its seconds, and none where the file 
 it('adds to a map every test the file times that the map does not, leaving the map\'s own times', function (): void {
     $file = sprintf('%s/timed-tests.jsonl', Scratch::directory());
     file_put_contents($file, "[\"T::a\",9]\n[\"T::b\",0.25]\n");
-    $map = CoverageMap::empty()->timed(TestId::of('T::a'), Seconds::of(1.0));
+    $map = CoverageMap::of()->timed(TestId::of('T::a'), Seconds::of(1.0));
 
     expect(TimedTests::onto($map, $file))
-        ->toEqual(CoverageMap::empty()->timed(TestId::of('T::a'), Seconds::of(1.0))->timed(TestId::of('T::b'), Seconds::of(0.25)));
+        ->toEqual(CoverageMap::of()->timed(TestId::of('T::a'), Seconds::of(1.0))->timed(TestId::of('T::b'), Seconds::of(0.25)));
 });
 
 it('times the test running it from PHPUnit\'s events, as it is prepared and as it finishes', function (): void {
@@ -110,4 +114,27 @@ it('times the test running it from PHPUnit\'s events, as it is prepared and as i
 
     expect(array_map(static fn(TimedTest $each): string => $each->test()->value(), $timed))->toBe([PhpUnitEvents::runningId()])
         ->and($timed[0]->seconds()->seconds())->toBeGreaterThanOrEqual(0.0);
+});
+
+it('records what the process loaded on each line where it watches, and a map takes it', function (): void {
+    $file = sprintf('%s/timed-tests.jsonl', Scratch::directory());
+    $events = new Facade();
+    $watch = PackageWatch::over(['/v/one' => 'acme/one'], static fn(): array => ['/v/one/A.php'], static fn(): string => '');
+    TimedTests::listening($file, $events, $watch);
+    PhpUnitEvents::prepared($events);
+    PhpUnitEvents::finished($events);
+    $map = TimedTests::onto(CoverageMap::of(), $file);
+
+    expect($map->loaded())->toEqual(LoadedPackages::of(ProcessLoads::of(TestLoad::of(PhpUnitEvents::runningId(), 'acme/one'))))
+        ->and(TimedTests::in($file))->toHaveCount(1);
+});
+
+it('records nothing of what the process loaded where it does not watch', function (): void {
+    $file = sprintf('%s/timed-tests.jsonl', Scratch::directory());
+    $events = new Facade();
+    TimedTests::listening($file, $events);
+    PhpUnitEvents::prepared($events);
+    PhpUnitEvents::finished($events);
+
+    expect(TimedTests::onto(CoverageMap::of(), $file)->loaded())->toEqual(LoadedPackages::unrecorded());
 });

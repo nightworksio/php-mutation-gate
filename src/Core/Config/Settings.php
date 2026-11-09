@@ -53,6 +53,7 @@ final readonly class Settings
                     $layer->setup()->runnerLayer()->withhold(),
                     $settled->setup()->runnerLayer()->memory(),
                     $settled->setup()->runnerLayer()->workers(),
+                    $settled->setup()->runnerLayer()->pacing(),
                 ),
             )
             : Invalid::because(...$problems);

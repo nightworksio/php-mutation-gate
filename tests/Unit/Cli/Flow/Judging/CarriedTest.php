@@ -317,7 +317,7 @@ it('fails on no ignore that names nothing where a held unit did not run', functi
         $project,
         [],
         $tree(Floor::of(0)),
-        new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty()),
+        new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::of()),
     );
     new Handoff($adapters->project, HandedMaps::limits())->write($plan, Flows::map(), KillHistory::none(), Unplaced::map());
     new Running($adapters, $settings, Flows::setup())->runAll($plan, Workspace::results());

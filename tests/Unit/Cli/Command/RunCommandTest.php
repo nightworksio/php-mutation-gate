@@ -45,6 +45,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
+use NightWorksIO\MutationGate\Tests\Support\RunningCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -89,6 +90,27 @@ it('runs the shard it is named, leaves its result, and exits 0 whatever its muta
         ->and($ran->errors)->toBe('')
         ->and($result instanceof ShardResult ? $result->shard()->number() : $result)->toBe(2)
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeFalse();
+});
+
+it('leaves the result of a shard whose run cannot pass, says why, and exits 1, so its job fails on any CI', function () use ($floored): void {
+    $project = FlowCommands::project();
+    $composition = FlowCommands::over(
+        $floored(100),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main'))),
+        Variables::of(['CI' => 'true']),
+    );
+    Scratch::write($project, '.mutation-gate/plan.json', PlanFile::encode(Planned::handedIn($project, RunningCases::onPullRequest(Planned::oneShard()))));
+
+    $ran = FlowCommands::run(RunCommand::command($composition), '--plan=.mutation-gate/plan.json --shard=1');
+
+    expect($ran->code)->toBe(1)
+        ->and($ran->output)->toBe(sprintf("Wrote %s/.mutation-gate/results/1.json.\n", $project))
+        ->and($ran->errors)->toStartWith('Shard 1 judged every unit, and fails: mutant ')
+        ->and($ran->errors)->toContain('survived, and the floor of tree src is 100%, so its run cannot pass.')
+        ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeTrue();
 });
 
 it('runs the shard the environment names, into the results directory it is named', function () use ($floored): void {
@@ -352,7 +374,7 @@ it('plans, runs and judges in one process without a plan, and exits as the verdi
     expect($ran->code)->toBe($code)
         ->and($ran->errors)->toBe("Coverage: there is no kept map, so every test was measured.\n")
         ->and($ran->output)->toStartWith(sprintf(
-            "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz.\nmutation-gate: %s\n",
+            "Wrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz.\nmutation-gate: %s\n",
             $judgement,
         ))
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeTrue()
@@ -374,7 +396,7 @@ it('judges a tree at the floor the config declares for it, over the one its sour
 
     expect($ran->code)->toBe($code)
         ->and($ran->output)->toStartWith(sprintf(
-            "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz.\nmutation-gate: %s\n",
+            "Wrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz.\nmutation-gate: %s\n",
             $judgement,
         ));
 })->with([
@@ -425,7 +447,7 @@ it('raises no floor on a run in CI or one scoped to a change', function (
     expect($ran->output)->toStartWith(sprintf("%s\nmutation-gate: passed\n", $wrote))
         ->and(is_file(sprintf('%s/mutation-gate.baseline.json', $project)))->toBeFalse();
 })->with([
-    'in CI' => ['', true, "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz."],
+    'in CI' => ['', true, "Wrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz."],
     'changed since a ref' => [
         '--changed-since=base',
         false,
@@ -563,7 +585,7 @@ it('re-checks the branch\'s last survivors before it runs the shards, and goes o
     bool $runs,
     string $said,
 ) use ($floored): void {
-    $project = FlowCommands::project();
+    $project = FlowCommands::project('"reports": [{"use": "github-summary"}]');
     $store = new ProofStoreFake();
     $store->write(Scope::branch('feature'), Ledger::empty()->withProof(Proof::of(
         Digest::sha256Of('src/Held.php earlier'),

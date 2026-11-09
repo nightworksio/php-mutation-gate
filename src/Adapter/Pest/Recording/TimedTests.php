@@ -45,23 +45,30 @@ final class TimedTests
     /** @var array<string, HRTime> when each test running was prepared, by its id */
     private array $started = [];
 
-    private function __construct(private readonly string $file)
+    private function __construct(private readonly string $file, private readonly PackageWatch|Off $watch)
     {
     }
 
     /** Timing where the adapter named a file and PHPUnit still takes subscribers. */
     public static function fromEnvironment(): self|Off
     {
-        return self::listening(getenv(GateVariable::TimedTests->value), Facade::instance());
+        return self::listening(
+            getenv(GateVariable::TimedTests->value),
+            Facade::instance(),
+            PackageWatch::fromEnvironment(),
+        );
     }
 
-    public static function listening(string|false $file, Facade $events): self|Off
-    {
+    public static function listening(
+        string|false $file,
+        Facade $events,
+        PackageWatch|Off $watch = Off::WatchingPackages,
+    ): self|Off {
         if (! is_string($file) || $file === '') {
             return Off::TimingTests;
         }
 
-        $timed = new self($file);
+        $timed = new self($file, $watch);
 
         try {
             $events->registerSubscribers(new OnTimedPrepared($timed), new OnTimedFinished($timed));
@@ -98,7 +105,7 @@ final class TimedTests
             static fn(TimedTest $timed): bool => $map->durationOf($timed->test()) instanceof Unmeasured,
         );
 
-        return $map->timedEach(...$unknown);
+        return $map->timedEach(...$unknown)->loading(RecordedLoads::in($file));
     }
 
     /** Notes when a test was prepared. */
@@ -112,9 +119,19 @@ final class TimedTests
     {
         if (array_key_exists($test, $this->started)) {
             $seconds = $at->duration($this->started[$test])->asFloat();
-            file_put_contents($this->file, sprintf("%s\n", json_encode([$test, $seconds])), FILE_APPEND | LOCK_EX);
+            file_put_contents(
+                $this->file,
+                sprintf("%s\n", json_encode([$test, $seconds, ...$this->record()])),
+                FILE_APPEND | LOCK_EX,
+            );
             unset($this->started[$test]);
         }
+    }
+
+    /** @return list<array{process: int|false, firstLoaded: list<string>, startedProcesses: bool}> what a line adds */
+    private function record(): array
+    {
+        return $this->watch instanceof PackageWatch ? [RecordedLoads::now($this->watch)] : [];
     }
 
     /** The test a line names, with its seconds; none where the line holds no such pair. */

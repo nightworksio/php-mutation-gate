@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\PreChecking;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Flaky;
@@ -111,7 +112,8 @@ it('runs the shard it is named, on the commit its plan was made on, and leaves i
         ->run($plan, ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
-    expect($written)->toEqual(Written::to(sprintf('%s/.mutation-gate/results/1.json', $project)))
+    expect($written instanceof ShardLeft ? $written->said() : $written)
+        ->toBe(Written::to(sprintf('%s/.mutation-gate/results/1.json', $project))->said())
         ->and($result instanceof ShardResult ? $result->plan() : $result)->toEqual($plan->digest())
         ->and($result instanceof ShardResult ? $result->shard() : $result)->toEqual(ShardId::of(1))
         ->and($result instanceof ShardResult ? $result->units() : $result)
@@ -515,7 +517,8 @@ it('leaves the runner\'s cannot judge as the shard\'s result, with nothing flaky
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
-    expect($written)->toEqual(Written::to(sprintf('%s/.mutation-gate/results/1.json', $project)))
+    expect($written instanceof ShardLeft ? $written->said() : $written)
+        ->toBe(Written::to(sprintf('%s/.mutation-gate/results/1.json', $project))->said())
         ->and($result instanceof ShardResult ? $result->outcome() : $result)
         ->toEqual(CannotJudge::because('The suite failed without mutants.'))
         ->and($flaky($result))->toBe([])
@@ -590,7 +593,7 @@ it('mutates no held unit whose holding tests miss lines of it, and leaves why', 
     $project = Flows::project();
     new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
     $scripted = ScriptedRunner::fixture();
-    $runner = new CoverageAsked($scripted, CoverageMap::empty());
+    $runner = new CoverageAsked($scripted, CoverageMap::of());
     $adapters = Flows::adapters($project, [], $runner);
 
     new Running($adapters, Flows::settings(), Flows::setup())
@@ -637,7 +640,7 @@ it('mutates a unit the whole suite judges, though the map reaches none of it, an
     $resultIn = $makeResultIn();
 
     $project = Flows::project();
-    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), CoverageMap::empty(), KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), CoverageMap::of(), KillHistory::none(), Unplaced::map());
     $scripted = ScriptedRunner::fixture();
     $runner = new CoverageAsked($scripted, Flows::map());
     $adapters = Flows::adapters($project, [], $runner);

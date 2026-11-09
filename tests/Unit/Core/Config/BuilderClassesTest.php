@@ -23,6 +23,17 @@ it('holds every class of the builder and each value of the core a config names, 
     }
 });
 
+it('names only classes that exist, each by its namespace', function (): void {
+    $missing = [];
+
+    foreach (BuilderClasses::CLASSES as $short => $namespace) {
+        $class = sprintf('%s\\%s', $namespace, $short);
+        $missing = class_exists($class) ? $missing : [...$missing, $class];
+    }
+
+    expect($missing)->toBe([]);
+});
+
 it('names every class of the builder by its namespace, the interface they share aside', function (): void {
     $builder = [];
     $files = glob(sprintf('%s/../../../../src/Config/*.php', __DIR__));

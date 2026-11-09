@@ -42,7 +42,7 @@ function partedRunsMap(): CoverageMap
 {
     $location = partedRunsHeavy()->location();
 
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered($location->file(), $location->start(), TestId::of('a'), TestId::of('b'))
         ->timed(TestId::of('a'), Seconds::of(1.5))
         ->timed(TestId::of('b'), Seconds::of(1.5));

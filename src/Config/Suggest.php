@@ -25,6 +25,18 @@ final readonly class Suggest implements Setting
         return new self(Json::at('suggest.enabled', value: false));
     }
 
+    /** `suggest.emptyHolding`, `true`: the verdict notes what an empty `tests.holding` means, as it does by default. */
+    public static function emptyHoldingNoted(): self
+    {
+        return new self(Json::at('suggest.emptyHolding', value: true));
+    }
+
+    /** `suggest.emptyHolding`, `false`: the verdict says nothing of an empty `tests.holding`. */
+    public static function emptyHoldingSilent(): self
+    {
+        return new self(Json::at('suggest.emptyHolding', value: false));
+    }
+
     /** `suggest.idle.judged`: how many of a mutator's mutants must be judged before it can be idle; 500. */
     public static function idleJudged(int $mutants): self
     {

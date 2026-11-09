@@ -161,7 +161,7 @@ final class Removing
     /** The removal's line covered by these tests, each named in the cart's test file. */
     public static function matrix(JudgedMutant $removal, TestId ...$tests): KillMatrix
     {
-        $coverage = CoverageMap::empty();
+        $coverage = CoverageMap::of();
 
         foreach ($tests as $test) {
             $coverage = $coverage->covered(Path::of(self::CART), $removal->mutant()->location()->start(), $test);

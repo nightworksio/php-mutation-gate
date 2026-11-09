@@ -288,7 +288,7 @@ final readonly class Recorded
         $runner = $this->settings->runner()->name();
 
         return $ledger
-            ->withTimings($timings->smoothedOver($held))
+            ->withTimings($timings->smoothedOver($held, $this->settings->shards()->planning()->newest()))
             ->withLearned($ledger->learned()->tallies()->after($runner, $judged, $times));
     }
 

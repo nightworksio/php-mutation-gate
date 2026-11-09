@@ -20,13 +20,15 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use function sprintf;
 
 /**
- * What a verdict warns of beside what it fails: the files most of the suite
- * runs through that nothing holds, where the gate suggests changes (ADR-0104),
- * or why the kill matrix holds killers alone; each tree held to no floor outside CI; the runner's own ignore
- * markers the config lets through; why the tests go by their ids; each
- * mutator set a preset turns on that is not installed; the suites whose
- * tests the gate runs none of, as they serve the application from another
- * process; and what the shards warn of.
+ * What a verdict warns of beside what it fails: each tree held to no floor
+ * outside CI, the runner's own ignore markers the config lets through, each
+ * mutator set a preset turns on that is not installed, and what the shards warn
+ * of; and what it notes (ADR-0111): the files most of the suite runs through
+ * that nothing holds, where the gate suggests changes (ADR-0104), or why the
+ * kill matrix holds killers alone; why the tests go by their ids; and the suites
+ * whose tests the gate runs none of, as they serve the application from another
+ * process; and, unless `suggest.emptyHolding` is off, what `tests.holding`
+ * written as an empty list leaves unjudged (ADR-0116).
  *
  * @internal
  */
@@ -43,6 +45,12 @@ final readonly class VerdictWarnings
         so the gate runs none of their tests: a line only they run reads as uncovered.
         SAID;
 
+    private const string HOLDS_NONE = <<<'SAID'
+        tests.holding is an empty list, as if it were left out: the tests of each suite tests.suites leaves out
+        judge no mutant, not even of the code they hold with #[Holds] or a holds: group. Name the suites whose
+        tests hold code, or set suggest.emptyHolding to false to keep it so without this note.
+        SAID;
+
     private const string SECURITY_UNFLOORED
         = 'The security set of %s has no floor yet. Run %s and commit %s.';
 
@@ -54,7 +62,7 @@ final readonly class VerdictWarnings
     public function of(Plan $plan, TreeVerdicts $verdicts, Warnings $shards, CoverageMap|CannotJudge $map): Warnings
     {
         $raised = match (true) {
-            $map instanceof CannotJudge => $shards->with(Warning::that(sprintf(self::NO_MATRIX, $map->why()))),
+            $map instanceof CannotJudge => $shards->with(Warning::noting(sprintf(self::NO_MATRIX, $map->why()))),
             $this->settings->effective()->reports()->suggest()->enabled() => $this->hotPathsIn($plan, $map, $shards),
             default => $shards,
         };
@@ -92,10 +100,11 @@ final readonly class VerdictWarnings
         $elsewhere = $this->adapters->suite->elsewhere();
         $warnings = $elsewhere === []
             ? $warnings
-            : $warnings->with(Warning::that(sprintf(self::ELSEWHERE, implode(', ', $elsewhere))));
+            : $warnings->with(Warning::noting(sprintf(self::ELSEWHERE, implode(', ', $elsewhere))));
+        $warnings = $this->holdsNone() ? $warnings->with(Warning::noting(self::HOLDS_NONE)) : $warnings;
         $names = $plan->names();
         $warnings = $names instanceof CannotJudge
-            ? $warnings->with(Warning::that(sprintf(self::UNNAMED, $names->why())))
+            ? $warnings->with(Warning::noting(sprintf(self::UNNAMED, $names->why())))
             : $warnings;
 
         foreach ($shards as $warning) {
@@ -112,6 +121,19 @@ final readonly class VerdictWarnings
         }
 
         return $warnings;
+    }
+
+    /**
+     * Whether `tests.holding` is written as an empty list while `tests.suites`
+     * names the suites that judge, and the verdict notes what that means.
+     */
+    private function holdsNone(): bool
+    {
+        $suites = $this->settings->triage()->suites();
+
+        return $suites->holdsNone()
+            && ! $suites->everyUnit()->isAll()
+            && $this->settings->effective()->reports()->suggest()->emptyHolding();
     }
 
     /**

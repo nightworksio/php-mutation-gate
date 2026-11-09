@@ -6,6 +6,10 @@ vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id>   # on
 vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
 ```
 
+`run --plan` exits 1 once its result is written where a survivor leaves the run no
+way to pass (`run.failFast`), so keep each shard's `.mutation-gate/results` and run
+`verdict` whether or not a shard failed.
+
 Check out the branch by name (`git checkout -B <branch>`) before `plan`, because
 the JSON plan takes the run's ref from git's current branch, and `run` and
 `verdict` take it from the plan. A plan made on a detached `HEAD` writes no

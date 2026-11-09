@@ -37,7 +37,7 @@ final readonly class FirstRun
     /** What a plan that measured nothing knows: no unit is measured. */
     public static function unmeasured(): self
     {
-        return new self(CoverageMap::empty(), MutantSites::none(), Seconds::of(0.0), ProcessCount::single(), []);
+        return new self(CoverageMap::of(), MutantSites::none(), Seconds::of(0.0), ProcessCount::single(), []);
     }
 
     public static function of(CoverageMap $map, MutantSites $sites, Seconds $startUp, ProcessCount $processes): self

@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Finish;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Forking;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Request;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Wake;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -64,6 +65,28 @@ it('runs a run in a child it forks, and writes how the child ended where the run
         ->and(is_file($at->started('42-1')) && is_file($at->child('42-1')))->toBeTrue();
 });
 
+it('wakes the run\'s asker once it writes how the run ended, or why it forked the run no child', function (string $mutated) use ($seat, $request): void {
+    $at = $seat();
+    $request((int) getmypid(), $mutated)->leftIn($at->request());
+    $woken = 0;
+    pcntl_signal(Wake::SIGNAL, static function () use (&$woken): void {
+        $woken++;
+    });
+
+    try {
+        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::running($at, 'exit 3'));
+        pcntl_signal_dispatch();
+    } finally {
+        pcntl_signal(Wake::SIGNAL, SIG_DFL);
+    }
+
+    expect(Finish::readFrom($at->ended('42-1')))->toBeInstanceOf(Finish::class)
+        ->and($woken)->toBe(1);
+})->with([
+    'a run its child ran' => [''],
+    'a run of a mutant of a file it loaded' => [__FILE__],
+]);
+
 it('stops a child, with every process under it, once the run\'s asker is gone', function () use ($seat, $request): void {
     $at = $seat();
     $request(Passing::for('0.3'))->leftIn($at->request());
@@ -94,7 +117,7 @@ it('starts fresh, and warns of it, the run of a mutant of a file it loaded', fun
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that(sprintf(
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting(sprintf(
             'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.',
             $mutated,
         ))));
@@ -110,7 +133,7 @@ it('starts fresh, and warns of it, the run of a mutant of a file that declares w
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that(sprintf(
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting(sprintf(
             'The warm worker had declared %s, which %s declares, so its mutants ran fresh.',
             $declared,
             $mutated,
@@ -141,7 +164,7 @@ it('forks the run of a mutant of a file whose names it has not declared, and loa
         spl_autoload_unregister($lazy);
     }
 
-    expect($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker could not fork, so a mutant ran fresh.')));
+    expect($warned($at))->toEqual(Warnings::of(Warning::noting('The warm worker could not fork, so a mutant ran fresh.')));
 })->with([
     'a class' => ['final class', 'LazyClass'],
     'an interface' => ['interface', 'LazyInterface'],
@@ -176,7 +199,7 @@ it('forks the run of a mutant the schema it serves switches, starts a pinned one
     unlink($at->pid());
 
     expect(WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($at->directory()))))
-        ->toEqual(Warnings::of(Warning::that(sprintf($warning, mb_strtolower($box->class), realpath($box->file)))));
+        ->toEqual(Warnings::of(Warning::noting(sprintf($warning, mb_strtolower($box->class), realpath($box->file)))));
 })->with([
     'a mutant the schema switches' => ['served', true, false, 'The warm worker could not fork, so a mutant ran fresh.'],
     'a mutant pinned by source' => [
@@ -203,7 +226,7 @@ it('starts fresh, and warns of it, a run it could fork no child for', function (
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker could not fork, so a mutant ran fresh.')));
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting('The warm worker could not fork, so a mutant ran fresh.')));
 });
 
 it('starts fresh, and warns of it, a run whose child the system no longer tells of', function () use ($seat, $request, $warned): void {
@@ -225,7 +248,7 @@ it('starts fresh, and warns of it, a run whose child the system no longer tells 
 
     expect($served)->toBe(0)
         ->and($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker lost track of a child, so its mutant ran fresh.')));
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting('The warm worker lost track of a child, so its mutant ran fresh.')));
 });
 
 it('boots once it has written its process id, and starts fresh, warning why, every run its boot refused', function () use ($seat, $request, $warned): void {
@@ -242,5 +265,5 @@ it('boots once it has written its process id, and starts fresh, warning why, eve
 
     expect($pid)->toBe((string) getmypid())
         ->and($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that('The boot left a socket open.')));
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting('The boot left a socket open.')));
 });

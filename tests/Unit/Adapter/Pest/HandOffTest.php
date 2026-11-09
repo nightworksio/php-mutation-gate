@@ -85,7 +85,7 @@ function handedProject(): array
 /** The hand-off of a run's results in a project, to a pre-checker, its tests covering line 5 alone. */
 function handOff(Project $project, string $results, PreCheckerFake $checker, bool $covered = true): HandOff
 {
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('MoneyTest::adds'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('MoneyTest::adds'));
 
     return new HandOff(
         $project,
@@ -155,7 +155,7 @@ it('reads each mutant static analysis rejected, and its twin, as killed by it, w
         RecordLine::finished('uncovered', PestStatus::Uncovered, 0.0),
         RecordLine::end(),
     ]), FILE_APPEND);
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(5), TestId::of(PestCases::RUN_ADDS));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(5), TestId::of(PestCases::RUN_ADDS));
 
     $result = new Interpretation($project, Patching::off(), MemoryCap::standard(), handOff: $handOff)
         ->of(Ran::finished(succeeded: true, output: "\n  Mutations: 1 untested, 1 uncovered, 1 tested\n"), $results, new HandedOver($map, $project));

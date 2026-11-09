@@ -80,6 +80,20 @@ it('keeps the newest 500 entries', function (): void {
         ->and($commits[499])->toBe('c501');
 });
 
+it('keeps as many of the newest entries as it is told', function (): void {
+    $trend = Trend::decode('{"format": 1, "runs": []}', 2)
+        ->with(Verdicts::failing(), Revision::ref('one'), Moment::at('2026-09-30T10:00:00Z'))
+        ->with(Verdicts::failing(), Revision::ref('two'), Moment::at('2026-09-30T11:00:00Z'))
+        ->with(Verdicts::passing(), Revision::ref('three'), Moment::at('2026-09-30T12:00:00Z'));
+
+    $unread = Trend::decode('<html>', 1)
+        ->with(Verdicts::failing(), Revision::ref('one'), Moment::at('2026-09-30T10:00:00Z'))
+        ->with(Verdicts::passing(), Revision::ref('two'), Moment::at('2026-09-30T11:00:00Z'));
+
+    expect(Decoded::column($trend->json(), 'commit', 'runs'))->toBe(['two', 'three'])
+        ->and(Decoded::column($unread->json(), 'commit', 'runs'))->toBe(['two']);
+});
+
 it('drops an entry that is not in shape, and reads text that is not a trend as none', function (): void {
     $trend = Trend::decode((string) json_encode(['format' => 1, 'runs' => [
         ['commit' => 'kept', 'time' => '2026-09-30T10:00:00Z', 'score' => 80, 'trees' => ['src' => 80]],

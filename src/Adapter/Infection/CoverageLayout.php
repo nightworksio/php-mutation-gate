@@ -107,7 +107,7 @@ final readonly class CoverageLayout
         $ran = 0;
 
         foreach ($map->files() as $file) {
-            $ran += count($map->linesCovered($file));
+            $ran += count($map->lineSets($file)->lines());
             self::element($directory, 'file', [
                 'name' => basename($file->value()),
                 'href' => sprintf('%s.xml', $file->value()),
@@ -128,7 +128,7 @@ final readonly class CoverageLayout
             'name' => basename($file->value()),
             'path' => sprintf('/%s', $directory === '.' ? '' : $directory),
         ]);
-        $lines = $map->linesCovered($file);
+        $lines = $map->lineSets($file)->lines();
         $totals = self::element($report, 'totals', []);
         self::element($totals, 'lines', [
             'executed' => sprintf('%d', count($lines)),

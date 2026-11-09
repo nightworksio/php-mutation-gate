@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\RunnerPacing;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\PathRuleMode;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * The `runner` key: an adapter chosen as any other is, and in its object
@@ -54,6 +56,9 @@ final readonly class RunnerChoice implements Shape
         $memory = Field::optional('memory', MemoryAmount::written(), Effect::AffectsResults);
         $workers = Field::optional('workers', Enumerated::of(Workers::cases()), Effect::AffectsResults);
         $pathRules = Field::optional('pathRules', Enumerated::of(PathRuleMode::cases()), Effect::AffectsResults);
+        $recycle = Field::optional('recycleAfter', Integer::atLeast(1), $judges);
+        $slack = Field::optional('warmSlack', Duration::written(), $judges);
+        $poll = Field::optional('poll', Number::aboveAndAtMost(0, Seconds::PER_MINUTE), $judges);
 
         return new self(
             Adapter::choosing($builtins),
@@ -66,12 +71,18 @@ final readonly class RunnerChoice implements Shape
                     $memory,
                     $workers,
                     $pathRules,
+                    $recycle,
+                    $slack,
+                    $poll,
                 ): Setup|Invalid {
                     $named = $use->read($at);
                     $withheld = $withhold->read($at);
                     $capped = $memory->read($at);
                     $started = $workers->read($at);
                     $applied = $pathRules->read($at);
+                    $recycled = $recycle->read($at);
+                    $slackens = $slack->read($at);
+                    $polled = $poll->read($at);
 
                     return Reading::built(
                         static fn(): Setup|Invalid => self::object(
@@ -82,6 +93,7 @@ final readonly class RunnerChoice implements Shape
                             $capped->value(),
                             $started->value(),
                             $applied->value(),
+                            RunnerPacing::of($recycled->value(), $slackens->value(), $polled->value()),
                         ),
                         $named,
                         $with->read($at),
@@ -89,6 +101,9 @@ final readonly class RunnerChoice implements Shape
                         $capped,
                         $started,
                         $applied,
+                        $recycled,
+                        $slackens,
+                        $polled,
                     );
                 },
                 $use,
@@ -97,6 +112,9 @@ final readonly class RunnerChoice implements Shape
                 $memory,
                 $workers,
                 $pathRules,
+                $recycle,
+                $slack,
+                $poll,
             ),
             $builtins,
         );
@@ -125,6 +143,9 @@ final readonly class RunnerChoice implements Shape
             Member::of('memory', MemoryAmount::written()->schema()),
             Member::of('workers', Enumerated::of(Workers::cases())->schema()),
             Member::of('pathRules', Enumerated::of(PathRuleMode::cases())->schema()),
+            Member::of('recycleAfter', Integer::atLeast(1)->schema()),
+            Member::of('warmSlack', Duration::written()->schema()),
+            Member::of('poll', Number::aboveAndAtMost(0, Seconds::PER_MINUTE)->schema()),
         );
 
         return Json::object(Member::of(
@@ -152,6 +173,9 @@ final readonly class RunnerChoice implements Shape
             '.memory' => Effect::AffectsResults,
             '.workers' => Effect::AffectsResults,
             '.pathRules' => Effect::AffectsResults,
+            '.recycleAfter' => Effect::JudgesOrReportsOnly,
+            '.warmSlack' => Effect::JudgesOrReportsOnly,
+            '.poll' => Effect::JudgesOrReportsOnly,
         ];
     }
 
@@ -164,13 +188,15 @@ final readonly class RunnerChoice implements Shape
         MemoryCap|Absent $memory,
         Workers|Absent $workers,
         PathRuleMode|Absent $pathRules,
+        RunnerPacing $pacing,
     ): Setup|Invalid {
-        $withheld = $withhold instanceof Absent ? Withheld::nothing() : Withheld::of(...$withhold);
+        $withheld = $withhold instanceof Absent ? $withhold : Withheld::of(...$withhold);
         $options = $at->field('with');
         $alone = $withhold instanceof Absent
             && $memory instanceof Absent
             && $workers instanceof Absent
-            && $pathRules instanceof Absent;
+            && $pathRules instanceof Absent
+            && $pacing->isUnset();
         $chosen = $use instanceof Absent ? new Absent() : Adapter::chosen($builtins->choose($use, $options));
 
         return match (true) {
@@ -181,10 +207,17 @@ final readonly class RunnerChoice implements Shape
                 memory: $memory,
                 workers: $workers,
                 pathRules: $pathRules,
+                pacing: $pacing,
             ),
             $alone, $options->kind() !== Kind::Nothing
                 => Invalid::because($at->field('use')->mismatch('a name or a class')),
-            default => Setup::of(withhold: $withheld, memory: $memory, workers: $workers, pathRules: $pathRules),
+            default => Setup::of(
+                withhold: $withheld,
+                memory: $memory,
+                workers: $workers,
+                pathRules: $pathRules,
+                pacing: $pacing,
+            ),
         };
     }
 }

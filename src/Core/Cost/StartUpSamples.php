@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Cost;
 
+use function max;
+
 /**
  * How many times the plan times a mutant's own run starting, taking the
  * fastest: one run on a busy machine is noisy, and the fastest of a few is
  * the least noisy estimate of a fixed cost (ADR-0006).
- *
- * @internal
  */
 final readonly class StartUpSamples
 {
     /** How many runs the plan times unless told otherwise. */
-    private const int STANDARD = 3;
+    public const int STANDARD = 3;
 
     /** @param positive-int $runs */
     private function __construct(private int $runs)
@@ -24,6 +24,12 @@ final readonly class StartUpSamples
     public static function standard(): self
     {
         return new self(self::STANDARD);
+    }
+
+    /** This many runs, and one at the least. */
+    public static function of(int $runs): self
+    {
+        return new self(max(1, $runs));
     }
 
     /** @return positive-int */

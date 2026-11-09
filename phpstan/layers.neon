@@ -274,6 +274,9 @@ parameters:
                 - src/Adapter/Pest/Warm/Worker.php
                 - src/Adapter/Pest/Warm/Client.php
                 - src/Adapter/Pest/Warm/PidFile.php
+                # A warm worker and its client wake each other from the pause between their looks with a signal a
+                # process with no handler for it ignores (ADR-0023).
+                - src/Adapter/Pest/Warm/Wake.php
                 # A daemon of `mutation-gate serve` stops the process group of a child whose client has gone, or
                 # every child's where it is asked to stop, through the forking the gate's script hands it (ADR-0078).
                 - bin/mutation-gate

@@ -27,7 +27,7 @@ final readonly class DependentCap
      * server takes to analyse a file again, about a second, the time one
      * check by Mago, which analyses the whole project, takes.
      */
-    private const int STANDARD = 25;
+    public const int STANDARD = 25;
 
     private function __construct(private int $most)
     {
@@ -37,6 +37,12 @@ final readonly class DependentCap
     public static function standard(): self
     {
         return new self(self::STANDARD);
+    }
+
+    /** So many dependents, as `staticCheck.dependents` says. */
+    public static function atMost(int $most): self
+    {
+        return new self($most);
     }
 
     /** These files, at most as many as the cap allows, the first in path order. */

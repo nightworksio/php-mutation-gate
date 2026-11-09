@@ -59,7 +59,7 @@ it('shares the time a shard spent among its units by their mutants\' durations',
         $mutant('src/A.php', 2, Seconds::of(2.0)),
     );
 
-    expect(Shares::of($units, $mutants, CoverageMap::empty(), $measured))
+    expect(Shares::of($units, $mutants, CoverageMap::of(), $measured))
         ->toEqual(Timings::of($timing('src/A.php', 45.0), $timing('src/B.php', 15.0)));
 });
 
@@ -69,7 +69,7 @@ it('shares by proportion however short the durations', function () use ($makeMea
     $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
     $mutants = Mutants::of($mutant('src/A.php', 1, Seconds::of(0.25)), $mutant('src/B.php', 1, Seconds::of(0.75)));
 
-    expect(Shares::of($units, $mutants, CoverageMap::empty(), $measured))
+    expect(Shares::of($units, $mutants, CoverageMap::of(), $measured))
         ->toEqual(Timings::of($timing('src/A.php', 15.0), $timing('src/B.php', 45.0)));
 });
 
@@ -80,7 +80,7 @@ it('stands in for a mutant with no duration with the time the tests covering its
 ): void {
     $measured = $makeMeasured();
 
-    $coverage = CoverageMap::empty()
+    $coverage = CoverageMap::of()
         ->covered(Path::of('src/A.php'), Line::of(3), TestId::of('ATest::first'))
         ->covered(Path::of('src/A.php'), Line::of(3), TestId::of('ATest::second'))
         ->covered(Path::of('src/B.php'), Line::of(5), TestId::of('BTest::timed'))
@@ -106,7 +106,7 @@ it('stands in for a mutant that spans lines with the time of the tests of every 
 ): void {
     $measured = $makeMeasured();
 
-    $coverage = CoverageMap::empty()
+    $coverage = CoverageMap::of()
         ->covered(Path::of('src/A.php'), Line::of(3), TestId::of('ATest::first'))
         ->covered(Path::of('src/A.php'), Line::of(4), TestId::of('ATest::first'))
         ->covered(Path::of('src/A.php'), Line::of(4), TestId::of('ATest::second'))
@@ -142,7 +142,7 @@ it('shares the time equally where nothing was timed', function () use ($makeMeas
     $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
     $mutants = Mutants::of($mutant('src/A.php', 1, Unmeasured::duration()));
 
-    expect(Shares::of($units, $mutants, CoverageMap::empty(), $measured))
+    expect(Shares::of($units, $mutants, CoverageMap::of(), $measured))
         ->toEqual(Timings::of($timing('src/A.php', 30.0), $timing('src/B.php', 30.0)));
 });
 
@@ -162,14 +162,14 @@ it('counts a mutant in a file under a held path for that path, and no file that 
         $mutant('src/DomainX.php', 1, Seconds::of(3.0)),
     );
 
-    expect(Shares::of($units, $mutants, CoverageMap::empty(), $measured))
+    expect(Shares::of($units, $mutants, CoverageMap::of(), $measured))
         ->toEqual(Timings::of($timing('src/Domain', 15.0), $timing('src/DomainX.php', 45.0)));
 });
 
 it('learns nothing from a shard with no units', function () use ($makeMeasured): void {
     $measured = $makeMeasured();
 
-    expect(Shares::of(Units::none(), Mutants::none(), CoverageMap::empty(), $measured))->toEqual(Timings::none());
+    expect(Shares::of(Units::none(), Mutants::none(), CoverageMap::of(), $measured))->toEqual(Timings::none());
 });
 
 it('records the gate that measured the shard on each timing it shares out', function () use ($makeAt, $mutant): void {
@@ -181,6 +181,6 @@ it('records the gate that measured the shard on each timing it shares out', func
 
     expect(array_map(
         static fn(Timing $timing): string => $timing->gate()->value(),
-        [...Shares::of($units, $mutants, CoverageMap::empty(), $measured)],
+        [...Shares::of($units, $mutants, CoverageMap::of(), $measured)],
     ))->toBe(['nightworksio/mutation-gate 1.2.0']);
 });

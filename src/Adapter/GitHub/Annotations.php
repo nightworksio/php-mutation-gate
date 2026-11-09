@@ -8,6 +8,7 @@ use function array_slice;
 use function count;
 use function file_put_contents;
 use function implode;
+use function min;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -19,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Report\AnnotationText;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -59,7 +61,7 @@ final readonly class Annotations implements Configurable, Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        $lines = [...$this->mutantCommands($verdict), ...$this->notices($verdict)];
+        $lines = [...$this->mutantCommands($verdict), ...$this->warned($verdict), ...$this->notices($verdict)];
         $text = sprintf("%s\n", implode("\n", $lines));
 
         return $lines === [] || file_put_contents($this->to, $text, FILE_APPEND) !== false
@@ -103,20 +105,41 @@ final readonly class Annotations implements Configurable, Reporter
     }
 
     /**
-     * A notice for each warning of the verdict.
+     * A warning for each warning of the verdict, as many as leave GitHub room beside the warned mutants.
+     *
+     * @return list<string>
+     */
+    private function warned(Verdict $verdict): array
+    {
+        $room = self::PER_LEVEL - min(self::PER_LEVEL, count(AnnotationOrder::of($verdict)->other()));
+
+        return array_slice($this->general('warning', $verdict->warnings()->actionable()), 0, $room);
+    }
+
+    /**
+     * A notice for each note of the verdict.
      *
      * @return list<string>
      */
     private function notices(Verdict $verdict): array
     {
-        $notices = [];
+        return $this->general('notice', $verdict->warnings()->notes());
+    }
 
-        foreach ($verdict->warnings() as $warning) {
-            $notice = WorkflowCommand::of('notice', ['title' => 'mutation-gate'], $warning->text());
-            $notices = $this->kept($notices, $notice);
+    /**
+     * A command at this level for each of these, as many as GitHub keeps of a level.
+     *
+     * @return list<string>
+     */
+    private function general(string $level, Warnings $warnings): array
+    {
+        $lines = [];
+
+        foreach ($warnings as $warning) {
+            $lines = $this->kept($lines, WorkflowCommand::of($level, ['title' => 'mutation-gate'], $warning->text()));
         }
 
-        return $notices;
+        return $lines;
     }
 
     /**

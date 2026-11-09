@@ -30,11 +30,11 @@ final readonly class DiscordMessage
     /** The most characters of a message Discord takes, which the description stays within. */
     private const int DESCRIPTION = 2_000;
 
-    public static function json(Alert $alert, CiRun $run): string
+    public static function json(Alert $alert, CiRun $run, AlertShape $shape): string
     {
         $lines = [];
 
-        foreach (AlertLines::of($alert, Chat::Discord) as [$heading, $grouped]) {
+        foreach (AlertLines::of($alert, Chat::Discord, $shape) as [$heading, $grouped]) {
             $lines = [...$lines, ...$lines === [] ? [] : [''], Chat::Discord->heading($heading), ...$grouped];
         }
 

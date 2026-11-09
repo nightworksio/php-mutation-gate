@@ -26,10 +26,24 @@ final readonly class StartUpVariable
     public static function of(LimitBounds $bounds): array
     {
         $startUp = $bounds->startUp();
+        $unmeasured = $bounds->unmeasuredStartUp()->seconds();
 
-        return $startUp instanceof Seconds
-            ? [ChildVariable::MutantStartUp->value => sprintf('%F', $startUp->seconds())]
-            : [];
+        return [
+            ...$startUp instanceof Seconds
+                ? [ChildVariable::MutantStartUp->value => sprintf('%F', $startUp->seconds())]
+                : [],
+            ...$unmeasured === MutantLimit::START_UP
+                ? []
+                : [ChildVariable::UnmeasuredStartUp->value => sprintf('%F', $unmeasured)],
+        ];
+    }
+
+    /** What a process was told a run gets to start in unmeasured, `timeouts.startUp`; or the standard. */
+    public static function unmeasured(string|false $told): float
+    {
+        $seconds = ToldSeconds::read($told);
+
+        return $seconds instanceof Seconds ? $seconds->seconds() : MutantLimit::START_UP;
     }
 
     /**

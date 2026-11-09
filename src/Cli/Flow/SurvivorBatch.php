@@ -186,7 +186,7 @@ final readonly class SurvivorBatch
             }
         }
 
-        return new Checked($mutants->replacing($rejected), $left->checks, $survivors, $left->unsettled);
+        return new Checked($mutants->replacing($rejected), $left->checks, $survivors, $left->unchecked);
     }
 
     /**

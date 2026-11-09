@@ -20,9 +20,6 @@ Usage:
                            in the file SAID: a warning where the release runs
                            unpatched, a refusal where it could not be patched
   gate_action.py outputs   the verdict, scores, report paths and files, and plan
-  gate_action.py doomed    from a shard's result, RESULT: fails, naming the
-                           survivor, where the shard stopped once its run could
-                           not pass
   gate_action.py stale     from the run's jobs, JOBS, and the results, RESULTS:
                            removes each shard's result an earlier attempt wrote
                            than its job's latest run, saying so, and every
@@ -34,8 +31,8 @@ Usage:
                            FROM holds neither
 
 Every subcommand reads GitHub's environment and writes `key=value` lines to
-$GITHUB_OUTPUT, or refuses with exit code 2 and says why; `doomed` exits 1
-where the shard is doomed, and `stale` writes no output.
+$GITHUB_OUTPUT, or refuses with exit code 2 and says why; `stale` writes no
+output.
 
 Two halves: the functions below `main` read the environment and files, and
 the ones above decide from what they read. The deciding half is what
@@ -141,16 +138,12 @@ EXIT_CODES = {0: "passed", 1: "failed", 2: "cannot-judge"}
 UNSUPPORTED_RELEASE = 1
 # The section of a shard's result that names the survivor it stopped on once
 # its run could not pass (ADR-0008), and the fields it names it by.
-DOOMED = "doomed"
-DOOMED_UNIT = "unit"
-DOOMED_MUTANT = "mutant"
-DOOMED_TREE = "tree"
-DOOMED_FLOOR = "floor"
-DOOMED_STOPPED = "stopped"
 MARK = "mark"
-# What a doomed shard's job exits with: the gate's exit code for a failed
-# verdict.
-FAILED = 1
+ACTION_REPORTS = {
+    "json": "json:.mutation-gate/action/report.json",
+    "html": "html:.mutation-gate/action/html",
+    "digest": "digest:.mutation-gate/action/mutation-gate-digest.txt",
+}
 
 # A shard job's name as GitHub lists it, which holds the shard's number: the
 # reusable workflow names it `shard <number> (<label>)`, after the calling
@@ -428,19 +421,6 @@ def infection_patched(code: int, said: str) -> str | None:
     raise Refused(said or f"infection:patch exited {code}.")
 
 
-def doomed(result: dict) -> str | None:
-    """Why a shard's job fails: the survivor its result names under `doomed`; nothing where none."""
-    found = result.get(DOOMED)
-    if not isinstance(found, dict):
-        return None
-    what = "Shard stopped" if found.get(DOOMED_STOPPED) is True else "Shard judged every unit, and fails"
-    return (
-        f"{what}: survivor {found.get(DOOMED_MUTANT, '?')} in {found.get(DOOMED_UNIT, '?')} "
-        f"leaves {found.get(DOOMED_TREE, '?')} below its floor of {found.get(DOOMED_FLOOR, '?')}, "
-        "so the run cannot pass (ADR-0008, ADR-0103)."
-    )
-
-
 def shard_attempts(jobs: list) -> dict[str, int]:
     """The attempt of each shard job's latest run, by the shard's number, from the run's jobs as GitHub lists them.
 
@@ -537,8 +517,6 @@ def main(argv: list[str]) -> int:
         "outputs": _outputs,
         "keep": _keep,
     }
-    if len(argv) == 2 and argv[1] == "doomed":
-        return _doomed()
     if len(argv) == 2 and argv[1] == "stale":
         return _stale()
     if len(argv) != 2 or argv[1] not in commands:
@@ -620,6 +598,14 @@ def _resolve() -> dict[str, str]:
     return {"gate": gate, "options": json.dumps(options), "plan_options": json.dumps(options + arguments), **kept}
 
 
+def action_reports(config: dict) -> list[str]:
+    """Each --report the verdict step writes, as `outputs.actionReports` and `outputs.verdictOnly` say."""
+    outputs = config.get("outputs", {})
+    if outputs.get("verdictOnly") is True:
+        return []
+    return [f"--report={ACTION_REPORTS[name]}" for name in outputs.get("actionReports", ACTION_REPORTS)]
+
+
 def _config() -> dict[str, str]:
     config = json.load(sys.stdin)
     refused = phar_refusal(config, os.environ.get("INSTALLED_BY", COMPOSER))
@@ -637,6 +623,7 @@ def _config() -> dict[str, str]:
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
         "fail_fast": fail_fast(config),
+        "action_reports": json.dumps(action_reports(config)),
     }
 
 
@@ -649,15 +636,6 @@ def _infection() -> dict[str, str]:
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as file:
             file.write(f"> [!WARNING]\n> {warning}\n\n")
     return {}
-
-
-def _doomed() -> int:
-    path = os.environ.get("RESULT", "")
-    why = doomed(_json_file(path)) if os.path.isfile(path) else None
-    if why is None:
-        return 0
-    print(f"::error title=Shard doomed::{command_text(why)}")
-    return FAILED
 
 
 def _stale() -> int:

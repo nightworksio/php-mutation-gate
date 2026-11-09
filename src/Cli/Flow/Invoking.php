@@ -118,7 +118,7 @@ final readonly class Invoking
                 $equivalent,
                 $checked->checks,
                 $checked->examinedIds(),
-                $checked->unsettled,
+                $checked->unchecked,
                 $result->evidence()->judgedInPart($result->mutants()),
             ),
         };

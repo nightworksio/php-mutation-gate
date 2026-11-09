@@ -21,6 +21,7 @@ use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
@@ -127,14 +128,22 @@ final readonly class Client
         return $finish;
     }
 
-    /** How the worker ran the request, printing what it printed; none where the worker went first. */
+    /**
+     * How the worker ran the request, woken to take it, printing what it
+     * printed; none where the worker went first.
+     */
     private function awaited(Request $request): Finish|NotGiven
     {
         $finish = NotGiven::value();
         $printed = NotGiven::value();
+        $worker = PidFile::read($this->seat->pid());
+
+        if (is_int($worker)) {
+            Wake::sent($worker);
+        }
 
         while ($finish instanceof NotGiven && PidFile::isRunning($this->seat->pid())) {
-            ($this->pause)(Polling::interval()->microseconds());
+            ($this->pause)(Polling::told(getenv(ChildVariable::Poll->value))->microseconds());
             $finish = Finish::readFrom($this->seat->ended($request->id()));
             $printed = $this->printed($request, $printed, $finish);
         }

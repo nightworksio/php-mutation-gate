@@ -8,11 +8,13 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -97,10 +99,11 @@ it('says why for each, where neither can be read, the shared store\'s first', fu
         ->and($said[1]->text())->toContain(sprintf('%s/refs/heads/main/ledger.json.gz', $root));
 });
 
-it('keeps its own ledgers in .mutation-gate/ledger', function (): void {
+it('keeps its own ledgers in the project\'s .mutation-gate/ledger', function (): void {
     $shared = new ProofStoreFake();
+    $project = Root::of(Scratch::directory());
 
-    expect(LocalLedgers::over($shared))->toEqual(LocalLedgers::of(LedgerDirectory::at('.mutation-gate/ledger'), $shared));
+    expect(LocalLedgers::over($shared, $project))->toEqual(LocalLedgers::of(LedgerDirectory::in($project, '.mutation-gate/ledger'), $shared));
 });
 
 it('reads an object beside the local ledger, or the shared store\'s where there is none locally', function (): void {
@@ -139,4 +142,20 @@ it('writes the local ledger, and reads it and a shared store that encodes, as it
         ->and($read->proofs()->has(Digest::sha256Of('src/Local.php')))->toBeTrue()
         ->and($read->proofs()->has(Digest::sha256Of('src/Shared.php')))->toBeTrue()
         ->and($plain->proofs()->has(Digest::sha256Of('src/Local.php')))->toBeTrue();
+});
+
+it('holds its own ledger, and a shared store that limits its reads, to the limits it is given', function (): void {
+    $limits = LedgerLimits::of(1, 1, 60.0);
+    $local = LedgerDirectory::at(Scratch::directory());
+    $shared = LedgerDirectory::at(Scratch::directory());
+    $unlimited = new ProofStoreFake();
+    $local->write(Scope::branch('main'), ledgerProving('src/Local.php', 10));
+    $shared->write(Scope::branch('main'), ledgerProving('src/Shared.php', 9));
+    $unlimited->write(Scope::branch('main'), ledgerProving('src/Shared.php', 9));
+    $both = LocalLedgers::of($local, $shared)->limitedTo($limits)->read(Scope::branch('main'));
+    $own = LocalLedgers::of($local, $unlimited)->limitedTo($limits)->read(Scope::branch('main'));
+
+    expect($both instanceof Unreadable ? [$both->reason(), count($both->said())] : $both)->toBe([UnreadReason::TooLarge, 2])
+        ->and($own instanceof Unreadable ? [$own->reason(), count($own->said()), $own->ledger()->proofs()->has(Digest::sha256Of('src/Shared.php'))] : $own)
+        ->toBe([UnreadReason::TooLarge, 1, true]);
 });

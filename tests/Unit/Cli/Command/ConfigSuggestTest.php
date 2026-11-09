@@ -63,7 +63,7 @@ $idle = static fn(string $mutator): Ledger => Ledger::empty()->withLearned(Talli
 it('prints each suggestion with its evidence, then the config file with them laid over it as a diff, writes nothing, and exits 0', function () use ($suggesting, $idle): void {
     $project = FlowCommands::project();
     $before = (string) file_get_contents(sprintf('%s/mutation-gate.json', $project));
-    $printed = FlowCommands::within($project, $suggesting($idle('default/BitwiseAndToBitwiseOr'), $project));
+    $printed = FlowCommands::run($suggesting($idle('default/BitwiseAndToBitwiseOr'), $project));
 
     expect($printed->code)->toBe(0)
         ->and($printed->errors)->toBe('', sprintf('errors: %s', json_encode($printed->errors)))
@@ -98,7 +98,7 @@ it('says suggestions are off and proposes nothing where suggest.enabled is false
 
 it('names a change the config cannot say with why, and leaves it out of the diff', function () use ($suggesting, $idle): void {
     $project = FlowCommands::project();
-    $printed = FlowCommands::within($project, $suggesting($idle('default/Unregistered'), $project));
+    $printed = FlowCommands::run($suggesting($idle('default/Unregistered'), $project));
 
     expect($printed->code)->toBe(0)
         ->and($printed->output)->toContain('  The config cannot say this: mutators.except names "default/Unregistered"')
@@ -113,7 +113,7 @@ it('lists every suggestion, a change the config cannot say among them, and diffs
         Tallies::of('fake', 'Busy', 100, 50, 50, 0, 50.0),
     ));
     $project = FlowCommands::project();
-    $printed = FlowCommands::within($project, $suggesting($ledger, $project));
+    $printed = FlowCommands::run($suggesting($ledger, $project));
 
     expect($printed->output)->toStartWith('- `default/BitwiseAndToBitwiseOr` under fake: 600 judged')
         ->and($printed->output)->toContain("\n- `default/Unregistered` under fake: 600 judged")
@@ -134,7 +134,7 @@ it('adds mutation-gate.json where the project has no config file', function () u
 it('says there is nothing to suggest where the ledger gives evidence for nothing', function () use ($suggesting): void {
     $project = FlowCommands::project();
 
-    expect(FlowCommands::within($project, $suggesting(Ledger::empty(), $project))->output)->toBe(sprintf("%s\n", SuggestedConfig::NONE));
+    expect(FlowCommands::run($suggesting(Ledger::empty(), $project))->output)->toBe(sprintf("%s\n", SuggestedConfig::NONE));
 });
 
 it('says why the ledger cannot be read, and exits 2', function () use ($suggesting): void {

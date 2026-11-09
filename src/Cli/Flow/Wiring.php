@@ -36,7 +36,6 @@ use NightWorksIO\MutationGate\Core\Ci\DefaultBranch;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
-use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Choice;
@@ -48,10 +47,12 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -92,21 +93,20 @@ final readonly class Wiring
 
     public function adapters(Settings $settings, Directory $project): Adapters|Invalid|CannotJudge
     {
+        ToldChildren::by($settings);
         $lookup = Lookup::in($this->extensions);
         $runner = BuiltinRunner::tryFrom($settings->runner()->choice()->use()->value());
         $mutators = EnabledMutators::in($lookup, $settings->mutators(), $runner ?? NotGiven::value());
 
-        return $mutators instanceof EnabledMutators ? $this->built($settings, $project, $lookup, $mutators) : $mutators;
+        return $mutators instanceof EnabledMutators ? $this->built($settings, $project, $mutators) : $mutators;
     }
 
     private function built(
         Settings $settings,
         Directory $project,
-        Lookup $lookup,
         EnabledMutators $mutators,
     ): Adapters|Invalid|CannotJudge {
         $chosen = new Chosen($this->extensions);
-        $source = BuiltinVersionControl::in($this->environment)->named();
         $checker = $this->checker($settings->staticCheck(), $chosen);
         $suite = Suite::configured($project, SuiteConfig::ofRunner($settings->runner()->choice()->use()->value()));
         $runner = $suite instanceof TestSuite
@@ -114,12 +114,13 @@ final readonly class Wiring
             : $suite;
         $found = $chosen->treeSource($settings->treeSource());
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
-        $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
+        $costs = $chosen->costModel($settings->shards()->costs()->model());
         $ci = $chosen->ciPlan(ChosenPlan::of($settings, $this->extensions, $this->environment));
         $withheld = $chosen->withheld($settings->ci(), $settings->runner()->withhold(), $settings->reports());
-        $changes = $lookup->changeSource($source, $this->sourceOptions($settings, $withheld));
-        $repository = $lookup->repository($source, $this->sourceOptions($settings, $withheld));
-        $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository));
+        $source = $this->versionControl($settings)->over($this->sourceOptions($settings, $withheld));
+        $changes = $chosen->changeSource($source);
+        $repository = $chosen->repository($source);
+        $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository), $project->root());
 
         return match (true) {
             ! $suite instanceof TestSuite => $suite,
@@ -158,6 +159,8 @@ final readonly class Wiring
                     $project->root()->at(Workspace::equivalence()),
                     Cores::counted(),
                     ini_get('disable_functions'),
+                    $settings->staticCheck()->opcacheBatch(),
+                    $settings->staticCheck()->opcacheLimit()->seconds(),
                 ),
                 ConfigReads::none(),
             )->judgedAmong($settings->triage()->suites()),
@@ -321,6 +324,7 @@ final readonly class Wiring
     private function kept(
         Settings $settings,
         ProofStore|Invalid|CannotJudge $configured,
+        Root $project,
     ): ProofStore|Invalid|CannotJudge {
         if (! $configured instanceof ProofStore) {
             return $configured;
@@ -328,10 +332,11 @@ final readonly class Wiring
 
         $proofs = $settings->proofs();
         $local = ! $this->environment->inCi() && ! $proofs->keptOnDisk();
-        $kept = $local ? LocalLedgers::over($configured) : $configured;
+        $kept = $local ? LocalLedgers::over($configured, $project) : $configured;
 
-        return FetchedCopies::over($kept, $proofs->copies())
-            ->encoding(LedgerCodec::of($proofs->compression(), $proofs->compressionLevel(), ZstdHere::found()));
+        return FetchedCopies::over($kept, $proofs->copies(), $project)
+            ->encoding(LedgerCodec::of($proofs->compression(), $proofs->compressionLevel(), ZstdHere::found()))
+            ->limitedTo(LedgerLimits::kept($proofs->retained()));
     }
 
     /**
@@ -356,15 +361,26 @@ final readonly class Wiring
             : $source;
     }
 
+    /** `versionControl`, or where no layer chooses one, the one the job's CI calls for. */
+    private function versionControl(Settings $settings): Choice
+    {
+        $chosen = $settings->reach()->versionControl();
+
+        return $chosen instanceof Choice
+            ? $chosen
+            : Choice::of(BuiltinVersionControl::in($this->environment)->value, Options::none());
+    }
+
     /**
      * The version control source's options: the check-run the verdict reports
      * under, which GitHub's verifies, and what git's own children may not see.
      */
-    private function sourceOptions(Settings $settings, Withheld $withheld): Options
+    private function sourceOptions(Settings $settings, Withheld $withheld): Json
     {
-        return Options::of(Json::object(
+        return Json::object(
             Member::of('check', $settings->ci()->check()),
+            Member::of('provingRange', $settings->shards()->planning()->provingRange()->farthest()),
             Member::of('withhold', Json::items(...$withheld)),
-        ));
+        );
     }
 }

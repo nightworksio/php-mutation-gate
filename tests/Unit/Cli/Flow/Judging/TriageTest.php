@@ -112,7 +112,7 @@ it('kills a timeout only where triage confirms it, so a tree at 100 fails on one
         ->and($verdict->judgement())->toBe($judgement);
 })->with([
     'tests that take under half its limit' => [fn(): CoverageMap => Flows::map(), fn(): Timeouts => Timeouts::confirmed(), Judgement::Passed],
-    'tests whose time the map does not hold' => [fn(): CoverageMap => CoverageMap::empty(), fn(): Timeouts => Timeouts::confirmed(), Judgement::Failed],
+    'tests whose time the map does not hold' => [fn(): CoverageMap => CoverageMap::of(), fn(): Timeouts => Timeouts::confirmed(), Judgement::Failed],
     'timeouts.mode unjudged' => [fn(): CoverageMap => Flows::map(), fn(): Timeouts => Timeouts::unjudged(), Judgement::Failed],
 ]);
 
@@ -343,7 +343,7 @@ it('holds each mutant\'s killers alone, and warns, where the plan handed the ver
 
     $verdict = JudgingRuns::verdictOf($results instanceof Results ? $judging->verdict($plan, $results) : $results);
 
-    expect($verdict->matrix()->coverage())->toEqual(CoverageMap::empty())
+    expect($verdict->matrix()->coverage())->toEqual(CoverageMap::of())
         ->and(JudgingRuns::texts($verdict->warnings()))->toBe([
             'The kill matrix holds each mutant\'s killers alone. The verdict was handed no coverage map at '
             . '.mutation-gate/coverage/verdict/map.json.gz. Hand it the plan\'s .mutation-gate/coverage.',
@@ -395,7 +395,7 @@ it('fails a verdict on a held unit its holding tests miss lines of, and proves n
         [],
         $tree(Floor::of(0)),
         $store,
-        new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty()),
+        new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::of()),
     );
     new Handoff($adapters->project, HandedMaps::limits())->write($plan, Flows::map(), KillHistory::none(), Unplaced::map());
     new Running($adapters, JudgingRuns::settings($uncovered), Flows::setup())->runAll($plan, Workspace::results());

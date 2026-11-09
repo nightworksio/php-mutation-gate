@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
 
@@ -36,14 +37,26 @@ use NightWorksIO\MutationGate\Core\Written;
  */
 final readonly class DeliveryDirectory
 {
-    private function __construct(private Directory $directory)
+    private function __construct(private Directory $directory, private LedgerRetention $retention)
     {
     }
 
     /** The delivery this stage leaves in this project. */
     public static function of(Directory $project, Stage $stage): self
     {
-        return new self(Directory::at($project->root()->at($stage->directory())->value()));
+        return new self(
+            Directory::at($project->root()->at($stage->directory())->value()),
+            LedgerRetention::standard(),
+        );
+    }
+
+    /**
+     * This delivery, a ledger left in it keeping this: `proofs.keep`. `deliver`, which reads no config, reads it within
+     * the standard limits.
+     */
+    public function keeping(LedgerRetention $retention): self
+    {
+        return new self($this->directory, $retention);
     }
 
     /** The delivery, emptied: no payload, and no ledger or object kept beside it. */
@@ -87,7 +100,8 @@ final readonly class DeliveryDirectory
      */
     public function ledger(Scope $scope, Ledger $ledger): Written|CannotJudge
     {
-        $encoded = EncodedLedger::within($ledger, LedgerLimits::standard(), LedgerCodec::gzipOnly());
+        $limits = LedgerLimits::standard()->keeping($this->retention);
+        $encoded = EncodedLedger::within($ledger, $limits, LedgerCodec::gzipOnly());
 
         return $encoded instanceof EncodedLedger ? $this->ledgerWritten($scope, $encoded) : $encoded;
     }

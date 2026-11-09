@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Import\Import;
+use NightWorksIO\MutationGate\Core\Time\Day;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Imports;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -23,7 +24,7 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$imported = static function (string $mutators, bool $installed = true): Import {
+$imported = static function (string $mutators, bool $installed = true, int $days = 90): Import {
     $root = Scratch::directory();
     Scratch::write($root, 'composer.json', '{"autoload": {"psr-4": {"Acme\\\\": "src/"}}}');
     Scratch::write($root, 'src/Money.php', '<?php');
@@ -31,7 +32,7 @@ $imported = static function (string $mutators, bool $installed = true): Import {
     $classes = ClassFiles::in(Project::at(Root::of($root), Paths::none(), Path::of('.gate')));
     $profiles = Profiles::installed(static fn(): bool => $installed);
 
-    return Ignores::of(MutatorSettings::of(Node::decode($mutators)), 'infection.json5', $classes, $profiles, new DateTimeImmutable(Configs::NOW));
+    return Ignores::of(MutatorSettings::of(Node::decode($mutators)), 'infection.json5', $classes, $profiles, new DateTimeImmutable(Configs::NOW), $days);
 };
 
 /** @return list<array{string, string}> each entry an import writes, as its path and the mutator it names */
@@ -112,3 +113,10 @@ it('says why each pattern maps to no entry', function (Unmapped $why, string $sa
     [Unmapped::NoInfection, 'Infection, which lists each profile\'s mutators, is not installed'],
     [Unmapped::NoProfile, 'Infection has no such profile'],
 ]);
+
+it('ends what it imports as many days on as it is told', function () use ($imported): void {
+    $import = $imported('{"Plus": {"ignore": ["Acme\\\\Money"]}}', days: 10);
+    $entries = [...$import->layer()->ignores()->entries()];
+
+    expect($entries[0]->expires())->toEqual(Day::of('2026-10-10'));
+});

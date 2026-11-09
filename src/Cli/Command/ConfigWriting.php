@@ -111,9 +111,13 @@ final readonly class ConfigWriting
     ): Import|CannotJudge {
         $layer = $found->layer()->over($more);
 
-        return $from instanceof Path
-            ? Imported::from($setting->project, $from, $layer, $found->declared(), $setting->now)
-            : Import::of($layer);
+        $days = $setting->ignoresFor;
+
+        return match (true) {
+            ! $from instanceof Path => Import::of($layer),
+            $days instanceof CannotJudge => $days,
+            default => Imported::from($setting->project, $from, $layer, $found->declared(), $setting->now, $days),
+        };
     }
 
     /** The config printed whole, and the line `.gitignore` would gain, where it would gain one. */

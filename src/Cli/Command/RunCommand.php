@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Raising;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -31,8 +32,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * `mutation-gate run --plan=<file>` mutates one shard of a plan and leaves
- * its result; it exits 0 once the result is written, whatever its mutants
- * did. Without `--plan` it plans, runs every shard and judges them in one
+ * its result; once the result is written it exits 1 where a survivor leaves
+ * the run no way to pass, as `run.failFast` says (ADR-0103), and 0 whatever
+ * else its mutants did. Without `--plan` it plans, runs every shard and judges them in one
  * process, as `mutation-gate` with no command does, leaving its plan and
  * results in the workspace for `explain`; run in full outside CI,
  * it then writes every floor it raised, and every missing one, into the
@@ -95,7 +97,13 @@ final readonly class RunCommand
 
         $output->writeln($written->said(), OutputInterface::OUTPUT_RAW);
 
-        return ExitCode::Passed->value;
+        if ($written->doomed() === '') {
+            return ExitCode::Passed->value;
+        }
+
+        Aside::of($output)->writeln($written->doomed(), OutputInterface::OUTPUT_RAW);
+
+        return ExitCode::Failed->value;
     }
 
     /** One shard of a plan run as the plan was made, narrowed where it was made with `--security`. */
@@ -104,7 +112,7 @@ final readonly class RunCommand
         Plan $plan,
         ShardId|Absent $shard,
         Path $results,
-    ): Written|CannotJudge {
+    ): ShardLeft|CannotJudge {
         return $following instanceof Composed
             ? Running::composed($following)->run($plan, $shard, $results)
             : $following;

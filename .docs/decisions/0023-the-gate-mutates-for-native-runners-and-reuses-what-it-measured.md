@@ -530,6 +530,14 @@ manual.
       process under it, so no run of the mutant goes on beside the fresh
       one. The workers' directory, which holds each run's environment, is
       its owner's alone.
+    - Each side looks again at once when the other has answered, rather
+      than at its next interval: the client wakes the worker once it has
+      left a request, the worker wakes the client once it has written how
+      the run ended, and a child's end wakes the worker. The wake is
+      `SIGURG`, which a process that set no handler for it ignores, so a
+      wake that reaches a process not listening does nothing; each child
+      runs with no handler for it. A pause no wake cuts short still ends at
+      its interval.
     - A worker loads the gate's own classes and nothing of the project, since
       Composer's autoload files run the project's packages' code as they
       load, by the command line and environment of the process that loads

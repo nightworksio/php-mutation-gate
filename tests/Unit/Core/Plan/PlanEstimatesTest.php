@@ -110,7 +110,8 @@ it('warns where the plan cannot meet shards.target, saying what stops it', funct
             SAID])
         ->and($estimates->summary(ProcessCount::of(4), Seconds::of(600.0), 3))->toBe([$total, <<<'SAID'
             shards.target is 10m, and at 2 shards the longest is expected to take 14m.
-            More shards would each cost less than twice their opening run and setup, or split a unit, which no cut does.
+            More shards would each cost less than shards.cutAt times their opening run and setup,
+            or split a unit, which no cut does.
             Raise shards.target to meet it.
             SAID])
         ->and($estimates->summary(ProcessCount::of(4), $estimates->runTime()->wall(), 2))->toBe([$total])
@@ -122,7 +123,8 @@ it('says one shard as one where the plan cannot split it to meet shards.target',
 
     expect($estimates->summary(ProcessCount::of(4), Seconds::of(600.0), 3)[1])->toBe(<<<'SAID'
         shards.target is 10m, and at 1 shard the longest is expected to take 14m.
-        More shards would each cost less than twice their opening run and setup, or split a unit, which no cut does.
+        More shards would each cost less than shards.cutAt times their opening run and setup,
+        or split a unit, which no cut does.
         Raise shards.target to meet it.
         SAID);
 });

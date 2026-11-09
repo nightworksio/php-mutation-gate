@@ -82,7 +82,7 @@ it('says where shards.max stops a full run meeting shards.target', function (): 
 });
 
 it('names each file most of the suite runs through that nothing holds, with the #[Holds] that cuts it', function (): void {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach (range(1, 20) as $test) {
         $id = TestId::of(sprintf('Test%d', $test));

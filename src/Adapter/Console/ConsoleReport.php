@@ -101,7 +101,8 @@ final readonly class ConsoleReport implements Configurable, Reporter
             ...$this->section('Equivalent, proven', $this->leftOut($overview->equivalent())),
             ...$this->section('Floors that can rise', $this->raised($verdict)),
             ...$this->section('Failures', $this->texts($verdict->failures())),
-            ...$this->section('Warnings', $this->texts($verdict->warnings())),
+            ...$this->section('Warnings', $this->texts($verdict->warnings()->actionable())),
+            ...$this->section('Notes', $this->texts($verdict->warnings()->notes())),
             ...$this->headline($verdict),
         ];
 

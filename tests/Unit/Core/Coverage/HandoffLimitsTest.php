@@ -46,3 +46,12 @@ it('inflates a map within its limits, to the byte, and says why it does not one 
 it('has a reader take a byte of a map whose limit is below nothing', function (): void {
     expect(HandoffLimits::of(-5, 1, 1)->readable())->toBe(1);
 });
+
+it('takes what proofs.limits.handoff told the process over what memory holds', function (): void {
+    $told = HandoffLimits::under('230M', '1000', '2000');
+
+    expect([$told->packed(), $told->unpacked()])->toBe([1000, 2000])
+        ->and(HandoffLimits::under('230M', '1000')->packed())->toBe(1000)
+        ->and(HandoffLimits::under('230M', unpacked: '2000')->unpacked())->toBe(2000)
+        ->and(HandoffLimits::under('230M')->packed())->toBe(256_000_000);
+});

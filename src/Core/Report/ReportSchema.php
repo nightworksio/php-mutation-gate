@@ -183,6 +183,7 @@ final readonly class ReportSchema
                 'clusters' => self::listOfObjects(self::cluster()),
                 'reach' => self::listOf(self::TEXT),
                 'warnings' => self::listOf(self::TEXT),
+                'notes' => self::listOf(self::TEXT),
                 'failures' => self::listOf(self::TEXT),
                 'cannotJudge' => self::listOf(self::TEXT),
                 'failingUnmutated' => self::listOfObjects(self::object([

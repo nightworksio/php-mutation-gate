@@ -118,6 +118,6 @@ final readonly class Heatmaps
             ['src/Cart.php:4', MutantJudgement::Survived, false],
         ]);
 
-        return Heatmap::of($now, self::spans(...))->comparedWith(Heatmap::of($base, self::spans(...)))->listing(HeatmapRows::of(files: 10, comment: 5));
+        return Heatmap::of($now, self::spans(...))->comparedWith(Heatmap::of($base, self::spans(...)))->listing(HeatmapRows::of(files: 10));
     }
 }

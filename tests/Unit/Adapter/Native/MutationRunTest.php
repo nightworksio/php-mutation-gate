@@ -113,7 +113,7 @@ function judgedMutants(MutationResult|CannotJudge $result): array
     ) : [];
 }
 
-$makeCovered = static fn(): CoverageMap => CoverageMap::empty()
+$makeCovered = static fn(): CoverageMap => CoverageMap::of()
     ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\MoneySpec::echoes'))
     ->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('Tests\MoneySpec::adds'));
 
@@ -221,7 +221,7 @@ it('gives each mutant\'s run the silence limit of its slowest covering test, on 
     $root = library();
     Scratch::write($root, 'src/Span.php', "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a\n        + \$b;\n}\n");
     [$run, $shell] = killingRun($root);
-    $spanned = CoverageMap::empty()
+    $spanned = CoverageMap::of()
         ->covered(Path::of('src/Span.php'), Line::of(5), TestId::of('Tests\MoneySpec::adds'))
         ->covered(Path::of('src/Span.php'), Line::of(6), TestId::of('Tests\MoneySpec::sums'))
         ->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('Tests\MoneySpec::untimed'))
@@ -239,7 +239,7 @@ it('holds each test of a mutant\'s run to its own limit, timed by the map, where
     $root = library();
     Scratch::write($root, 'src/Span.php', "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a\n        + \$b;\n}\n");
     [$run, $shell] = killingRun($root);
-    $timed = CoverageMap::empty()
+    $timed = CoverageMap::of()
         ->covered(Path::of('src/Span.php'), Line::of(5), TestId::of('Tests\MoneySpec::adds'))
         ->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(1.0));
     $run->of(MutationRequest::of(Paths::of(Path::of('src/Span.php')), WholeSuite::tests()), $timed, LimitBounds::between(Seconds::of(6.0), Seconds::of(30.0))->watchingEachTest(PerTestLimit::standard()));
@@ -253,7 +253,7 @@ it('keeps the silence limit of a mutant of a mutator timeouts.tighter lists abov
     $root = library();
     Scratch::write($root, 'src/Span.php', "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a\n        + \$b;\n}\n");
     [$run, $shell] = killingRun($root);
-    $quick = CoverageMap::empty()
+    $quick = CoverageMap::of()
         ->covered(Path::of('src/Span.php'), Line::of(5), TestId::of('Tests\MoneySpec::adds'))
         ->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(0.1));
     $bounds = static fn(string ...$listed): LimitBounds => LimitBounds::between(Seconds::of(10.0), Seconds::of(30.0))
@@ -271,7 +271,7 @@ it('judges a mutant that spans lines by the tests of every line it spans, and ti
     $root = library();
     Scratch::write($root, 'src/Span.php', "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a\n        + \$b;\n}\n");
     [$run, $shell] = killingRun($root);
-    $spanned = CoverageMap::empty()
+    $spanned = CoverageMap::of()
         ->covered(Path::of('src/Span.php'), Line::of(5), TestId::of('Tests\MoneySpec::adds'))
         ->covered(Path::of('src/Span.php'), Line::of(6), TestId::of('Tests\MoneySpec::sums'))
         ->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(1.0))
@@ -368,7 +368,7 @@ function sums(int $count): array
     $root = Scratch::directory();
     $sums = implode('', array_map(static fn(int $at): string => sprintf("    \$s[] = \$a + %d;\n", $at), range(1, $count)));
     Scratch::write($root, 'src/Sums.php', sprintf("<?php\n\nfunction sums(\$a)\n{\n%s\n    return \$s;\n}\n", $sums));
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach (range(1, $count) as $at) {
         $map = $map->covered(Path::of('src/Sums.php'), Line::of($at + 4), TestId::of(sprintf('Tests\\SumsSpec::sums%d', $at)));

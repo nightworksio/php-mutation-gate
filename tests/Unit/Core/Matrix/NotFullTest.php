@@ -16,7 +16,7 @@ it('says why a matrix is not full, in the sentence the tests report prints', fun
 ]);
 
 it('holds first killers because the run did not ask, until told its runner cannot do more', function (): void {
-    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::empty());
+    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::of());
 
     expect($matrix->whyNotFull())->toBe(NotFull::FirstKillers)
         ->and(KillMatrix::none()->whyNotFull())->toBe(NotFull::FirstKillers)

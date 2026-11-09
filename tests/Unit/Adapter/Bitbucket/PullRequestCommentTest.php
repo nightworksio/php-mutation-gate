@@ -2,15 +2,21 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Bitbucket\CommentMarkdown;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Comment\Toggle;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Config\CommentToggles;
+use NightWorksIO\MutationGate\Core\Config\CommentWrites;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
 use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
 use NightWorksIO\MutationGate\Core\Report\RecheckedMarkdown;
+use NightWorksIO\MutationGate\Core\Report\UnfoldedMarkdown;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -69,7 +75,7 @@ function bitbucketWritten(int $id): string
 /** A comment holding the Bitbucket marker. */
 function bitbucketMarked(string $after = ''): string
 {
-    return sprintf("%s\n\n%s", CommentMarkdown::MARKER, $after);
+    return sprintf("%s\n\n%s", UnfoldedMarkdown::MARKER, $after);
 }
 
 it('posts a new comment where none holds the marker, with the token, linking the pipeline', function (): void {
@@ -81,7 +87,7 @@ it('posts a new comment where none holds the marker, with the token, linking the
             bitbucketComment(4, bitbucketMarked(), ['inline' => ['path' => 'src/A.php']]),
         ]]))
         ->answering(BITBUCKET_COMMENTS, 201, bitbucketWritten(9));
-    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')
+    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())
         ->report(Verdicts::failing());
     $posted = $cloud->requests[1];
 
@@ -89,8 +95,8 @@ it('posts a new comment where none holds the marker, with the token, linking the
         ->and(array_column($cloud->requests, 'method'))->toBe(['GET', 'POST'])
         ->and($posted['url'])->toBe(BITBUCKET_COMMENTS)
         ->and($posted['headers']['authorization'] ?? '')->toBe('Bearer bb-secret')
-        ->and(Decoded::at($posted['body'], 'content', 'raw'))->toBe(CommentMarkdown::of(Markdown::comment(Verdicts::failing()), BITBUCKET_PIPELINE))
-        ->and(Decoded::at($posted['body'], 'content', 'raw'))->toStartWith(CommentMarkdown::MARKER);
+        ->and(Decoded::at($posted['body'], 'content', 'raw'))->toBe(UnfoldedMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), BITBUCKET_PIPELINE))
+        ->and(Decoded::at($posted['body'], 'content', 'raw'))->toStartWith(UnfoldedMarkdown::MARKER);
 });
 
 it('puts its own comment in place, passing over one holding the marker that Bitbucket will not let the token edit', function (int $refused): void {
@@ -99,7 +105,7 @@ it('puts its own comment in place, passing over one holding the marker that Bitb
         ->answering(bitbucketPage(2), 200, (string) json_encode(['values' => [bitbucketComment(5, bitbucketMarked('old')), bitbucketComment(6, bitbucketMarked('later'))]]))
         ->answering(sprintf('%s/3', BITBUCKET_COMMENTS), $refused, '{"type": "error"}')
         ->answering(sprintf('%s/5', BITBUCKET_COMMENTS), 200, bitbucketWritten(5));
-    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')
+    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())
         ->report(Verdicts::passing());
 
     expect($answer)->toEqual(Written::to('https://bitbucket.org/acme/shop/pull-requests/7#comment-5'))
@@ -120,7 +126,7 @@ it('tries ten comments holding the marker, and then posts a new one', function (
         $cloud->answering(sprintf('%s/%d', BITBUCKET_COMMENTS, $id), 403, '{}');
     }
 
-    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')
+    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())
         ->report(Verdicts::passing());
 
     expect($answer)->toEqual(Written::to('https://bitbucket.org/acme/shop/pull-requests/7#comment-12'))
@@ -134,27 +140,58 @@ it('reads thirty pages of comments, and no more', function (): void {
         $cloud->answering(bitbucketPage($page), 200, (string) json_encode(['values' => [], 'next' => bitbucketPage($page + 1)]));
     }
 
-    PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')->report(Verdicts::passing());
+    PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())->report(Verdicts::passing());
 
     expect(array_column($cloud->requests, 'url'))->toContain(bitbucketPage(30))
         ->and(array_column($cloud->requests, 'url'))->not->toContain(bitbucketPage(31));
+});
+
+it('asks Bitbucket whether the pull request is a draft only where comment.drafts keeps one quiet', function (string $answer, bool $left): void {
+    $cloud = new Cloud()
+        ->answering('https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7', 200, $answer)
+        ->answering(bitbucketPage(1), 200, '{"values": []}')
+        ->answering(BITBUCKET_COMMENTS, 201, bitbucketWritten(9));
+    $settings = CommentSettings::of(CommentShows::of(), CommentWrites::of(toggles: CommentToggles::off(Toggle::Drafts)));
+    $written = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', $settings)
+        ->report(Verdicts::failing());
+
+    expect($written)->toEqual($left
+        ? NotWritten::because('comment.drafts is false, so this run writes no comment.')
+        : Written::to('https://bitbucket.org/acme/shop/pull-requests/7#comment-9'));
+})->with([
+    'a draft' => ['{"draft": true}', true],
+    'no draft' => ['{"draft": false}', false],
+    'one that does not say' => ['{}', false],
+]);
+
+it('asks no question of a run on no pull request, and of one where drafts comment', function (): void {
+    $none = new Cloud();
+    $drafts = new Cloud()->answering(bitbucketPage(1), 200, '{"values": []}')->answering(BITBUCKET_COMMENTS, 201, bitbucketWritten(9));
+    $offs = CommentSettings::of(CommentShows::of(), CommentWrites::of(toggles: CommentToggles::off(Toggle::Drafts)));
+
+    PullRequestComment::inEnvironment(Variables::of(['BITBUCKET_BUILD_NUMBER' => '99']), $none->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', $offs);
+    PullRequestComment::inEnvironment(bitbucketPullRequest(), $drafts->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())
+        ->report(Verdicts::failing());
+
+    expect($none->requests)->toBe([])
+        ->and(array_column($drafts->requests, 'method'))->toBe(['GET', 'POST']);
 });
 
 it('writes its planned state into the comment the verdict later replaces', function (): void {
     $cloud = new Cloud()
         ->answering(bitbucketPage(1), 200, (string) json_encode(['values' => [bitbucketComment(5, bitbucketMarked())]]))
         ->answering(sprintf('%s/5', BITBUCKET_COMMENTS), 200, bitbucketWritten(5));
-    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')
+    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())
         ->planned(ShardedPlan::planned(2));
 
     expect($answer)->toEqual(Written::to('https://bitbucket.org/acme/shop/pull-requests/7#comment-5'))
         ->and(Decoded::at($cloud->requests[1]['body'], 'content', 'raw'))
-        ->toBe(CommentMarkdown::of(PlannedMarkdown::comment(ShardedPlan::planned(2), BITBUCKET_PIPELINE), BITBUCKET_PIPELINE));
+        ->toBe(UnfoldedMarkdown::of(PlannedMarkdown::comment(ShardedPlan::planned(2), BITBUCKET_PIPELINE), BITBUCKET_PIPELINE));
 });
 
 it('writes the re-checked survivors over its own planned state, and puts back as it was its own comment past it', function (): void {
-    $planned = CommentMarkdown::of(PlannedMarkdown::comment(ShardedPlan::planned(2), ''), '');
-    $judged = CommentMarkdown::of(Markdown::comment(Verdicts::failing()), '');
+    $planned = UnfoldedMarkdown::of(PlannedMarkdown::comment(ShardedPlan::planned(2), ''), '');
+    $judged = UnfoldedMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), '');
     $comments = static fn(string $own): Cloud => new Cloud()
         ->answering(bitbucketPage(1), 200, (string) json_encode(['values' => [bitbucketComment(3, $planned), bitbucketComment(5, $own)]]))
         ->answering(sprintf('%s/3', BITBUCKET_COMMENTS), 403, '{}')
@@ -165,46 +202,47 @@ it('writes the re-checked survivors over its own planned state, and puts back as
         bitbucketPullRequest(),
         $cloud->exchange(),
         'MUTATION_GATE_BITBUCKET_TOKEN',
+        CommentSettings::standard(),
     );
 
     expect($comment($overPlanned)->rechecked(Rechecks::mixed()))
         ->toEqual(Written::to('https://bitbucket.org/acme/shop/pull-requests/7#comment-5'))
         ->and(Decoded::at($overPlanned->requests[2]['body'], 'content', 'raw'))
-        ->toBe(CommentMarkdown::of(RecheckedMarkdown::comment(Rechecks::mixed(), BITBUCKET_PIPELINE), BITBUCKET_PIPELINE))
+        ->toBe(UnfoldedMarkdown::of(RecheckedMarkdown::comment(Rechecks::mixed(), BITBUCKET_PIPELINE, CommentShows::of()), BITBUCKET_PIPELINE))
         ->and($comment($overJudged)->rechecked(Rechecks::mixed()))->toEqual(NotWritten::because(CommentStates::NOT_PLANNED))
         ->and(Decoded::at($overJudged->requests[2]['body'], 'content', 'raw'))->toBe($judged);
 });
 
 it('says why, and leaves the comment, where Bitbucket fails to put back a comment past its planned state', function (): void {
-    $judged = CommentMarkdown::of(Markdown::comment(Verdicts::failing()), '');
+    $judged = UnfoldedMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), '');
     $cloud = new Cloud()
         ->answering(bitbucketPage(1), 200, (string) json_encode(['values' => [bitbucketComment(5, $judged)]]))
         ->answering(sprintf('%s/5', BITBUCKET_COMMENTS), 500, '{"error": {"message": "down"}}');
 
-    expect(PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')->rechecked(Rechecks::mixed()))
+    expect(PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())->rechecked(Rechecks::mixed()))
         ->toEqual(NotWritten::because(
             'The pull request comment could not be written (https://api.bitbucket.org answered 500: {"error": {"message": "down"}}).',
         ));
 });
 
 it('links no pipeline in the planned state left for deliver where it names none', function (): void {
-    $comment = PullRequestComment::inEnvironment(Variables::of(['BITBUCKET_PR_ID' => '7']), new Cloud()->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN');
+    $comment = PullRequestComment::inEnvironment(Variables::of(['BITBUCKET_PR_ID' => '7']), new Cloud()->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard());
 
     expect($comment->plannedLater(ShardedPlan::planned(2), Delivery::none()))
-        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), '')));
+        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), ''), CommentWrite::sticky()));
 });
 
 it('writes no re-checked survivors where no comment is its own', function (): void {
     $cloud = new Cloud()->answering(bitbucketPage(1), 200, '{"values": []}');
 
-    expect(PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')->rechecked(Rechecks::mixed()))
+    expect(PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())->rechecked(Rechecks::mixed()))
         ->toEqual(NotWritten::because(CommentStates::NOT_PLANNED))
         ->and(array_column($cloud->requests, 'method'))->toBe(['GET']);
 });
 
 it('writes no comment, and says why, where the step cannot write one', function (Variables $environment, string $why): void {
     $cloud = new Cloud();
-    $answer = PullRequestComment::inEnvironment($environment, $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')
+    $answer = PullRequestComment::inEnvironment($environment, $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())
         ->report(Verdicts::failing());
 
     expect($answer)->toEqual(NotWritten::because($why))
@@ -218,10 +256,10 @@ it('reads its token from the variable tokenEnv names', function (): void {
     $environment = bitbucketPullRequest(['MUTATION_GATE_BITBUCKET_TOKEN' => '', 'GATE_COMMENTS' => 'bb-other']);
     $cloud = new Cloud()->answering(bitbucketPage(1), 200, '{"values": []}')->answering(BITBUCKET_COMMENTS, 201, bitbucketWritten(2));
 
-    expect(PullRequestComment::configured(Configs::options('{"tokenEnv": "GATE_COMMENTS"}'), $environment, $cloud->exchange())->report(Verdicts::passing()))
+    expect(PullRequestComment::configured(Configs::options('{"tokenEnv": "GATE_COMMENTS"}'), $environment, $cloud->exchange())->report(Verdicts::failing()))
         ->toBeInstanceOf(Written::class)
         ->and($cloud->requests[0]['headers']['authorization'] ?? '')->toBe('Bearer bb-other')
-        ->and(PullRequestComment::configured(Configs::options('{}'), $environment, new Cloud()->exchange())->report(Verdicts::passing()))
+        ->and(PullRequestComment::configured(Configs::options('{}'), $environment, new Cloud()->exchange())->report(Verdicts::failing()))
         ->toEqual(NotWritten::because('MUTATION_GATE_BITBUCKET_TOKEN is not set, so no comment is written.'));
 });
 
@@ -230,7 +268,7 @@ it('says why, naming Bitbucket by its origin alone and never the token, where Bi
         ->answering(bitbucketPage(1), 200, (string) json_encode(['values' => [bitbucketComment(5, bitbucketMarked())]]))
         ->answering(sprintf('%s/5', BITBUCKET_COMMENTS), 200, bitbucketWritten(5))
         ->answering($refused, $status, '{"error": {"message": "no"}}');
-    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')
+    $answer = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())
         ->report(Verdicts::passing());
 
     expect($answer)->toEqual(NotWritten::because(sprintf(
@@ -248,31 +286,32 @@ it('leaves its comment, and its planned state, for deliver on a pull request, to
         bitbucketPullRequest(['MUTATION_GATE_BITBUCKET_TOKEN' => $token]),
         $cloud->exchange(),
         'MUTATION_GATE_BITBUCKET_TOKEN',
+        CommentSettings::standard(),
     );
 
     expect($comment->deferred(Verdicts::failing(), Delivery::none()))
-        ->toEqual(Delivery::none()->withComment(Markdown::comment(Verdicts::failing())))
+        ->toEqual(Delivery::none()->withComment(Markdown::comment(Verdicts::failing(), CommentShows::of()), CommentWrite::sticky()))
         ->and($comment->plannedLater(ShardedPlan::planned(2), Delivery::none()))
-        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), BITBUCKET_PIPELINE)))
+        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), BITBUCKET_PIPELINE), CommentWrite::sticky()))
         ->and($comment->recheckedLater(Rechecks::mixed(), Delivery::none()))
-        ->toEqual(Delivery::none()->withCommentOverPlanned(RecheckedMarkdown::comment(Rechecks::mixed(), BITBUCKET_PIPELINE)))
+        ->toEqual(Delivery::none()->withComment(RecheckedMarkdown::comment(Rechecks::mixed(), BITBUCKET_PIPELINE, CommentShows::of()), CommentWrite::sticky()->overPlanned()))
         ->and($cloud->requests)->toBe([]);
 })->with(['with a token' => ['bb-secret'], 'with none' => ['']]);
 
 it('leaves no comment for deliver on a step that is no pull request\'s', function (): void {
-    $comment = PullRequestComment::inEnvironment(bitbucketPullRequest(['BITBUCKET_PR_ID' => '']), new Cloud()->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN');
+    $comment = PullRequestComment::inEnvironment(bitbucketPullRequest(['BITBUCKET_PR_ID' => '']), new Cloud()->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard());
 
     expect($comment->deferred(Verdicts::failing(), Delivery::none()))->toEqual(Delivery::none())
         ->and($comment->plannedLater(ShardedPlan::planned(1), Delivery::none()))->toEqual(Delivery::none())
         ->and($comment->recheckedLater(Rechecks::mixed(), Delivery::none()))->toEqual(Delivery::none())
-        ->and($comment->write('text'))->toEqual(NotWritten::because(CommentStates::NOT_A_PULL_REQUEST))
-        ->and($comment->writeOverPlanned('text'))->toEqual(NotWritten::because(CommentStates::NOT_A_PULL_REQUEST));
+        ->and($comment->writeAs('text', CommentWrite::sticky()))->toEqual(NotWritten::because(CommentStates::NOT_A_PULL_REQUEST))
+        ->and($comment->writeAs('text', CommentWrite::sticky()->overPlanned()))->toEqual(NotWritten::because(CommentStates::NOT_A_PULL_REQUEST));
 });
 
 it('reads the comments of a workspace and a repository each encoded where it holds a reserved character', function (): void {
     $cloud = new Cloud();
     $step = bitbucketPullRequest(['BITBUCKET_WORKSPACE' => 'ac?me', 'BITBUCKET_REPO_SLUG' => 'sh/op']);
-    PullRequestComment::inEnvironment($step, $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')->report(Verdicts::failing());
+    PullRequestComment::inEnvironment($step, $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())->report(Verdicts::failing());
 
     expect($cloud->requests[0]['url'])
         ->toBe('https://api.bitbucket.org/2.0/repositories/ac%3Fme/sh%2Fop/pullrequests/7/comments?pagelen=50&page=1');

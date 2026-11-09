@@ -33,6 +33,9 @@ enum GateVariable: string
     /** How long a run of no test took to start on this machine (see MutantTime). */
     case MutantStartUp = ChildVariable::MutantStartUp->value;
 
+    /** How long a run gets to start where nothing measured its start-up (see StartUpVariable). */
+    case UnmeasuredStartUp = ChildVariable::UnmeasuredStartUp->value;
+
     /** How many times its covering tests' own time a patched run allows one mutant (see MutantTime). */
     case MutantMultiple = ChildVariable::MutantMultiple->value;
 

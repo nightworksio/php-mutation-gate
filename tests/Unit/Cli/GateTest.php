@@ -28,8 +28,8 @@ it('hands the command line to the console once the extensions are found', functi
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project), NotGiven::value())->run(new ArrayInput(['command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, $errors))->toBe(2)
-        ->and($output->fetch())->toBe("--repeat takes a whole number of 2 or more, not \"1\".\n")
+    expect(Gate::in($project, sprintf('%s/vendor', $project), NotGiven::value())->run(new ArrayInput(['command' => 'config:schema']), $output, $errors))->toBe(0)
+        ->and($output->fetch())->toStartWith('{')
         ->and($errors->fetch())->toBe('');
 });
 
@@ -47,8 +47,8 @@ it('loads this package\'s own extension alone under --no-extensions', function (
     $project = $conflicted();
     $output = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project), NotGiven::value())->run(new ArrayInput(['--no-extensions' => true, 'command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, new BufferedOutput()))->toBe(2)
-        ->and($output->fetch())->toBe("--repeat takes a whole number of 2 or more, not \"1\".\n");
+    expect(Gate::in($project, sprintf('%s/vendor', $project), NotGiven::value())->run(new ArrayInput(['--no-extensions' => true, 'command' => 'config:schema']), $output, new BufferedOutput()))->toBe(0)
+        ->and($output->fetch())->toStartWith('{');
 });
 
 it('reads --no-extensions as an option only before the end of the options', function () use ($conflicted): void {

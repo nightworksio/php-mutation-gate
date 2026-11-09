@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 
 /**
@@ -31,18 +32,21 @@ final readonly class Sources
      *                                         did at the base
      * @param ByPath<Listed<Glob>>     $moved  each such config's globs whose files run otherwise than at the base,
      *                                         as the `paths` entries it moved match them (ADR-0074)
+     * @param ByPath<LockLoads>        $loads  each such lock's moved packages, and the files of the tests that
+     *                                         loaded them (ADR-0115)
      */
     private function __construct(
         private ByPath $now,
         private ByPath $before,
         private Paths $alike,
         private ByPath $moved,
+        private ByPath $loads,
     ) {
     }
 
     public static function none(): self
     {
-        return new self(ByPath::none(), ByPath::none(), Paths::none(), ByPath::none());
+        return new self(ByPath::none(), ByPath::none(), Paths::none(), ByPath::none(), ByPath::none());
     }
 
     /**
@@ -54,19 +58,19 @@ final readonly class Sources
      */
     public static function of(ByPath $now, ByPath $before): self
     {
-        return new self($now, $before, Paths::none(), ByPath::none());
+        return new self($now, $before, Paths::none(), ByPath::none(), ByPath::none());
     }
 
     /** These, with what a file holds on disk. */
     public function withNow(Path $path, Contents $contents): self
     {
-        return new self($this->now->with($path, $contents), $this->before, $this->alike, $this->moved);
+        return new self($this->now->with($path, $contents), $this->before, $this->alike, $this->moved, $this->loads);
     }
 
     /** These, with what a changed file held at the base. */
     public function withBefore(Path $path, Contents $contents): self
     {
-        return new self($this->now, $this->before->with($path, $contents), $this->alike, $this->moved);
+        return new self($this->now, $this->before->with($path, $contents), $this->alike, $this->moved, $this->loads);
     }
 
     /**
@@ -76,7 +80,7 @@ final readonly class Sources
      */
     public function decidingAlike(Path $path): self
     {
-        return new self($this->now, $this->before, $this->alike->with($path), $this->moved);
+        return new self($this->now, $this->before, $this->alike->with($path), $this->moved, $this->loads);
     }
 
     /**
@@ -87,7 +91,23 @@ final readonly class Sources
     {
         $moved = $this->moved->with($path, Listed::of($glob, ...$more));
 
-        return new self($this->now, $this->before, $this->alike, $moved);
+        return new self($this->now, $this->before, $this->alike, $moved, $this->loads);
+    }
+
+    /**
+     * These, where a lock deciding alike moved packages that some tests loaded (ADR-0115).
+     */
+    public function movingPackages(Path $path, LockLoads $moved): self
+    {
+        $loads = $this->loads->with($path, $moved);
+
+        return new self($this->now, $this->before, $this->alike, $this->moved, $loads);
+    }
+
+    /** The packages a lock's change moved, and the files of the tests that loaded them; none where it says none. */
+    public function loadsMoved(Path $path): LockLoads|NotGiven
+    {
+        return $this->loads->at($path, NotGiven::value());
     }
 
     /**

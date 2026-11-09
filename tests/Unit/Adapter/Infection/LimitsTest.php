@@ -25,7 +25,7 @@ function limitsUnder(Seconds $cap, PatchState $state = PatchState::Missing, floa
     $root = Scratch::directory();
     InfectionRun::coverage($root, '/p', [], ['Tests\MoneyTest' => 0.5, 'Tests\DrainTest' => 0.25, 'Tests\SlowTest' => 3.0], []);
     $junit = JUnit::at(DiskPath::of(sprintf('%s/junit.xml', $root)));
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::large'))
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\DrainTest::drains with data set #1'))

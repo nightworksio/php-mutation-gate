@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Config\Reach as ReachSetting;
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\FailFast;
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -34,7 +36,7 @@ describe('Settings sections', function (): void {
             'runner' => 'pest',
             'trees' => [['path' => 'src', 'exclude' => ['src/Legacy/**', 'src/Generated/*.php']]],
             'shards' => ['target' => '20m', 'setup' => '3m'],
-            'costs' => ['perRunnerMinute' => ['amount' => 0.008, 'currency' => 'USD']],
+            'costs' => ['perRunnerMinute' => ['amount' => 0.008, 'currency' => 'USD'], 'savingsWindow' => '7d'],
             'proofs' => ['store' => ['use' => 's3', 'with' => [
                 'bucket' => 'proofs',
                 'publicUrl' => 'https://proofs.example.com',
@@ -43,13 +45,15 @@ describe('Settings sections', function (): void {
             'equivalence' => ['static' => false],
         ]);
         $trees = $settings->floors()->trees();
-        $price = $settings->shards()->perRunnerMinute();
+        $price = $settings->shards()->costs()->perRunnerMinute();
 
         expect($trees instanceof Absent ? [] : [...[...$trees][0]->exclude()])
             ->toEqual([Glob::of('src/Legacy/**'), Glob::of('src/Generated/*.php')])
             ->and($settings->shards()->target())->toEqual(Seconds::of(1200))
             ->and($settings->shards()->setup())->toEqual(Seconds::of(180))
             ->and($price instanceof Price ? [$price->amount(), $price->currency()] : [])->toBe([0.008, 'USD'])
+            ->and($settings->shards()->costs()->savingsWindow())->toEqual(SavingsWindow::of(Seconds::days(7)))
+            ->and(Configs::shown($settings, 'costs', 'savingsWindow'))->toBe('7d')
             ->and(Configs::shown($settings, 'proofs', 'store', 'with', 'publicUrl'))->toBe('https://proofs.example.com')
             ->and($settings->triage()->order())->toBe(TestOrder::Runner)
             ->and($settings->triage()->suites())->toEqual(JudgingSuites::holding(
@@ -67,15 +71,18 @@ describe('Settings sections', function (): void {
         expect($trees instanceof Absent ? ['no trees'] : [...[...$trees][0]->exclude()])->toBe([])
             ->and($settings->shards()->target())->toEqual(Absent::setting())
             ->and($settings->shards()->setup())->toEqual(Seconds::of(60))
-            ->and($settings->shards()->perRunnerMinute())->toEqual(Absent::setting())
+            ->and($settings->shards()->costs()->perRunnerMinute())->toEqual(Absent::setting())
+            ->and($settings->shards()->costs()->savingsWindow())->toEqual(SavingsWindow::standard())
             ->and($settings->triage()->order())->toBe(TestOrder::KillersFirst)
             ->and($settings->triage()->suites())->toEqual(JudgingSuites::every())
             ->and(Configs::settings(['runner' => 'pest', 'tests' => ['holding' => ['Process']]])->triage()->suites())
             ->toEqual(JudgingSuites::holding(Suites::all(), Suites::listed('Process')))
+            ->and(Configs::settings(['runner' => 'pest', 'tests' => ['suites' => ['Unit'], 'holding' => []]])->triage()->suites())
+            ->toEqual(JudgingSuites::holdingNone(Suites::listed('Unit')))
             ->and($settings->ignores()->staticEquivalence())->toBeTrue();
     });
 
-    it('refuses a shard count set two ways, and a price, a public URL, an order or an exclude written wrong', function (
+    it('refuses a shard count set two ways, and a price, a savings window, a public URL, an order or an exclude written wrong', function (
         array $config,
         array $problems,
     ): void {
@@ -91,6 +98,10 @@ describe('Settings sections', function (): void {
                 'costs.perRunnerMinute.amount: expected a number of at least 0, got -1',
                 'costs.perRunnerMinute.currency: expected a currency, such as EUR, got nothing',
             ],
+        ],
+        'a savings window that is no duration' => [
+            ['costs' => ['savingsWindow' => 'a month']],
+            ['costs.savingsWindow: expected a duration such as 90s, 15m, 1h30m or 7d, got "a month"'],
         ],
         'a public URL that is not https' => [
             ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'http://proofs']]]],
@@ -119,10 +130,6 @@ describe('Settings sections', function (): void {
         'a test suite that is not named' => [
             ['tests' => ['suites' => ['Unit', 7]]],
             ['tests.suites[1]: expected a test suite\'s name, got 7'],
-        ],
-        'holding suites listed as none' => [
-            ['tests' => ['holding' => []]],
-            ['tests.holding: expected at least one entry, got none; leave the key out to take its default'],
         ],
         'a suite that judges every unit and only those it holds' => [
             ['tests' => ['suites' => ['Unit', 'Process'], 'holding' => ['Contract', 'Process']]],
@@ -278,10 +285,10 @@ describe('Settings sections', function (): void {
         $settings = Configs::settings($json);
         $php = Configs::valid($json)->php(ProjectRoot::origin())->code();
 
-        $options = $settings->shards()->costOptions()->object(Key::of('secondsPerLine'));
+        $options = $settings->shards()->costs()->model()->options()->object(Key::of('secondsPerLine'));
 
         expect($options instanceof Options ? $options->number(Key::of('12')) : $options)->toBe(2.0)
-            ->and($settings->shards()->secondsPerLine()->forPath(Path::of('12/Money.php')))->toEqual(Seconds::of(2.0))
+            ->and($settings->shards()->costs()->secondsPerLine()->forPath(Path::of('12/Money.php')))->toEqual(Seconds::of(2.0))
             ->and($php)->toContain("Shards::secondsPerLine('12', 2)")
             ->and($php)->toContain("Badge::colour('12', 50)")
             ->and($php)->toContain("Option::nested('colors', Option::of('12', 50))");
@@ -349,7 +356,7 @@ describe('Settings sections', function (): void {
 
         expect($fresh->runner()->workers())->toBe(Workers::Fresh)
             ->and(Configs::settings(['runner' => 'phpunit'])->runner()->workers())->toBe(Workers::Fork)
-            ->and(Configs::shown($fresh, 'runner'))->toBe(['use' => 'phpunit', 'memory' => '1G', 'workers' => 'fresh'])
+            ->and(Configs::shown($fresh, 'runner'))->toBe(['use' => 'phpunit', 'withhold' => [], 'memory' => '1G', 'workers' => 'fresh', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
             ->and(Configs::problems(Configs::validated(['runner' => ['use' => 'phpunit', 'workers' => 'warm']])))
             ->toBe(['runner.workers: expected "fork", "mutants" or "fresh", got "warm"']);
     });
@@ -368,7 +375,7 @@ describe('Settings sections', function (): void {
     it('reads what a pull request\'s shard does once it cannot pass, marking it by default, and writes it into a config written as PHP', function (array $config, FailFast $failFast, string $call): void {
         $php = Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code();
 
-        expect(Configs::settings(['runner' => 'pest', ...$config])->reach()->failFast())->toBe($failFast)
+        expect(Configs::settings(['runner' => 'pest', ...$config])->reach()->failingFast()->mode())->toBe($failFast)
             ->and($call === '' ? ! str_contains($php, 'Reach::failFast') : str_contains($php, $call))->toBeTrue();
     })->with([
         'left out' => [[], FailFast::Mark, ''],
@@ -383,6 +390,32 @@ describe('Settings sections', function (): void {
             ->and(ReachSetting::failFastMarking()->written())->toEqual(Json::at('run.failFast', 'mark'))
             ->and(ReachSetting::failFastStopping()->written())->toEqual(Json::at('run.failFast', 'stop'))
             ->and(ReachSetting::failFastCancelling()->written())->toEqual(Json::at('run.failFast', 'cancel'));
+    });
+
+    it('waits on the survivors a check ran out of time for or could not run by default, on those run.failFastWaits names, and writes them', function (array $run, array $waits, string $call): void {
+        $config = ['runner' => 'pest', 'run' => $run];
+        $php = Configs::valid($config)->php(ProjectRoot::origin())->code();
+
+        expect([...Configs::settings($config)->reach()->failingFast()->waits()])->toBe($waits)
+            ->and($call === '' ? ! str_contains($php, 'Reach::failFastWaitingOn') : str_contains($php, $call))->toBeTrue();
+    })->with([
+        'left out' => [[], [Unchecked::OutOfTime, Unchecked::Failed], ''],
+        'none' => [['failFastWaits' => []], [], 'Reach::failFastWaitingOn()'],
+        'any reason' => [['failFastWaits' => ['out-of-scope', 'out-of-time']], [Unchecked::OutOfScope, Unchecked::OutOfTime], "Reach::failFastWaitingOn('out-of-scope', 'out-of-time')"],
+    ]);
+
+    it('refuses run.failFastWaits naming what no check leaves', function (array $waits, string $at): void {
+        $problems = Configs::problems(Configs::validated(['runner' => 'pest', 'run' => ['failFastWaits' => $waits]]));
+
+        expect($problems)->toHaveCount(1)
+            ->and(str_starts_with($problems[0], $at))->toBeTrue();
+    })->with([
+        'no such outcome' => [['soon'], 'run.failFastWaits[0]: expected "unidentified", "no-warm-up"'],
+        'one of several' => [['failed', 'later'], 'run.failFastWaits[1]: expected'],
+    ]);
+
+    it('writes run.failFastWaits from the PHP config\'s builder as the JSON a file writes', function (): void {
+        expect(ReachSetting::failFastWaitingOn('failed')->written())->toEqual(Json::at('run.failFastWaits', Json::items('failed')));
     });
 
     it('marks and stops a doomed shard as each mode says', function (): void {
@@ -457,12 +490,12 @@ describe('Settings sections', function (): void {
     });
 
     it('reads timeouts.tighter, each key the standard where it is left out, and refuses a name no runner gives a mutator', function (): void {
-        $floor = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['floor' => 5]]])->triage()->tighter();
-        $mutators = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['mutators' => ['Foreach_']]]])->triage()->tighter();
+        $floor = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['floor' => 5]]])->triage()->bounds()->tighter();
+        $mutators = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['mutators' => ['Foreach_']]]])->triage()->bounds()->tighter();
 
         expect([$floor->floor(), [...$floor]])->toEqual([Seconds::of(5.0), TighterSilence::MUTATORS])
             ->and([$mutators->floor(), [...$mutators]])->toEqual([Seconds::of(7.0), ['Foreach_']])
-            ->and(Configs::settings(['runner' => 'pest'])->triage()->tighter())->toEqual(TighterSilence::standard())
+            ->and(Configs::settings(['runner' => 'pest'])->triage()->bounds()->tighter())->toEqual(TighterSilence::standard())
             ->and(Configs::problems(Configs::validated(['timeouts' => ['tighter' => ['mutators' => ['default/RemoveArrayItem'], 'floor' => 0]]])))
             ->toHaveCount(2);
     });

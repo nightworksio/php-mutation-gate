@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
+use function getenv;
 use function ini_get;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -28,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\KillHistoryFile;
 use NightWorksIO\MutationGate\Core\Proof\SubsumptionFile;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
@@ -58,7 +60,11 @@ final readonly class Handoff
     /** The limits this process reads a map handed over within, by the memory it has. */
     public static function limits(): HandoffLimits
     {
-        return HandoffLimits::under(ini_get('memory_limit'));
+        return HandoffLimits::under(
+            ini_get('memory_limit'),
+            getenv(ChildVariable::HandoffPacked->value),
+            getenv(ChildVariable::HandoffUnpacked->value),
+        );
     }
 
     /**

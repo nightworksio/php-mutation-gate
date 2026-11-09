@@ -434,7 +434,7 @@ it('says a runner that names other judges, reads back another map, or measures a
     $runner = new MisbehavingRunner(
         RunnerFake::ofTheFixture(),
         coverage: static fn(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge => match (true) {
-            $request instanceof CoverageRan => CoverageMap::empty(),
+            $request instanceof CoverageRan => CoverageMap::of(),
             $request instanceof CoverageRun && $request->processes()->count() === 2 && $request->tests() instanceof WholeSuite => CannotJudge::because('One process.'),
             default => RunnerFake::ofTheFixture()->coverage($request),
         },
@@ -450,7 +450,7 @@ it('says a runner that names other judges, reads back another map, or measures a
 });
 
 it('says a runner that measures other lines across two processes, though it runs the same tests', function (): void {
-    $fewer = CoverageMap::empty()
+    $fewer = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Held.php'), Line::of(11), TestId::of('HeldTest::doubles'));
     $runner = new MisbehavingRunner(
@@ -492,12 +492,12 @@ it('says a runner that cannot place its tests in test files, nor measure them ag
     $unnamed = new MisbehavingRunner(RunnerFake::ofTheFixture(), names: static fn(): TestNames => TestNames::none());
     $unplaced = new MisbehavingRunner(
         RunnerFake::ofTheFixture(),
-        coverage: $measuredAgain(CoverageMap::empty()),
+        coverage: $measuredAgain(CoverageMap::of()),
         testsIn: static fn(): TestIds => TestIds::none(),
     );
     $elsewhere = new MisbehavingRunner(
         RunnerFake::ofTheFixture(),
-        coverage: $measuredAgain(CoverageMap::empty()->covered(Path::of('src/Other.php'), Line::of(1), TestId::of('Other::test'))),
+        coverage: $measuredAgain(CoverageMap::of()->covered(Path::of('src/Other.php'), Line::of(1), TestId::of('Other::test'))),
     );
 
     expect(runnerFailures($unnamed))->toBe(['It names the tests of its map in fewer than two test files.'])
