@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function count;
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\ShardEstimate;
@@ -33,6 +34,7 @@ final readonly class Shard
         private ShardEstimate $estimate,
         private string $label,
         private TestPart $part,
+        private ShardId|Absent $worker = new Absent(),
     ) {
     }
 
@@ -65,13 +67,13 @@ final readonly class Shard
     /** This shard, expected to take what this estimate says, which says what it rests on. */
     public function estimated(ShardEstimate $estimate): self
     {
-        return new self($this->id, $this->package, $this->units, $estimate, $this->label, $this->part);
+        return new self($this->id, $this->package, $this->units, $estimate, $this->label, $this->part, $this->worker);
     }
 
     /** This shard, its units judged by the tests of this part of the test files alone (ADR-0117). */
     public function inPart(TestPart $part): self
     {
-        return new self($this->id, $this->package, $this->units, $this->estimate, $this->label, $part);
+        return new self($this->id, $this->package, $this->units, $this->estimate, $this->label, $part, $this->worker);
     }
 
     /**
@@ -80,12 +82,34 @@ final readonly class Shard
      */
     public function holding(Units $units): self
     {
-        return self::of($this->id, $this->package, $units, $this->cost(), $this->label)->inPart($this->part);
+        return self::of($this->id, $this->package, $units, $this->cost(), $this->label)->inPart($this->part)
+            ->workedBy($this->worker);
+    }
+
+    /**
+     * This shard as an item of a run whose shards pull their work, listed
+     * first for this shard's job (ADR-0134); its own job's where none is.
+     */
+    public function workedBy(ShardId|Absent $worker): self
+    {
+        return new self($this->id, $this->package, $this->units, $this->estimate, $this->label, $this->part, $worker);
     }
 
     public function id(): ShardId
     {
         return $this->id;
+    }
+
+    /** The job whose list holds it first: its own, unless the run's shards pull their work (ADR-0134). */
+    public function worker(): ShardId
+    {
+        return $this->worker instanceof ShardId ? $this->worker : $this->id;
+    }
+
+    /** Whether it is an item of a run whose shards pull their work (ADR-0134). */
+    public function isPulled(): bool
+    {
+        return $this->worker instanceof ShardId;
     }
 
     /** The package the shard runs in, whose directory the runner starts from. */
@@ -133,6 +157,7 @@ final readonly class Shard
             $this->estimate,
             $this->label,
             $this->part,
+            $this->worker,
         );
     }
 

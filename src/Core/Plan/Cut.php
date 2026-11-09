@@ -11,6 +11,7 @@ use function array_sum;
 use function ceil;
 use function count;
 use function floor;
+use function intdiv;
 use function max;
 use function min;
 
@@ -60,6 +61,7 @@ final readonly class Cut
         private float $workPerOverhead = self::WORK_PER_OVERHEAD,
         private bool $testParts = false,
         private Seconds|Absent $jobLimit = new Absent(),
+        private Seconds|Absent $item = new Absent(),
     ) {
     }
 
@@ -95,6 +97,7 @@ final readonly class Cut
                 $this->workPerOverhead,
                 $this->testParts,
                 $this->jobLimit,
+                item: $this->item,
             );
     }
 
@@ -110,6 +113,7 @@ final readonly class Cut
             $times,
             $this->testParts,
             $this->jobLimit,
+            item: $this->item,
         );
     }
 
@@ -125,6 +129,7 @@ final readonly class Cut
             $this->workPerOverhead,
             testParts: true,
             jobLimit: $this->jobLimit,
+            item: $this->item,
         );
     }
 
@@ -142,6 +147,7 @@ final readonly class Cut
                 $this->workPerOverhead,
                 $this->testParts,
                 $limit,
+                item: $this->item,
             );
     }
 
@@ -157,6 +163,27 @@ final readonly class Cut
             $this->workPerOverhead,
             $this->testParts,
             $this->jobLimit,
+            item: $this->item,
+        );
+    }
+
+    /**
+     * This cut, its shards pulling their work (ADR-0134): each package's work
+     * cut into items of about this long, or under test parts into as many
+     * parts, each item listed first for one of the package's shards.
+     */
+    public function pulling(Seconds $item): self
+    {
+        return new self(
+            $this->size,
+            $this->most,
+            $this->exact,
+            $this->target,
+            $this->overhead,
+            $this->workPerOverhead,
+            $this->testParts,
+            $this->jobLimit,
+            item: $item,
         );
     }
 
@@ -174,14 +201,70 @@ final readonly class Cut
         }
 
         $runs = [];
+        $owners = [];
+        $workers = 0;
 
         foreach ($this->countsFor($packages) as $at => $count) {
-            $runs[] = $this->testParts ? $packages[$at]->parts($count) : $packages[$at]->runs($count);
+            $items = $this->itemsOf($packages[$at], $count);
+            $made = $this->testParts ? $packages[$at]->parts($items) : $packages[$at]->runs($items);
+            $runs[] = $made;
+            $owners = [...$owners, ...self::owners(count($made), max(1, $count), $workers)];
+            $workers += max(1, $count);
         }
 
         $cut = array_merge(...$runs);
 
-        return Labels::of($trees, ...$this->exact ? array_pad($cut, $this->most, Run::of()) : $cut);
+        $owners = $this->exact ? self::owners(count($cut), min($this->most, max(1, count($cut))), 0) : $owners;
+
+        return $this->item instanceof Seconds
+            ? self::pulled(Labels::of($trees, ...$cut), $owners)
+            : Labels::of($trees, ...$this->exact ? array_pad($cut, $this->most, Run::of()) : $cut);
+    }
+
+    /**
+     * How many runs a package is cut into: its shards, or where they pull,
+     * as many items of the item's length as its cost takes, at least one a shard.
+     */
+    private function itemsOf(PackageWork $package, int $count): int
+    {
+        $item = $this->item instanceof Seconds ? $this->item->seconds() : 0.0;
+
+        return $item > 0.0 ? max($count, (int) ceil($package->cost()->seconds() / $item), 1) : $count;
+    }
+
+    /**
+     * The shard each of these items is listed first for, consecutive items to
+     * one shard, the shards numbered after those before; a count asked for
+     * spreads every item over its shards, since an item of any package may
+     * run in any shard that pulls.
+     *
+     * @return list<int>
+     */
+    private static function owners(int $items, int $count, int $before): array
+    {
+        $owners = [];
+
+        for ($at = 0; $at < $items; $at++) {
+            $owners[] = $before + intdiv($at * $count, $items) + 1;
+        }
+
+        return $owners;
+    }
+
+    /**
+     * These items, each listed first for its shard.
+     *
+     * @param list<int> $owners
+     */
+    private static function pulled(Shards $items, array $owners): Shards
+    {
+        $pulled = [];
+
+        foreach ($items as $at => $item) {
+            $pulled[] = $item->workedBy(ShardId::of($owners[$at] ?? 1));
+        }
+
+        return Shards::of(...$pulled);
     }
 
     /**

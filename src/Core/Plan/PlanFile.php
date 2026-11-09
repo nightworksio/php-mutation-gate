@@ -113,6 +113,9 @@ final readonly class PlanFile
 
     private const string BASE = 'base';
 
+    /** The job that lists an item of a run whose shards pull their work first (ADR-0134). */
+    private const string WORKER = 'worker';
+
     private const string PROVED = 'proved';
 
     private const string CARRIED = 'carried';
@@ -250,6 +253,7 @@ final readonly class PlanFile
             'package' => $shard->package()->path()->value(),
             'units' => UnitRecord::all($shard->units()),
             ...TestPartRecord::of($shard->testPart()),
+            ...$shard->isPulled() ? [self::WORKER => $shard->worker()->number()] : [],
         ];
     }
 
@@ -390,6 +394,13 @@ final readonly class PlanFile
             $shard->field('label')->text(),
         );
 
-        return $read->estimated(EstimateRecord::read($shard, $read->cost()))->inPart(TestPartRecord::read($shard));
+        $worker = $shard->field(self::WORKER);
+        $read = $read->estimated(EstimateRecord::read($shard, $read->cost()))->inPart(TestPartRecord::read($shard));
+
+        return match (true) {
+            ! $worker->isPresent() => $read,
+            $worker->integer() > 0 => $read->workedBy(ShardId::of($worker->integer())),
+            default => throw NotInShape::at($worker->at(), 'a shard number'),
+        };
     }
 }

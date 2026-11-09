@@ -44,6 +44,7 @@ final readonly class Shards implements Part
         private Planning $planning,
         private Outbreak $outbreak,
         private Seconds|Absent $jobLimit,
+        private Pulling $pulling,
     ) {
     }
 
@@ -69,6 +70,7 @@ final readonly class Shards implements Part
         int|Absent $testsBeforeAKill = new Absent(),
         int|float|Absent $surviving = new Absent(),
         int|float|Absent $shardOverhead = new Absent(),
+        Pulling|Absent $pulling = new Absent(),
     ): self {
         return new self(
             $seconds,
@@ -88,6 +90,7 @@ final readonly class Shards implements Part
             $planning instanceof Planning ? $planning : Planning::of(),
             $outbreak instanceof Outbreak ? $outbreak : Outbreak::of(),
             $jobLimit,
+            $pulling instanceof Pulling ? $pulling : Pulling::of(),
         );
     }
 
@@ -110,6 +113,7 @@ final readonly class Shards implements Part
             Planning::standard(),
             Outbreak::of(),
             $none->jobLimit(),
+            Pulling::of($none->pulling()->pull(), $none->pulling()->lastJudges()),
         );
     }
 
@@ -136,6 +140,7 @@ final readonly class Shards implements Part
             $this->planning->over($later->planning),
             $this->outbreak->over($later->outbreak),
             Absent::laid($this->jobLimit, $later->jobLimit),
+            $this->pulling->over($later->pulling),
         );
     }
 
@@ -183,6 +188,12 @@ final readonly class Shards implements Part
     }
 
     /** `shards.jobLimit`: how long a shard's job can run: it is cut to fit it, and stops at it with what it judged. */
+    /** `shards.pull` and `shards.lastJudges` (ADR-0134). */
+    public function pulling(): Pulling
+    {
+        return $this->pulling;
+    }
+
     public function jobLimit(): Seconds
     {
         return $this->jobLimit instanceof Seconds ? $this->jobLimit : Seconds::minutes(self::JOB_LIMIT_MINUTES);
@@ -210,6 +221,7 @@ final readonly class Shards implements Part
                         'jobLimit',
                         $this->jobLimit instanceof Seconds ? $this->jobLimit->written() : $this->jobLimit,
                     ),
+                    ...$this->pulling->members(),
                 ),
             ),
             $this->costs->written($origin),
@@ -232,6 +244,7 @@ final readonly class Shards implements Part
             ...$this->jobLimit instanceof Seconds
                 ? [sprintf('Shards::jobLimit(%s)', PhpCalls::literal($this->jobLimit->written()))]
                 : [],
+            ...$this->pulling->php(),
         ];
 
         return PhpCalls::inWith(...$settings)

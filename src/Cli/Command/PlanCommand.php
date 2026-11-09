@@ -75,7 +75,7 @@ final readonly class PlanCommand
     public static function planOf(Composed $composed, InputInterface $input): PlanMade|CannotJudge
     {
         $mode = FlowOptions::mode($input, $composed->settings);
-        $cut = FlowOptions::cut($input, $composed->settings);
+        $cut = FlowOptions::pulled(FlowOptions::cut($input, $composed->settings), $composed);
         $matrix = FlowOptions::killMatrix($input);
 
         return match (true) {

@@ -116,6 +116,42 @@ final readonly class Shards implements Setting
         return new self(Json::object(Member::of('costs', Json::object(Member::of('savingsWindow', $duration)))));
     }
 
+    /** `shards.pull` `auto`, as by default: shards claim where the claims passed the race test, else steal. */
+    public static function pullingAuto(): self
+    {
+        return new self(Json::at('shards.pull', 'auto'));
+    }
+
+    /** `shards.pull` `claim`: a shard claims each item by an artifact of its own name before it runs it. */
+    public static function pullingByClaims(): self
+    {
+        return new self(Json::at('shards.pull', 'claim'));
+    }
+
+    /** `shards.pull` `steal`: a shard takes items from the back of the longest list left, marking what it finished. */
+    public static function pullingBySteals(): self
+    {
+        return new self(Json::at('shards.pull', 'steal'));
+    }
+
+    /** `shards.pull` `off`: each shard runs its own planned part. */
+    public static function owningTheirParts(): self
+    {
+        return new self(Json::at('shards.pull', 'off'));
+    }
+
+    /** `shards.lastJudges`: the shard that finishes the last item computes the verdict. */
+    public static function lastJudging(): self
+    {
+        return new self(Json::at('shards.lastJudges', value: true));
+    }
+
+    /** `shards.lastJudges` off, as by default: the verdict job computes the verdict. */
+    public static function verdictJobJudging(): self
+    {
+        return new self(Json::at('shards.lastJudges', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

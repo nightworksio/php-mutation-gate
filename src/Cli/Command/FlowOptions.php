@@ -311,6 +311,22 @@ final readonly class FlowOptions
         return self::parting($cut->cuttingAt($shards->planning()->cutAt())->withinJobLimit($shards->jobLimit()), $settings);
     }
 
+    /**
+     * The cut, its shards pulling their work in items of `plan.chunkMinutes`
+     * where `shards.pull` says so and the run is on GitHub Actions, whose
+     * artifacts its shards claim by (ADR-0134).
+     */
+    public static function pulled(Cut|CannotJudge $cut, Composed $composed): Cut|CannotJudge
+    {
+        $shards = $composed->settings->shards();
+
+        return $cut instanceof Cut
+            && $shards->pulling()->pull()->pulls()
+            && $composed->adapters->environment->onGitHubActions()
+            ? $cut->pulling($shards->planning()->chunk())
+            : $cut;
+    }
+
     /** The shard `--shard` names, or none, when the CI's environment names it. */
     public static function shard(InputInterface $input): ShardId|Absent|CannotJudge
     {

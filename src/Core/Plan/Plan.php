@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use function array_any;
 use function array_key_exists;
 use function array_values;
 
@@ -12,7 +13,13 @@ use ArrayIterator;
 use function count;
 
 use Countable;
+
+use function in_array;
+
 use IteratorAggregate;
+
+use function ksort;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -250,6 +257,34 @@ final readonly class Plan implements Countable, IteratorAggregate
     }
 
     /** @return Traversable<int, Shard> */
+    /** Whether its shards pull their work, each an item listed first for one job (ADR-0134). */
+    public function pulls(): bool
+    {
+        return array_any($this->shards, static fn(Shard $shard): bool => $shard->isPulled());
+    }
+
+    /**
+     * The jobs that run it, each with the labels of the shards listed first
+     * for it: one a shard, unless its shards pull their work.
+     *
+     * @return array<int, list<string>> each job's labels, by its number
+     */
+    public function jobs(): array
+    {
+        $jobs = [];
+
+        foreach ($this->shards as $shard) {
+            $labels = $jobs[$shard->worker()->number()] ?? [];
+            $jobs[$shard->worker()->number()] = in_array($shard->label(), $labels, true)
+                ? $labels
+                : [...$labels, $shard->label()];
+        }
+
+        ksort($jobs);
+
+        return $jobs;
+    }
+
     public function getIterator(): Traversable
     {
         return new ArrayIterator(array_values($this->shards));

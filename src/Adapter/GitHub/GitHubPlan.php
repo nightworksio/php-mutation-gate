@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 use function count;
 use function file_get_contents;
 use function getenv;
+use function implode;
 use function is_file;
 use function json_encode;
 
@@ -25,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -99,9 +101,9 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         $output = $this->job->variables()->valueOf(self::OUTPUT);
 
         return match (true) {
-            count($plan) > self::MOST_JOBS => CannotJudge::because(sprintf(
+            count($plan->jobs()) > self::MOST_JOBS => CannotJudge::because(sprintf(
                 'The plan holds %d shards, and a GitHub matrix runs at most %d jobs. Set shards.max to %d or less.',
-                count($plan),
+                count($plan->jobs()),
                 self::MOST_JOBS,
                 self::MOST_JOBS,
             )),
@@ -111,10 +113,11 @@ final readonly class GitHubPlan implements CiPlan, Configurable
             default => Publication::appended(
                 $output,
                 sprintf(
-                    "shards=%s\nplan=%s\nstands=%s\n",
+                    "shards=%s\nplan=%s\nstands=%s\npulls=%s\n",
                     $this->matrixOf($plan),
                     PlanListing::inline($plan),
                     $plan->briefing()->unchanged() instanceof Unchanged ? 'true' : 'false',
+                    $plan->pulls() ? 'true' : 'false',
                 ),
             ),
         };
@@ -267,8 +270,8 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     {
         $matrix = [];
 
-        foreach ($plan as $shard) {
-            $matrix[] = ['id' => $shard->id()->number(), 'label' => $shard->label()];
+        foreach ($plan->jobs() as $job => $labels) {
+            $matrix[] = ['id' => $job, 'label' => implode(Fit::COMMA, $labels)];
         }
 
         return json_encode($matrix, JsonText::FLAGS);

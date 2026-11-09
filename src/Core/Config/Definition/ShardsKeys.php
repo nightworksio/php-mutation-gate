@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Planning;
 use NightWorksIO\MutationGate\Core\Config\Price;
+use NightWorksIO\MutationGate\Core\Config\Pulling;
+use NightWorksIO\MutationGate\Core\Config\ShardPull;
 use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
@@ -36,6 +38,8 @@ final readonly class ShardsKeys
         $setup = Field::optional('setup', Duration::written(), $judges);
         $cutAt = Field::optional('cutAt', Number::atLeast(0), $judges);
         $jobLimit = Field::optional('jobLimit', Duration::written(), $judges);
+        $pull = Field::optional(Pulling::PULL, Enumerated::of(ShardPull::cases()), $judges);
+        $lastJudges = Field::optional(Pulling::LAST_JUDGES, Flag::boolean(), $judges);
         $perLine = Field::optional(SecondsPerLine::KEY, NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
         $perMinute = Field::optional('perRunnerMinute', self::price(), $judges);
         $window = Field::optional(SavingsWindow::KEY, Duration::written(), $judges);
@@ -56,6 +60,8 @@ final readonly class ShardsKeys
                         $setup,
                         $cutAt,
                         $jobLimit,
+                        $pull,
+                        $lastJudges,
                     ): Layer|Invalid {
                         $cut = $seconds->read($shards);
                         $most = $max->read($shards);
@@ -64,6 +70,8 @@ final readonly class ShardsKeys
                         $before = $setup->read($shards);
                         $cuts = $cutAt->read($shards);
                         $limit = $jobLimit->read($shards);
+                        $pulled = $pull->read($shards);
+                        $last = $lastJudges->read($shards);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
@@ -74,6 +82,7 @@ final readonly class ShardsKeys
                                 learnedFrom: $statistic->value(),
                                 planning: Planning::of(cutAt: $cuts->value()),
                                 jobLimit: $limit->value(),
+                                pulling: Pulling::of($pulled->value(), $last->value()),
                             )),
                             $cut,
                             $most,
@@ -82,6 +91,8 @@ final readonly class ShardsKeys
                             $before,
                             $cuts,
                             $limit,
+                            $pulled,
+                            $last,
                         );
                     },
                     $seconds,
@@ -91,6 +102,8 @@ final readonly class ShardsKeys
                     $setup,
                     $cutAt,
                     $jobLimit,
+                    $pull,
+                    $lastJudges,
                 )->atMostOne(['seconds', 'target']),
             ),
             Field::section('plan', self::plan()),
