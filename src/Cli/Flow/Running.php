@@ -431,7 +431,8 @@ final readonly class Running
         Stopwatch $stopwatch,
     ): Mutated|CannotJudge {
         $from = $stopwatch->now();
-        $held = new HeldCoverage($this->adapters, $this->settings->reach()->heldCoverage())->checked($shard, $map);
+        $held = new HeldCoverage($this->adapters, $this->settings->reach()->heldCoverage())
+            ->checked($shard, $map, $plan->briefing()->isEarly());
         $stopwatch->handled(Step::HeldCoverage, $from, $shard->units()->held());
 
         if ($held instanceof CannotJudge) {

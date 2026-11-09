@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\FailFastSavings;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -83,8 +84,24 @@ final readonly class Results
      * @param Stopped                                         $stopped how they stopped once the run could not pass
      * @param UnitResults                                     $units   each unit the shards ran, with its mutants
      */
-    private function __construct(private array $read, private Stopped $stopped, private UnitResults $units)
+    private function __construct(
+        private array $read,
+        private Stopped $stopped,
+        private UnitResults $units,
+        private HeldMisses|NotGiven $more = new NotGiven(),
+    ) {
+    }
+
+    /**
+     * These results, with these held units' misses too, as the verdict of a
+     * run planned without a fresh map finds them against the map its
+     * streams recorded (ADR-0135).
+     */
+    public function missing(HeldMisses $more): self
     {
+        $misses = $this->more instanceof HeldMisses ? $this->more->and($more) : $more;
+
+        return new self($this->read, $this->stopped, $this->units, $misses);
     }
 
     /**
@@ -129,7 +146,7 @@ final readonly class Results
     /** Every shard's held units whose holding tests miss lines of them. */
     public function misses(): HeldMisses
     {
-        $misses = HeldMisses::none();
+        $misses = $this->more instanceof HeldMisses ? $this->more : HeldMisses::none();
 
         foreach ($this->read as [, $result]) {
             $misses = $misses->and($result->held()->misses());

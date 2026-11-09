@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Cli\Flow\UnchangedVerdict;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -134,7 +135,7 @@ final readonly class VerdictCommand
                 $following->setup,
                 $following->reporting,
             )->of($plan, $unchanged),
-            default => self::judged($following, EarlyKeys::of($following, $plan, $results), $read, $heldTo),
+            default => self::judged($following, $plan, $results, $read, $heldTo),
         };
     }
 
@@ -161,19 +162,27 @@ final readonly class VerdictCommand
         return $judged->exitCode()->value;
     }
 
-    /** A plan's results judged, by its keys as the verdict built them where it was planned early (ADR-0135). */
+    /**
+     * A plan's results judged; where it was planned early, by the keys the
+     * verdict builds from the map its streams recorded, with the held units
+     * whose holding tests miss what that map shows (ADR-0135).
+     */
     private static function judged(
         Composed $following,
-        Plan|CannotJudge $plan,
+        Plan $plan,
+        Path $results,
         Results $read,
         HeldTo|NotGiven $heldTo,
     ): Judged|Invalid|CannotJudge {
-        return $plan instanceof CannotJudge ? $plan : new Judging(
+        $map = EarlyKeys::recorded($following, $plan, $results);
+        $keyed = EarlyKeys::of($following, $plan, $map);
+
+        return $keyed instanceof CannotJudge ? $keyed : new Judging(
             $following->adapters,
             $following->settings,
             $following->setup,
             $following->reporting,
             $heldTo,
-        )->verdict($plan, $read);
+        )->verdict($keyed, $map instanceof CoverageMap ? $read->missing(EarlyKeys::misses($read, $map)) : $read);
     }
 }

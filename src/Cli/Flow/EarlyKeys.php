@@ -9,6 +9,10 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hold\GroupCoverage;
+use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\NotCovered;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
@@ -25,15 +29,53 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  */
 final readonly class EarlyKeys
 {
-    /** The plan keyed by its shards' recorded map, where it was planned early; as it is otherwise. */
-    public static function of(Composed $composed, Plan $plan, Path $results): Plan|CannotJudge
+    /** Every shard's recorded map merged, where the plan was planned early and every shard left one; none otherwise. */
+    public static function recorded(Composed $composed, Plan $plan, Path $results): CoverageMap|NotGiven
     {
         if (! $plan->briefing()->isEarly()) {
-            return $plan;
+            return NotGiven::value();
         }
 
-        $map = self::recorded($composed, $plan, $results);
+        $map = CoverageMap::of();
 
+        foreach ($plan as $shard) {
+            $contents = $composed->adapters->project->read(Workspace::recorded($results, $shard->id()));
+            $read = $contents instanceof Contents
+                ? CoverageMapFile::decode($contents->text(), Handoff::limits())
+                : NotGiven::value();
+
+            if (! $read instanceof CoverageMap) {
+                return NotGiven::value();
+            }
+
+            $map = $map->and($read);
+        }
+
+        return $map;
+    }
+
+    /**
+     * Each held unit whose holding tests, as its shard kept them, miss a line
+     * the recorded map shows the suite covering: in a run planned early the
+     * verdict, not the shard, checks them (ADR-0135).
+     */
+    public static function misses(Results $results, CoverageMap $map): HeldMisses
+    {
+        $misses = HeldMisses::none();
+
+        foreach ($results->shards() as [, $result]) {
+            foreach ($result->held()->covered() as $covered) {
+                $checked = GroupCoverage::of($covered->unit(), $map, $map->ranBy($covered->tests()));
+                $misses = $checked instanceof NotCovered ? $misses->with($checked) : $misses;
+            }
+        }
+
+        return $misses;
+    }
+
+    /** The plan keyed by its shards' recorded map, where it has one; as it is otherwise. */
+    public static function of(Composed $composed, Plan $plan, CoverageMap|NotGiven $map): Plan|CannotJudge
+    {
         if (! $map instanceof CoverageMap) {
             return $plan;
         }
@@ -70,26 +112,5 @@ final readonly class EarlyKeys
         }
 
         return $plan->keyedBy($keying->base(), $keying->keysOf($units), $keying->digestsOf($units));
-    }
-
-    /** Every shard's recorded map, merged; none where any shard left none. */
-    private static function recorded(Composed $composed, Plan $plan, Path $results): CoverageMap|CannotJudge
-    {
-        $map = CoverageMap::of();
-
-        foreach ($plan as $shard) {
-            $contents = $composed->adapters->project->read(Workspace::recorded($results, $shard->id()));
-            $read = $contents instanceof Contents
-                ? CoverageMapFile::decode($contents->text(), Handoff::limits())
-                : CannotJudge::because('unrecorded');
-
-            if (! $read instanceof CoverageMap) {
-                return $read;
-            }
-
-            $map = $map->and($read);
-        }
-
-        return $map;
     }
 }
