@@ -175,6 +175,11 @@ final readonly class VerdictCommand
         HeldTo|NotGiven $heldTo,
     ): Judged|Invalid|CannotJudge {
         $map = EarlyKeys::recorded($following, $plan, $results);
+
+        if ($map instanceof CannotJudge) {
+            return $map;
+        }
+
         $keyed = EarlyKeys::of($following, $plan, $map);
 
         return $keyed instanceof CannotJudge ? $keyed : new Judging(

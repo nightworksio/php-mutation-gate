@@ -16,21 +16,35 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
+use function sprintf;
+
 /**
  * The keys of a run planned without a fresh map (ADR-0135): its verdict
  * merges the maps every shard's streams recorded into one, leaves it where
  * the verdict reads the run's map and where the map beside the ledger is
  * kept from, and builds each unit's key from it, as a plan builds keys from
- * the map it measured. Where any shard left no map, the merged one could
- * miss what that shard's tests executed, so it keys nothing, and the run
- * records no proof.
+ * the map it measured. Where any shard left no map, or one that cannot be
+ * read, the run cannot be judged: its held units would go unchecked and its
+ * keys would miss what that shard's tests executed.
  *
  * @internal
  */
 final readonly class EarlyKeys
 {
-    /** Every shard's recorded map merged, where the plan was planned early and every shard left one; none otherwise. */
-    public static function recorded(Composed $composed, Plan $plan, Path $results): CoverageMap|NotGiven
+    private const string UNRECORDED = 'The run was planned without a fresh map, and shard %d left no map of what its'
+        . ' streams executed at %s, so its held units and keys cannot be judged.';
+
+    private const string UNREAD = 'The run was planned without a fresh map, and the map shard %d recorded cannot be'
+        . ' judged by: %s';
+
+    /**
+     * Every shard's recorded map merged, where the plan was planned early;
+     * why the run cannot be judged where any shard left none, or one that
+     * cannot be read, since its held units would go unchecked and its keys
+     * would miss what that shard's tests executed; none where the plan was
+     * not planned early.
+     */
+    public static function recorded(Composed $composed, Plan $plan, Path $results): CoverageMap|CannotJudge|NotGiven
     {
         if (! $plan->briefing()->isEarly()) {
             return NotGiven::value();
@@ -39,13 +53,17 @@ final readonly class EarlyKeys
         $map = CoverageMap::of();
 
         foreach ($plan as $shard) {
-            $contents = $composed->adapters->project->read(Workspace::recorded($results, $shard->id()));
-            $read = $contents instanceof Contents
-                ? CoverageMapFile::decode($contents->text(), Handoff::limits())
-                : NotGiven::value();
+            $file = Workspace::recorded($results, $shard->id());
+            $contents = $composed->adapters->project->read($file);
+
+            if (! $contents instanceof Contents) {
+                return CannotJudge::because(sprintf(self::UNRECORDED, $shard->id()->number(), $file->value()));
+            }
+
+            $read = CoverageMapFile::decode($contents->text(), Handoff::limits());
 
             if (! $read instanceof CoverageMap) {
-                return NotGiven::value();
+                return CannotJudge::because(sprintf(self::UNREAD, $shard->id()->number(), $read->why()));
             }
 
             $map = $map->and($read);

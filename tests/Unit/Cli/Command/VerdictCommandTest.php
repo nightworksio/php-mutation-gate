@@ -401,3 +401,37 @@ it('stands on the verdict the default branch passed where a pull request reaches
         ->and(LedgerRead::ledger($proofs->read(Scope::pullRequest(516)))->runs()->passed())
         ->toEqual(Passed::of(Revision::ref($merge), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(InstalledGate::version())));
 });
+
+it('cannot judge a run planned without a fresh map where a shard left no recorded map, or one that cannot be read', function (string $recorded, string $why) use ($composed): void {
+    $project = FlowCommands::project();
+    $composition = $composed($project, 50.0);
+    FlowCommands::run(PlanCommand::command($composition), '--shards=2');
+    $made = PlanFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)));
+    $early = $made instanceof Plan ? $made->briefed($made->briefing()->plannedEarly()) : $made;
+    file_put_contents(sprintf('%s/.mutation-gate/plan.json', $project), $early instanceof Plan ? PlanFile::encode($early) : '');
+
+    foreach (['1', '2'] as $shard) {
+        FlowCommands::run(
+            RunCommand::command($composition),
+            sprintf('--plan=.mutation-gate/plan.json --shard=%s --results=.mutation-gate/results', $shard),
+        );
+    }
+
+    if ($recorded !== '') {
+        foreach (['1', '2'] as $shard) {
+            file_put_contents(sprintf('%s/.mutation-gate/results/%s.recorded.json.gz', $project, $shard), $recorded);
+        }
+    }
+
+    $flow = $composition->compose(new ArrayInput([]));
+    $plan = $flow instanceof Composed ? VerdictCommand::planIn($flow, Path::of('.mutation-gate/plan.json')) : $flow;
+    $judged = $flow instanceof Composed && $plan instanceof Plan
+        ? VerdictCommand::judgedOf($flow, $plan, Path::of('.mutation-gate/results'))
+        : $plan;
+
+    expect($judged)->toBeInstanceOf(CannotJudge::class)
+        ->and($judged instanceof CannotJudge ? $judged->why() : '')->toContain($why);
+})->with([
+    'no recorded map' => ['', 'shard 1 left no map of what its streams executed'],
+    'a recorded map that cannot be read' => ['not a map', 'the map shard 1 recorded cannot be judged by'],
+]);
