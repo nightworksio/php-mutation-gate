@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Report\Page\PageShows;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Report\ReportTests;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -197,7 +198,6 @@ final readonly class Builtins
                 BuiltinReporter::Console,
                 BuiltinReporter::GitHubAnnotations,
                 BuiltinReporter::GitHubSummary,
-                BuiltinReporter::Json,
                 BuiltinReporter::JUnit,
                 BuiltinReporter::Sarif,
                 BuiltinReporter::Stryker,
@@ -215,6 +215,10 @@ final readonly class Builtins
                 GateSecret::WebhookUrl->value,
                 Json::object(Member::of(AlertOption::SecretEnv->value, GateSecret::WebhookSecret->value)),
                 Field::optional(AlertOption::SecretEnv->value, $variable, $judges),
+            ),
+            BuiltinReporter::Json->value => Section::options(
+                Json::object(),
+                Field::optional(ReportTests::OPTION, Enumerated::of(ReportTests::cases()), $judges),
             ),
             BuiltinReporter::Html->value => Section::options(
                 Json::object(),

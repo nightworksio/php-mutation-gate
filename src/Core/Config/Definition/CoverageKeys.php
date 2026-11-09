@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Proofs;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -15,7 +16,9 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * since the map it measures is kept beside the ledger. `incremental` is not
  * in a proof's key: an entry is reused only under its own key, so it never
  * changes what a key reads. It decides how the gate runs, since the map it
- * keeps tells what a changed test reaches (ADR-0005).
+ * keeps tells what a changed test reaches (ADR-0005). `compressionLevel`,
+ * the gzip level a map the gate keeps or hands over is packed at, changes
+ * only its bytes.
  *
  * @internal
  */
@@ -25,19 +28,26 @@ final readonly class CoverageKeys
     public static function fields(): array
     {
         $incremental = Field::optional('incremental', Flag::boolean(), Effect::DecidesHowTheGateRuns);
+        $level = Field::optional('compressionLevel', Integer::between(1, Gzip::MOST), Effect::JudgesOrReportsOnly);
 
         return [Field::section(
             'coverage',
             Section::of(
-                static function (Node $coverage) use ($incremental): Layer|Invalid {
+                static function (Node $coverage) use ($incremental, $level): Layer|Invalid {
                     $measured = $incremental->read($coverage);
+                    $packed = $level->read($coverage);
 
                     return Reading::built(
-                        static fn(): Layer => Layer::of(Proofs::of(incremental: $measured->value())),
+                        static fn(): Layer => Layer::of(Proofs::of(
+                            incremental: $measured->value(),
+                            coverageLevel: $packed->value(),
+                        )),
                         $measured,
+                        $packed,
                     );
                 },
                 $incremental,
+                $level,
             ),
         )];
     }

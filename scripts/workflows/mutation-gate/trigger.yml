@@ -87,6 +87,10 @@ on:
           that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
         type: string
         default: ''
+      download-timeout:
+        description: How many minutes each artifact download may take before it is tried once again.
+        type: number
+        default: 2
       plan-timeout:
         description: How many minutes the plan job may take, which runs the suite under coverage.
         type: number

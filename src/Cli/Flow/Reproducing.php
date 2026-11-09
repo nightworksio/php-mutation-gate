@@ -57,7 +57,7 @@ final readonly class Reproducing
     {
         $judgedBy = $this->judgedBy($recorded->proof()->unit(), $inventory->units);
         $mutant = Reproducible::of($recorded->mutant());
-        $request = SuiteCoverage::of($this->adapters, $inventory)
+        $request = SuiteCoverage::of($this->adapters, $inventory, $this->settings->proofs()->coverageCompressionLevel())
             ->handing(RunRequest::of($this->adapters, $this->settings, Paths::of($mutant->file()), $judgedBy));
 
         if ($request instanceof CannotJudge) {

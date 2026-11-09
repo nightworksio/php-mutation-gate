@@ -203,7 +203,12 @@ final readonly class Running
 
         $started = $this->setup->clock->now();
         $stopwatch = new Stopwatch($this->setup->clock, $started);
-        $handoff = new Handoff($this->adapters->project, Handoff::limits(), $this->adapters->maps);
+        $handoff = new Handoff(
+            $this->adapters->project,
+            Handoff::limits(),
+            $this->adapters->maps,
+            $this->settings->proofs()->coverageCompressionLevel(),
+        );
         $map = $handoff->read($id);
         $history = $handoff->history($id);
         $ordering = Ordering::of(

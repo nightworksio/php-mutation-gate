@@ -10,7 +10,8 @@ Usage:
   python3 scripts/workflows/generate.py --check   exit 1 where the written file is not what the template gives
 
 Each `actions/download-artifact` step of the template becomes two: the step
-itself, with an id of its own, two minutes and `continue-on-error: true`, and
+itself, with an id of its own, the minutes the `download-timeout` input gives,
+two by default, and `continue-on-error: true`, and
 a step named `Retry downloading <what it downloads>` that downloads the same
 artifact to the same path where the first one's outcome is `failure`. A
 download that may find nothing, one whose template step carries
@@ -35,7 +36,7 @@ WORKFLOW = Path(".github/workflows/mutation-gate.yml")
 RECIPE = "python3 scripts/workflows/generate.py"
 
 DOWNLOAD = "      - uses: actions/download-artifact@"
-MINUTES = 2
+MINUTES = "${{ inputs.download-timeout }}"
 
 DOWNLOADS = (
     ("mutation-gate-fetched-", "fetched", "the store's copy of the ledger"),

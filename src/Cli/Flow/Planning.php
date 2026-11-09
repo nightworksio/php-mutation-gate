@@ -128,7 +128,7 @@ final readonly class Planning
         MatrixKind $matrix,
         bool $ownMap,
     ): PlanMade|CannotJudge {
-        $suites = SuiteCoverage::of($this->adapters, $inventory);
+        $suites = SuiteCoverage::of($this->adapters, $inventory, $this->settings->proofs()->coverageCompressionLevel());
         $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
         $names = new NameGraph($this->adapters)->named($inventory->suite);
         $entries = $kept->entries($inventory, $names);
@@ -383,7 +383,12 @@ final readonly class Planning
         KillHistory $history,
         Subsumption|NotGiven $held,
     ): Plan|CannotJudge {
-        $handed = new Handoff($this->adapters->project, Handoff::limits(), $this->adapters->maps)
+        $handed = new Handoff(
+            $this->adapters->project,
+            Handoff::limits(),
+            $this->adapters->maps,
+            $this->settings->proofs()->coverageCompressionLevel(),
+        )
             ->write($plan, $map, $history, $at, $keys, $held);
 
         return $handed instanceof CannotJudge ? $handed : $plan;

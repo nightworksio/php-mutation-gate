@@ -248,7 +248,7 @@ final readonly class KeptCoverage
     private function keptIn(Scope $scope): Written|NotWritten|ReadsOnly
     {
         $read = $this->fromWorkspace();
-        $bytes = $read instanceof KeptMap ? CoverageMapFile::keeping($read, $this->limits()) : $read;
+        $bytes = $read instanceof KeptMap ? CoverageMapFile::keeping($read, $this->limits(), $this->level()) : $read;
 
         return match (true) {
             $bytes instanceof Missing
@@ -305,6 +305,7 @@ final readonly class KeptCoverage
                 Contents::of(CoverageMapFile::encode(
                     Remeasured::over($kept->map(), $moving->held(), $measured, $this->changedSince($kept)),
                     Measuring::now($this->adapters),
+                    level: $this->level(),
                 )),
             )
             : $measured;
@@ -364,5 +365,11 @@ final readonly class KeptCoverage
         return $read instanceof NotGiven
             ? sprintf(self::MEASURED, $moving->total(), $moving->total(), $from->value)
             : sprintf(self::EVERY, sprintf(self::READ_BY_EVERY, $read->value()));
+    }
+
+    /** The level a map the run keeps or writes is packed at: `coverage.compressionLevel`. */
+    private function level(): int
+    {
+        return $this->settings->proofs()->coverageCompressionLevel();
     }
 }

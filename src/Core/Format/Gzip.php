@@ -43,6 +43,9 @@ final readonly class Gzip
 
     /** The highest level gzip packs at. */
     public const int MOST = 9;
+
+    /** The level gzip packs at by default. */
+    public const int LEVEL = 6;
     /** How every gzip stream begins. */
     private const string MAGIC = "\x1f\x8b";
 

@@ -264,7 +264,12 @@ final readonly class Recorded
         Plan $plan,
     ): Ledger|CannotJudge {
         $pruned = $plan->considered()->pruned()->files();
-        $handoff = new Handoff($this->adapters->project, Handoff::limits(), $this->adapters->maps);
+        $handoff = new Handoff(
+            $this->adapters->project,
+            Handoff::limits(),
+            $this->adapters->maps,
+            $this->settings->proofs()->coverageCompressionLevel(),
+        );
         $times = MutantTimes::none();
         $timings = Timings::none();
 

@@ -185,7 +185,9 @@ jobs:
 It takes the action's inputs less `shard`, `deliver`, `install`,
 `composer-auth` and the action's `judge`, and its own: `coverage`, `judge`,
 `runs-on`, `keyed-runs-on`, `plan-timeout` (60), `shard-timeout` (360),
-`verdict-timeout` (30), each in minutes, `plan-coverage` (`pcov`), the driver
+`verdict-timeout` (30) and `download-timeout` (2), how long each artifact
+download may take before it is tried once again, each in minutes,
+`plan-coverage` (`pcov`), the driver
 the plan sets up, and `publish-branch` (`mutation-gate`), where publish writes
 the badge and trend. Its outputs are
 `verdict`, `scores` and `plan`, and it uploads the reports as the artifact

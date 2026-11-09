@@ -85,27 +85,28 @@ final readonly class CoverageMapFile
     }
 
     /**
-     * A map as the gate writes it, with where it was measured, which a map
-     * of some files alone does not say, and each test file's entry key where
-     * the map is one a store keeps. A map's tables, read once, write it and
+     * A map as the gate writes it, packed at this level, with where it was
+     * measured, which a map of some files alone does not say, and each test
+     * file's entry key where the map is one a store keeps. A map's tables, read once, write it and
      * each of its files alone as its map would.
      */
     public static function encode(
         CoverageMap|MapText $map,
         MeasuredAt|Unplaced $at,
         EntryKeys|NotGiven $keys = new NotGiven(),
+        int $level = Gzip::LEVEL,
     ): string {
-        return Gzip::pack(($map instanceof MapText ? $map : MapText::of($map))->written($at, $keys));
+        return Gzip::packAt(($map instanceof MapText ? $map : MapText::of($map))->written($at, $keys), $level);
     }
 
     /**
      * A map a store keeps, packed within its limits; or why it is not kept:
      * it is past either.
      */
-    public static function keeping(KeptMap $kept, MapLimits $limits): string|CannotJudge
+    public static function keeping(KeptMap $kept, MapLimits $limits, int $level = Gzip::LEVEL): string|CannotJudge
     {
         $text = MapText::of($kept->map())->written($kept->measuredAt(), $kept->keys());
-        $bytes = Gzip::pack($text);
+        $bytes = Gzip::packAt($text, $level);
 
         return $limits->admits($text, $bytes)
             ? $bytes

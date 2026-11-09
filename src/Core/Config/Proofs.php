@@ -34,6 +34,9 @@ final readonly class Proofs implements Part
     private const string PATH = 'path';
 
     /** @param Listed<Glob>|Absent $ignore */
+    /** gzip's own default level, which a coverage map is packed at where nothing says. */
+    private const int COVERAGE_LEVEL = 6;
+
     private function __construct(
         private Choice|Absent $store,
         private Listed|Absent $ignore,
@@ -43,6 +46,7 @@ final readonly class Proofs implements Part
         private bool|Absent $ownScope,
         private Compressed $compressed,
         private Retained $retained,
+        private int|Absent $coverageLevel,
     ) {
     }
 
@@ -57,6 +61,7 @@ final readonly class Proofs implements Part
         Compression|Absent $compression = new Absent(),
         int|Absent $compressionLevel = new Absent(),
         Retained|Absent $retained = new Absent(),
+        int|Absent $coverageLevel = new Absent(),
     ): self {
         return new self(
             $store,
@@ -67,6 +72,7 @@ final readonly class Proofs implements Part
             $ownScope,
             Compressed::of($compression, $compressionLevel),
             $retained instanceof Retained ? $retained : Retained::of(),
+            $coverageLevel,
         );
     }
 
@@ -88,6 +94,7 @@ final readonly class Proofs implements Part
             compression: $none->compression(),
             compressionLevel: $none->compressionLevel(),
             retained: Retained::standard(),
+            coverageLevel: $none->coverageCompressionLevel(),
         );
     }
 
@@ -108,6 +115,7 @@ final readonly class Proofs implements Part
                 Absent::laid($this->ownScope, $later->ownScope),
                 $this->compressed->over($later->compressed),
                 $this->retained->over($later->retained),
+                Absent::laid($this->coverageLevel, $later->coverageLevel),
             )
             : $this;
     }
@@ -183,6 +191,12 @@ final readonly class Proofs implements Part
         return $this->incremental instanceof Absent || $this->incremental;
     }
 
+    /** The level a coverage map the gate keeps or hands over is packed at: `coverage.compressionLevel`, 6. */
+    public function coverageCompressionLevel(): int
+    {
+        return $this->coverageLevel instanceof Absent ? self::COVERAGE_LEVEL : $this->coverageLevel;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(
@@ -205,7 +219,10 @@ final readonly class Proofs implements Part
                     ...$this->compressed->members(),
                 )),
             ),
-            Member::unlessEmpty('coverage', Json::object(Member::of('incremental', $this->incremental))),
+            Member::unlessEmpty('coverage', Json::object(
+                Member::of('incremental', $this->incremental),
+                Member::of('compressionLevel', $this->coverageLevel),
+            )),
         );
     }
 
@@ -225,6 +242,9 @@ final readonly class Proofs implements Part
             ...$this->incremental instanceof Absent
                 ? []
                 : [$this->incremental ? 'Coverage::incremental()' : 'Coverage::full()'],
+            ...$this->coverageLevel instanceof Absent
+                ? []
+                : [sprintf('Coverage::compressionLevel(%d)', $this->coverageLevel)],
         ])->and($this->retained->php());
     }
 

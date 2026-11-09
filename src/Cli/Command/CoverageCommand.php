@@ -101,7 +101,11 @@ final readonly class CoverageCommand
         $conversion = $ran instanceof CoverageRan ? ReportConversion::started($adapters, $ran) : NotGiven::value();
         [$inventory, $read] = self::inventoried($adapters, $composed->settings, $conversion, $ran);
         $suites = match (true) {
-            $inventory instanceof Inventory => SuiteCoverage::of($adapters, $inventory),
+            $inventory instanceof Inventory => SuiteCoverage::of(
+                $adapters,
+                $inventory,
+                $composed->settings->proofs()->coverageCompressionLevel(),
+            ),
             $ran instanceof CoverageRan => $inventory,
             default => NotGiven::value(),
         };
@@ -130,6 +134,7 @@ final readonly class CoverageCommand
                 $entries,
                 $file,
                 $at,
+                $composed->settings->proofs()->coverageCompressionLevel(),
             );
 
         if ($written instanceof CannotJudge) {
@@ -192,6 +197,7 @@ final readonly class CoverageCommand
         CoverageEntries|CannotJudge|NotGiven $entries,
         Path $file,
         MeasuredAt|Unplaced $at,
+        int $level,
     ): Written|CannotJudge {
         $map = $measured instanceof CoverageMeasured
             ? $kept->mapOf($measured, $suites)
@@ -199,7 +205,7 @@ final readonly class CoverageCommand
         $keys = $map instanceof CoverageMap ? KeptCoverage::keysOf($entries, $map) : NotGiven::value();
 
         return $map instanceof CoverageMap
-            ? $adapters->project->write($file, Contents::of(CoverageMapFile::encode($map, $at, $keys)))
+            ? $adapters->project->write($file, Contents::of(CoverageMapFile::encode($map, $at, $keys, $level)))
             : $map;
     }
 

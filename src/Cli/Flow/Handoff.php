@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -66,6 +67,7 @@ final readonly class Handoff
         private Directory $project,
         private HandoffLimits $limits,
         private MapEngine|NotGiven $engine = new NotGiven(),
+        private int $level = Gzip::LEVEL,
     ) {
     }
 
@@ -97,7 +99,7 @@ final readonly class Handoff
         $text = MapText::of($map);
         $whole = $this->project->write(
             CoverageMapFile::in(Workspace::coverage()),
-            Contents::of(CoverageMapFile::encode($text, $at, $keys)),
+            Contents::of(CoverageMapFile::encode($text, $at, $keys, $this->level)),
         );
 
         if ($whole instanceof CannotJudge) {
@@ -208,7 +210,9 @@ final readonly class Handoff
         foreach ($split instanceof Written ? [] : $slices as $slice) {
             $wrote = $this->project->write(
                 $slice->into(),
-                Contents::of(CoverageMapFile::encode($text->onlyFor($slice->files()), Unplaced::map())),
+                Contents::of(
+                    CoverageMapFile::encode($text->onlyFor($slice->files()), Unplaced::map(), level: $this->level),
+                ),
             );
 
             if ($wrote instanceof CannotJudge) {

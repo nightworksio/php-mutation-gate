@@ -72,7 +72,8 @@ final readonly class Triaging
             return $unit;
         }
 
-        return SuiteCoverage::of($this->adapters, $inventory)->handing($this->requestFor($unit, $order, $inventory));
+        return SuiteCoverage::of($this->adapters, $inventory, $this->settings->proofs()->coverageCompressionLevel())
+            ->handing($this->requestFor($unit, $order, $inventory));
     }
 
     /**

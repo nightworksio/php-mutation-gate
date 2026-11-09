@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Hold\Additions;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -44,11 +45,12 @@ final readonly class SuiteCoverage
         private Suite $suite,
         private Paths $testFiles,
         private Additions $additions,
+        private int $level,
     ) {
     }
 
-    /** The coverage the inventory's suites may judge. */
-    public static function of(Adapters $adapters, Inventory $inventory): self
+    /** The coverage the inventory's suites may judge, its admitted map packed at this level. */
+    public static function of(Adapters $adapters, Inventory $inventory, int $level = Gzip::LEVEL): self
     {
         $files = Paths::none();
 
@@ -56,7 +58,7 @@ final readonly class SuiteCoverage
             $files = $file->role() === Role::TestCase ? $files->with($file->fingerprint()->path()) : $files;
         }
 
-        return new self($adapters, $inventory->suite, $files, $inventory->additions);
+        return new self($adapters, $inventory->suite, $files, $inventory->additions, $level);
     }
 
     /** A run of the whole suite under coverage: of the holding suites too, where something is held from them. */
@@ -132,7 +134,7 @@ final readonly class SuiteCoverage
         $admitted = $map instanceof CoverageMap ? $this->admitted($map) : $map;
         $written = $admitted instanceof CoverageMap ? $this->adapters->project->write(
             CoverageMapFile::in(Workspace::admittedCoverage()),
-            Contents::of(CoverageMapFile::encode($admitted, Unplaced::map())),
+            Contents::of(CoverageMapFile::encode($admitted, Unplaced::map(), level: $this->level)),
         ) : $admitted;
 
         return $written instanceof CannotJudge
