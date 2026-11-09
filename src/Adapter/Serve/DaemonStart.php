@@ -37,12 +37,14 @@ final readonly class DaemonStart
     /**
      * Whether a daemon listens: one that already does, or one started by the
      * gate's script in this directory within the time it is given
-     * (`local.serveStartWait`). None starts where
-     * the socket or its directory is not the user's own; a socket file no
-     * daemon answers on is removed before it starts.
+     * (`local.serveStartWait`). The socket's directory is kept to the user
+     * alone first, where it is the user's own; none starts where the socket
+     * or its directory is not the user's own; a socket file no daemon answers
+     * on is removed before it starts.
      */
     public function started(string $script, string $directory): bool
     {
+        $this->socket->tightened();
         $running = $this->socket->connected();
 
         if (! $running instanceof NotGiven) {
