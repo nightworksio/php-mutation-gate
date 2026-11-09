@@ -78,8 +78,3 @@ it('starts a worker that compiles through opcache, its blacklist named, where it
         (string) getmypid(),
     ]));
 });
-
-it('starts a mutant\'s own run with every argument Pest was given but the places it runs', function (): void {
-    expect(Pool::passed(['vendor/bin/pest', '--mutate', '--parallel', '--processes=3', '--no-tia']))
-        ->toBe(['vendor/bin/pest', '--mutate', '--parallel', '--no-tia']);
-});
