@@ -136,6 +136,18 @@ final readonly class DeliveryDirectory
         return $added instanceof Written ? $file : $added;
     }
 
+    /**
+     * The delivery, with the entries of a verdict's proofs and the request
+     * that merges them into their class's pack of `outbreak cache` beside it,
+     * which `deliver` pushes to the registry with its credential (ADR-0131).
+     */
+    public function cache(Contents $request, Contents $entries): Written|CannotJudge
+    {
+        $pack = $this->directory->write(Path::of(CacheDelivery::ENTRIES), $entries);
+
+        return $pack instanceof CannotJudge ? $pack : $this->directory->write(Path::of(CacheDelivery::REQUEST), $request);
+    }
+
     private function written(Delivery $delivery): Written|CannotJudge
     {
         return $this->directory->write(Path::of(DeliveryFile::NAME), Contents::of(DeliveryFile::encode($delivery)));

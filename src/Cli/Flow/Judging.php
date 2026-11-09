@@ -252,7 +252,9 @@ final readonly class Judging
             $this->settings->proofs()->taken(),
         );
         $kind = $plan->briefing()->profile();
-        $proving = $ledgers->proving($plan->considered()->proved(), $plan->keys(), $plan->base(), $kind);
+        $cached = new CachedPacks($this->adapters, $this->settings)->read(Standing::planned($plan), $plan->base());
+        $proving = $ledgers->caching($cached)
+            ->proving($plan->considered()->proved(), $plan->keys(), $plan->base(), $kind);
         $carrying = $ledgers->considering(
             $plan->considered()->carried(),
             Reach::nothing(Packages::of($trees)),

@@ -12,7 +12,9 @@ use function explode;
  * text on its input or says why not; `map split`, which writes the slices a
  * request on its input asks for; `report outline`, which answers the outline
  * of the map of the report a request names; and `report convert`, which
- * writes that map.
+ * writes that map; `cache pull`, which pulls the packs of proofs a request
+ * names from their store, and `cache push`, which merges a verdict's
+ * entries into their class's pack (ADR-0131).
  *
  * @internal
  */
@@ -23,6 +25,8 @@ enum Command: string
     case Split = 'map split';
     case Outline = 'report outline';
     case Convert = 'report convert';
+    case Pull = 'cache pull';
+    case Push = 'cache push';
 
     /** @return non-empty-list<string> the binary's arguments */
     public function words(): array

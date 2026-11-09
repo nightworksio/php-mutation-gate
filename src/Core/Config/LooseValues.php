@@ -43,6 +43,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
     private const string ALONE = 'a kill\'s control runs its killers alone, so a test that fails only after the tests'
         . ' before it counts as a kill';
 
+    private const string CACHE = 'the default branch takes a proof another branch of the repository computed, from the'
+        . ' shared cache';
+
     private const string OFF = 'false';
 
     private const string TRUST = 'ci.trustMergedPullRequests';
@@ -90,6 +93,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
                 : [],
             ...$settings->triage()->flaky()->killControls() === KillControl::Alone
                 ? [LooseValue::of('flaky.killControls', KillControl::Alone->value, self::ALONE)]
+                : [],
+            ...$settings->shards()->outbreak()->cache()->trust()->isLoose()
+                ? [LooseValue::of('outbreak.cache.trust', CacheTrust::Repository->value, self::CACHE)]
                 : [],
             ...$reach->lockMoves() !== LockMoveReach::Everything
                 ? [LooseValue::of('reach.lockMoves', $reach->lockMoves()->value, self::LOCK)]

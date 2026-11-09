@@ -289,7 +289,10 @@ final readonly class Planning
         $carried = $this->unitsOf($considering->carried());
         $carriedOwn = $carried->within($ownOnly);
         $keys = $keying->keysOf($considering->considered());
-        $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $kind);
+        $cache = new CachedPacks($this->adapters, $this->settings);
+        $cache->pulled($inventory->standing, $keying->base());
+        $proving = $ledgers->caching($cache->read($inventory->standing, $keying->base()))
+            ->proving($considering->considered(), $keys, $keying->base(), $kind);
         $changed = $this->newCode($inventory->standing, $reached);
         $auto = AutoSampling::of(
             $this->adapters,

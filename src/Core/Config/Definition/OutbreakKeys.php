@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use NightWorksIO\MutationGate\Core\Config\CacheStore;
+use NightWorksIO\MutationGate\Core\Config\CacheTrust;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Outbreak;
+use NightWorksIO\MutationGate\Core\Config\OutbreakCache;
 use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
@@ -28,15 +31,17 @@ final readonly class OutbreakKeys
         $binary = Field::optional(Outbreak::BINARY, Text::of('a path to the outbreak binary'), $none);
         $timeout = Field::optional(Outbreak::TIMEOUT, Duration::written(), $none);
         $threads = Field::optional(Outbreak::THREADS, Integer::atLeast(1), $none);
+        $cache = Field::section(OutbreakCache::OPTION, self::cache());
 
         return [Field::section(
             Outbreak::OPTION,
             Section::of(
-                static function (Node $outbreak) use ($enabled, $binary, $timeout, $threads): Layer|Invalid {
+                static function (Node $outbreak) use ($enabled, $binary, $timeout, $threads, $cache): Layer|Invalid {
                     $on = $enabled->read($outbreak);
                     $at = $binary->read($outbreak);
                     $within = $timeout->read($outbreak);
                     $cores = $threads->read($outbreak);
+                    $kept = $cache->read($outbreak);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Shards::of(outbreak: Outbreak::of(
@@ -44,18 +49,53 @@ final readonly class OutbreakKeys
                             $at->value(),
                             $within->value(),
                             $cores->value(),
+                            $kept->value(),
                         ))),
                         $on,
                         $at,
                         $within,
                         $cores,
+                        $kept,
                     );
                 },
                 $enabled,
                 $binary,
                 $timeout,
                 $threads,
+                $cache,
             ),
         )];
+    }
+
+    /**
+     * Where `outbreak cache` keeps its packs and which the default branch
+     * reads (ADR-0131): each decides how the gate runs.
+     *
+     * @return Section<OutbreakCache>
+     */
+    private static function cache(): Section
+    {
+        $decides = Effect::DecidesHowTheGateRuns;
+        $store = Field::optional(OutbreakCache::STORE, Enumerated::of(CacheStore::cases()), $decides);
+        $registry = Field::optional(OutbreakCache::REGISTRY, Text::of('an OCI repository'), $decides);
+        $trust = Field::optional(OutbreakCache::TRUST, Enumerated::of(CacheTrust::cases()), $decides);
+
+        return Section::of(
+            static function (Node $cache) use ($store, $registry, $trust): OutbreakCache|Invalid {
+                $kept = $store->read($cache);
+                $named = $registry->read($cache);
+                $read = $trust->read($cache);
+
+                return Reading::built(
+                    static fn(): OutbreakCache => OutbreakCache::of($kept->value(), $named->value(), $read->value()),
+                    $kept,
+                    $named,
+                    $read,
+                );
+            },
+            $store,
+            $registry,
+            $trust,
+        );
     }
 }

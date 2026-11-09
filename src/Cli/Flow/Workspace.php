@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace as GateDirectory;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Proof\CacheClass;
 use NightWorksIO\MutationGate\Core\Recheck\ShareOf;
 
 use function sprintf;
@@ -125,6 +126,27 @@ final readonly class Workspace
     public static function equivalence(): Path
     {
         return Path::of(sprintf('%s/equivalence', GateDirectory::root()->value()));
+    }
+
+    /**
+     * Where the packs of `outbreak cache` a run reads are, one for each class
+     * of writer, which the plan's artifact hands on to the verdict (ADR-0131).
+     */
+    public static function cachePack(CacheClass $class): Path
+    {
+        return Path::of(sprintf('%s/cache/%s.pack', GateDirectory::root()->value(), $class->value));
+    }
+
+    /** Where a verdict leaves the entries of the proofs it wrote, of the class it writes as, for the store to take. */
+    public static function cacheEntries(CacheClass $class): Path
+    {
+        return Path::of(sprintf('%s/cache/entries/%s.pack', GateDirectory::root()->value(), $class->value));
+    }
+
+    /** Where the Actions cache restored the packs of a class of writer, for `outbreak cache pull` to read. */
+    public static function restoredPacks(CacheClass $class): Path
+    {
+        return Path::of(sprintf('%s/cache/restored/%s', GateDirectory::root()->value(), $class->value));
     }
 
     /** Where the verdict keeps the JSON report of the last run, which `digest` renders. */

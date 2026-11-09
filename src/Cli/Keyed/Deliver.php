@@ -8,6 +8,11 @@ use function getenv;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Bundled;
+use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Cli\Command\FlowOptions;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -19,12 +24,16 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
 
@@ -86,6 +95,12 @@ final readonly class Deliver
             $output->writeln($line, OutputInterface::OUTPUT_RAW);
         }
 
+        $pushed = is_string($from) ? $this->cachePushed($from) : NotGiven::value();
+
+        if (! $pushed instanceof NotGiven) {
+            $output->writeln($pushed instanceof Written ? $pushed->said() : $pushed->why(), OutputInterface::OUTPUT_RAW);
+        }
+
         return $sent->exit()->value;
     }
 
@@ -136,5 +151,20 @@ final readonly class Deliver
             $read instanceof CannotJudge, $read instanceof TooLarge => $read,
             default => CannotJudge::because(sprintf(Sending::MISSING, LedgerFile::NAME)),
         };
+    }
+
+    /**
+     * The entries of the proof cache the delivery holds pushed into their
+     * pack by the binary the gate ships (ADR-0131), with the token the job
+     * hands it; or why they were not.
+     */
+    private function cachePushed(string $from): Written|NotWritten|NotGiven
+    {
+        $binary = Bundled::in(Resources::at(Shipped::Outbreak));
+        $trusted = TrustedRun::scopeIn(Variables::of($this->environment)) instanceof Scope;
+
+        return is_string($binary)
+            ? CacheDelivery::pushed(Outbreak::at($binary, $from), $from, $trusted, $this->environment)
+            : NotWritten::because('No Outbreak binary ships for this machine, so deliver pushes no proof pack.');
     }
 }

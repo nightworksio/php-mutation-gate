@@ -15,10 +15,11 @@ use function sprintf;
  * Whether Outbreak's core, the `outbreak` binary, takes the bulk of the
  * coverage maps a plan hands its shards, and of the map a run's report is
  * converted into, off the gate's PHP, which binary, how long one run of it
- * may take and on how many threads it writes (ADR-0118, ADR-0119):
- * `outbreak`, which the `Shards` part holds. None changes a result, since the
- * binary's output is the gate's own, so none is in a proof's key or decides
- * how the gate runs.
+ * may take and on how many threads it writes (ADR-0118, ADR-0119), and
+ * where `outbreak cache` keeps proofs by their keys (ADR-0131): `outbreak`,
+ * which the `Shards` part holds. None changes a result, since the binary's
+ * output is the gate's own and a cached proof stands under its key as a
+ * ledger's does, so none is in a proof's key.
  */
 final readonly class Outbreak
 {
@@ -45,6 +46,7 @@ final readonly class Outbreak
         private string|Absent $binary,
         private Seconds|Absent $timeout,
         private int|Absent $threads,
+        private OutbreakCache $cache,
     ) {
     }
 
@@ -53,8 +55,15 @@ final readonly class Outbreak
         string|Absent $binary = new Absent(),
         Seconds|Absent $timeout = new Absent(),
         int|Absent $threads = new Absent(),
+        OutbreakCache|Absent $cache = new Absent(),
     ): self {
-        return new self($enabled, $binary, $timeout, $threads);
+        return new self(
+            $enabled,
+            $binary,
+            $timeout,
+            $threads,
+            $cache instanceof OutbreakCache ? $cache : OutbreakCache::of(),
+        );
     }
 
     /** This, with what a later layer sets laid over it, key by key. */
@@ -65,6 +74,7 @@ final readonly class Outbreak
             Absent::laid($this->binary, $later->binary),
             Absent::laid($this->timeout, $later->timeout),
             Absent::laid($this->threads, $later->threads),
+            $this->cache->over($later->cache),
         );
     }
 
@@ -104,6 +114,12 @@ final readonly class Outbreak
         return $this->threads instanceof Absent ? NotGiven::value() : $this->threads;
     }
 
+    /** `outbreak.cache`: where `outbreak cache` keeps proofs by their keys, and which packs are read (ADR-0131). */
+    public function cache(): OutbreakCache
+    {
+        return $this->cache;
+    }
+
     /**
      * The runner a config chooses, with these settings beneath the options it
      * gives the Pest runner, which reads the plan's whole map in each shard
@@ -118,6 +134,7 @@ final readonly class Outbreak
                 Member::of(self::BINARY, $this->binary),
                 Member::of(self::TIMEOUT, $this->timeout()->seconds()),
                 Member::of(self::THREADS, $this->threads),
+                $this->cache->option(),
             ),
         ));
 
@@ -135,6 +152,7 @@ final readonly class Outbreak
                 Member::of(self::BINARY, $this->binary),
                 Member::of(self::TIMEOUT, WholeSeconds::duration($this->timeout)),
                 Member::of(self::THREADS, $this->threads),
+                $this->cache->written(),
             ),
         ));
     }
@@ -154,6 +172,7 @@ final readonly class Outbreak
                 ? [sprintf('Outbreak::timeout(%s)', PhpCalls::literal($this->timeout->written()))]
                 : [],
             ...$this->threads instanceof Absent ? [] : [sprintf('Outbreak::threads(%d)', $this->threads)],
+            ...$this->cache->php(),
         ]);
     }
 }

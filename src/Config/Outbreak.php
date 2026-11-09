@@ -8,8 +8,8 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * Whether Outbreak's core takes the coverage maps' bulk off the gate's PHP,
- * its binary, how long a run of it may take and its threads (ADR-0118):
- * `outbreak`.
+ * its binary, how long a run of it may take and its threads (ADR-0118), and
+ * where `outbreak cache` keeps proofs by their keys (ADR-0131): `outbreak`.
  */
 final readonly class Outbreak implements Setting
 {
@@ -45,6 +45,48 @@ final readonly class Outbreak implements Setting
     public static function threads(int $threads): self
     {
         return new self(Json::at('outbreak.threads', $threads));
+    }
+
+    /** `outbreak.cache.store`, `auto`, as by default: a registry where one is named, the Actions cache under the action. */
+    public static function cacheStoredAuto(): self
+    {
+        return new self(Json::at('outbreak.cache.store', 'auto'));
+    }
+
+    /** `outbreak.cache.store`, `none`: a run proves from its ledgers alone. */
+    public static function cacheStoredNowhere(): self
+    {
+        return new self(Json::at('outbreak.cache.store', 'none'));
+    }
+
+    /** `outbreak.cache.store`, `actions`: each pack an entry of the Actions cache. */
+    public static function cacheStoredInActions(): self
+    {
+        return new self(Json::at('outbreak.cache.store', 'actions'));
+    }
+
+    /** `outbreak.cache.store`, `oci`: each pack an artifact in the repository `outbreak.cache.registry` names. */
+    public static function cacheStoredInRegistry(): self
+    {
+        return new self(Json::at('outbreak.cache.store', 'oci'));
+    }
+
+    /** `outbreak.cache.registry`: the OCI repository the packs live in, such as `ghcr.io/owner/proofs`. */
+    public static function cacheRegistry(string $repository): self
+    {
+        return new self(Json::at('outbreak.cache.registry', $repository));
+    }
+
+    /** `outbreak.cache.trust`, `default-branch`, as by default: the default branch reads its own runs' packs alone. */
+    public static function cacheTrustingTheDefaultBranch(): self
+    {
+        return new self(Json::at('outbreak.cache.trust', 'default-branch'));
+    }
+
+    /** `outbreak.cache.trust`, `repository`: the default branch reads the packs any branch wrote too. A loose value. */
+    public static function cacheTrustingTheRepository(): self
+    {
+        return new self(Json::at('outbreak.cache.trust', 'repository'));
     }
 
     public function written(): Json

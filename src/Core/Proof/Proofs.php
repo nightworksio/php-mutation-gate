@@ -61,6 +61,18 @@ final readonly class Proofs implements Countable, IteratorAggregate
         return new self($proofs);
     }
 
+    /** These, and each of those whose key none of these holds, which these come before (ADR-0131). */
+    public function before(self $later): self
+    {
+        $proofs = $this->proofs;
+
+        foreach ($later->proofs as $key => $proof) {
+            $proofs[$key] ??= $proof;
+        }
+
+        return new self($proofs);
+    }
+
     /**
      * Of these proofs, those that stand for a run of this kind: made with the
      * same mutators, judged by the same tests, and recording what it asks for.

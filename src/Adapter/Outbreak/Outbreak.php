@@ -27,11 +27,13 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\MapEngine;
+use NightWorksIO\MutationGate\Port\ProofCache;
 
 use function sprintf;
 
@@ -46,7 +48,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class Outbreak implements ConvertsPhpReports, MapEngine
+final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCache
 {
     private const string NO_BINARY = 'No Outbreak binary is in use.';
 
@@ -59,6 +61,10 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine
     private const string WROTE = 'Outbreak wrote %d coverage maps from %s.';
 
     private const string UNREAD = 'Outbreak did not read the report: %s';
+
+    private const string UNCACHED = 'Outbreak did not %s the proof cache\'s packs: %s';
+
+    private const string CACHED = 'Outbreak %s %d of the proof cache\'s packs.';
 
     /** The option the binary takes how many threads it writes on with. */
     private const string THREADS = '--threads';
@@ -189,6 +195,49 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine
         return $said instanceof Node
             ? $this->splitBy($said, $whole)
             : NotWritten::because(sprintf(self::FAILED, $said->why()));
+    }
+
+    public function pulled(CacheRequest $request): Written|NotWritten
+    {
+        return $this->cached(Command::Pull, 'pull', 'pulled', $request);
+    }
+
+    public function pushed(CacheRequest $request): Written|NotWritten
+    {
+        return $this->cached(Command::Push, 'push', 'pushed', $request);
+    }
+
+    /** What the binary said of a request to the proof cache: how many packs it moved, or why none. */
+    private function cached(Command $command, string $verb, string $done, CacheRequest $request): Written|NotWritten
+    {
+        if ($this->binary instanceof NotGiven) {
+            return NotWritten::because(self::NO_BINARY);
+        }
+
+        $said = BinaryRun::ran($this->binary, $command->words(), $this->cacheAsked($request), $this->settings->timeout());
+
+        try {
+            return $said instanceof Node
+                ? Written::noting($done, sprintf(self::CACHED, $done, $said->field($done)->integer()))
+                : NotWritten::because(sprintf(self::UNCACHED, $verb, $said->why()));
+        } catch (NotInShape) {
+            return NotWritten::because(sprintf(self::UNCACHED, $verb, sprintf(self::ANSWERED, $said->json())));
+        }
+    }
+
+    /** A request to the proof cache as the binary reads it on its input. */
+    private function cacheAsked(CacheRequest $request): string
+    {
+        $registry = $request->registry();
+
+        return (string) json_encode([
+            'store' => $request->store()->value,
+            'registry' => $registry instanceof NotGiven ? null : $registry,
+            'base' => $request->base()->value(),
+            'limits' => ['packed' => $request->limits()->packed(), 'unpacked' => $request->limits()->unpacked()],
+            'packs' => (object) array_map($this->absolute(...), $request->packs()),
+            'restored' => (object) array_map($this->absolute(...), $request->restored()),
+        ], JsonText::FLAGS);
     }
 
     /** What the binary said of a split: the slices written, or why they were not. */

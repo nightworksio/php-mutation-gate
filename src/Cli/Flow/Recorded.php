@@ -5,15 +5,21 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_all;
+use function array_filter;
 use function count;
+use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredLedger;
+use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Config\CacheStore;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\MutantTimes;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Untimed;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
@@ -22,13 +28,17 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
+use NightWorksIO\MutationGate\Core\Proof\CacheClass;
+use NightWorksIO\MutationGate\Core\Proof\CachePack;
 use NightWorksIO\MutationGate\Core\Proof\Judged;
 use NightWorksIO\MutationGate\Core\Proof\KillPace;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\NotRecorded;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -114,7 +124,13 @@ final readonly class Recorded
             ))
             : $runs;
 
-        return $this->adapters->proofs->write($scope, $ledger->withRuns($runs));
+        $wrote = $this->adapters->proofs->write($scope, $ledger->withRuns($runs));
+
+        if ($wrote instanceof Written) {
+            $this->cached($ledger, $plan, $run, $scope->equals(Standing::planned($plan)->defaultBranch()));
+        }
+
+        return $wrote;
     }
 
     /**
@@ -350,5 +366,48 @@ final readonly class Recorded
         }
 
         return Paths::of(...$open);
+    }
+
+    /**
+     * The proofs this run wrote into its ledger at the plan's base left as the
+     * entries of its class's pack, for the store of `outbreak cache` to take
+     * (ADR-0131): under `actions` merged into the pack the Actions cache saves
+     * in the run's scope now, and under `oci` left for `deliver`, which holds
+     * the registry's credential. A run with no store leaves none.
+     */
+    private function cached(Ledger $ledger, Plan $plan, Run $run, bool $onTheDefaultBranch): void
+    {
+        $packs = new CachedPacks($this->adapters, $this->settings);
+        $store = $packs->store();
+
+        if ($store === CacheStore::None) {
+            return;
+        }
+
+        $class = CacheClass::writtenBy($onTheDefaultBranch);
+        $ours = Proofs::of(...array_filter(
+            [...$ledger->proofs()],
+            static fn(Proof $proof): bool => $proof->run()->id() === $run->id(),
+        ));
+        $entries = Workspace::cacheEntries($class);
+        $bytes = Contents::of(CachePack::bytes($class, $plan->base(), $ours));
+        $written = $this->adapters->project->write($entries, $bytes);
+        $registry = $this->settings->shards()->outbreak()->cache()->registry();
+        $proofs = $this->adapters->proofs;
+
+        match (true) {
+            ! $written instanceof Written => null,
+            $store === CacheStore::Actions => $packs->pushed($class, $entries, $plan->base()),
+            $proofs instanceof DeliveredLedger && is_string($registry) => $proofs->cache(
+                CacheDelivery::request(
+                    $registry,
+                    $plan->base(),
+                    $class,
+                    LedgerLimits::kept($this->settings->proofs()->retained()),
+                ),
+                $bytes,
+            ),
+            default => null,
+        };
     }
 }
