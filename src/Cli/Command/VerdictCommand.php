@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Flow\EarlyKeys;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\Judging;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
@@ -133,13 +134,7 @@ final readonly class VerdictCommand
                 $following->setup,
                 $following->reporting,
             )->of($plan, $unchanged),
-            default => new Judging(
-                $following->adapters,
-                $following->settings,
-                $following->setup,
-                $following->reporting,
-                $heldTo,
-            )->verdict($plan, $read),
+            default => self::judged($following, EarlyKeys::of($following, $plan, $results), $read, $heldTo),
         };
     }
 
@@ -164,5 +159,21 @@ final readonly class VerdictCommand
         $printing->verdict($judged->verdict, $output, $project);
 
         return $judged->exitCode()->value;
+    }
+
+    /** A plan's results judged, by its keys as the verdict built them where it was planned early (ADR-0135). */
+    private static function judged(
+        Composed $following,
+        Plan|CannotJudge $plan,
+        Results $read,
+        HeldTo|NotGiven $heldTo,
+    ): Judged|Invalid|CannotJudge {
+        return $plan instanceof CannotJudge ? $plan : new Judging(
+            $following->adapters,
+            $following->settings,
+            $following->setup,
+            $following->reporting,
+            $heldTo,
+        )->verdict($plan, $read);
     }
 }

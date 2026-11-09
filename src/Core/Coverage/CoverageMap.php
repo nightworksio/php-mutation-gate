@@ -59,6 +59,34 @@ final readonly class CoverageMap
             ->timedEach(...$timed);
     }
 
+    /**
+     * This map with another's lines and tests' durations laid beside its
+     * own, as the parts of a run that each recorded what their tests
+     * executed make one map (ADR-0135); a line both hold keeps the tests of
+     * both, and a test both timed keeps the longer time.
+     */
+    public function and(self $other): self
+    {
+        $map = $this;
+
+        foreach ($other->lines() as $line) {
+            $map = $map->covered(
+                $line->file(),
+                Line::of($line->line()),
+                ...array_map(TestId::of(...), [...$line]),
+            );
+        }
+
+        foreach ($other->durations as $test => $duration) {
+            $mine = $map->durations[$test] ?? null;
+            $map = $mine instanceof Seconds && $mine->seconds() >= $duration->seconds()
+                ? $map
+                : $map->timed(TestId::of((string) $test), $duration);
+        }
+
+        return $map;
+    }
+
     /** This map, with these tests covering a line. */
     public function covered(Path $file, Line $line, TestId ...$tests): self
     {

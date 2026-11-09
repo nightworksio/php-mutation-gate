@@ -131,6 +131,26 @@ final readonly class Plan implements Countable, IteratorAggregate
         );
     }
 
+    /**
+     * This plan, its keys built on this base after it ran, as the verdict of
+     * a run planned without a fresh map builds them from the map its streams
+     * recorded (ADR-0135).
+     */
+    public function keyedBy(Digest $base, Keys $keys, Digests $digests): self
+    {
+        return new self(
+            $this->commit,
+            $base,
+            $this->runOn,
+            $keys,
+            $this->shards,
+            $this->considered,
+            $this->names,
+            $digests,
+            $this->briefing,
+        );
+    }
+
     /** The digests of the run's inputs; none for a plan made without them. */
     public function digests(): Digests|Undigested
     {
