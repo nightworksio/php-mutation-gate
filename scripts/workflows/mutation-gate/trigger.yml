@@ -87,6 +87,18 @@ on:
           that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
         type: string
         default: ''
+      early-only:
+        description: >-
+          Whether the plan plans nothing, and says why, where a full split-stream run cannot start without a fresh
+          map, leaving the run to a caller that hands one (ADR-0135).
+        type: boolean
+        default: false
+      watch-job:
+        description: >-
+          The name of a job of the calling run, such as the one that runs the suite; once it concluded in failure, a
+          shard starts no further item (ADR-0135). Where empty, the default, no shard watches a job.
+        type: string
+        default: ''
       download-timeout:
         description: How many minutes each artifact download may take before it is tried once again.
         type: number

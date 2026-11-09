@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
+use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
@@ -158,9 +159,12 @@ final readonly class Running
             return $this->pulled($followed, $id, $results, $deadline, $service);
         }
 
+        $stopped = WatchedJob::of($this->adapters->environment, $service, HttpClient::create())->stopped();
+
         $result = match (true) {
             $followed instanceof CannotJudge => $followed,
             $id instanceof CannotJudge => $id,
+            $stopped !== '' => CannotJudge::because($stopped),
             default => $this->resultOf($followed, $id, ShardDeadline::of($this->settings, $this->setup->clock->now())),
         };
 
@@ -208,7 +212,8 @@ final readonly class Running
     /**
      * The items a job of a plan whose shards pull their work takes, each
      * run as its shard would be and left where the verdict reads it, until
-     * none is left or one leaves the run no way to pass. Where the claims
+     * none is left, one leaves the run no way to pass, or the job the run
+     * watches failed (ADR-0135). Where the claims
      * cannot be reached, or fail, it runs its own items alone, and says so.
      */
     private function pulled(
@@ -228,12 +233,19 @@ final readonly class Running
         );
         $queue = PullQueue::of($plan, $job);
         $left = ShardsLeft::none($job);
+        $watched = WatchedJob::of($this->adapters->environment, $service, HttpClient::create());
 
         if ($claims instanceof CannotJudge) {
             [$queue, $left] = [$queue->ownAlone(), $left->alone($claims)];
         }
 
         while (($item = $queue->next()) instanceof Shard) {
+            $stopped = $watched->stopped();
+
+            if ($stopped !== '') {
+                return $left->stopped($stopped);
+            }
+
             $queue = $queue->without($item->id());
             $taken = $claims instanceof ArtifactClaims ? $claims->take($item->id()) : true;
 

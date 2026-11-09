@@ -52,6 +52,12 @@ final readonly class ShardsLeft
             : $this;
     }
 
+    /** These, saying why the job started no further item. */
+    public function stopped(string $why): self
+    {
+        return new self($this->job, $this->each, [...$this->notes, $why]);
+    }
+
     /** Where each result was written, and why the job ran its own items alone, where it did. */
     public function said(): string
     {

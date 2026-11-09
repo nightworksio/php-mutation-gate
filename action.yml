@@ -84,6 +84,12 @@ inputs:
       builds or fetches it; where empty, the default, install decides.
     required: false
     default: ''
+  watch-job:
+    description: >-
+      The name of a job of this run a shard watches: once it concluded in failure, the shard starts no further item
+      (ADR-0135). Where empty, the default, it watches none.
+    required: false
+    default: ''
   composer-auth:
     description: >-
       The credentials Composer installs the project's dependencies with, as COMPOSER_AUTH holds them, for a private
@@ -292,17 +298,23 @@ runs:
     # file outside the workspace that only its owner reads, which the gate
     # removes once read, before it runs any test; no step's environment
     # holds it, and the gate withholds every ACTIONS_ variable from its tests.
-    - name: Hand the gate the artifact service, where the plan's shards pull their work
+    - name: Hand the gate the artifact service, where the plan's shards pull their work or watch a job
       if: inputs.deliver != 'true' && inputs.shard != ''
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       env:
         SERVICE_FILE: ${{ runner.temp }}/mutation-gate-artifact-service.json
+        WATCH_JOB: ${{ inputs.watch-job }}
       with:
         script: |
           const fs = require('fs');
           const plan = JSON.parse(fs.readFileSync('.mutation-gate/plan.json', 'utf8'));
-          if ((plan.shards || []).some((shard) => 'worker' in shard)) {
-            const service = { token: process.env.ACTIONS_RUNTIME_TOKEN || '', url: process.env.ACTIONS_RESULTS_URL || '' };
+          const watches = process.env.WATCH_JOB !== '';
+          if (watches || (plan.shards || []).some((shard) => 'worker' in shard)) {
+            const service = {
+              token: process.env.ACTIONS_RUNTIME_TOKEN || '',
+              url: process.env.ACTIONS_RESULTS_URL || '',
+              github: watches ? core.getInput('github-token') : '',
+            };
             fs.writeFileSync(process.env.SERVICE_FILE, JSON.stringify(service), { mode: 0o600, flag: 'w' });
             fs.chmodSync(process.env.SERVICE_FILE, 0o600);
           }
@@ -318,6 +330,7 @@ runs:
         OPTIONS: ${{ steps.resolve.outputs.options }}
         SHARD: ${{ inputs.shard }}
         MUTATION_GATE_ARTIFACT_SERVICE: ${{ runner.temp }}/mutation-gate-artifact-service.json
+        MUTATION_GATE_WATCH_JOB: ${{ inputs.watch-job }}
       run: |
         set -uo pipefail
         code=0
