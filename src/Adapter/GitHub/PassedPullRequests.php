@@ -9,6 +9,7 @@ use function array_key_exists;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
@@ -114,6 +115,11 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
     public function fingerprints(): Fingerprints|CannotTell
     {
         return $this->source->fingerprints();
+    }
+
+    public function lookedSince(Looked $then): Looked|CannotTell
+    {
+        return $this->source->lookedSince($then);
     }
 
     public function listed(Paths $paths): Paths|CannotTell

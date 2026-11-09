@@ -53,6 +53,7 @@ final readonly class LocalKeys
                     $headroom,
                     $request,
                 ): Layer|Invalid {
+                    $working = LocalWorkKeys::read($local);
                     $watching = $watch->read($local);
                     $pushing = $prePush->read($local);
                     $idling = $idle->read($local);
@@ -74,6 +75,7 @@ final readonly class LocalKeys
                             $polling->value(),
                             memoryHeadroom: $room->value(),
                             serveRequest: $requesting->value(),
+                            work: $working->value(),
                         )),
                         $watching,
                         $pushing,
@@ -84,6 +86,7 @@ final readonly class LocalKeys
                         $polling,
                         $room,
                         $requesting,
+                        $working,
                     );
                 },
                 $watch,
@@ -95,6 +98,7 @@ final readonly class LocalKeys
                 $poll,
                 $headroom,
                 $request,
+                ...LocalWorkKeys::fields(),
             ),
         )];
     }

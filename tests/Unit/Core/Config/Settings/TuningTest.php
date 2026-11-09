@@ -71,7 +71,7 @@ it('reads the remaining keys that tune a run, each at its default where no layer
         ->and($standard->staticCheck()->opcacheBatch())->toBe(100)
         ->and($standard->staticCheck()->opcacheLimit())->toEqual(Seconds::of(60.0))
         ->and($standard->ignores()->notice())->toBe(14)
-        ->and($standard->local()->watchPoll())->toEqual(Seconds::of(1.0))
+        ->and($standard->local()->watchPoll())->toEqual(Seconds::of(2.0))
         ->and($standard->local()->triageFewest())->toBe(2)
         ->and($set->triage()->bounds()->unmeasuredStartUp())->toEqual(Seconds::of(9.0))
         ->and($set->staticCheck()->opcacheBatch())->toBe(50)
@@ -167,6 +167,20 @@ it('writes each key into a config written as PHP, through the builder that reads
     'local.serveRequest' => [['local' => ['serveRequest' => '9s']], "Local::serveRequest('9s')"],
     'local.watchPoll' => [['local' => ['watchPoll' => '5s']], "Local::watchPoll('5s')"],
     'triage.fewest' => [['triage' => ['fewest' => 3]], 'Local::triageFewest(3)'],
+    'local.cpu' => [['local' => ['cpu' => 'quiet']], 'LocalWork::cpu(CpuProfile::Quiet)'],
+    'local.workers, a count' => [['local' => ['workers' => 3]], 'LocalWork::workers(3)'],
+    'local.workers, a share' => [['local' => ['workers' => 'all-but-one']], 'LocalWork::workers(WorkerShare::AllButOne)'],
+    'local.priority' => [['local' => ['priority' => 'background']], 'LocalWork::priority(Priority::Background)'],
+    'local.macosClass' => [['local' => ['macosClass' => 'maintenance']], 'LocalWork::macosClass(MacosClass::Maintenance)'],
+    'local.linuxNice' => [['local' => ['linuxNice' => 15]], 'LocalWork::linuxNice(15)'],
+    'local.windowsClass' => [['local' => ['windowsClass' => 'idle']], 'LocalWork::windowsClass(WindowsClass::Idle)'],
+    'local.onBattery' => [['local' => ['onBattery' => 'pause']], 'LocalWork::onBattery(OnBattery::Pause)'],
+    'local.childWait' => [['local' => ['childWait' => '3s']], "LocalWork::childWait('3s')"],
+    'local.watchStatus' => [['local' => ['watchStatus' => false]], 'LocalWork::watchStatus(on: false)'],
+    'local.coverageAlone' => [['local' => ['coverageAlone' => false]], 'LocalWork::coverageAlone(on: false)'],
+    'local.sizedPools' => [['local' => ['sizedPools' => false]], 'LocalWork::sizedPools(on: false)'],
+    'local.listOnce' => [['local' => ['listOnce' => false]], 'LocalWork::listOnce(on: false)'],
+    'local.streamBatches' => [['local' => ['streamBatches' => true]], 'LocalWork::streamBatches(on: true)'],
 ]);
 
 it('writes a runner\'s pace on the runner it chooses, and on the gate where it chooses none', function (array $runner, string $call): void {

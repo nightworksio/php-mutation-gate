@@ -796,6 +796,10 @@ services:
                     - FALLBACK # a stream line's word for a test that falls back, not a tree source's fallback
                 'NightWorksIO\MutationGate\Adapter\Pest\Split\Unchanged':
                     - ITEMS # the most items a change check looks through, not a signal number
+                'NightWorksIO\MutationGate\Adapter\Git\StatusLook':
+                    - FIELDS # the fields of a git status entry before its path, not a count of workers
+                'NightWorksIO\MutationGate\Core\Local\WindowsClass':
+                    - IDLE # the proc_nice value Windows reads as idle, not a niceness on Linux
                 'NightWorksIO\MutationGate\Core\Config\SplitStream':
                     - ENABLED # the splitStream key, not a hook recipe's key
             awaiting:

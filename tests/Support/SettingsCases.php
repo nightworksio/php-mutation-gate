@@ -294,9 +294,17 @@ final readonly class SettingsCases
             "serveStart": "watch",
             "serveStartWait": "10s",
             "inferSubsumed": true,
-            "watchPoll": "1s",
+            "watchPoll": "2s",
             "memoryHeadroom": 2,
-            "serveRequest": "5s"
+            "serveRequest": "5s",
+            "cpu": "balanced",
+            "onBattery": "reduce",
+            "childWait": "1s",
+            "watchStatus": true,
+            "coverageAlone": true,
+            "sizedPools": true,
+            "listOnce": true,
+            "streamBatches": true
         }
     }
     JSON;
@@ -404,6 +412,6 @@ final readonly class SettingsCases
             'auto' => '2h',
             'autoRuns' => ['pullRequests', 'mergeGroups'],
         ],
-        'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s', 'watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false, 'watchPoll' => '5s'],
+        'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s', 'watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false, 'watchPoll' => '5s', 'cpu' => 'quiet', 'workers' => 3, 'priority' => 'background', 'macosClass' => 'maintenance', 'linuxNice' => 15, 'windowsClass' => 'idle', 'onBattery' => 'pause', 'childWait' => '3s', 'watchStatus' => false, 'coverageAlone' => false, 'sizedPools' => false, 'listOnce' => false, 'streamBatches' => false],
     ];
 }

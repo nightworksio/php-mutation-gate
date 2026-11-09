@@ -45,6 +45,7 @@ final readonly class Local implements Part
         private int|Absent $triageFewest = new Absent(),
         private int|Absent $memoryHeadroom = new Absent(),
         private Seconds|Absent $serveRequest = new Absent(),
+        private LocalWork|Absent $work = new Absent(),
     ) {
     }
 
@@ -59,6 +60,7 @@ final readonly class Local implements Part
         int|Absent $triageFewest = new Absent(),
         int|Absent $memoryHeadroom = new Absent(),
         Seconds|Absent $serveRequest = new Absent(),
+        LocalWork|Absent $work = new Absent(),
     ): self {
         return new self(
             $watchBudget,
@@ -71,6 +73,7 @@ final readonly class Local implements Part
             $triageFewest,
             $memoryHeadroom,
             $serveRequest,
+            $work,
         );
     }
 
@@ -94,6 +97,7 @@ final readonly class Local implements Part
             $none->triageFewest(),
             $none->memoryHeadroom(),
             $none->serveRequest(),
+            LocalWork::standard(),
         );
     }
 
@@ -111,6 +115,7 @@ final readonly class Local implements Part
                 Absent::laid($this->triageFewest, $later->triageFewest),
                 Absent::laid($this->memoryHeadroom, $later->memoryHeadroom),
                 Absent::laid($this->serveRequest, $later->serveRequest),
+                $this->work()->over($later->work()),
             )
             : $this;
     }
@@ -166,6 +171,12 @@ final readonly class Local implements Part
         return $this->inferSubsumed instanceof Absent || $this->inferSubsumed;
     }
 
+    /** How `watch` and `serve` use the machine, and the speed-ups they take (ADR-0120). */
+    public function work(): LocalWork
+    {
+        return $this->work instanceof LocalWork ? $this->work : LocalWork::of();
+    }
+
     /** `local.watchPoll`: how long `watch` waits between two looks at the files it polls. */
     public function watchPoll(): Seconds
     {
@@ -203,6 +214,7 @@ final readonly class Local implements Part
                     Member::of('watchPoll', WholeSeconds::duration($this->watchPoll)),
                     Member::of('memoryHeadroom', $this->memoryHeadroom),
                     Member::of('serveRequest', WholeSeconds::duration($this->serveRequest)),
+                    ...$this->work()->written(),
                 ),
             ),
         );
@@ -235,6 +247,7 @@ final readonly class Local implements Part
                 ? [sprintf('Local::watchPoll(%s)', PhpCalls::literal($this->watchPoll->written()))]
                 : [],
             ...$this->roomPhp(),
+            ...$this->work()->php(),
             ...$this->triageFewest instanceof Absent
                 ? []
                 : [sprintf('Local::triageFewest(%d)', $this->triageFewest)],
