@@ -19,6 +19,9 @@ enum DigestKind: string
     /** What decides its mutant set besides the source: the gate, the config, the runner and its setup. */
     case Mutation = 'mutation';
 
+    /** The first five inputs alone: the format, the gate's verdict code, the config, the runner, what is installed. */
+    case Reads = 'reads';
+
     /** A test file that killed one of its mutants, with the support it reads. */
     case Test = 'tests';
 }

@@ -92,6 +92,7 @@ final readonly class ContentKeys
         private Fingerprints $code,
         private SourceReach $reach,
         private Fingerprints $keyed,
+        private Digest $reads,
     ) {
     }
 
@@ -108,6 +109,7 @@ final readonly class ContentKeys
     ): self {
         $context = Digest::hashing();
         self::hashMutationReads($context, $gate, $config, $runner, $analyser, $installed);
+        $reads = Digest::finished(hash_copy($context));
         $mutation = hash_copy($context);
         hash_update($mutation, self::framed('definitions'));
         self::hashFingerprintsIn($mutation, $source->definitions());
@@ -122,7 +124,28 @@ final readonly class ContentKeys
             $source->outside(),
             $reach,
             $source->files(),
+            $reads,
         );
+    }
+
+    /**
+     * The digest of the first five inputs alone, which every key of a base
+     * holds and which reads no coverage map: where no proof shares it, no key
+     * of the run can match one (ADR-0135).
+     *
+     * @param string $config the settings that affect results, as their canonical form writes them (ADR-0007)
+     */
+    public static function readsOf(
+        Digest $gate,
+        string $config,
+        Identity $runner,
+        AnalyserIdentity|NoAnalyser $analyser,
+        Digest $installed,
+    ): Digest {
+        $context = Digest::hashing();
+        self::hashMutationReads($context, $gate, $config, $runner, $analyser, $installed);
+
+        return Digest::finished($context);
     }
 
     /**
@@ -155,11 +178,13 @@ final readonly class ContentKeys
      * is the first five inputs, the files that define the runner and what of
      * the test directories every key reads; the source of each of these
      * units; and each file of test cases, with the support it reads outside
-     * what every key reads.
+     * what every key reads. Beside them, the digest of the first five inputs
+     * alone, which reads no coverage map, so a plan can tell without one that
+     * no proof shares its base (ADR-0135).
      */
     public function digestsOf(Units $units): Digests
     {
-        $digests = Digests::of($this->mutation);
+        $digests = Digests::of($this->mutation)->withReads($this->reads);
 
         foreach ($units as $unit) {
             $digests = $digests->withSource($unit->path(), $this->sourceOf($unit));

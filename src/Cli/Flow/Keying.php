@@ -119,6 +119,27 @@ final readonly class Keying
         };
     }
 
+    /**
+     * The digest of the run's first five inputs alone, which reads no
+     * coverage map (ADR-0135); or why it cannot be read.
+     */
+    public static function readsOf(
+        Adapters $adapters,
+        Settings $settings,
+        Setup $setup,
+        Multiple|NotGiven $learned = new NotGiven(),
+    ): Digest|CannotJudge {
+        $identity = $adapters->runner->identity($adapters->withheld);
+
+        return $identity instanceof CannotJudge ? $identity : ContentKeys::readsOf(
+            InstalledVerdictCode::installed()->of($identity->runner()),
+            self::config($settings, $adapters->narrowing, $learned),
+            $identity,
+            self::analyser($adapters),
+            $setup->installed,
+        );
+    }
+
     /** The base every key of the run is built on. */
     public function base(): Digest
     {

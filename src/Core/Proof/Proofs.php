@@ -134,6 +134,26 @@ final readonly class Proofs implements Countable, IteratorAggregate
     }
 
     /** @return Traversable<int, Proof> */
+    /**
+     * Whether any of these proofs may have been established at a base whose
+     * first five inputs digest to this: one that records the same digest, or
+     * one that records none. Where none may, no key of such a base matches
+     * one (ADR-0135).
+     */
+    public function mayShareReads(Digest $reads): bool
+    {
+        foreach ($this as $proof) {
+            $inputs = $proof->inputs();
+            $theirs = $inputs instanceof Inputs ? $inputs->reads() : $inputs;
+
+            if (! $theirs instanceof Digest || $theirs->value() === $reads->value()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function getIterator(): Traversable
     {
         return new ArrayIterator(array_values($this->proofs));
