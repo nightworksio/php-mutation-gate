@@ -118,7 +118,7 @@ final readonly class RecheckRuns
         $request = RunRequest::of($this->adapters, $this->settings, Paths::of($file), $unit->judgedBy())
             ->across(
                 Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
-                    ->pacedBy($this->settings->runner()->pace()),
+                    ->pacedBy($this->settings->runner()->pace($this->settings->triage()->bounds()->unmeasuredStartUp())),
             )
             ->reusingCoverage(Handed::maps(Workspace::verdictCoverage(), Workspace::coverage()));
         $result = $this->adapters->runner->mutate($request->narrowedTo(

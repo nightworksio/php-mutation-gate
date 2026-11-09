@@ -95,7 +95,7 @@ final readonly class TailShell implements Shell
         Command ...$commands,
     ): ProcessEnds {
         $booted = $slots->atMost($this->pool->slotsFor(ProcessCount::atLeastOne(count($commands))));
-        $sets = new TailWorkers($booted, $this->beside, $this->booting, $this->uncached);
+        $sets = new TailWorkers($booted, $this->beside, $this->booting, $this->uncached, $this->pool->pace()->workerWait());
         $forked = [];
 
         foreach ($commands as $command) {

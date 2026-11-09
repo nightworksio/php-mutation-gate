@@ -74,10 +74,14 @@ final readonly class ChosenRunner
         return $this->workers;
     }
 
-    /** `runner.recycleAfter` and `runner.warmSlack`: how the runner paces its work. */
-    public function pace(): RunnerPace
+    /**
+     * `runner.recycleAfter`, `runner.warmSlack` and `runner.workerWait`: how
+     * the runner paces its work, a warm worker waited for as long as a run is
+     * allowed to start in where no layer says.
+     */
+    public function pace(Seconds $startUp): RunnerPace
     {
-        return $this->pacing->pace();
+        return $this->pacing->pace($startUp);
     }
 
     /** `runner.poll`: how long the gate waits between looks at a process it waits on. */

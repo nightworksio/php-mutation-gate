@@ -17,7 +17,7 @@ use function sprintf;
 
 /**
  * What one layer of a config says of how a runner paces its work: `runner.recycleAfter`, `runner.warmSlack`,
- * `runner.poll` and `runner.processes`, which `RunnerLayer` holds.
+ * `runner.poll`, `runner.processes` and `runner.workerWait`, which `RunnerLayer` holds.
  */
 final readonly class RunnerPacing
 {
@@ -26,6 +26,7 @@ final readonly class RunnerPacing
         private Seconds|Absent $warmSlack,
         private float|int|Absent $poll,
         private int|Absent $processes,
+        private Seconds|Absent $workerWait,
     ) {
     }
 
@@ -34,8 +35,9 @@ final readonly class RunnerPacing
         Seconds|Absent $warmSlack = new Absent(),
         float|int|Absent $poll = new Absent(),
         int|Absent $processes = new Absent(),
+        Seconds|Absent $workerWait = new Absent(),
     ): self {
-        return new self($recycleAfter, $warmSlack, $poll, $processes);
+        return new self($recycleAfter, $warmSlack, $poll, $processes, $workerWait);
     }
 
     /** Every key at the value it takes where every layer leaves it out. */
@@ -43,7 +45,7 @@ final readonly class RunnerPacing
     {
         $pace = RunnerPace::standard();
 
-        return new self($pace->recycleAfter(), $pace->warmSlack(), Polling::INTERVAL, Absent::setting());
+        return new self($pace->recycleAfter(), $pace->warmSlack(), Polling::INTERVAL, Absent::setting(), Absent::setting());
     }
 
     public function over(self $later): self
@@ -53,6 +55,7 @@ final readonly class RunnerPacing
             Absent::laid($this->warmSlack, $later->warmSlack),
             Absent::laid($this->poll, $later->poll),
             Absent::laid($this->processes, $later->processes),
+            Absent::laid($this->workerWait, $later->workerWait),
         );
     }
 
@@ -62,16 +65,18 @@ final readonly class RunnerPacing
         return $this->recycleAfter instanceof Absent
             && $this->warmSlack instanceof Absent
             && $this->poll instanceof Absent
-            && $this->processes instanceof Absent;
+            && $this->processes instanceof Absent
+            && $this->workerWait instanceof Absent;
     }
 
-    public function pace(): RunnerPace
+    public function pace(Seconds $startUp): RunnerPace
     {
         $standard = RunnerPace::standard();
 
         return RunnerPace::of(
             $this->recycleAfter instanceof Absent ? $standard->recycleAfter() : $this->recycleAfter,
             $this->warmSlack instanceof Seconds ? $this->warmSlack : $standard->warmSlack(),
+            $this->workerWait instanceof Seconds ? $this->workerWait : $startUp,
         );
     }
 
@@ -100,7 +105,8 @@ final readonly class RunnerPacing
             ->with(Member::of('recycleAfter', $this->recycleAfter))
             ->with(Member::of('warmSlack', WholeSeconds::duration($this->warmSlack)))
             ->with(Member::of('poll', $this->poll))
-            ->with(Member::of('processes', $this->processes));
+            ->with(Member::of('processes', $this->processes))
+            ->with(Member::of('workerWait', WholeSeconds::duration($this->workerWait)));
     }
 
     /** These calls of a layer that chooses no runner, then its pace, where it says any. */
@@ -127,6 +133,9 @@ final readonly class RunnerPacing
                     : [],
                 ...$this->poll instanceof Absent ? [] : [sprintf('poll: %s', PhpCalls::literal((float) $this->poll))],
                 ...$this->processes instanceof Absent ? [] : [sprintf('processes: %d', $this->processes)],
+                ...$this->workerWait instanceof Seconds
+                    ? [sprintf('workerWait: %s', PhpCalls::literal($this->workerWait->written()))]
+                    : [],
             ]),
         );
     }

@@ -312,7 +312,7 @@ final readonly class Running
         $samples = $this->settings->shards()->planning()->startUpSamples();
         $startUp = new StartUpTiming($this->adapters, $samples)->of($map, $kept->units());
         $pool = $this->adapters->pooled($this->settings->runner()->workers())
-            ->pacedBy($this->settings->runner()->pace())
+            ->pacedBy($this->settings->runner()->pace($this->settings->triage()->bounds()->unmeasuredStartUp()))
             ->startingIn($startUp)
             ->learning($plan->briefing()->learned()->multiple());
         $warmUp = new AnalyserWarmUp($this->settings->staticCheck()->dependents());

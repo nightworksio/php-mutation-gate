@@ -51,12 +51,13 @@ it('reads each key of a planning no layer set at its default', function (): void
 
 it('reads how a runner paces its work, each key at its default where no layer sets it', function () use ($settings): void {
     $standard = $settings()->runner();
-    $set = $settings(['runner' => ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05, 'processes' => 3]])->runner();
+    $set = $settings(['runner' => ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05, 'processes' => 3, 'workerWait' => '20s']])->runner();
 
-    expect($standard->pace())->toEqual(RunnerPace::standard())
+    expect($standard->pace(Seconds::of(5.0)))->toEqual(RunnerPace::standard())
+        ->and($standard->pace(Seconds::of(9.0))->workerWait())->toEqual(Seconds::of(9.0))
         ->and($standard->poll())->toEqual(Seconds::of(0.01))
         ->and($standard->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(8))
-        ->and($set->pace())->toEqual(RunnerPace::of(8, Seconds::minutes(2)))
+        ->and($set->pace(Seconds::of(9.0)))->toEqual(RunnerPace::of(8, Seconds::minutes(2), Seconds::of(20.0)))
         ->and($set->poll())->toEqual(Seconds::of(0.05))
         ->and($set->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(3))
         ->and(RunnerPacing::of(processes: 1)->processes(ProcessCount::of(8)))->toEqual(ProcessCount::single())
@@ -226,7 +227,7 @@ it('refuses a tuning key out of its range', function (array $config, string $pro
 
 it('holds the values no config can write to what they must be', function (): void {
     expect(StartUpSamples::of(0)->runs())->toBe(1)
-        ->and(RunnerPace::of(0, Seconds::of(1.0))->recycleAfter())->toBe(1)
+        ->and(RunnerPace::of(0, Seconds::of(1.0), Seconds::of(5.0))->recycleAfter())->toBe(1)
         ->and(Local::of(triageFewest: 1)->triageFewest())->toBe(2);
 });
 

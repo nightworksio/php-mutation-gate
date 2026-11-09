@@ -97,6 +97,9 @@ enum GateVariable: string
     /** The directory a patched run's warm workers share, where its mutants' runs fork from them (see Warm\Pool). */
     case Warm = 'MUTATION_GATE_WARM';
 
+    /** How many seconds a warm worker's starter waits for it to start: `runner.workerWait`. */
+    case WorkerWait = 'MUTATION_GATE_WORKER_WAIT';
+
     /**
      * The file a warm worker's client writes the most memory its forked run
      * held to, where an unmutated control of the tail runs through one (see

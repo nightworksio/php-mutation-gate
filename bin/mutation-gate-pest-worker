@@ -16,6 +16,7 @@ declare(strict_types=1);
 // of its test databases, and runs Pest's script as a fresh process runs it.
 
 use NightWorksIO\MutationGate\Adapter\Native\Warm\BootCheck;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
@@ -71,7 +72,12 @@ $own = pcntl_fork();
 $seat = Seat::at($directory, (int) $place);
 
 if ($own !== 0) {
-    Polling::wait(Seconds::of(Seat::WAIT), static fn(): bool => is_file($seat->pid()), usleep(...));
+    $wait = getenv(GateVariable::WorkerWait->value);
+    Polling::wait(
+        Seconds::of(is_string($wait) && is_numeric($wait) ? (float) $wait : Seat::WAIT),
+        static fn(): bool => is_file($seat->pid()),
+        usleep(...),
+    );
 
     exit($own !== -1 && is_file($seat->pid()) ? 0 : 1);
 }

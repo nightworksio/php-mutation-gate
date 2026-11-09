@@ -51,7 +51,10 @@ final readonly class Told
             ...$this->pruning($pruned, $results),
             ...$this->narrows ? [GateVariable::Narrow->value => '1'] : [],
             ...$handsOff ? [GateVariable::Verdicts->value => Verdicts::beside($results)] : [],
-            ...$this->forks($request) ? [GateVariable::Warm->value => WarmDirectory::beside($results)] : [],
+            ...$this->forks($request) ? [
+                GateVariable::Warm->value => WarmDirectory::beside($results),
+                GateVariable::WorkerWait->value => (string) $request->pool()->pace()->workerWait()->seconds(),
+            ] : [],
             ...$this->patching->bounding($bounds),
             ...$this->patching->schemata(),
             ...StreamSettings::parting($request->narrowing()->testPart()),
