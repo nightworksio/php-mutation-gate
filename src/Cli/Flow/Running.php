@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
@@ -28,6 +29,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Secrets;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
@@ -138,17 +140,22 @@ final readonly class Running
     /**
      * The shard `--shard` names, or, where it names none, the one the
      * environment's variables name (WhichShard); where the plan's shards pull
-     * their work, the items that job takes (ADR-0134).
+     * their work, the items that job takes, claimed through the artifact
+     * service the gate was handed (ADR-0134).
      */
-    public function run(Plan $plan, ShardId|Absent $named, Path $results): ShardLeft|ShardsLeft|CannotJudge
-    {
+    public function run(
+        Plan $plan,
+        ShardId|Absent $named,
+        Path $results,
+        ArtifactService|CannotJudge|NotGiven $service = new NotGiven(),
+    ): ShardLeft|ShardsLeft|CannotJudge {
         $followed = self::followed($plan, $this->adapters->repository);
         $id = $named instanceof ShardId ? $named : WhichShard::in($this->adapters->environment, $plan);
 
         if ($followed instanceof Plan && $id instanceof ShardId && $followed->pulls()) {
             $deadline = ShardDeadline::of($this->settings, $this->setup->clock->now());
 
-            return $this->pulled($followed, $id, $results, $deadline);
+            return $this->pulled($followed, $id, $results, $deadline, $service);
         }
 
         $result = match (true) {
@@ -209,8 +216,10 @@ final readonly class Running
         ShardId $job,
         Path $results,
         Deadline|Unlimited $deadline,
+        ArtifactService|CannotJudge|NotGiven $service,
     ): ShardsLeft|CannotJudge {
         $claims = ArtifactClaims::of(
+            $service,
             $this->adapters->environment,
             HttpExchange::over(HttpClient::create()),
             $this->settings->shards()->pulling()->pull(),

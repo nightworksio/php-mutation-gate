@@ -575,6 +575,11 @@ def fail_fast(config: dict) -> str:
     return (config.get("run") or {}).get("failFast") or MARK
 
 
+def last_judges(config: dict) -> bool:
+    """Whether the job that finishes the last item of a pulling plan computes the verdict: `shards.lastJudges`."""
+    return (config.get("shards") or {}).get("lastJudges") is True
+
+
 def patches_infection(config: dict) -> bool:
     """Whether the effective config runs Infection, whose mutants get the gate's limit only once patched (ADR-0004)."""
     return (config.get("runner") or {}).get("use") == INFECTION
@@ -911,6 +916,7 @@ def _config() -> dict[str, str]:
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
         "fail_fast": fail_fast(config),
+        "last_judges": "true" if last_judges(config) else "false",
         "action_reports": json.dumps(action_reports(config)),
     }
 

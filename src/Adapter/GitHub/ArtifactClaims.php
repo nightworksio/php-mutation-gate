@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Http\MediaType;
 use NightWorksIO\MutationGate\Core\Http\Reply;
 use NightWorksIO\MutationGate\Core\Http\Request;
 use NightWorksIO\MutationGate\Core\Http\Token;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 
 use function rtrim;
@@ -48,11 +49,6 @@ use function substr;
  */
 final readonly class ArtifactClaims implements ItemClaims
 {
-    /** The variables the artifact service is reached by, which the gate's action exposes to its step. */
-    public const string RUNTIME_TOKEN = 'ACTIONS_RUNTIME_TOKEN';
-
-    public const string RESULTS_URL = 'ACTIONS_RESULTS_URL';
-
     private const string SERVER = 'GITHUB_SERVER_URL';
 
     private const string ATTEMPT = 'GITHUB_RUN_ATTEMPT';
@@ -82,7 +78,7 @@ final readonly class ArtifactClaims implements ItemClaims
 
     private const string BLOCK_BLOB = 'BlockBlob';
 
-    private const string NO_SERVICE = 'The artifact service is not reachable from this step: %s is not set.';
+    private const string UNHANDED = 'The gate was handed no artifact service to claim items by.';
 
     private const string NO_SCOPE = 'The runtime token names no run to write artifacts to.';
 
@@ -103,34 +99,35 @@ final readonly class ArtifactClaims implements ItemClaims
     ) {
     }
 
-    /** Claims for this job of the plan, pulling as `shards.pull` says on this service; or why it cannot reach them. */
+    /**
+     * Claims for this job of the plan, pulling as `shards.pull` says on the
+     * service the gate was handed; or why it cannot reach them.
+     */
     public static function of(
+        ArtifactService|CannotJudge|NotGiven $service,
         Variables $environment,
         Exchange $exchange,
         ShardPull $pull,
         Digest $plan,
         ShardId $shard,
     ): self|CannotJudge {
-        $token = $environment->valueOf(self::RUNTIME_TOKEN);
-        $service = $environment->valueOf(self::RESULTS_URL);
-        $ids = self::backendIds($token);
+        if (! $service instanceof ArtifactService) {
+            return $service instanceof CannotJudge ? $service : CannotJudge::because(self::UNHANDED);
+        }
 
-        return match (true) {
-            $token === '' => CannotJudge::because(sprintf(self::NO_SERVICE, self::RUNTIME_TOKEN)),
-            $service === '' => CannotJudge::because(sprintf(self::NO_SERVICE, self::RESULTS_URL)),
-            $ids === [] => CannotJudge::because(self::NO_SCOPE),
-            default => new self(
-                $exchange,
-                rtrim($service, '/'),
-                Token::bearer($token),
-                $ids[0],
-                $ids[1],
-                $pull->on($environment->valueOf(self::SERVER)),
-                $plan->value(),
-                max(1, (int) $environment->valueOf(self::ATTEMPT)),
-                $shard,
-            ),
-        };
+        $ids = self::backendIds($service->token());
+
+        return $ids === [] ? CannotJudge::because(self::NO_SCOPE) : new self(
+            $exchange,
+            rtrim($service->url(), '/'),
+            Token::bearer($service->token()),
+            $ids[0],
+            $ids[1],
+            $pull->on($environment->valueOf(self::SERVER)),
+            $plan->value(),
+            max(1, (int) $environment->valueOf(self::ATTEMPT)),
+            $shard,
+        );
     }
 
     /** The way this job pulls: `auto` resolved for its service. */

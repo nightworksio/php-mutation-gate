@@ -178,6 +178,7 @@
       plan: ${{ steps.plan.outputs.plan }}
       stands: ${{ steps.plan.outputs.stands }}
       pulls: ${{ steps.plan.outputs.pulls }}
+      last-judges: ${{ steps.config.outputs.last_judges }}
       fail-fast: ${{ steps.config.outputs.fail_fast }}
       survivor-shares: ${{ steps.survivors.outputs.shares }}
       survivor-minutes: ${{ steps.survivors.outputs.minutes }}

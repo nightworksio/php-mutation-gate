@@ -43,17 +43,28 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         with:
           composer-options: --no-dev
+      # The runtime token goes to the race's PHP process alone, in a file only
+      # its owner reads, which the process removes once read.
       - name: Hand the race the artifact service
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          SERVICE_FILE: ${{ runner.temp }}/mutation-gate-artifact-service.json
         with:
           script: |
-            core.setSecret(process.env.ACTIONS_RUNTIME_TOKEN || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+            const fs = require('fs');
+            const service = { token: process.env.ACTIONS_RUNTIME_TOKEN || '', url: process.env.ACTIONS_RESULTS_URL || '' };
+            fs.writeFileSync(process.env.SERVICE_FILE, JSON.stringify(service), { mode: 0o600, flag: 'w' });
+            fs.chmodSync(process.env.SERVICE_FILE, 0o600);
       - name: Claim every item
         env:
           JOB: ${{ matrix.job }}
+          MUTATION_GATE_ARTIFACT_SERVICE: ${{ runner.temp }}/mutation-gate-artifact-service.json
         run: php .github/scripts/claim_race.php "${ITEMS}" "${JOB}" "won-${JOB}.txt"
+      - name: Remove the artifact service's handoff
+        if: always()
+        env:
+          SERVICE_FILE: ${{ runner.temp }}/mutation-gate-artifact-service.json
+        run: rm -f "${SERVICE_FILE}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: claim-race-won-${{ matrix.job }}

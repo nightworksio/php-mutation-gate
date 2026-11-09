@@ -189,6 +189,15 @@
           JOBS: .mutation-gate/jobs.json
           RUN_TIMES: .mutation-gate/run-times.json
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" run-times
+      # The verdict the job that finished the last item computed, where it
+      # left one (ADR-0134); this job reports it instead of computing it.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.plan.outputs.pulls == 'true' && needs.plan.outputs.last-judges == 'true'
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-verdict-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate
+          merge-multiple: true
       # The comment, the ledger, the alerts and the trace go into the delivery,
       # which the deliver job sends: this step holds no secret and no token.
       - name: Verdict
@@ -199,6 +208,11 @@
           ACTION_REPORTS: ${{ steps.config.outputs.action_reports }}
         run: |
           set -uo pipefail
+          if [ -f .mutation-gate/judged/code ]; then
+            echo "The job that finished the last item computed this verdict."
+            echo "code=$(cat .mutation-gate/judged/code)" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
           code=0
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           mapfile -t reports < <(jq -r '.[]' <<< "${ACTION_REPORTS}")

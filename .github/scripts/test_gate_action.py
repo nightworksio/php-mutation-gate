@@ -449,6 +449,11 @@ class InfectionPatch(unittest.TestCase):
         self.assertEqual(action.fail_fast({"run": {"full": True}}), "mark")
         self.assertEqual(action.fail_fast({}), "mark")
 
+    def test_reads_whether_the_last_job_judges_and_leaves_the_verdict_to_its_job_where_the_config_names_nothing(self):
+        self.assertTrue(action.last_judges({"shards": {"lastJudges": True}}))
+        self.assertFalse(action.last_judges({"shards": {"lastJudges": False}}))
+        self.assertFalse(action.last_judges({}))
+
     def test_patches_where_the_config_runs_infection(self):
         self.assertTrue(action.patches_infection({"runner": {"use": "infection", "memory": "1G"}}))
 

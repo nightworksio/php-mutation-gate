@@ -6,10 +6,13 @@ use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Process\Saying;
 use NightWorksIO\MutationGate\Cli\SystemClock;
+use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\GaugeFake;
@@ -61,4 +64,31 @@ it('says once a minute, on the clock it says by, which process runs longest and 
 
     expect($said[0])->toStartWith('mutation-gate: 0 of 1 processes ended, 1 running; the longest for ')
         ->and($said[0])->toEndWith(sprintf('%s -r usleep(300000);; halfway', PHP_BINARY));
+});
+
+it('starts a test process that sees neither the runtime token, the artifact service, nor its handoff, whatever the gate inherited', function (): void {
+    $handed = [
+        'ACTIONS_RUNTIME_TOKEN' => 'runtime-token',
+        'ACTIONS_RESULTS_URL' => 'https://results.example/',
+        'MUTATION_GATE_ARTIFACT_SERVICE' => '/runner/temp/mutation-gate-artifact-service.json',
+    ];
+
+    foreach ($handed as $name => $value) {
+        putenv(sprintf('%s=%s', $name, $value));
+    }
+
+    $inherited = getenv();
+    $seen = 'echo json_encode([getenv("ACTIONS_RUNTIME_TOKEN"), getenv("ACTIONS_RESULTS_URL"), getenv("MUTATION_GATE_ARTIFACT_SERVICE"), getenv("PATH") !== false]);';
+    $ran = new LocalProcesses(new SystemClock())->run(
+        ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', $seen)
+            ->with(EnvironmentRead::of(Withholding::of(Withheld::standard(), $inherited))),
+    );
+
+    foreach (array_keys($handed) as $name) {
+        putenv($name);
+    }
+
+    expect($inherited)->toHaveKey('ACTIONS_RUNTIME_TOKEN')
+        ->and($ran->succeeded())->toBeTrue()
+        ->and(trim($ran->printed()))->toBe('[false,false,false,true]');
 });

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
+use function getenv;
 use function is_array;
 
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Baselines;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
@@ -19,9 +21,11 @@ use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\ShardsLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Verb;
@@ -65,6 +69,7 @@ final readonly class RunCommand
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $planned = $input->getOption(FlowOptions::PLAN) !== null;
+                $service = $planned ? ArtifactService::handedIn(Variables::of(getenv())) : new NotGiven();
                 $composed = $planned
                     ? $composition->compose($input)
                     : PublishDir::composed(FlowOptions::narrowed($composition->compose($input), $input), $input);
@@ -75,21 +80,26 @@ final readonly class RunCommand
                         => Failed::because($output, CannotJudge::because(self::SECURITY_WITH_PLAN)),
                     $planned && FlowOptions::isSuiteOnly($input)
                         => Failed::because($output, CannotJudge::because(self::SUITE_WITH_PLAN)),
-                    $planned => self::oneShard($composed, $input, $output),
+                    $planned => self::oneShard($composed, $input, $output, $service),
                     default => self::allInOne($composed, $input, $output),
                 };
             });
     }
 
-    private static function oneShard(Composed $composed, InputInterface $input, OutputInterface $output): int
-    {
+    /** One shard of a plan, claiming its items through the artifact service it was handed, where they are pulled. */
+    private static function oneShard(
+        Composed $composed,
+        InputInterface $input,
+        OutputInterface $output,
+        ArtifactService|CannotJudge|NotGiven $service,
+    ): int {
         $plan = VerdictCommand::planIn($composed, FlowOptions::path($input, FlowOptions::PLAN, Workspace::plan()));
         $shard = FlowOptions::shard($input);
         $results = FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results());
         $written = match (true) {
             $plan instanceof CannotJudge => $plan,
             $shard instanceof CannotJudge => $shard,
-            default => self::ranShard($composed->following($plan), $plan, $shard, $results),
+            default => self::ranShard($composed->following($plan), $plan, $shard, $results, $service),
         };
 
         if ($written instanceof CannotJudge) {
@@ -113,9 +123,10 @@ final readonly class RunCommand
         Plan $plan,
         ShardId|Absent $shard,
         Path $results,
+        ArtifactService|CannotJudge|NotGiven $service,
     ): ShardLeft|ShardsLeft|CannotJudge {
         return $following instanceof Composed
-            ? Running::composed($following)->run($plan, $shard, $results)
+            ? Running::composed($following)->run($plan, $shard, $results, $service)
             : $following;
     }
 

@@ -10,6 +10,7 @@ declare(strict_types=1);
  */
 
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -21,8 +22,10 @@ use Symfony\Component\HttpClient\HttpClient;
 require __DIR__ . '/../../vendor/autoload.php';
 
 [, $items, $job, $wonFile] = $argv + [null, '10', '1', 'won.txt'];
+$environment = Variables::of(getenv());
 $claims = ArtifactClaims::of(
-    Variables::of(getenv()),
+    ArtifactService::handedIn($environment),
+    $environment,
     HttpExchange::over(HttpClient::create()),
     ShardPull::Claim,
     Digest::sha256Of(sprintf('claim-race-%s', getenv('GITHUB_RUN_ID'))),
