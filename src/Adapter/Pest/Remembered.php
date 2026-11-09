@@ -84,8 +84,10 @@ final class Remembered
     private readonly RememberedListings $listed;
 
     /** The engine that vouches for a handed map's text, where one does. */
-    public function __construct(private readonly MapEngine|NotGiven $engine = new NotGiven())
-    {
+    public function __construct(
+        private readonly MapEngine|NotGiven $engine = new NotGiven(),
+        private readonly bool $remembers = true,
+    ) {
         $this->listed = new RememberedListings();
     }
 
@@ -131,6 +133,8 @@ final class Remembered
      */
     public function names(Withheld $withheld, Closure $naming): Names|CannotJudge
     {
+        $this->forget();
+
         if ($this->testsKey() === '') {
             return $naming();
         }
@@ -147,6 +151,8 @@ final class Remembered
     /** @param Closure(): (Platform|CannotJudge) $describing */
     public function platform(Withheld $withheld, Closure $describing): Platform|CannotJudge
     {
+        $this->forget();
+
         $key = $withheld->pattern();
 
         if (! array_key_exists($key, $this->platforms)) {
@@ -159,6 +165,8 @@ final class Remembered
     /** @param Closure(): bool $checking */
     public function patched(Closure $checking): bool
     {
+        $this->forget();
+
         if ($this->patched === []) {
             $this->patched = [$checking()];
         }
@@ -169,6 +177,8 @@ final class Remembered
     /** @param Closure(): (CoverageMap|CannotJudge) $reading */
     public function map(Path $directory, Closure $reading): CoverageMap|CannotJudge
     {
+        $this->forget();
+
         $key = $directory->value();
 
         if (! array_key_exists($key, $this->maps)) {
@@ -189,6 +199,8 @@ final class Remembered
      */
     public function selector(string $key, Closure $scanning): Selector
     {
+        $this->forget();
+
         if (! array_key_exists($key, $this->selectors)) {
             $this->selectors = [];
             $this->selectors[$key] = $scanning();
@@ -205,6 +217,8 @@ final class Remembered
      */
     public function writeOnce(string $file, Closure $writing): void
     {
+        $this->forget();
+
         if (! array_key_exists($file, $this->written)) {
             $writing();
             $this->written[$file] = true;
@@ -224,6 +238,8 @@ final class Remembered
      */
     public function baselines(array $keys, Closure $running): array
     {
+        $this->forget();
+
         $unknown = array_values(array_unique(array_filter(
             $keys,
             fn(string $key): bool => ! array_key_exists($key, $this->baselines),
@@ -259,6 +275,8 @@ final class Remembered
      */
     public function replays(array $keys, Closure $running): array
     {
+        $this->forget();
+
         $unknown = array_values(array_unique(array_filter(
             $keys,
             fn(string $key): bool => ! array_key_exists($key, $this->replays),
@@ -275,6 +293,23 @@ final class Remembered
                 : ReplayVerdict::NoTime,
             $keys,
         );
+    }
+
+    /** Where `pest.remember` is off, nothing kept from an earlier ask: each is answered afresh. */
+    private function forget(): void
+    {
+        if ($this->remembers) {
+            return;
+        }
+
+        $this->names = [];
+        $this->platforms = [];
+        $this->patched = [];
+        $this->maps = [];
+        $this->written = [];
+        $this->baselines = [];
+        $this->replays = [];
+        $this->selectors = [];
     }
 
     /** The digest of the test files `watch` set for this round; nothing outside it. */

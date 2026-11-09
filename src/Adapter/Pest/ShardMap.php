@@ -145,7 +145,7 @@ final readonly class ShardMap
             return $reads;
         }
 
-        $selector = $whole->selector($request, $reads, $own);
+        $selector = $whole->selector($request, $reads, $own, $this->patching->toggled(Toggle::PestShardScan));
 
         return $selector->armCoverage($request->files(), $selector->readCoverage($request->files(), $own));
     }

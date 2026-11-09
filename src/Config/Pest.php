@@ -150,6 +150,42 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.longFilter', LongFilter::UntilKiller->value));
     }
 
+    /** `pest.shardScan`, `true`: a shard scans the codebase for a value's readers once, not once a chunk. */
+    public static function scanningOnceAShard(): self
+    {
+        return new self(Json::at('pest.shardScan', value: true));
+    }
+
+    /** `pest.shardScan`, `false`: each chunk scans the codebase afresh. */
+    public static function scanningEachChunk(): self
+    {
+        return new self(Json::at('pest.shardScan', value: false));
+    }
+
+    /** `pest.longestFirst`, `true`: commands run side by side start the longest-limited first, as by default. */
+    public static function longestFirst(): self
+    {
+        return new self(Json::at('pest.longestFirst', value: true));
+    }
+
+    /** `pest.longestFirst`, `false`: they start in the order the run gives them. */
+    public static function inTheirOrder(): self
+    {
+        return new self(Json::at('pest.longestFirst', value: false));
+    }
+
+    /** `pest.remember`, `true`: a shard keeps what it read, listed and ran unmutated for its later runs. */
+    public static function remembering(): self
+    {
+        return new self(Json::at('pest.remember', value: true));
+    }
+
+    /** `pest.remember`, `false`: each run of a shard reads, lists and runs afresh. */
+    public static function forgetting(): self
+    {
+        return new self(Json::at('pest.remember', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

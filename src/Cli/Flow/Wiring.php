@@ -111,7 +111,7 @@ final readonly class Wiring
         EnabledMutators $mutators,
     ): Adapters|Invalid|CannotJudge {
         $chosen = new Chosen($this->extensions);
-        $checker = $this->checker($settings->staticCheck(), $chosen);
+        $checker = $this->checker($settings->staticCheck(), $settings->toggles(), $chosen);
         $suite = Suite::configured($project, SuiteConfig::ofRunner($settings->runner()->choice()->use()->value()));
         $runner = $suite instanceof TestSuite
             ? $chosen->runner($this->runnerChoice($settings, $checker, $mutators, $suite))
@@ -292,13 +292,22 @@ final readonly class Wiring
      * where the config names one (ADR-0020): the one zero-config
      * finds for `auto`, and none for `none`.
      */
-    private function checker(StaticCheck $static, Chosen $chosen): StaticChecker|NoAnalyser|Invalid|CannotJudge
-    {
+    private function checker(
+        StaticCheck $static,
+        Toggles $toggles,
+        Chosen $chosen,
+    ): StaticChecker|NoAnalyser|Invalid|CannotJudge {
         $tool = $static->tool();
         $use = $tool->use();
         $named = $use instanceof Name && $use->value() === StaticCheck::AUTO ? $this->detected->staticChecker() : $use;
         $config = $static->config();
         $options = $config instanceof Path ? $tool->options()->overPath(Key::of('config'), $config) : $tool->options();
+        $options = $named instanceof Name && $named->value() === BuiltinAnalyser::PhpStan->value
+            ? $options->over(Json::object(
+                Member::of(PhpStanOption::Php->value, $static->php()),
+                Member::of(PhpStanOption::Turbo->value, $toggles->on(Toggle::StaticCheckTurbo)),
+            ))
+            : $options;
 
         return $named instanceof Name && $named->value() === StaticCheck::NONE
             ? NoAnalyser::configured()

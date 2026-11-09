@@ -44,6 +44,18 @@ final readonly class Codebase
         return new self(array_values($sources), Hierarchy::of(...$sources), $byPath);
     }
 
+    /** This codebase, with these sources too: those of paths it holds replace its own. */
+    public function with(Source ...$sources): self
+    {
+        return $sources === [] ? $this : self::of(...$this->sources, ...$sources);
+    }
+
+    /** @return list<Source> every source it holds, in the order it read them */
+    public function sources(): array
+    {
+        return $this->sources;
+    }
+
     /** The file at a path, if the codebase holds it. */
     public function has(Path $file): bool
     {

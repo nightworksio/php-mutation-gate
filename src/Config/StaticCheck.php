@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck as CoreStaticCheck;
 use NightWorksIO\MutationGate\Core\Config\TestsTime;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
  * `staticCheck`: the static analyser that may kill a mutant before or after
@@ -122,6 +123,29 @@ final readonly class StaticCheck implements Setting
     public static function survivorsUnchecked(): self
     {
         return new self(Json::at('staticCheck.after', value: false));
+    }
+
+    /**
+     * `staticCheck.php`: the ini settings each check runs under, in place of the default's pcov off and opcache on
+     * with a file cache alone; none of them changes a finding.
+     */
+    public static function php(Option ...$settings): self
+    {
+        return new self(Json::object(
+            Member::of('staticCheck', Json::object(Member::of('php', Option::object(...$settings)))),
+        ));
+    }
+
+    /** `staticCheck.turbo`, `true`: PHPStan's checks load its turbo extension where it ships one, as by default. */
+    public static function turbo(): self
+    {
+        return new self(Json::at('staticCheck.turbo', value: true));
+    }
+
+    /** `staticCheck.turbo`, `false`: PHPStan's checks load no turbo extension. */
+    public static function withoutTurbo(): self
+    {
+        return new self(Json::at('staticCheck.turbo', value: false));
     }
 
     public function written(): Json

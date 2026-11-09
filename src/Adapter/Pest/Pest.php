@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -103,7 +104,7 @@ final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
         MapEngine|NotGiven $maps = new NotGiven(),
     ) {
         $this->tests = new TestFiles($project);
-        $this->remembered = new Remembered($maps);
+        $this->remembered = new Remembered($maps, $patching->toggled(Toggle::PestRemember));
         $this->suites = new MapSuites();
         $this->runs = new PestRuns(
             $project,
@@ -153,7 +154,8 @@ final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
 
         return $loading instanceof CannotJudge ? Invalid::because(Problem::at('', $loading->why())) : new self(
             $project,
-            new ProcessShell($processes, $project->root(), $loading),
+            new ProcessShell($processes, $project->root(), $loading)
+                ->longestFirst($read->patching()->toggled(Toggle::PestLongestFirst)),
             $read->patching(),
             $files,
             $packages,

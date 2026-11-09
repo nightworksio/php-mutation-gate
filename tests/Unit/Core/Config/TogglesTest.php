@@ -26,6 +26,10 @@ $toggles = [
     'staticCheck.after' => [Toggle::StaticCheckAfter, StaticCheckBuilder::survivorsUnchecked(...), StaticCheckBuilder::checkingSurvivors(...)],
     'timeouts.parts' => [Toggle::TimeoutsParts, TimeoutsBuilder::neverInParts(...), TimeoutsBuilder::inParts(...)],
     'suggest.looseValues' => [Toggle::SuggestLooseValues, SuggestBuilder::looseValuesSilent(...), SuggestBuilder::looseValuesNoted(...)],
+    'pest.shardScan' => [Toggle::PestShardScan, PestBuilder::scanningEachChunk(...), PestBuilder::scanningOnceAShard(...)],
+    'pest.longestFirst' => [Toggle::PestLongestFirst, PestBuilder::inTheirOrder(...), PestBuilder::longestFirst(...)],
+    'pest.remember' => [Toggle::PestRemember, PestBuilder::forgetting(...), PestBuilder::remembering(...)],
+    'staticCheck.turbo' => [Toggle::StaticCheckTurbo, StaticCheckBuilder::withoutTurbo(...), StaticCheckBuilder::turbo(...)],
 ];
 
 it('turns every step on by default, and a step off where its key says, a later layer\'s over an earlier one\'s', function (Toggle $toggle): void {
@@ -57,7 +61,7 @@ it('hands Pest the toggles it reads among its options, and any other runner none
     $pest = Toggles::of(Toggle::PestTrials, false)->beneath(Choice::of(BuiltinRunner::Pest->value, Options::none()));
     $other = Toggles::of(Toggle::PestTrials, false)->beneath(Choice::of(BuiltinRunner::PhpUnit->value, Options::none()));
 
-    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true}')
+    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true,"shardScan":true,"longestFirst":true,"remember":true}')
         ->and($other->options()->written()->line())->toBe('{}');
 });
 
@@ -67,4 +71,13 @@ it('loosens with controls.kills off, and with pest.trials off only where uncover
         ->and(Toggles::of(Toggle::PestTrials, false)->loose(true))->toBe([Toggle::PestTrials])
         ->and(Toggles::of(Toggle::ControlsMemory, false)->loose(true))->toBe([])
         ->and(Toggles::standard()->loose(true))->toBe([]);
+});
+
+it('keys none of the speed-ups that change no output, and every check that vouches for a result', function (): void {
+    $speedUps = array_values(array_filter(Toggle::cases(), static fn(Toggle $toggle): bool => $toggle->speedsUp()));
+
+    expect(array_map(static fn(Toggle $toggle): string => $toggle->value, $speedUps))
+        ->toBe(['pest.shardScan', 'pest.longestFirst', 'pest.remember', 'staticCheck.turbo'])
+        ->and(array_filter($speedUps, static fn(Toggle $toggle): bool => $toggle->effect()->isKeyed()))->toBe([])
+        ->and(Toggle::ControlsKills->effect()->isKeyed())->toBeTrue();
 });

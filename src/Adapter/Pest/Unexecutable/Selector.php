@@ -105,6 +105,39 @@ final readonly class Selector
         );
     }
 
+    /**
+     * This scan, also over these mutated files where the codebase it read
+     * holds none of them: a later chunk of the same shard scans its own
+     * files alone, the codebase already read.
+     */
+    public function alsoOver(Paths $mutated): self
+    {
+        $sources = [];
+
+        foreach ($mutated as $file) {
+            $sources[] = $this->codebase->has($file) ? [] : self::read($this->project, $file, test: false);
+        }
+
+        $read = array_merge(...$sources);
+
+        if ($read === []) {
+            return $this;
+        }
+
+        $codebase = $this->codebase->with(...$read);
+
+        return new self(
+            $this->project,
+            $this->coverage,
+            $this->tests,
+            $this->helpers,
+            new Followed($codebase),
+            $this->map,
+            new Originals($this->project, $codebase),
+            $codebase,
+        );
+    }
+
     /** A mutated file's original, scanned as the codebase read it; why it cannot be printed; or none. */
     public function original(Path $file): Original|CannotJudge|NotGiven
     {

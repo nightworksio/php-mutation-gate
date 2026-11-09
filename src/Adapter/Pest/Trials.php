@@ -31,6 +31,7 @@ final readonly class Trials
         private CapFiles $files,
         private LimitBounds $bounds,
         private Remembered $remembered,
+        private bool $perShard = true,
     ) {
     }
 
@@ -54,7 +55,7 @@ final readonly class Trials
                 $result,
                 $request,
                 $results,
-                static fn(): Selector => $whole->selector($request, $reads, $shared),
+                fn(): Selector => $whole->selector($request, $reads, $shared, $this->perShard),
             );
 
         return $judged instanceof CannotJudge

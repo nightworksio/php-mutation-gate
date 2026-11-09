@@ -364,8 +364,14 @@ final readonly class MutationRun
             ->withWarnings($warned);
 
         return $this->patching->toggled(Toggle::PestTrials)
-            ? new Trials($this->project, $this->tail($request), $this->files, $bounds, $this->remembered)
-                ->of($read, $request, $results, $coverage, $shared, $laps)
+            ? new Trials(
+                $this->project,
+                $this->tail($request),
+                $this->files,
+                $bounds,
+                $this->remembered,
+                $this->patching->toggled(Toggle::PestShardScan),
+            )->of($read, $request, $results, $coverage, $shared, $laps)
             : $read;
     }
 

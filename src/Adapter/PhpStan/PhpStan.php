@@ -9,10 +9,12 @@ use function file_exists;
 use function file_get_contents;
 use function file_put_contents;
 use function getenv;
+use function is_array;
 use function is_dir;
 use function is_file;
 use function is_string;
 use function is_writable;
+use function json_decode;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
@@ -66,7 +68,9 @@ use function unlink;
  * and saves nothing. A cache kept from an earlier run leaves the warm-up only
  * the files that changed since. The warm-up also keeps
  * which files PHPStan analyses, and a mutant of any other is out of its
- * scope.
+ * scope. Each process runs under the ini settings `staticCheck.php` names
+ * and, where `staticCheck.turbo` is on, PHPStan's turbo extension (see
+ * PhpIni), so PHPStan does not restart it.
  *
  * @internal
  */
@@ -123,8 +127,15 @@ final readonly class PhpStan implements StaticChecker
 
     private const string UNRESOLVED = 'PHPStan could not say the configuration it runs with (%s).';
 
-    private function __construct(private Root $root, private Path|Absent $config, private Processes $processes)
-    {
+    /** Where each process's opcache file cache is kept, under the gate's workspace. */
+    private const string OPCACHE = '%s/phpstan/opcache';
+
+    private function __construct(
+        private Root $root,
+        private Path|Absent $config,
+        private Processes $processes,
+        private PhpIni $ini,
+    ) {
     }
 
     /**
@@ -134,10 +145,21 @@ final readonly class PhpStan implements StaticChecker
     public static function fromOptions(Options $options, string $root, Processes $processes): self|Invalid
     {
         $config = $options->path(Key::of('config'));
+        $php = $options->object(Key::of(PhpStanOption::Php->value));
+        $turbo = $options->flag(Key::of(PhpStanOption::Turbo->value));
+        $ini = $php instanceof Options ? json_decode($php->written()->line(), associative: true) : [];
 
-        return $config instanceof Problem
-            ? Invalid::because($config)
-            : new self(Root::of($root), $config instanceof NotGiven ? Absent::setting() : $config, $processes);
+        return match (true) {
+            $config instanceof Problem => Invalid::because($config),
+            $php instanceof Problem => Invalid::because($php),
+            $turbo instanceof Problem => Invalid::because($turbo),
+            default => new self(
+                Root::of($root),
+                $config instanceof NotGiven ? Absent::setting() : $config,
+                $processes,
+                PhpIni::of(is_array($ini) ? $ini : [], $turbo === true),
+            ),
+        };
     }
 
     public function identity(Withheld $withheld): AnalyserIdentity|CannotJudge
@@ -340,7 +362,10 @@ final readonly class PhpStan implements StaticChecker
      */
     private function command(Withheld $withheld, array $arguments): ProcessCommand
     {
-        return ProcessCommand::of($this->root->value(), PHP_BINARY, self::SCRIPT, ...$arguments)
+        $cache = $this->absolute(Path::of(sprintf(self::OPCACHE, Workspace::root()->value())));
+        $ini = $this->ini->arguments($this->root->value(), $cache);
+
+        return ProcessCommand::of($this->root->value(), PHP_BINARY, ...$ini, ...[self::SCRIPT, ...$arguments])
             ->with(EnvironmentRead::of(Withholding::of($withheld, getenv())));
     }
 

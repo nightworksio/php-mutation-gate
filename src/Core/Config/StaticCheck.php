@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
+use function implode;
 use function intval;
 
 use NightWorksIO\MutationGate\Core\Analysis\DependentCap;
@@ -51,6 +52,7 @@ final readonly class StaticCheck implements Part
         private Seconds|Absent $opcacheLimit,
         private int|Absent $dependents,
         private int|Absent $preCheckAfter,
+        private Json|Absent $php,
     ) {
     }
 
@@ -64,6 +66,7 @@ final readonly class StaticCheck implements Part
         Seconds|Absent $opcacheLimit = new Absent(),
         int|Absent $dependents = new Absent(),
         int|Absent $preCheckAfter = new Absent(),
+        Json|Absent $php = new Absent(),
     ): self {
         return new self(
             $tool,
@@ -75,6 +78,7 @@ final readonly class StaticCheck implements Part
             $opcacheLimit,
             $dependents,
             $preCheckAfter,
+            $php,
         );
     }
 
@@ -96,6 +100,7 @@ final readonly class StaticCheck implements Part
             opcacheLimit: $none->opcacheLimit(),
             dependents: $none->dependents(),
             preCheckAfter: $none->preCheckAfter(),
+            php: $none->php(),
         );
     }
 
@@ -113,8 +118,24 @@ final readonly class StaticCheck implements Part
                 Absent::laid($this->opcacheLimit, $later->opcacheLimit),
                 Absent::laid($this->dependents, $later->dependents),
                 Absent::laid($this->preCheckAfter, $later->preCheckAfter),
+                Absent::laid($this->php, $later->php),
             )
             : $this;
+    }
+
+    /**
+     * `staticCheck.php`: the ini settings each of the analyser's checks runs under, which change none of its
+     * findings: pcov off, opcache on with a file cache alone and no timestamp checks, where no layer says
+     * (ADR-0020).
+     */
+    public function php(): Json
+    {
+        return $this->php instanceof Json ? $this->php : Json::object(
+            Member::of('pcov.enabled', '0'),
+            Member::of('opcache.enable_cli', '1'),
+            Member::of('opcache.file_cache_only', '1'),
+            Member::of('opcache.validate_timestamps', '0'),
+        );
     }
 
     /** `staticCheck.tool`: the analyser chosen, `auto` where no layer chooses one. */
@@ -198,6 +219,7 @@ final readonly class StaticCheck implements Part
                 ),
                 Member::of('dependents', $this->dependents),
                 Member::of('preCheckAfter', $this->preCheckAfter),
+                Member::of('php', $this->php),
                 Member::unlessEmpty(
                     'opcache',
                     Json::object(
@@ -225,6 +247,9 @@ final readonly class StaticCheck implements Part
             ...$this->before === false ? ['StaticCheck::afterTests()'] : [],
             ...$this->testsTime instanceof TestsTime ? [$this->testsTime->php()] : [],
             ...$this->learningPhp(),
+            ...$this->php instanceof Json
+                ? [sprintf('StaticCheck::php(%s)', implode(', ', PhpOptions::of($this->php)))]
+                : [],
             ...$this->opcacheBatch instanceof Absent
                 ? []
                 : [sprintf('StaticCheck::opcacheBatch(%d)', $this->opcacheBatch)],
