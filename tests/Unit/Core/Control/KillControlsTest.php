@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\KillControl;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
@@ -370,4 +371,25 @@ it('runs the killers alone under flaky.killControls alone, one control of a file
     );
 
     expect(array_column(askedKillControls($controls), 1))->toBe([['LoopTest::b', 'LoopTest::c']]);
+});
+
+it('controls a kill whose run left its filter out by its killers under until-killer, where the runner replayed its order', function (): void {
+    $wide = killedBy('src/Loop.php', '1', MutantStatus::Killed, 'LoopTest::a');
+    $evidence = Evidences::none()->with(
+        $wide->id(),
+        Evidence::none()->withPrefix(Prefix::at(1))->loadingUnfiltered(Paths::of(Path::of('tests/LoopTest.php'))),
+    );
+    $controlled = static fn(LongFilter $long): mixed => [...KillControls::of(
+        Mutants::of($wide),
+        $evidence,
+        killersMap(),
+        HeldCovered::none(),
+        new ReplayingRun(),
+        killBounds(),
+        KillControl::Order,
+        $long,
+    )->asked()][0]->selected();
+
+    expect($controlled(LongFilter::UntilKiller))->toEqual(NotGiven::value())
+        ->and($controlled(LongFilter::Files))->toEqual(Paths::of(Path::of('tests/LoopTest.php')));
 });

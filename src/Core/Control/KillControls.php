@@ -8,6 +8,7 @@ use function array_key_exists;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Config\KillControl;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -90,9 +91,12 @@ final readonly class KillControls implements ControlJudge
         RunSelection $run,
         LimitBounds $bounds,
         KillControl $control = KillControl::Order,
+        LongFilter $long = LongFilter::Files,
     ): self {
         if ($control === KillControl::Alone || $run->replaysKills()) {
-            return self::alone($mutants, $evidence, $map, $run, $bounds);
+            $replayed = $run->replaysKills() && $long === LongFilter::UntilKiller;
+
+            return self::alone($mutants, $evidence, $map, $run, $bounds, $replayed);
         }
 
         $tests = [];
@@ -169,19 +173,27 @@ final readonly class KillControls implements ControlJudge
             ->judged($mutant, $run, $control->tests());
     }
 
-    /** The controls of each of these kills, run by the tests that killed it, alone. */
+    /**
+     * The controls of each of these kills, run by the tests that killed it,
+     * alone. Under `pest.longFilter: until-killer`, a kill whose run left its
+     * filter out and whose runner replays its order up to its last killer
+     * (ADR-0138) is controlled by its killers too: that replay already ran
+     * every test the run executed before them.
+     */
     private static function alone(
         Mutants $mutants,
         Evidences $evidence,
         CoverageMap $map,
         RunSelection $run,
         LimitBounds $bounds,
+        bool $replayed,
     ): self {
         $kills = [];
 
         foreach ($mutants as $mutant) {
             if ($mutant->status() === MutantStatus::Killed && count($mutant->killers()) > 0) {
-                $kills[$mutant->id()->key()] = self::ownOf($mutant, $evidence, $map, $run, $bounds);
+                $found = $replayed ? Evidences::none() : $evidence;
+                $kills[$mutant->id()->key()] = self::ownOf($mutant, $found, $map, $run, $bounds);
             }
         }
 
