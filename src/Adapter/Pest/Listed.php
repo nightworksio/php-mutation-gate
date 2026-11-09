@@ -12,9 +12,13 @@ use function is_file;
 use function ksort;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Runner\EndedProcesses;
+use NightWorksIO\MutationGate\Core\Runner\PendingListings;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitTestList;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\StartedProcesses;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Suites;
@@ -54,13 +58,16 @@ final readonly class Listed
 
     /**
      * What Pest lists for each set of suites, in their order, each listing
-     * run side by side with the others into a file of its own, the first into
-     * the file {@see of()} lists into; or why it lists nothing for one.
-     *
-     * @return list<TestListing|CannotJudge>
+     * started side by side with the others into a file of its own, the first
+     * into the file {@see of()} lists into, and read once taken; or why it
+     * lists nothing for one.
      */
-    public static function sideBySide(Project $project, Shell $shell, Withheld $withheld, Suites ...$suites): array
-    {
+    public static function started(
+        Project $project,
+        Shell $shell,
+        Withheld $withheld,
+        Suites ...$suites,
+    ): PendingListings {
         $refused = [];
         $files = [];
         $commands = [];
@@ -78,20 +85,33 @@ final readonly class Listed
             $commands[] = Invocation::of($project)->listing($withheld, $among, $file);
         }
 
-        $listed = self::read($files, self::ran($shell, ...$commands)) + $refused;
-        ksort($listed);
+        $started = self::start($shell, ...$commands);
 
-        return array_values($listed);
+        return PendingListings::taking(
+            static function () use ($files, $started, $refused): array {
+                $listed = self::read($files, [...$started->ends()]) + $refused;
+                ksort($listed);
+
+                return array_values($listed);
+            },
+            static function () use ($started): void {
+                $started->stop();
+            },
+        );
     }
 
-    /** @return list<Ran> how each listing ended, in the order the commands were given */
-    private static function ran(Shell $shell, Command ...$commands): array
+    /** The listings started side by side, where the shell starts them; else run to their ends at once. */
+    private static function start(Shell $shell, Command ...$commands): StartedProcesses
     {
-        $count = count($commands);
+        if ($commands === []) {
+            return EndedProcesses::of(ProcessEnds::of());
+        }
 
-        return $count === 0
-            ? []
-            : [...$shell->sideBySide(WorkerSlots::untold($count), Unlimited::time(), ...$commands)];
+        $slots = WorkerSlots::untold(count($commands));
+
+        return $shell instanceof StartsCommands
+            ? $shell->started($slots, Unlimited::time(), ...$commands)
+            : EndedProcesses::of($shell->sideBySide($slots, Unlimited::time(), ...$commands));
     }
 
     /**

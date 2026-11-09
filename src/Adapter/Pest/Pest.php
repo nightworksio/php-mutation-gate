@@ -41,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\ListsSideBySide;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PendingListings;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
@@ -206,9 +207,9 @@ final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
         return $this->runs->listing($withheld, $suites);
     }
 
-    public function listedSideBySide(Withheld $withheld, Suites ...$suites): array
+    public function listingsStarted(Withheld $withheld, Suites ...$suites): PendingListings
     {
-        return $this->runs->listedSideBySide($withheld, ...$suites);
+        return $this->runs->listingsStarted($withheld, ...$suites);
     }
 
     /**

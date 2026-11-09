@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_filter;
 use function array_key_exists;
-use function array_keys;
 use function array_map;
 use function array_unique;
 use function array_values;
@@ -25,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PendingListings;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
@@ -33,23 +33,20 @@ use NightWorksIO\MutationGate\Port\MapEngine;
 
 /**
  * What one Pest runner learns once for every run it starts in a process: the
- * tests and groups each set of its suites lists, the PHP it starts, whether
- * the vendor is patched, each map another job handed over, the maps it has
- * written again for Pest, whether each control of a kill passes on the
- * unmutated code, served as its mutant was (see Control), and what each
- * replay of a kill's own run said (see PrefixReplays). Each is slow to
- * learn, from a process started for it or a map that can reach hundreds of
- * megabytes, and none changes while the gate runs. Each map handed over is
- * read with the engine that vouches for its text, where one does
- * (ADR-0118).
+ * tests and groups each set of its suites lists (see RememberedListings), the
+ * PHP it starts, whether the vendor is patched, each map another job handed
+ * over, the maps it has written again for Pest, whether each control of a
+ * kill passes on the unmutated code, served as its mutant was (see Control),
+ * and what each replay of a kill's own run said (see PrefixReplays). Each is
+ * slow to learn, from a process started for it or a map that can reach
+ * hundreds of megabytes, and none changes while the gate runs. Each map
+ * handed over is read with the engine that vouches for its text, where one
+ * does (ADR-0118).
  *
  * @internal
  */
 final class Remembered
 {
-    /** @var array<string, array<string, TestListing|CannotJudge>> by the suites listed, then what it withheld */
-    private array $listings = [];
-
     /** @var array<string, Platform|CannotJudge> by what the PHP described withheld */
     private array $platforms = [];
 
@@ -71,9 +68,12 @@ final class Remembered
     /** @var array<string, Selector> each scan of the codebase for the tests that read a value, by what it read */
     private array $selectors = [];
 
+    private readonly RememberedListings $listed;
+
     /** The engine that vouches for a handed map's text, where one does. */
     public function __construct(private readonly MapEngine|NotGiven $engine = new NotGiven())
     {
+        $this->listed = new RememberedListings();
     }
 
     /** @return (Closure(string): MapVouch)|NotGiven what vouches for a handed map's text, where anything does */
@@ -86,51 +86,26 @@ final class Remembered
             : $engine;
     }
 
-    /** @param Closure(): (TestListing|CannotJudge) $listing */
+    /**
+     * What a set of suites lists, listed once: taken where it was started
+     * side by side with others.
+     *
+     * @param Closure(): (TestListing|CannotJudge) $listing
+     */
     public function listing(Withheld $withheld, Suites $suites, Closure $listing): TestListing|CannotJudge
     {
-        $among = $suites->joined();
-        $key = $withheld->pattern();
-
-        if (! array_key_exists($among, $this->listings) || ! array_key_exists($key, $this->listings[$among])) {
-            $this->listings[$among][$key] = $listing();
-        }
-
-        return $this->listings[$among][$key];
+        return $this->listed->listing($withheld, $suites, $listing);
     }
 
     /**
-     * What each set of suites lists, each listed once: those not yet listed
-     * listed together.
+     * What each set of suites lists, each listed once: those neither listed
+     * nor started yet started together, and each taken once asked for.
      *
-     * @param  Closure(Suites ...): list<TestListing|CannotJudge> $listing
-     * @return list<TestListing|CannotJudge>
+     * @param Closure(Suites ...): PendingListings $starting
      */
-    public function listings(Withheld $withheld, Closure $listing, Suites ...$suites): array
+    public function listings(Withheld $withheld, Closure $starting, Suites ...$suites): PendingListings
     {
-        $key = $withheld->pattern();
-        $missing = [];
-
-        foreach ($suites as $among) {
-            if (! array_key_exists($among->joined(), $this->listings)
-                || ! array_key_exists($key, $this->listings[$among->joined()])) {
-                $missing[$among->joined()] = $among;
-            }
-        }
-
-        $joined = array_keys($missing);
-
-        foreach ($missing === [] ? [] : $listing(...array_values($missing)) as $at => $listed) {
-            $this->listings[$joined[$at]][$key] = $listed;
-        }
-
-        $listed = [];
-
-        foreach ($suites as $among) {
-            $listed[] = $this->listings[$among->joined()][$key];
-        }
-
-        return $listed;
+        return $this->listed->listings($withheld, $starting, ...$suites);
     }
 
     /** @param Closure(): (Platform|CannotJudge) $describing */

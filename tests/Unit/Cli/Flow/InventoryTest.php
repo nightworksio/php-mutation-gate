@@ -2,12 +2,18 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
+use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -20,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -39,8 +46,10 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HoldingSuites;
+use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -176,6 +185,25 @@ it('cannot find the units where a test file cannot be read', function () use ($l
     $found = Inventory::of(Flows::adapters($project, [], $checkout, $listing(Groups::of())), Flows::settings());
 
     expect($found)->toEqual(CannotJudge::because(sprintf('%s/tests/Nested.php could not be read.', $project)));
+});
+
+/** Pest over a fixture project, through a shell that answers each listing as Pest lists it. */
+function inventoryPest(ShellFake $shell): Pest
+{
+    return new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+}
+
+it('stops the listings it started where a test file cannot be read, and takes them where every one can', function (): void {
+    $unread = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $read = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $project = HoldingSuites::project(['tests/Unit/Nested.php/Inside.php' => "<?php\n"]);
+    $checkout = HoldingSuites::checkout(['tests/Unit/Nested.php' => "<?php\n"]);
+    $refused = Inventory::of(HoldingSuites::adapters($project, $checkout, inventoryPest($unread)), Flows::settings());
+    Inventory::of(HoldingSuites::adapters(HoldingSuites::project(), HoldingSuites::checkout(), inventoryPest($read)), Flows::settings());
+
+    expect($refused)->toEqual(CannotJudge::because(sprintf('%s/tests/Unit/Nested.php could not be read.', $project)))
+        ->and($unread->handled())->toBe([[false, true]])
+        ->and($read->handled())->toBe([[true, false]]);
 });
 
 /** Under Pest, the inventory of a project with this test file, listing these groups. */

@@ -8,14 +8,15 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\PendingListings;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 
 /**
  * The runs Pest starts for a project through its shell: each listing of a
- * set of suites, once, alone or side by side with others, and its mutation
- * runs, through that shell or one that keeps what Pest printed.
+ * set of suites, once, alone or started side by side with others, and its
+ * mutation runs, through that shell or one that keeps what Pest printed.
  *
  * @internal
  */
@@ -48,19 +49,18 @@ final readonly class PestRuns
     }
 
     /**
-     * What Pest lists for each set of suites, in their order, each once, those
-     * not yet listed side by side; or why it lists nothing for one.
-     *
-     * @return list<TestListing|CannotJudge>
+     * What Pest lists for each set of suites, in their order, each listed
+     * once: those not yet listed are started side by side, and each is taken
+     * once asked for.
      */
-    public function listedSideBySide(Withheld $withheld, Suites ...$suites): array
+    public function listingsStarted(Withheld $withheld, Suites ...$suites): PendingListings
     {
         $project = $this->project;
         $shell = $this->shell;
 
         return $this->remembered->listings(
             $withheld,
-            static fn(Suites ...$missing): array => Listed::sideBySide($project, $shell, $withheld, ...$missing),
+            static fn(Suites ...$missing): PendingListings => Listed::started($project, $shell, $withheld, ...$missing),
             ...$suites,
         );
     }

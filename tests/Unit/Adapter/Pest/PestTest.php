@@ -179,8 +179,8 @@ it('lists several sets of suites side by side, each into a file of its own, as i
     $together = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
     $pest = new Pest($at, $together, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
     $one = new Pest(PestCases::project(), $alone, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
-    $listed = $pest->listedSideBySide(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'));
-    $again = $pest->listedSideBySide(Withheld::standard(), Suites::listed('Process'), Suites::listed('Unit'));
+    $listed = $pest->listingsStarted(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'))->taken();
+    $again = $pest->listingsStarted(Withheld::standard(), Suites::listed('Process'), Suites::listed('Unit'))->taken();
 
     expect($listed)->toEqual([
         $one->listing(Withheld::standard(), Suites::listed('Unit')),
@@ -202,7 +202,7 @@ it('says why it lists a set of suites side by side where an earlier list cannot 
     mkdir(PestCases::listingFile($at), recursive: true);
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
     $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
-    $listed = $pest->listedSideBySide(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'));
+    $listed = $pest->listingsStarted(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'))->taken();
 
     $blocked = PestCases::project();
     $beside = sprintf('%s/tests-2.xml', dirname(PestCases::listingFile($blocked)));
@@ -210,7 +210,8 @@ it('says why it lists a set of suites side by side where an earlier list cannot 
     mkdir($beside, recursive: true);
     $untouched = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
     $none = new Pest($blocked, $untouched, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
-        ->listedSideBySide(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'));
+        ->listingsStarted(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'))
+        ->taken();
 
     expect($listed[0])->toEqual(Leftover::at(PestCases::listingFile($at)))
         ->and($listed[1])->toBeInstanceOf(TestListing::class)
