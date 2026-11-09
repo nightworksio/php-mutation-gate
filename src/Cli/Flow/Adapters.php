@@ -322,7 +322,10 @@ final readonly class Adapters
         return ! $this->narrowing->mutators()->isAll();
     }
 
-    /** The same, as the local loop runs: as many mutants at once as these cores make (ADR-0120). */
+    /**
+     * The same, as the local loop runs: as many mutants and opcache children
+     * at once as these cores make (ADR-0120).
+     */
     public function looping(ProcessCount $cores, LocalLoop $loop): self
     {
         return new self(
@@ -345,7 +348,7 @@ final readonly class Adapters
             $this->skippedSets,
             $this->security,
             $this->narrowing,
-            $this->equivalence,
+            $this->equivalence->across($cores),
             $this->configReads,
             $loop,
         );

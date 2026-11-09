@@ -45,7 +45,7 @@ final class OwnPriority
         return new self(System::here(), (int) getmypid());
     }
 
-    /** The priority of this process on this system. */
+    /** The priority of the process with this id on this system. */
     public static function on(System $system, int $process): self
     {
         return new self($system, $process);
@@ -86,10 +86,10 @@ final class OwnPriority
     /** This process at this niceness, where it is above the one it has. */
     private function niced(int $nice): void
     {
-        $now = function_exists('pcntl_getpriority') ? pcntl_getpriority() : false;
+        $now = function_exists('pcntl_getpriority') ? pcntl_getpriority($this->process) : false;
 
         if (is_int($now) && $nice > $now) {
-            pcntl_setpriority($nice);
+            pcntl_setpriority($nice, $this->process);
         }
     }
 }

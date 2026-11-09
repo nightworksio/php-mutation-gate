@@ -121,6 +121,24 @@ final readonly class Compiler
     }
 
     /**
+     * This compiler, with this many children side by side.
+     *
+     * @param int<1, max> $parallel
+     */
+    public function across(int $parallel): self
+    {
+        return new self(
+            $this->binary,
+            $this->directory,
+            $this->seconds,
+            $parallel,
+            $this->besides,
+            $this->pause,
+            $this->perChild,
+        );
+    }
+
+    /**
      * Each program's opcodes, or why there are none, by its key.
      *
      * @template TKey of array-key
