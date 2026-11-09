@@ -102,7 +102,13 @@ class MergedRecords(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as into, mock.patch.object(action.subprocess, "run", ran), mock.patch.dict(
             os.environ,
-            {"GITHUB_REPOSITORY": "octo/gate", "GITHUB_SHA": "tip", "FETCHED": into, "DEFAULT_BRANCH": "main"},
+            {
+                "GITHUB_REPOSITORY": "octo/gate",
+                "GITHUB_SHA": "tip",
+                "GITHUB_EVENT_NAME": "push",
+                "FETCHED": into,
+                "DEFAULT_BRANCH": "main",
+            },
         ):
             said = action._merged_records()
             with open(f"{into}/refs/pull/12/ledger.json.gz", "rb") as file:
@@ -110,6 +116,56 @@ class MergedRecords(unittest.TestCase):
 
         self.assertEqual(said, {"records": "1"})
         self.assertEqual(kept, b"the pass")
+
+    def test_names_the_pull_request_a_merge_group_was_built_for_and_no_other(self):
+        queue = "refs/heads/gh-readonly-queue/main/pr-42-0123abcd"
+
+        self.assertEqual(action.queued_pull_request(action.MERGE_GROUP, queue), 42)
+        self.assertIsNone(action.queued_pull_request("push", queue))
+        self.assertIsNone(action.queued_pull_request(action.MERGE_GROUP, "refs/heads/main"))
+
+    def test_reads_a_merge_groups_pull_request_and_fetches_its_head(self):
+        answers = {
+            "repos/octo/gate": {"id": 7},
+            f"repos/octo/gate/actions/artifacts?name={action.PASSED_ARTIFACT}&per_page=100": {"artifacts": [
+                {"id": 9, "expired": False, "workflow_run": {"head_sha": "h42", "head_repository_id": 7}},
+            ]},
+            "repos/octo/gate/pulls/42": {"number": 42, "head": {"sha": "h42"}},
+        }
+        held = io.BytesIO()
+        with zipfile.ZipFile(held, "w") as opened:
+            opened.writestr(action.PASSED_FILE, b"the ledger")
+        fetched = []
+
+        def ran(command, **_):
+            if command[0] == "git":
+                fetched.append(command[-1])
+                return subprocess.CompletedProcess(command, 0, b"", b"")
+            path = command[2]
+            if path.endswith("/zip"):
+                return subprocess.CompletedProcess(command, 0, held.getvalue(), b"")
+            if path not in answers:
+                return subprocess.CompletedProcess(command, 1, "", "Not Found")
+            return subprocess.CompletedProcess(command, 0, json.dumps(answers[path]), "")
+
+        with tempfile.TemporaryDirectory() as into, mock.patch.object(action.subprocess, "run", ran), mock.patch.dict(
+            os.environ,
+            {
+                "GITHUB_REPOSITORY": "octo/gate",
+                "GITHUB_SHA": "group",
+                "GITHUB_EVENT_NAME": action.MERGE_GROUP,
+                "GITHUB_REF": "refs/heads/gh-readonly-queue/main/pr-42-0123abcd",
+                "FETCHED": into,
+                "DEFAULT_BRANCH": "main",
+            },
+        ):
+            said = action._merged_records()
+            with open(f"{into}/refs/pull/42/ledger.json.gz", "rb") as file:
+                kept = file.read()
+
+        self.assertEqual(said, {"records": "1"})
+        self.assertEqual(kept, b"the ledger")
+        self.assertEqual(fetched, ["h42"])
 
     def test_warns_and_reads_none_where_github_does_not_answer(self):
         def ran(command, **_):

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
@@ -12,8 +13,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * The newest commit of a scope whose verdict passed: the check-run the verdict
  * reported under, how many proofs of the scope's own ledger it used, whether
  * its coverage map was measured against the map the scope keeps, when the
- * verdict passed and the release of the gate that judged it, where the record
- * says so. A passing run of another scope is trusted only where it used neither, which
+ * verdict passed and the release of the gate that judged it, and the units whose
+ * results it took from its own scope's proofs, where the record says so. A passing run of another scope is trusted only where it used neither, which
  * its own code could have written (ADR-0007).
  */
 final readonly class Passed
@@ -25,6 +26,7 @@ final readonly class Passed
         private bool $ownScopeCoverage,
         private Instant|NotGiven $at,
         private GateRelease $gate,
+        private Paths|NotGiven $ownScopeUnits,
     ) {
     }
 
@@ -37,6 +39,7 @@ final readonly class Passed
             ownScopeCoverage: false,
             at: NotGiven::value(),
             gate: GateRelease::unrecorded(),
+            ownScopeUnits: NotGiven::value(),
         );
     }
 
@@ -50,19 +53,56 @@ final readonly class Passed
             ownScopeCoverage: true,
             at: $this->at,
             gate: $this->gate,
+            ownScopeUnits: $this->ownScopeUnits,
         );
     }
 
     /** This pass, its verdict having passed at this instant. */
     public function passedAt(Instant $at): self
     {
-        return new self($this->commit, $this->check, $this->ownScopeProofs, $this->ownScopeCoverage, $at, $this->gate);
+        return new self(
+            $this->commit,
+            $this->check,
+            $this->ownScopeProofs,
+            $this->ownScopeCoverage,
+            $at,
+            $this->gate,
+            $this->ownScopeUnits,
+        );
     }
 
     /** This pass, this release of the gate having judged it. */
     public function judgedBy(GateRelease $gate): self
     {
-        return new self($this->commit, $this->check, $this->ownScopeProofs, $this->ownScopeCoverage, $this->at, $gate);
+        return new self(
+            $this->commit,
+            $this->check,
+            $this->ownScopeProofs,
+            $this->ownScopeCoverage,
+            $this->at,
+            $gate,
+            $this->ownScopeUnits,
+        );
+    }
+
+    /** This pass, these being the units whose results it took from its own scope's proofs. */
+    public function takingOwnScope(Paths $units): self
+    {
+        return new self(
+            $this->commit,
+            $this->check,
+            $units->count(),
+            $this->ownScopeCoverage,
+            $this->at,
+            $this->gate,
+            $units,
+        );
+    }
+
+    /** The units whose results it took from its own scope's proofs; none given where the record does not list them. */
+    public function ownScopeUnits(): Paths|NotGiven
+    {
+        return $this->ownScopeProofs === 0 ? Paths::none() : $this->ownScopeUnits;
     }
 
     /** The release of the gate that judged it; none recorded where the record does not say. */

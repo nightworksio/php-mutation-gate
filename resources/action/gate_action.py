@@ -25,9 +25,11 @@ Usage:
                            whether it runs Pest, and with the optional patches, and
                            whether it runs Infection
   gate_action.py merged-records  on a push to the default branch, into FETCHED, the
-                           pass each pull request merged into the last commits
-                           recorded, read from its run's artifact: `records`,
-                           how many it read; what it cannot read costs a run
+                           ledger each pull request merged into the last commits
+                           left with its pass, read from its run's artifact, and
+                           its head fetched; on a merge group, its pull
+                           request's: `records`, how many it read; what it
+                           cannot read costs a run
   gate_action.py infection what `infection:patch` exited with, CODE, and said,
                            in the file SAID: a warning where the release runs
                            unpatched, a refusal where it could not be patched
@@ -182,15 +184,17 @@ ACTION_REPORTS = {
     "digest": "digest:.mutation-gate/action/mutation-gate-digest.txt",
 }
 # The artifact a passing pull request's verdict leaves, and the file it holds:
-# a ledger of that pass alone (ADR-0139).
+# its scope's ledger as the verdict wrote it, with its pass (ADR-0139).
 PASSED_ARTIFACT = "mutation-gate-passed"
 PASSED_FILE = "passed.ledger.json.gz"
 # The name a ledger file has, under its scope's directory.
 LEDGER_FILE = "ledger.json.gz"
 # The commits a run looks back over: as far as the gate's proving range reads.
 PROVING_RANGE = 20
-# A ledger of one pass takes far less; a larger file is no such ledger.
-MOST_PASSED_BYTES = 1048576
+# The most a ledger the gate writes packs into: LedgerLimits::PACKED.
+MOST_PASSED_BYTES = 11000000
+# A merge queue's branch, which names the pull request a merge group was built for.
+QUEUE_BRANCH = re.compile(r"^gh-readonly-queue/.+/pr-(\d+)-[0-9a-f]+$")
 
 # A shard job's name as GitHub lists it, which holds the shard's number: the
 # reusable workflow names it `shard <number> (<label>)`, after the calling
@@ -983,19 +987,45 @@ def _merged_records() -> dict[str, str]:
     return {"records": str(records)}
 
 
+def queued_pull_request(event: str, ref: str) -> int | None:
+    """The pull request a merge group was built for, by its queue branch; none for any other run."""
+    branch = ref.removeprefix("refs/heads/")
+    queued = QUEUE_BRANCH.match(branch) if event == MERGE_GROUP else None
+    return int(queued.group(1)) if queued else None
+
+
 def _read_records(repository: str, default_branch: str, into: str) -> int:
     asked = f"repos/{repository}"
     identity = _api_json(asked)["id"]
     listed = _api_json(f"{asked}/actions/artifacts?name={PASSED_ARTIFACT}&per_page=100")["artifacts"]
     artifacts = passed_artifacts(listed, identity)
-    commits = _api_json(f"{asked}/commits?sha={os.environ['GITHUB_SHA']}&per_page={PROVING_RANGE}")
+    queued = queued_pull_request(os.environ.get("GITHUB_EVENT_NAME", ""), os.environ.get("GITHUB_REF", ""))
+    merged = (
+        [(queued, _api_json(f"{asked}/pulls/{queued}")["head"]["sha"])]
+        if queued is not None
+        else _merged_since(asked, repository, default_branch)
+    )
     records = 0
-    for commit in commits:
-        pulls = _api_json(f"{asked}/commits/{commit['sha']}/pulls")
-        for number, head in merged_heads(pulls, repository, default_branch):
-            if head in artifacts:
-                records += _kept_record(asked, artifacts[head], number, into)
+    for number, head in merged:
+        if head in artifacts:
+            records += _kept_record(asked, artifacts[head], number, into)
+            _fetched(head)
     return records
+
+
+def _merged_since(asked: str, repository: str, default_branch: str) -> list[tuple[int, str]]:
+    commits = _api_json(f"{asked}/commits?sha={os.environ['GITHUB_SHA']}&per_page={PROVING_RANGE}")
+    merged: list[tuple[int, str]] = []
+    for commit in commits:
+        merged += merged_heads(_api_json(f"{asked}/commits/{commit['sha']}/pulls"), repository, default_branch)
+    return merged
+
+
+def _fetched(head: str) -> None:
+    """A pull request's judged head, fetched so a delta from it can be read; nothing where it cannot be."""
+    subprocess.run(
+        ["git", "fetch", "--no-tags", "--depth=1", "origin", head], capture_output=True, check=False, timeout=120
+    )
 
 
 def _kept_record(asked: str, artifact: int, number: int, into: str) -> int:

@@ -68,7 +68,9 @@
           MUTATION_GATE_GCS_SERVICE_ACCOUNT: ${{ vars.MUTATION_GATE_GCS_SERVICE_ACCOUNT }}
         run: php "${GATE_ACTION}/bin/mutation-gate" fetch --to="${FETCHED}"
       - name: Read what the pull requests merged passed
-        if: inputs.merged-records && github.event_name == 'push' && github.ref_name == steps.default.outputs.name
+        if: >-
+          inputs.merged-records && (github.event_name == 'merge_group'
+          || (github.event_name == 'push' && github.ref_name == steps.default.outputs.name))
         env:
           DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
           GH_TOKEN: ${{ github.token }}

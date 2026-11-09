@@ -27,16 +27,15 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
-use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Written;
 
 /**
  * The delivery a command under `--deliver-later` leaves for `deliver`, in its stage's directory under
  * `.mutation-gate/delivery` (ADR-0007): `delivery.json`, begun empty so nothing an earlier run left there
  * is sent again and added to as the run goes, and the ledger, `ledger.json.gz`, and each object a store keeps
- * beside a ledger, such as the coverage map, `coverage.json.gz`, beside it. Beside the ledger of a pull request
- * whose verdict passed, `passed.ledger.json.gz` holds a ledger of that pass alone, for the run of the default
- * branch that merged it to read (ADR-0139).
+ * beside a ledger, such as the coverage map, `coverage.json.gz`, beside it. Where a pull request's verdict passed,
+ * `passed.ledger.json.gz` holds its ledger again, which `deliver` never sends, for the run of the default branch
+ * that merged it to read from its run's artifact (ADR-0139).
  *
  * @internal
  */
@@ -108,7 +107,9 @@ final readonly class DeliveryDirectory
         $limits = LedgerLimits::standard()->keeping($this->retention);
         $encoded = EncodedLedger::within($ledger, $limits, LedgerCodec::gzipOnly());
         $passed = $ledger->runs()->passed();
-        $record = ! $scope->isBranch() && $passed instanceof Passed ? $this->passedWritten($passed) : NotGiven::value();
+        $record = ! $scope->isBranch() && $passed instanceof Passed && $encoded instanceof EncodedLedger
+            ? $this->directory->write(Path::of(LedgerFile::PASSED_FILE), Contents::of($encoded->bytes()))
+            : NotGiven::value();
 
         return match (true) {
             $record instanceof CannotJudge => $record,
@@ -138,20 +139,6 @@ final readonly class DeliveryDirectory
     private function written(Delivery $delivery): Written|CannotJudge
     {
         return $this->directory->write(Path::of(DeliveryFile::NAME), Contents::of(DeliveryFile::encode($delivery)));
-    }
-
-    /** A ledger of this pass alone, beside the delivery; `deliver` sends nothing of it. */
-    private function passedWritten(Passed $passed): Written|CannotJudge
-    {
-        $encoded = EncodedLedger::within(
-            Ledger::empty()->withRuns(ScopeRuns::none()->passing($passed)),
-            LedgerLimits::standard(),
-            LedgerCodec::gzipOnly(),
-        );
-
-        return $encoded instanceof EncodedLedger
-            ? $this->directory->write(Path::of(LedgerFile::PASSED_FILE), Contents::of($encoded->bytes()))
-            : $encoded;
     }
 
     /** The delivery, with this encoded ledger beside it for this scope. */

@@ -7,12 +7,18 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\MergedTrust;
+use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Proofs;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
@@ -23,6 +29,8 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Checkout;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -108,11 +116,69 @@ function passedLedgers(array $commits): ProofStoreFake
  *
  * @param array<string, string> $environment
  */
-function trusting(Checkout $source, MockHttpClient $github, ProofStoreFake $ledgers, array $environment = PULL_REQUESTS_RUN): ChangeSource&Repository
-{
+function trusting(
+    Checkout $source,
+    MockHttpClient $github,
+    ProofStoreFake $ledgers,
+    array $environment = PULL_REQUESTS_RUN,
+    MergedTrust $trust = MergedTrust::Tree,
+    OwnScopeTrust $ownScope = OwnScopeTrust::Reach,
+): ChangeSource&Repository {
     $over = PassedPullRequests::over($source, $github, $environment, PULL_REQUESTS_CHECK);
 
-    return $over instanceof PassedPullRequests ? $over->trusting($ledgers) : $over;
+    return $over instanceof PassedPullRequests ? $over->trusting($ledgers, $trust, $ownScope) : $over;
+}
+
+/** A result of a unit, judged on the pull request's head. */
+function mergedProof(string $unit): Proof
+{
+    return Proof::of(
+        Digest::sha256Of(sprintf('%s at the head', $unit)),
+        Path::of($unit),
+        Flows::mutantsOf($unit),
+        Run::of('github:pull', Moment::at('2026-09-30T09:00:00Z'), Digest::sha256Of('base')),
+    );
+}
+
+/**
+ * The ledgers of pull requests numbered from one, each recording its head `pr-<commit>` as passed, having taken
+ * src/Held.php from its own scope, and holding a result of src/Money.php and of src/Held.php.
+ *
+ * @param list<string> $commits
+ */
+function ownScopeLedgers(array $commits): ProofStoreFake
+{
+    $ledgers = new ProofStoreFake();
+
+    foreach ($commits as $at => $commit) {
+        $passed = Passed::of(Revision::ref(sprintf('pr-%s', $commit)), PULL_REQUESTS_CHECK, 0)
+            ->takingOwnScope(Paths::of(Path::of('src/Held.php')));
+        $ledgers->write(
+            Scope::pullRequest($at + 1),
+            Ledger::empty()
+                ->withProof(mergedProof('src/Money.php'))
+                ->withProof(mergedProof('src/Held.php'))
+                ->withRuns(ScopeRuns::none()->passing($passed)),
+        );
+    }
+
+    return $ledgers;
+}
+
+/**
+ * The units whose results a source carries onto the default branch's ledger.
+ *
+ * @return list<string>
+ */
+function carriedUnits(ChangeSource&Repository $source): array
+{
+    $carried = $source instanceof PassedPullRequests ? $source->carriedOnto(Ledger::empty()->withRuns(
+        ScopeRuns::none()->passing(Passed::of(Revision::ref('base'), PULL_REQUESTS_CHECK, 0)),
+    )) : Proofs::none();
+    $units = array_map(static fn(Proof $proof): string => $proof->unit()->value(), [...$carried]);
+    sort($units);
+
+    return $units;
 }
 
 /**
@@ -569,4 +635,66 @@ it('reads every commit since the base whole past plan.provingRange', function ()
     $proved = $over instanceof PassedPullRequests ? $over->trusting(passedLedgers(['one', 'two'])) : $over;
 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($source()->changesSince(Revision::ref('base')));
+});
+
+it('takes a pass that took results from its own scope as ci.mergedOwnScopeProofs says', function (OwnScopeTrust $ownScope, bool $proved, array $carried) use ($source, $uncommitted): void {
+    $merged = trusting($source(), answering(provedCommits(['one'])), ownScopeLedgers(['one']), ownScope: $ownScope);
+
+    expect($merged->changesSince(Revision::ref('base')))->toEqual($proved ? $uncommitted() : CannotTell::because('base is not a revision this repository has.'))
+        ->and(carriedUnits($merged))->toBe($carried);
+})->with([
+    'reach, carrying all but what it took from its own scope' => [OwnScopeTrust::Reach, true, ['src/Money.php']],
+    'refuse, proving nothing' => [OwnScopeTrust::Refuse, false, []],
+    'trust, carrying all' => [OwnScopeTrust::Trust, true, ['src/Held.php', 'src/Money.php']],
+]);
+
+it('reaches under reach a pass that took own-scope results without listing them, nor one measured on its own map', function (Passed $passed) use ($source): void {
+    $ledgers = new ProofStoreFake();
+    $ledgers->write(Scope::pullRequest(1), Ledger::empty()->withProof(mergedProof('src/Money.php'))->withRuns(ScopeRuns::none()->passing($passed)));
+    $merged = trusting($source(), answering(provedCommits(['one'])), $ledgers);
+
+    expect($merged->changesSince(Revision::ref('base')))->toEqual(CannotTell::because('base is not a revision this repository has.'))
+        ->and(carriedUnits($merged))->toBe([]);
+})->with([
+    'unlisted' => [fn(): Passed => Passed::of(Revision::ref('pr-one'), PULL_REQUESTS_CHECK, 2)],
+    'measured on its own map' => [fn(): Passed => Passed::of(Revision::ref('pr-one'), PULL_REQUESTS_CHECK, 0)->onOwnScopeCoverage()],
+]);
+
+it('reads under delta the change from the judged head of a pull request whose landed tree differs', function () use ($uncommitted): void {
+    $fromHead = Changes::of(Change::modified(Path::of('src/Held.php'), Lines::none()));
+    $source = Checkout::of(
+        new ChangeSourceFake(Revision::ref('head'), $uncommitted(), [])->changedFrom(Revision::ref('pr-one'), $fromHead),
+        RepositoryFake::onMain(Revision::ref('head')),
+    );
+    $answers = [...provedCommits(['one']), sprintf('%s/git/commits/pr-one', PULL_REQUESTS_API) => ['tree' => ['sha' => 'tree-other']]];
+
+    $tree = trusting($source, answering($answers), passedLedgers(['one']));
+    $delta = trusting($source, answering($answers), passedLedgers(['one']), trust: MergedTrust::Delta);
+
+    expect($tree->changesSince(Revision::ref('base')))->toEqual(CannotTell::because('base is not a revision this repository has.'))
+        ->and($delta->changesSince(Revision::ref('base')))->toEqual($fromHead);
+});
+
+it('reads under delta everything since the base where the judged head cannot be read', function () use ($source): void {
+    $answers = [...provedCommits(['one']), sprintf('%s/git/commits/pr-one', PULL_REQUESTS_API) => ['tree' => ['sha' => 'tree-other']]];
+
+    expect(trusting($source(), answering($answers), passedLedgers(['one']), trust: MergedTrust::Delta)->changesSince(Revision::ref('base')))
+        ->toEqual(CannotTell::because('base is not a revision this repository has.'));
+});
+
+it('asks GitHub once a base, whatever reads the range', function () use ($source): void {
+    $github = answering(provedCommits(['one']));
+    $merged = trusting($source(), $github, ownScopeLedgers(['one']));
+
+    $merged->changesSince(Revision::ref('base'));
+    $asked = $github->getRequestsCount();
+    carriedUnits($merged);
+
+    expect($github->getRequestsCount())->toBe($asked);
+});
+
+it('carries nothing where the range is not proved', function () use ($source): void {
+    $merged = trusting($source(), answering(spoilt('the check failed', provedCommits(['one', 'two']))), ownScopeLedgers(['one', 'two']));
+
+    expect(carriedUnits($merged))->toBe([]);
 });

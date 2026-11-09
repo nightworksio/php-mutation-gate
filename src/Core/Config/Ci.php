@@ -31,7 +31,8 @@ final readonly class Ci implements Part
         private Choice|Absent $plan,
         private string|Absent $defaultBranch,
         private string|Absent $check,
-        private bool|Absent $trustMergedPullRequests,
+        private MergedTrust|Absent $trustMergedPullRequests,
+        private OwnScopeTrust|Absent $mergedOwnScopeProofs,
         private Path|Absent $gitlabTemplate,
         private BuildkiteStep|Absent $buildkiteStep,
         private Path|Absent $buildkiteDefinition,
@@ -46,7 +47,8 @@ final readonly class Ci implements Part
         Choice|Absent $plan = new Absent(),
         string|Absent $defaultBranch = new Absent(),
         string|Absent $check = new Absent(),
-        bool|Absent $trustMergedPullRequests = new Absent(),
+        MergedTrust|Absent $trustMergedPullRequests = new Absent(),
+        OwnScopeTrust|Absent $mergedOwnScopeProofs = new Absent(),
         Path|Absent $gitlabTemplate = new Absent(),
         BuildkiteStep|Absent $buildkiteStep = new Absent(),
         Path|Absent $buildkiteDefinition = new Absent(),
@@ -60,6 +62,7 @@ final readonly class Ci implements Part
             $defaultBranch,
             $check,
             $trustMergedPullRequests,
+            $mergedOwnScopeProofs,
             $gitlabTemplate,
             $buildkiteStep,
             $buildkiteDefinition,
@@ -81,7 +84,8 @@ final readonly class Ci implements Part
 
         return self::of(
             check: $none->check(),
-            trustMergedPullRequests: $none->trustsMergedPullRequests(),
+            trustMergedPullRequests: $none->mergedTrust(),
+            mergedOwnScopeProofs: $none->mergedOwnScopeProofs(),
             gitlabTemplate: $none->gitlabTemplate(),
             buildkiteStep: $none->buildkiteStep(),
             buildkiteDefinition: $none->buildkiteDefinition(),
@@ -100,6 +104,7 @@ final readonly class Ci implements Part
                 Absent::laid($this->defaultBranch, $later->defaultBranch),
                 Absent::laid($this->check, $later->check),
                 Absent::laid($this->trustMergedPullRequests, $later->trustMergedPullRequests),
+                Absent::laid($this->mergedOwnScopeProofs, $later->mergedOwnScopeProofs),
                 Absent::laid($this->gitlabTemplate, $later->gitlabTemplate),
                 match (true) {
                     $later->buildkiteStep instanceof Absent => $this->buildkiteStep,
@@ -155,13 +160,32 @@ final readonly class Ci implements Part
     }
 
     /**
-     * `ci.trustMergedPullRequests`: whether the default branch takes a merged pull request's passing run as proof
-     * of its tree, false unless the config says so. The proof is a record the pull request's own run computed and
-     * wrote to its own scope, an untrusted write, so turning it on trusts that run (ADR-0005).
+     * `ci.trustMergedPullRequests`: what the default branch takes from a merged pull request's pass, nothing unless
+     * the config says. The pass is a record the pull request's own run computed, an untrusted write, so anything
+     * but `false` trusts that run (ADR-0005, ADR-0139).
      */
+    public function mergedTrust(): MergedTrust
+    {
+        return $this->trustMergedPullRequests instanceof MergedTrust
+            ? $this->trustMergedPullRequests
+            : MergedTrust::Off;
+    }
+
+    /** Whether the default branch takes anything from a merged pull request's pass. */
     public function trustsMergedPullRequests(): bool
     {
-        return ! $this->trustMergedPullRequests instanceof Absent && $this->trustMergedPullRequests;
+        return $this->mergedTrust()->trusts();
+    }
+
+    /**
+     * `ci.mergedOwnScopeProofs`: what a merged pull request's pass that took results from its own scope's proofs is
+     * trusted for, `reach` unless the config says (ADR-0139).
+     */
+    public function mergedOwnScopeProofs(): OwnScopeTrust
+    {
+        return $this->mergedOwnScopeProofs instanceof OwnScopeTrust
+            ? $this->mergedOwnScopeProofs
+            : OwnScopeTrust::Reach;
     }
 
     /** The file whose hidden `.mutation-gate` job GitLab's generated jobs extend. */
@@ -225,7 +249,18 @@ final readonly class Ci implements Part
                 Member::of('defaultBranch', $this->defaultBranch),
                 Member::of('check', $this->check),
                 Member::of('schedule', $this->schedule),
-                Member::of('trustMergedPullRequests', $this->trustMergedPullRequests),
+                Member::of(
+                    'trustMergedPullRequests',
+                    $this->trustMergedPullRequests instanceof MergedTrust
+                        ? $this->trustMergedPullRequests->json()
+                        : $this->trustMergedPullRequests,
+                ),
+                Member::of(
+                    'mergedOwnScopeProofs',
+                    $this->mergedOwnScopeProofs instanceof OwnScopeTrust
+                        ? $this->mergedOwnScopeProofs->value
+                        : $this->mergedOwnScopeProofs,
+                ),
                 Member::unlessEmpty(
                     'gitlab',
                     Json::object(Member::of('template', CiCalls::path($origin, $this->gitlabTemplate))),
@@ -268,6 +303,7 @@ final readonly class Ci implements Part
             ...CiCalls::named('Ci::check(%s)', $this->check),
             ...CiCalls::named('Ci::schedule(%s)', $this->schedule),
             ...CiCalls::trust($this->trustMergedPullRequests),
+            ...CiCalls::ownScope($this->mergedOwnScopeProofs),
             ...$this->gitlabTemplate instanceof Path
                 ? [sprintf('Pipeline::gitlabTemplate(%s)', PhpCalls::literal($origin->written($this->gitlabTemplate)))]
                 : [],

@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Compression;
@@ -28,6 +30,8 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
@@ -36,7 +40,9 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -67,14 +73,22 @@ it('keeps each stage in its own directory under .mutation-gate/delivery', functi
         ->toBe(['.mutation-gate/delivery/planned', '.mutation-gate/delivery/survivors', '.mutation-gate/delivery/verdict']);
 });
 
-it('leaves beside a pull request\'s ledger that holds a pass a ledger of that pass alone, and beside any other none', function (Scope $scope, bool $passes, bool $left): void {
+it('leaves beside a pull request\'s ledger that holds a pass that ledger again, and beside any other none', function (Scope $scope, bool $passes, bool $left): void {
     $project = Scratch::directory();
-    $passed = Passed::of(Revision::ref(str_repeat('e7', 20)), 'mutation / verdict', 2)->onOwnScopeCoverage();
+    $passed = Passed::of(Revision::ref(str_repeat('e7', 20)), 'mutation / verdict', 0)
+        ->takingOwnScope(Paths::of(Path::of('src/Held.php'), Path::of('src/Money.php')))
+        ->onOwnScopeCoverage();
     $runs = $passes ? ScopeRuns::none()->passing($passed) : ScopeRuns::none();
+    $proof = Proof::of(
+        Digest::sha256Of('src/Money.php'),
+        Path::of('src/Money.php'),
+        Flows::mutantsOf('src/Money.php'),
+        Run::of('github:pull', Moment::at('2026-11-09T10:00:00Z'), Digest::sha256Of('base')),
+    );
 
     DeliveryDirectory::of(Directory::at($project), Stage::Verdict)->ledger(
         $scope,
-        Ledger::empty()->atBase(Digest::sha256Of('base'))->withRuns($runs),
+        Ledger::empty()->atBase(Digest::sha256Of('base'))->withProof($proof)->withRuns($runs),
     );
 
     $file = sprintf('%s/%s/%s', $project, Stage::Verdict->directory()->value(), LedgerFile::PASSED_FILE);
@@ -84,9 +98,13 @@ it('leaves beside a pull request\'s ledger that holds a pass a ledger of that pa
         $read = LedgerFile::decode((string) file_get_contents($file));
         $held = $read->runs()->passed();
 
-        expect(count([...$read->proofs()]))->toBe(0)
+        $units = $held instanceof Passed ? $held->ownScopeUnits() : $held;
+
+        expect(count([...$read->proofs()]))->toBe(1)
             ->and($held instanceof Passed ? [$held->commit()->name(), $held->check(), $held->ownScopeProofs(), $held->measuredOnOwnScope()] : $held)
-            ->toBe([str_repeat('e7', 20), 'mutation / verdict', 2, true]);
+            ->toBe([str_repeat('e7', 20), 'mutation / verdict', 2, true])
+            ->and($units instanceof Paths ? array_map(static fn(Path $path): string => $path->value(), [...$units]) : $units)
+            ->toBe(['src/Held.php', 'src/Money.php']);
     }
 })->with([
     'a pull request that passed' => [fn(): Scope => Scope::pullRequest(7), true, true],

@@ -358,7 +358,7 @@ final readonly class Judging
             $results->wereCutShort() ? $verdict->cutShort() : $verdict,
             $baseline,
             $ledgers,
-            $proving->ownScopeProofs() + $carrying->ownScopeProofs(),
+            $proving->ownScopeUnits()->and($carrying->ownScopeUnits()),
             $refused,
             $map,
         );
@@ -564,11 +564,11 @@ final readonly class Judging
         Verdict $verdict,
         JudgedCommit|CannotTell $judged,
     ): string|CannotJudge {
-        $ownScopeProofs = $assessed->ownScopeProofs;
         $at = Instant::at($this->setup->clock->now());
         $run = RunName::of($this->adapters->environment, $at, $plan->base())->profiled($plan->briefing()->profile());
         $unjudged = $verdict->trees()->mutants()->counts()->number(MutantJudgement::Unjudged);
-        $passing = Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)
+        $passing = Passed::of($plan->commit(), $this->settings->ci()->check(), 0)
+            ->takingOwnScope($assessed->ownScopeUnits)
             ->passedAt($at)
             ->judgedBy(GateRelease::of($this->setup->gate));
         $passed = match (true) {

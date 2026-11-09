@@ -456,7 +456,8 @@ write their own scope's ledger, two runs are spared
 
 - a group whose commit holds exactly the tree of its pull request's head,
   where that pull request's verdict passed on that head, as its `passed`
-  record says with none of its own proofs used, reaches nothing; and
+  record says, reaches nothing but the units `ci.mergedOwnScopeProofs`
+  leaves to run again; and
 - the push to the default branch after the queue merges reaches nothing for
   a commit on which a group's verdict passed.
 

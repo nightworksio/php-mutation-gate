@@ -23,13 +23,15 @@ final readonly class CiCalls
     }
 
     /** @return list<string> the builder's call that sets `ci.trustMergedPullRequests`, where a layer sets it */
-    public static function trust(bool|Absent $trust): array
+    public static function trust(MergedTrust|Absent $trust): array
     {
-        return match (true) {
-            $trust instanceof Absent => [],
-            $trust => ['Ci::trustingMergedPullRequests()'],
-            default => ['Ci::notTrustingMergedPullRequests()'],
-        };
+        return $trust instanceof MergedTrust ? [$trust->php()] : [];
+    }
+
+    /** @return list<string> the builder's call that sets `ci.mergedOwnScopeProofs`, where a layer sets it */
+    public static function ownScope(OwnScopeTrust|Absent $trust): array
+    {
+        return $trust instanceof OwnScopeTrust ? [$trust->php()] : [];
     }
 
     /** A path as the config writes it, where a layer sets it. */

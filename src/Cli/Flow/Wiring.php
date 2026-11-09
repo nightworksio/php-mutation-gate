@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Filesystem\ReferencedFiles;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
+use NightWorksIO\MutationGate\Adapter\GitHub\MergedLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Setup;
@@ -123,7 +124,13 @@ final readonly class Wiring
         $source = $this->versionControl($settings)->over($this->sourceOptions($settings, $withheld));
         $changes = $chosen->changeSource($source);
         $repository = $chosen->repository($source);
-        $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository), $project->root());
+        $kept = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository), $project->root());
+        $trusted = $changes instanceof ChangeSource && $kept instanceof ProofStore
+            ? $this->trusted($changes, $kept, $settings)
+            : $changes;
+        $proofs = $trusted instanceof PassedPullRequests && $kept instanceof ProofStore
+            ? MergedLedgers::over($kept, $trusted)
+            : $kept;
         $processes = $settings->runner()->processes(Cores::counted());
 
         return match (true) {
@@ -134,7 +141,7 @@ final readonly class Wiring
             ! $proofs instanceof ProofStore => $proofs,
             ! $costs instanceof CostModel => $costs,
             ! $ci instanceof CiPlan => $ci,
-            ! $changes instanceof ChangeSource => $changes,
+            ! $trusted instanceof ChangeSource => $trusted,
             ! $repository instanceof Repository => $repository,
             default => new Adapters(
                 $runner,
@@ -147,8 +154,10 @@ final readonly class Wiring
                 $proofs,
                 $costs,
                 $ci,
-                $this->trustedChanges($changes, $proofs, $settings),
-                $this->trustedRepository($repository, $proofs, $settings),
+                $trusted,
+                $repository instanceof PassedPullRequests && $trusted instanceof PassedPullRequests
+                    ? $trusted
+                    : $repository,
                 $project,
                 $this->environment,
                 $withheld,
@@ -349,24 +358,15 @@ final readonly class Wiring
     }
 
     /**
-     * GitHub's change source, reading each pull request's own ledger from the proof store where
-     * `ci.trustMergedPullRequests` allows it; any other as it is.
+     * GitHub's change source, reading each pull request's own ledger from the proof store as
+     * `ci.trustMergedPullRequests` and `ci.mergedOwnScopeProofs` allow; any other as it is.
      */
-    private function trustedChanges(ChangeSource $source, ProofStore $proofs, Settings $settings): ChangeSource
+    private function trusted(ChangeSource $source, ProofStore $proofs, Settings $settings): ChangeSource
     {
-        return $source instanceof PassedPullRequests && $settings->ci()->trustsMergedPullRequests()
-            ? $source->trusting($proofs)
-            : $source;
-    }
+        $ci = $settings->ci();
 
-    /**
-     * GitHub's repository, reading each pull request's own ledger from the proof store where
-     * `ci.trustMergedPullRequests` allows it; any other as it is.
-     */
-    private function trustedRepository(Repository $source, ProofStore $proofs, Settings $settings): Repository
-    {
-        return $source instanceof PassedPullRequests && $settings->ci()->trustsMergedPullRequests()
-            ? $source->trusting($proofs)
+        return $source instanceof PassedPullRequests && $ci->trustsMergedPullRequests()
+            ? $source->trusting($proofs, $ci->mergedTrust(), $ci->mergedOwnScopeProofs())
             : $source;
     }
 

@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Expiry;
 use NightWorksIO\MutationGate\Core\Config\Ignored;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
@@ -74,9 +75,12 @@ final readonly class Unchanged
      */
     public function passing(Revision $head, Instant $at): Passed
     {
+        $units = $this->base->ownScopeUnits();
         $passed = Passed::of($head, $this->base->check(), $this->base->ownScopeProofs())
             ->passedAt($at)
             ->judgedBy($this->base->gate());
+
+        $passed = $units instanceof Paths ? $passed->takingOwnScope($units) : $passed;
 
         return $this->base->measuredOnOwnScope() ? $passed->onOwnScopeCoverage() : $passed;
     }

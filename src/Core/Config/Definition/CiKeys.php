@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -36,7 +37,8 @@ final readonly class CiKeys
         $plan = $placement->admitting(Field::optional('plan', Adapter::choosing(Builtins::ciPlans($origin)), $decides));
         $branch = $placement->admitting(Field::optional('defaultBranch', Text::of('a branch name'), $decides));
         $check = Field::optional('check', Text::of('a check-run name'), $decides);
-        $trust = Field::optional('trustMergedPullRequests', Flag::boolean(), $decides);
+        $trust = Field::optional('trustMergedPullRequests', TrustedMerges::values(), $decides);
+        $ownScope = Field::optional('mergedOwnScopeProofs', Enumerated::of(OwnScopeTrust::cases()), $decides);
         $schedule = Field::optional(
             'schedule',
             Text::matching(self::CRON_FIELDS, self::CRON),
@@ -94,6 +96,7 @@ final readonly class CiKeys
                     $branch,
                     $check,
                     $trust,
+                    $ownScope,
                     $gitlab,
                     $buildkite,
                     $azure,
@@ -101,6 +104,7 @@ final readonly class CiKeys
                     $jenkins,
                 ): Layer|Invalid {
                     $readings = [$plan->read($ci), $branch->read($ci), $check->read($ci), $trust->read($ci)];
+                    $owned = $ownScope->read($ci);
                     $inner = [
                         $gitlab->read($ci),
                         $buildkite->read($ci),
@@ -117,11 +121,13 @@ final readonly class CiKeys
                                 defaultBranch: $readings[1]->value(),
                                 check: $readings[2]->value(),
                                 trustMergedPullRequests: $readings[3]->value(),
+                                mergedOwnScopeProofs: $owned->value(),
                                 schedule: $scheduled->value(),
                             ),
                             ...$inner,
                         )),
                         $scheduled,
+                        $owned,
                         ...$readings,
                         ...$inner,
                     );
@@ -130,6 +136,7 @@ final readonly class CiKeys
                 $branch,
                 $check,
                 $trust,
+                $ownScope,
                 $schedule,
                 $gitlab,
                 $buildkite,

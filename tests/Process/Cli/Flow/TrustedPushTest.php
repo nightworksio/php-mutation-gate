@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Equivalence;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\MergedTrust;
+use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -122,7 +124,7 @@ function trustedPushPorts(Repository $repository, ProofStore $store, MockHttpCli
         TRUSTED_PUSH_CHECK,
     ) : $git;
 
-    return [$over instanceof PassedPullRequests ? $over->trusting($store) : $over, $store, JudgingRuns::tree(Floor::of(0))];
+    return [$over instanceof PassedPullRequests ? $over->trusting($store, MergedTrust::Tree, OwnScopeTrust::Reach) : $over, $store, JudgingRuns::tree(Floor::of(0))];
 }
 
 /** @param list<object> $ports */
@@ -298,7 +300,7 @@ it('passes the verdict of a trusted push at its head, whatever it ran, and that 
         ->and(trustedPushCarried($next))->toBe(['src/Equals.php', 'src/Held.php', 'src/Money.php']);
 })->with(['a source file' => [$equals], 'a test' => [$test], 'a file that decides every unit' => [$manifest]]);
 
-it('finds the pass a pull request\'s delivery left, handed through fetch, with nothing of its proofs', function () use ($test): void {
+it('finds the ledger a pull request\'s delivery left with its pass, handed through fetch', function () use ($test): void {
     $repository = trustedPushProject();
     $disk = FetchedCopies::of(
         LedgerDirectory::at(sprintf('%s/.mutation-gate/ledger', $repository->root)),

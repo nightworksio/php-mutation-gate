@@ -55,9 +55,9 @@ inputs:
     default: 'true'
   merged-records:
     description: >-
-      true to keep each pull request's pass as an artifact, and read it on the push that merged it, so that
-      ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers (ADR-0139). The job needs actions: read
-      and pull-requests: read.
+      true to keep each pull request's pass as an artifact, and read it on the push that merged it or a merge
+      group built for it, so that ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers
+      (ADR-0139). The job needs actions: read and pull-requests: read.
     required: false
     default: 'false'
   merged-records-days:
@@ -142,8 +142,8 @@ runs:
 
     - name: Read what the pull requests merged passed
       if: >-
-        inputs.deliver != 'true' && inputs.merged-records == 'true' && github.event_name == 'push'
-        && github.ref_name == steps.default.outputs.name
+        inputs.deliver != 'true' && inputs.merged-records == 'true' && (github.event_name == 'merge_group'
+        || (github.event_name == 'push' && github.ref_name == steps.default.outputs.name))
       shell: bash
       env:
         DEFAULT_BRANCH: ${{ steps.default.outputs.name }}

@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
-use function array_any;
+use function array_filter;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
+use NightWorksIO\MutationGate\Core\Config\MergedTrust;
+use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
@@ -22,17 +27,19 @@ use function sprintf;
 
 /**
  * GitHub's word on which commits of the default branch a pull request or a
- * merge group already proved. A commit is proved where its tree is the head
- * of a pull request merged into the repository's default branch whose verdict
- * passed on that head, which is where the latest check-run GitHub Actions
- * completed there under the name `ci.check` concluded in success, and the
- * pull request's own ledger records the head as passed under that check with
- * no proof of its own scope used; and where a merge group's verdict passed on
- * that very commit, which is where the latest such check-run of a check suite
- * on a merge queue's branch concluded in success (ADR-0049). A merge group's
- * own head is proved where its tree is the head of the pull request it was
- * built for, into the default branch, whose verdict passed on that head
- * (ADR-0022). Without the ledgers to read, nothing is proved.
+ * merge group already proved. A commit is proved where it is the merge of a
+ * pull request into the repository's default branch whose verdict passed on
+ * its head, which is where the latest check-run GitHub Actions completed there
+ * under the name `ci.check` concluded in success, and the pull request's own
+ * ledger, read from its run's artifact, records the head as passed under that
+ * check, and its tree is that head's, or under `ci.trustMergedPullRequests:
+ * delta` any tree; and where a merge group's verdict passed on that very
+ * commit (ADR-0049). A merge group's own head is proved where the same holds
+ * of the pull request it was built for (ADR-0022). A pass that took results
+ * from its own scope's proofs proves as `ci.mergedOwnScopeProofs` says, and
+ * each pass carries its ledger's results but those it took from its own scope,
+ * all of them under `trust` (ADR-0139). Without the ledgers to read, nothing
+ * is proved.
  *
  * @internal
  */
@@ -47,6 +54,9 @@ final readonly class MergedHeads
         private ProofStore|NoLedgers $ledgers,
         private PullRequestNumber|NotGiven $group,
         private ProvingRange $range,
+        private MergedTrust $trust,
+        private OwnScopeTrust $ownScope,
+        private MergedAnswers $answers,
     ) {
     }
 
@@ -62,11 +72,14 @@ final readonly class MergedHeads
             NoLedgers::none(),
             NotGiven::value(),
             $range,
+            MergedTrust::Off,
+            OwnScopeTrust::Refuse,
+            MergedAnswers::none(),
         );
     }
 
-    /** These heads, reading each pull request's own ledger from this store. */
-    public function trusting(ProofStore $ledgers): self
+    /** These heads, reading each pull request's own ledger from this store, and taking from it what these allow. */
+    public function trusting(ProofStore $ledgers, MergedTrust $trust, OwnScopeTrust $ownScope): self
     {
         return new self(
             $this->api,
@@ -77,6 +90,9 @@ final readonly class MergedHeads
             $ledgers,
             $this->group,
             $this->range,
+            $trust,
+            $ownScope,
+            MergedAnswers::none(),
         );
     }
 
@@ -92,6 +108,9 @@ final readonly class MergedHeads
             $this->ledgers,
             $pullRequest,
             $this->range,
+            $this->trust,
+            $this->ownScope,
+            $this->answers,
         );
     }
 
@@ -101,25 +120,34 @@ final readonly class MergedHeads
         return Revision::ref($this->head);
     }
 
-    /**
-     * Whether a merge group's head is the tree of its pull request, whose run passed; for any other head, whether
-     * every commit from a base to it is the tree of a pull request whose run passed or a merge group's whose run
-     * passed. Never without the pull requests' ledgers to read, and then GitHub is not asked.
-     */
+    /** Whether every commit from a base to the head is proved, as {@see since()} says. */
     public function provedSince(Revision $base): bool
+    {
+        return $this->since($base)->isProved();
+    }
+
+    /**
+     * For a merge group, what its pull request's pass proves of the group's head; for any other head, what the
+     * passes of the pull requests and merge groups from a base to it prove. Nothing without the pull requests'
+     * ledgers to read, and then GitHub is not asked. Asked once a base.
+     */
+    public function since(Revision $base): MergedRange
     {
         $ledgers = $this->ledgers;
         $group = $this->group;
 
         return match (true) {
-            ! $ledgers instanceof ProofStore => false,
-            $group instanceof PullRequestNumber => $this->groupProved($group, $ledgers),
-            default => $this->rangeProved($base, $ledgers),
+            ! $ledgers instanceof ProofStore || ! $this->trust->trusts() => MergedRange::unproved(),
+            $group instanceof PullRequestNumber => $this->answers->of(
+                '',
+                fn(): MergedRange => $this->groupProved($group, $ledgers),
+            ),
+            default => $this->answers->of($base->name(), fn(): MergedRange => $this->rangeProved($base, $ledgers)),
         };
     }
 
-    /** Whether every commit from a base to the head is proved. */
-    private function rangeProved(Revision $base, ProofStore $ledgers): bool
+    /** What every commit from a base to the head proves. */
+    private function rangeProved(Revision $base, ProofStore $ledgers): MergedRange
     {
         $comparison = $this->api->get(sprintf(
             '/repos/%s/compare/%s...%s',
@@ -129,71 +157,107 @@ final readonly class MergedHeads
         ));
 
         if ($comparison instanceof CannotTell) {
-            return false;
+            return MergedRange::unproved();
         }
 
         $commits = $comparison->items('commits');
 
         return count($commits) <= $this->range->farthest()
             && count($commits) === $comparison->number('total_commits')
-            && $this->provesAll($commits, $ledgers);
+            ? $this->provedAll($commits, $ledgers)
+            : MergedRange::unproved();
     }
 
-    /**
-     * Whether a merge group's head is the tree of the head of the pull request it was built for, into the default
-     * branch, whose verdict passed on that head.
-     */
-    private function groupProved(PullRequestNumber $pullRequest, ProofStore $ledgers): bool
+    /** What a merge group's head is proved by: the pass of the pull request it was built for, into the default branch. */
+    private function groupProved(PullRequestNumber $pullRequest, ProofStore $ledgers): MergedRange
     {
         $pull = $this->api->get(sprintf('/repos/%s/pulls/%d', $this->repository, $pullRequest->value()));
         $group = $this->api->get(sprintf('/repos/%s/git/commits/%s', $this->repository, rawurlencode($this->head)));
 
-        if (! $pull instanceof Answer || ! $group instanceof Answer) {
-            return false;
+        if (! $pull instanceof Answer || ! $group instanceof Answer || ! $this->isIntoDefaultBranch($pull)) {
+            return MergedRange::unproved();
         }
 
-        $tree = $group->text('tree', 'sha');
+        $proved = $this->pulledProved($pull, $pullRequest->value(), $group->text('tree', 'sha'), $ledgers);
 
-        return $tree !== ''
-            && $this->isIntoDefaultBranch($pull)
-            && $this->hasTree($pull->text('head', 'sha'), $tree)
-            && $this->passed($pullRequest->value(), $pull->text('head', 'sha'), $ledgers);
+        return $proved instanceof MergedRange ? $proved : MergedRange::unproved();
     }
 
-    /** @param list<Answer> $commits */
-    private function provesAll(array $commits, ProofStore $ledgers): bool
+    /**
+     * What these commits prove together, oldest first: nothing unless every one is proved.
+     *
+     * @param list<Answer> $commits
+     */
+    private function provedAll(array $commits, ProofStore $ledgers): MergedRange
     {
-        $proved = true;
+        $proved = MergedRange::proved();
 
         foreach ($commits as $commit) {
-            $proved = $proved && $this->proves($commit, $ledgers);
+            $one = $this->proves($commit, $ledgers);
+
+            if (! $one->isProved()) {
+                return MergedRange::unproved();
+            }
+
+            $proved = $proved->and($one->carried(), $one->from());
         }
 
         return $proved;
     }
 
     /**
-     * Whether a commit's tree is the head of a pull request merged into the default branch that passed on it, or
-     * the commit is a merge group's whose verdict passed on it.
+     * What a commit proves: the pass of a pull request merged into the default branch whose head it lands, or a
+     * merge group's pass on it.
      */
-    private function proves(Answer $commit, ProofStore $ledgers): bool
+    private function proves(Answer $commit, ProofStore $ledgers): MergedRange
     {
-        return $this->merged($commit, $ledgers) || $this->checks->passedInQueueAt($commit->text('sha'));
+        $merged = $this->merged($commit, $ledgers);
+
+        return match (true) {
+            $merged instanceof MergedRange => $merged,
+            $this->checks->passedInQueueAt($commit->text('sha')) => MergedRange::proved(),
+            default => MergedRange::unproved(),
+        };
     }
 
-    /** Whether a commit's tree is the head of a pull request merged into the default branch that passed on it. */
-    private function merged(Answer $commit, ProofStore $ledgers): bool
+    /** What the first pull request merged into the default branch that a commit lands, and that passed, proves. */
+    private function merged(Answer $commit, ProofStore $ledgers): MergedRange|NotGiven
     {
         $pulls = $this->api->get(sprintf('/repos/%s/commits/%s/pulls', $this->repository, $commit->text('sha')));
         $tree = $commit->text('commit', 'tree', 'sha');
 
-        return $pulls instanceof Answer && $tree !== '' && array_any(
-            $pulls->items(),
-            fn(Answer $pull): bool => $pull->text('merged_at') !== ''
-                && $this->isIntoDefaultBranch($pull)
-                && $this->hasTree($pull->text('head', 'sha'), $tree)
-                && $this->passed($pull->number('number'), $pull->text('head', 'sha'), $ledgers),
-        );
+        if (! $pulls instanceof Answer || $tree === '') {
+            return NotGiven::value();
+        }
+
+        foreach ($pulls->items() as $pull) {
+            $proved = $pull->text('merged_at') !== '' && $this->isIntoDefaultBranch($pull)
+                ? $this->pulledProved($pull, $pull->number('number'), $tree, $ledgers)
+                : NotGiven::value();
+
+            if ($proved instanceof MergedRange) {
+                return $proved;
+            }
+        }
+
+        return NotGiven::value();
+    }
+
+    /**
+     * What a pull request's pass at its head proves of a landed tree: the tree where it is the head's, or under
+     * `delta` the change from the head to it; nothing where it did not pass there.
+     */
+    private function pulledProved(Answer $pull, int $number, string $tree, ProofStore $ledgers): MergedRange|NotGiven
+    {
+        $head = $pull->text('head', 'sha');
+        $carried = $tree !== '' ? $this->passed($number, $head, $ledgers) : NotGiven::value();
+
+        return match (true) {
+            ! $carried instanceof Proofs => NotGiven::value(),
+            $this->hasTree($head, $tree) => MergedRange::proved()->and($carried, NotGiven::value()),
+            $this->trust === MergedTrust::Delta => MergedRange::proved()->and($carried, Revision::ref($head)),
+            default => NotGiven::value(),
+        };
     }
 
     /**
@@ -218,28 +282,50 @@ final readonly class MergedHeads
     }
 
     /**
-     * Whether a pull request's verdict passed at this head: its check-run
-     * concluded in success there, and its own ledger records the head as
-     * passed under that check with no proof of its own scope used.
+     * The results a pull request's verdict that passed at this head carries: its check-run concluded in success
+     * there, and its own ledger records the head as passed under that check, as `ci.mergedOwnScopeProofs` allows.
      */
-    private function passed(int $pullRequest, string $head, ProofStore $ledgers): bool
+    private function passed(int $pullRequest, string $head, ProofStore $ledgers): Proofs|NotGiven
     {
-        return $pullRequest > 0 && $this->checks->passedAt($head) && $this->recordedAt($ledgers, $pullRequest, $head);
+        return $pullRequest > 0 && $this->checks->passedAt($head)
+            ? $this->recordedAt($ledgers, $pullRequest, $head)
+            : NotGiven::value();
     }
 
     /**
-     * Whether a pull request's own ledger records this head as passed under
-     * the check, using none of its own proofs; not where it cannot be read.
-     * Its proofs are never read (ADR-0049).
+     * The results a pull request's own ledger carries where it records this head as passed under the check, and
+     * its pass is one `ci.mergedOwnScopeProofs` takes: under `refuse`, one that used nothing of its own scope; under
+     * `reach`, one whose map was not measured on its own scope and that lists the units it took from it, which are
+     * left out; under `trust`, any. Nothing where it cannot be read (ADR-0049, ADR-0139).
      */
-    private function recordedAt(ProofStore $ledgers, int $pullRequest, string $head): bool
+    private function recordedAt(ProofStore $ledgers, int $pullRequest, string $head): Proofs|NotGiven
     {
         $ledger = $ledgers->read(Scope::pullRequest($pullRequest));
         $passed = $ledger instanceof Ledger ? $ledger->runs()->passed() : $ledger;
 
-        return $passed instanceof Passed
-            && $passed->commit()->name() === $head
-            && $passed->check() === $this->check
-            && ! $passed->usedOwnScope();
+        if (
+            ! $ledger instanceof Ledger
+            || ! $passed instanceof Passed
+            || $passed->commit()->name() !== $head
+            || $passed->check() !== $this->check
+        ) {
+            return NotGiven::value();
+        }
+
+        $own = $passed->ownScopeUnits();
+
+        return match ($this->ownScope) {
+            OwnScopeTrust::Trust => $ledger->proofs(),
+            OwnScopeTrust::Refuse => $passed->usedOwnScope() ? NotGiven::value() : $ledger->proofs(),
+            OwnScopeTrust::Reach => $passed->measuredOnOwnScope() || ! $own instanceof Paths
+                ? NotGiven::value()
+                : self::without($ledger->proofs(), $own),
+        };
+    }
+
+    /** These results, but those of these units. */
+    private static function without(Proofs $proofs, Paths $units): Proofs
+    {
+        return Proofs::of(...array_filter([...$proofs], static fn(Proof $proof): bool => ! $units->has($proof->unit())));
     }
 }
