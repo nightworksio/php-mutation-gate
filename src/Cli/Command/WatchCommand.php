@@ -65,7 +65,6 @@ final readonly class WatchCommand
 
     private const string ARRIVED = 'A change arrived, so the round stops and the gate judges again.';
 
-
     /** @param Closure(Seconds): bool $waited waits this long between looks, and says whether to go on watching */
     private function __construct(
         private Composed $composed,
@@ -192,11 +191,13 @@ final readonly class WatchCommand
             ? VerdictCommand::ranAndJudged($running, $composed, $plan, $running->deadline(), HeldTo::NewCode)
             : $plan;
 
-        if ($looks->arrived()) {
+        $stopped = $looks->arrived();
+
+        if ($stopped) {
             $this->printing->note(self::ARRIVED, $this->output);
         }
 
-        if (! $looks->arrived()) {
+        if (! $stopped) {
             VerdictCommand::printed($judged, $this->output, $this->printing, $composed->adapters->project);
         }
 
