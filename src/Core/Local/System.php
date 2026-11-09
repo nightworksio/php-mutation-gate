@@ -9,6 +9,8 @@ use const PHP_OS_FAMILY;
 /**
  * The family of operating systems the gate runs on, as `PHP_OS_FAMILY`
  * names it, where the local loop treats it apart (ADR-0120).
+ *
+ * @internal
  */
 enum System: string
 {

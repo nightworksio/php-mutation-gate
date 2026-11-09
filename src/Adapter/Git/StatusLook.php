@@ -19,8 +19,11 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Looked;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 
 use function str_starts_with;
 use function strval;
@@ -80,7 +83,9 @@ final readonly class StatusLook
             return $status;
         }
 
-        [$commit, $differing] = $this->read($status);
+        [$name, $listed] = $this->read($status);
+        $commit = Revision::ref($name);
+        $differing = Paths::of(...array_map(Path::of(...), $listed));
 
         if (! $then->isAt($commit)) {
             $files = $whole();
@@ -88,7 +93,7 @@ final readonly class StatusLook
             return $files instanceof CannotTell ? $files : Looked::at($files, $commit, $differing);
         }
 
-        $again = [...$this->keyed($differing), ...$this->keyed($then->differing())];
+        $again = [...$this->keyed($listed), ...$this->keyed($this->spelt($then->differing()))];
         $hashed = $this->tree->fingerprints(array_map(strval(...), array_keys($again)));
 
         return $hashed instanceof CannotTell
@@ -151,6 +156,12 @@ final readonly class StatusLook
         $split = explode(' ', $parts[1], $fields + 1);
 
         return count($split) === $fields + 1 ? [array_last($split)] : [];
+    }
+
+    /** @return list<string> each of these paths as git names it */
+    private function spelt(Paths $paths): array
+    {
+        return array_map(static fn(Path $path): string => $path->value(), [...$paths]);
     }
 
     /**

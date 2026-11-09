@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Local;
 /**
  * Where the machine draws its power from, as `local.onBattery` reads it
  * (ADR-0120).
+ *
+ * @internal
  */
 enum Power: string
 {

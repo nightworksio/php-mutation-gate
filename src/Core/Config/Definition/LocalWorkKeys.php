@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use function array_map;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\LocalWork;
+use NightWorksIO\MutationGate\Core\Config\SpeedUps;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Local\CpuProfile;
+use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Local\MacosClass;
 use NightWorksIO\MutationGate\Core\Local\OnBattery;
 use NightWorksIO\MutationGate\Core\Local\Priority;
@@ -64,7 +65,7 @@ final readonly class LocalWorkKeys
         $switches = [];
 
         foreach (self::switches() as $field) {
-            $switches[$field->key()] = $field->read($local);
+            $switches[] = $field->read($local);
         }
 
         $work = Reading::built(
@@ -77,7 +78,7 @@ final readonly class LocalWorkKeys
                 $windows->value(),
                 $battery->value(),
                 $wait->value(),
-                array_map(static fn(Reading $read): bool|Absent => $read->value(), $switches),
+                SpeedUps::of(...array_map(static fn(Reading $read): bool|Absent => $read->value(), $switches)),
             ),
             $cpu,
             $workers,
@@ -87,7 +88,7 @@ final readonly class LocalWorkKeys
             $windows,
             $battery,
             $wait,
-            ...array_values($switches),
+            ...$switches,
         );
 
         return $work instanceof Invalid ? Reading::invalid($work) : Reading::of($work);
@@ -148,7 +149,7 @@ final readonly class LocalWorkKeys
     {
         return array_map(
             static fn(string $switch): Field => Field::optional($switch, Flag::boolean(), self::EFFECT),
-            LocalWork::SWITCHES,
+            array_map(static fn(LocalSwitch $switch): string => $switch->value, LocalSwitch::cases()),
         );
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
-use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -131,9 +130,9 @@ final readonly class Pool
     }
 
     /** How many workers a set boots for this many runs: as many as run at once, or no more than the runs, sized. */
-    public function slotsFor(int $runs): ProcessCount
+    public function slotsFor(ProcessCount $runs): ProcessCount
     {
-        return $this->sized ? ProcessCount::of(max(1, min($runs, $this->processes->count()))) : $this->processes;
+        return $this->sized ? ProcessCount::of(min($runs->count(), $this->processes->count())) : $this->processes;
     }
 
     /** How its runner paces its work. */

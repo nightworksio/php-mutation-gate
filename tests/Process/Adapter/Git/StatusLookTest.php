@@ -5,10 +5,12 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Looked;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -72,15 +74,15 @@ it('hashes again only what differs from the commit, or differed at the last look
             Path::of('src/B.php'),
             Digest::of('kept'),
         )),
-        trim($repository->git('rev-parse', 'HEAD')),
-        [],
+        Revision::ref(trim($repository->git('rev-parse', 'HEAD'))),
+        Paths::none(),
     );
     $repository->write('src/A.php', "<?php\n// edited\n");
 
     $look = $git->lookedSince($planted);
 
     expect($digests($look instanceof Looked ? $look->files() : $look)['src/B.php'])->toBe('kept')
-        ->and($look instanceof Looked ? $look->differing() : [])->toBe(['src/A.php']);
+        ->and($look instanceof Looked ? $look->differing() : Paths::none())->toEqual(Paths::of(Path::of('src/A.php')));
 })->group(...$holds);
 
 it('cannot tell anything outside a repository', function (): void {

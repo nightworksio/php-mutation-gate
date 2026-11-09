@@ -24,8 +24,8 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\LocalWork;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
+use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Local\Power;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -226,7 +226,7 @@ final readonly class WatchCommand
     private function look(Watched $seen): Watched|CannotJudge
     {
         $changes = $this->composed->adapters->changes;
-        $files = $this->composed->settings->local()->work()->isOn(LocalWork::WATCH_STATUS)
+        $files = $this->composed->settings->local()->work()->isOn(LocalSwitch::WatchStatus)
             ? $changes->lookedSince($seen->looked())
             : $changes->fingerprints();
         $looked = $files instanceof Fingerprints ? Looked::whole($files) : $files;

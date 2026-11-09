@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -93,7 +94,7 @@ final readonly class TailShell implements Shell
         Seconds|Unlimited $startingWithin,
         Command ...$commands,
     ): ProcessEnds {
-        $booted = $slots->atMost($this->pool->slotsFor(count($commands)));
+        $booted = $slots->atMost($this->pool->slotsFor(ProcessCount::atLeastOne(count($commands))));
         $sets = new TailWorkers($booted, $this->beside, $this->booting, $this->uncached);
         $forked = [];
 

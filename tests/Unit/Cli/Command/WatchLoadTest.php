@@ -94,7 +94,7 @@ it('stops holding where the wait says to stop, and holds nothing where it reduce
     expect($load(LocalWork::of(priority: Priority::Normal, onBattery: $onBattery), $sys)->powered(static fn(): bool => false, static function (): void {
     }))->toEqual($power);
 })->with([
-    'pause' => [OnBattery::Pause, NotGiven::value()],
+    'pause' => [OnBattery::Pause, fn(): NotGiven => NotGiven::value()],
     'reduce' => [OnBattery::Reduce, Power::Saving],
     'run' => [OnBattery::Run, Power::Mains],
 ]);

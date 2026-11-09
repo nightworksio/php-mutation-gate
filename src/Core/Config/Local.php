@@ -201,7 +201,7 @@ final readonly class Local implements Part
             Member::unlessEmpty('triage', Json::object(Member::of('fewest', $this->triageFewest))),
             Member::unlessEmpty(
                 'local',
-                Json::object(
+                $this->work()->written(Json::object(
                     Member::of('watchBudget', WholeSeconds::duration($this->watchBudget)),
                     Member::of('prePushBudget', WholeSeconds::duration($this->prePushBudget)),
                     Member::of('serveIdle', WholeSeconds::duration($this->serveIdle)),
@@ -214,8 +214,7 @@ final readonly class Local implements Part
                     Member::of('watchPoll', WholeSeconds::duration($this->watchPoll)),
                     Member::of('memoryHeadroom', $this->memoryHeadroom),
                     Member::of('serveRequest', WholeSeconds::duration($this->serveRequest)),
-                    ...$this->work()->written(),
-                ),
+                )),
             ),
         );
     }
@@ -247,11 +246,10 @@ final readonly class Local implements Part
                 ? [sprintf('Local::watchPoll(%s)', PhpCalls::literal($this->watchPoll->written()))]
                 : [],
             ...$this->roomPhp(),
-            ...$this->work()->php(),
             ...$this->triageFewest instanceof Absent
                 ? []
                 : [sprintf('Local::triageFewest(%d)', $this->triageFewest)],
-        ]);
+        ])->and($this->work()->php());
     }
 
     /** @return list<string> the builder's calls for `local.memoryHeadroom` and `local.serveRequest` */

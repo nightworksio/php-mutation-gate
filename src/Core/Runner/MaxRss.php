@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_key_exists;
 
+use NightWorksIO\MutationGate\Core\Local\System;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
@@ -23,7 +24,7 @@ final readonly class MaxRss
     public const string RECORDED = 'peak';
 
     /** The operating system family, as `PHP_OS_FAMILY` names it, that counts `ru_maxrss` in bytes. */
-    private const string IN_BYTES = 'Darwin';
+    private const string IN_BYTES = System::Darwin->value;
 
     /**
      * The `ru_maxrss` of a usage `getrusage` or `wait4` reported, each of its

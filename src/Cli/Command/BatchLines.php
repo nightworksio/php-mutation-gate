@@ -14,6 +14,7 @@ use function ksort;
 use NightWorksIO\MutationGate\Cli\Flow\BatchEnds;
 use NightWorksIO\MutationGate\Cli\Flow\Invoked;
 use NightWorksIO\MutationGate\Core\Config\LocalWork;
+use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 
@@ -46,7 +47,7 @@ final readonly class BatchLines
      */
     public static function streamed(LocalWork $work, Closure $said): BatchEnds
     {
-        return $work->isOn(LocalWork::STREAM_BATCHES)
+        return $work->isOn(LocalSwitch::StreamBatches)
             ? BatchEnds::telling(static function (Invoked $invoked) use ($said): void {
                 foreach (self::of($invoked->result->mutants()) as $line) {
                     $said($line);

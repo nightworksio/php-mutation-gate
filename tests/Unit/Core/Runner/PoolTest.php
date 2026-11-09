@@ -58,9 +58,11 @@ it('lays a learned multiple on bounds that learn one, keeping it in the tail, an
 it('boots as many workers as run at once, or no more than its runs where it is sized by its work', function (): void {
     $pool = Pool::of(ProcessCount::of(4), Workers::Fork);
 
-    expect([$pool->slotsFor(2)->count(), $pool->slotsFor(9)->count()])->toBe([4, 4])
-        ->and([$pool->sizedByWork()->slotsFor(2)->count(), $pool->sizedByWork()->slotsFor(9)->count(), $pool->sizedByWork()->slotsFor(0)->count()])
-        ->toBe([2, 4, 1])
-        ->and($pool->sizedByWork()->tail()->slotsFor(1)->count())->toBe(1)
+    $runs = static fn(int $count): ProcessCount => ProcessCount::of(max(1, $count));
+
+    expect([$pool->slotsFor($runs(2))->count(), $pool->slotsFor($runs(9))->count()])->toBe([4, 4])
+        ->and([$pool->sizedByWork()->slotsFor($runs(2))->count(), $pool->sizedByWork()->slotsFor($runs(9))->count()])
+        ->toBe([2, 4])
+        ->and($pool->sizedByWork()->tail()->slotsFor($runs(1))->count())->toBe(1)
         ->and(WorkerSlots::of(ProcessCount::of(4), 'r')->atMost(ProcessCount::of(2)))->toEqual(WorkerSlots::of(ProcessCount::of(2), 'r'));
 });

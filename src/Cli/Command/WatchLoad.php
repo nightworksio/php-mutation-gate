@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Cores;
 use NightWorksIO\MutationGate\Core\Config\LocalWork;
 use NightWorksIO\MutationGate\Core\Local\LocalLoop;
+use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Local\OnBattery;
 use NightWorksIO\MutationGate\Core\Local\Power;
 use NightWorksIO\MutationGate\Core\Local\Priority;
@@ -97,7 +98,7 @@ final readonly class WatchLoad
         putenv(sprintf(
             '%s=%s',
             ChildVariable::TestsKey->value,
-            $this->work->isOn(LocalWork::LIST_ONCE) ? $seen->testsDigest() : '',
+            $this->work->isOn(LocalSwitch::ListOnce) ? $seen->testsDigest() : '',
         ));
         $reduced = $power === Power::Saving && $this->work->onBattery() === OnBattery::Reduce;
         $background = Priority::Background;

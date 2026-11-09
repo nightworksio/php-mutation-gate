@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\LocalWork;
+use NightWorksIO\MutationGate\Core\Config\SpeedUps;
 use NightWorksIO\MutationGate\Core\Local\CpuProfile;
+use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Local\MacosClass;
 use NightWorksIO\MutationGate\Core\Local\OnBattery;
 use NightWorksIO\MutationGate\Core\Local\Priority;
@@ -36,7 +38,7 @@ it('takes half the cores at utility priority by default, and each class of that 
         ->and($work->windowsClass())->toBe(WindowsClass::BelowNormal)
         ->and($work->onBattery())->toBe(OnBattery::Reduce)
         ->and($work->childWait())->toEqual(Seconds::of(1.0))
-        ->and(array_map($work->isOn(...), LocalWork::SWITCHES))->toBe([true, true, true, true, true]);
+        ->and(array_map($work->isOn(...), LocalSwitch::cases()))->toBe([true, true, true, true, true]);
 });
 
 it('takes each profile\'s workers and priority unless a key sets its own, and each class unless one is set', function (): void {
@@ -53,10 +55,10 @@ it('takes each profile\'s workers and priority unless a key sets its own, and ea
 });
 
 it('lays a later layer\'s keys over an earlier\'s, key by key, a switch among them', function (): void {
-    $laid = LocalWork::of(CpuProfile::Fast, switches: [LocalWork::LIST_ONCE => false])
-        ->over(LocalWork::of(priority: Priority::Background, switches: [LocalWork::SIZED_POOLS => false]));
+    $laid = LocalWork::of(CpuProfile::Fast, speedUps: SpeedUps::of(listOnce: false))
+        ->over(LocalWork::of(priority: Priority::Background, speedUps: SpeedUps::of(sizedPools: false)));
 
-    expect([$laid->cpu(), $laid->priority(), $laid->isOn(LocalWork::LIST_ONCE), $laid->isOn(LocalWork::SIZED_POOLS), $laid->isOn(LocalWork::WATCH_STATUS)])
+    expect([$laid->cpu(), $laid->priority(), $laid->isOn(LocalSwitch::ListOnce), $laid->isOn(LocalSwitch::SizedPools), $laid->isOn(LocalSwitch::WatchStatus)])
         ->toBe([CpuProfile::Fast, Priority::Background, false, false, true]);
 });
 

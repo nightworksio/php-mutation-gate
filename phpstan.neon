@@ -800,6 +800,26 @@ services:
                     - FIELDS # the fields of a git status entry before its path, not a count of workers
                 'NightWorksIO\MutationGate\Core\Local\WindowsClass':
                     - IDLE # the proc_nice value Windows reads as idle, not a niceness on Linux
+                    - BELOW_NORMAL # the proc_nice value Windows reads as below normal, not a score's noise
+                'NightWorksIO\MutationGate\Core\Local\Priority':
+                    - UTILITY_NICE # the niceness of utility work on Linux, not a count of presets
+                    - BACKGROUND_NICE # the niceness of background work on Linux, not a compression level
+                'NightWorksIO\MutationGate\Core\Local\WorkerShare':
+                    - MOST_HALF # the most workers half the cores comes to, not an order's first tests
+                'NightWorksIO\MutationGate\Adapter\Local\PowerSource':
+                    - SUPPLY_FILE # a file of a power supply, not a copy's path
+                    - READ_WITHIN # seconds a power reading may take, not a telemetry export's limit
+                'NightWorksIO\MutationGate\Adapter\Pest\Remembered':
+                    - KEYED # a listing's key of what was withheld and the tests' digest, not a proof's inputs
+                'NightWorksIO\MutationGate\Adapter\Pest\Warm\Wake':
+                    - DRAINED # bytes a pause drains from its wake pipe, not a signal number
+                'NightWorksIO\MutationGate\Cli\Command\BatchLines':
+                    - ONE # the word for one judged mutant, not a doomed record's field
+                    - MANY # the word for several judged mutants, not the killers record's section
+                'NightWorksIO\MutationGate\Core\Watch\Poll':
+                    - INTERVAL # seconds between watch's looks, not work per shard overhead
+                'NightWorksIO\MutationGate\Core\Watch\Watched':
+                    - ENTRY # a test file in the tests' digest, not a fitted line
                 'NightWorksIO\MutationGate\Core\Config\SplitStream':
                     - ENABLED # the splitStream key, not a hook recipe's key
             awaiting:

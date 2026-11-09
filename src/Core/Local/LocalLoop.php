@@ -27,11 +27,11 @@ final readonly class LocalLoop
 
     public function runsFileAlone(): bool
     {
-        return $this->work->isOn(LocalWork::COVERAGE_ALONE);
+        return $this->work->isOn(LocalSwitch::CoverageAlone);
     }
 
     public function sizesPools(): bool
     {
-        return $this->work->isOn(LocalWork::SIZED_POOLS);
+        return $this->work->isOn(LocalSwitch::SizedPools);
     }
 }
