@@ -802,9 +802,40 @@ jobs:
   # workflow reports only when its caller runs; where `tests` was skipped, the
   # plan measures its own map if it needs one. Its jobs run on Arm, where three
   # of its shards gave the same verdicts in 29% less time (ADR-0035).
+  # ADR-0135: a full split-stream run that takes no proof plans without the
+  # map `tests` writes, so it starts beside that job and stops between items
+  # once it failed; where a run cannot start so, this caller plans nothing
+  # and `mutation` runs it with the fresh map.
+  mutation-early:
+    needs: [scope, checks, rules, scripts]
+    if: ${{ !cancelled() && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' && needs.scope.outputs.judged != 'true' }}
+    permissions:
+      contents: write # used only by publish, on the default branch, which writes the badge and the trend
+      actions: read # used only by verdict and deliver, to find the run's HTML report the comment links
+      pull-requests: write # used only by the deliver jobs, which post the comment and run none of the project's code
+      id-token: write # used only by fetch and deliver, for a store that signs in through OIDC
+    uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
+    with:
+      early-only: true
+      watch-job: tests and coverage
+      # The zstd extension, so the ledger's zstd is mutated through it as the tests cover it (ADR-0085).
+      extensions: zstd
+      # On a pull request, main's build at the commit the change branched from judges, so a change to the runner
+      # re-runs only its own units; the runner contract and end-to-end jobs prove the change's runner. A push is
+      # judged by its own build (ADR-0140).
+      judge: ${{ github.event_name == 'pull_request' && 'merge-base' || '' }}
+      runs-on: ubuntu-24.04-arm
+      mode: ${{ github.event_name == 'schedule' && 'unproven' || 'auto' }}
+      merged-records: true
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
   mutation:
-    needs: [scope, tests, checks, rules, scripts]
-    if: ${{ !cancelled() && needs.tests.result != 'failure' && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' && needs.scope.outputs.judged != 'true' }}
+    needs: [scope, tests, checks, rules, scripts, mutation-early]
+    if: ${{ !cancelled() && needs.mutation-early.outputs.waits == 'true' && needs.tests.result != 'failure' && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' && needs.scope.outputs.judged != 'true' }}
     permissions:
       contents: write # used only by publish, on the default branch, which writes the badge and the trend
       actions: read # used only by verdict and deliver, to find the run's HTML report the comment links
@@ -827,6 +858,35 @@ jobs:
       MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  # The one check main requires, whichever caller ran: the early caller's
+  # verdict where it planned, else the map caller's. `ci.check` names it, so
+  # `passed`, `lastRun` and the trust of merged pull requests read one name
+  # (ADR-0135). A skipped caller's own verdict check is required by nothing.
+  mutation-verdict:
+    name: mutation verdict
+    needs: [mutation-early, mutation]
+    if: ${{ !cancelled() && needs.mutation-early.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Pass only where the caller that ran passed
+        env:
+          WAITS: ${{ needs.mutation-early.outputs.waits }}
+          EARLY: ${{ needs.mutation-early.outputs.verdict }}
+          LATE: ${{ needs.mutation.outputs.verdict }}
+        run: |
+          set -euo pipefail
+          if [ "${WAITS}" = "true" ]; then verdict="${LATE}"; else verdict="${EARLY}"; fi
+          echo "The mutation verdict is ${verdict:-missing}."
+          [ "${verdict}" = "passed" ]
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py mutation-verdict
 
   # The newest merged pull requests, each planned again by this checkout's
   # gate with the map `tests` wrote and main's ledger from the cache, read
@@ -965,7 +1025,7 @@ jobs:
   # earlier attempt gathered.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, outbreak, mutation, replay, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, outbreak, mutation-early, mutation, mutation-verdict, replay, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

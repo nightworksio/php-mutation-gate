@@ -5,6 +5,7 @@
         "memory": "2G"
     },
     "ci": {
+        "check": "mutation verdict",
         "trustMergedPullRequests": true
     },
     "trees": [
