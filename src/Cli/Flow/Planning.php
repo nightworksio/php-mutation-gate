@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -62,6 +63,9 @@ use function sprintf;
  */
 final readonly class Planning
 {
+    private const string WAITS = 'The run cannot start without a fresh coverage map, and the plan was asked to plan'
+        . ' early alone, so it plans nothing: the caller that hands a fresh map runs it (ADR-0135).';
+
     private const string NO_NEW_CODE = <<<'SAID'
         A pull request's or merge group's new code is judged against %s, and git cannot tell what changed since it,
         so no floor for new code can be held. %s
@@ -93,6 +97,7 @@ final readonly class Planning
         Cut $cut,
         MatrixKind $matrix,
         bool $ownMap = false,
+        bool $earlyOnly = false,
     ): PlanMade|CannotJudge {
         $inventory = $this->adapters->runner->behaviour()->records($matrix)
             ? Inventory::forKeys($this->adapters, $this->settings)
@@ -117,6 +122,12 @@ final readonly class Planning
         }
 
         $early = $this->early($inventory, $ledgers, $mode, $coverage);
+
+        if (! $early instanceof CoverageMeasured && $earlyOnly) {
+            $waits = Plan::of($inventory->standing->head(), Digest::ofNothing(), Keys::none(), Shards::none());
+
+            return PlanMade::of($waits->briefed(Briefing::standard()->waitingForAMap()), self::WAITS);
+        }
 
         if (! $early instanceof CoverageMeasured) {
             return $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap);

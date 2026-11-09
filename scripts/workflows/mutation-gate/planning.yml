@@ -179,6 +179,8 @@
       stands: ${{ steps.plan.outputs.stands }}
       pulls: ${{ steps.plan.outputs.pulls }}
       last-judges: ${{ steps.config.outputs.last_judges }}
+      waits: ${{ steps.plan.outputs.waits }}
+      early: ${{ steps.plan.outputs.early }}
       fail-fast: ${{ steps.config.outputs.fail_fast }}
       survivor-shares: ${{ steps.survivors.outputs.shares }}
       survivor-minutes: ${{ steps.survivors.outputs.minutes }}
@@ -291,11 +293,15 @@
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.plan_options }}
           COVERAGE: ${{ inputs.coverage }}
+          EARLY_ONLY: ${{ inputs.early-only }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           if [ -n "${COVERAGE}" ]; then
             arguments+=("--coverage=${HANDED}")
+          fi
+          if [ "${EARLY_ONLY}" = "true" ]; then
+            arguments+=("--early-only")
           fi
           "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
       # ADR-0106: on a pull request whose plan runs a shard, the jobs the last
@@ -356,7 +362,7 @@
   deliver-plan:
     name: deliver plan
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.delivery == 'true' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.delivery == 'true' && needs.plan.outputs.waits != 'true' }}
     runs-on: ${{ startsWith(inputs.keyed-runs-on, '[') && fromJSON(inputs.keyed-runs-on) || inputs.keyed-runs-on }}
     timeout-minutes: 10
     permissions:

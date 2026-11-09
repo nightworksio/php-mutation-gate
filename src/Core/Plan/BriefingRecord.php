@@ -45,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     suite?: string,
  *     ownScopeCoverage?: true,
  *     early?: true,
+ *     waits?: true,
  *     learnedMultiple?: float,
  *     learnedPace?: float,
  *     unchangedSince?: PassedWritten,
@@ -62,6 +63,9 @@ final readonly class BriefingRecord
     /** Where a plan says it was made without a fresh map (ADR-0135). */
     private const string EARLY = 'early';
 
+    /** Where a plan says it plans nothing, waiting for a caller that hands a fresh map (ADR-0135). */
+    private const string WAITS = 'waits';
+
     /** @return Written */
     public static function of(Briefing $briefing): array
     {
@@ -75,6 +79,7 @@ final readonly class BriefingRecord
             ...RunProfileRecord::of($briefing->profile()),
             ...$briefing->isOnOwnScopeCoverage() ? [PassedRecord::OWN_SCOPE_COVERAGE => true] : [],
             ...$briefing->isEarly() ? [self::EARLY => true] : [],
+            ...$briefing->waits() ? [self::WAITS => true] : [],
             ...$multiple instanceof NotGiven ? [] : [self::MULTIPLE => $multiple->times()],
             ...$pace instanceof NotGiven ? [] : [self::PACE => $pace->times()],
             ...$unchanged instanceof Unchanged
@@ -99,6 +104,7 @@ final readonly class BriefingRecord
             ? $briefing->onOwnScopeCoverage()
             : $briefing;
         $briefing = RunProfileRecord::isTrue($file->field(self::EARLY)) ? $briefing->plannedEarly() : $briefing;
+        $briefing = RunProfileRecord::isTrue($file->field(self::WAITS)) ? $briefing->waitingForAMap() : $briefing;
         $multiple = $file->field(self::MULTIPLE);
         $kills = $multiple->isPresent()
             ? KillsLearned::none()->allowing(Multiple::of($multiple->number()))

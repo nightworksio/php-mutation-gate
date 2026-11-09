@@ -30,6 +30,7 @@ final readonly class Briefing
         private Unchanged|NotGiven $unchanged,
         private KillsLearned $kills,
         private bool $early = false,
+        private bool $waits = false,
     ) {
     }
 
@@ -51,13 +52,29 @@ final readonly class Briefing
     /** This briefing, with the most memory the unmutated suite's largest process held, or none measured. */
     public function weighing(MemoryCap|NotGiven $peak): self
     {
-        return new self($peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $this->kills, $this->early);
+        return new self(
+            $peak,
+            $this->kind,
+            $this->ownScopeCoverage,
+            $this->unchanged,
+            $this->kills,
+            $this->early,
+            $this->waits,
+        );
     }
 
     /** This briefing, for a run of this kind. */
     public function ofKind(RunProfile $kind): self
     {
-        return new self($this->peak, $kind, $this->ownScopeCoverage, $this->unchanged, $this->kills, $this->early);
+        return new self(
+            $this->peak,
+            $kind,
+            $this->ownScopeCoverage,
+            $this->unchanged,
+            $this->kills,
+            $this->early,
+            $this->waits,
+        );
     }
 
     /** This briefing, recording this much of the kill matrix. */
@@ -70,6 +87,7 @@ final readonly class Briefing
             $this->unchanged,
             $this->kills,
             $this->early,
+            $this->waits,
         );
     }
 
@@ -83,6 +101,7 @@ final readonly class Briefing
             $this->unchanged,
             $this->kills,
             $this->early,
+            $this->waits,
         );
     }
 
@@ -96,6 +115,7 @@ final readonly class Briefing
             $this->unchanged,
             $this->kills,
             $this->early,
+            $this->waits,
         );
     }
 
@@ -113,6 +133,7 @@ final readonly class Briefing
             unchanged: $this->unchanged,
             kills: $this->kills,
             early: $this->early,
+            waits: $this->waits,
         );
     }
 
@@ -123,7 +144,39 @@ final readonly class Briefing
      */
     public function plannedEarly(): self
     {
-        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $this->kills, early: true);
+        return new self(
+            $this->peak,
+            $this->kind,
+            $this->ownScopeCoverage,
+            $this->unchanged,
+            $this->kills,
+            early: true,
+            waits: $this->waits,
+        );
+    }
+
+    /**
+     * This briefing, for a plan that plans nothing because the run cannot
+     * start without a fresh map and was asked to plan early alone: a caller
+     * that hands a fresh map runs it (ADR-0135).
+     */
+    public function waitingForAMap(): self
+    {
+        return new self(
+            $this->peak,
+            $this->kind,
+            $this->ownScopeCoverage,
+            $this->unchanged,
+            $this->kills,
+            $this->early,
+            true,
+        );
+    }
+
+    /** Whether the plan plans nothing, leaving the run to a caller that hands a fresh map (ADR-0135). */
+    public function waits(): bool
+    {
+        return $this->waits;
     }
 
     /** Whether the run was planned without a fresh map (ADR-0135). */
@@ -135,7 +188,15 @@ final readonly class Briefing
     /** This briefing, telling its shards what the plan learned from the ledgers' kills. */
     public function learning(KillsLearned $kills): self
     {
-        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $kills, $this->early);
+        return new self(
+            $this->peak,
+            $this->kind,
+            $this->ownScopeCoverage,
+            $this->unchanged,
+            $kills,
+            $this->early,
+            $this->waits,
+        );
     }
 
     /** What the plan learned from the ledgers' kills: the `timeouts.multiple` and the pace, where it learned each. */
@@ -147,7 +208,15 @@ final readonly class Briefing
     /** This briefing, for a plan that runs nothing because the verdict of a commit that passed stands. */
     public function unchangedSince(Unchanged $unchanged): self
     {
-        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $unchanged, $this->kills, $this->early);
+        return new self(
+            $this->peak,
+            $this->kind,
+            $this->ownScopeCoverage,
+            $unchanged,
+            $this->kills,
+            $this->early,
+            $this->waits,
+        );
     }
 
     /** This briefing, with the commit whose verdict stands for the plan that one names, where it names one. */

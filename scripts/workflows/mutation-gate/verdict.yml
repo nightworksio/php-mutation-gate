@@ -5,7 +5,9 @@
   verdict:
     name: verdict
     needs: [fetch, judge, plan, shard, survivors, survivors-report]
-    if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
+    # A plan that waits for a caller that hands a fresh map judges nothing,
+    # and leaves no verdict that could pass (ADR-0135).
+    if: ${{ !cancelled() && needs.plan.result != 'skipped' && needs.plan.outputs.waits != 'true' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.verdict-timeout }}
     permissions:

@@ -191,6 +191,14 @@ on:
       plan:
         description: 'JSON: the plan, as plan --ci=json prints it.'
         value: ${{ jobs.plan.outputs.plan }}
+      waits:
+        description: >-
+          true where the plan, asked with early-only, planned nothing because the run cannot start without a fresh
+          map; a caller that hands one runs it (ADR-0135).
+        value: ${{ jobs.plan.outputs.waits }}
+      early:
+        description: true where the run was planned without a fresh map (ADR-0135).
+        value: ${{ jobs.plan.outputs.early }}
 
 permissions: {}
 
