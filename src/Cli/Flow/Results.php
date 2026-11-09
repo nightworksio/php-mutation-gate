@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
+use function array_diff;
+use function array_filter;
+use function array_keys;
 use function array_map;
+use function array_slice;
+use function array_values;
 use function count;
 use function implode;
+use function is_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
@@ -15,11 +21,13 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Plan\FailFastSavings;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
+use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -90,9 +98,9 @@ final readonly class Results
         $unjudged = [];
 
         foreach ($plan as $shard) {
-            $file = Workspace::result($directory, $shard->id());
-            $contents = $project->read($file);
-            $result = $contents instanceof Contents ? self::resultOf($plan, $shard, $contents) : $file;
+            $result = $plan->pulls()
+                ? self::pulledOf($plan, $shard, $directory, $project)
+                : self::readOf($plan, $shard, Workspace::result($directory, $shard->id()), $project);
 
             match (true) {
                 $result instanceof Path => $missing = $missing->with($shard, $result, $project),
@@ -198,6 +206,76 @@ final readonly class Results
     public function shards(): array
     {
         return $this->read;
+    }
+
+    /** @return array{ShardResult, MutationResult}|CannotJudge|Path the result; or the file it is missing from */
+    private static function readOf(Plan $plan, Shard $shard, Path $file, Directory $project): array|CannotJudge|Path
+    {
+        $contents = $project->read($file);
+
+        return $contents instanceof Contents ? self::resultOf($plan, $shard, $contents) : $file;
+    }
+
+    /**
+     * An item's result where the plan's shards pull their work (ADR-0134):
+     * the first readable one, its own job's before the others' in their
+     * order, each mutant another job's run of it judged otherwise counted
+     * flaky; or why none can be judged; or the file its own job's is
+     * missing from, where no job left one.
+     *
+     * @return array{ShardResult, MutationResult}|CannotJudge|Path
+     */
+    private static function pulledOf(
+        Plan $plan,
+        Shard $item,
+        Path $directory,
+        Directory $project,
+    ): array|CannotJudge|Path {
+        $jobs = [$item->worker()->number(), ...array_diff(array_keys($plan->jobs()), [$item->worker()->number()])];
+        $read = [];
+
+        foreach ($jobs as $job) {
+            $one = self::readOf($plan, $item, Workspace::pulled($directory, $item->id(), ShardId::of($job)), $project);
+            $read = $one instanceof Path ? $read : [...$read, $one];
+        }
+
+        $judged = array_values(array_filter($read, is_array(...)));
+
+        return match (true) {
+            $judged !== [] => self::againstTheOthers($judged[0], array_slice($judged, 1)),
+            $read !== [] => $read[0],
+            default => Workspace::pulled($directory, $item->id(), $item->worker()),
+        };
+    }
+
+    /**
+     * A result, each of its mutants that another run of the item judged otherwise, or did not judge, counted flaky.
+     *
+     * @param  array{ShardResult, MutationResult}       $stood
+     * @param  list<array{ShardResult, MutationResult}> $others
+     * @return array{ShardResult, MutationResult}
+     */
+    private static function againstTheOthers(array $stood, array $others): array
+    {
+        $statuses = [];
+
+        foreach ($stood[1]->mutants() as $mutant) {
+            $statuses[$mutant->id()->value()] = $mutant->status();
+        }
+
+        $differ = [];
+
+        foreach ($others as [, $outcome]) {
+            foreach ($outcome->mutants() as $mutant) {
+                $differ = ($statuses[$mutant->id()->value()] ?? null) === $mutant->status()
+                    ? $differ
+                    : [...$differ, $mutant->id()];
+            }
+        }
+
+        return $differ === []
+            ? $stood
+            : [$stood[0]->withFlaky($stood[0]->flaky()->and(MutantIds::of(...$differ))), $stood[1]];
     }
 
     /** @return array{ShardResult, MutationResult}|CannotJudge */

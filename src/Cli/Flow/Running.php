@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
+use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
@@ -31,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Plan\Batching;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PullQueue;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -59,6 +62,8 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Repository;
 
 use function sprintf;
+
+use Symfony\Component\HttpClient\HttpClient;
 
 /**
  * `run --plan`: one shard of a plan, on the commit the plan was made on. Each
@@ -130,11 +135,21 @@ final readonly class Running
             : $plan->forCheckout($head);
     }
 
-    /** The shard `--shard` names, or, where it names none, the one the environment's variables name (WhichShard). */
-    public function run(Plan $plan, ShardId|Absent $named, Path $results): ShardLeft|CannotJudge
+    /**
+     * The shard `--shard` names, or, where it names none, the one the
+     * environment's variables name (WhichShard); where the plan's shards pull
+     * their work, the items that job takes (ADR-0134).
+     */
+    public function run(Plan $plan, ShardId|Absent $named, Path $results): ShardLeft|ShardsLeft|CannotJudge
     {
         $followed = self::followed($plan, $this->adapters->repository);
         $id = $named instanceof ShardId ? $named : WhichShard::in($this->adapters->environment, $plan);
+
+        if ($followed instanceof Plan && $id instanceof ShardId && $followed->pulls()) {
+            $deadline = ShardDeadline::of($this->settings, $this->setup->clock->now());
+
+            return $this->pulled($followed, $id, $results, $deadline);
+        }
 
         $result = match (true) {
             $followed instanceof CannotJudge => $followed,
@@ -181,6 +196,73 @@ final readonly class Running
         $budget = $this->settings->triage()->budget();
 
         return $budget instanceof Seconds ? Deadline::after($this->setup->clock->now(), $budget) : $budget;
+    }
+
+    /**
+     * The items a job of a plan whose shards pull their work takes, each
+     * run as its shard would be and left where the verdict reads it, until
+     * none is left or one leaves the run no way to pass. Where the claims
+     * cannot be reached, or fail, it runs its own items alone, and says so.
+     */
+    private function pulled(
+        Plan $plan,
+        ShardId $job,
+        Path $results,
+        Deadline|Unlimited $deadline,
+    ): ShardsLeft|CannotJudge {
+        $claims = ArtifactClaims::of(
+            $this->adapters->environment,
+            HttpExchange::over(HttpClient::create()),
+            $this->settings->shards()->pulling()->pull(),
+            $plan->digest(),
+            $job,
+        );
+        $queue = PullQueue::of($plan, $job);
+        $left = ShardsLeft::none($job);
+
+        if ($claims instanceof CannotJudge) {
+            [$queue, $left] = [$queue->ownAlone(), $left->alone($claims)];
+        }
+
+        while (($item = $queue->next()) instanceof Shard) {
+            $queue = $queue->without($item->id());
+            $taken = $claims instanceof ArtifactClaims ? $claims->take($item->id()) : true;
+
+            if ($taken instanceof CannotJudge) {
+                [$claims, $queue, $left] = [$taken, $queue->ownAlone(), $left->alone($taken)];
+                $taken = $item->worker()->number() === $job->number();
+            }
+
+            if (! $taken) {
+                continue;
+            }
+
+            $result = $this->resultOf($plan, $item->id(), $deadline);
+            $written = ShardLeft::after(
+                $result,
+                $result instanceof CannotJudge ? $result : $this->adapters->project->write(
+                    Workspace::pulled($results, $item->id(), $job),
+                    Contents::of(ShardResultFile::encode($result)),
+                ),
+            );
+
+            if ($written instanceof CannotJudge) {
+                return $written;
+            }
+
+            $left = $left->with($written);
+            $finished = $claims instanceof ArtifactClaims ? $claims->finish($item->id()) : $item->id();
+
+            if ($finished instanceof CannotJudge) {
+                [$claims, $queue, $left] = [$finished, $queue->ownAlone(), $left->alone($finished)];
+            }
+
+            if ($result instanceof ShardResult && $result->doomed()->stopped()) {
+                break;
+            }
+        }
+
+        return $left;
     }
 
     /** A shard's result, left where the verdict reads it; or why it has none. */

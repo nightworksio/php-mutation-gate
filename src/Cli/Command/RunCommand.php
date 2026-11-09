@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Raising;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
+use NightWorksIO\MutationGate\Cli\Flow\ShardsLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -112,7 +113,7 @@ final readonly class RunCommand
         Plan $plan,
         ShardId|Absent $shard,
         Path $results,
-    ): ShardLeft|CannotJudge {
+    ): ShardLeft|ShardsLeft|CannotJudge {
         return $following instanceof Composed
             ? Running::composed($following)->run($plan, $shard, $results)
             : $following;

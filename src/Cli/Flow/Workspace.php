@@ -132,6 +132,12 @@ final readonly class Workspace
         return Path::of(sprintf('%s/%d.json', $results->value(), $shard->number()));
     }
 
+    /** Where a job of a run whose shards pull their work leaves an item's result, among results (ADR-0134). */
+    public static function pulled(Path $results, ShardId $item, ShardId $job): Path
+    {
+        return Path::of(sprintf('%s/%d.by-%d.json', $results->value(), $item->number(), $job->number()));
+    }
+
     /** Where the CI says how a shard's job ended, in a directory of results, where the shard left no result. */
     public static function ended(Path $results, ShardId $shard): Path
     {
