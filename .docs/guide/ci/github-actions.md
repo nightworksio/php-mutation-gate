@@ -188,8 +188,11 @@ It takes the action's inputs less `shard`, `deliver`, `install`,
 `verdict-timeout` (30) and `download-timeout` (2), how long each artifact
 download may take before it is tried once again, each in minutes,
 `plan-coverage` (`pcov`), the driver
-the plan sets up, and `publish-branch` (`mutation-gate`), where publish writes
-the badge and trend. Its outputs are
+the plan sets up, `publish-branch` (`mutation-gate`), where publish writes
+the badge and trend, `early-only` (`false`), with which the plan plans
+nothing, and says why, where a full split-stream run cannot start without a
+fresh map, and `watch-job` (empty), the name of a job of the calling run
+whose failure stops each shard before its next item (ADR-0135). Its outputs are
 `verdict`, `scores` and `plan`, and it uploads the reports as the artifact
 `mutation-gate-reports`.
 
