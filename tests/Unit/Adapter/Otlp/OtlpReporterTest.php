@@ -171,6 +171,17 @@ it('says not written, tries nothing again, where the collector refuses or cannot
         ->and($unreached instanceof NotWritten ? $unreached->why() : '')->toStartWith('https://otel.example could not be reached: ');
 });
 
+it('holds each post to the timeout its options name', function () use ($makeGithub): void {
+    $metrics = new MockResponse('{}');
+    otlpReport(otlpReporter($makeGithub(), [$metrics], '{"endpoint": "https://mine.example", "timeout": "12s"}'), Verdicts::passing());
+
+    expect($metrics->getRequestOptions()['max_duration'])->toBe(12.0);
+});
+
+it('refuses a timeout that is not text', function (): void {
+    expect(otlpReporter(Variables::of([]), [], '{"timeout": 3}'))->toEqual(Invalid::because(Problem::at('timeout', 'expected text, got 3')));
+});
+
 it('refuses an endpoint that is not text', function (): void {
     expect(otlpReporter(Variables::of([]), [], '{"endpoint": 3}'))->toEqual(Invalid::because(Problem::at('endpoint', 'expected text, got 3')));
 });

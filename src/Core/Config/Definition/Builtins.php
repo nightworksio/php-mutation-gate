@@ -224,6 +224,7 @@ final readonly class Builtins
             BuiltinReporter::Otlp->value => Section::options(
                 Json::object(),
                 Field::optional('endpoint', Url::https(), $judges),
+                Field::optional(PostLimits::TIMEOUT, Duration::written(), $judges),
             ),
             BuiltinReporter::Problems->value => Section::options(
                 Json::object(),

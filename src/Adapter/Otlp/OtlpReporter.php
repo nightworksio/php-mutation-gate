@@ -8,7 +8,9 @@ use function count;
 use function explode;
 use function getenv;
 use function implode;
+use function is_string;
 
+use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -27,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Telemetry\Metrics;
 use NightWorksIO\MutationGate\Core\Telemetry\Trace;
 use NightWorksIO\MutationGate\Core\Time\Instant;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -43,7 +46,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * The reporter `otlp`: the run's spans and the verdict's metrics as
  * OTLP/HTTP JSON, posted to `/v1/traces` and `/v1/metrics` under the
  * endpoint `with.endpoint` or OpenTelemetry's own variables name. Each post
- * takes at most 5 seconds and is not tried again; a failed one is *not
+ * takes at most `with.timeout`, 5 seconds where it names none, and is not
+ * tried again; a failed one is *not
  * written* (ADR-0016). `OTEL_EXPORTER_OTLP_HEADERS`,
  * which may hold a collector's key, go only to the endpoint
  * `OTEL_EXPORTER_OTLP_ENDPOINT` names.
@@ -58,7 +62,7 @@ final readonly class OtlpReporter implements Deferring, Reporter
         and with.endpoint names another.
         SAID;
 
-    /** The longest one post may take, in seconds. */
+    /** The longest one post may take, in seconds, where `with.timeout` names none. */
     private const float TIMEOUT = 5.0;
 
 
@@ -67,6 +71,7 @@ final readonly class OtlpReporter implements Deferring, Reporter
         private ClockInterface $clock,
         private Variables $environment,
         private string $endpoint,
+        private Seconds $timeout,
     ) {
     }
 
@@ -78,27 +83,33 @@ final readonly class OtlpReporter implements Deferring, Reporter
         ClockInterface $clock,
     ): self|Invalid {
         $endpoint = $options->text(Key::of('endpoint'));
+        $timeout = $options->text(Key::of(PostLimits::TIMEOUT));
+        $parsed = is_string($timeout) ? Seconds::parse($timeout) : Seconds::of(self::TIMEOUT);
+        $limit = $parsed instanceof Seconds ? $parsed : Seconds::of(self::TIMEOUT);
 
         return match (true) {
             $endpoint instanceof Problem => Invalid::because($endpoint),
+            $timeout instanceof Problem => Invalid::because($timeout),
             $endpoint instanceof NotGiven => self::to(
                 $environment,
                 $client,
                 $clock,
                 OtelEnvironment::of($environment)->endpoint(),
+                $limit,
             ),
-            default => self::to($environment, $client, $clock, $endpoint),
+            default => self::to($environment, $client, $clock, $endpoint, $limit),
         };
     }
 
-    /** The reporter reading this environment, posting with this client under this endpoint. */
+    /** The reporter reading this environment, posting with this client under this endpoint, each post held to this. */
     public static function to(
         Variables $environment,
         HttpClientInterface $client,
         ClockInterface $clock,
         string $endpoint,
+        Seconds|NotGiven $timeout = new NotGiven(),
     ): self {
-        return new self($client, $clock, $environment, $endpoint);
+        return new self($client, $clock, $environment, $endpoint, $timeout instanceof Seconds ? $timeout : Seconds::of(self::TIMEOUT));
     }
 
     /** The reporter in this process's environment, posting over the network. */
@@ -218,7 +229,7 @@ final readonly class OtlpReporter implements Deferring, Reporter
                     'Content-Type' => 'application/json',
                     ...$this->withholdsHeaders() ? [] : OtelEnvironment::of($this->environment)->headers(),
                 ],
-                'max_duration' => self::TIMEOUT,
+                'max_duration' => $this->timeout->seconds(),
                 'max_redirects' => 0,
             ]);
             $reply = Reply::answered($response->getStatusCode(), $response->getContent(throw: false));
