@@ -580,6 +580,19 @@ def last_judges(config: dict) -> bool:
     return (config.get("shards") or {}).get("lastJudges") is True
 
 
+def cache_store(config: dict) -> str:
+    """Where `outbreak cache` keeps its packs under the action: `outbreak.cache.store`, `auto` being `oci` where a
+    registry is named and `actions` otherwise, and `none` where Outbreak is off (ADR-0131)."""
+    outbreak = config.get("outbreak") or {}
+    cache = outbreak.get("cache") or {}
+    store = cache.get("store") or "auto"
+    if outbreak.get("enabled") is False or store == "none":
+        return "none"
+    if store == "auto":
+        return "oci" if cache.get("registry") else "actions"
+    return store if store != "oci" or cache.get("registry") else "none"
+
+
 def patches_infection(config: dict) -> bool:
     """Whether the effective config runs Infection, whose mutants get the gate's limit only once patched (ADR-0004)."""
     return (config.get("runner") or {}).get("use") == INFECTION
@@ -917,6 +930,7 @@ def _config() -> dict[str, str]:
         "infection_patch": "true" if patches_infection(config) else "false",
         "fail_fast": fail_fast(config),
         "last_judges": "true" if last_judges(config) else "false",
+        "cache_store": cache_store(config),
         "action_reports": json.dumps(action_reports(config)),
     }
 

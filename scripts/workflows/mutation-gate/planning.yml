@@ -274,6 +274,23 @@
           path: ${{ steps.resolve.outputs.default_dir }}
           key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
           restore-keys: ${{ steps.resolve.outputs.default_prefix }}
+      # ADR-0131: under outbreak.cache.store actions, each class's newest pack
+      # of proofs, which the plan's binary pulls from here and reads after
+      # the ledgers. GitHub's scoping decides whose packs a run reaches.
+      - name: Restore the trusted proof pack
+        if: steps.config.outputs.cache_store == 'actions'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation-gate/cache/restored/trusted
+          key: mutation-gate-proofs-trusted-${{ github.run_id }}
+          restore-keys: mutation-gate-proofs-trusted-
+      - name: Restore the branch proof pack
+        if: steps.config.outputs.cache_store == 'actions'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation-gate/cache/restored/branch
+          key: mutation-gate-proofs-branch-${{ github.run_id }}
+          restore-keys: mutation-gate-proofs-branch-
       # The store's copy of the ledger fetch read, where it wrote one.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -294,6 +311,7 @@
           OPTIONS: ${{ steps.resolve.outputs.plan_options }}
           COVERAGE: ${{ inputs.coverage }}
           EARLY_ONLY: ${{ inputs.early-only }}
+          MUTATION_GATE_REGISTRY_TOKEN: ${{ steps.config.outputs.cache_store == 'oci' && github.token || '' }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
@@ -328,7 +346,9 @@
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mutation-gate-plan-${{ github.run_attempt }}
-          path: .mutation-gate/plan.json
+          path: |
+            .mutation-gate/plan.json
+            .mutation-gate/cache/*.pack
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1

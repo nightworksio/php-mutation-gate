@@ -49,12 +49,14 @@ stay in `deliver` (ADR-0039).
      `actions` under the package's action and reusable workflow, and `none`
      elsewhere.
    - `actions` keeps a pack as an Actions cache entry named
-     `mutation-gate-proofs-<class>-<base digest>-<SHA-256 of the pack>`. The
-     action's own cache steps restore the newest under its prefix once the
-     plan has named the run's base, and save it beside the ledger, since the
-     cache service is reachable only from inside an action (ADR-0007).
-     GitHub's scoping then decides reach: a run reads its own ref's packs and
-     the default branch's, and a pull request its base branch's too.
+     `mutation-gate-proofs-<class>-<run id>-<attempt>`. The plan job
+     restores the newest entry of each class under its prefix, and the
+     binary takes a restored pack only where it holds proofs at the run's
+     base. The verdict job restores the newest pack of the class it writes,
+     merges its entries into it and saves the merged pack, since the cache
+     service is reachable only from inside an action (ADR-0007). GitHub's
+     scoping then decides reach: a run reads its own ref's packs and the
+     default branch's, and a pull request its base branch's too.
    - `oci` keeps a pack as an OCI artifact in the repository
      `outbreak.cache.registry` names, none by default, tagged
      `<class>-<base digest>`. It is read without credentials where the

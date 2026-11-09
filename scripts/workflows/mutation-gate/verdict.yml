@@ -202,6 +202,15 @@
           merge-multiple: true
       # The comment, the ledger, the alerts and the trace go into the delivery,
       # which the deliver job sends: this step holds no secret and no token.
+      # ADR-0131: the pack of the class this run writes, which the verdict
+      # merges the proofs it wrote into under outbreak.cache.store actions.
+      - name: Restore the proof pack this run writes
+        if: steps.config.outputs.cache_store == 'actions' && steps.resolve.outputs.save == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation-gate/cache/restored/${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}
+          key: mutation-gate-proofs-${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}-${{ github.run_id }}
+          restore-keys: mutation-gate-proofs-${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}-
       - name: Verdict
         id: verdict
         env:
@@ -236,6 +245,17 @@
           directory: ${{ steps.resolve.outputs.own_dir }}
           prefix: ${{ steps.resolve.outputs.own_prefix }}
           matched: ${{ steps.own.outputs.cache-matched-key }}
+      # The merged pack, saved in this run's own cache scope, which GitHub
+      # keeps apart; a fork's run saves nothing (ADR-0131).
+      - name: Keep the proof pack this run wrote
+        if: >-
+          steps.config.outputs.cache_store == 'actions' && steps.resolve.outputs.save == 'true'
+          && steps.verdict.outputs.code != ''
+          && hashFiles('.mutation-gate/cache/restored/*/*.pack') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation-gate/cache/restored/${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}
+          key: mutation-gate-proofs-${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}-${{ github.run_id }}-${{ github.run_attempt }}
       # The pass alone, which the push that merges this pull request reads where
       # this run's cache cannot reach it. A fork's run keeps nothing (ADR-0139).
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -369,6 +389,7 @@
         id: deliver
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          MUTATION_GATE_REGISTRY_TOKEN: ${{ github.token }}
           MUTATION_GATE_DEFAULT_BRANCH: ${{ vars.MUTATION_GATE_DEFAULT_BRANCH }}
           MUTATION_GATE_STORE: ${{ vars.MUTATION_GATE_STORE }}
           MUTATION_GATE_STORE_BUCKET: ${{ vars.MUTATION_GATE_STORE_BUCKET }}
