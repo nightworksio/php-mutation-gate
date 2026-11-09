@@ -178,6 +178,19 @@ final readonly class Patching
             : [];
     }
 
+    /**
+     * What a run is started with so a mutant's covering tests too many for a filter are selected by their ids,
+     * where it applies the patch and `pest.longFilter` is `set` (ADR-0138); nothing otherwise.
+     *
+     * @return array<string, string>
+     */
+    public function longFilterVariables(): array
+    {
+        return $this->isOn() && $this->steps->longFilter() === LongFilter::Set
+            ? [GateVariable::LongFilter->value => LongFilter::Set->value]
+            : [];
+    }
+
     /** Whether a run judges its mutants in split streams: where it compiles schemata and `splitStream` asks it to. */
     public function splitsStreams(): bool
     {

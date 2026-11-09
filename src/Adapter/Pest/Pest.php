@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
@@ -296,7 +297,12 @@ final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
     {
         $shell = TailShell::of($this->shell, $this->project, $this->patching, $request);
 
-        return new UnmutatedRuns($this->project, $shell, $this->files)->of($request, $controls);
+        return new UnmutatedRuns(
+            $this->project,
+            $shell,
+            $this->files,
+            $this->patching->isOn() && $this->patching->longFilter() === LongFilter::Set,
+        )->of($request, $controls);
     }
 
     /**

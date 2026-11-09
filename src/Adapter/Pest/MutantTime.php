@@ -67,7 +67,7 @@ final class MutantTime
             return $pest;
         }
 
-        $passed = Selection::passable($filter);
+        $passed = LongFilterSet::selects($tests, $filter);
         $running = $passed ? $tests : self::timed(CoveringFiles::loading($mutated, LoadedMap::tests()));
         $limit = MutantLimit::standard()->of(self::ownTime($running), $bounds)->seconds();
         $unfiltered = $passed ? '' : RecordLine::marked($mutated, RecordEvent::Unfiltered);

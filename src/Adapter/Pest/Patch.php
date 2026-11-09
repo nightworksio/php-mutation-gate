@@ -31,7 +31,8 @@ use function sprintf;
  *   PCRE to compile, is dropped (see Selection::passable), so the mutant runs
  *   every test its run loads, which can only kill more mutants; its limit is
  *   sized from those tests, and the run is recorded as unfiltered (see
- *   MutantTime).
+ *   MutantTime). Under `pest.longFilter: set` its tests are named by their
+ *   ids in a file instead, and it selects them exactly (see LongFilterSet).
  * - Given a coverage map another job wrote, the opening run is the canary
  *   group alone, and the map is copied in place of the one that run wrote.
  * - Each mutant is allowed the standard mutant limit of the own time of the
@@ -247,7 +248,8 @@ final readonly class Patch
         PHP;
 
     private const string FILTER_BECOMES = <<<'PHP'
-                {MARK} a run selects exactly its covering tests, each row alone; a filter too long to pass is left out.
+                {MARK} a run selects exactly its covering tests, each row alone; a filter too long to pass is left out,
+                {MARK} or its tests named by their ids in a file where the gate selects them so (ADR-0138).
                 $filter = class_exists(\%1$s::class)
                     ? \%1$s::covering($covering, \%4$s::suite())->argument()
                     : '--filter="'.implode('|', $filters).'"';
@@ -259,7 +261,9 @@ final readonly class Patch
                         ...($processId !== null && class_exists(\%3$s::class) ? \%3$s::prefix($processId) : []),
                         ...$filteredArguments,
                         '--bail',
-                        ...($passed ? [$filter] : []),
+                        ...(class_exists(\%5$s::class)
+                            ? \%5$s::arguments($covering, $filter)
+                            : ($passed ? [$filter] : [])),
                     ],
         PHP;
 
@@ -666,7 +670,14 @@ final readonly class Patch
             Hunk::in(
                 self::MUTATION_TEST,
                 self::FILTER_SHIPS,
-                sprintf(self::FILTER_BECOMES, Selection::class, Ceiling::BYTES, Pool::class, LoadedMap::class),
+                sprintf(
+                    self::FILTER_BECOMES,
+                    Selection::class,
+                    Ceiling::BYTES,
+                    Pool::class,
+                    LoadedMap::class,
+                    LongFilterSet::class,
+                ),
             ),
             Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),

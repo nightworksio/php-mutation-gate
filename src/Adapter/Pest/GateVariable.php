@@ -21,6 +21,12 @@ enum GateVariable: string
     /** How many mutants a mutation run runs at once: its pool's processes (see MutantsAtOnce). */
     case AtOnce = 'MUTATION_GATE_AT_ONCE';
 
+    /**
+     * `set`, where a patched run selects a mutant's covering tests too many for a filter by their ids, named in
+     * a file (see LongFilterSet, ADR-0138).
+     */
+    case LongFilter = 'MUTATION_GATE_LONG_FILTER';
+
     /** The coverage map another job handed over, which a patched shard's opening run reads. */
     case SharedCoverage = 'MUTATION_GATE_SHARED_COVERAGE';
 

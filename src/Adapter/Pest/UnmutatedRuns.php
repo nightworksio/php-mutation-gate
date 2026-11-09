@@ -65,8 +65,12 @@ final readonly class UnmutatedRuns
     /** Where a control at a position writes the events of its tests as they happen, where it has a silence limit. */
     private const string EVENTS = 'pest/controls/events-%d.txt';
 
-    public function __construct(private Project $project, private Shell $shell, private CapFiles $files)
-    {
+    public function __construct(
+        private Project $project,
+        private Shell $shell,
+        private CapFiles $files,
+        private bool $byIds = false,
+    ) {
     }
 
     public function of(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
@@ -175,8 +179,9 @@ final readonly class UnmutatedRuns
      * The run of a control's tests, selected as its mutant's run selected
      * them: by its filter, or by the test files it loaded with no filter, or
      * every one, under the request's tests; or else exactly its tests, a row
-     * of a data set alone, where Pest's filter can hold them, and the tests
-     * that judge the request where it cannot. Allowed its limit, logged to
+     * of a data set alone, where Pest's filter can hold them, by their ids
+     * named in a file under `pest.longFilter: set` where it cannot (ADR-0138),
+     * and the tests that judge the request otherwise. Allowed its limit, logged to
      * a file, and, under a silence limit or a watch of its tests, writing
      * each event of its tests as it happens.
      */
@@ -189,6 +194,9 @@ final readonly class UnmutatedRuns
             $by instanceof NotGiven && $selection->fits() => $selection->filter(),
             default => $request->judgedBy(),
         };
+        $ids = $by instanceof NotGiven && ! $selection->fits() && $this->byIds
+            ? IdsFile::written($control->tests(), sprintf('%s%s', $log, IdsFile::SUFFIX))
+            : NotGiven::value();
 
         return Invocation::of($this->project)->judging(
             $by instanceof Paths ? $by : Paths::none(),
@@ -197,6 +205,7 @@ final readonly class UnmutatedRuns
             ...[
                 ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy)),
                 sprintf('%s=%s', PhpUnitOption::LogJunit->value, $log),
+                ...$ids instanceof NotGiven ? [] : [sprintf('%s=%s', PhpUnitOption::TestIdFilterFile->value, $ids)],
                 ...$this->silenceOf($control, $events) instanceof SilenceLimit
                     ? [sprintf('%s=%s', PhpUnitOption::LogEventsText->value, $events)]
                     : [],

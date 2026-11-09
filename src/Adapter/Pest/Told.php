@@ -57,6 +57,7 @@ final readonly class Told
             ] : [],
             ...$this->patching->bounding($bounds),
             ...$this->patching->schemata(),
+            ...$this->patching->longFilterVariables(),
             ...StreamSettings::parting($request->narrowing()->testPart()),
         ];
     }
