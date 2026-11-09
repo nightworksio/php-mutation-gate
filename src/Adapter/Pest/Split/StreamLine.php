@@ -76,14 +76,15 @@ final readonly class StreamLine
     }
 
     /**
-     * The lines of each source file the parent executed in a test, as a run
-     * that plans without a fresh map records them (ADR-0135).
+     * The lines of each source file the parent executed in a test, and the
+     * test's seconds, as a run that plans without a fresh map records them
+     * (ADR-0135).
      *
      * @param array<string, list<int>> $lines
      */
-    public static function covered(string $test, array $lines): string
+    public static function covered(string $test, array $lines, float $seconds): string
     {
-        return self::line([self::KIND => self::COVERED, 't' => $test, 'l' => $lines]);
+        return self::line([self::KIND => self::COVERED, 't' => $test, 'l' => $lines, 's' => $seconds]);
     }
 
     /** @param array<string, string|bool|float|int|array<string, list<int>>> $fields */

@@ -182,7 +182,7 @@ final class Stream
         }
 
         if ($this->recording) {
-            $covered = StreamLine::covered($this->test, Recorded::stop());
+            $covered = StreamLine::covered($this->test, Recorded::stop(), $seconds);
             file_put_contents($this->plan->recording, $covered, FILE_APPEND | LOCK_EX);
         }
 
