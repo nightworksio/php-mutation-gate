@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -65,4 +66,21 @@ it('boots as many workers as run at once, or no more than its runs where it is s
         ->toBe([2, 4])
         ->and($pool->sizedByWork()->tail()->slotsFor($runs(1))->count())->toBe(1)
         ->and(WorkerSlots::of(ProcessCount::of(4), 'r')->atMost(ProcessCount::of(2)))->toEqual(WorkerSlots::of(ProcessCount::of(2), 'r'));
+});
+
+it('shares its places between a run and one beside it, each at least one, the places beside numbered after those taken', function (): void {
+    $pool = Pool::of(ProcessCount::of(8), Workers::Fork);
+    $taken = $pool->takingOnly(ProcessCount::of(3));
+    $beside = $pool->besideTaking(ProcessCount::of(3));
+    $tokens = static fn(Pool $pool): array => array_map(
+        static fn(WorkerSlot $slot): string => (string) iterator_to_array($slot->variables(), preserve_keys: true)['TEST_TOKEN'],
+        [...$pool->slots('run')],
+    );
+
+    expect([$taken->processes()->count(), $beside->processes()->count()])->toBe([3, 5])
+        ->and($tokens($taken))->toBe(['1', '2', '3'])
+        ->and($tokens($beside))->toBe(['4', '5', '6', '7', '8'])
+        ->and($pool->besideTaking(ProcessCount::of(8))->processes()->count())->toBe(1)
+        ->and($tokens($pool->besideTaking(ProcessCount::of(8))))->toBe(['8'])
+        ->and($beside->tail()->slots('run'))->toEqual($beside->slots('run'));
 });

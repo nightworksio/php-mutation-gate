@@ -13,6 +13,7 @@ use Closure;
 
 use function count;
 use function max;
+use function min;
 
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
@@ -39,13 +40,17 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ControlsSideBySide;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use Psr\Clock\ClockInterface;
+
+use function round;
 
 /**
  * One runner invocation of a shard, as the shard makes it: each survivor
@@ -65,8 +70,10 @@ use Psr\Clock\ClockInterface;
  * left, at `timeouts.seconds`, is not run again, and a mutant whose control
  * would not fit, at the longest limit of those controls, has none; each is
  * unjudged. The runner checks its mutants with static analysis before their
- * tests where it can and that pays (see PreChecking). Each step is timed on
- * the shard's stopwatch.
+ * tests where it can and that pays (see PreChecking). Where
+ * `pest.overlapSteps` asks, the controls start beside the survivors' runs
+ * again, each in a share of the pool (see StepsOverlap). Each step is timed
+ * on the shard's stopwatch.
  *
  * @internal
  */
@@ -101,14 +108,17 @@ final readonly class Invoking
      */
     private function triaged(MutationResult $result, MutationRequest $request): Invoked|CannotJudge
     {
+        $overlap = $this->overlapping($result, $request);
         $elsewhere = $result->evidence()->ownedElsewhere($result->mutants());
-        $first = $this->screened($result->mutants(), MutantIds::none(), $elsewhere, $request);
+        $first = $this->screened($result->mutants(), MutantIds::none(), $elsewhere, $overlap->confirming());
 
         if ($first instanceof CannotJudge) {
+            $overlap->stop();
+
             return $first;
         }
 
-        $controlled = $this->controlled($first->mutants, $request, $result->evidence());
+        $controlled = $this->controlled($first->mutants, $request, $result->evidence(), $overlap);
 
         if ($controlled instanceof CannotJudge) {
             return $controlled;
@@ -170,6 +180,50 @@ final readonly class Invoking
         $again = $this->confirmed($checked->mutants, $equivalent->and($settled), $request);
 
         return $again instanceof CannotJudge ? $again : Screened::of($checked, $again, $equivalent);
+    }
+
+    /**
+     * The invocation's controls started beside its survivors' runs again,
+     * where `pest.overlapSteps` asks for it, the runner starts controls while
+     * the gate goes on, no budget has to fit them, and there are both to run
+     * in a pool of more than one place: each takes a share of the places, as
+     * many as its share of the runs, at least one, and the controls are those
+     * the mutants ask for before the survivors are screened, which screening
+     * never takes from. Otherwise none, and the survivors run in the whole
+     * pool.
+     */
+    private function overlapping(MutationResult $result, MutationRequest $request): StepsOverlap
+    {
+        $runner = $this->adapters->runner;
+        $places = $request->pool()->processes()->count();
+        $survivors = $result->mutants()->counting(MutantStatus::Survived);
+        $asked = $runner instanceof ControlsSideBySide
+            && $this->settings->toggles()->on(Toggle::PestOverlapSteps)
+            && $this->settings->triage()->flaky()->confirmSurvivors()
+            && $this->deadline instanceof Unlimited
+            && $places > 1
+            && $survivors > 0
+                ? $this->judges($result->mutants(), $request, $result->evidence())[5]
+                : [];
+
+        if (! $runner instanceof ControlsSideBySide || $asked === []) {
+            return StepsOverlap::none($request);
+        }
+
+        $share = (int) round($places * $survivors / ($survivors + count($asked)));
+        $taken = ProcessCount::of(max(1, min($places - 1, $share)));
+        $from = $this->stopwatch->now();
+        $pending = $runner->controlsStarted(
+            $request->across($request->pool()->besideTaking($taken)),
+            Controls::of(...$asked),
+        );
+
+        return StepsOverlap::started(
+            $pending,
+            $from,
+            count($asked),
+            $request->across($request->pool()->takingOnly($taken)),
+        );
     }
 
     /** The runner's run of the request, the steps its time went to kept. */
@@ -263,7 +317,58 @@ final readonly class Invoking
      * mutant out of memory, and under `timeouts.parts: false` no mutant is
      * judged by its parts (ADR-0142).
      */
-    private function controlled(Mutants $mutants, MutationRequest $request, Evidences $evidence): Controlled|CannotJudge
+    private function controlled(
+        Mutants $mutants,
+        MutationRequest $request,
+        Evidences $evidence,
+        StepsOverlap $overlap,
+    ): Controlled|CannotJudge {
+        [$timeouts, $kills, $memory, $unnamed, $heavy, $asked] = $this->judges($mutants, $request, $evidence);
+
+        if ($asked === []) {
+            $overlap->stop();
+
+            return $this->partedIn(new Controlled($mutants, $evidence), $heavy, $request);
+        }
+
+        [$runs, $left] = $this->ranWith($asked, $request, $overlap);
+        $fallback = $runs instanceof CannotJudge ? [] : [...$kills->fallback($runs, $left)];
+        [$again, $leftAgain] = $fallback === []
+            ? [ControlRuns::none(), Controls::none()]
+            : $this->ranOf($fallback, $request);
+
+        if ($runs instanceof CannotJudge || $again instanceof CannotJudge) {
+            return $runs instanceof CannotJudge ? $runs : $again;
+        }
+
+        $controlled = new Controlled(
+            $unnamed->applied(
+                $memory->applied(
+                    $kills->applied(
+                        $timeouts->applied($mutants, $runs, $left),
+                        $runs->and($again),
+                        $left->and($leftAgain),
+                    ),
+                    $runs,
+                    $left,
+                ),
+                $runs,
+                $left,
+            ),
+            $unnamed->vouching($mutants, $evidence, $runs, $left),
+        );
+
+        return $this->partedIn($controlled, $heavy, $request);
+    }
+
+    /**
+     * The controls of these mutants, as each judge asks for them: each
+     * timeout's, each named kill's, each mutant's out of memory and each
+     * unnamed kill's, and the heavy timeouts judged by their parts instead.
+     *
+     * @return array{TimeoutControls, KillControls, MemoryControls, UnnamedKillControls, HeavyMutants, list<Control>}
+     */
+    private function judges(Mutants $mutants, MutationRequest $request, Evidences $evidence): array
     {
         $run = $this->adapters->runner->behaviour()->selection();
         $unfiltered = $this->unfilteredIn($mutants, $evidence);
@@ -302,38 +407,33 @@ final readonly class Invoking
             ...$memory->asked(),
         ])];
 
-        if ($asked === []) {
-            return $this->partedIn(new Controlled($mutants, $evidence), $heavy, $request);
+        return [$timeouts, $kills, $memory, $unnamed, $heavy, $asked];
+    }
+
+    /**
+     * What these controls found: those started beside the survivors' runs
+     * again taken, and the rest run now, as {@see ranOf()} runs them.
+     *
+     * @param  non-empty-list<Control>                  $asked
+     * @return array{ControlRuns|CannotJudge, Controls}
+     */
+    private function ranWith(array $asked, MutationRequest $request, StepsOverlap $overlap): array
+    {
+        $started = $overlap->taken($this->stopwatch);
+
+        if (! $started instanceof ControlRuns) {
+            return $started instanceof CannotJudge ? [$started, Controls::none()] : $this->ranOf($asked, $request);
         }
 
-        [$runs, $left] = $this->ranOf($asked, $request);
-        $fallback = $runs instanceof CannotJudge ? [] : [...$kills->fallback($runs, $left)];
-        [$again, $leftAgain] = $fallback === []
-            ? [ControlRuns::none(), Controls::none()]
-            : $this->ranOf($fallback, $request);
+        $rest = array_values(array_filter($asked, static fn(Control $control): bool => ! $started->holds($control)));
 
-        if ($runs instanceof CannotJudge || $again instanceof CannotJudge) {
-            return $runs instanceof CannotJudge ? $runs : $again;
+        if ($rest === []) {
+            return [$started, Controls::none()];
         }
 
-        $controlled = new Controlled(
-            $unnamed->applied(
-                $memory->applied(
-                    $kills->applied(
-                        $timeouts->applied($mutants, $runs, $left),
-                        $runs->and($again),
-                        $left->and($leftAgain),
-                    ),
-                    $runs,
-                    $left,
-                ),
-                $runs,
-                $left,
-            ),
-            $unnamed->vouching($mutants, $evidence, $runs, $left),
-        );
+        [$runs, $left] = $this->ranOf($rest, $request);
 
-        return $this->partedIn($controlled, $heavy, $request);
+        return [$runs instanceof CannotJudge ? $runs : $started->and($runs), $left];
     }
 
     /** The mutants no split stream judged: a stream's verdicts need no control (ADR-0117). */

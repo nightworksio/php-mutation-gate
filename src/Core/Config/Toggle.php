@@ -45,6 +45,9 @@ enum Toggle: string
     /** A shard keeps what it read, listed, scanned and ran unmutated once, for every later run of it to take. */
     case PestRemember = 'pest.remember';
 
+    /** An invocation's controls run beside its survivors' runs again, each in a share of the pool. */
+    case PestOverlapSteps = 'pest.overlapSteps';
+
     /** PHPStan's checks load its turbo extension, where a build of it is shipped for this PHP. */
     case StaticCheckTurbo = 'staticCheck.turbo';
 
@@ -69,7 +72,8 @@ enum Toggle: string
             self::PestNarrow,
             self::PestShardScan,
             self::PestLongestFirst,
-            self::PestRemember => true,
+            self::PestRemember,
+            self::PestOverlapSteps => true,
             default => false,
         };
     }
@@ -86,7 +90,11 @@ enum Toggle: string
     public function speedsUp(): bool
     {
         return match ($this) {
-            self::StaticCheckTurbo, self::PestShardScan, self::PestLongestFirst, self::PestRemember => true,
+            self::StaticCheckTurbo,
+            self::PestShardScan,
+            self::PestLongestFirst,
+            self::PestRemember,
+            self::PestOverlapSteps => true,
             default => false,
         };
     }
@@ -107,6 +115,7 @@ enum Toggle: string
             self::PestShardScan => $on ? 'Pest::scanningOnceAShard()' : 'Pest::scanningEachChunk()',
             self::PestLongestFirst => $on ? 'Pest::longestFirst()' : 'Pest::inTheirOrder()',
             self::PestRemember => $on ? 'Pest::remembering()' : 'Pest::forgetting()',
+            self::PestOverlapSteps => $on ? 'Pest::overlappingSteps()' : 'Pest::stepByStep()',
         };
     }
 

@@ -186,6 +186,18 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.remember', value: false));
     }
 
+    /** `pest.overlapSteps`, `true`: an invocation's controls run beside its survivors' runs again, as by default. */
+    public static function overlappingSteps(): self
+    {
+        return new self(Json::at('pest.overlapSteps', value: true));
+    }
+
+    /** `pest.overlapSteps`, `false`: the survivors' runs again end before the controls start. */
+    public static function stepByStep(): self
+    {
+        return new self(Json::at('pest.overlapSteps', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

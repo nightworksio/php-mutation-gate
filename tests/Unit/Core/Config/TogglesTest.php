@@ -29,6 +29,7 @@ $toggles = [
     'pest.shardScan' => [Toggle::PestShardScan, PestBuilder::scanningEachChunk(...), PestBuilder::scanningOnceAShard(...)],
     'pest.longestFirst' => [Toggle::PestLongestFirst, PestBuilder::inTheirOrder(...), PestBuilder::longestFirst(...)],
     'pest.remember' => [Toggle::PestRemember, PestBuilder::forgetting(...), PestBuilder::remembering(...)],
+    'pest.overlapSteps' => [Toggle::PestOverlapSteps, PestBuilder::stepByStep(...), PestBuilder::overlappingSteps(...)],
     'staticCheck.turbo' => [Toggle::StaticCheckTurbo, StaticCheckBuilder::withoutTurbo(...), StaticCheckBuilder::turbo(...)],
 ];
 
@@ -61,7 +62,7 @@ it('hands Pest the toggles it reads among its options, and any other runner none
     $pest = Toggles::of(Toggle::PestTrials, false)->beneath(Choice::of(BuiltinRunner::Pest->value, Options::none()));
     $other = Toggles::of(Toggle::PestTrials, false)->beneath(Choice::of(BuiltinRunner::PhpUnit->value, Options::none()));
 
-    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true,"shardScan":true,"longestFirst":true,"remember":true}')
+    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true,"shardScan":true,"longestFirst":true,"remember":true,"overlapSteps":true}')
         ->and($other->options()->written()->line())->toBe('{}');
 });
 
@@ -77,7 +78,7 @@ it('keys none of the speed-ups that change no output, and every check that vouch
     $speedUps = array_values(array_filter(Toggle::cases(), static fn(Toggle $toggle): bool => $toggle->speedsUp()));
 
     expect(array_map(static fn(Toggle $toggle): string => $toggle->value, $speedUps))
-        ->toBe(['pest.shardScan', 'pest.longestFirst', 'pest.remember', 'staticCheck.turbo'])
+        ->toBe(['pest.shardScan', 'pest.longestFirst', 'pest.remember', 'pest.overlapSteps', 'staticCheck.turbo'])
         ->and(array_filter($speedUps, static fn(Toggle $toggle): bool => $toggle->effect()->isKeyed()))->toBe([])
         ->and(Toggle::ControlsKills->effect()->isKeyed())->toBeTrue();
 });

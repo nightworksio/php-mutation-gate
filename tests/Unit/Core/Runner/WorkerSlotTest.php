@@ -41,3 +41,14 @@ it('gives several processes side by side places that tell them nothing, as one p
         ->and(array_map(static fn(WorkerSlot $slot): array => iterator_to_array($slot->variables(), preserve_keys: true), $slots))
         ->toBe([[], []]);
 });
+
+it('numbers places after those a run beside them holds, so no two processes at once share a token, even one alone', function (): void {
+    $tokens = static fn(WorkerSlots $slots): array => array_map(
+        static fn(WorkerSlot $slot): ?string => iterator_to_array($slot->variables(), preserve_keys: true)['TEST_TOKEN'] ?? null,
+        [...$slots],
+    );
+
+    expect($tokens(WorkerSlots::numberedAfter(2, ProcessCount::of(3), 'run')))->toBe(['3', '4', '5'])
+        ->and($tokens(WorkerSlots::numberedAfter(3, ProcessCount::single(), 'run')))->toBe(['4'])
+        ->and($tokens(WorkerSlots::numberedAfter(0, ProcessCount::of(2), 'run')))->toBe(['1', '2']);
+});

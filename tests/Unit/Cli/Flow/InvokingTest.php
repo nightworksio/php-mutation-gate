@@ -35,17 +35,20 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\SideBySideRunner;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 
 afterEach(function (): void {
@@ -271,4 +274,62 @@ it('screens a heavy mutant whose parts all pass as a survivor, after the survivo
         ->toBe([[$survivor->nativeId()], [invokedTimedOut()->nativeId()]])
         ->and([...$invoked->flaky])->toEqual([$survivor->id(), invokedTimedOut()->id()])
         ->and(count($checker->asked()))->toBe(2);
+});
+
+it('starts its controls beside its survivors\' runs again, each in its share of the pool\'s places, and takes them after', function (): void {
+    $scripted = ScriptedRunner::fixture()->answering(Mutants::of(
+        invokedMutant('src/Money.php', 'a', MutantStatus::Survived),
+        invokedMutant('src/Money.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of(6.0)),
+    ), 0);
+    $runner = SideBySideRunner::over($scripted);
+    $clock = new StoppedClock('2026-09-30T12:00:00+00:00');
+    $adapters = Flows::adapters(Flows::project(), [], $runner);
+    $stopwatch = new Stopwatch($clock, $clock->now());
+    $map = invokedMap('src/Money.php');
+    $tokens = static fn(MutationRequest $request): array => array_map(
+        static fn(WorkerSlot $slot): string => (string) iterator_to_array($slot->variables(), preserve_keys: true)['TEST_TOKEN'],
+        [...$request->pool()->slots('run')],
+    );
+
+    new Invoking(
+        $adapters,
+        Flows::settings(),
+        $clock,
+        Unlimited::time(),
+        $stopwatch,
+        $map,
+        HeldCovered::none(),
+        new SurvivorChecking($adapters, $clock, Unlimited::time(), Seconds::of(60.0), $stopwatch),
+        new PartedRuns($adapters, Flows::settings(), $map, HeldCovered::none()),
+    )->invoked(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(4), Workers::Fork)));
+
+    expect($runner->calls())->toBe(['started', 'retry', 'taken'])
+        ->and($tokens($scripted->retries()[0][4]))->toBe(['1', '2'])
+        ->and($tokens($scripted->controlled()[0][1]))->toBe(['3', '4']);
+});
+
+it('runs its controls after its survivors\' runs again in the whole pool where there are no survivors to run beside them', function (): void {
+    $scripted = ScriptedRunner::fixture()->answering(Mutants::of(
+        invokedMutant('src/Money.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of(6.0)),
+    ), 0);
+    $runner = SideBySideRunner::over($scripted);
+    $clock = new StoppedClock('2026-09-30T12:00:00+00:00');
+    $adapters = Flows::adapters(Flows::project(), [], $runner);
+    $stopwatch = new Stopwatch($clock, $clock->now());
+    $map = invokedMap('src/Money.php');
+
+    new Invoking(
+        $adapters,
+        Flows::settings(),
+        $clock,
+        Unlimited::time(),
+        $stopwatch,
+        $map,
+        HeldCovered::none(),
+        new SurvivorChecking($adapters, $clock, Unlimited::time(), Seconds::of(60.0), $stopwatch),
+        new PartedRuns($adapters, Flows::settings(), $map, HeldCovered::none()),
+    )->invoked(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(4), Workers::Fork)));
+
+    expect($runner->calls())->toBe(['controls'])
+        ->and($scripted->controlled()[0][1]->pool()->processes()->count())->toBe(4);
 });

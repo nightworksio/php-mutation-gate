@@ -42,6 +42,23 @@ final readonly class WorkerSlots implements IteratorAggregate
     }
 
     /**
+     * The places for this many processes, numbered after this many places a
+     * run beside them holds, in a run that names itself by a token of its
+     * own; as {@see of()} where none is held beside them.
+     */
+    public static function numberedAfter(int $after, ProcessCount $processes, string $run): self
+    {
+        $count = $processes->count();
+
+        return $after <= 0
+            ? self::of($processes, $run)
+            : new self(array_map(
+                static fn(int $number): WorkerSlot => WorkerSlot::of($number, $run),
+                range($after + 1, $after + $count),
+            ));
+    }
+
+    /**
      * Places for this many processes side by side, each telling its process
      * nothing, as the one place of a runner that runs one at a time does.
      *

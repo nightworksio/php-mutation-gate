@@ -10,6 +10,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\EndedProcesses;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\StartedProcesses;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -40,10 +42,13 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
  *
  * @internal
  */
-final readonly class TailShell implements Shell
+final readonly class TailShell implements Shell, StartsCommands
 {
     /** The file the tail's workers' directory is named beside, among the adapter's own. */
     private const string BESIDE = 'pest/tail';
+
+    /** The file the workers of controls started beside the survivors' runs again are named beside (see apart). */
+    private const string APART = 'pest/tail-apart';
 
     private function __construct(
         private Shell $shell,
@@ -61,19 +66,16 @@ final readonly class TailShell implements Shell
      */
     public static function of(Shell $shell, Project $project, Patching $patching, MutationRequest $request): Shell
     {
-        $beside = $patching->isOn() && $request->pool()->workers()->forksTheTail()
-            ? $project->fresh(self::BESIDE)
-            : '';
+        return self::named(self::BESIDE, $shell, $project, $patching, $request);
+    }
 
-        return is_string($beside) && $beside !== ''
-            ? new self(
-                $shell,
-                $beside,
-                $patching->bootsTail() ? $project : NotGiven::value(),
-                $patching->cachesInWorkers() ? OpcacheBlacklist::of($project, $request) : NotGiven::value(),
-                $request->pool(),
-            )
-            : $shell;
+    /**
+     * The same, its workers named apart from those of any run of the tail the
+     * survivors' runs again start while it runs (see ControlsSideBySide).
+     */
+    public static function apart(Shell $shell, Project $project, Patching $patching, MutationRequest $request): Shell
+    {
+        return self::named(self::APART, $shell, $project, $patching, $request);
     }
 
     public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran
@@ -94,6 +96,65 @@ final readonly class TailShell implements Shell
         Seconds|Unlimited $startingWithin,
         Command ...$commands,
     ): ProcessEnds {
+        [$sets, $forked] = $this->forking($slots, ...$commands);
+        $ends = $this->shell->sideBySide($slots, $startingWithin, ...$forked);
+        $sets->cleared();
+
+        return $ends;
+    }
+
+    /** The same commands, started now where the shell starts them, their workers ended once they are awaited or stopped. */
+    public function started(
+        WorkerSlots $slots,
+        Seconds|Unlimited $startingWithin,
+        Command ...$commands,
+    ): StartedProcesses {
+        [$sets, $forked] = $this->forking($slots, ...$commands);
+        $started = $this->shell instanceof StartsCommands
+            ? $this->shell->started($slots, $startingWithin, ...$forked)
+            : EndedProcesses::of($this->shell->sideBySide($slots, $startingWithin, ...$forked));
+
+        return TailStarted::of($started, $sets);
+    }
+
+    public function in(string $directory): Shell
+    {
+        return new self($this->shell->in($directory), $this->beside, $this->booting, $this->uncached, $this->pool);
+    }
+
+    private static function named(
+        string $name,
+        Shell $shell,
+        Project $project,
+        Patching $patching,
+        MutationRequest $request,
+    ): Shell {
+        $beside = $patching->isOn() && $request->pool()->workers()->forksTheTail()
+            ? $project->fresh($name)
+            : '';
+
+        return is_string($beside) && $beside !== ''
+            ? new self(
+                $shell,
+                $beside,
+                $patching->bootsTail() ? $project : NotGiven::value(),
+                $patching->cachesInWorkers() ? OpcacheBlacklist::of($project, $request) : NotGiven::value(),
+                $request->pool(),
+            )
+            : $shell;
+    }
+
+    /**
+     * The workers these commands fork from, and each command run through the
+     * client of its slot's worker: a booted one, of the suites it names, where
+     * it runs every test file of them and the tail boots, and an unbooted one
+     * otherwise; no more workers than there are runs where the pool is sized
+     * by its work.
+     *
+     * @return array{TailWorkers, list<Command>}
+     */
+    private function forking(WorkerSlots $slots, Command ...$commands): array
+    {
         $booted = $slots->atMost($this->pool->slotsFor(ProcessCount::atLeastOne(count($commands))));
         $sets = new TailWorkers($booted, $this->beside, $this->booting, $this->uncached, $this->pool->pace()->workerWait());
         $forked = [];
@@ -103,15 +164,7 @@ final readonly class TailShell implements Shell
             $forked[] = $command->forkedIn(WarmDirectory::beside($beside));
         }
 
-        $ends = $this->shell->sideBySide($slots, $startingWithin, ...$forked);
-        $sets->cleared();
-
-        return $ends;
-    }
-
-    public function in(string $directory): Shell
-    {
-        return new self($this->shell->in($directory), $this->beside, $this->booting, $this->uncached, $this->pool);
+        return [$sets, $forked];
     }
 
     /**

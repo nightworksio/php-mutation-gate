@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_keys;
+use function array_values;
 use function dirname;
 use function file_get_contents;
 use function file_put_contents;
@@ -24,7 +25,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\PendingControls;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\TestEvents;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
@@ -75,6 +78,69 @@ final readonly class UnmutatedRuns
 
     public function of(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
     {
+        $ready = $this->ready($request);
+
+        if ($ready instanceof CannotJudge) {
+            return $ready;
+        }
+
+        [$scan, $beside, $launcher] = $ready;
+        [$runs, $commands, $peaks] = $this->prepared($controls, $request, $scan, dirname($beside), $launcher);
+        $ends = $commands === []
+            ? ProcessEnds::of()
+            : $this->shell->sideBySide($this->slotsOf($request), $request->deadline(), ...array_values($commands));
+        $runs = $commands === [] ? $runs : $this->read($runs, $ends, $commands, $peaks);
+        $scan->remove();
+
+        return $runs;
+    }
+
+    /**
+     * What each control finds, started now where the shell starts commands
+     * and taken once the gate needs it, the memory cap the scan wrote removed
+     * then; run to their ends at once where it does not.
+     */
+    public function started(MutationRequest $request, Controls $controls): PendingControls
+    {
+        $ready = $this->ready($request);
+
+        if ($ready instanceof CannotJudge || ! $this->shell instanceof StartsCommands) {
+            return PendingControls::ran($ready instanceof CannotJudge ? $ready : $this->of($request, $controls));
+        }
+
+        [$scan, $beside, $launcher] = $ready;
+        [$runs, $commands, $peaks] = $this->prepared($controls, $request, $scan, dirname($beside), $launcher);
+
+        if ($commands === []) {
+            $scan->remove();
+
+            return PendingControls::ran($runs);
+        }
+
+        $started = $this->shell->started($this->slotsOf($request), $request->deadline(), ...array_values($commands));
+
+        return PendingControls::taking(
+            function () use ($runs, $started, $commands, $peaks, $scan): ControlRuns {
+                $read = $this->read($runs, $started->ends(), $commands, $peaks);
+                $scan->remove();
+
+                return $read;
+            },
+            static function () use ($started, $scan): void {
+                $started->stop();
+                $scan->remove();
+            },
+        );
+    }
+
+    /**
+     * The memory scan, the file the runs are written beside and the launcher
+     * the controls start through; or why one cannot be.
+     *
+     * @return array{MemoryScan, string, string}|CannotJudge
+     */
+    private function ready(MutationRequest $request): array|CannotJudge
+    {
         $beside = $this->project->fresh(self::BESIDE);
 
         if ($beside instanceof CannotJudge) {
@@ -89,23 +155,14 @@ final readonly class UnmutatedRuns
         return match (true) {
             $launcher instanceof CannotJudge => $launcher,
             $scan instanceof CannotJudge => $scan,
-            default => $this->controlled($controls, $request, $scan, $beside, $launcher),
+            default => [$scan, $beside, $launcher],
         };
     }
 
-    /** What each control found, started through the launcher, and the memory cap the scan wrote removed. */
-    private function controlled(
-        Controls $controls,
-        MutationRequest $request,
-        MemoryScan $scan,
-        string $beside,
-        string $launcher,
-    ): ControlRuns {
-        [$runs, $commands, $peaks] = $this->prepared($controls, $request, $scan, dirname($beside), $launcher);
-        $runs = $commands === [] ? $runs : $this->ended($runs, $request, $commands, $peaks);
-        $scan->remove();
-
-        return $runs;
+    /** The places the controls run side by side in: the request's pool's, numbered after any a run beside them holds. */
+    private function slotsOf(MutationRequest $request): WorkerSlots
+    {
+        return $request->pool()->slots(strval(getmypid()));
     }
 
     /**
@@ -254,19 +311,18 @@ final readonly class UnmutatedRuns
     }
 
     /**
-     * What each control found, run side by side, with the peak its launcher
-     * wrote and the tests its log names failing.
+     * What each control found, as the processes run side by side ended, with
+     * the peak its launcher wrote and the tests its log names failing.
      *
      * @param non-empty-array<string, Command>                       $commands by each control's key
      * @param array<string, array{Control, string, string, string}> $peaks    each control, its peak, its log and
      *                                                                        its forked child's peak, by its key
      */
-    private function ended(ControlRuns $runs, MutationRequest $request, array $commands, array $peaks): ControlRuns
+    private function read(ControlRuns $runs, ProcessEnds $ends, array $commands, array $peaks): ControlRuns
     {
-        $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
         $keys = array_keys($commands);
 
-        foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $at => $ran) {
+        foreach ($ends as $at => $ran) {
             [$control, $peak, $log, $forked] = $peaks[$keys[$at]];
             $failing = JUnitFailures::of(is_file($log) ? file_get_contents($log) : false);
             $run = ControlRun::ofProcess($ran, $failing);

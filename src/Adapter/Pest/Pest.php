@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\ControlsSideBySide;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -43,6 +44,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\ListsSideBySide;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PendingControls;
 use NightWorksIO\MutationGate\Core\Runner\PendingListings;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
@@ -71,7 +73,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
+final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsSideBySide, Runner
 {
     /** Where the gate runs Pest: the project's root, which the gate runs in. */
     private const string ROOT = '.';
@@ -303,6 +305,23 @@ final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
             $this->files,
             $this->patching->isOn() && $this->patching->longFilter() === LongFilter::Set,
         )->of($request, $controls);
+    }
+
+    /**
+     * The same controls started now, their workers and places apart from the
+     * survivors' runs again that start beside them, taken once the gate needs
+     * them.
+     */
+    public function controlsStarted(MutationRequest $request, Controls $controls): PendingControls
+    {
+        $shell = TailShell::apart($this->shell, $this->project, $this->patching, $request);
+
+        return new UnmutatedRuns(
+            $this->project,
+            $shell,
+            $this->files,
+            $this->patching->isOn() && $this->patching->longFilter() === LongFilter::Set,
+        )->started($request, $controls);
     }
 
     /**

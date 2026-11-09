@@ -26,6 +26,7 @@ final readonly class Pool
         private bool $tail,
         private RunnerPace $pace,
         private bool $sized = false,
+        private int $after = 0,
     ) {
     }
 
@@ -58,6 +59,7 @@ final readonly class Pool
             $this->tail,
             $this->pace,
             $this->sized,
+            $this->after,
         );
     }
 
@@ -76,6 +78,7 @@ final readonly class Pool
                 $this->tail,
                 $this->pace,
                 $this->sized,
+                $this->after,
             )
             : $this;
     }
@@ -95,6 +98,7 @@ final readonly class Pool
             tail: true,
             pace: $this->pace,
             sized: $this->sized,
+            after: $this->after,
         );
     }
 
@@ -109,6 +113,7 @@ final readonly class Pool
             $this->tail,
             $pace,
             $this->sized,
+            $this->after,
         );
     }
 
@@ -126,6 +131,7 @@ final readonly class Pool
             $this->tail,
             $this->pace,
             sized: true,
+            after: $this->after,
         );
     }
 
@@ -133,6 +139,51 @@ final readonly class Pool
     public function slotsFor(ProcessCount $runs): ProcessCount
     {
         return $this->sized ? ProcessCount::of(min($runs->count(), $this->processes->count())) : $this->processes;
+    }
+
+    /**
+     * This pool with only this many of its places, the first ones, the rest
+     * left to a run beside it (see besideTaking).
+     */
+    public function takingOnly(ProcessCount $taken): self
+    {
+        return new self(
+            ProcessCount::of(min($taken->count(), $this->processes->count())),
+            $this->workers,
+            $this->startUp,
+            $this->multiple,
+            $this->tail,
+            $this->pace,
+            $this->sized,
+            $this->after,
+        );
+    }
+
+    /**
+     * The rest of this pool's places, beside a run that takes this many of
+     * them: at least one, each numbered after the places taken, so no two
+     * processes running at once are told the same place.
+     */
+    public function besideTaking(ProcessCount $taken): self
+    {
+        $first = min($taken->count(), $this->processes->count() - 1);
+
+        return new self(
+            ProcessCount::atLeastOne($this->processes->count() - $first),
+            $this->workers,
+            $this->startUp,
+            $this->multiple,
+            $this->tail,
+            $this->pace,
+            $this->sized,
+            $this->after + $first,
+        );
+    }
+
+    /** The places its processes run side by side in, in a run named by this token, numbered after any taken beside. */
+    public function slots(string $run): WorkerSlots
+    {
+        return WorkerSlots::numberedAfter($this->after, $this->processes, $run);
     }
 
     /** How its runner paces its work. */
