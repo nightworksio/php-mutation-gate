@@ -415,6 +415,26 @@ it('leaves a kill of a run no file narrowed to its control under flaky.killContr
     expect($kills->sets())->toBe(0);
 });
 
+it('still replays a kill of a narrowed run under flaky.killControls alone, as its replay vouches for the files it left out', function () use ($mutant): void {
+    $at = PestCases::project();
+    $loaded = sprintf('%s/tests/ASpec.php', $at->root());
+    $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
+    $file = narrowedResults(
+        PestRun::killedAt('native-1', 'T::a', Placed::at(2, $order, 9)),
+        PestRun::narrowed('native-1', [$loaded]),
+        rtrim(RecordLine::arguments(PestRun::mutated('native-1'), ['vendor/bin/pest', '--bail', $loaded])),
+        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
+    );
+    $kills = NarrowedKills::in(
+        MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a')), 0),
+        $file,
+        $at,
+        KillControl::Alone,
+    );
+
+    expect($kills->sets())->toBe(1);
+});
+
 it('leaves unjudged the kills a failed assertion made, and doubts those only errors made, of each replay that does not let them stand, past one that does', function () use ($mutant): void {
     $at = PestCases::project();
     $loaded = sprintf('%s/tests/ASpec.php', $at->root());

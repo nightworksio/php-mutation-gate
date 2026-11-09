@@ -268,7 +268,7 @@ describe('Settings', function (): void {
             '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
             . '"buildkite":{"definition":".buildkite/mutation.yml","step":{"agents":{"queue":"mutation"}}},'
             . '"gitlab":{"template":".gitlab/gate.yml"},"jenkins":{"definition":"ci/Jenkinsfile"}},'
-            . '"extensions":["Acme\\\\GateSlack\\\\SlackExtension"],"flaky":{"confirmSurvivors":false},'
+            . '"extensions":["Acme\\\\GateSlack\\\\SlackExtension"],"flaky":{"confirmSurvivors":false,"killControls":"order"},'
             . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
             . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","patch":true,"schemata":false,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
             . '"runner":{"memory":"512M","pathRules":"partitioned","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'

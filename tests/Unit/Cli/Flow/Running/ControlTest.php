@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -293,7 +294,7 @@ it('leaves a kill unjudged where the tests that killed it fail unmutated too, an
     'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::FailsUnmutated],
 ]);
 
-it('controls a file\'s kills together first, and each on its own only where that does not pass', function (bool $passes, int $asked) use ($makeResultIn): void {
+it('controls a file\'s killers together first under flaky.killControls alone, and each on its own only where that does not pass', function (bool $passes, int $asked) use ($makeResultIn): void {
     $resultIn = $makeResultIn();
 
     $project = Flows::project();
@@ -306,7 +307,7 @@ it('controls a file\'s kills together first, and each on its own only where that
             ->with($alone('MoneyTest::adds'), ControlRun::passed(Seconds::of(0.2)))
             ->with($alone('MoneyTest::subtracts'), ControlRun::failed(TestIds::none())));
 
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Flaky::controllingKillsAlone()), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $keys = controlKeysAsked($runner);
 

@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 /**
  * `flaky`: whether each survivor is run once more before it counts, and what
  * a kill's unmutated control runs (ADR-0008, ADR-0143).
+ *
+ * @internal
  */
 final readonly class FlakySetting
 {
