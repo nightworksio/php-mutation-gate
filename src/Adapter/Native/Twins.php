@@ -34,6 +34,16 @@ final readonly class Twins
     {
     }
 
+    /**
+     * Every mutant judged by its own run, as `mutants.duplicates: judge-each` asks (ADR-0137).
+     *
+     * @param list<MadeMutant> $made
+     */
+    public static function none(array $made): self
+    {
+        return new self($made, []);
+    }
+
     /** @param list<MadeMutant> $made in the order the engine made them */
     public static function of(array $made): self
     {

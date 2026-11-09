@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\HeatmapKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\MutantsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\OutbreakKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\OutputsKeys;
@@ -167,6 +168,7 @@ final readonly class Definition
             ...PublishingKeys::fields(),
             ...PestKeys::fields(),
             ToggleFields::in('controls')->section(),
+            ...MutantsKeys::fields(),
             ...SplitStreamKeys::fields(),
             ...StaticCheckKeys::fields($origin),
             ...PruningKeys::fields(),

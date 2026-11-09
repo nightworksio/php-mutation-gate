@@ -44,6 +44,7 @@ final readonly class BuilderClasses
         'Load' => self::BUILDER,
         'Local' => self::BUILDER,
         'LocalWork' => self::BUILDER,
+        'Mutants' => self::BUILDER,
         'Mutators' => self::BUILDER,
         'Option' => self::BUILDER,
         'Outbreak' => self::BUILDER,

@@ -11,10 +11,12 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\Mutants;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
@@ -87,6 +89,7 @@ final readonly class PestOptions
         $toggles = self::togglesOf($options);
         $vouching = self::chosen($options, ConfigPest::NARROWED_KILLS, NarrowedKillTrust::Vouch);
         $selecting = self::chosen($options, ConfigPest::LONG_FILTER, LongFilter::Files);
+        $judging = self::chosen($options, Mutants::DUPLICATES, Duplicates::JudgeOnce);
 
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
@@ -102,6 +105,7 @@ final readonly class PestOptions
             $toggles instanceof Problem => Invalid::because($toggles),
             $vouching instanceof Problem => Invalid::because($vouching),
             $selecting instanceof Problem => Invalid::because($selecting),
+            $judging instanceof Problem => Invalid::because($judging),
             default => new self(
                 self::patchingOf($patch, $canary)
                     ->bootingTail($bootTail === true)
@@ -109,7 +113,7 @@ final readonly class PestOptions
                     ->compilingSchemata($schemata !== false)
                     ->bootingMutants($bootMutants !== false)
                     ->splitting($streams)
-                    ->stepping(PestSteps::of($toggles, $vouching, $selecting)),
+                    ->stepping(PestSteps::of($toggles, $vouching, $selecting, $judging)),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
                 $bounds,
@@ -150,7 +154,7 @@ final readonly class PestOptions
     /**
      * The case of an enum an option names, this one where it names none, or why it names no case.
      *
-     * @template E of NarrowedKillTrust|LongFilter
+     * @template E of NarrowedKillTrust|LongFilter|Duplicates
      *
      * @param  E           $standard
      * @return E|Problem
@@ -158,8 +162,8 @@ final readonly class PestOptions
     private static function chosen(
         Options $options,
         string $key,
-        NarrowedKillTrust|LongFilter $standard,
-    ): NarrowedKillTrust|LongFilter|Problem {
+        NarrowedKillTrust|LongFilter|Duplicates $standard,
+    ): NarrowedKillTrust|LongFilter|Duplicates|Problem {
         $named = $options->text(Key::of($key));
 
         return match (true) {

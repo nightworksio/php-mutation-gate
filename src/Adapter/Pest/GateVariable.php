@@ -27,6 +27,9 @@ enum GateVariable: string
      */
     case LongFilter = 'MUTATION_GATE_LONG_FILTER';
 
+    /** `judge-each`, where every mutant is judged by its own run, twins of one file among them (ADR-0137). */
+    case Duplicates = 'MUTATION_GATE_DUPLICATES';
+
     /** The coverage map another job handed over, which a patched shard's opening run reads. */
     case SharedCoverage = 'MUTATION_GATE_SHARED_COVERAGE';
 

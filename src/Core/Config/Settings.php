@@ -49,9 +49,9 @@ final readonly class Settings
             ? new self(
                 $settled,
                 ChosenRunner::of(
-                    $settled->toggles()->beneath(
+                    $settled->mutants()->beneath($settled->toggles()->beneath(
                         $settled->shards()->outbreak()->beneath($settled->pest()->beneath($runner)),
-                    ),
+                    )),
                     $layer->setup()->runnerLayer()->withhold(),
                     $settled->setup()->runnerLayer()->memory(),
                     $settled->setup()->runnerLayer()->workers(),

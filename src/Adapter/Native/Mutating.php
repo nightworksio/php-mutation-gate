@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -74,6 +75,7 @@ final readonly class Mutating
         private HeldCoverage $held,
         private Engine|CannotJudge $engine,
         private Clock $clock = new WallClock(),
+        private Duplicates $duplicates = Duplicates::JudgeOnce,
     ) {
     }
 
@@ -219,7 +221,7 @@ final readonly class Mutating
             $this->framework->errorDisplay(),
         );
         $workforce = new Workforce($this->project, $this->shell, $invocation, $scan, $judging, $this->framework);
-        $run = new MutationRun($this->project, $engine, $judging, $workforce, $laps);
+        $run = new MutationRun($this->project, $engine, $judging, $workforce, $laps, duplicates: $this->duplicates);
         $making = $only instanceof MutantIds ? $run->makingOnly($only) : $run;
         $result = $making->of($request, $map, $bounds, $preChecker);
         $scan->remove();

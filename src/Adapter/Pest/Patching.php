@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
@@ -179,16 +180,22 @@ final readonly class Patching
     }
 
     /**
-     * What a run is started with so a mutant's covering tests too many for a filter are selected by their ids,
-     * where it applies the patch and `pest.longFilter` is `set` (ADR-0138); nothing otherwise.
+     * What a run is started with, where it applies the patch: so a mutant's covering tests too many for a filter
+     * are selected by their ids under `pest.longFilter: set` (ADR-0138), and so every mutant is judged by its own
+     * run under `mutants.duplicates: judge-each` (ADR-0137); nothing otherwise.
      *
      * @return array<string, string>
      */
-    public function longFilterVariables(): array
+    public function stepVariables(): array
     {
-        return $this->isOn() && $this->steps->longFilter() === LongFilter::Set
-            ? [GateVariable::LongFilter->value => LongFilter::Set->value]
-            : [];
+        return $this->isOn() ? [
+            ...$this->steps->longFilter() === LongFilter::Set
+                ? [GateVariable::LongFilter->value => LongFilter::Set->value]
+                : [],
+            ...$this->steps->duplicates() === Duplicates::JudgeEach
+                ? [GateVariable::Duplicates->value => Duplicates::JudgeEach->value]
+                : [],
+        ] : [];
     }
 
     /** Whether a run judges its mutants in split streams: where it compiles schemata and `splitStream` asks it to. */

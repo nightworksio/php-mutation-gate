@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
@@ -103,6 +104,7 @@ final readonly class NativeRunner implements LeavesPhpReport, Runner
         private LimitBounds $bounds,
         private CapFiles $files,
         private Clock $clock = new WallClock(),
+        private Duplicates $duplicates = Duplicates::JudgeOnce,
     ) {
         $this->held = new HeldCoverage();
         $this->invocation = new Invocation($this->project, Override::pathIn($this->project), $this->framework);
@@ -141,6 +143,7 @@ final readonly class NativeRunner implements LeavesPhpReport, Runner
             $read->engine(),
             $read->bounds(),
             $files,
+            duplicates: $read->duplicates(),
         );
     }
 
@@ -338,6 +341,7 @@ final readonly class NativeRunner implements LeavesPhpReport, Runner
                 $this->bounds,
                 $this->files,
                 $this->clock,
+                $this->duplicates,
             )
             : CannotJudge::because(sprintf(
                 self::NO_PROJECT,
@@ -359,6 +363,7 @@ final readonly class NativeRunner implements LeavesPhpReport, Runner
             $this->held,
             $this->engine,
             $this->clock,
+            $this->duplicates,
         );
     }
 }

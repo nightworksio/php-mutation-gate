@@ -43,6 +43,7 @@ final readonly class Layer
             StaticCheck::standard(),
             Local::standard(),
             Toggles::standard(),
+            Mutants::standard(),
             Contexts::standard(),
         ));
     }
@@ -65,6 +66,7 @@ final readonly class Layer
             StaticCheck::none(),
             Local::none(),
             Toggles::none(),
+            Mutants::none(),
             Contexts::none(),
         ));
 
@@ -142,6 +144,12 @@ final readonly class Layer
     public function toggles(): Toggles
     {
         return $this->parts->part(Toggles::class);
+    }
+
+    /** Whether mutants that are one program are judged once (ADR-0137). */
+    public function mutants(): Mutants
+    {
+        return $this->parts->part(Mutants::class);
     }
 
     public function pest(): Pest
