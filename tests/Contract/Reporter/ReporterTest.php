@@ -135,6 +135,10 @@ $holds = [
 // and for one a budget cut short: that it wrote, or why it did not, and never
 // an exception. One line per implementation.
 
+beforeEach(function (): void {
+    Scratch::entered();
+});
+
 afterEach(function (): void {
     Scratch::sweep();
 });
