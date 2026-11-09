@@ -225,9 +225,19 @@ final class Stream
             && ! array_key_exists(sprintf('%s:%d', $file, $id), $this->forked);
     }
 
-    /** Forks a site's mutant: true in the child, which runs it, false in the parent. */
+    /**
+     * Forks a site's mutant: true in the child, which runs it, false in the
+     * parent, and false where the test opened a socket since it began, which
+     * then forks nothing more.
+     */
     private function fork(string $file, int $id): bool
     {
+        if (Sockets::open() > $this->sockets) {
+            $this->isolate();
+
+            return false;
+        }
+
         [$mutant, , $variables] = $this->plan->sites[$file][$id];
         $this->deciding = true;
         $this->forked[sprintf('%s:%d', $file, $id)] = true;
