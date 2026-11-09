@@ -222,6 +222,10 @@ parameters:
                 # restored before the answer is read (ADR-0078).
                 - src/Adapter/Serve/Connection.php
                 - src/Adapter/Serve/Listener.php
+                # stream_select raises a pause a wake's own signal cut short as a warning as well as answering false;
+                # the handler that keeps it from a warm worker's or its client's output is restored before the pause
+                # ends (ADR-0120).
+                - src/Adapter/Pest/Warm/Wake.php
                 # proc_open raises a program that cannot start as a warning as well as answering false; the handler
                 # that keeps it from the run's output is restored before the answer is read.
                 - src/Adapter/Zstd/ZstdProgram.php

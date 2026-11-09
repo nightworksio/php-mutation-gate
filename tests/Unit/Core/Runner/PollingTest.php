@@ -46,3 +46,9 @@ it('reads the wait it was told, and the standard where it was told none or no ti
     'told nothing' => [fn(): false => false, fn(): Seconds => Seconds::of(0.01)],
     'told no time' => ['0', fn(): Seconds => Seconds::of(0.01)],
 ]);
+
+it('waits as a warm worker and its client were told: the local loop\'s wait, then runner.poll, then the standard', function (): void {
+    expect(Polling::warm('1.000000', '0.050000'))->toEqual(Seconds::of(1.0))
+        ->and(Polling::warm(warm: false, poll: '0.050000'))->toEqual(Seconds::of(0.05))
+        ->and(Polling::warm(warm: false, poll: false))->toEqual(Polling::interval());
+});

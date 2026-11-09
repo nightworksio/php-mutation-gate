@@ -33,4 +33,4 @@ $errors = static function (string $bytes): void {
     fwrite(STDERR, $bytes);
 };
 
-exit(Client::at($directory, Client::placeOf($place), usleep(...), $out, $errors)->ran($script, array_slice($arguments, 4)));
+exit(Client::at($directory, Client::placeOf($place), Wake::paused(...), $out, $errors)->ran($script, array_slice($arguments, 4)));

@@ -148,7 +148,7 @@ $boot = static function () use ($directory): string {
 
 class_exists(WarmDatabase::class);
 
-exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->booting($boot)->served(new class implements Forking {
+exit(Worker::at($directory, (int) $place, (int) $parent, Wake::paused(...))->booting($boot)->served(new class implements Forking {
     public function forked(Request $request, Baseline|NotGiven $baseline, string $report): int|NotGiven
     {
         $child = pcntl_fork();
