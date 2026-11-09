@@ -247,6 +247,9 @@ jobs:
       # The zstd extension, as ci.yml's gate has it, so the ledger's zstd is
       # mutated through it as the tests cover it (ADR-0085).
       extensions: zstd
+      # The gate built from the tagged commit, apart from the tree it mutates,
+      # so no warm worker loads a file a mutant changes (ADR-0140).
+      judge: ${{ github.sha }}
       runs-on: ubuntu-24.04-arm
     # The key that reads main's ledger, which fetch signs in with where the
     # repository names a store. A release writes no ledger, so it passes no
