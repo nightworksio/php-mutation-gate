@@ -32,7 +32,7 @@ it('writes the keys a layer sets, and nothing where it sets none', function (): 
         ->and(Json::object(SplitStream::of()->written())->line())
         ->toBe('{}')
         ->and(Json::object(SplitStream::standard()->written())->line())
-        ->toBe('{"splitStream":{"enabled":false,"children":1,"changeCheck":true,"killersFirst":true,"sharding":"tests","killerStreams":false}}');
+        ->toBe('{"splitStream":{"enabled":false,"children":1,"changeCheck":true,"killersFirst":true,"sharding":"tests","killerStreams":false,"early":"no-match"}}');
 });
 
 it('writes each key set as the PHP config calls it', function (): void {

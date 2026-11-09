@@ -33,6 +33,9 @@ final readonly class SplitStream
     /** The key whose `true` has a first-pass stream run only the killers of its mutants (ADR-0136). */
     public const string KILLER_STREAMS = 'killerStreams';
 
+    /** The key of which full runs plan without a fresh map (ADR-0135). */
+    public const string EARLY = 'early';
+
     /** The key that says what a run that splits its streams cuts its shards by. */
     public const string SHARDING = 'sharding';
 
@@ -48,6 +51,7 @@ final readonly class SplitStream
         private bool|Absent $killersFirst,
         private StreamSharding|Absent $sharding,
         private bool|Absent $killerStreams,
+        private SplitEarly|Absent $early = new Absent(),
     ) {
     }
 
@@ -58,8 +62,9 @@ final readonly class SplitStream
         bool|Absent $killersFirst = new Absent(),
         StreamSharding|Absent $sharding = new Absent(),
         bool|Absent $killerStreams = new Absent(),
+        SplitEarly|Absent $early = new Absent(),
     ): self {
-        return new self($enabled, $children, $changeCheck, $killersFirst, $sharding, $killerStreams);
+        return new self($enabled, $children, $changeCheck, $killersFirst, $sharding, $killerStreams, $early);
     }
 
     /** Every key at the value it takes when every layer leaves it out. */
@@ -74,6 +79,7 @@ final readonly class SplitStream
             $none->killersFirst(),
             $none->sharding(),
             $none->killerStreams(),
+            $none->early(),
         );
     }
 
@@ -87,6 +93,7 @@ final readonly class SplitStream
             Absent::laid($this->killersFirst, $later->killersFirst),
             Absent::laid($this->sharding, $later->sharding),
             Absent::laid($this->killerStreams, $later->killerStreams),
+            Absent::laid($this->early, $later->early),
         );
     }
 
@@ -136,6 +143,16 @@ final readonly class SplitStream
         return $this->killerStreams === true;
     }
 
+    /**
+     * `splitStream.early`: which full split-stream runs plan without a fresh
+     * coverage map (ADR-0135); `no-match` by default. It is in no key, and
+     * not in the runner's option.
+     */
+    public function early(): SplitEarly
+    {
+        return $this->early instanceof SplitEarly ? $this->early : SplitEarly::NoMatch;
+    }
+
     /** The Pest runner's `splitStream` option: every key at the value it takes. */
     public function option(): Member
     {
@@ -161,6 +178,7 @@ final readonly class SplitStream
             Member::of(self::KILLERS_FIRST, $this->killersFirst),
             Member::of(self::SHARDING, $sharding),
             Member::of(self::KILLER_STREAMS, $this->killerStreams),
+            Member::of(self::EARLY, $this->early instanceof SplitEarly ? $this->early->value : $this->early),
         );
 
         return Member::unlessEmpty(self::SECTION, $written);
@@ -176,6 +194,7 @@ final readonly class SplitStream
             ...$this->switched($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'),
             ...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : [],
             ...$this->switched($this->killerStreams, 'SplitStream::killerStreams()', 'SplitStream::wholeFirstPass()'),
+            ...$this->early instanceof SplitEarly ? [$this->early->php()] : [],
         );
     }
 

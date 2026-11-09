@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Pest;
+use NightWorksIO\MutationGate\Core\Config\SplitEarly;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\Config\StreamSharding;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -30,6 +31,11 @@ final readonly class SplitStreamKeys
         $killersFirst = Field::optional(SplitStream::KILLERS_FIRST, Flag::boolean(), $results);
         $sharding = Field::optional(SplitStream::SHARDING, Enumerated::of(StreamSharding::cases()), $results);
         $killerStreams = Field::optional(SplitStream::KILLER_STREAMS, Flag::boolean(), $results);
+        $early = Field::optional(
+            SplitStream::EARLY,
+            Enumerated::of(SplitEarly::cases()),
+            Effect::DecidesHowTheGateRuns,
+        );
 
         return [Field::section(
             SplitStream::SECTION,
@@ -41,6 +47,7 @@ final readonly class SplitStreamKeys
                     $killersFirst,
                     $sharding,
                     $killerStreams,
+                    $early,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -48,6 +55,7 @@ final readonly class SplitStreamKeys
                     $first = $killersFirst->read($split);
                     $cut = $sharding->read($split);
                     $streamed = $killerStreams->read($split);
+                    $starts = $early->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -57,6 +65,7 @@ final readonly class SplitStreamKeys
                             $first->value(),
                             $cut->value(),
                             $streamed->value(),
+                            $starts->value(),
                         ))),
                         $on,
                         $most,
@@ -64,6 +73,7 @@ final readonly class SplitStreamKeys
                         $first,
                         $cut,
                         $streamed,
+                        $starts,
                     );
                 },
                 $enabled,
@@ -72,6 +82,7 @@ final readonly class SplitStreamKeys
                 $killersFirst,
                 $sharding,
                 $killerStreams,
+                $early,
             ),
         )];
     }
