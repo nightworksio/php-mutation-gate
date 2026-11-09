@@ -10,6 +10,7 @@ use function array_search;
 use function array_slice;
 use function array_unique;
 use function array_values;
+use function count;
 use function getmypid;
 use function hrtime;
 use function is_file;
@@ -129,7 +130,7 @@ final readonly class Workforce
         Seconds|Unlimited $deadline,
         array $positions,
     ): WarmEnds {
-        $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
+        $slots = WorkerSlots::of($request->pool()->slotsFor(count($positions)), strval(getmypid()));
         $commands = [];
 
         foreach (array_keys([...$slots]) as $place) {

@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Watch;
 use function array_any;
 use function array_filter;
 use function array_values;
+use function hash;
+use function implode;
 
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -20,6 +22,9 @@ use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
+use function sort;
+use function sprintf;
+
 /**
  * The files `watch` polls, those in a tree and those in a test directory,
  * each by the digest of what it holds, so a file written again as it was
@@ -30,6 +35,11 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
  */
 final readonly class Watched
 {
+    /** A test file in the digest of them all: its path and its own digest. */
+    private const string ENTRY = '%s %s';
+
+    private const string HASH = 'xxh128';
+
     /** @param list<SuiteDirectory> $tests */
     private function __construct(
         private Trees $trees,
@@ -60,6 +70,22 @@ final readonly class Watched
         );
 
         return new self($this->trees, $this->tests, Fingerprints::of(...$watched), $looked);
+    }
+
+    /** The digest of the files in the test directories, which moves where one is added, changed or gone. */
+    public function testsDigest(): string
+    {
+        $digests = [];
+
+        foreach ($this->files as $file) {
+            $digests = $this->inTests($file->path())
+                ? [...$digests, sprintf(self::ENTRY, $file->path()->value(), $file->digest()->value())]
+                : $digests;
+        }
+
+        sort($digests);
+
+        return hash(self::HASH, implode("\n", $digests));
     }
 
     /** The look these files were seen by. */

@@ -30,14 +30,15 @@ final readonly class DaemonStart
 
     private const string OPTION = '--%s';
 
-    public function __construct(private ServeSocket $socket, private Seconds $within)
+    /** @param list<string> $launch what goes before the daemon's command line: its priority (ADR-0120) */
+    public function __construct(private ServeSocket $socket, private Seconds $within, private array $launch = [])
     {
     }
 
     /**
      * Whether a daemon listens: one that already does, or one started by the
      * gate's script in this directory within the time it is given
-     * (`local.serveStartWait`). The socket's directory is kept to the user
+     * (`local.serveStartWait`), under what it is launched with. The socket's directory is kept to the user
      * alone first, where it is the user's own; none starts where the socket
      * or its directory is not the user's own; a socket file no daemon answers
      * on is removed before it starts.
@@ -54,7 +55,7 @@ final readonly class DaemonStart
         $this->socket->removed();
         $pipes = [];
         proc_open(
-            [PHP_BINARY, $script, Verb::Serve->value, sprintf(self::OPTION, self::DETACHED)],
+            [...$this->launch, PHP_BINARY, $script, Verb::Serve->value, sprintf(self::OPTION, self::DETACHED)],
             [['file', self::NULL_DEVICE, 'r'], ['file', self::NULL_DEVICE, 'w'], ['file', self::NULL_DEVICE, 'w']],
             $pipes,
             $directory,

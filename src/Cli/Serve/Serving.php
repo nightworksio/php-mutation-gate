@@ -12,6 +12,7 @@ use function is_int;
 use function is_resource;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Local\Launch;
 use NightWorksIO\MutationGate\Adapter\Serve\DaemonStart;
 use NightWorksIO\MutationGate\Adapter\Serve\ServeClient;
 use NightWorksIO\MutationGate\Adapter\Serve\ServeSocket;
@@ -26,7 +27,6 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Serve\ServedVariables;
 use NightWorksIO\MutationGate\Core\Serve\ServeRefusal;
 use NightWorksIO\MutationGate\Core\Serve\ServeRequest;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verb;
 
 use function rewind;
@@ -148,25 +148,26 @@ final readonly class Serving
         $client = self::client($output);
         $answer = $client->answered($request);
         $unserved = $answer instanceof NotGiven || $answer instanceof ServeRefusal;
-        $wait = $watch && $unserved ? $this->startWait($input) : NotGiven::value();
-        $started = $wait instanceof Seconds
-            && new DaemonStart(ServeSocket::ofProject(), $wait)->started($this->script, $this->project);
+        $local = $watch && $unserved ? $this->startable($input) : NotGiven::value();
+        $launch = $local instanceof Local ? Launch::here()->prefix($local->work()) : [];
+        $started = $local instanceof Local
+            && new DaemonStart(ServeSocket::ofProject(), $local->serveStartWait(), $launch)
+                ->started($this->script, $this->project);
 
         return $started ? $client->answered($request) : $answer;
     }
 
     /**
-     * How long `watch` waits for a daemon it starts, `local.serveStartWait`,
-     * where `local.serveStart` lets it start one; none where it may not.
+     * The local settings `watch` starts a daemon by, how long it waits for it
+     * and the priority it starts it at, where `local.serveStart` lets it start
+     * one; none where it may not.
      */
-    private function startWait(InputInterface $input): Seconds|NotGiven
+    private function startable(InputInterface $input): Local|NotGiven
     {
         $composed = $this->composition->composeLocally($input);
         $local = $composed instanceof Composed ? $composed->settings->local() : NotGiven::value();
 
-        return $local instanceof Local && $local->serveStart()->startsForWatch()
-            ? $local->serveStartWait()
-            : NotGiven::value();
+        return $local instanceof Local && $local->serveStart()->startsForWatch() ? $local : NotGiven::value();
     }
 
     private function outcome(int|ServeRefusal|NotGiven|CannotJudge $answer, OutputInterface $output): int|NotGiven

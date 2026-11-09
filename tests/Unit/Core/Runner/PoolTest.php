@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -52,4 +53,14 @@ it('lays a learned multiple on bounds that learn one, keeping it in the tail, an
         ->and($pool->bounding($learning->multipliedBy(Multiple::of(4.0)))->multiple())->toEqual(Multiple::of(4.0))
         ->and(Pool::single()->bounding($learning)->multiple())->toEqual(Multiple::of(3.0))
         ->and($pool->learning(NotGiven::value()))->toEqual($pool);
+});
+
+it('boots as many workers as run at once, or no more than its runs where it is sized by its work', function (): void {
+    $pool = Pool::of(ProcessCount::of(4), Workers::Fork);
+
+    expect([$pool->slotsFor(2)->count(), $pool->slotsFor(9)->count()])->toBe([4, 4])
+        ->and([$pool->sizedByWork()->slotsFor(2)->count(), $pool->sizedByWork()->slotsFor(9)->count(), $pool->sizedByWork()->slotsFor(0)->count()])
+        ->toBe([2, 4, 1])
+        ->and($pool->sizedByWork()->tail()->slotsFor(1)->count())->toBe(1)
+        ->and(WorkerSlots::of(ProcessCount::of(4), 'r')->atMost(ProcessCount::of(2)))->toEqual(WorkerSlots::of(ProcessCount::of(2), 'r'));
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function count;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
@@ -12,6 +13,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -47,6 +49,7 @@ final readonly class TailShell implements Shell
         private string $beside,
         private Project|NotGiven $booting,
         private OpcacheBlacklist|NotGiven $uncached,
+        private Pool $pool,
     ) {
     }
 
@@ -67,6 +70,7 @@ final readonly class TailShell implements Shell
                 $beside,
                 $patching->bootsTail() ? $project : NotGiven::value(),
                 $patching->cachesInWorkers() ? OpcacheBlacklist::of($project, $request) : NotGiven::value(),
+                $request->pool(),
             )
             : $shell;
     }
@@ -80,15 +84,17 @@ final readonly class TailShell implements Shell
      * Each command run through the client of its slot's worker: a booted
      * one, of the suites it names, where it runs every test file of them and
      * the tail boots, and an unbooted one otherwise. Each set of workers is
-     * started for the runs, in a directory with nothing an earlier run left,
-     * and ended once they are done.
+     * started for the runs, no more of them than there are runs where the
+     * pool is sized by its work, in a directory with nothing an earlier run
+     * left, and ended once they are done.
      */
     public function sideBySide(
         WorkerSlots $slots,
         Seconds|Unlimited $startingWithin,
         Command ...$commands,
     ): ProcessEnds {
-        $sets = new TailWorkers($slots, $this->beside, $this->booting, $this->uncached);
+        $booted = $slots->atMost($this->pool->slotsFor(count($commands)));
+        $sets = new TailWorkers($booted, $this->beside, $this->booting, $this->uncached);
         $forked = [];
 
         foreach ($commands as $command) {
@@ -104,7 +110,7 @@ final readonly class TailShell implements Shell
 
     public function in(string $directory): Shell
     {
-        return new self($this->shell->in($directory), $this->beside, $this->booting, $this->uncached);
+        return new self($this->shell->in($directory), $this->beside, $this->booting, $this->uncached, $this->pool);
     }
 
     /**

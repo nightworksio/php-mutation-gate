@@ -115,6 +115,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
             $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named(PestCases::RUN_PLUS))),
             WholeSuite::tests(),
             PestCases::results($at),
+            patching: PestCases::canary(),
         )->with([
             'MUTATION_GATE_SHARED_COVERAGE' => $written,
             'MUTATION_GATE_SUITE_SECONDS' => '3.250000',

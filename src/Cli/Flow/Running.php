@@ -290,7 +290,7 @@ final readonly class Running
     ): Mutated|CannotJudge {
         $samples = $this->settings->shards()->planning()->startUpSamples();
         $startUp = new StartUpTiming($this->adapters, $samples)->of($map, $kept->units());
-        $pool = Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
+        $pool = $this->adapters->pooled($this->settings->runner()->workers())
             ->pacedBy($this->settings->runner()->pace())
             ->startingIn($startUp)
             ->learning($plan->briefing()->learned()->multiple());

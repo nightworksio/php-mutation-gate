@@ -185,6 +185,17 @@ it('starts one worker in each of the request\'s places, the runs between them, a
         ->toBe([$project->absolute(Path::of('src/Money.php')), $project->absolute(Path::of('src/Money.php'))]);
 });
 
+it('starts no more workers than the mutants it runs where its pool is sized by its work', function () use ($makeBoth): void {
+    $project = warmLibrary();
+    $shell = killingWorkers();
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
+        ->across(Pool::of(ProcessCount::of(8), Workers::Fork)->sizedByWork());
+
+    warmMutation($project, $shell)->of($request, $makeBoth(), LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
+
+    expect($shell->workers())->toHaveCount(2);
+});
+
 it('starts no worker for a framework that has none, and runs each mutant fresh', function () use ($makeAddsOnly): void {
     $project = warmLibrary();
     $shell = killingWorkers();

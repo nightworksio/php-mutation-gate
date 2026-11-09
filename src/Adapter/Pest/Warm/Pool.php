@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
+use function array_filter;
 use function array_key_exists;
+use function array_values;
 use function getenv;
 use function getmypid;
 use function is_resource;
@@ -18,6 +20,7 @@ use const PHP_BINARY;
 
 use function proc_close;
 use function proc_open;
+use function str_starts_with;
 use function strval;
 
 /**
@@ -40,6 +43,9 @@ final class Pool
      * run puts over files hands PHP no descriptor to give a process.
      */
     private const string REDIRECTED = 'out=$1; err=$2; shift 2; exec "$@" < /dev/null >> "$out" 2>> "$err"';
+
+    /** The option of Pest's own command that says how many places it runs, which a mutant's own run never takes. */
+    private const string PROCESSES = '--processes';
 
     /** @var array<string, bool> whether each place's worker started, by the file of its process id */
     private static array $started = [];
@@ -69,6 +75,21 @@ final class Pool
         return self::$started[$seat->pid()]
             ? [PHP_BINARY, ...OwnScript::PestClient->started(), $directory, strval($place)]
             : [];
+    }
+
+    /**
+     * The arguments a mutant's own run is started with, of those Pest itself
+     * was: all but `--processes`, which a run that is not parallel fails on.
+     *
+     * @param  array<int, string> $arguments
+     * @return list<string>
+     */
+    public static function passed(array $arguments): array
+    {
+        return array_values(array_filter(
+            $arguments,
+            static fn(string $argument): bool => ! str_starts_with($argument, self::PROCESSES),
+        ));
     }
 
     /**

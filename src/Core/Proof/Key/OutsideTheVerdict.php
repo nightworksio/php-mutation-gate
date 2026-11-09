@@ -174,6 +174,7 @@ final readonly class OutsideTheVerdict
             'src/Core/Serve/**',
         ],
         'How the local loop uses the machine: how many workers, at what priority and on battery, never a result.' => [
+            'src/Adapter/Local/**',
             'src/Core/Local/**',
         ],
         'CI providers, version control and the plan: where a run runs, keyed by its CI definitions and files.' => [

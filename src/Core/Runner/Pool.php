@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function max;
+use function min;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -23,6 +26,7 @@ final readonly class Pool
         private Multiple $multiple,
         private bool $tail,
         private RunnerPace $pace,
+        private bool $sized = false,
     ) {
     }
 
@@ -47,7 +51,15 @@ final readonly class Pool
     /** This pool, a run of no test having taken this long to start in it. */
     public function startingIn(Seconds|Unmeasured $startUp): self
     {
-        return new self($this->processes, $this->workers, $startUp, $this->multiple, $this->tail, $this->pace);
+        return new self(
+            $this->processes,
+            $this->workers,
+            $startUp,
+            $this->multiple,
+            $this->tail,
+            $this->pace,
+            $this->sized,
+        );
     }
 
     /**
@@ -57,7 +69,15 @@ final readonly class Pool
     public function learning(Multiple|NotGiven $multiple): self
     {
         return $multiple instanceof Multiple
-            ? new self($this->processes, $this->workers, $this->startUp, $multiple, $this->tail, $this->pace)
+            ? new self(
+                $this->processes,
+                $this->workers,
+                $this->startUp,
+                $multiple,
+                $this->tail,
+                $this->pace,
+                $this->sized,
+            )
             : $this;
     }
 
@@ -75,13 +95,45 @@ final readonly class Pool
             $this->multiple,
             tail: true,
             pace: $this->pace,
+            sized: $this->sized,
         );
     }
 
     /** This pool, its runner paced as `runner.recycleAfter` and `runner.warmSlack` say. */
     public function pacedBy(RunnerPace $pace): self
     {
-        return new self($this->processes, $this->workers, $this->startUp, $this->multiple, $this->tail, $pace);
+        return new self(
+            $this->processes,
+            $this->workers,
+            $this->startUp,
+            $this->multiple,
+            $this->tail,
+            $pace,
+            $this->sized,
+        );
+    }
+
+    /**
+     * This pool, each set of warm workers it boots no larger than the runs it
+     * has, `local.sizedPools` (ADR-0120).
+     */
+    public function sizedByWork(): self
+    {
+        return new self(
+            $this->processes,
+            $this->workers,
+            $this->startUp,
+            $this->multiple,
+            $this->tail,
+            $this->pace,
+            sized: true,
+        );
+    }
+
+    /** How many workers a set boots for this many runs: as many as run at once, or no more than the runs, sized. */
+    public function slotsFor(int $runs): ProcessCount
+    {
+        return $this->sized ? ProcessCount::of(max(1, min($runs, $this->processes->count()))) : $this->processes;
     }
 
     /** How its runner paces its work. */

@@ -63,6 +63,8 @@ use function sprintf;
  * - Where the gate names a directory for warm workers, each mutant's own run
  *   is asked of its place's worker, which runs it in a child forked from a
  *   process booted once (see Warm\Pool).
+ * - A mutant's own run takes no `--processes`, so the gate can say how many
+ *   places a run has (see Invocation::mutation).
  * - In Pest itself, a child forked from a warm worker that booted the
  *   project keeps the test suite its worker built, skips the bootstrappers
  *   its worker ran, and finds each test file where its worker found it; the
@@ -253,11 +255,11 @@ final readonly class Patch
                     : '--filter="'.implode('|', $filters).'"';
                 $passed = class_exists(\%1$s::class) ? \%1$s::passable($filter) : strlen($filter) < %2$d;
 
-                {MARK} a mutant's run is asked of its place's warm worker, where the run has them.
+                {MARK} a mutant's run is asked of its place's warm worker, where the run has them, with no --processes.
                 $process = new Process(
                     command: [
                         ...($processId !== null && class_exists(\%3$s::class) ? \%3$s::prefix($processId) : []),
-                        ...$filteredArguments,
+                        ...(class_exists(\%3$s::class) ? \%3$s::passed($filteredArguments) : $filteredArguments),
                         '--bail',
                         ...($passed ? [$filter] : []),
                     ],

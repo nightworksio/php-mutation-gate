@@ -261,6 +261,17 @@ parameters:
                     name: 'option'
                     typeString: "'log_errors'|'error_log'"
 
+        # --- the local loop's own priority ------------------------------------------
+        # The extension keys each entry by its call, so this entry replaces the dangerous set's own for
+        # proc_nice() and keeps its message everywhere else.
+        -
+            function: 'proc_nice()'
+            message: 'changes the priority of the current process'
+            allowIn:
+                # watch and serve lower their own priority on Windows to the class local.windowsClass names, which
+                # every process they start inherits; they never raise it (ADR-0120).
+                - src/Adapter/Local/OwnPriority.php
+
         # --- a signal of no effect, and a run's own ending ---------------------------
         # The extension keys each entry by its call, so this entry replaces the dangerous set's own for
         # posix_kill() and keeps its message everywhere else.

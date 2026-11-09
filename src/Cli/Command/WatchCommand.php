@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\LocalWork;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
+use NightWorksIO\MutationGate\Core\Local\Power;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -62,6 +63,7 @@ final readonly class WatchCommand
     private const string WATCHING = 'Watching the trees and the tests for changes. Ctrl-C stops.';
 
     private const string ARRIVED = 'A change arrived, so the round stops and the gate judges again.';
+
 
     /** @param Closure(Seconds): bool $waited waits this long between looks, and says whether to go on watching */
     private function __construct(
@@ -125,15 +127,25 @@ final readonly class WatchCommand
     private function rounds(Watched $seen): int
     {
         $ownMap = false;
+        $load = WatchLoad::of($this->composed->settings->local()->work());
 
         while (true) {
+            $power = $load->powered(
+                fn(): bool => ($this->waited)($this->composed->settings->local()->watchPoll()) === true,
+                fn(string $said) => $this->printing->note($said, $this->output),
+            );
+
+            if (! $power instanceof Power) {
+                return ExitCode::Passed->value;
+            }
+
             $looks = new WatchLooks(
                 $this->look(...),
                 $this->composed->setup->clock,
                 $this->composed->settings->local()->watchPoll(),
                 $seen,
             );
-            $planned = $this->round($ownMap, $looks);
+            $planned = $this->round($load->fitted($this->composed, $power, $seen), $ownMap, $looks);
             $now = $this->after($seen, $looks);
 
             if (! $now instanceof Watched) {
@@ -158,9 +170,8 @@ final readonly class WatchCommand
      * batch by a change; its verdict is printed unless a change arrived.
      * Whether it planned, and so left a coverage map for the next round.
      */
-    private function round(bool $ownMap, WatchLooks $looks): bool
+    private function round(Composed $composed, bool $ownMap, WatchLooks $looks): bool
     {
-        $composed = $this->composed;
         $arrived = Interruption::when($looks->arrived(...));
         $running = Running::composed($composed)->interrupted($arrived);
         $this->printing->begin($this->output, $composed->adapters->project);

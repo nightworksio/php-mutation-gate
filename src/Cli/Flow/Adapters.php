@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_map;
+use function count;
 use function implode;
 use function in_array;
 
@@ -17,16 +18,20 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Local\LocalLoop;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
@@ -92,6 +97,7 @@ final readonly class Adapters
         public Narrowing $narrowing,
         public Prover $equivalence,
         public ConfigReads $configReads,
+        public LocalLoop|NotGiven $loop = new NotGiven(),
     ) {
     }
 
@@ -120,6 +126,7 @@ final readonly class Adapters
             $this->narrowing,
             $this->equivalence,
             $reads,
+            $this->loop,
         );
     }
 
@@ -148,6 +155,7 @@ final readonly class Adapters
             $this->narrowing,
             $this->equivalence,
             $this->configReads,
+            $this->loop,
         );
     }
 
@@ -180,6 +188,7 @@ final readonly class Adapters
             $this->narrowing,
             $this->equivalence,
             $this->configReads,
+            $this->loop,
         );
     }
 
@@ -216,6 +225,7 @@ final readonly class Adapters
                 $this->narrowing->toMutators(Mutators::named(...$security)),
                 $this->equivalence,
                 $this->configReads,
+                $this->loop,
             );
     }
 
@@ -253,6 +263,7 @@ final readonly class Adapters
                     $this->narrowing->toSuite($suite),
                     $this->equivalence,
                     $this->configReads,
+                    $this->loop,
                 ),
             $declared === [] => CannotJudge::because(sprintf(self::NO_SUITES, $asked)),
             default => CannotJudge::because(sprintf(self::NO_SUITE, $asked, $this->shown($declared))),
@@ -291,6 +302,7 @@ final readonly class Adapters
                 $this->narrowing->amongSuites($resolved),
                 $this->equivalence,
                 $this->configReads,
+                $this->loop,
             )
             : $resolved;
     }
@@ -310,16 +322,62 @@ final readonly class Adapters
         return ! $this->narrowing->mutators()->isAll();
     }
 
+    /** The same, as the local loop runs: as many mutants at once as these cores make (ADR-0120). */
+    public function looping(ProcessCount $cores, LocalLoop $loop): self
+    {
+        return new self(
+            $this->runner,
+            $this->suite,
+            $this->checker,
+            $this->analyser,
+            $this->trees,
+            $this->proofs,
+            $this->costs,
+            $this->ci,
+            $this->changes,
+            $this->repository,
+            $this->project,
+            $this->environment,
+            $this->withheld,
+            $cores,
+            $this->engine,
+            $this->mutators,
+            $this->skippedSets,
+            $this->security,
+            $this->narrowing,
+            $this->equivalence,
+            $this->configReads,
+            $loop,
+        );
+    }
+
     /**
      * A coverage run across as many processes as the runner runs mutants at
-     * once, withholding what every process withholds, of the run's suite
-     * alone where it names one.
+     * once, or in one process where the local loop runs one test file alone,
+     * withholding what every process withholds, of the run's suite alone
+     * where it names one.
      */
     public function covering(CoverageRun $run): CoverageRun
     {
-        return $run->across($this->processes())
+        $tests = $run->tests();
+        $alone = $this->loop instanceof LocalLoop && $this->loop->runsFileAlone()
+            && $tests instanceof TestPaths && count($tests->files()) === 1;
+
+        return $run->across($alone ? ProcessCount::single() : $this->processes())
             ->withholding($this->withheld)
             ->amongSuites($this->narrowing->suitesFor($run->tests()));
+    }
+
+    /**
+     * The pool a run's mutants run in: as many at once as the runner's
+     * parallelism makes of the cores, each started as these workers say, its
+     * sets of warm workers sized by their runs where the local loop sizes them.
+     */
+    public function pooled(Workers $workers): Pool
+    {
+        $pool = Pool::of($this->processes(), $workers);
+
+        return $this->loop instanceof LocalLoop && $this->loop->sizesPools() ? $pool->sizedByWork() : $pool;
     }
 
     /** Whether one suite's tests alone judge its runs' mutants. */
