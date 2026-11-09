@@ -382,3 +382,30 @@ it('cuts the test files into as many parts as the shards asked for, and keeps do
         ->toBe([[1, 3], [2, 3], [3, 3]])
         ->and($parts(Cut::bySize(10, Seconds::of(0.0), 20)->cut($work, $makeSrc())))->toBe([[1, 1]]);
 });
+
+it('cuts a pulling run into items of about the item\'s length, consecutive items listed for one shard', function () use ($weighed, $makeSrc): void {
+    $work = Workload::of(
+        $weighed('src/A.php', 300.0),
+        $weighed('src/B.php', 300.0),
+        $weighed('src/C.php', 300.0),
+        $weighed('src/D.php', 300.0),
+    );
+    $cut = Cut::bySize(600, Seconds::of(0.0), 20)->pulling(Seconds::of(300.0))->cut($work, $makeSrc());
+    $items = $cut instanceof Shards ? array_map(
+        static fn(Shard $item): array => [$item->id()->number(), $item->worker()->number(), $item->isPulled()],
+        iterator_to_array($cut, preserve_keys: false),
+    ) : $cut;
+
+    expect($items)->toBe([[1, 1, true], [2, 1, true], [3, 2, true], [4, 2, true]]);
+});
+
+it('spreads a pulling run\'s items over the count of shards asked for', function () use ($weighed, $makeSrc): void {
+    $work = Workload::of($weighed('src/A.php', 300.0), $weighed('src/B.php', 300.0), $weighed('src/C.php', 300.0));
+    $cut = Cut::exactly(3)->pulling(Seconds::of(100.0))->cut($work, $makeSrc());
+    $workers = $cut instanceof Shards ? array_map(
+        static fn(Shard $item): int => $item->worker()->number(),
+        iterator_to_array($cut, preserve_keys: false),
+    ) : $cut;
+
+    expect($workers)->toBe([1, 2, 3]);
+});

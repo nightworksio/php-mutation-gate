@@ -141,3 +141,15 @@ it('cannot judge a checkout of another commit', function () use ($planOf): void 
         "The plan was made on 5eeca8f, and this checkout is 206b4e0.\nRun each shard and the verdict on the commit its plan was made on.",
     ));
 });
+
+it('runs a job a shard where its shards own their parts, and a job a list of items where they pull', function () use ($shard, $planOf): void {
+    $owned = $planOf($shard(1, 'src'), $shard(2, 'lib'));
+    $pulled = $planOf(
+        $shard(1, 'src')->workedBy(ShardId::of(1)),
+        $shard(2, 'src')->workedBy(ShardId::of(1)),
+        $shard(3, 'lib')->workedBy(ShardId::of(2)),
+    );
+
+    expect([$owned->pulls(), $owned->jobs()])->toBe([false, [1 => ['src'], 2 => ['lib']]])
+        ->and([$pulled->pulls(), $pulled->jobs()])->toBe([true, [1 => ['src'], 2 => ['lib']]]);
+});

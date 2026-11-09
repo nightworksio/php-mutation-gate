@@ -703,3 +703,25 @@ it('writes what a sampled run\'s sample drew within its digest, and reads it bac
         ->and(PlanFile::digestOf($plan)->value())->not->toBe(PlanFile::digestOf($empty)->value())
         ->and(PlanFile::encode($empty))->not->toContain('"sample"');
 });
+
+it('writes the job each item of a pulling plan is listed first for, and reads it back', function (): void {
+    $item = static fn(int $number, int $job): Shard => Shard::of(
+        ShardId::of($number),
+        Package::at(Path::root()),
+        Units::of(Unit::file(Path::of(sprintf('src/%d.php', $number)))),
+        Seconds::of(5.0),
+        'src',
+    )->workedBy(ShardId::of($job));
+    $plan = Plan::of(
+        Revision::ref(planFileCommit()),
+        Digest::sha256Of('base'),
+        Keys::none(),
+        Shards::of($item(1, 1), $item(2, 1), $item(3, 2)),
+    );
+    $read = PlanFile::decode(PlanFile::encode($plan));
+
+    expect(PlanFile::encode($plan))->toContain('"worker": 2')
+        ->and($read)->toEqual($plan)
+        ->and($read instanceof Plan ? [$read->pulls(), $read->jobs()] : $read)->toBe([true, [1 => ['src'], 2 => ['src']]])
+        ->and(PlanFile::encode(planFileEmpty()))->not->toContain('worker');
+});
