@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\Opcache;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PestMutateUntested;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PestUnpatched;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Php;
+use NightWorksIO\MutationGate\Core\Doctor\Check\PhpStanRestart;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PublicContainer;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Runners;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ScheduledRun;
@@ -83,6 +84,7 @@ final readonly class Diagnosis
             ScheduleRunning::in($observed),
             ScheduledRun::in($observed),
             KeyedContextBlocks::in($observed),
+            PhpStanRestart::in($observed),
             ShallowClone::in($observed),
             WarmBoot::in($observed),
             WorkflowPin::in($observed),

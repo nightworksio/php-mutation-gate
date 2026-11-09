@@ -125,13 +125,14 @@ final readonly class StaticCheck implements Part
 
     /**
      * `staticCheck.php`: the ini settings each of the analyser's checks runs under, which change none of its
-     * findings: pcov off, opcache on with a file cache alone and no timestamp checks, where no layer says
-     * (ADR-0020).
+     * findings: pcov and Xdebug off, opcache on with a file cache alone and no timestamp checks, where no layer
+     * says (ADR-0020).
      */
     public function php(): Json
     {
         return $this->php instanceof Json ? $this->php : Json::object(
             Member::of('pcov.enabled', '0'),
+            Member::of('xdebug.mode', 'off'),
             Member::of('opcache.enable_cli', '1'),
             Member::of('opcache.file_cache_only', '1'),
             Member::of('opcache.validate_timestamps', '0'),

@@ -279,6 +279,16 @@ the plan says how many it could not take.
 Set the setting alike in both blocks, or outside them. `suggest.enabled:
 false` turns the warning off.
 
+## phpstan-restarts
+
+`doctor` found Xdebug loaded in a mode other than `off` for the PHPStan
+processes the gate starts, so PHPStan restarts itself without Xdebug for
+every check and boots PHP twice before it analyses anything. The checks'
+findings are the same either way.
+
+Leave `xdebug.mode` at `off` in `staticCheck.php`, as by default; the gate
+then sets `XDEBUG_MODE=off` for PHPStan too.
+
 ## online-unread
 
 GitHub did not show `doctor --online` one of the settings it reads, which is

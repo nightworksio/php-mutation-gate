@@ -40,6 +40,7 @@ enum Slug: string
     case ScheduleNotRunning = 'schedule-not-running';
     case NoScheduledRun = 'no-scheduled-run';
     case KeyedContextBlocks = 'keyed-context-blocks';
+    case PhpStanRestarts = 'phpstan-restarts';
     case OnlineUnread = 'online-unread';
     case NoGitHubRepository = 'no-github-repository';
     case MemoryUncapped = 'memory-uncapped';

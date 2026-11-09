@@ -11,7 +11,15 @@ use function is_dir;
 use function is_file;
 use function is_scalar;
 use function mkdir;
+
+use const PHP_MAJOR_VERSION;
+use const PHP_MINOR_VERSION;
+use const PHP_OS_FAMILY;
+
 use function php_uname;
+
+use const PHP_ZTS;
+
 use function sprintf;
 use function strtolower;
 
@@ -20,13 +28,20 @@ use function strtolower;
  * `staticCheck.php` names, an opcache file cache under the gate's workspace
  * where it asks for one alone and names no directory, and PHPStan's turbo
  * extension where `staticCheck.turbo` is on, PHPStan ships a build for this
- * PHP and machine, and it is not loaded already. None of them changes a
- * finding; each saves PHPStan the restart it otherwise makes (ADR-0020).
+ * PHP and machine, and it is not loaded already; Xdebug's mode, where they
+ * name one, also as its variable. None of them changes a finding; each saves
+ * PHPStan the restart it otherwise makes (ADR-0020).
  *
  * @internal
  */
 final readonly class PhpIni
 {
+    /** The setting of Xdebug's mode, which its variable overrides. */
+    public const string XDEBUG_MODE = 'xdebug.mode';
+
+    /** The variable that sets Xdebug's mode over its setting. */
+    public const string XDEBUG_MODE_VARIABLE = 'XDEBUG_MODE';
+
     private const string FILE_CACHE = 'opcache.file_cache';
 
     private const string FILE_CACHE_ONLY = 'opcache.file_cache_only';
@@ -83,6 +98,20 @@ final readonly class PhpIni
         }
 
         return $arguments;
+    }
+
+    /**
+     * A process's environment under these settings: Xdebug's variable set to
+     * the mode they name, since the variable overrides the setting.
+     *
+     * @param  array<string, string> $environment
+     * @return array<string, string>
+     */
+    public function environment(array $environment): array
+    {
+        return array_key_exists(self::XDEBUG_MODE, $this->settings)
+            ? [...$environment, self::XDEBUG_MODE_VARIABLE => $this->settings[self::XDEBUG_MODE]]
+            : $environment;
     }
 
     /** PHPStan's turbo build for this PHP and machine, where it ships one; none otherwise. */

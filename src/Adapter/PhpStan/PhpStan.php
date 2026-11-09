@@ -366,7 +366,7 @@ final readonly class PhpStan implements StaticChecker
         $ini = $this->ini->arguments($this->root->value(), $cache);
 
         return ProcessCommand::of($this->root->value(), PHP_BINARY, ...$ini, ...[self::SCRIPT, ...$arguments])
-            ->with(EnvironmentRead::of(Withholding::of($withheld, getenv())));
+            ->with(EnvironmentRead::of(Withholding::of($withheld, $this->ini->environment(getenv()))));
     }
 
     /**
