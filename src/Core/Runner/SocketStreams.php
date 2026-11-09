@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
+namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function str_contains;
 use function stream_get_meta_data;
@@ -14,10 +14,10 @@ use function stream_get_meta_data;
  */
 final readonly class SocketStreams
 {
-    /** The word in a stream's type that says it is a socket. */
     /** The type of PHP's resources that are streams. */
     public const string STREAM = 'stream';
 
+    /** The word in a stream's type that says it is a socket. */
     private const string SOCKET = 'socket';
 
     /**

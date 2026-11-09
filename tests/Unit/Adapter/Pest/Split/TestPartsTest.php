@@ -6,29 +6,12 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\TestParts;
 use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
-/**
- * Test files, each declaring these tests and loading itself alone.
- *
- * @param  array<string, list<string>>                                    $tests by file
- * @return array<string, array{files: list<string>, tests: list<string>}>
- */
-function partedFiles(array $tests): array
-{
-    $units = [];
-
-    foreach ($tests as $file => $declared) {
-        $units[$file] = ['files' => [$file], 'tests' => $declared];
-    }
-
-    return $units;
-}
-
-$files = partedFiles([
-    'tests/A.php' => ['A::one', 'A::two'],
-    'tests/B.php' => ['B::one'],
-    'tests/C.php' => ['C::one'],
-    'tests/D.php' => ['D::one'],
-]);
+$files = [
+    'tests/A.php' => ['files' => ['tests/A.php'], 'tests' => ['A::one', 'A::two']],
+    'tests/B.php' => ['files' => ['tests/B.php'], 'tests' => ['B::one']],
+    'tests/C.php' => ['files' => ['tests/C.php'], 'tests' => ['C::one']],
+    'tests/D.php' => ['files' => ['tests/D.php'], 'tests' => ['D::one']],
+];
 $times = ['A::one' => 3.0, 'A::two' => 2.0, 'B::one' => 4.0, 'C::one' => 1.0, 'D::one' => 1.0];
 
 it('gives each test file, longest first, to the part with least time so far, ties broken by path', function () use ($files, $times): void {

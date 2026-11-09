@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 
 use function array_values;
 use function count;
+use function in_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -26,6 +27,8 @@ use function sprintf;
  * other mutants than each other. Each mutant keeps the record of the first
  * shard, in their order, whose status it takes; the mutants of one shard are
  * its own.
+ *
+ * @internal
  */
 final readonly class MergedParts
 {
@@ -53,6 +56,24 @@ final readonly class MergedParts
         No shard that judges %s by a part of the test files reached its mutant %s, so none judged it.
         Run every shard of one plan, and the verdict with that plan.
         SAID;
+
+    /**
+     * Every status a mutant's final record may hold, in the order the enum
+     * declares them: each a part may give, and never a shard's not-reached
+     * outcome, which merges away.
+     *
+     * @return list<MutantStatus>
+     */
+    public static function statuses(): array
+    {
+        $statuses = [];
+
+        foreach (MutantStatus::cases() as $status) {
+            $statuses = in_array($status, self::STANDING, strict: true) ? [...$statuses, $status] : $statuses;
+        }
+
+        return $statuses;
+    }
 
     /** The unit's mutants, each with the status that stands among its parts'. */
     public static function of(Path $unit, Mutants ...$parts): Mutants|CannotJudge

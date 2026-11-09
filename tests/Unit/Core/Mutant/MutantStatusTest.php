@@ -9,11 +9,6 @@ it('spells each status as the reports and the ledger write it', function (): voi
         ->toBe(['killed', 'killed-by-static-analysis', 'survived', 'uncovered', 'timed-out', 'errored', 'unjudged', 'ignored-by-marker', 'skipped', 'out-of-memory', 'fails-unmutated', 'not-reached']);
 });
 
-it('holds every status but a shard\'s not-reached outcome as one a mutant\'s final record holds', function (): void {
-    expect(MutantStatus::final())->not->toContain(MutantStatus::NotReached)
-        ->and(count(MutantStatus::final()))->toBe(count(MutantStatus::cases()) - 1);
-});
-
 it('knows a mutant whose time ran out: timed out, or skipped for taking as long as its timeout', function (MutantStatus $status, bool $ranOut): void {
     expect($status->ranOutOfTime())->toBe($ranOut);
 })->with([

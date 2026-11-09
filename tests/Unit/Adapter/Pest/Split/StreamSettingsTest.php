@@ -65,12 +65,12 @@ it('reads back the part it told a run, and every test file where it told none th
 
     expect(StreamSettings::fromEnvironment()->part())->toEqual($part);
 })->with([
-    'a part' => ['2/3', TestPart::of(2, 3)],
-    'the last part' => ['3/3', TestPart::of(3, 3)],
-    'past the last part' => ['4/3', TestPart::whole()],
-    'part nought' => ['0/3', TestPart::whole()],
-    'no count' => ['2', TestPart::whole()],
-    'no number' => ['two/three', TestPart::whole()],
+    'a part' => ['2/3', fn(): TestPart => TestPart::of(2, 3)],
+    'the last part' => ['3/3', fn(): TestPart => TestPart::of(3, 3)],
+    'past the last part' => ['4/3', fn(): TestPart => TestPart::whole()],
+    'part nought' => ['0/3', fn(): TestPart => TestPart::whole()],
+    'no count' => ['2', fn(): TestPart => TestPart::whole()],
+    'no number' => ['two/three', fn(): TestPart => TestPart::whole()],
 ]);
 
 it('reads a run told no part as judged by every test file', function (): void {

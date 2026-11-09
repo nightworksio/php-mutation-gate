@@ -121,11 +121,11 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
 it('refuses a splitStream option written as something else', function (string $options, Problem $problem): void {
     expect(PestOptions::read(Configs::options($options)))->toEqual(Invalid::because($problem));
 })->with([
-    'not an object' => ['{"splitStream": true}', Problem::at('splitStream', 'expected an object, got true')],
-    'enabled' => ['{"splitStream": {"enabled": "yes"}}', Problem::at('splitStream.enabled', 'expected true or false, got "yes"')],
-    'children' => ['{"splitStream": {"children": "two"}}', Problem::at('splitStream.children', 'expected a whole number, got "two"')],
-    'changeCheck' => ['{"splitStream": {"changeCheck": 1}}', Problem::at('splitStream.changeCheck', 'expected true or false, got 1')],
-    'killersFirst' => ['{"splitStream": {"killersFirst": 1}}', Problem::at('splitStream.killersFirst', 'expected true or false, got 1')],
+    'not an object' => ['{"splitStream": true}', fn(): Problem => Problem::at('splitStream', 'expected an object, got true')],
+    'enabled' => ['{"splitStream": {"enabled": "yes"}}', fn(): Problem => Problem::at('splitStream.enabled', 'expected true or false, got "yes"')],
+    'children' => ['{"splitStream": {"children": "two"}}', fn(): Problem => Problem::at('splitStream.children', 'expected a whole number, got "two"')],
+    'changeCheck' => ['{"splitStream": {"changeCheck": 1}}', fn(): Problem => Problem::at('splitStream.changeCheck', 'expected true or false, got 1')],
+    'killersFirst' => ['{"splitStream": {"killersFirst": 1}}', fn(): Problem => Problem::at('splitStream.killersFirst', 'expected true or false, got 1')],
 ]);
 
 it('stays unpatched when the config says so', function (): void {

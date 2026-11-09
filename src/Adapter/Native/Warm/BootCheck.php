@@ -20,6 +20,7 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\FileMode;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\SocketStreams;
 use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use function realpath;

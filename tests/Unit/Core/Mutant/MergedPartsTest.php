@@ -17,13 +17,19 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
+/** The unit every part here judges. */
+function mergedUnit(): Path
+{
+    return Path::of('src/Money.php');
+}
+
 /** The mutant on a line of src/Money.php, with this status, in one part. */
 function mergedPart(int $line, MutantStatus $status, string $native = ''): Mutant
 {
     return Mutant::of(
-        MutantId::hash(Path::of('src/Money.php'), 'Minus', '- a + b', $line),
+        MutantId::hash(mergedUnit(), 'Minus', '- a + b', $line),
         $native === '' ? sprintf('native-%d', $line) : $native,
-        Location::of(Path::of('src/Money.php'), Line::of($line), Line::of($line)),
+        Location::of(mergedUnit(), Line::of($line), Line::of($line)),
         Mutation::of('Minus', MutatorFamily::Arithmetic, '- a + b'),
         $status,
         Unmeasured::duration(),
@@ -43,16 +49,14 @@ function mergedOutcomes(Mutants|CannotJudge $merged): array|string
     );
 }
 
-$unit = Path::of('src/Money.php');
-
-it('takes the status that stands among the parts\' outcomes of each mutant', function (MutantStatus $standing, MutantStatus ...$parts) use ($unit): void {
+it('takes the status that stands among the parts\' outcomes of each mutant', function (MutantStatus $standing, MutantStatus ...$parts): void {
     $outcomes = [];
 
     foreach ($parts as $status) {
         $outcomes[] = Mutants::of(mergedPart(7, $status));
     }
 
-    $merged = MergedParts::of($unit, ...$outcomes);
+    $merged = MergedParts::of(mergedUnit(), ...$outcomes);
 
     expect(mergedOutcomes($merged))->toBe([[7, $standing->value]]);
 })->with([
@@ -67,11 +71,11 @@ it('takes the status that stands among the parts\' outcomes of each mutant', fun
     'a marker every part gives alike' => [MutantStatus::IgnoredByMarker, MutantStatus::IgnoredByMarker, MutantStatus::IgnoredByMarker],
 ]);
 
-it('keeps the record of the first part, in their order, that gives the standing status', function () use ($unit): void {
+it('keeps the record of the first part, in their order, that gives the standing status', function (): void {
     $killed = static fn(string $test): Mutant => mergedPart(7, MutantStatus::Killed, $test)
         ->killedBy(TestIds::of(TestId::of($test)));
     $merged = MergedParts::of(
-        $unit,
+        mergedUnit(),
         Mutants::of(mergedPart(7, MutantStatus::Survived)),
         Mutants::of($killed('MoneyTest::adds')),
         Mutants::of($killed('MoneyTest::subtracts')),
@@ -81,9 +85,9 @@ it('keeps the record of the first part, in their order, that gives the standing 
         ->toBe('MoneyTest::adds');
 });
 
-it('keeps the mutants in the order the first part holds them', function () use ($unit): void {
+it('keeps the mutants in the order the first part holds them', function (): void {
     $merged = MergedParts::of(
-        $unit,
+        mergedUnit(),
         Mutants::of(mergedPart(9, MutantStatus::Survived), mergedPart(7, MutantStatus::NotReached)),
         Mutants::of(mergedPart(7, MutantStatus::Killed), mergedPart(9, MutantStatus::NotReached)),
     );
@@ -91,16 +95,16 @@ it('keeps the mutants in the order the first part holds them', function () use (
     expect(mergedOutcomes($merged))->toBe([[9, 'survived'], [7, 'killed']]);
 });
 
-it('leaves one part\'s mutants as they are, and none as none', function () use ($unit): void {
+it('leaves one part\'s mutants as they are, and none as none', function (): void {
     $one = Mutants::of(mergedPart(7, MutantStatus::Survived, 'one'));
 
-    expect(MergedParts::of($unit, $one))->toBe($one)
-        ->and(MergedParts::of($unit))->toEqual(Mutants::none());
+    expect(MergedParts::of(mergedUnit(), $one))->toBe($one)
+        ->and(MergedParts::of(mergedUnit()))->toEqual(Mutants::none());
 });
 
-it('cannot judge a mutant no part reached', function () use ($unit): void {
+it('cannot judge a mutant no part reached', function (): void {
     $merged = MergedParts::of(
-        $unit,
+        mergedUnit(),
         Mutants::of(mergedPart(7, MutantStatus::NotReached)),
         Mutants::of(mergedPart(7, MutantStatus::NotReached)),
     );
@@ -109,8 +113,8 @@ it('cannot judge a mutant no part reached', function () use ($unit): void {
         ->and(mergedOutcomes($merged))->toContain('No shard that judges src/Money.php by a part of the test files reached its mutant');
 });
 
-it('cannot judge parts that hold other mutants than each other', function (Mutants $other) use ($unit): void {
-    $merged = MergedParts::of($unit, Mutants::of(mergedPart(7, MutantStatus::Survived)), $other);
+it('cannot judge parts that hold other mutants than each other', function (Mutants $other): void {
+    $merged = MergedParts::of(mergedUnit(), Mutants::of(mergedPart(7, MutantStatus::Survived)), $other);
 
     expect(mergedOutcomes($merged))->toStartWith('The shards that judge src/Money.php by parts of the test files hold other mutants of it');
 })->with([
@@ -118,3 +122,9 @@ it('cannot judge parts that hold other mutants than each other', function (Mutan
     'one more' => [fn(): Mutants => Mutants::of(mergedPart(7, MutantStatus::Survived), mergedPart(8, MutantStatus::Survived))],
     'none' => [fn(): Mutants => Mutants::none()],
 ]);
+
+it('holds every status but a shard\'s not-reached outcome as one a mutant\'s final record holds, in the enum\'s order', function (): void {
+    expect(MergedParts::statuses())->not->toContain(MutantStatus::NotReached)
+        ->and(MergedParts::statuses())->toHaveCount(count(MutantStatus::cases()) - 1)
+        ->and(MergedParts::statuses()[0])->toBe(MutantStatus::cases()[0]);
+});

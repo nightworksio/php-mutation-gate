@@ -10,7 +10,7 @@ use function is_dir;
 use function is_link;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Native\Warm\SocketStreams;
+use NightWorksIO\MutationGate\Core\Runner\SocketStreams;
 
 use function readlink;
 use function scandir;
@@ -31,7 +31,6 @@ final readonly class Sockets
 
     /** How Linux names a file descriptor that is a socket. */
     private const string SOCKET = 'socket:';
-
 
     public static function open(): int
     {
