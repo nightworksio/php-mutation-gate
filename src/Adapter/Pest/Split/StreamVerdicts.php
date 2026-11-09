@@ -122,6 +122,17 @@ final class StreamVerdicts
     }
 
     /**
+     * Gives a mutant no test executed in a run planned without a fresh map
+     * its result: uncovered, announced as Pest's own run would (ADR-0135).
+     */
+    public function uncovered(MutationTest $test): void
+    {
+        $this->note($test, '');
+        $test->updateResult(MutationTestResult::Uncovered);
+        Facade::instance()->emitter()->mutationUncovered($test);
+    }
+
+    /**
      * The first covering test the parent passed in which a child of the
      * mutant came out as asked; '' where none did.
      *

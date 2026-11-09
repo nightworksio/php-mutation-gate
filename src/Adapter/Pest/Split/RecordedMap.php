@@ -15,6 +15,7 @@ use function json_decode;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -33,11 +34,17 @@ final readonly class RecordedMap
 {
     private const string RECORDED = '%s/recorded-*.jsonl';
 
-    public static function in(string $directory, Root $root): CoverageMap
+    /** The map recorded in a directory; none where its streams recorded nothing. */
+    public static function in(string $directory, Root $root): CoverageMap|NotGiven
     {
         $map = CoverageMap::of();
+        $files = glob(sprintf(self::RECORDED, $directory)) ?: [];
 
-        foreach (glob(sprintf(self::RECORDED, $directory)) ?: [] as $file) {
+        if ($files === []) {
+            return NotGiven::value();
+        }
+
+        foreach ($files as $file) {
             foreach (file($file) ?: [] as $text) {
                 $map = self::with($map, json_decode($text, true), $root);
             }

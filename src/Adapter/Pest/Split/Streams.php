@@ -62,6 +62,13 @@ final readonly class Streams
     public static function judge(MutationSuite $suite, array $coveredLines, array $arguments, int $processes): void
     {
         $settings = StreamSettings::fromEnvironment();
+
+        if ($settings->recording() !== '') {
+            EarlyStreams::judge($suite, $arguments, $processes, $settings);
+
+            return;
+        }
+
         $forks = Forking::isAvailable();
         $hints = $forks && $settings->killersFirst()
             ? KillerHints::of($suite, getenv(GateVariable::Order->value), Root::of(sprintf('%s', getcwd())))

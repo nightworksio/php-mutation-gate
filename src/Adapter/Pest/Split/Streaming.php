@@ -105,6 +105,21 @@ final readonly class Streaming
     }
 
     /**
+     * What one pass of streams of these test files found of these sites'
+     * mutants, forking each at every test that reaches it, or first at its
+     * likely killer: a run planned without a fresh map streams every test
+     * file of its part, since its map cannot tell what covers a mutant
+     * (ADR-0135).
+     *
+     * @param array<string, array{string, int, string, array<string, string>}> $sites
+     * @param array<string, array{files: list<string>, tests: list<string>}>   $units
+     */
+    public function over(int $pass, array $sites, array $units, StreamVerdicts $verdicts): StreamVerdicts
+    {
+        return $this->streamedUnits($pass, $units, self::plannedOf($sites), [], $verdicts);
+    }
+
+    /**
      * What one pass of streams that run only these sites' killers, selected
      * by their ids, found of their mutants (ADR-0136); none where PHPUnit
      * cannot select them so.
@@ -176,10 +191,28 @@ final readonly class Streaming
         array $selecting,
         StreamVerdicts $verdicts,
     ): StreamVerdicts {
+        return $this->streamedUnits($pass, CoveringFiles::streamed($tests), $planned, $selecting, $verdicts);
+    }
+
+    /**
+     * What one pass of streams of these test files found, each stream started
+     * with these arguments beside a mutant's own run's.
+     *
+     * @param array<string, array{files: list<string>, tests: list<string>}>          $units
+     * @param array<string, array<int, array{string, string, array<string, string>}>> $planned
+     * @param list<string>                                                            $selecting
+     */
+    private function streamedUnits(
+        int $pass,
+        array $units,
+        array $planned,
+        array $selecting,
+        StreamVerdicts $verdicts,
+    ): StreamVerdicts {
         $times = LoadedMap::timed();
         $streams = [];
 
-        foreach (self::parts(CoveringFiles::streamed($tests), $times, $this->processes) as $at => $files) {
+        foreach (self::parts($units, $times, $this->processes) as $at => $files) {
             $results = sprintf(self::RESULTS, $this->directory, $pass, $at);
             $streams[] = [$this->started($pass, $at, $results, $planned, $times, [...$selecting, ...$files]), $results];
         }

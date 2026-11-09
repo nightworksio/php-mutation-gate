@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_values;
+
+use const FILTER_VALIDATE_BOOL;
+
+use function filter_var;
 use function function_exists;
+use function ini_get;
 use function is_array;
 use function is_int;
 use function pcov\clear;
@@ -26,10 +31,16 @@ final readonly class Recorded
     /** pcov's mark of a line a test executed. */
     private const int EXECUTED = 1;
 
-    /** Starts collecting a test's lines afresh; false where pcov is not loaded. */
+    /** Whether pcov is loaded and enabled, so a test's lines can be collected. */
+    public static function usable(): bool
+    {
+        return function_exists('pcov\\start') && filter_var(ini_get('pcov.enabled'), FILTER_VALIDATE_BOOL);
+    }
+
+    /** Starts collecting a test's lines afresh; false where pcov cannot collect them. */
     public static function start(): bool
     {
-        if (! function_exists('pcov\\start') || ! function_exists('pcov\\clear')) {
+        if (! self::usable()) {
             return false;
         }
 

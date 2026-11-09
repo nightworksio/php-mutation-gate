@@ -325,11 +325,14 @@ final readonly class Running
             return;
         }
 
-        $directory = Root::here()->at(Workspace::recording($id))->value();
-        $this->adapters->project->write(
-            Workspace::recorded($results, $id),
-            Contents::of(CoverageMapFile::encode(RecordedMap::in($directory, Root::here()), Unplaced::map())),
-        );
+        $map = RecordedMap::in(Root::here()->at(Workspace::recording($id))->value(), Root::here());
+
+        if ($map instanceof CoverageMap) {
+            $this->adapters->project->write(
+                Workspace::recorded($results, $id),
+                Contents::of(CoverageMapFile::encode($map, Unplaced::map())),
+            );
+        }
     }
 
     /** A shard's result, left where the verdict reads it; or why it has none. */
