@@ -30,7 +30,9 @@
         with:
           name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
+      # ADR-0134: a job of a run whose shards pull their work may run any item.
       - name: Keep only this shard's coverage map and the whole map
+        if: needs.plan.outputs.pulls != 'true'
         env:
           SHARD: ${{ matrix.shard.id }}
         run: |
@@ -66,6 +68,7 @@
           path: |
             .mutation-gate/results/${{ matrix.shard.id }}.json
             .mutation-gate/results/${{ matrix.shard.id }}.attempt
+            .mutation-gate/results/*.by-${{ matrix.shard.id }}.json
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1

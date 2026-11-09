@@ -161,8 +161,9 @@
       # Where a shard left no result, how its job ended, which the verdict
       # names: its runner shut down or lost, the matrix cancelling it once
       # another shard failed, its time limit, or a failure.
+      # A run whose shards pull their work has no job of an item's own to name.
       - name: Say how each shard that left no result ended
-        if: needs.plan.outputs.shards != '[]'
+        if: needs.plan.outputs.shards != '[]' && needs.plan.outputs.pulls != 'true'
         env:
           JOBS: .mutation-gate/jobs.json
           RESULTS: .mutation-gate/results

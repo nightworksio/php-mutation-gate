@@ -286,6 +286,22 @@ runs:
         key: mutation-gate-phpstan-${{ runner.os }}-${{ runner.arch }}-${{ inputs.php-version }}-${{ github.run_id }}
         restore-keys: mutation-gate-phpstan-${{ runner.os }}-${{ runner.arch }}-${{ inputs.php-version }}-
 
+    # ADR-0134: a job of a plan whose shards pull their work claims its items
+    # as artifacts of the run, through the service only a JavaScript step is
+    # handed the runtime token for.
+    - name: Hand the gate the artifact service, where the plan's shards pull their work
+      if: inputs.deliver != 'true' && inputs.shard != ''
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      with:
+        script: |
+          const fs = require('fs');
+          const plan = JSON.parse(fs.readFileSync('.mutation-gate/plan.json', 'utf8'));
+          if ((plan.shards || []).some((shard) => 'worker' in shard)) {
+            core.setSecret(process.env.ACTIONS_RUNTIME_TOKEN || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+          }
+
     # One shard of a plan the reusable workflow made: its result, beside the
     # attempt that wrote it, is the verdict's to judge.
     - name: Run shard ${{ inputs.shard }}

@@ -177,6 +177,7 @@
       shards: ${{ steps.plan.outputs.shards }}
       plan: ${{ steps.plan.outputs.plan }}
       stands: ${{ steps.plan.outputs.stands }}
+      pulls: ${{ steps.plan.outputs.pulls }}
       fail-fast: ${{ steps.config.outputs.fail_fast }}
       survivor-shares: ${{ steps.survivors.outputs.shares }}
       survivor-minutes: ${{ steps.survivors.outputs.minutes }}

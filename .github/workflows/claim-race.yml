@@ -1,0 +1,90 @@
+# The claim race (ADR-0134): every night, twenty jobs of one run claim the
+# same items at once with the gate's own artifact claims, and the run passes
+# only where each item was won by exactly one job. `shards.pull: auto`
+# claims on the services this race passes on, `ShardPull::RACED`, and
+# steals elsewhere; a failure here takes the service off that list in the
+# next release.
+name: claim race
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  PHP_VERSION: '8.5'
+  ITEMS: '25'
+
+jobs:
+  race:
+    name: claim ${{ matrix.job }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        job: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        with:
+          composer-options: --no-dev
+      - name: Hand the race the artifact service
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            core.setSecret(process.env.ACTIONS_RUNTIME_TOKEN || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+      - name: Claim every item
+        env:
+          JOB: ${{ matrix.job }}
+        run: php .github/scripts/claim_race.php "${ITEMS}" "${JOB}" "won-${JOB}.txt"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: claim-race-won-${{ matrix.job }}
+          path: won-${{ matrix.job }}.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  judge:
+    name: each item won once
+    needs: race
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: claim-race-won-*
+          path: won
+          merge-multiple: true
+      - name: Count each item's winners
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, pathlib, sys
+          items = int(os.environ["ITEMS"])
+          winners = {item: [] for item in range(1, items + 1)}
+          for file in sorted(pathlib.Path("won").glob("won-*.txt")):
+              for line in file.read_text().split():
+                  winners.setdefault(int(line), []).append(file.stem)
+          wrong = {item: jobs for item, jobs in winners.items() if len(jobs) != 1}
+          for item, jobs in sorted(wrong.items()):
+              print(f"Item {item} was won by {len(jobs)} jobs: {', '.join(jobs) or 'none'}.")
+          sys.exit(1 if wrong else 0)
+          PY
