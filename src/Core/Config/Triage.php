@@ -340,9 +340,9 @@ final readonly class Triage implements Part
             ...LimitCalls::tighter($this->tighter),
             ...$this->perTest->calls(),
             ...LimitCalls::wholeSeconds('Timeouts::controlMost', $this->controlMost),
-            ...$this->flaky->calls(),
             ...$this->order instanceof TestOrder ? [$this->order->php()] : [],
         ])
+            ->and($this->flaky->calls())
             ->and($this->heavy->calls())
             ->and($this->survivorsFirst->calls())
             ->and($this->lists->calls())

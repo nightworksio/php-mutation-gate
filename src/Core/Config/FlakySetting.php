@@ -55,14 +55,14 @@ final readonly class FlakySetting
         );
     }
 
-    /** @return list<string> the builder's calls for what a layer sets */
-    public function calls(): array
+    /** The builder's calls for what a layer sets. */
+    public function calls(): PhpCalls
     {
-        return [
+        return PhpCalls::inWith(...[
             ...$this->confirmSurvivors instanceof Absent ? [] : [
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],
             ...$this->killControls instanceof KillControl ? [$this->killControls->php()] : [],
-        ];
+        ]);
     }
 }
