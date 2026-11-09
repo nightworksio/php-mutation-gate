@@ -200,7 +200,7 @@ it('asks the binary for a report\'s outline, handing it the report, its format a
     $a = Path::of('src/A.php');
     $b = Path::of('src/B.php');
 
-    expect(Outbreak::at($outlining->binary(), '/project')->outline($report()))->toEqual(MapOutline::listed(
+    expect(Outbreak::at($outlining->binary(), '/project')->outlining($report())->outline())->toEqual(MapOutline::listed(
         TestIds::of(TestId::of('T\A::a'), TestId::of('T\B::b')),
         ['T\A::a' => ['src/B.php' => $b, 'src/A.php' => $a], 'T\B::b' => []],
         ['/project/src/A.php' => $a, '/project/src/B.php' => $b],
@@ -212,7 +212,7 @@ it('says why the binary outlined no report: it declined, failed, answered otherw
     $outline = static fn(string $answer, int $exit = 0): MapOutline|NotWritten => Outbreak::at(
         OutbreakStandIn::answering($answer, $exit)->binary(),
         '/project',
-    )->outline($report());
+    )->outlining($report())->outline();
 
     expect($outline('{"outbreak":1,"declined":"expected UTF-8 at byte 9"}'))
         ->toEqual(NotWritten::because('Outbreak declined to read the report: expected UTF-8 at byte 9'))
@@ -222,7 +222,7 @@ it('says why the binary outlined no report: it declined, failed, answered otherw
         ->toEqual(NotWritten::because('Outbreak did not read the report: it answered {"outbreak":1}'))
         ->and($outline('broken', exit: 1))
         ->toEqual(NotWritten::because('Outbreak did not read the report: broken'))
-        ->and(Outbreak::none('/project')->outline($report()))
+        ->and(Outbreak::none('/project')->outlining($report())->outline())
         ->toEqual(NotWritten::because('No Outbreak binary is in use.'));
 })->group(...$holds);
 
@@ -285,4 +285,19 @@ it('says why the binary wrote no map of a report: it declined, failed, answered 
         ->toEqual(NotWritten::because('Outbreak did not read the report: broken'))
         ->and(Outbreak::none('/project')->convert($report(), $conversion, Path::of('map.json.gz')))
         ->toEqual(NotWritten::because('No Outbreak binary is in use.'));
+})->group(...$holds);
+
+it('starts the binary on a report\'s outline at once and waits for its answer only when the outline is taken', function () use ($report): void {
+    $root = Scratch::directory();
+    $waiting = sprintf('%s/waiting', $root);
+    $go = sprintf('%s/go', $root);
+    file_put_contents($waiting, sprintf(
+        "#!/bin/sh\nif [ \"$1\" = contract ]; then echo '{\"outbreak\":1}'; exit 0; fi\nwhile [ ! -f %s ]; do sleep 0.1; done\necho '{\"outbreak\":1,\"outline\":{\"files\":[],\"tests\":[]}}'\n",
+        $go,
+    ));
+    chmod($waiting, 0o755);
+    $pending = Outbreak::at($waiting, $root, OutbreakSettings::of(timeout: Seconds::of(30)))->outlining($report());
+    touch($go);
+
+    expect($pending->outline())->toEqual(MapOutline::listed(TestIds::of(), [], []));
 })->group(...$holds);

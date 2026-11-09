@@ -106,7 +106,7 @@ it('writes each slice it writes as the gate writes the map for its files, and sa
 it('outlines each report as the map the gate builds of it, naming each file as the report does', function (string $name) use ($engineAt): void {
     foreach (CoverageReports::all() as $held => $directory) {
         $report = CoverageReports::ran($directory);
-        $outline = $engineAt($name, Scratch::directory())->outline($report);
+        $outline = $engineAt($name, Scratch::directory())->outlining($report)->outline();
 
         foreach ($outline instanceof MapOutline ? [$outline] : [] as $read) {
             expect(CoverageReports::outlined($read))
@@ -127,7 +127,7 @@ it('writes the map of each report as the gate writes it, admitted, measured and 
             $root = Scratch::directory();
             $engine = $engineAt($name, $root);
             $report = CoverageReports::ran($directory);
-            $outline = $engine->outline($report);
+            $outline = $engine->outlining($report)->outline();
             $written = $outline instanceof MapOutline
                 ? $engine->convert($report, CoverageReports::conversion($directory, $outline, admitted: $admitted), Path::of('coverage/map.json.gz'))
                 : $outline;
@@ -149,7 +149,7 @@ it('says why it reads no report where there is none', function (string $name) us
     $engine = $engineAt($name, $root);
     $conversion = Conversion::of($outline, NotGiven::value(), Unplaced::map(), NotGiven::value());
 
-    expect($engine->outline($report))->toBeInstanceOf(NotWritten::class)
+    expect($engine->outlining($report)->outline())->toBeInstanceOf(NotWritten::class)
         ->and($engine->convert($report, $conversion, Path::of('map.json.gz')))->toBeInstanceOf(NotWritten::class)
         ->and(file_exists(sprintf('%s/map.json.gz', $root)))->toBeFalse();
 })->with($engines)->group(...$holds);

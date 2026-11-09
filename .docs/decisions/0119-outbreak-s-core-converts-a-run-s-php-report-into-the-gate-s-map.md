@@ -78,8 +78,12 @@ ADR-0118 already has a native writer for.
    for the gate's own map.
 4. **The engine converts beside the port, never on it.** A map engine that
    converts reports also implements `ConvertsPhpReports`, an internal
-   interface: `outline()` answers a `MapOutline` or a `NotWritten`, and
-   `convert()` a `Written` or a `NotWritten`. Its types carry the gate's own
+   interface: `outlining()` starts the binary on the outline and answers a
+   `PendingOutline`, which the gate takes, a `MapOutline` or a `NotWritten`,
+   once it needs it, and `convert()` answers a `Written` or a
+   `NotWritten`. The command starts the outline before it takes its
+   inventory, so the binary reads the report while the runner lists the
+   suites. Its types carry the gate's own
    decisions, which no extension makes, so `MapEngine`, the public port, is
    unchanged. Outbreak's adapter and the fake implement it. A runner that
    leaves a PHP report names it (`LeavesPhpReport`): Pest with the tests it
@@ -115,7 +119,7 @@ ADR-0118 already has a native writer for.
 |---|---|
 | **The binary admits and keys the map itself** | Admission, holds and keys are the gate's decisions, read from the suites, the runner and the store; a second copy in Rust would have to be held to the first. The outline hands the binary the result instead. |
 | **One call, the gate's decisions made from the report in PHP first** | Deciding them needs which tests ran which files, which is reading the report: the work the binary is there to take. |
-| **`outline()` and `convert()` on `MapEngine`** | The port is public, and its signatures would carry the gate's decisions (`Conversion`, `MapOutline`, `MeasuredAt`, `EntryKeys`) and what they read onto the semver surface (ADR-0043). |
+| **`outlining()` and `convert()` on `MapEngine`** | The port is public, and its signatures would carry the gate's decisions (`Conversion`, `MapOutline`, `MeasuredAt`, `EntryKeys`) and what they read onto the semver surface (ADR-0043). |
 | **The binary writes the map at `--into`** | It would have to refuse every path the gate's directory refuses; writing into the workspace and handing the gate the bytes keeps one writer of the project's files. |
 | **Unserialize in PHP and hand the binary the arrays** | Unserializing is a quarter of the time, and building the arrays to hand over costs what building the map does. |
 

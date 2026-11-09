@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\Coverage\Conversion;
-use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
+use NightWorksIO\MutationGate\Core\Coverage\PendingOutline;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
@@ -21,11 +21,12 @@ use NightWorksIO\MutationGate\Core\Written;
 interface ConvertsPhpReports
 {
     /**
-     * The outline of the map the gate builds of a run's report: the map's
-     * tests in its order, the files each ran a line of, and each file by the
-     * name the report gives it; or why there is none.
+     * The outline of the map the gate builds of a run's report, read while
+     * the gate goes on: the map's tests in its order, the files each ran a
+     * line of, and each file by the name the report gives it; or why there
+     * is none.
      */
-    public function outline(RanReport $report): MapOutline|NotWritten;
+    public function outlining(RanReport $report): PendingOutline;
 
     /**
      * The map the gate writes of a run's report, written gzipped at a path of

@@ -65,7 +65,7 @@ it('outlines and converts every report of the corpus', function () use ($binary)
         $root = Scratch::directory();
         $engine = Outbreak::at($binary(), $root);
         $report = CoverageReports::ran($directory);
-        $outline = $engine->outline($report);
+        $outline = $engine->outlining($report)->outline();
 
         expect($outline)->toBeInstanceOf(MapOutline::class, $name);
 
@@ -84,7 +84,7 @@ it('declines each report of the corpus outside what php-code-coverage writes, sa
     foreach ($declined as $name => $why) {
         $report = RanReport::at(Tree::at(sprintf('tests/Fixtures/DeclinedReports/%s.report', $name)), 4, RecordedBeside::nothing(), Path::of(...));
 
-        expect($engine->outline($report))->toEqual(NotWritten::because(sprintf(ReportAnswer::DECLINED, $why)), $name);
+        expect($engine->outlining($report)->outline())->toEqual(NotWritten::because(sprintf(ReportAnswer::DECLINED, $why)), $name);
     }
 
     $reports = glob(Tree::at('tests/Fixtures/DeclinedReports/*.report'));
@@ -96,7 +96,7 @@ it('declines each report of the corpus outside what php-code-coverage writes, sa
 it('declines a report in a format other than the one the runner reads', function () use ($binary): void {
     $report = RanReport::at(sprintf('%s/coverage.php', CoverageReports::all()['timed']), 3, RecordedBeside::nothing(), Path::of(...));
 
-    expect(Outbreak::at($binary(), Scratch::directory())->outline($report))->toEqual(NotWritten::because(sprintf(
+    expect(Outbreak::at($binary(), Scratch::directory())->outlining($report)->outline())->toEqual(NotWritten::because(sprintf(
         ReportAnswer::DECLINED,
         'expected the serialization format this reads at byte 0',
     )));

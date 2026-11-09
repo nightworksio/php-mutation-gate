@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\Coverage\MapSlices;
 use NightWorksIO\MutationGate\Core\Coverage\MapText;
 use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
+use NightWorksIO\MutationGate\Core\Coverage\PendingOutline;
 use NightWorksIO\MutationGate\Core\Coverage\ReportedLines;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -67,11 +68,11 @@ final class MapEngineFake implements ConvertsPhpReports, MapEngine
         return NotWritten::because(self::DECLINED);
     }
 
-    public function outline(RanReport $report): MapOutline|NotWritten
+    public function outlining(RanReport $report): PendingOutline
     {
         $map = $this->mapOf($report);
 
-        return $map instanceof CoverageMap ? MapOutline::of($map) : $map;
+        return PendingOutline::read($map instanceof CoverageMap ? MapOutline::of($map) : $map);
     }
 
     public function convert(RanReport $report, Conversion $conversion, Path $into): Written|NotWritten

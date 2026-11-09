@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Conversion;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
+use NightWorksIO\MutationGate\Core\Coverage\PendingOutline;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -24,7 +25,8 @@ use NightWorksIO\MutationGate\Core\Written;
 /**
  * The map of the PHP report a run the project started in this job left,
  * written by the map engine (ADR-0119): the engine outlines the map the gate
- * builds of the report, reading it as data; the gate decides from the
+ * builds of the report, reading it as data while the gate takes its
+ * inventory; the gate decides from the
  * outline what the suites admit, whether each hold runs what it holds, and
  * the entries' keys; and the engine writes the map as the gate writes it,
  * into the gate's workspace, from where the gate writes it where it was asked
@@ -43,50 +45,50 @@ final readonly class ReportConversion
 
     private function __construct(
         private Adapters $adapters,
-        private ConvertsPhpReports|NotGiven $engine,
-        private SuiteCoverage $suites,
-        private CoverageEntries|CannotJudge|NotGiven $entries,
+        private ConvertsPhpReports $engine,
+        private RanReport $report,
+        private PendingOutline $outline,
     ) {
     }
 
-    public static function of(
-        Adapters $adapters,
-        SuiteCoverage $suites,
-        CoverageEntries|CannotJudge|NotGiven $entries,
-    ): self {
-        $maps = $adapters->maps;
-
-        return new self($adapters, $maps instanceof ConvertsPhpReports ? $maps : NotGiven::value(), $suites, $entries);
-    }
-
     /**
-     * The map of the report a run left, written at a path of the project; why
-     * the engine wrote none, and the gate writes it; or why it cannot be.
+     * The conversion of the report a run left, the engine reading its outline
+     * while the gate goes on; or why there is none, and the gate reads the
+     * report itself.
      */
-    public function written(CoverageRan $ran, Path $into, MeasuredAt|Unplaced $at): Written|NotWritten|CannotJudge
+    public static function started(Adapters $adapters, CoverageRan $ran): self|NotWritten
     {
-        $runner = $this->adapters->runner;
-        $engine = $this->engine;
+        $runner = $adapters->runner;
+        $engine = $adapters->maps;
         $report = $runner instanceof LeavesPhpReport ? $runner->report($ran) : NotGiven::value();
 
         if (! $engine instanceof ConvertsPhpReports) {
             return NotWritten::because(self::NO_ENGINE);
         }
 
-        if (! $report instanceof RanReport) {
-            return NotWritten::because(self::NO_REPORT);
-        }
+        return $report instanceof RanReport
+            ? new self($adapters, $engine, $report, $engine->outlining($report))
+            : NotWritten::because(self::NO_REPORT);
+    }
 
-        $outline = $engine->outline($report);
-        $admission = $outline instanceof MapOutline ? $this->suites->admission($outline) : $outline;
+    /**
+     * The map of the report, admitted as the suites admit it and keyed by
+     * these entries, written at a path of the project; why the engine wrote
+     * none, and the gate writes it; or why it cannot be.
+     */
+    public function written(
+        SuiteCoverage $suites,
+        CoverageEntries|CannotJudge|NotGiven $entries,
+        Path $into,
+        MeasuredAt|Unplaced $at,
+    ): Written|NotWritten|CannotJudge {
+        $outline = $this->outline->outline();
+        $admission = $outline instanceof MapOutline ? $suites->admission($outline) : $outline;
 
         return match (true) {
             ! $outline instanceof MapOutline => $outline,
             $admission instanceof CannotJudge, $admission instanceof NotWritten => $admission,
-            default => $this->moved(
-                $engine->convert($report, $this->conversion($outline, $admission, $at), $this->converted()),
-                $into,
-            ),
+            default => $this->moved($this->convert($this->conversion($outline, $admission, $at, $entries)), $into),
         };
     }
 
@@ -109,6 +111,12 @@ final readonly class ReportConversion
         return $written;
     }
 
+    /** The map the engine writes of the report as the gate decides it, or why it wrote none. */
+    private function convert(Conversion $conversion): Written|NotWritten
+    {
+        return $this->engine->convert($this->report, $conversion, $this->converted());
+    }
+
     /** Where the engine writes the map. */
     private function converted(): Path
     {
@@ -119,10 +127,14 @@ final readonly class ReportConversion
      * What the gate decides of the map: its admission, where it was
      * measured, and its entries' keys by the admitted outline.
      */
-    private function conversion(MapOutline $outline, Admission|NotGiven $admission, MeasuredAt|Unplaced $at): Conversion
-    {
+    private function conversion(
+        MapOutline $outline,
+        Admission|NotGiven $admission,
+        MeasuredAt|Unplaced $at,
+        CoverageEntries|CannotJudge|NotGiven $entries,
+    ): Conversion {
         $admitted = $admission instanceof Admission ? $admission->outlined($outline) : $outline;
 
-        return Conversion::of($outline, $admission, $at, KeptCoverage::keysBy($this->entries, $admitted));
+        return Conversion::of($outline, $admission, $at, KeptCoverage::keysBy($entries, $admitted));
     }
 }

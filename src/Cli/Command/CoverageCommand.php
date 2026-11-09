@@ -96,6 +96,7 @@ final readonly class CoverageCommand
         OutputInterface $output,
     ): int {
         $adapters = $composed->adapters;
+        $conversion = $ran instanceof CoverageRan ? ReportConversion::started($adapters, $ran) : NotGiven::value();
         $inventory = Inventory::of($adapters, $composed->settings);
         $suites = match (true) {
             $inventory instanceof Inventory => SuiteCoverage::of($adapters, $inventory),
@@ -114,9 +115,9 @@ final readonly class CoverageCommand
             : $kept->forRun($inventory, $entries, KeptCoverage::built(), ownMap: false, suites: $suites);
         $file = CoverageMapFile::in($into);
         $at = Measuring::now($adapters);
-        $converted = $measured instanceof CoverageRan
-            ? ReportConversion::of($adapters, $suites, $entries)->written($measured, $file, $at)
-            : NotGiven::value();
+        $converted = $conversion instanceof ReportConversion
+            ? $conversion->written($suites, $entries, $file, $at)
+            : $conversion;
         $written = $converted instanceof Written || $converted instanceof CannotJudge
             ? $converted
             : self::writtenByGate($adapters, $kept, $measured, $suites, $entries, $file, $at);

@@ -10,10 +10,10 @@ use NightWorksIO\MutationGate\Cli\Flow\SuiteCoverage;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\Conversion;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\Coverage\MapSlices;
 use NightWorksIO\MutationGate\Core\Coverage\MapText;
 use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
+use NightWorksIO\MutationGate\Core\Coverage\PendingOutline;
 use NightWorksIO\MutationGate\Core\Coverage\RecordedBeside;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -85,9 +85,10 @@ function readByGate(string $project): CoverageMap
 }
 
 /**
- * The conversion of a project's report, its runner naming the report or not, and the suites' coverage.
+ * What converting a project's report writes at a path, its runner naming the report or not, and the suites'
+ * coverage. The conversion starts before the inventory is taken, as the command starts it.
  *
- * @return array{ReportConversion, SuiteCoverage}
+ * @return array{Closure(Path): (Written|NotWritten|CannotJudge), SuiteCoverage}
  */
 function conversionOf(string $project, RanReport|NotGiven $report, MapEngine|NotGiven $engine = new NotGiven()): array
 {
@@ -101,10 +102,14 @@ function conversionOf(string $project, RanReport|NotGiven $report, MapEngine|Not
         $report instanceof RanReport ? $runner->reporting($report) : $runner,
         $engine instanceof MapEngine ? $engine : new MapEngineFake([], $project),
     );
+    $started = ReportConversion::started($adapters, CoverageRan::in(Path::of('build/suite')));
     $inventory = Inventory::of($adapters, Flows::settings());
     $suites = $inventory instanceof Inventory ? SuiteCoverage::of($adapters, $inventory) : throw new LogicException($inventory->why());
+    $written = static fn(Path $into): Written|NotWritten|CannotJudge => $started instanceof ReportConversion
+        ? $started->written($suites, NotGiven::value(), $into, Unplaced::map())
+        : $started;
 
-    return [ReportConversion::of($adapters, $suites, NotGiven::value()), $suites];
+    return [$written, $suites];
 }
 
 it('has the engine write the map of a run\'s report as the gate writes it, admitted as the suites admit it', function (): void {
@@ -113,7 +118,7 @@ it('has the engine write the map of a run\'s report as the gate writes it, admit
     $admitted = $suites->admitted(readByGate($project));
 
     expect($admitted)->toBeInstanceOf(CoverageMap::class)
-        ->and($conversion->written(CoverageRan::in(Path::of('build/suite')), Path::of('.mutation-gate/map.json.gz'), Unplaced::map()))
+        ->and($conversion(Path::of('.mutation-gate/map.json.gz')))
         ->toEqual(Written::to(sprintf('%s/.mutation-gate/map.json.gz', $project)))
         ->and(Gunzipped::of((string) file_get_contents(sprintf('%s/.mutation-gate/map.json.gz', $project))))
         ->toBe(MapText::of($admitted instanceof CoverageMap ? $admitted : CoverageMap::of())->written(Unplaced::map(), NotGiven::value()))
@@ -124,7 +129,7 @@ it('writes the engine\'s map where it was asked only as the gate writes its own,
     [$project, $report] = reported();
     [$conversion] = conversionOf($project, $report);
 
-    expect($conversion->written(CoverageRan::in(Path::of('build/suite')), Path::of('../out/map.json.gz'), Unplaced::map()))
+    expect($conversion(Path::of('../out/map.json.gz')))
         ->toEqual(CannotJudge::because(sprintf('../out/map.json.gz leads out of %s, so the gate does not read or write it.', $project)))
         ->and(sprintf('%s/../out/map.json.gz', $project))->not->toBeFile()
         ->and(sprintf('%s/.mutation-gate/converted/map.json.gz', $project))->not->toBeFile();
@@ -147,9 +152,9 @@ it('writes nothing where the engine says it wrote a map the gate cannot read', f
             return NotWritten::because('No split.');
         }
 
-        public function outline(RanReport $report): MapOutline|NotWritten
+        public function outlining(RanReport $report): PendingOutline
         {
-            return new MapEngineFake([], $this->root)->outline($report);
+            return new MapEngineFake([], $this->root)->outlining($report);
         }
 
         public function convert(RanReport $report, Conversion $conversion, Path $into): Written
@@ -159,7 +164,7 @@ it('writes nothing where the engine says it wrote a map the gate cannot read', f
     };
     [$conversion] = conversionOf($project, $report, $claiming);
 
-    expect($conversion->written(CoverageRan::in(Path::of('build/suite')), Path::of('map.json.gz'), Unplaced::map()))
+    expect($conversion(Path::of('map.json.gz')))
         ->toEqual(NotWritten::because('The gate cannot read the map the engine wrote.'))
         ->and(sprintf('%s/map.json.gz', $project))->not->toBeFile();
 });
@@ -180,13 +185,12 @@ it('writes nothing where the runner leaves no PHP report, the engine converts no
     });
     unlink($report->file());
     [$unread] = conversionOf($project, $report);
-    $ran = CoverageRan::in(Path::of('build/suite'));
 
-    expect($unreported->written($ran, Path::of('map.json.gz'), Unplaced::map()))
+    expect($unreported(Path::of('map.json.gz')))
         ->toEqual(NotWritten::because('The runner leaves no PHP report for an engine to read.'))
-        ->and($unconverting->written($ran, Path::of('map.json.gz'), Unplaced::map()))
+        ->and($unconverting(Path::of('map.json.gz')))
         ->toEqual(NotWritten::because('The map engine converts no PHP report.'))
-        ->and($unread->written($ran, Path::of('map.json.gz'), Unplaced::map()))->toBeInstanceOf(NotWritten::class)
+        ->and($unread(Path::of('map.json.gz')))->toBeInstanceOf(NotWritten::class)
         ->and(sprintf('%s/map.json.gz', $project))->not->toBeFile();
 });
 
@@ -194,7 +198,7 @@ it('cannot write the map where a hold from the holding suites runs no line of wh
     [$project, $report] = reported(heldRuns: false);
     [$conversion] = conversionOf($project, $report);
 
-    expect($conversion->written(CoverageRan::in(Path::of('build/suite')), Path::of('map.json.gz'), Unplaced::map()))
+    expect($conversion(Path::of('map.json.gz')))
         ->toEqual(CannotJudge::because(<<<'SAID'
             holds:src/Held.php in the holding suites runs no line of src/Held.php, so it judges none of its mutants.
             Add the test that runs it to the group, or remove the hold.
