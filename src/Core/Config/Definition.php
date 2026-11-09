@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\ShardsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\SplitStreamKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\StaticCheckKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\SuggestKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\ToggleFields;
 use NightWorksIO\MutationGate\Core\Config\Definition\TriageKeys;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\JsonDocument;
@@ -165,6 +166,7 @@ final readonly class Definition
             ...CommentKeys::fields(),
             ...PublishingKeys::fields(),
             ...PestKeys::fields(),
+            ToggleFields::in('controls')->section(),
             ...SplitStreamKeys::fields(),
             ...StaticCheckKeys::fields($origin),
             ...PruningKeys::fields(),

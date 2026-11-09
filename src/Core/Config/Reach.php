@@ -54,6 +54,8 @@ final readonly class Reach implements Part
         private Listed|Absent $fixtures,
         private Choice|Absent $versionControl,
         private int|Absent $hotPathFewest,
+        private HeldCoverageMode|Absent $heldCoverage,
+        private DefaultBranchSince|Absent $defaultBranchSince,
     ) {
     }
 
@@ -79,6 +81,8 @@ final readonly class Reach implements Part
         Choice|Absent $versionControl = new Absent(),
         LockMoveReach|Absent $lockMoves = new Absent(),
         int|Absent $hotPathFewest = new Absent(),
+        HeldCoverageMode|Absent $heldCoverage = new Absent(),
+        DefaultBranchSince|Absent $defaultBranchSince = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
         $failing = FailingFast::of($failFast, $failFastWaits);
@@ -97,6 +101,8 @@ final readonly class Reach implements Part
             $fixtures,
             $versionControl,
             $hotPathFewest,
+            $heldCoverage,
+            $defaultBranchSince,
         );
     }
 
@@ -131,6 +137,8 @@ final readonly class Reach implements Part
             failFastWaits: $none->failingFast()->waits(),
             lockMoves: LockMoveReach::Everything,
             hotPathFewest: HotPaths::SMALLEST_SUITE,
+            heldCoverage: $none->heldCoverage(),
+            defaultBranchSince: $none->defaultBranchSince(),
         );
     }
 
@@ -150,8 +158,24 @@ final readonly class Reach implements Part
                 $this->joined($this->fixtures, $later->fixtures),
                 Absent::laid($this->versionControl, $later->versionControl),
                 Absent::laid($this->hotPathFewest, $later->hotPathFewest),
+                Absent::laid($this->heldCoverage, $later->heldCoverage),
+                Absent::laid($this->defaultBranchSince, $later->defaultBranchSince),
             )
             : $this;
+    }
+
+    /** `holds.coverage`: how a shard learns what a held unit's holding tests cover; `measure` unless a layer says. */
+    public function heldCoverage(): HeldCoverageMode
+    {
+        return $this->heldCoverage instanceof HeldCoverageMode ? $this->heldCoverage : HeldCoverageMode::Measure;
+    }
+
+    /** `reach.defaultBranchSince`: what the default branch's changes are read since; `judged` unless a layer says. */
+    public function defaultBranchSince(): DefaultBranchSince
+    {
+        return $this->defaultBranchSince instanceof DefaultBranchSince
+            ? $this->defaultBranchSince
+            : DefaultBranchSince::Judged;
     }
 
     /** @return Listed<Glob> the globs of the packages in a monorepo */
@@ -170,6 +194,12 @@ final readonly class Reach implements Part
     public function fixtures(): Listed
     {
         return $this->fixtures instanceof Listed ? $this->fixtures : Listed::of();
+    }
+
+    /** `reach.lockMoves`: what a package's move in a `composer.lock` reaches (ADR-0115). */
+    public function lockMoves(): LockMoveReach
+    {
+        return $this->lock->moves();
     }
 
     /** What a package's move in a `composer.lock` decides, as `reach.lockMoves` and `reach.lockPackages` say. */
@@ -259,6 +289,12 @@ final readonly class Reach implements Part
                             : $this->fixtures,
                     ),
                     ...$this->lock->members(),
+                    Member::of(
+                        'defaultBranchSince',
+                        $this->defaultBranchSince instanceof DefaultBranchSince
+                            ? $this->defaultBranchSince->value
+                            : $this->defaultBranchSince,
+                    ),
                 ),
             ),
             Member::unlessEmpty(
@@ -266,6 +302,12 @@ final readonly class Reach implements Part
                 Json::object(
                     Member::of('hotPath', $this->hotPath),
                     Member::of('fewestTests', $this->hotPathFewest),
+                    Member::of(
+                        'coverage',
+                        $this->heldCoverage instanceof HeldCoverageMode
+                            ? $this->heldCoverage->value
+                            : $this->heldCoverage,
+                    ),
                 ),
             ),
             Member::unlessEmpty(
@@ -319,6 +361,8 @@ final readonly class Reach implements Part
                 ? []
                 : [sprintf('Reach::hotPathFewestTests(%d)', $this->hotPathFewest)],
             ...$full,
+            ...$this->heldCoverage instanceof HeldCoverageMode ? [$this->heldCoverage->php()] : [],
+            ...$this->defaultBranchSince instanceof DefaultBranchSince ? [$this->defaultBranchSince->php()] : [],
             ...$this->versionControl instanceof Choice
                 ? [PhpCalls::chosen($this->versionControl, AdapterBuilder::VersionControl, ...self::NAMED_CONTROLS)]
                 : [],

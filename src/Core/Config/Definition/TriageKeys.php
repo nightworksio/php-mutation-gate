@@ -60,6 +60,7 @@ final readonly class TriageKeys
         $learned = Field::section('learned', self::learned());
         $heavyFill = Field::optional('heavyFill', Flag::boolean(), $judges);
         $heavyParts = Field::optional('heavyParts', Integer::atLeast(1), $results);
+        $toggles = ToggleFields::in('timeouts');
 
         return [
             Field::optional(
@@ -88,7 +89,9 @@ final readonly class TriageKeys
                         $learned,
                         $heavyFill,
                         $heavyParts,
+                        $toggles,
                     ): Layer|Invalid {
+                        $switched = $toggles->read($timeouts);
                         $timedOut = $mode->read($timeouts);
                         $unused = $headroom->read($timeouts);
                         $limit = $seconds->read($timeouts);
@@ -120,7 +123,7 @@ final readonly class TriageKeys
                                 heavyFill: $fills->value(),
                                 heavyParts: $cap->value(),
                                 headroom: $unused->value(),
-                            )),
+                            ), $toggles->set($switched)),
                             $timedOut,
                             $unused,
                             $limit,
@@ -135,6 +138,7 @@ final readonly class TriageKeys
                             $bounds,
                             $fills,
                             $cap,
+                            ...$switched,
                         );
                     },
                     $mode,
@@ -151,6 +155,7 @@ final readonly class TriageKeys
                     $learned,
                     $heavyFill,
                     $heavyParts,
+                    ...$toggles->fields(),
                 ),
             ),
             Field::section(

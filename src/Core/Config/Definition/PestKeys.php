@@ -8,6 +8,8 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Pest;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -29,6 +31,9 @@ final readonly class PestKeys
         $opcache = Field::optional(Pest::WORKER_OPCACHE, Flag::boolean(), $results);
         $schemata = Field::optional(Pest::SCHEMATA, Flag::boolean(), $results);
         $bootMutants = Field::optional(Pest::BOOT_MUTANTS, Flag::boolean(), $results);
+        $toggles = ToggleFields::in('pest');
+        $narrowedKills = Field::optional(Pest::NARROWED_KILLS, Enumerated::of(NarrowedKillTrust::cases()), $results);
+        $longFilter = Field::optional(Pest::LONG_FILTER, Enumerated::of(LongFilter::cases()), $results);
 
         return [Field::section(
             'pest',
@@ -40,7 +45,13 @@ final readonly class PestKeys
                     $opcache,
                     $schemata,
                     $bootMutants,
+                    $toggles,
+                    $narrowedKills,
+                    $longFilter,
                 ): Layer|Invalid {
+                    $switched = $toggles->read($pest);
+                    $vouching = $narrowedKills->read($pest);
+                    $selecting = $longFilter->read($pest);
                     $patched = $patch->read($pest);
                     $group = $canary->read($pest);
                     $booted = $bootTail->read($pest);
@@ -57,13 +68,18 @@ final readonly class PestKeys
                             $cached->value(),
                             $compiled->value(),
                             $forked->value(),
-                        )),
+                            $vouching->value(),
+                            $selecting->value(),
+                        ), $toggles->set($switched)),
                         $patched,
                         $group,
                         $booted,
                         $cached,
                         $compiled,
                         $forked,
+                        $vouching,
+                        $selecting,
+                        ...$switched,
                     );
                 },
                 $patch,
@@ -72,6 +88,9 @@ final readonly class PestKeys
                 $opcache,
                 $schemata,
                 $bootMutants,
+                $narrowedKills,
+                $longFilter,
+                ...$toggles->fields(),
             ),
         )];
     }

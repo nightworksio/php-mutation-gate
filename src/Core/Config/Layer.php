@@ -42,6 +42,7 @@ final readonly class Layer
             Pest::standard(),
             StaticCheck::standard(),
             Local::standard(),
+            Toggles::standard(),
             Contexts::standard(),
         ));
     }
@@ -63,6 +64,7 @@ final readonly class Layer
             Pest::none(),
             StaticCheck::none(),
             Local::none(),
+            Toggles::none(),
             Contexts::none(),
         ));
 
@@ -134,6 +136,12 @@ final readonly class Layer
     public function publishing(): Publishing
     {
         return $this->parts->part(Publishing::class);
+    }
+
+    /** Which steps of a run are on or off (ADR-0112, ADR-0142). */
+    public function toggles(): Toggles
+    {
+        return $this->parts->part(Toggles::class);
     }
 
     public function pest(): Pest

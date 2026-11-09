@@ -4,23 +4,32 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function is_bool;
+
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+
+use function sprintf;
 
 /**
  * What the `pest` runner's options say: `patch`, whether the project applies
@@ -29,7 +38,10 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
  * tail's workers boot the project (ADR-0075), false by default;
  * `workerOpcache`, whether its warm workers compile through opcache
  * (ADR-0088), true by default; `schemata`, whether each file's mutants are
- * compiled into a schema (ADR-0091), true by default; `splitStream`,
+ * compiled into a schema (ADR-0091), true by default; `trials`,
+ * `valueReaders` and `narrow`, which steps of a run are on (ADR-0142), all
+ * of them by default; `narrowedKills`, `vouch` by default, and `longFilter`,
+ * `files` by default (ADR-0138, ADR-0142); `splitStream`,
  * whether and how a patched run judges its mutants in split streams
  * (ADR-0117), off by default; `tests`, the directories the tests live
  * in, which the flows write from the PHPUnit config, `tests` by default;
@@ -72,6 +84,9 @@ final readonly class PestOptions
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $bounds = BoundsOptions::read($options);
         $streams = self::streamsOf($options);
+        $toggles = self::togglesOf($options);
+        $vouching = self::chosen($options, ConfigPest::NARROWED_KILLS, NarrowedKillTrust::Vouch);
+        $selecting = self::chosen($options, ConfigPest::LONG_FILTER, LongFilter::Files);
 
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
@@ -84,13 +99,17 @@ final readonly class PestOptions
             $mutators instanceof Problem => Invalid::because($mutators),
             $bounds instanceof Problem => Invalid::because($bounds),
             $streams instanceof Problem => Invalid::because($streams),
+            $toggles instanceof Problem => Invalid::because($toggles),
+            $vouching instanceof Problem => Invalid::because($vouching),
+            $selecting instanceof Problem => Invalid::because($selecting),
             default => new self(
                 self::patchingOf($patch, $canary)
                     ->bootingTail($bootTail === true)
                     ->cachingInWorkers($opcache !== false)
                     ->compilingSchemata($schemata !== false)
                     ->bootingMutants($bootMutants !== false)
-                    ->splitting($streams),
+                    ->splitting($streams)
+                    ->stepping(PestSteps::of($toggles, $vouching, $selecting)),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
                 $bounds,
@@ -126,6 +145,47 @@ final readonly class PestOptions
         return $patch === true
             ? Patching::on(Group::named($canary instanceof NotGiven ? ConfigPest::none()->canary()->name() : $canary))
             : Patching::off();
+    }
+
+    /**
+     * The case of an enum an option names, this one where it names none, or why it names no case.
+     *
+     * @template E of NarrowedKillTrust|LongFilter
+     *
+     * @param  E           $standard
+     * @return E|Problem
+     */
+    private static function chosen(
+        Options $options,
+        string $key,
+        NarrowedKillTrust|LongFilter $standard,
+    ): NarrowedKillTrust|LongFilter|Problem {
+        $named = $options->text(Key::of($key));
+
+        return match (true) {
+            $named instanceof Problem => $named,
+            $named instanceof NotGiven => $standard,
+            default => $standard::tryFrom($named)
+                ?? Problem::mismatch($key, 'one of its values', sprintf('"%s"', $named)),
+        };
+    }
+
+    /** `trials`, `valueReaders` and `narrow`: the steps of a run the options turn off (ADR-0142). */
+    private static function togglesOf(Options $options): Toggles|Problem
+    {
+        $toggles = Toggles::none();
+
+        foreach (Toggle::cases() as $toggle) {
+            $on = $toggle->isPests() ? $options->flag(Key::of($toggle->key())) : NotGiven::value();
+
+            if ($on instanceof Problem) {
+                return $on;
+            }
+
+            $toggles = $toggles->with($toggle, is_bool($on) ? $on : Absent::setting());
+        }
+
+        return $toggles;
     }
 
     /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117). */

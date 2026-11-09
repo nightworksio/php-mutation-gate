@@ -112,6 +112,18 @@ final readonly class StaticCheck implements Setting
         return new self(Json::at('staticCheck.preCheckAfter', $checks));
     }
 
+    /** `staticCheck.after`, `true`: a survivor the analyser rejects counts as killed by static analysis, as by default. */
+    public static function checkingSurvivors(): self
+    {
+        return new self(Json::at('staticCheck.after', value: true));
+    }
+
+    /** `staticCheck.after`, `false`: no survivor is checked after its tests. */
+    public static function survivorsUnchecked(): self
+    {
+        return new self(Json::at('staticCheck.after', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

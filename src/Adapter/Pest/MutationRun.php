@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
@@ -187,7 +189,8 @@ final readonly class MutationRun
      * mutant's own run to the test files its covering tests need, a kill
      * those files alone cannot vouch for (see NarrowedKills) runs again with
      * every test file before it counts, within the time left, or is unjudged
-     * where none is.
+     * where none is; under `pest.narrowedKills: trust` it counts as it is
+     * (ADR-0142).
      */
     public function of(MutationRequest $request): MutationResult|CannotJudge
     {
@@ -210,7 +213,10 @@ final readonly class MutationRun
         $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($read);
 
         return match (true) {
-            $shared instanceof CannotJudge, $result instanceof CannotJudge, ! $this->narrows() => $result,
+            $shared instanceof CannotJudge,
+            $result instanceof CannotJudge,
+            ! $this->narrows(),
+            $this->patching->narrowedKills() === NarrowedKillTrust::Trust => $result,
             default => $this->vouched($result, $request, $results, $shared, $started, $laps),
         };
     }
@@ -349,18 +355,18 @@ final readonly class MutationRun
         $result = $interpretation->of($ran, $results, $coverage);
         $reading = $laps->lap(Step::Reading, $from);
 
-        return $result instanceof CannotJudge || $coverage instanceof CannotJudge
-            ? $result
-            : new Trials($this->project, $this->tail($request), $this->files, $bounds, $this->remembered)->of(
-                $result
-                    ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading))
-                    ->withWarnings($warned),
-                $request,
-                $results,
-                $coverage,
-                $shared,
-                $laps,
-            );
+        if ($result instanceof CannotJudge || $coverage instanceof CannotJudge) {
+            return $result;
+        }
+
+        $read = $result
+            ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading))
+            ->withWarnings($warned);
+
+        return $this->patching->toggled(Toggle::PestTrials)
+            ? new Trials($this->project, $this->tail($request), $this->files, $bounds, $this->remembered)
+                ->of($read, $request, $results, $coverage, $shared, $laps)
+            : $read;
     }
 
     /**
@@ -385,10 +391,10 @@ final readonly class MutationRun
         ) : NotGiven::value();
     }
 
-    /** Whether each mutant's own run loads only the test files its covering tests need. */
+    /** Whether each mutant's own run loads only the test files its covering tests need, as `pest.narrow` says. */
     private function narrows(): bool
     {
-        return $this->patching->isOn() && ! $this->whole;
+        return $this->patching->isOn() && $this->patching->toggled(Toggle::PestNarrow) && ! $this->whole;
     }
 
     /**

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
+use NightWorksIO\MutationGate\Core\Config\DefaultBranchSince;
 use NightWorksIO\MutationGate\Core\Config\FailFast;
+use NightWorksIO\MutationGate\Core\Config\HeldCoverageMode;
 use NightWorksIO\MutationGate\Core\Config\LockMoveReach;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
@@ -128,6 +130,36 @@ final readonly class Reach implements Setting
     public static function failFastWaitingOn(string ...$outcomes): self
     {
         return new self(Json::at('run.failFastWaits', Json::items(...$outcomes)));
+    }
+
+    /** `holds.coverage`, `measure`: a held unit's holding tests run alone under coverage first, as by default. */
+    public static function measuringHeldCoverage(): self
+    {
+        return new self(Json::at('holds.coverage', HeldCoverageMode::Measure->value));
+    }
+
+    /** `holds.coverage`, `map`: their lines are read from the handed map, which loosens under `uncovered: exclude`. */
+    public static function heldCoverageFromTheMap(): self
+    {
+        return new self(Json::at('holds.coverage', HeldCoverageMode::Map->value));
+    }
+
+    /** `reach.defaultBranchSince`, `judged`: the default branch's changes are read since its last judged run, as by default. */
+    public static function sinceJudged(): self
+    {
+        return new self(Json::at('reach.defaultBranchSince', DefaultBranchSince::Judged->value));
+    }
+
+    /** `reach.defaultBranchSince`, `judged-off-branch`: so off the default branch; a push to it reads since its last pass. */
+    public static function sinceJudgedOffBranch(): self
+    {
+        return new self(Json::at('reach.defaultBranchSince', DefaultBranchSince::JudgedOffBranch->value));
+    }
+
+    /** `reach.defaultBranchSince`, `passed`: the default branch's changes are read since its last pass. */
+    public static function sincePassed(): self
+    {
+        return new self(Json::at('reach.defaultBranchSince', DefaultBranchSince::Passed->value));
     }
 
     public function written(): Json

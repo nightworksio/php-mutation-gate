@@ -10,6 +10,7 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -128,10 +129,15 @@ final readonly class ShardMap
      * The shard's own map, with the lines of each value the run's files
      * declare covered by the tests one run judges its mutants by (ADR-0037),
      * and each line of a match's arms by the tests of the arms after it too;
-     * or why the map of every file, which finds them, cannot be read.
+     * or why the map of every file, which finds them, cannot be read. Under
+     * `pest.valueReaders: false`, the map as it was handed over.
      */
     private function read(MutationRequest $request, CoverageMap $own): CoverageMap|CannotJudge
     {
+        if (! $this->patching->toggled(Toggle::PestValueReaders)) {
+            return $own;
+        }
+
         $whole = new WholeMap($this->project, $this->remembered);
         $reads = $whole->covering($request, new HandedOver($own, $this->project), $own);
 

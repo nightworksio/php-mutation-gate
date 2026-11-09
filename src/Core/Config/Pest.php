@@ -31,6 +31,12 @@ final readonly class Pest implements Part
     /** The key, and the Pest runner's option, that says whether mutants' workers boot the project. */
     public const string BOOT_MUTANTS = 'bootMutants';
 
+    /** The key and option that say what a kill in a narrowed run needs (ADR-0142). */
+    public const string NARROWED_KILLS = 'narrowedKills';
+
+    /** The key and option that say what a run selects where its filter cannot be passed (ADR-0138). */
+    public const string LONG_FILTER = 'longFilter';
+
     private const string CANARY = 'mutation-canary';
 
     private function __construct(
@@ -41,6 +47,8 @@ final readonly class Pest implements Part
         private bool|Absent $schemata,
         private bool|Absent $bootMutants,
         private SplitStream $splitStream,
+        private NarrowedKillTrust|Absent $narrowedKills,
+        private LongFilter|Absent $longFilter,
     ) {
     }
 
@@ -51,8 +59,20 @@ final readonly class Pest implements Part
         bool|Absent $workerOpcache = new Absent(),
         bool|Absent $schemata = new Absent(),
         bool|Absent $bootMutants = new Absent(),
+        NarrowedKillTrust|Absent $narrowedKills = new Absent(),
+        LongFilter|Absent $longFilter = new Absent(),
     ): self {
-        return new self($patch, $canary, $bootTail, $workerOpcache, $schemata, $bootMutants, SplitStream::of());
+        return new self(
+            $patch,
+            $canary,
+            $bootTail,
+            $workerOpcache,
+            $schemata,
+            $bootMutants,
+            SplitStream::of(),
+            $narrowedKills,
+            $longFilter,
+        );
     }
 
     /** What a layer sets of `splitStream`, and of no other Pest setting. */
@@ -60,7 +80,7 @@ final readonly class Pest implements Part
     {
         $none = new Absent();
 
-        return new self($none, $none, $none, $none, $none, $none, $splitStream);
+        return new self($none, $none, $none, $none, $none, $none, $splitStream, $none, $none);
     }
 
     public static function none(): self
@@ -79,6 +99,8 @@ final readonly class Pest implements Part
             $none->workerOpcache(),
             $none->schemata(),
             $none->bootMutants(),
+            $none->narrowedKills(),
+            $none->longFilter(),
         )->over(self::splitting(SplitStream::standard()));
     }
 
@@ -93,8 +115,25 @@ final readonly class Pest implements Part
                 Absent::laid($this->schemata, $later->schemata),
                 Absent::laid($this->bootMutants, $later->bootMutants),
                 $this->splitStream->over($later->splitStream),
+                Absent::laid($this->narrowedKills, $later->narrowedKills),
+                Absent::laid($this->longFilter, $later->longFilter),
             )
             : $this;
+    }
+
+    /** `pest.narrowedKills`: what a kill in a narrowed run needs before it counts; `vouch` unless a layer says. */
+    public function narrowedKills(): NarrowedKillTrust
+    {
+        return $this->narrowedKills instanceof NarrowedKillTrust ? $this->narrowedKills : NarrowedKillTrust::Vouch;
+    }
+
+    /**
+     * `pest.longFilter`: what a run selects where its filter cannot be passed; `files` unless a layer says, until
+     * ADR-0138's proof moves the default to `set`.
+     */
+    public function longFilter(): LongFilter
+    {
+        return $this->longFilter instanceof LongFilter ? $this->longFilter : LongFilter::Files;
     }
 
     /** Whether the optional Pest patches are applied. */
@@ -193,6 +232,8 @@ final readonly class Pest implements Part
             Member::of(self::WORKER_OPCACHE, $this->workerOpcache()),
             Member::of(self::SCHEMATA, $this->schemata()),
             Member::of(self::BOOT_MUTANTS, $this->bootMutants()),
+            Member::of(self::NARROWED_KILLS, $this->narrowedKills()->value),
+            Member::of(self::LONG_FILTER, $this->longFilter()->value),
             $this->splitStream->option(),
         );
 
@@ -213,6 +254,16 @@ final readonly class Pest implements Part
                     Member::of(self::WORKER_OPCACHE, $this->workerOpcache),
                     Member::of(self::SCHEMATA, $this->schemata),
                     Member::of(self::BOOT_MUTANTS, $this->bootMutants),
+                    Member::of(
+                        self::NARROWED_KILLS,
+                        $this->narrowedKills instanceof NarrowedKillTrust
+                            ? $this->narrowedKills->value
+                            : $this->narrowedKills,
+                    ),
+                    Member::of(
+                        self::LONG_FILTER,
+                        $this->longFilter instanceof LongFilter ? $this->longFilter->value : $this->longFilter,
+                    ),
                 ),
             ),
             $this->splitStream->written(),
@@ -230,6 +281,8 @@ final readonly class Pest implements Part
             ...$this->switched($this->workerOpcache, 'Pest::cachingInWorkers()', 'Pest::uncachedInWorkers()'),
             ...$this->switched($this->schemata, 'Pest::compilingSchemata()', 'Pest::withoutSchemata()'),
             ...$this->switched($this->bootMutants, 'Pest::bootingMutants()', 'Pest::mutantsUnbooted()'),
+            ...$this->narrowedKills instanceof NarrowedKillTrust ? [$this->narrowedKills->php()] : [],
+            ...$this->longFilter instanceof LongFilter ? [$this->longFilter->php()] : [],
         ]);
 
         return $pest->and($this->splitStream->php());

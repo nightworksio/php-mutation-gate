@@ -29,6 +29,7 @@ final readonly class BuilderClasses
         'Ci' => self::BUILDER,
         'Comment' => self::BUILDER,
         'Context' => self::BUILDER,
+        'Controls' => self::BUILDER,
         'CostModel' => self::BUILDER,
         'Coverage' => self::BUILDER,
         'Dashboard' => self::BUILDER,

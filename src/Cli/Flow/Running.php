@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -273,7 +274,7 @@ final readonly class Running
         Stopwatch $stopwatch,
     ): Mutated|CannotJudge {
         $from = $stopwatch->now();
-        $held = new HeldCoverage($this->adapters)->checked($shard, $map);
+        $held = new HeldCoverage($this->adapters, $this->settings->reach()->heldCoverage())->checked($shard, $map);
         $stopwatch->handled(Step::HeldCoverage, $from, $shard->units()->held());
 
         if ($held instanceof CannotJudge) {
@@ -336,6 +337,7 @@ final readonly class Running
             $this->settings->staticCheck()->seconds(),
             $stopwatch,
             $warmUp,
+            $this->settings->toggles()->on(Toggle::StaticCheckAfter),
         );
         $invoking = new Invoking(
             $this->adapters,

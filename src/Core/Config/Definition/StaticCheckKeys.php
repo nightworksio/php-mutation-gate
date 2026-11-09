@@ -37,6 +37,7 @@ final readonly class StaticCheckKeys
         $opcache = Field::section('opcache', self::opcache());
         $dependents = Field::optional('dependents', Integer::atLeast(0), $judges);
         $preCheckAfter = Field::optional('preCheckAfter', Integer::atLeast(0), $judges);
+        $toggles = ToggleFields::in('staticCheck');
 
         return [Field::section(
             'staticCheck',
@@ -50,7 +51,9 @@ final readonly class StaticCheckKeys
                     $opcache,
                     $dependents,
                     $preCheckAfter,
+                    $toggles,
                 ): Layer|Invalid {
+                    $switched = $toggles->read($staticCheck);
                     $chosen = $tool->read($staticCheck);
                     $read = $config->read($staticCheck);
                     $limit = $seconds->read($staticCheck);
@@ -70,7 +73,7 @@ final readonly class StaticCheckKeys
                             $weighed->value(),
                             dependents: $following->value(),
                             preCheckAfter: $learning->value(),
-                        )->over($compiled->must())),
+                        )->over($compiled->must()), $toggles->set($switched)),
                         $chosen,
                         $read,
                         $limit,
@@ -79,6 +82,7 @@ final readonly class StaticCheckKeys
                         $compiled,
                         $following,
                         $learning,
+                        ...$switched,
                     );
                 },
                 $tool,
@@ -89,6 +93,7 @@ final readonly class StaticCheckKeys
                 $opcache,
                 $dependents,
                 $preCheckAfter,
+                ...$toggles->fields(),
             ),
         )];
     }

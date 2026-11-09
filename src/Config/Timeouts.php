@@ -136,6 +136,18 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.tighter', $tighter));
     }
 
+    /** `timeouts.parts`, `true`: a mutant whose tests cannot fit `timeouts.most` in one run is judged in parts, as by default. */
+    public static function inParts(): self
+    {
+        return new self(Json::at('timeouts.parts', value: true));
+    }
+
+    /** `timeouts.parts`, `false`: such a mutant is unjudged rather than judged in parts. */
+    public static function neverInParts(): self
+    {
+        return new self(Json::at('timeouts.parts', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

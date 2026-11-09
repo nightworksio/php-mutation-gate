@@ -49,7 +49,9 @@ final readonly class Settings
             ? new self(
                 $settled,
                 ChosenRunner::of(
-                    $settled->shards()->outbreak()->beneath($settled->pest()->beneath($runner)),
+                    $settled->toggles()->beneath(
+                        $settled->shards()->outbreak()->beneath($settled->pest()->beneath($runner)),
+                    ),
                     $layer->setup()->runnerLayer()->withhold(),
                     $settled->setup()->runnerLayer()->memory(),
                     $settled->setup()->runnerLayer()->workers(),
@@ -141,6 +143,12 @@ final readonly class Settings
     public function mutators(): Mutators
     {
         return $this->layer->setup()->mutators();
+    }
+
+    /** Which steps of a run are on or off (ADR-0112, ADR-0142). */
+    public function toggles(): Toggles
+    {
+        return $this->layer->toggles();
     }
 
     public function local(): Local

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
@@ -257,7 +258,10 @@ final readonly class Invoking
      * evidence of each unnamed kill its control vouches for, a control
      * two of them share run once: those that fit in the time left run side
      * by side, in the request's pool, and the rest are unjudged. Under
-     * `timeouts.mode: unjudged` no timeout has a control.
+     * `timeouts.mode: unjudged` no timeout has a control; under
+     * `controls.kills: false` no kill, under `controls.memory: false` no
+     * mutant out of memory, and under `timeouts.parts: false` no mutant is
+     * judged by its parts (ADR-0142).
      */
     private function controlled(Mutants $mutants, MutationRequest $request, Evidences $evidence): Controlled|CannotJudge
     {
@@ -265,8 +269,11 @@ final readonly class Invoking
         $unfiltered = $this->unfilteredIn($mutants, $evidence);
         $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
         $controllable = $this->unstreamed($mutants, $evidence);
+        $toggles = $this->settings->toggles();
         $timed = $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $controllable;
-        $heavy = $this->parted->among($timed, $run, $bounds);
+        $heavy = $this->parted->among($toggles->on(Toggle::TimeoutsParts) ? $timed : Mutants::none(), $run, $bounds);
+        $killed = $toggles->on(Toggle::ControlsKills) ? $controllable : Mutants::none();
+        $outOfMemory = $toggles->on(Toggle::ControlsMemory) ? $controllable : Mutants::none();
         $timeouts = TimeoutControls::of(
             $heavy->without($timed),
             $unfiltered,
@@ -276,9 +283,9 @@ final readonly class Invoking
             $bounds->perTest(),
         );
         $controls = $bounds->upToInstead($this->settings->triage()->controlMost());
-        $kills = KillControls::of($controllable, $evidence, $this->map, $run, $controls);
-        $memory = MemoryControls::of($controllable, $unfiltered, $this->map, $this->held, $run, $bounds);
-        $unnamed = UnnamedKillControls::of($controllable, $evidence, $this->map, $this->held, $run, $controls);
+        $kills = KillControls::of($killed, $evidence, $this->map, $run, $controls);
+        $memory = MemoryControls::of($outOfMemory, $unfiltered, $this->map, $this->held, $run, $bounds);
+        $unnamed = UnnamedKillControls::of($killed, $evidence, $this->map, $this->held, $run, $controls);
         $asked = [...Controls::of(...[
             ...$timeouts->asked(),
             ...$kills->asked(),

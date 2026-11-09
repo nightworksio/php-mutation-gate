@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\HeldCoverageMode;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\GroupCoverage;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
@@ -24,6 +28,8 @@ use function sprintf;
  * lines of is not mutated, and fails the verdict; tests that do not pass
  * on their own cannot judge. Of a held unit they cover, the tests of
  * theirs that run it are kept: they are the tests that judge its mutants.
+ * Under `holds.coverage: map`, a group's lines are read from that map, its
+ * tests as the runner lists them, and nothing runs (ADR-0142).
  *
  * @internal
  */
@@ -32,7 +38,7 @@ final readonly class HeldCoverage
     private const string FAILED
         = 'The tests that hold %s cannot run on their own under coverage, so they cannot judge it. %s';
 
-    public function __construct(private Adapters $adapters)
+    public function __construct(private Adapters $adapters, private HeldCoverageMode $mode = HeldCoverageMode::Measure)
     {
     }
 
@@ -45,6 +51,7 @@ final readonly class HeldCoverage
     public function checked(Shard $shard, CoverageMap $suite): HeldChecks|CannotJudge
     {
         $checks = HeldChecks::none();
+        $listing = NotGiven::value();
 
         foreach ($shard->units() as $unit) {
             $judgedBy = $unit->judgedBy();
@@ -53,9 +60,15 @@ final readonly class HeldCoverage
                 continue;
             }
 
-            $group = $this->adapters->runner->coverage(
-                $this->adapters->covering(CoverageRun::of($judgedBy, Workspace::heldCoverage($shard->id()))),
-            );
+            $mapped = $this->mode === HeldCoverageMode::Map && $judgedBy instanceof Group;
+            $listing = $mapped && $listing instanceof NotGiven
+                ? $this->adapters->runner->listing($this->adapters->withheld, $this->adapters->suite->suites())
+                : $listing;
+            $group = $mapped && $judgedBy instanceof Group && $listing instanceof TestListing
+                ? $suite->ranBy($listing->inGroup($judgedBy))
+                : $this->adapters->runner->coverage(
+                    $this->adapters->covering(CoverageRun::of($judgedBy, Workspace::heldCoverage($shard->id()))),
+                );
 
             if ($group instanceof CannotJudge) {
                 return CannotJudge::because(sprintf(self::FAILED, $unit->path()->value(), $group->why()));

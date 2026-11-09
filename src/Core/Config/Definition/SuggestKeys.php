@@ -32,6 +32,7 @@ final readonly class SuggestKeys
         $timeouts = Field::section('timeouts', self::timeouts());
         $enabled = Field::optional('enabled', Flag::boolean(), Effect::JudgesOrReportsOnly);
         $emptyHolding = Field::optional('emptyHolding', Flag::boolean(), Effect::JudgesOrReportsOnly);
+        $toggles = ToggleFields::in('suggest');
 
         return [Field::section(
             'suggest',
@@ -42,16 +43,20 @@ final readonly class SuggestKeys
                     $timeouts,
                     $enabled,
                     $emptyHolding,
+                    $toggles,
                 ): Layer|Invalid {
+                    $switched = $toggles->read($suggest);
                     $on = $enabled->read($suggest);
                     $noted = $emptyHolding->read($suggest);
                     $parts = [$idle->read($suggest), $ignored->read($suggest), $timeouts->read($suggest)];
 
                     return Reading::built(
-                        static fn(): Layer => self::laid($on->value(), $noted->value(), ...$parts),
+                        static fn(): Layer => self::laid($on->value(), $noted->value(), ...$parts)
+                            ->over(Layer::of($toggles->set($switched))),
                         $on,
                         $noted,
                         ...$parts,
+                        ...$switched,
                     );
                 },
                 $enabled,
@@ -59,6 +64,7 @@ final readonly class SuggestKeys
                 $idle,
                 $ignored,
                 $timeouts,
+                ...$toggles->fields(),
             ),
         )];
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
+use function array_filter;
 use function array_key_exists;
 use function array_map;
 
@@ -99,6 +100,25 @@ final readonly class CoverageMap
         }
 
         return new self($this->lines->onlyFor($files), $this->durations, $methods, $this->loaded);
+    }
+
+    /**
+     * This map as these of its tests alone ran it: each line with those of them that ran it, and a line none of
+     * them ran as missed.
+     */
+    public function ranBy(TestIds $tests): self
+    {
+        $lines = [];
+
+        foreach ($this->lines() as $line) {
+            $lines[] = CoveredLine::of(
+                $line->file(),
+                $line->line(),
+                ...array_filter([...$line], static fn(string $test): bool => $tests->has(TestId::of($test))),
+            );
+        }
+
+        return self::of(...$lines);
     }
 
     /** This map, with what its tests loaded. */

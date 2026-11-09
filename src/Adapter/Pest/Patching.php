@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
@@ -32,6 +35,7 @@ final readonly class Patching
     private function __construct(
         private Group|Unpatched $canary,
         private StreamSettings $streams,
+        private PestSteps $steps,
         private bool $bootsTail = false,
         private bool $caches = true,
         private bool $compiles = true,
@@ -41,12 +45,12 @@ final readonly class Patching
 
     public static function off(): self
     {
-        return new self(Unpatched::Vendor, StreamSettings::off());
+        return new self(Unpatched::Vendor, StreamSettings::off(), PestSteps::standard());
     }
 
     public static function on(Group $canary): self
     {
-        return new self($canary, StreamSettings::off());
+        return new self($canary, StreamSettings::off(), PestSteps::standard());
     }
 
     public function isOn(): bool
@@ -57,7 +61,15 @@ final readonly class Patching
     /** The same, the tail's workers booting the project where it applies the patch, as `pest.bootTail` says. */
     public function bootingTail(bool $boots): self
     {
-        return new self($this->canary, $this->streams, $boots, $this->caches, $this->compiles, $this->bootsMutants);
+        return new self(
+            $this->canary,
+            $this->streams,
+            $this->steps,
+            $boots,
+            $this->caches,
+            $this->compiles,
+            $this->bootsMutants,
+        );
     }
 
     /**
@@ -66,19 +78,43 @@ final readonly class Patching
      */
     public function cachingInWorkers(bool $caches): self
     {
-        return new self($this->canary, $this->streams, $this->bootsTail, $caches, $this->compiles, $this->bootsMutants);
+        return new self(
+            $this->canary,
+            $this->streams,
+            $this->steps,
+            $this->bootsTail,
+            $caches,
+            $this->compiles,
+            $this->bootsMutants,
+        );
     }
 
     /** The same, each file's mutants compiled into a schema where it applies the patch, as `pest.schemata` says. */
     public function compilingSchemata(bool $compiles): self
     {
-        return new self($this->canary, $this->streams, $this->bootsTail, $this->caches, $compiles, $this->bootsMutants);
+        return new self(
+            $this->canary,
+            $this->streams,
+            $this->steps,
+            $this->bootsTail,
+            $this->caches,
+            $compiles,
+            $this->bootsMutants,
+        );
     }
 
     /** The same, mutants' workers booting the project where it applies the patch, as `pest.bootMutants` says. */
     public function bootingMutants(bool $boots): self
     {
-        return new self($this->canary, $this->streams, $this->bootsTail, $this->caches, $this->compiles, $boots);
+        return new self(
+            $this->canary,
+            $this->streams,
+            $this->steps,
+            $this->bootsTail,
+            $this->caches,
+            $this->compiles,
+            $boots,
+        );
     }
 
     /** The same, its mutants judged in split streams as `splitStream` says, where it compiles schemata (ADR-0117). */
@@ -87,11 +123,44 @@ final readonly class Patching
         return new self(
             $this->canary,
             $streams,
+            $this->steps,
             $this->bootsTail,
             $this->caches,
             $this->compiles,
             $this->bootsMutants,
         );
+    }
+
+    /** The same, taking these steps (ADR-0138, ADR-0142). */
+    public function stepping(PestSteps $steps): self
+    {
+        return new self(
+            $this->canary,
+            $this->streams,
+            $steps,
+            $this->bootsTail,
+            $this->caches,
+            $this->compiles,
+            $this->bootsMutants,
+        );
+    }
+
+    /** Whether a step of a run is on: every one unless the options turn it off (ADR-0142). */
+    public function toggled(Toggle $toggle): bool
+    {
+        return $this->steps->on($toggle);
+    }
+
+    /** What a kill in a narrowed run needs before it counts, as `pest.narrowedKills` says. */
+    public function narrowedKills(): NarrowedKillTrust
+    {
+        return $this->steps->narrowedKills();
+    }
+
+    /** What a run selects where its filter cannot be passed, as `pest.longFilter` says. */
+    public function longFilter(): LongFilter
+    {
+        return $this->steps->longFilter();
     }
 
     /**
