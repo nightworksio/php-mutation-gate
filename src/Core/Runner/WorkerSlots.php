@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function array_fill;
 use function array_map;
 
 use IteratorAggregate;
@@ -37,6 +38,17 @@ final readonly class WorkerSlots implements IteratorAggregate
                 static fn(int $number): WorkerSlot => WorkerSlot::of($number, $run),
                 range(1, $count),
             ));
+    }
+
+    /**
+     * Places for this many processes side by side, each telling its process
+     * nothing, as the one place of a runner that runs one at a time does.
+     *
+     * @param positive-int $count
+     */
+    public static function untold(int $count): self
+    {
+        return new self(array_fill(0, $count, WorkerSlot::alone()));
     }
 
     /** The one place of a runner that runs one process at a time. */

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_filter;
 use function array_key_exists;
+use function array_keys;
 use function array_map;
 use function array_unique;
 use function array_values;
@@ -96,6 +97,40 @@ final class Remembered
         }
 
         return $this->listings[$among][$key];
+    }
+
+    /**
+     * What each set of suites lists, each listed once: those not yet listed
+     * listed together.
+     *
+     * @param  Closure(Suites ...): list<TestListing|CannotJudge> $listing
+     * @return list<TestListing|CannotJudge>
+     */
+    public function listings(Withheld $withheld, Closure $listing, Suites ...$suites): array
+    {
+        $key = $withheld->pattern();
+        $missing = [];
+
+        foreach ($suites as $among) {
+            if (! array_key_exists($among->joined(), $this->listings)
+                || ! array_key_exists($key, $this->listings[$among->joined()])) {
+                $missing[$among->joined()] = $among;
+            }
+        }
+
+        $joined = array_keys($missing);
+
+        foreach ($missing === [] ? [] : $listing(...array_values($missing)) as $at => $listed) {
+            $this->listings[$joined[$at]][$key] = $listed;
+        }
+
+        $listed = [];
+
+        foreach ($suites as $among) {
+            $listed[] = $this->listings[$among->joined()][$key];
+        }
+
+        return $listed;
     }
 
     /** @param Closure(): (Platform|CannotJudge) $describing */

@@ -53,6 +53,34 @@ it('learns each thing once, and each listing once for its suites and what it wit
         ->and($written)->toBe(1);
 });
 
+it('lists together only the sets of suites not yet listed, each once, and answers each in the order asked', function (): void {
+    $remembered = new Remembered();
+    $asked = [];
+    $listing = static function (Suites ...$suites) use (&$asked): array {
+        $joined = [];
+        $listed = [];
+
+        foreach ($suites as $among) {
+            $joined[] = $among->joined();
+            $listed[] = TestListing::of(TestIds::of(TestId::of($among->joined())));
+        }
+
+        $asked[] = $joined;
+
+        return $listed;
+    };
+
+    $known = $remembered->listing(Withheld::standard(), Suites::listed('Unit'), static fn(): TestListing => TestListing::none());
+    $listed = $remembered->listings(Withheld::standard(), $listing, Suites::listed('Process'), Suites::listed('Unit'), Suites::listed('Process'));
+    $again = $remembered->listings(Withheld::standard(), $listing, Suites::listed('Unit'), Suites::listed('Process'));
+
+    expect($listed[1])->toBe($known)
+        ->and($listed[0])->toBe($listed[2])
+        ->and($listed[0])->toEqual(TestListing::of(TestIds::of(TestId::of(Suites::listed('Process')->joined()))))
+        ->and($again)->toBe([$known, $listed[0]])
+        ->and($asked)->toBe([[Suites::listed('Process')->joined()]]);
+});
+
 it('runs each baseline once, all it does not know in one call, and keeps nothing of one stopped or never started', function (): void {
     $remembered = new Remembered();
     $asked = [];

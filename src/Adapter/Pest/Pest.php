@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\LeavesPhpReport;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\ListsSideBySide;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
@@ -68,7 +69,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class Pest implements LeavesPhpReport, Runner
+final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
 {
     private const string ARCHIVED
         = 'Pest runs the gate\'s plugin, which only the Composer package installs: composer require --dev %s -W';
@@ -90,6 +91,9 @@ final readonly class Pest implements LeavesPhpReport, Runner
     /** The tests of the map last asked about, counted once for every file the runner is asked about. */
     private MapSuites $suites;
 
+    /** The project's listings and mutation runs, through its shell. */
+    private PestRuns $runs;
+
     public function __construct(
         private Project $project,
         private Shell $shell,
@@ -104,6 +108,17 @@ final readonly class Pest implements LeavesPhpReport, Runner
         $this->tests = new TestFiles($project);
         $this->remembered = new Remembered($maps);
         $this->suites = new MapSuites();
+        $this->runs = new PestRuns(
+            $project,
+            $shell,
+            $files,
+            $packages,
+            $patching,
+            $this->remembered,
+            $bounds,
+            $clock,
+            $bridges,
+        );
     }
 
     /**
@@ -188,9 +203,12 @@ final readonly class Pest implements LeavesPhpReport, Runner
     /** These suites' tests and their groups, listed once for each set of suites and variables withheld. */
     public function listing(Withheld $withheld, Suites $suites): TestListing|CannotJudge
     {
-        $listing = fn(): TestListing|CannotJudge => Listed::of($this->project, $this->shell, $withheld, $suites);
+        return $this->runs->listing($withheld, $suites);
+    }
 
-        return $this->remembered->listing($withheld, $suites, $listing);
+    public function listedSideBySide(Withheld $withheld, Suites ...$suites): array
+    {
+        return $this->runs->listedSideBySide($withheld, ...$suites);
     }
 
     /**
@@ -268,7 +286,7 @@ final readonly class Pest implements LeavesPhpReport, Runner
         MutationRequest $request,
         PreChecker $preChecker = new NoPreCheck(),
     ): MutationResult|CannotJudge {
-        return $this->run($this->shell)->checkingWith($preChecker)->of($request);
+        return $this->runs->through($this->shell)->checkingWith($preChecker)->of($request);
     }
 
     /** What each unmutated control finds, its file served through Pest's override (see UnmutatedRuns). */
@@ -304,7 +322,7 @@ final readonly class Pest implements LeavesPhpReport, Runner
             return Mutants::none();
         }
 
-        $result = $this->run($this->shell)
+        $result = $this->runs->through($this->shell)
             ->upTo($most)
             ->only(...$natives)
             ->of($request->narrowedTo(
@@ -338,7 +356,7 @@ final readonly class Pest implements LeavesPhpReport, Runner
         Seconds $most,
     ): Reproduction|CannotJudge {
         $shell = Transcribing::over($this->shell);
-        $result = $this->run($shell)
+        $result = $this->runs->through($shell)
             ->upTo($most)
             ->of($request->narrowedTo(
                 Paths::of($mutant->file()),
@@ -392,22 +410,5 @@ final readonly class Pest implements LeavesPhpReport, Runner
                 $this->bridges,
             )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
-    }
-
-    /** A mutation run of this project, through this shell. */
-    private function run(Shell $shell): MutationRun
-    {
-        return new MutationRun(
-            $this->project,
-            $shell,
-            $this->files,
-            $this->packages,
-            $this->patching,
-            $this->remembered,
-            $this->listing(...),
-            $this->bounds,
-            clock: $this->clock,
-            bridges: $this->bridges,
-        );
     }
 }
