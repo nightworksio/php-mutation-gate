@@ -39,6 +39,7 @@ enum Slug: string
     case ForkApprovalWeak = 'fork-approval-weak';
     case ScheduleNotRunning = 'schedule-not-running';
     case NoScheduledRun = 'no-scheduled-run';
+    case KeyedContextBlocks = 'keyed-context-blocks';
     case OnlineUnread = 'online-unread';
     case NoGitHubRepository = 'no-github-repository';
     case MemoryUncapped = 'memory-uncapped';

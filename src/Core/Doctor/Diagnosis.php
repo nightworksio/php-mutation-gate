@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\HotPath;
 use NightWorksIO\MutationGate\Core\Doctor\Check\IgnoresExpiring;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionImport;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionUnpatched;
+use NightWorksIO\MutationGate\Core\Doctor\Check\KeyedContextBlocks;
 use NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Memory;
 use NightWorksIO\MutationGate\Core\Doctor\Check\MemoryLimit;
@@ -81,6 +82,7 @@ final readonly class Diagnosis
             PublicContainer::in($observed),
             ScheduleRunning::in($observed),
             ScheduledRun::in($observed),
+            KeyedContextBlocks::in($observed),
             ShallowClone::in($observed),
             WarmBoot::in($observed),
             WorkflowPin::in($observed),

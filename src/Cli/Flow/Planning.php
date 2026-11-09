@@ -257,9 +257,16 @@ final readonly class Planning
         );
         $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $digests = $this->committed($now, $inventory->standing->head());
-        $reasons = OwnScopeStanding::said(
-            $reached->reach()->reasons(),
-            $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+        $reasons = KeysApart::said(
+            OwnScopeStanding::said(
+                $reached->reach()->reasons(),
+                $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+            ),
+            $proving->toRun(),
+            $ledgers->defaultBranch(),
+            $kind,
+            $now,
+            $ledgers->readsOwnScope() && $this->settings->effective()->reports()->suggest()->enabled(),
         );
         $standing = new NothingReached($this->adapters, $this->settings, $this->setup)->briefing(
             $shards,

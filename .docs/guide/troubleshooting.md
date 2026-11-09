@@ -268,6 +268,17 @@ tag.
 Run the gate on a schedule, such as `on: schedule: [{cron: '0 3 * * 1'}]` in
 its workflow.
 
+## keyed-context-blocks
+
+`doctor` or `config:suggest` found that the config's `pr` and `main` context
+blocks leave a setting that affects results different, as a run in CI
+resolves them. Each such setting is in a proof's key, so a pull request takes
+none of the default branch's proofs of the units it reaches, and runs them;
+the plan says how many it could not take.
+
+Set the setting alike in both blocks, or outside them. `suggest.enabled:
+false` turns the warning off.
+
 ## online-unread
 
 GitHub did not show `doctor --online` one of the settings it reads, which is

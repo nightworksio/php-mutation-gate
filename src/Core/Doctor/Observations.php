@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -31,6 +32,7 @@ final readonly class Observations
         private KeptLedgers|NotGiven $ledgers,
         private Asked $asked,
         private DoctorRun|NotGiven $run,
+        private Layer|NotGiven $written,
     ) {
     }
 
@@ -38,7 +40,18 @@ final readonly class Observations
     {
         $none = NotGiven::value();
 
-        return new self($none, $none, $none, $none, $none, ProjectFiles::none(), $none, Asked::nothing(), $none);
+        return new self(
+            $none,
+            $none,
+            $none,
+            $none,
+            $none,
+            ProjectFiles::none(),
+            $none,
+            Asked::nothing(),
+            $none,
+            $none,
+        );
     }
 
     /** These, with the PHP the runner runs its tests on, or why it could not be read. */
@@ -54,6 +67,7 @@ final readonly class Observations
             $this->ledgers,
             $this->asked,
             $this->run,
+            $this->written,
         );
     }
 
@@ -69,6 +83,7 @@ final readonly class Observations
             $this->ledgers,
             $this->asked,
             $this->run,
+            $this->written,
         );
     }
 
@@ -85,6 +100,7 @@ final readonly class Observations
             $this->ledgers,
             $this->asked,
             $this->run,
+            $this->written,
         );
     }
 
@@ -101,6 +117,7 @@ final readonly class Observations
             $this->ledgers,
             $this->asked,
             $this->run,
+            $this->written,
         );
     }
 
@@ -117,6 +134,7 @@ final readonly class Observations
             $this->ledgers,
             $this->asked,
             $this->run,
+            $this->written,
         );
     }
 
@@ -133,6 +151,7 @@ final readonly class Observations
             $this->ledgers,
             $this->asked,
             $this->run,
+            $this->written,
         );
     }
 
@@ -149,6 +168,7 @@ final readonly class Observations
             $ledgers,
             $this->asked,
             $this->run,
+            $this->written,
         );
     }
 
@@ -165,6 +185,7 @@ final readonly class Observations
             $this->ledgers,
             $asked,
             $this->run,
+            $this->written,
         );
     }
 
@@ -181,7 +202,31 @@ final readonly class Observations
             $this->ledgers,
             $this->asked,
             $run,
+            $this->written,
         );
+    }
+
+    /** These, with the config file's own layer, its context blocks as it writes them (ADR-0071). */
+    public function withWritten(Layer $written): self
+    {
+        return new self(
+            $this->php,
+            $this->runners,
+            $this->settings,
+            $this->trees,
+            $this->markers,
+            $this->files,
+            $this->ledgers,
+            $this->asked,
+            $this->run,
+            $written,
+        );
+    }
+
+    /** The config file's own layer, its context blocks as it writes them; none where it was not read. */
+    public function written(): Layer|NotGiven
+    {
+        return $this->written;
     }
 
     public function php(): RunnerPhp|CannotJudge|NotGiven
