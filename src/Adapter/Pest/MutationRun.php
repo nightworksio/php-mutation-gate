@@ -485,13 +485,7 @@ final readonly class MutationRun
                 $this->project,
                 $this->shardMap()->opened(
                     Invocation::of($this->project)
-                        ->mutation(
-                            $request,
-                            $judgedBy,
-                            $results,
-                            $this->bridges,
-                            $this->patching,
-                        ),
+                        ->mutation($request, $judgedBy, $results, $this->bridges),
                     $results,
                     $shared,
                     $request,

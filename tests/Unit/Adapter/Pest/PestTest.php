@@ -486,7 +486,7 @@ it('mutates against a group without reading a shared map', function (): void {
     new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, $held, PestCases::results($at), patching: PestCases::canary())->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1']),
+        PestCases::invocation($at)->mutation($request, $held, PestCases::results($at))->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1']),
     ]);
 });
 
@@ -563,7 +563,7 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
         )
         ->and($shell->commands())->toEqual([
             PestCases::invocation($at)->listing(Withheld::standard(), Suites::all(), PestCases::listingFile($at)),
-            PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at), patching: PestCases::canary())->with([
+            PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([
                 'MUTATION_GATE_SHARED_COVERAGE' => $written,
                 'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
                 'MUTATION_GATE_CANARY' => 'mutation-canary',
@@ -694,7 +694,7 @@ it('opens a shard on its own suite unpatched, or when it collects its own map', 
 
     expect($shell->commands())->toEqual([
         PestCases::invocation($at)->mutation($reusing, WholeSuite::tests(), PestCases::results($at)),
-        PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at), patching: PestCases::canary())
+        PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at))
             ->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1']),
     ]);
 });

@@ -16,7 +16,6 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
@@ -31,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 use function sprintf;
+use function strval;
 
 /**
  * The Pest command lines the adapter runs, each with `--no-tia` where Pest's
@@ -130,11 +130,9 @@ final readonly class Invocation
      * Mutation with `--path`, so the gate and not `covers()` decides what is
      * mutated, and `--no-cache`, so no stale mutant decides a result.
      *
-     * It passes `--processes`, the pool's, only where pest-plugin-mutate is
-     * patched, which leaves that option out of each mutant's own run; as it
-     * ships, it hands it on, and a mutant's own run, which is not parallel,
-     * fails on it, so every covered mutant would read as killed. Without it,
-     * Pest runs as many mutants at once as the machine has cores.
+     * It runs as many mutants at once as the pool has processes, which the
+     * plugin hands pest-plugin-mutate (see MutantsAtOnce); Pest refuses
+     * `--processes` on a mutation run's command line.
      *
      * The options after `--no-tia` undo what a project's own
      * `pest()->mutate()` could set: covered lines only, a class list, a stop
@@ -147,10 +145,7 @@ final readonly class Invocation
         WholeSuite|Group $judgedBy,
         string $results,
         Bridges $bridges = new Bridges(),
-        Patching|NotGiven $patching = new NotGiven(),
     ): Command {
-        $placed = $patching instanceof Patching && $patching->isOn();
-
         return $this->pest(
             $request->withheld(),
             '--mutate',
@@ -168,9 +163,9 @@ final readonly class Invocation
             ...$this->narrowedTo($judgedBy),
             ...PhpUnitOption::inSuites($request->narrowing()->suitesForMutants($judgedBy, $request->coverage())),
             ...$this->applying($request->narrowing()->mutators(), $bridges),
-            ...$placed ? [sprintf('--processes=%d', $request->pool()->processes()->count())] : [],
         )->with([
             GateVariable::Results->value => $results,
+            GateVariable::AtOnce->value => strval($request->pool()->processes()->count()),
             GateVariable::KillMatrix->value => $request->search()->matrix()->value,
         ])->within($request->deadline());
     }

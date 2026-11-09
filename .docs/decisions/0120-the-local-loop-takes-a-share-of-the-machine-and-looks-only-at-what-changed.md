@@ -52,10 +52,12 @@ at.
    (a `taskpolicy` QoS clamp: `none`, `utility`, `background`,
    `maintenance`), `local.linuxNice` (0 to 19) and `local.windowsClass`
    (`normal`, `below-normal`, `idle`).
-   - The workers drive a round's coverage run, its pools and, where
-     pest-plugin-mutate is patched, Pest's places: the gate passes
-     `--processes`, and the patch has the plugin take it off the arguments
-     once read, so neither Pest nor a mutant's own run is handed it.
+   - The workers drive a round's coverage run, its pools, how many mutants
+     Pest runs at once and how many children the opcache equivalence check
+     compiles in. The gate's Pest plugin sets the count in
+     pest-plugin-mutate's command-line configuration, patched or not, so
+     neither Pest, which refuses `--processes` on a mutation run, nor a
+     mutant's own run is handed the option.
    - `watch` lowers its own process, which every process a round starts
      inherits: a niceness on Linux and macOS, which a process can raise and
      never lower again; `taskpolicy`'s darwin background on macOS for the
@@ -118,8 +120,6 @@ at.
   priority by default.
 - A niceness raised on Linux or macOS, on battery under `reduce` or by
   `local.linuxNice`, stays raised until `watch` restarts.
-- Pest's places follow `local.workers` only where pest-plugin-mutate is
-  patched (`pest.patch`); as it ships, Pest runs as many places as cores.
 - A vendor an earlier gate patched holds another gate's patch, which
   `composer reinstall pestphp/pest-plugin-mutate` and `pest:patch` replace.
 

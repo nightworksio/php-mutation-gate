@@ -63,10 +63,6 @@ use function sprintf;
  * - Where the gate names a directory for warm workers, each mutant's own run
  *   is asked of its place's worker, which runs it in a child forked from a
  *   process booted once (see Warm\Pool).
- * - `--processes` is taken off the arguments once read, as `--parallel` is,
- *   so neither Pest nor a mutant's own run is handed an option it does not
- *   take, and the gate can say how many places a run has (see
- *   Invocation::mutation).
  * - In Pest itself, a child forked from a warm worker that booted the
  *   project keeps the test suite its worker built, skips the bootstrappers
  *   its worker ran, and finds each test file where its worker found it; the
@@ -112,23 +108,6 @@ final readonly class Patch
     private const string GENERATOR = 'Support/MutationGenerator.php';
 
     private const string MUTATION = 'Mutation.php';
-
-    private const string PROCESSES_OPTION = 'Options/ProcessesOption.php';
-
-    private const string PROCESSES_SHIPS = <<<'PHP'
-            public static function remove(): bool
-            {
-                return false;
-            }
-        PHP;
-
-    private const string PROCESSES_BECOMES = <<<'PHP'
-            public static function remove(): bool
-            {
-                {MARK} the option is taken off the arguments once read, so Pest is never handed it.
-                return true;
-            }
-        PHP;
 
     private const string PARSE_SHIPS = <<<'PHP'
                             $stmts = $parser->parse($contents);
@@ -752,7 +731,6 @@ final readonly class Patch
             Hunk::in(self::GENERATOR, self::PARSE_SHIPS, sprintf(self::PARSE_BECOMES, ParsedSource::class)),
             Hunk::in(self::MUTATION, self::PRINTED_SHIPS, sprintf(self::PRINTED_BECOMES, ParsedSource::class)),
             Hunk::in(self::MUTATION_TEST, self::SWITCHED_SHIPS, sprintf(self::SWITCHED_BECOMES, Schemata::class)),
-            Hunk::in(self::PROCESSES_OPTION, self::PROCESSES_SHIPS, self::PROCESSES_BECOMES),
         ];
     }
 }

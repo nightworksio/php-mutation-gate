@@ -18,6 +18,9 @@ enum GateVariable: string
     /** The results file the plugin records a mutation run to. */
     case Results = ChildVariable::Results->value;
 
+    /** How many mutants a mutation run runs at once: its pool's processes (see MutantsAtOnce). */
+    case AtOnce = 'MUTATION_GATE_AT_ONCE';
+
     /** The coverage map another job handed over, which a patched shard's opening run reads. */
     case SharedCoverage = 'MUTATION_GATE_SHARED_COVERAGE';
 

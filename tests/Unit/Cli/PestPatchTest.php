@@ -27,7 +27,7 @@ it('patches pest-plugin-mutate in the vendor directory and says so', function ()
 
     expect($tester->execute([]))->toBe(0)
         ->and(Printed::by($tester->getOutput()))
-        ->toBe("pest:patch patched 7 of the 7 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.\n");
+        ->toBe("pest:patch patched 6 of the 6 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.\n");
 });
 
 it('fails the install, with the reason on its error output, when it cannot patch', function (): void {

@@ -6,7 +6,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
-use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -191,17 +190,16 @@ it('mutates some files against the whole suite, over the project\'s own config, 
         '--colors=never',
         '--path=src/Money.php,src/Held.php',
         '--ignore=.mutation-gate',
-    )->with(['MUTATION_GATE_RESULTS' => '/p/results.jsonl', 'MUTATION_GATE_KILL_MATRIX' => 'first-killer']));
+    )->with(['MUTATION_GATE_RESULTS' => '/p/results.jsonl', 'MUTATION_GATE_AT_ONCE' => '1', 'MUTATION_GATE_KILL_MATRIX' => 'first-killer']));
 });
 
-it('tells a patched pest-plugin-mutate how many places to run, and one as it ships none', function (): void {
+it('tells the plugin how many mutants to run at once, the pool\'s processes, and never Pest', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->across(Pool::of(ProcessCount::of(3), Workers::Fork));
+    $mutation = invocation()->mutation($request, WholeSuite::tests(), '/p/r');
 
-    expect(invocation()->mutation($request, WholeSuite::tests(), '/p/r', patching: Patching::on(Group::named('canary')))->arguments())
-        ->toContain('--processes=3')
-        ->and(invocation()->mutation($request, WholeSuite::tests(), '/p/r', patching: Patching::off())->arguments())
-        ->not->toContain('--processes=3');
+    expect($mutation->environment())->toHaveKey(GateVariable::AtOnce->value, '3')
+        ->and(implode(' ', $mutation->arguments()))->not->toContain('--processes');
 });
 
 it('mutates a tree less its held paths, by a group and some mutators, by a deadline', function (): void {

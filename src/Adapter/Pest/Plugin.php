@@ -46,7 +46,8 @@ use function register_shutdown_function;
  * process reads the tests whose issues failed its run. In every Pest
  * run it loads the bridges to the registered mutators where the adapter
  * wrote them, it turns `#[Holds]` into `holds:` groups, it records every
- * mutant's result for the adapter where the adapter asked for it, and it
+ * mutant's result for the adapter where the adapter asked for it, it hands
+ * pest-plugin-mutate how many mutants to run at once (see MutantsAtOnce), and it
  * guards a run the adapter starts on one mutant through Pest's override. Once
  * Pest has made its mutants it writes each one's order, and in a mutant's own
  * process it runs the tests in that order and names the test that killed the
@@ -111,6 +112,7 @@ final class Plugin implements Bootable, HandlesArguments
         $this->seeder = Seeder::fromEnvironment();
         $this->stop = ReplayStop::fromEnvironment(Facade::instance());
         TimedTests::fromEnvironment();
+        MutantsAtOnce::fromEnvironment();
 
         if ($this->guard instanceof Guard || $this->naming instanceof Naming || $this->killers instanceof Killers) {
             register_shutdown_function($this->finish(...));
