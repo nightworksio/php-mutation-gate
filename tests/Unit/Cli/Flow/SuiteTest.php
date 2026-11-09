@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Holder;
 use NightWorksIO\MutationGate\Core\Hold\Holding;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
+use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -45,7 +46,8 @@ $listed = static function (string ...$paths): Fingerprints {
 };
 
 /**
- * The suite of a project with these files, and a package in `packages/a`.
+ * The suite of a project with these files, and a package in `packages/a`,
+ * keeping the names of each file its holds are read from.
  *
  * @param array<string, string> $files
  */
@@ -61,7 +63,7 @@ function suiteOf(array $files, Fingerprints $listed): Suite
         Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
         Tree::at(Path::of('packages/a/src'), Floor::of(50), Package::at(Path::of('packages/a'))),
     );
-    $suite = ReadSuite::of($trees, $listed, Directory::at($project));
+    $suite = ReadSuite::keepingNames($trees, $listed, Directory::at($project));
 
     return $suite instanceof Suite ? $suite : throw new RuntimeException($suite->why());
 }
@@ -144,7 +146,7 @@ it('gathers what the #[Holds] of every test file declare', function () use ($lis
         ->with(Holding::byAttribute('src/Kernel.php', Holder::of('Tests\KernelTest'))));
 });
 
-it('reads the code of the test files the holds were read from for the name graph as reading them anew does, and holds it no longer', function () use ($listed): void {
+it('names the test files the holds were read from for the name graph as reading them anew does, and keeps them no longer', function () use ($listed): void {
     $read = suiteOf(
         [
             'tests/HeldTest.php' => "<?php\n\nnamespace Tests;\n\nfinal class HeldTest { public function holds(): void { new \\App\\Money(); } }\n",
@@ -154,11 +156,17 @@ it('reads the code of the test files the holds were read from for the name graph
         $listed('tests/HeldTest.php', 'tests/Pest.php', 'tests/fixture.json'),
     );
     $read->pestHolds(Paths::none(), Suites::all());
-    $code = $read->sourceCode();
+    $names = $read->sourceNames();
+    $anew = [[], []];
 
-    expect($code)->toEqual($read->sources()->php())
-        ->and($code->paths())->toEqual(Paths::of(Path::of('tests/HeldTest.php'), Path::of('tests/Pest.php')))
-        ->and($read->sourceCode())->toEqual($code);
+    foreach ($read->sources()->php() as $path => $php) {
+        $anew[0][$path->value()] = NamedFiles::declaredIn($php);
+        $anew[1][$path->value()] = NamedFiles::mentionedIn($php);
+    }
+
+    expect($names)->toBe($anew)
+        ->and(array_keys($names[1]))->toBe(['tests/HeldTest.php', 'tests/Pest.php'])
+        ->and($read->sourceNames())->toBe($names);
 });
 
 it('declares no holding where no test file holds anything', function () use ($listed): void {

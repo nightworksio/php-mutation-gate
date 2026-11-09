@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_key_exists;
 use function array_map;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -36,7 +37,13 @@ final readonly class NameGraph
         $suite = match (true) {
             $trees instanceof CannotJudge => $trees,
             $files instanceof CannotTell => CannotJudge::because($files->why()),
-            default => Suite::read($trees, $files, $this->adapters->project, $this->adapters->suite),
+            default => Suite::read(
+                $trees,
+                $files,
+                $this->adapters->project,
+                $this->adapters->suite,
+                SuiteCode::unkept(),
+            ),
         };
 
         return $suite instanceof Suite ? $this->of($suite) : $suite;
@@ -66,19 +73,24 @@ final readonly class NameGraph
     }
 
     /**
-     * The graph of a suite's sources and these PHP files outside its test directories, each read.
+     * The graph of a suite's sources and these PHP files outside its test
+     * directories, each read, a source's names taking the place of an
+     * outside file's at the same path.
      *
      * @param array<string, PhpFile> $outside
      */
     private function graphOf(Suite $suite, array $outside): NamedFiles
     {
-        $files = [];
+        [$declares, $mentions] = $suite->sourceNames();
 
-        foreach ($suite->sourceCode() as $path => $php) {
-            $files[$path->value()] = $php;
+        foreach ($outside as $path => $php) {
+            if (! array_key_exists($path, $declares)) {
+                $declares[$path] = NamedFiles::declaredIn($php);
+                $mentions[$path] = NamedFiles::mentionedIn($php);
+            }
         }
 
-        return NamedFiles::read($files + $outside);
+        return NamedFiles::byName($declares, $mentions);
     }
 
     /**

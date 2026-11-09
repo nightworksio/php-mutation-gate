@@ -97,7 +97,7 @@ final readonly class CoverageCommand
     ): int {
         $adapters = $composed->adapters;
         $conversion = $ran instanceof CoverageRan ? ReportConversion::started($adapters, $ran) : NotGiven::value();
-        $inventory = Inventory::of($adapters, $composed->settings);
+        $inventory = Inventory::forKeys($adapters, $composed->settings);
         $suites = match (true) {
             $inventory instanceof Inventory => SuiteCoverage::of($adapters, $inventory),
             $ran instanceof CoverageRan => $inventory,

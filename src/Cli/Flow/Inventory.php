@@ -54,7 +54,22 @@ final readonly class Inventory
     ) {
     }
 
+    /** What a run that reads no name graph finds, its suite keeping no file's code. */
     public static function of(Adapters $adapters, Settings $settings): self|CannotJudge
+    {
+        return self::found($adapters, $settings, SuiteCode::unkept());
+    }
+
+    /**
+     * What a run that keys units finds, its suite keeping the names of each
+     * file the holds were read from for the name graph the keys read.
+     */
+    public static function forKeys(Adapters $adapters, Settings $settings): self|CannotJudge
+    {
+        return self::found($adapters, $settings, SuiteCode::namesKept());
+    }
+
+    private static function found(Adapters $adapters, Settings $settings, SuiteCode $code): self|CannotJudge
     {
         $standing = Standing::of($adapters->ci, $adapters->repository, $settings->ci()->defaultBranch());
         $trees = $adapters->trees->trees();
@@ -64,7 +79,7 @@ final readonly class Inventory
             $standing instanceof CannotJudge => $standing,
             $trees instanceof CannotJudge => $trees,
             $files instanceof CannotTell => CannotJudge::because(sprintf(self::NO_FILES, $files->why())),
-            default => self::withSuite($adapters, $standing, $trees, $files),
+            default => self::withSuite($adapters, $standing, $trees, $files, $code),
         };
     }
 
@@ -73,8 +88,9 @@ final readonly class Inventory
         Standing $standing,
         Trees $trees,
         Fingerprints $files,
+        SuiteCode $code,
     ): self|CannotJudge {
-        $suite = Suite::read($trees, $files, $adapters->project, $adapters->suite);
+        $suite = Suite::read($trees, $files, $adapters->project, $adapters->suite, $code);
         $listings = $suite instanceof Suite ? Listings::of($adapters) : $suite;
 
         if (! $listings instanceof Listings) {

@@ -90,7 +90,7 @@ final readonly class Planning
         bool $ownMap = false,
     ): PlanMade|CannotJudge {
         $inventory = $this->adapters->runner->behaviour()->records($matrix)
-            ? Inventory::of($this->adapters, $this->settings)
+            ? Inventory::forKeys($this->adapters, $this->settings)
             : CannotJudge::because(self::NOT_FULL);
 
         if ($inventory instanceof CannotJudge) {

@@ -17,7 +17,6 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -25,7 +24,6 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\PestHolds;
-use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
@@ -65,6 +63,7 @@ final readonly class Suite
         Fingerprints $files,
         Directory $project,
         TestSuite $configured,
+        SuiteCode $code,
     ): self|CannotJudge {
         $packages = self::packageTestsOf($trees, $configured->conventionalDirectory());
         $support = SupportPlaces::read($project, $trees);
@@ -100,7 +99,7 @@ final readonly class Suite
             $outside,
             $contentsOf,
             $support,
-            new SuiteCode(),
+            $code,
         );
     }
 
@@ -141,15 +140,16 @@ final readonly class Suite
     }
 
     /**
-     * Every PHP file of the test directories, and of the places their tests
-     * load support from besides, read, each test file the holds were read
-     * from as they read it, which the suite then holds no longer.
+     * What every PHP file of the test directories, and of the places their
+     * tests load support from besides, declares and mentions, by its path:
+     * each test file the holds were read from as its code kept it, which it
+     * then keeps no longer.
      *
-     * @return ByPath<PhpFile>
+     * @return array{array<string, list<string>>, array<string, list<string>>} declared, then mentioned
      */
-    public function sourceCode(): ByPath
+    public function sourceNames(): array
     {
-        return $this->sources->php($this->code->taken());
+        return $this->code->namesIn($this->sources->phpNow());
     }
 
     /** Every file outside the test directories. */

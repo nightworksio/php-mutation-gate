@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
-use function array_key_exists;
-
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -161,27 +159,39 @@ final readonly class Sources
     }
 
     /**
-     * Every PHP file on disk, read, in the order the files came: each file
-     * already read from what it holds on disk as it was read, every other
-     * read now.
+     * What every PHP file holds on disk, in the order the files came.
      *
-     * @param  array<string, PhpFile> $known files already read from what they hold on disk, by path
-     * @return ByPath<PhpFile>
+     * @return ByPath<Contents>
      */
-    public function php(array $known = []): ByPath
+    public function phpNow(): ByPath
     {
-        $read = [];
+        $now = [];
         $paths = [];
 
         foreach ($this->now as $path => $contents) {
             if ($contents instanceof Contents && $path->isPhp()) {
-                $read[$path->value()] = array_key_exists($path->value(), $known)
-                    ? $known[$path->value()]
-                    : PhpFile::read($contents);
+                $now[$path->value()] = $contents;
                 $paths[] = $path;
             }
         }
 
-        return ByPath::mapping(Paths::of(...$paths), static fn(Path $path): PhpFile => $read[$path->value()]);
+        return ByPath::mapping(Paths::of(...$paths), static fn(Path $path): Contents => $now[$path->value()]);
+    }
+
+    /**
+     * Every PHP file on disk, read, in the order the files came.
+     *
+     * @return ByPath<PhpFile>
+     */
+    public function php(): ByPath
+    {
+        $now = $this->phpNow();
+        $read = [];
+
+        foreach ($now as $path => $contents) {
+            $read[$path->value()] = PhpFile::read($contents);
+        }
+
+        return ByPath::mapping($now->paths(), static fn(Path $path): PhpFile => $read[$path->value()]);
     }
 }
