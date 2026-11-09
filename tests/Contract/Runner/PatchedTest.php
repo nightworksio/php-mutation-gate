@@ -367,7 +367,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     'the runner contracts job installs the fixture library, and warm workers need a PHP that forks',
 )->group(...$holds);
 
-it('reports the same records for every mutant Pest makes of the library\'s files from split streams as from each mutant\'s own run, the streams judging most', function (bool $changeCheck, bool $killersFirst): void {
+it('reports the same records for every mutant Pest makes of the library\'s files from split streams as from each mutant\'s own run, the streams judging most', function (bool $changeCheck, bool $killersFirst, bool $killerStreams): void {
     Patch::applyIn(Library::vendor(), new PackageDirectory());
     $run = static fn(StreamSettings $streams): MutationResult|CannotJudge => Library::pest(Patching::on(Library::canary())->splitting($streams))->mutate(
         sprintf('every mutant, split %s', json_encode($streams->variables())),
@@ -375,7 +375,8 @@ it('reports the same records for every mutant Pest makes of the library\'s files
             ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
     );
     $own = $run(StreamSettings::off());
-    $split = $run(StreamSettings::of(enabled: true, children: 1, changeCheck: $changeCheck, killersFirst: $killersFirst));
+    $split = $run(StreamSettings::of(enabled: true, children: 1, changeCheck: $changeCheck, killersFirst: $killersFirst)
+        ->streamingKillers($killerStreams));
     $streamed = $split instanceof MutationResult
         ? array_filter(
             iterator_to_array($split->mutants(), preserve_keys: false),
@@ -388,8 +389,9 @@ it('reports the same records for every mutant Pest makes of the library\'s files
         ->and($own instanceof MutationResult ? count($own->mutants()) : 0)->toBeGreaterThan(4)
         ->and(count($streamed) * 2)->toBeGreaterThan($own instanceof MutationResult ? count($own->mutants()) : 0);
 })->with([
-    'checking changes, killers first' => [true, true],
-    'forking unchecked, every test alike' => [false, false],
+    'checking changes, killers first' => [true, true, false],
+    'forking unchecked, every test alike' => [false, false, false],
+    'killers first, a first pass of killers alone' => [true, true, true],
 ])->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
