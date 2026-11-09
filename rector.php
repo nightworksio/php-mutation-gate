@@ -71,4 +71,5 @@ return RectorConfig::configure()
         __DIR__ . '/tests/Contract/StaticChecker/fixture',
     ])
     ->withImportNames(importShortClasses: false)
+    ->withPHPStanConfigs([__DIR__ . '/phpstan/rector.neon'])
     ->withCache(__DIR__ . '/.rector-cache');
