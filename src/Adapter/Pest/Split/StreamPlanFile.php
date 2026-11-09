@@ -42,6 +42,7 @@ final readonly class StreamPlanFile
                 self::number($read, 'floor'),
                 self::number($read, 'longest'),
             ),
+            self::holds($read, 'recording') && is_string($read['recording']) ? $read['recording'] : '',
         );
     }
 

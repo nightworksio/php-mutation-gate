@@ -57,6 +57,9 @@ final class Stream
 
     private bool $deciding = false;
 
+    /** Whether the parent collects the lines of the current test (ADR-0135). */
+    private bool $recording = false;
+
     /** The mutant this process runs, in a child; none in the parent. */
     private string $mutant = '';
 
@@ -148,6 +151,7 @@ final class Stream
         $this->failed = false;
         $this->forked = [];
         $this->forkable = Sockets::open() <= $this->sockets;
+        $this->recording = $this->mutant === '' && $this->plan->recording !== '' && Recorded::start();
 
         if (! $this->forkable && $this->mutant === '') {
             $this->write(StreamLine::fallback($test));
@@ -175,6 +179,11 @@ final class Stream
             $this->write(StreamLine::child($this->mutant, $this->test, $this->failed, $seconds));
             pcntl_signal(SIGUSR1, SIG_DFL);
             posix_kill(posix_getpid(), $this->failed ? SIGUSR1 : SIGKILL);
+        }
+
+        if ($this->recording) {
+            $covered = StreamLine::covered($this->test, Recorded::stop());
+            file_put_contents($this->plan->recording, $covered, FILE_APPEND | LOCK_EX);
         }
 
         $this->write(StreamLine::parent($this->test, ! $this->failed, $seconds));

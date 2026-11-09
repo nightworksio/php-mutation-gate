@@ -58,6 +58,9 @@ use function version_compare;
  */
 final readonly class Streaming
 {
+    /** The lines one stream's tests executed, in the directory the run records them in (ADR-0135). */
+    public const string RECORDED = '%s/recorded-%d-%d.jsonl';
+
     /** A pass's plan for one stream, in the run's directory. */
     private const string PLAN = '%s/plan-%d-%d.json';
 
@@ -79,6 +82,7 @@ final readonly class Streaming
         private array $arguments,
         private int $processes,
         private int $children,
+        private string $recording = '',
     ) {
     }
 
@@ -212,6 +216,7 @@ final readonly class Streaming
             'multiple' => $perTest->isOn() ? $perTest->multiple() : 0,
             'floor' => $perTest->floor()->seconds(),
             'longest' => ($most instanceof Seconds ? $most : Triage::none()->most())->seconds(),
+            'recording' => $this->recording === '' ? '' : sprintf(self::RECORDED, $this->recording, $pass, $at),
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $process = new Process(

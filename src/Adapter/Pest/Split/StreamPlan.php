@@ -12,7 +12,8 @@ use function in_array;
  * process wrote: where it writes its results, each site's mutant, likely
  * killer and variables, the source file each schema stands for, each test's
  * own time by the coverage map, how many children it holds at once and each
- * child's limit.
+ * child's limit; and, in a run that plans without a fresh map, where the
+ * parent records the lines each test executed (ADR-0135).
  *
  * @internal
  */
@@ -33,6 +34,7 @@ final readonly class StreamPlan
         public array $times,
         public int $children,
         public ChildLimit $limit,
+        public string $recording = '',
     ) {
     }
 

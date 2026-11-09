@@ -150,6 +150,9 @@ enum GateVariable: string
     /** Set where a split stream forks each mutant first at its likely killer (see Split\StreamSettings). */
     case SplitKillersFirst = 'MUTATION_GATE_SPLIT_KILLERS_FIRST';
 
+    /** Where each stream's parent records the lines each test executed, in a run planned without a fresh map. */
+    case SplitRecording = 'MUTATION_GATE_SPLIT_RECORDING';
+
     /** Whether a first-pass stream runs only the killers of its mutants (ADR-0136). */
     case SplitKillerStreams = 'MUTATION_GATE_SPLIT_KILLER_STREAMS';
 

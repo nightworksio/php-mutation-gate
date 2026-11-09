@@ -75,7 +75,15 @@ final readonly class Streams
 
         $directory = StreamDirectory::made();
         Schemata::leftIn($directory);
-        $streaming = new Streaming($directory, $paths, $covering, $arguments, $processes, $settings->children());
+        $streaming = new Streaming(
+            $directory,
+            $paths,
+            $covering,
+            $arguments,
+            $processes,
+            $settings->children(),
+            $settings->recording(),
+        );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $settings);
         $again = [...self::undecided($sites, $covering, $verdicts), ...$unrun];
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $verdicts);

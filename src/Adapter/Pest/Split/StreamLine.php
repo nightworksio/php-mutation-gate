@@ -37,6 +37,8 @@ final readonly class StreamLine
 
     public const string UNSERVED = 'unserved';
 
+    public const string COVERED = 'covered';
+
     /** The parent ended a test: passed or not, in this many seconds. */
     public static function parent(string $test, bool $passed, float $seconds): string
     {
@@ -73,7 +75,18 @@ final readonly class StreamLine
         return self::line([self::KIND => self::UNSERVED, 'm' => $mutant]);
     }
 
-    /** @param array<string, string|bool|float|int> $fields */
+    /**
+     * The lines of each source file the parent executed in a test, as a run
+     * that plans without a fresh map records them (ADR-0135).
+     *
+     * @param array<string, list<int>> $lines
+     */
+    public static function covered(string $test, array $lines): string
+    {
+        return self::line([self::KIND => self::COVERED, 't' => $test, 'l' => $lines]);
+    }
+
+    /** @param array<string, string|bool|float|int|array<string, list<int>>> $fields */
     private static function line(array $fields): string
     {
         $flags = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;

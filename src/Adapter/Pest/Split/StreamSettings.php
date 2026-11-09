@@ -44,6 +44,7 @@ final readonly class StreamSettings
         private bool $killersFirst,
         private TestPart $part,
         private bool $killerStreams = false,
+        private string $recording = '',
     ) {
     }
 
@@ -82,19 +83,49 @@ final readonly class StreamSettings
             getenv(GateVariable::SplitKillersFirst->value) !== self::OFF,
             self::partIn(getenv(GateVariable::SplitPart->value)),
             getenv(GateVariable::SplitKillerStreams->value) === self::ON,
+            self::recordingIn(getenv(GateVariable::SplitRecording->value)),
         );
     }
 
     /** These, a first-pass stream running only the killers of its mutants where this says (ADR-0136). */
     public function streamingKillers(bool $killerStreams): self
     {
-        return new self($this->enabled, $this->children, $this->changeCheck, $this->killersFirst, $this->part, $killerStreams);
+        return new self(
+            $this->enabled,
+            $this->children,
+            $this->changeCheck,
+            $this->killersFirst,
+            $this->part,
+            $killerStreams,
+            $this->recording,
+        );
     }
 
     /** Whether a first-pass stream runs only the tests the ledger names as killers of its mutants (ADR-0136). */
     public function streamsKillers(): bool
     {
         return $this->killersFirst && $this->killerStreams;
+    }
+
+    /**
+     * The directory each stream's parent records the lines its tests
+     * executed in, where the run plans without a fresh map (ADR-0135); none
+     * where it records nothing.
+     */
+    public function recording(): string
+    {
+        return $this->recording;
+    }
+
+    /**
+     * What a run that plans without a fresh map tells Pest's own process: the
+     * directory its streams record each test's lines in.
+     *
+     * @return array<string, string>
+     */
+    public static function recordingInto(string $directory): array
+    {
+        return $directory === '' ? [] : [GateVariable::SplitRecording->value => $directory];
     }
 
     public function isOn(): bool
@@ -140,6 +171,11 @@ final readonly class StreamSettings
                 GateVariable::SplitKillerStreams->value => $this->killerStreams ? self::ON : self::OFF,
             ]
             : [];
+    }
+
+    private static function recordingIn(string|false $told): string
+    {
+        return is_string($told) ? $told : '';
     }
 
     /** The part a variable names, as the gate writes it; every test file where it names none there is. */
