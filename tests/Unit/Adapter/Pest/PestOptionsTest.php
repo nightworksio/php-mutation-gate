@@ -104,13 +104,15 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
         'MUTATION_GATE_SPLIT_CHILDREN' => '2',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '0',
         'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '1',
+        'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '0',
     ], true])
-        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false}}'))->toBe([[
+        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true}}'))->toBe([[
             'MUTATION_GATE_SCHEMATA' => '1',
             'MUTATION_GATE_SPLIT' => '1',
             'MUTATION_GATE_SPLIT_CHILDREN' => '1',
             'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
             'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '0',
+            'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '1',
         ], true])
         ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
         ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
@@ -126,6 +128,7 @@ it('refuses a splitStream option written as something else', function (string $o
     'children' => ['{"splitStream": {"children": "two"}}', fn(): Problem => Problem::at('splitStream.children', 'expected a whole number, got "two"')],
     'changeCheck' => ['{"splitStream": {"changeCheck": 1}}', fn(): Problem => Problem::at('splitStream.changeCheck', 'expected true or false, got 1')],
     'killersFirst' => ['{"splitStream": {"killersFirst": 1}}', fn(): Problem => Problem::at('splitStream.killersFirst', 'expected true or false, got 1')],
+    'killerStreams' => ['{"splitStream": {"killerStreams": "on"}}', fn(): Problem => Problem::at('splitStream.killerStreams', 'expected true or false, got "on"')],
 ]);
 
 it('stays unpatched when the config says so', function (): void {

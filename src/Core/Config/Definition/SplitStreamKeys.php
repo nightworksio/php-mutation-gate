@@ -29,6 +29,7 @@ final readonly class SplitStreamKeys
         $changeCheck = Field::optional(SplitStream::CHANGE_CHECK, Flag::boolean(), $results);
         $killersFirst = Field::optional(SplitStream::KILLERS_FIRST, Flag::boolean(), $results);
         $sharding = Field::optional(SplitStream::SHARDING, Enumerated::of(StreamSharding::cases()), $results);
+        $killerStreams = Field::optional(SplitStream::KILLER_STREAMS, Flag::boolean(), $results);
 
         return [Field::section(
             SplitStream::SECTION,
@@ -39,12 +40,14 @@ final readonly class SplitStreamKeys
                     $changeCheck,
                     $killersFirst,
                     $sharding,
+                    $killerStreams,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
                     $checked = $changeCheck->read($split);
                     $first = $killersFirst->read($split);
                     $cut = $sharding->read($split);
+                    $streamed = $killerStreams->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -53,12 +56,14 @@ final readonly class SplitStreamKeys
                             $checked->value(),
                             $first->value(),
                             $cut->value(),
+                            $streamed->value(),
                         ))),
                         $on,
                         $most,
                         $checked,
                         $first,
                         $cut,
+                        $streamed,
                     );
                 },
                 $enabled,
@@ -66,6 +71,7 @@ final readonly class SplitStreamKeys
                 $changeCheck,
                 $killersFirst,
                 $sharding,
+                $killerStreams,
             ),
         )];
     }

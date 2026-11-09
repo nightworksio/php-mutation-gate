@@ -7,7 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 afterEach(function (): void {
-    foreach ([GateVariable::Split, GateVariable::SplitChildren, GateVariable::SplitChangeCheck, GateVariable::SplitKillersFirst, GateVariable::SplitPart] as $variable) {
+    foreach ([GateVariable::Split, GateVariable::SplitChildren, GateVariable::SplitChangeCheck, GateVariable::SplitKillersFirst, GateVariable::SplitKillerStreams, GateVariable::SplitPart] as $variable) {
         putenv($variable->value);
     }
 });
@@ -23,11 +23,13 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_CHILDREN' => '3',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '0',
         'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '1',
+        'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '0',
     ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false)->variables())->toBe([
         'MUTATION_GATE_SPLIT' => '1',
         'MUTATION_GATE_SPLIT_CHILDREN' => '1',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
         'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '0',
+        'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '0',
     ]);
 });
 
@@ -48,6 +50,22 @@ it('reads a run told nothing as one that does not split, checking changes and ki
     expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst()])
         ->toBe([false, 1, true, true]);
 });
+
+it('streams only killers in a first pass where told to and forking killers first, and reads it back', function (bool $killersFirst, bool $streams): void {
+    $told = StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: $killersFirst)->streamingKillers(true);
+
+    foreach ($told->variables() as $name => $value) {
+        putenv(sprintf('%s=%s', $name, $value));
+    }
+
+    expect($told->variables()['MUTATION_GATE_SPLIT_KILLER_STREAMS'])->toBe('1')
+        ->and($told->streamsKillers())->toBe($streams)
+        ->and(StreamSettings::fromEnvironment()->streamsKillers())->toBe($streams)
+        ->and(StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true)->streamsKillers())->toBeFalse();
+})->with([
+    'killers first' => [true, true],
+    'every test alike' => [false, false],
+]);
 
 it('reads a child count that is no number, or under one, as one', function (string $children): void {
     putenv(sprintf('%s=%s', GateVariable::SplitChildren->value, $children));

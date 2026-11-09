@@ -22,8 +22,9 @@ use function sscanf;
  * tells Pest's own process: whether it splits its streams, the most children
  * a stream holds at once, whether a stream checks a pure expression's mutant
  * changes its value before it forks, whether it forks first at each
- * mutant's likely killer, and the part of the test files whose tests judge
- * its mutants, every test file unless a run cuts them across its shards.
+ * mutant's likely killer, whether a first-pass stream runs only those
+ * killers (ADR-0136), and the part of the test files whose tests judge its
+ * mutants, every test file unless a run cuts them across its shards.
  *
  * @internal
  */
@@ -42,6 +43,7 @@ final readonly class StreamSettings
         private bool $changeCheck,
         private bool $killersFirst,
         private TestPart $part,
+        private bool $killerStreams = false,
     ) {
     }
 
@@ -79,7 +81,20 @@ final readonly class StreamSettings
             getenv(GateVariable::SplitChangeCheck->value) !== self::OFF,
             getenv(GateVariable::SplitKillersFirst->value) !== self::OFF,
             self::partIn(getenv(GateVariable::SplitPart->value)),
+            getenv(GateVariable::SplitKillerStreams->value) === self::ON,
         );
+    }
+
+    /** These, a first-pass stream running only the killers of its mutants where this says (ADR-0136). */
+    public function streamingKillers(bool $killerStreams): self
+    {
+        return new self($this->enabled, $this->children, $this->changeCheck, $this->killersFirst, $this->part, $killerStreams);
+    }
+
+    /** Whether a first-pass stream runs only the tests the ledger names as killers of its mutants (ADR-0136). */
+    public function streamsKillers(): bool
+    {
+        return $this->killersFirst && $this->killerStreams;
     }
 
     public function isOn(): bool
@@ -122,6 +137,7 @@ final readonly class StreamSettings
                 GateVariable::SplitChildren->value => sprintf('%d', $this->children),
                 GateVariable::SplitChangeCheck->value => $this->changeCheck ? self::ON : self::OFF,
                 GateVariable::SplitKillersFirst->value => $this->killersFirst ? self::ON : self::OFF,
+                GateVariable::SplitKillerStreams->value => $this->killerStreams ? self::ON : self::OFF,
             ]
             : [];
     }

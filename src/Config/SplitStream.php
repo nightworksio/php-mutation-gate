@@ -58,6 +58,18 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.killersFirst', value: false));
     }
 
+    /** `splitStream.killerStreams`: a first-pass stream runs only the tests that last killed its mutants. */
+    public static function killerStreams(): self
+    {
+        return new self(Json::at('splitStream.killerStreams', value: true));
+    }
+
+    /** `splitStream.killerStreams` off, as by default: a first-pass stream runs every test file of its part. */
+    public static function wholeFirstPass(): self
+    {
+        return new self(Json::at('splitStream.killerStreams', value: false));
+    }
+
     /** `splitStream.sharding` `tests`, as by default: each shard streams a part of the test files, timed alike. */
     public static function shardingByTests(): self
     {

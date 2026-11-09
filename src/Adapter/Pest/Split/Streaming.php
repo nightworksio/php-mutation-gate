@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_fill;
 use function array_filter;
+use function array_keys;
+use function array_map;
 use function array_unique;
 use function array_values;
 use function count;
@@ -21,14 +23,21 @@ use function min;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Adapter\Pest\IdsFile;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\ToldSeconds;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use Pest\Mutate\Plugins\Mutate;
 
 use const PHP_BINARY;
+
+use PHPUnit\Runner\Version;
 
 use function sort;
 use function sprintf;
@@ -36,11 +45,14 @@ use function str_starts_with;
 
 use Symfony\Component\Process\Process;
 
+use function version_compare;
+
 /**
  * One run's passes of split streams (ADR-0117): each pass streams the test
  * files that cover its sites' mutants, cut into a stream for each process,
  * each part about as long as the next by the coverage map's times, every
- * stream its own Pest run of its part, forking at those sites.
+ * stream its own Pest run of its part, forking at those sites; a first pass
+ * may run only the sites' killers (ADR-0136).
  *
  * @internal
  */
@@ -48,6 +60,9 @@ final readonly class Streaming
 {
     /** A pass's plan for one stream, in the run's directory. */
     private const string PLAN = '%s/plan-%d-%d.json';
+
+    /** A pass's killers, named by their ids, in the run's directory. */
+    private const string KILLERS = '%s/killers-%d.ids';
 
     /** A pass's results of one stream, in the run's directory. */
     private const string RESULTS = '%s/results-%d-%d.jsonl';
@@ -77,29 +92,41 @@ final readonly class Streaming
     public function pass(int $pass, array $sites, StreamVerdicts $verdicts): StreamVerdicts
     {
         $tests = [];
-        $planned = [];
 
-        foreach ($sites as $mutant => [$key, $id, $killer, $variables]) {
+        foreach (array_keys($sites) as $mutant) {
             $tests = [...$tests, ...$this->covering[$mutant]];
-            $planned[$key][$id] = [$mutant, $killer, $variables];
         }
 
-        $times = LoadedMap::timed();
-        $streams = [];
+        return $this->streamed($pass, array_values(array_unique($tests)), self::plannedOf($sites), [], $verdicts);
+    }
 
-        $units = CoveringFiles::streamed(array_values(array_unique($tests)));
+    /**
+     * What one pass of streams that run only these sites' killers, selected
+     * by their ids, found of their mutants (ADR-0136); none where PHPUnit
+     * cannot select them so.
+     *
+     * @param array<string, array{string, int, string, array<string, string>}> $sites each mutant's file key, switch id,
+     *                                                                                 killer and variables
+     */
+    public function killersPass(int $pass, array $sites, StreamVerdicts $verdicts): StreamVerdicts|NotGiven
+    {
+        $killers = array_values(array_unique(array_map(static fn(array $site): string => $site[2], $sites)));
+        $file = version_compare(Version::id(), PhpUnitOption::IDS_SINCE, '>=')
+            ? IdsFile::written(
+                TestIds::of(...array_map(TestId::of(...), $killers)),
+                sprintf(self::KILLERS, $this->directory, $pass),
+            )
+            : NotGiven::value();
 
-        foreach (self::parts($units, $times, $this->processes) as $at => $files) {
-            $results = sprintf(self::RESULTS, $this->directory, $pass, $at);
-            $streams[] = [$this->started($pass, $at, $results, $planned, $times, $files), $results];
-        }
-
-        foreach ($streams as [$process, $results]) {
-            $process->wait();
-            $verdicts = $verdicts->reading($results);
-        }
-
-        return $verdicts;
+        return $file instanceof NotGiven
+            ? $file
+            : $this->streamed(
+                $pass,
+                $killers,
+                self::plannedOf($sites),
+                [PhpUnitOption::TestIdFilterFile->value, $file],
+                $verdicts,
+            );
     }
 
     /**
@@ -131,6 +158,39 @@ final readonly class Streaming
     }
 
     /**
+     * What one pass of streams of the files that hold these tests found,
+     * each stream started with these arguments beside a mutant's own run's.
+     *
+     * @param list<string>                                                            $tests
+     * @param array<string, array<int, array{string, string, array<string, string>}>> $planned
+     * @param list<string>                                                            $selecting
+     */
+    private function streamed(
+        int $pass,
+        array $tests,
+        array $planned,
+        array $selecting,
+        StreamVerdicts $verdicts,
+    ): StreamVerdicts {
+        $times = LoadedMap::timed();
+        $streams = [];
+
+        foreach (self::parts(CoveringFiles::streamed($tests), $times, $this->processes) as $at => $files) {
+            $results = sprintf(self::RESULTS, $this->directory, $pass, $at);
+            $streams[] = [$this->started($pass, $at, $results, $planned, $times, [...$selecting, ...$files]), $results];
+        }
+
+        foreach ($streams as [$process, $results]) {
+            $process->wait();
+            $verdicts = $verdicts->reading($results);
+        }
+
+        return $verdicts;
+    }
+
+    /**
+     * One stream of a pass, started on its selecting arguments, then its test files.
+     *
      * @param array<string, array<int, array{string, string, array<string, string>}>> $planned
      * @param array<string, float>                                                    $times
      * @param list<string>                                                            $files
@@ -184,5 +244,22 @@ final readonly class Streaming
                 && ! str_starts_with($argument, '--mutate')
                 && ! str_starts_with($argument, '--parallel'),
         ));
+    }
+
+    /**
+     * Each site's mutant, killer and variables, by its file key and switch id.
+     *
+     * @param  array<string, array{string, int, string, array<string, string>}>        $sites
+     * @return array<string, array<int, array{string, string, array<string, string>}>>
+     */
+    private static function plannedOf(array $sites): array
+    {
+        $planned = [];
+
+        foreach ($sites as $mutant => [$key, $id, $killer, $variables]) {
+            $planned[$key][$id] = [$mutant, $killer, $variables];
+        }
+
+        return $planned;
     }
 }

@@ -205,6 +205,7 @@ final readonly class PestOptions
         $children = $split->integer(Key::of(SplitStream::CHILDREN));
         $changeCheck = $split->flag(Key::of(SplitStream::CHANGE_CHECK));
         $killersFirst = $split->flag(Key::of(SplitStream::KILLERS_FIRST));
+        $killerStreams = $split->flag(Key::of(SplitStream::KILLER_STREAMS));
         $standard = SplitStream::of();
 
         return match (true) {
@@ -212,12 +213,13 @@ final readonly class PestOptions
             $children instanceof Problem => $children,
             $changeCheck instanceof Problem => $changeCheck,
             $killersFirst instanceof Problem => $killersFirst,
+            $killerStreams instanceof Problem => $killerStreams,
             default => StreamSettings::of(
                 $enabled === true,
                 $children instanceof NotGiven ? $standard->children() : $children,
                 $changeCheck !== false,
                 $killersFirst !== false,
-            ),
+            )->streamingKillers($killerStreams === true),
         };
     }
 

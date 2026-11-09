@@ -30,6 +30,9 @@ final readonly class SplitStream
     /** The key, and the Pest runner's option, that says whether a stream forks first at each mutant's likely killer. */
     public const string KILLERS_FIRST = 'killersFirst';
 
+    /** The key whose `true` has a first-pass stream run only the killers of its mutants (ADR-0136). */
+    public const string KILLER_STREAMS = 'killerStreams';
+
     /** The key that says what a run that splits its streams cuts its shards by. */
     public const string SHARDING = 'sharding';
 
@@ -44,6 +47,7 @@ final readonly class SplitStream
         private bool|Absent $changeCheck,
         private bool|Absent $killersFirst,
         private StreamSharding|Absent $sharding,
+        private bool|Absent $killerStreams,
     ) {
     }
 
@@ -53,8 +57,9 @@ final readonly class SplitStream
         bool|Absent $changeCheck = new Absent(),
         bool|Absent $killersFirst = new Absent(),
         StreamSharding|Absent $sharding = new Absent(),
+        bool|Absent $killerStreams = new Absent(),
     ): self {
-        return new self($enabled, $children, $changeCheck, $killersFirst, $sharding);
+        return new self($enabled, $children, $changeCheck, $killersFirst, $sharding, $killerStreams);
     }
 
     /** Every key at the value it takes when every layer leaves it out. */
@@ -68,6 +73,7 @@ final readonly class SplitStream
             $none->changeCheck(),
             $none->killersFirst(),
             $none->sharding(),
+            $none->killerStreams(),
         );
     }
 
@@ -80,6 +86,7 @@ final readonly class SplitStream
             Absent::laid($this->changeCheck, $later->changeCheck),
             Absent::laid($this->killersFirst, $later->killersFirst),
             Absent::laid($this->sharding, $later->sharding),
+            Absent::laid($this->killerStreams, $later->killerStreams),
         );
     }
 
@@ -119,6 +126,16 @@ final readonly class SplitStream
         return $this->sharding instanceof StreamSharding ? $this->sharding : StreamSharding::Tests;
     }
 
+    /**
+     * `splitStream.killerStreams`: whether a first-pass stream runs only the
+     * tests the ledger names as killers of its mutants (ADR-0136); off
+     * by default.
+     */
+    public function killerStreams(): bool
+    {
+        return $this->killerStreams === true;
+    }
+
     /** The Pest runner's `splitStream` option: every key at the value it takes. */
     public function option(): Member
     {
@@ -127,6 +144,7 @@ final readonly class SplitStream
             Member::of(self::CHILDREN, $this->children()),
             Member::of(self::CHANGE_CHECK, $this->changeCheck()),
             Member::of(self::KILLERS_FIRST, $this->killersFirst()),
+            Member::of(self::KILLER_STREAMS, $this->killerStreams()),
         );
 
         return Member::of(self::SECTION, $option);
@@ -142,6 +160,7 @@ final readonly class SplitStream
             Member::of(self::CHANGE_CHECK, $this->changeCheck),
             Member::of(self::KILLERS_FIRST, $this->killersFirst),
             Member::of(self::SHARDING, $sharding),
+            Member::of(self::KILLER_STREAMS, $this->killerStreams),
         );
 
         return Member::unlessEmpty(self::SECTION, $written);
@@ -156,6 +175,7 @@ final readonly class SplitStream
             ...$this->switched($this->changeCheck, 'SplitStream::checkingChanges()', 'SplitStream::forkingUnchecked()'),
             ...$this->switched($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'),
             ...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : [],
+            ...$this->switched($this->killerStreams, 'SplitStream::killerStreams()', 'SplitStream::wholeFirstPass()'),
         );
     }
 

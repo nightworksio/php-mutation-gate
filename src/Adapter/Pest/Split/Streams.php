@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_diff_key;
+use function array_filter;
 use function array_key_exists;
 use function array_unique;
 use function array_values;
@@ -74,8 +76,8 @@ final readonly class Streams
         $directory = StreamDirectory::made();
         Schemata::leftIn($directory);
         $streaming = new Streaming($directory, $paths, $covering, $arguments, $processes, $settings->children());
-        $verdicts = $streaming->pass(1, $sites, StreamVerdicts::none());
-        $again = self::undecided($sites, $covering, $verdicts);
+        [$verdicts, $unrun] = self::firstPass($streaming, $sites, $settings);
+        $again = [...self::undecided($sites, $covering, $verdicts), ...$unrun];
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $verdicts);
 
         foreach ($byId as $mutant => $test) {
@@ -83,6 +85,28 @@ final readonly class Streams
         }
 
         StreamDirectory::removed($directory);
+    }
+
+    /**
+     * The first pass's verdicts, and the sites it left for the second: under
+     * `splitStream.killerStreams`, where any site has a likely killer and
+     * PHPUnit selects tests by their ids, a pass that runs only those
+     * killers, leaving every site without one to the second (ADR-0136);
+     * otherwise a pass of every covering test file, leaving none.
+     *
+     * @param  array<string, array{string, int, string, array<string, string>}> $sites
+     * @return array{StreamVerdicts, array<string, array{string, int, string, array<string, string>}>}
+     */
+    private static function firstPass(Streaming $streaming, array $sites, StreamSettings $settings): array
+    {
+        $hinted = array_filter($sites, static fn(array $site): bool => $site[2] !== '');
+        $killed = $settings->streamsKillers() && $hinted !== []
+            ? $streaming->killersPass(1, $hinted, StreamVerdicts::none())
+            : NotGiven::value();
+
+        return $killed instanceof StreamVerdicts
+            ? [$killed, array_diff_key($sites, $hinted)]
+            : [$streaming->pass(1, $sites, StreamVerdicts::none()), []];
     }
 
     /** The coverage map's test files cut into the run's parts, this shard's part among them; one part of every one. */
