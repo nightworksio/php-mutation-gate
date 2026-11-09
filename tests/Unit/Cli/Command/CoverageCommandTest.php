@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HoldingSuites;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\StepsAsked;
 use Symfony\Component\Console\Input\ArrayInput;
 
 afterEach(function (): void {
@@ -191,6 +192,22 @@ it('reads the reports this job\'s own coverage run left where it is told, runs n
         ->and($written->output)->toBe(sprintf("Wrote %s/build/coverage/map.json.gz.\n", $project))
         ->and($runner->asked())->toEqual([CoverageRan::in(Path::of('build/suite'))])
         ->and($runner->ran())->toBe([])
+        ->and($kept(sprintf('%s/build/coverage/map.json.gz', $project))[0])->toEqual(Flows::map());
+});
+
+it('reads a run\'s report the gate converts itself while the listings run, before it takes them', function () use (
+    $kept,
+): void {
+    $project = FlowCommands::project();
+    $runner = new StepsAsked(new CoverageAsked(ScriptedRunner::fixture(), Flows::map()));
+
+    $written = FlowCommands::run(
+        CoverageCommand::command(FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci())),
+        '--from=build/suite --into=build/coverage',
+    );
+
+    expect($runner->steps())->toBe([StepsAsked::STARTED, StepsAsked::READ, StepsAsked::TAKEN])
+        ->and($written->output)->toBe(sprintf("Wrote %s/build/coverage/map.json.gz.\n", $project))
         ->and($kept(sprintf('%s/build/coverage/map.json.gz', $project))[0])->toEqual(Flows::map());
 });
 
