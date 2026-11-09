@@ -231,6 +231,7 @@ final readonly class OutsideTheVerdict
             'src/Core/Cost/CostBasis.php',
             'src/Core/Cost/Estimated.php',
             'src/Core/Cost/FirstRun.php',
+            'src/Core/Cost/FirstRunShape.php',
             'src/Core/Cost/Laps.php',
             'src/Core/Cost/LineRate.php',
             'src/Core/Cost/LinesOfCode.php',

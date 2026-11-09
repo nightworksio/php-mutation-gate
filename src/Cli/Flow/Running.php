@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -40,7 +41,9 @@ use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\NoProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
@@ -88,25 +91,32 @@ final readonly class Running
         private Interruption $interruption = new Interruption(),
         private Ruling $ruling = new Ruling(),
         private BatchEnds $ends = new BatchEnds(),
+        private ProcessLog $log = new NoProcessLog(),
     ) {
     }
 
     /** The shards a composed flow runs, each group of units `paths` entries match with a runner of its own. */
     public static function composed(Composed $composed): self
     {
-        return new self($composed->adapters, $composed->settings, $composed->setup, ruling: $composed->ruling);
+        return new self(
+            $composed->adapters,
+            $composed->settings,
+            $composed->setup,
+            ruling: $composed->ruling,
+            log: ErrorOutputLog::onErrorOutput(),
+        );
     }
 
     /** The same, stopping before its next batch once this says so, as at its deadline. */
     public function interrupted(Interruption $interruption): self
     {
-        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling, $this->ends);
+        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling, $this->ends, $this->log);
     }
 
     /** The same, telling these what each batch judged as it ends (ADR-0120). */
     public function telling(BatchEnds $ends): self
     {
-        return new self($this->adapters, $this->settings, $this->setup, $this->interruption, $this->ruling, $ends);
+        return new self($this->adapters, $this->settings, $this->setup, $this->interruption, $this->ruling, $ends, $this->log);
     }
 
     /** The plan, where the checkout is the commit it was made on, as every shard and the verdict need. */
@@ -128,7 +138,7 @@ final readonly class Running
         $result = match (true) {
             $followed instanceof CannotJudge => $followed,
             $id instanceof CannotJudge => $id,
-            default => $this->resultOf($followed, $id, $this->deadline()),
+            default => $this->resultOf($followed, $id, ShardDeadline::of($this->settings, $this->setup->clock->now())),
         };
 
         return ShardLeft::after($result, $this->written($result, $results));
@@ -244,7 +254,8 @@ final readonly class Running
      * unit but the held ones whose holding tests miss lines of them; or the
      * first cannot judge. A shard handed no map cannot judge at all. Under a
      * budget the units run in batches that fit the time left, and those the
-     * time ran out before are unjudged. A shard that stops once its run
+     * time ran out before are unjudged; a shard's job limit starts every unit
+     * and stops the runner (ADR-0114). A shard that stops once its run
      * cannot pass runs in chunks, and the units after the chunk that doomed
      * it are unjudged too, and static analysis checks each chunk's survivors
      * before its doom is judged. Each kill with no evidence is unjudged
@@ -283,6 +294,7 @@ final readonly class Running
                     $this->interruption,
                     $this->ruling,
                     $this->ends,
+                    $this->log,
                 )->mutatedKept($plan, $part, $map, $held, $search, $deadline, $stopwatch),
             );
     }
@@ -334,7 +346,7 @@ final readonly class Running
             $map,
             $held->covered(),
             $checking,
-            new PartedRuns($this->adapters, $this->settings, $map, $held->covered()),
+            new PartedRuns($this->adapters, $this->settings, $map, $held->covered(), $this->log),
             $preChecking,
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);
@@ -343,6 +355,7 @@ final readonly class Running
             $invoking,
             $this->setup->clock,
             $deadline,
+            ShardDeadline::fittedTo($this->settings, $deadline),
             $this->interruption,
             $doom,
             $stops,
@@ -363,8 +376,9 @@ final readonly class Running
                 $batching->inChunksOf($this->settings->shards()->planning()->chunk()),
                 $requestFor,
             ),
-            $deadline instanceof Deadline => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),
-            default => new Unbatched($invoking, $this->setup->clock, $doom)->spent($kept, $requestFor),
+            $this->settings->triage()->budget() instanceof Seconds
+                => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),
+            default => new Unbatched($invoking, $this->setup->clock, $doom, $deadline)->spent($kept, $requestFor),
         };
 
         if ($spent instanceof CannotJudge) {

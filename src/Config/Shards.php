@@ -70,6 +70,30 @@ final readonly class Shards implements Setting
         return new self(Json::object(Member::of('shards', Json::object(Member::of('target', $duration)))));
     }
 
+    /** `shards.jobLimit`: how long a shard's job can run, such as `50m`: it is cut to fit it, and stops at it. */
+    public static function jobLimit(string $duration): self
+    {
+        return new self(Json::object(Member::of('shards', Json::object(Member::of('jobLimit', $duration)))));
+    }
+
+    /** `costs.testsBeforeAKill`: how many covering tests of average time a killed mutant is first expected to run. */
+    public static function testsBeforeAKill(int $tests): self
+    {
+        return new self(Json::at('costs.testsBeforeAKill', $tests));
+    }
+
+    /** `costs.surviving`: the share of mutants, from 0 to 1, a first estimate expects to run every covering test. */
+    public static function surviving(int|float $share): self
+    {
+        return new self(Json::at('costs.surviving', $share));
+    }
+
+    /** `costs.shardOverhead`: how many times its mutants' own runs a first estimate takes a shard to be. */
+    public static function shardOverhead(int|float $times): self
+    {
+        return new self(Json::at('costs.shardOverhead', $times));
+    }
+
     /** `costs.perRunnerMinute`: what a minute of a CI runner costs, such as `0.008` `USD`. */
     public static function perRunnerMinute(int|float $amount, string $currency): self
     {

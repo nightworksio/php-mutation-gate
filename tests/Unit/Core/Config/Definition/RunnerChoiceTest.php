@@ -25,5 +25,6 @@ it('keeps the effect of each option its adapters take, and lets what a runner wi
             '.recycleAfter' => Effect::JudgesOrReportsOnly,
             '.warmSlack' => Effect::JudgesOrReportsOnly,
             '.poll' => Effect::JudgesOrReportsOnly,
+            '.processes' => Effect::JudgesOrReportsOnly,
         ]);
 });

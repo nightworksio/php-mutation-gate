@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -401,7 +402,7 @@ it('takes the run\'s own result for a unit that carries its own alone, however n
     expect($vanished === ''
         ? LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed()
         : $judgement)->toEqual($vanished === ''
-            ? Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))
+            ? Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate))
             : CannotJudge::because(sprintf(<<<'SAID'
                 The ledger no longer holds a proof the plan took, so these units cannot be judged:
                 %s

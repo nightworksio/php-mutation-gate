@@ -31,31 +31,45 @@ final readonly class FirstRun
         private Seconds $startUp,
         private ProcessCount $processes,
         private array $perFile,
+        private FirstRunShape $shape,
     ) {
     }
 
     /** What a plan that measured nothing knows: no unit is measured. */
     public static function unmeasured(): self
     {
-        return new self(CoverageMap::of(), MutantSites::none(), Seconds::of(0.0), ProcessCount::single(), []);
+        return new self(
+            CoverageMap::of(),
+            MutantSites::none(),
+            Seconds::of(0.0),
+            ProcessCount::single(),
+            [],
+            FirstRunShape::standard(),
+        );
     }
 
-    public static function of(CoverageMap $map, MutantSites $sites, Seconds $startUp, ProcessCount $processes): self
-    {
+    public static function of(
+        CoverageMap $map,
+        MutantSites $sites,
+        Seconds $startUp,
+        ProcessCount $processes,
+        FirstRunShape $shape,
+    ): self {
         $perFile = [];
 
         foreach ($sites->files() as $file) {
-            $perFile[$file->value()] = self::secondsOf($map, $sites, $startUp, $file);
+            $perFile[$file->value()] = self::secondsOf($map, $sites, $startUp, $file, $shape);
         }
 
-        return new self($map, $sites, $startUp, $processes, $perFile);
+        return new self($map, $sites, $startUp, $processes, $perFile, $shape);
     }
 
     /**
-     * What mutating a unit is expected to take: each mutant of its files on a
-     * line some test covers costs a run's start-up and every covering test's
-     * time, spread over the processes the runner runs at once; one no test
-     * covers costs nothing. A unit none of whose files the engine counted is
+     * What mutating a unit is expected to take in its shard: each mutant of
+     * its files on a line some test covers costs a run's start-up and what its
+     * covering tests are expected to spend, spread over the processes the
+     * runner runs at once, and that many times over as a shard takes its
+     * mutants' own runs; one no test covers costs nothing. A unit none of whose files the engine counted is
      * unmeasured. A file unit is looked up; a held unit sums the counted files
      * its path holds.
      */
@@ -63,7 +77,9 @@ final readonly class FirstRun
     {
         $counted = $unit->isHeld() ? $this->under($unit->path()) : $this->file($unit->path());
 
-        return $counted instanceof Unmeasured ? $counted : Seconds::of($counted / $this->processes->count());
+        return $counted instanceof Unmeasured
+            ? $counted
+            : Seconds::of($this->shape->shard(Seconds::of($counted))->seconds() / $this->processes->count());
     }
 
     public function map(): CoverageMap
@@ -109,28 +125,45 @@ final readonly class FirstRun
     }
 
     /** One process's time for the mutants of one file. */
-    private static function secondsOf(CoverageMap $map, MutantSites $sites, Seconds $startUp, Path $file): float
-    {
+    private static function secondsOf(
+        CoverageMap $map,
+        MutantSites $sites,
+        Seconds $startUp,
+        Path $file,
+        FirstRunShape $shape,
+    ): float {
         $seconds = 0.0;
 
         foreach ($sites->linesOf($file) as $line) {
-            $seconds += $sites->countAt($file, $line) * self::perMutant($map, $startUp, $file, $line);
+            $seconds += $sites->countAt($file, $line) * self::perMutant($map, $startUp, $file, $line, $shape);
         }
 
         return $seconds;
     }
 
-    /** A mutant's run on a line: its start-up and every covering test, or nothing where no test covers it. */
-    private static function perMutant(CoverageMap $map, Seconds $startUp, Path $file, Line $line): float
-    {
+    /**
+     * A mutant's run on a line: its start-up and what its covering tests are
+     * expected to spend, or nothing where no test covers it. A run stops at
+     * the first test that kills, so most stop within a few tests of average
+     * time, whatever the number that cover them; a survivor runs them all.
+     */
+    private static function perMutant(
+        CoverageMap $map,
+        Seconds $startUp,
+        Path $file,
+        Line $line,
+        FirstRunShape $shape,
+    ): float {
         $tests = $map->testsCovering($file, $line, $line);
-        $seconds = count($tests) === 0 ? 0.0 : $startUp->seconds();
+        $every = 0.0;
 
         foreach ($tests as $test) {
             $duration = $map->durationOf($test);
-            $seconds += $duration instanceof Seconds ? $duration->seconds() : 0.0;
+            $every += $duration instanceof Seconds ? $duration->seconds() : 0.0;
         }
 
-        return $seconds;
+        return count($tests) === 0
+            ? 0.0
+            : $startUp->seconds() + $shape->covering($tests, Seconds::of($every))->seconds();
     }
 }

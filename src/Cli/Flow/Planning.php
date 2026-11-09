@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function count;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -143,7 +145,15 @@ final readonly class Planning
 
         $judges = MapJudges::of($this->adapters->runner, $map);
         $learned = LearnedLimits::of($this->settings, $ledgers);
-        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $judges, $names);
+        $keying = Keying::of(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            $inventory->suite,
+            $judges,
+            $names,
+            $learned->multiple(),
+        );
         $at = Measuring::of($this->adapters, $request);
         $planned = $keying instanceof Keying
             ? $this->planned(
@@ -227,7 +237,11 @@ final readonly class Planning
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
             ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
         $opening = $map->suiteDuration();
-        $firstRun = new FirstRuns($this->adapters, $this->settings->shards()->planning()->startUpSamples())
+        $firstRun = new FirstRuns(
+            $this->adapters,
+            $this->settings->shards()->planning()->startUpSamples(),
+            $this->settings->shards()->costs()->firstRunShape(),
+        )
             ->measured($map, $ledgers->untimed($toRun, $this->setup->gate));
         $shards = $this->shardsOf(
             $toRun,
@@ -250,6 +264,7 @@ final readonly class Planning
             $base,
             $kind,
             $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+            count($proving->proved()),
         );
 
         return match (true) {
@@ -331,7 +346,7 @@ final readonly class Planning
         $order = RiskOrder::of(
             $reached->changed() instanceof Changes ? $reached->reach() : Reach::nothing(Packages::of($trees)),
             $newest,
-            MutantTriage::under($this->settings->triage()->timeouts()),
+            MutantTriage::under($this->settings->triage()->timeouts(), $this->settings->triage()->headroom()),
         );
         $changed = $this->adapters->changes->lastChanged($order->least($units));
 

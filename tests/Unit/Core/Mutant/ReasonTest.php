@@ -56,3 +56,12 @@ it('says first that a mutant\'s kill is inferred from the subsumer that was kill
         ->toBe(sprintf('Inferred killed: %s subsumes it and was killed, which proves nothing of it. The time budget ran out.', $subsumer->value()))
         ->and($inferred->outOfTime())->toBe(OutOfTime::BeforeRunning);
 });
+
+it('says a run stopped early where no test finished for the silence limit, or one ran past its own, and keeps that inferred', function (): void {
+    $subsumer = MutantId::firstOf(Path::of('src/Money.php'), 'Pest/IncrementInteger', '-1 +2');
+
+    expect(Reason::silent(Seconds::of(2.0))->stoppedEarly())->toBeTrue()
+        ->and(Reason::silent(Seconds::of(2.0))->inferredFrom($subsumer)->stoppedEarly())->toBeTrue()
+        ->and(Reason::overran(TestId::of('MoneyTest::adds'), Seconds::of(3.0))->inferredFrom($subsumer)->stoppedEarly())->toBeTrue()
+        ->and(Reason::that('Stopped at the most.')->stoppedEarly())->toBeFalse();
+});

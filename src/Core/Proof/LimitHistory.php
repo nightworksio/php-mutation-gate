@@ -116,8 +116,11 @@ final readonly class LimitHistory
     }
 
     /**
-     * The multiple of their covering tests' own time that these bounds' share of the kills took no more than,
-     * within them; none where nothing was killed.
+     * The multiple of their covering tests' own time that these bounds' share
+     * of the kills took no more than, rounded up to a whole number, within
+     * them; none where nothing was killed. A key holds it (ADR-0108), and a
+     * whole number moves it only when the kills really move, not with each
+     * new kill.
      */
     public function multiple(LearnedBounds $bounds): Multiple|NotGiven
     {
@@ -129,7 +132,7 @@ final readonly class LimitHistory
         usort($sorted, static fn(Multiple $one, Multiple $other): int => $one->times() <=> $other->times());
         $at = max(0, (int) ceil($bounds->percentile() * count($sorted)) - 1);
 
-        return $sorted[$at]->within(Multiple::of($bounds->least()), Multiple::of($bounds->most()));
+        return $sorted[$at]->roundedUp()->within(Multiple::of($bounds->least()), Multiple::of($bounds->most()));
     }
 
     /**

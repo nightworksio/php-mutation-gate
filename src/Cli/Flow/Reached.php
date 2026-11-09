@@ -14,9 +14,11 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Glob;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Reach\DecidingManifests;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
+use NightWorksIO\MutationGate\Core\Reach\Modules;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reaching;
@@ -146,6 +148,10 @@ final readonly class Reached
             $layout = $layout->decidedAlsoBy($glob);
         }
 
+        foreach (self::modules($adapters) as $module) {
+            $layout = $layout->withModule($module);
+        }
+
         return $layout;
     }
 
@@ -257,5 +263,16 @@ final readonly class Reached
         }
 
         return $changed;
+    }
+
+    /** The repository's modules among the files version control lists; none where it lists none or reads no tree. */
+    private static function modules(Adapters $adapters): Paths
+    {
+        $listed = $adapters->changes->listed(Paths::of(Path::root()));
+        $trees = $adapters->trees->trees();
+
+        return $listed instanceof Paths && $trees instanceof Trees
+            ? Modules::among($listed, Packages::of($trees)->paths())
+            : Paths::none();
     }
 }

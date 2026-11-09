@@ -7,12 +7,14 @@ use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Config\Planning;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Retained;
+use NightWorksIO\MutationGate\Core\Config\RunnerPacing;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
 use NightWorksIO\MutationGate\Core\Proof\TimingWeight;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerPace;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -49,12 +51,16 @@ it('reads each key of a planning no layer set at its default', function (): void
 
 it('reads how a runner paces its work, each key at its default where no layer sets it', function () use ($settings): void {
     $standard = $settings()->runner();
-    $set = $settings(['runner' => ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05]])->runner();
+    $set = $settings(['runner' => ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05, 'processes' => 3]])->runner();
 
     expect($standard->pace())->toEqual(RunnerPace::standard())
         ->and($standard->poll())->toEqual(Seconds::of(0.01))
+        ->and($standard->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(8))
         ->and($set->pace())->toEqual(RunnerPace::of(8, Seconds::minutes(2)))
-        ->and($set->poll())->toEqual(Seconds::of(0.05));
+        ->and($set->poll())->toEqual(Seconds::of(0.05))
+        ->and($set->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(3))
+        ->and(RunnerPacing::of(processes: 1)->processes(ProcessCount::of(8)))->toEqual(ProcessCount::single())
+        ->and(RunnerPacing::of(processes: 0)->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(8));
 });
 
 it('reads the remaining keys that tune a run, each at its default where no layer sets it', function () use ($settings): void {
@@ -187,8 +193,8 @@ it('writes a runner\'s pace on the runner it chooses, and on the gate where it c
     expect(Configs::valid(['runner' => $runner])->php(ProjectRoot::origin())->code())->toContain($call);
 })->with([
     'choosing one' => [
-        ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05],
-        "Runner::pest()->paced(Pace::of(recycleAfter: 8, warmSlack: '2m', poll: 0.05))",
+        ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05, 'processes' => 3],
+        "Runner::pest()->paced(Pace::of(recycleAfter: 8, warmSlack: '2m', poll: 0.05, processes: 3))",
     ],
     'choosing none' => [
         ['recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05],

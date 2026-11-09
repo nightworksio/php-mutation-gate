@@ -88,12 +88,12 @@ it('times each shard from its start to its result, with its steps, and the verdi
 
     expect(array_map(static fn(ShardTiming $shard): int => $shard->shard(), $shards))->toBe([1, 2])
         ->and(array_map(static fn(ShardTiming $shard): string => $shard->whole()->start()->value(), $shards))
-        ->toBe(['2026-09-30T12:00:00Z', '2026-09-30T12:00:36Z'])
+        ->toBe(['2026-09-30T12:00:03Z', '2026-09-30T12:00:57Z'])
         ->and(array_map(static fn(StepTime $step): Step => $step->step(), [...$shards[0]->steps()]))->toContain(Step::Mutation)
         ->and($timings->run())->toBe('github:1/1')
         ->and($verdict instanceof Phase ? [$verdict->start()->value(), $verdict->duration()->seconds()] : [])
         ->toBe(['2026-09-30T13:00:00Z', 30.0])
-        ->and($timings->spent()->wall())->toEqual(Seconds::of(3630.0 + 60.0))
+        ->and($timings->spent()->wall())->toEqual(Seconds::of(3627.0 + 60.0))
         ->and($timings->spent()->runner())->toEqual(Seconds::of(30.0 + 60.0 + $spent[0] + 60.0 + $spent[1] + 60.0))
         ->and($timings->spent()->isMeasured())->toBeFalse();
 });

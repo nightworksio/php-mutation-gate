@@ -61,6 +61,17 @@ final readonly class GateRelease
         return $this->equals($other) || $this->isBranch() && $other->isBranch();
     }
 
+    /**
+     * Whether a verdict this release passed stands under the other: the same
+     * release, or two builds of a branch. A commit that moves a project's
+     * build of a branch changes the gate's PHP or the project's lock, either
+     * of which refuses the verdict by itself (ADR-0108).
+     */
+    public function standsUnder(self $other): bool
+    {
+        return $this->costsAs($other);
+    }
+
     public function value(): string
     {
         return $this->spelt;

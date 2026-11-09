@@ -28,6 +28,12 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.mode', TimeoutMode::Unjudged->value));
     }
 
+    /** `timeouts.headroom`: the share of its limit a timed-out mutant's tests leave unused to be a kill (ADR-0108). */
+    public static function headroom(int|float $share): self
+    {
+        return new self(Json::at('timeouts.headroom', $share));
+    }
+
     /** `timeouts.seconds` */
     public static function seconds(int $seconds): self
     {

@@ -143,7 +143,7 @@ final readonly class Rechecking
             $this->setup->clock->now(),
             $this->settings->ignores()->notice(),
         );
-        $triage = MutantTriage::under($this->settings->triage()->timeouts());
+        $triage = MutantTriage::under($this->settings->triage()->timeouts(), $this->settings->triage()->headroom());
         $judged = [];
 
         foreach ($mutants as $mutant) {

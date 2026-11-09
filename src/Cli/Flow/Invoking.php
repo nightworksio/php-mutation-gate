@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function array_filter;
 use function array_map;
 use function array_slice;
+use function array_values;
 
 use Closure;
 
@@ -93,55 +94,81 @@ final readonly class Invoking
     }
 
     /**
-     * An invocation's mutants triaged: its survivors proven equivalent, then
-     * checked by static analysis, then the rest run once more, and each
-     * mutant a control judges controlled.
+     * An invocation's mutants triaged: its survivors screened, each mutant
+     * a control judges controlled, and the survivors a control left, as the
+     * parts of a heavy mutant leave them, screened after it (ADR-0108).
      */
     private function triaged(MutationResult $result, MutationRequest $request): Invoked|CannotJudge
     {
         $elsewhere = $result->evidence()->ownedElsewhere($result->mutants());
-        $equivalent = $this->equivalent($result->mutants(), $elsewhere);
-        $checked = $this->checking->checked($result->mutants(), $elsewhere);
-        $again = $this->confirmed($checked->mutants, $equivalent, $request);
-        $controlled = $again instanceof CannotJudge
-            ? $again
-            : $this->controlled($again->mutants, $request, $result->evidence());
+        $first = $this->screened($result->mutants(), MutantIds::none(), $elsewhere, $request);
 
-        return match (true) {
-            $again instanceof CannotJudge => $again,
-            $controlled instanceof CannotJudge => $controlled,
-            default => new Invoked(
-                MutationResult::of($controlled->mutants, $result->skipped())
-                    ->withWarnings($result->warnings())
-                    ->withEvidence($controlled->evidence),
-                $again->flaky,
-                $equivalent,
-                $checked->checks,
-                $checked->examinedIds(),
-                $checked->unchecked,
-                $result->evidence()->judgedInPart($result->mutants()),
-            ),
-        };
+        if ($first instanceof CannotJudge) {
+            return $first;
+        }
+
+        $controlled = $this->controlled($first->mutants, $request, $result->evidence());
+
+        if ($controlled instanceof CannotJudge) {
+            return $controlled;
+        }
+
+        return $this->afterControls($first, $controlled, $result, $request);
+    }
+
+    /** The invocation, the survivors its controls left, as a heavy mutant's parts leave them, screened in turn. */
+    private function afterControls(
+        Screened $first,
+        Controlled $controlled,
+        MutationResult $result,
+        MutationRequest $request,
+    ): Invoked|CannotJudge {
+        $settled = $first->settledIn($controlled->mutants);
+        $late = count($settled) < count($controlled->mutants);
+        $elsewhere = $result->evidence()->ownedElsewhere($result->mutants());
+        $screened = $late
+            ? $this->screened($controlled->mutants, $settled, $elsewhere, $request)
+            : $first->controlled($controlled->mutants);
+        $all = $late && $screened instanceof Screened ? $first->then($screened) : $screened;
+
+        return $all instanceof CannotJudge ? $all : new Invoked(
+            MutationResult::of($all->mutants, $result->skipped())
+                ->withWarnings($result->warnings())
+                ->withEvidence($controlled->evidence),
+            $all->flaky,
+            $all->equivalent,
+            $all->checks,
+            $all->checked,
+            $all->unchecked,
+            $result->evidence()->judgedInPart($result->mutants()),
+        );
     }
 
     /**
-     * The survivors proven equivalent, where `equivalence.static` asks
-     * (ADR-0013), timed: no test can tell one from its
-     * original, so none runs again, and none dooms the run (see Doom). The
-     * verdict proves the survivors again itself. Those passed over, which
-     * another part of the test files owns, are proven there (ADR-0117).
+     * These mutants' survivors, but those settled already, screened: those
+     * proven equivalent where `equivalence.static` asks (ADR-0013), timed, so
+     * none runs again and none dooms the run (see Doom), which the verdict
+     * proves again itself; then checked by static analysis; then the rest run
+     * once more. Those passed over, which another part of the test files
+     * owns, are proven and checked there (ADR-0117), and run once more here.
      */
-    private function equivalent(Mutants $mutants, MutantIds $passedOver): MutantIds
-    {
+    private function screened(
+        Mutants $mutants,
+        MutantIds $settled,
+        MutantIds $passedOver,
+        MutationRequest $request,
+    ): Screened|CannotJudge {
+        $skipped = $settled->and($passedOver);
+        $open = Mutants::of(
+            ...array_filter([...$mutants], static fn(Mutant $mutant): bool => ! $skipped->has($mutant->id())),
+        );
         $from = $this->stopwatch->now();
-        $owned = Mutants::of(...array_filter(
-            [...$mutants],
-            static fn(Mutant $mutant): bool => ! $passedOver->has($mutant->id()),
-        ));
-        $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($owned)->proven;
-        $this->stopwatch->handled(Step::Equivalence, $from, $owned->counting(MutantStatus::Survived));
+        $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($open)->proven;
+        $this->stopwatch->handled(Step::Equivalence, $from, $open->counting(MutantStatus::Survived));
+        $checked = $this->checking->checked($mutants, $skipped);
+        $again = $this->confirmed($checked->mutants, $equivalent->and($settled), $request);
 
-        return $equivalent;
+        return $again instanceof CannotJudge ? $again : Screened::of($checked, $again, $equivalent);
     }
 
     /** The runner's run of the request, the steps its time went to kept. */
@@ -316,7 +343,8 @@ final readonly class Invoking
         $mutants = $this->parted->judged(
             $controlled->mutants,
             $heavy,
-            fn(array $asked): array => $this->ranOf($asked, $request),
+            $request->pool()->processes(),
+            fn(array $asked, array $ahead): array => $this->ranOf($asked, $request, Step::HeavyParts, $ahead),
         );
 
         return $mutants instanceof CannotJudge ? $mutants : new Controlled($mutants, $controlled->evidence);
@@ -337,25 +365,35 @@ final readonly class Invoking
 
     /**
      * What these controls found, those that fit in the time left run side by
-     * side in the request's pool and timed as the controls step, and those
-     * the time left had no room for.
+     * side in the request's pool and timed as this step, and those the time
+     * left had no room for. Where they all fit, those beside them that fit in
+     * the time left run too, in the pool's spare room.
      *
-     * @param  non-empty-list<Control>          $asked
+     * @param  non-empty-list<Control>                  $asked
+     * @param  list<Control>                            $beside
      * @return array{ControlRuns|CannotJudge, Controls}
      */
-    private function ranOf(array $asked, MutationRequest $request): array
-    {
+    private function ranOf(
+        array $asked,
+        MutationRequest $request,
+        Step $step = Step::Controls,
+        array $beside = [],
+    ): array {
         $longest = max(array_map(static fn(Control $control): float => $control->limit()->seconds(), $asked));
         $fitting = $this->fitting(count($asked), Seconds::of($longest));
+        $room = $fitting === count($asked) ? array_values(array_filter(
+            $beside,
+            fn(Control $control): bool => $this->fitting(1, $control->limit()) === 1,
+        )) : [];
         $from = $this->stopwatch->now();
         $runs = $fitting === 0
             ? ControlRuns::none()
             : $this->adapters->runner->controls(
                 $this->retimed($request),
-                Controls::of(...array_slice($asked, 0, $fitting)),
+                Controls::of(...array_slice($asked, 0, $fitting), ...$room),
             );
 
-        $this->stopwatch->handled(Step::Controls, $from, $fitting);
+        $this->stopwatch->handled($step, $from, $fitting + count($room));
 
         return [$runs, Controls::of(...array_slice($asked, $fitting))];
     }

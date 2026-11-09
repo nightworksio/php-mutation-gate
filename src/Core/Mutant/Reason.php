@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function str_ends_with;
+use function str_starts_with;
 
 /**
  * Why a mutant stands as it does, in the sentence a report prints beside it:
@@ -55,10 +56,20 @@ final readonly class Reason
      */
     private const string INFERRED = 'Inferred killed: %s subsumes it and was killed, which proves nothing of it. %s';
 
+    /**
+     * Why a heavy mutant is unjudged where `timeouts.heavyParts` stopped it
+     * before its last part (ADR-0114), as the ledger keeps it. No test that
+     * did not run proves anything of it, so it fails the verdict.
+     */
+    private const string CAPPED = 'timeouts.heavyParts stopped it at part %d of %d of its tests, no part settling it.';
+
+    private const string CAPPED_START = 'timeouts.heavyParts stopped it';
+
     private function __construct(
         private string $text,
         private OutOfTime|Unreported $outOfTime,
         private TestId|NotGiven $stoppedAt = new NotGiven(),
+        private bool $silenced = false,
     ) {
     }
 
@@ -79,10 +90,16 @@ final readonly class Reason
         return self::that(sprintf('%s%s', $file->value(), self::PRELOADED));
     }
 
+    /** Why a heavy mutant is unjudged where `timeouts.heavyParts` stopped it at this part of these. */
+    public static function atThePartCap(int $part, int $parts): self
+    {
+        return self::that(sprintf(self::CAPPED, $part, $parts));
+    }
+
     /** Why a mutant's run was stopped where no test of it finished for this long, its silence limit. */
     public static function silent(Seconds $for): self
     {
-        return self::that(sprintf(self::SILENT, $for->text()));
+        return new self(sprintf(self::SILENT, $for->text()), Unreported::reason(), silenced: true);
     }
 
     /** Why a mutant's run was stopped where this test of it ran past this limit of its own. */
@@ -94,13 +111,24 @@ final readonly class Reason
     /** This reason, saying first that the mutant's kill is inferred from that of this mutant, which subsumes it. */
     public function inferredFrom(MutantId $subsumer): self
     {
-        return new self(sprintf(self::INFERRED, $subsumer->value(), $this->text), $this->outOfTime, $this->stoppedAt);
+        return new self(
+            sprintf(self::INFERRED, $subsumer->value(), $this->text),
+            $this->outOfTime,
+            $this->stoppedAt,
+            $this->silenced,
+        );
     }
 
     /** Whether it says the mutated file was loaded before the mutant was in place, as the ledger keeps it. */
     public function isPreloaded(): bool
     {
         return str_ends_with($this->text, self::PRELOADED);
+    }
+
+    /** Whether it says `timeouts.heavyParts` stopped the mutant, as the ledger keeps it, in its words. */
+    public function isAtThePartCap(): bool
+    {
+        return str_starts_with($this->text, self::CAPPED_START);
     }
 
     /** Whether it says no test reaches the mutant's value, as the ledger keeps it, in its words. */
@@ -112,6 +140,12 @@ final readonly class Reason
     public function text(): string
     {
         return $this->text;
+    }
+
+    /** Whether its run stopped before its limit: no test finished for the silence limit, or one ran past its own. */
+    public function stoppedEarly(): bool
+    {
+        return $this->silenced || $this->stoppedAt instanceof TestId;
     }
 
     /** The test that ran past its own limit, so its run was stopped; none where no test's own limit stopped it. */

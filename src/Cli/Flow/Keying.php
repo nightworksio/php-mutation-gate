@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -57,6 +58,7 @@ final readonly class Keying
         Suite $suite,
         MapJudges $judges,
         SuiteNames|CannotJudge|NotGiven $names = new NotGiven(),
+        Multiple|NotGiven $learned = new NotGiven(),
     ): self|CannotJudge {
         $map = $judges->map();
         $identity = $adapters->runner->identity($adapters->withheld);
@@ -72,7 +74,7 @@ final readonly class Keying
             ? new self(
                 ContentKeys::of(
                     InstalledVerdictCode::installed()->of($identity->runner()),
-                    self::config($settings, $adapters->narrowing),
+                    self::config($settings, $adapters->narrowing, $learned),
                     $identity,
                     self::analyser($adapters),
                     $setup->installed,
@@ -179,22 +181,27 @@ final readonly class Keying
     }
 
     /**
-     * The config as it affects results (ADR-0007), and what a
-     * narrowed run is narrowed to, the mutators it makes mutants with and the
-     * suite whose tests judge them, so its proofs never stand in for a whole
-     * unit's (ADR-0021, ADR-0025).
+     * The config as it affects results (ADR-0007); what a narrowed run is
+     * narrowed to, the mutators it makes mutants with and the suite whose
+     * tests judge them, so its proofs never stand in for a whole unit's
+     * (ADR-0021, ADR-0025); and the `timeouts.multiple` a plan learned, which
+     * is what its mutants ran under (ADR-0108).
      */
-    private static function config(Settings $settings, Narrowing $narrowing): string
-    {
+    private static function config(
+        Settings $settings,
+        Narrowing $narrowing,
+        Multiple|NotGiven $learned = new NotGiven(),
+    ): string {
         $suite = $narrowing->suite();
+        $beside = [
+            ...$narrowing->isNone() ? [] : ['mutators' => [...$narrowing->mutators()]],
+            ...$suite instanceof SuiteName ? ['suite' => $suite->value()] : [],
+            ...$learned instanceof Multiple ? ['learnedMultiple' => $learned->times()] : [],
+        ];
 
-        return $narrowing->isNone()
+        return $beside === []
             ? $settings->canonical()
-            : JsonText::encode([
-                'config' => $settings->canonical(),
-                'mutators' => [...$narrowing->mutators()],
-                ...$suite instanceof SuiteName ? ['suite' => $suite->value()] : [],
-            ]);
+            : JsonText::encode(['config' => $settings->canonical(), ...$beside]);
     }
 
     /**

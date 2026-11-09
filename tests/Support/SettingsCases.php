@@ -82,13 +82,17 @@ final readonly class SettingsCases
             "max": 20,
             "learnedFrom": "max",
             "setup": "1m",
-            "cutAt": 2.0
+            "cutAt": 2.0,
+            "jobLimit": "5h40m"
         },
         "costs": {
             "secondsPerLine": {
                 "": 0.2
             },
-            "savingsWindow": "30d"
+            "savingsWindow": "30d",
+            "testsBeforeAKill": 5,
+            "surviving": 0.02,
+            "shardOverhead": 2.5
         },
         "plan": {
             "chunkMinutes": 15,
@@ -158,6 +162,7 @@ final readonly class SettingsCases
         },
         "timeouts": {
             "mode": "confirm",
+            "headroom": 0.1,
             "seconds": 10,
             "most": 300,
             "multiple": 3,
@@ -185,7 +190,8 @@ final readonly class SettingsCases
                 "most": 10.0
             },
             "perTest": 3,
-            "testFloor": 3
+            "testFloor": 3,
+            "heavyFill": true
         },
         "flaky": {
             "confirmSurvivors": true

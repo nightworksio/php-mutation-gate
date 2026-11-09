@@ -99,6 +99,24 @@ it('makes shards larger rather than cut more of them than the most there may be'
     ]);
 });
 
+it('cuts every shard the most there may be allows, however far one unit\'s estimate is past a share', function () use ($weighed, $makeSrc, $shards): void {
+    $units = array_map(static fn(int $at): Weighed => $weighed(sprintf('src/U%03d.php', $at), 600.0), range(1, 36));
+    $work = Workload::of($weighed('src/A.php', 28949.0), ...$units);
+
+    expect($shards(Cut::bySize(600, Seconds::of(0.0), 10)->cut($work, $makeSrc())))->toHaveCount(10);
+});
+
+it('cuts more shards where a shard\'s size would not fit its job, up to the most there may be', function () use ($weighed, $makeSrc, $shards): void {
+    $units = array_map(static fn(int $at): Weighed => $weighed(sprintf('src/U%02d.php', $at), 100.0), range(1, 40));
+    $work = Workload::of(...$units);
+    $cut = Cut::bySize(4000, Seconds::of(10.0), 10);
+
+    expect($shards($cut->cut($work, $makeSrc())))->toHaveCount(1)
+        ->and($shards($cut->withinJobLimit(Seconds::of(1010.0))->cut($work, $makeSrc())))->toHaveCount(4)
+        ->and($shards($cut->withinJobLimit(Seconds::of(1010.0))->atMost(2)->opening(Seconds::of(0.0))->cut($work, $makeSrc())))->toHaveCount(2)
+        ->and($shards(Cut::exactly(1)->withinJobLimit(Seconds::of(1010.0))->cut($work, $makeSrc())))->toHaveCount(1);
+});
+
 it('stops growing once the shards fit the most there may be exactly', function () use ($weighed, $makeSrc, $shards): void {
     $src = $makeSrc();
 

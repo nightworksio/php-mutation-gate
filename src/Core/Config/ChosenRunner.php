@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerPace;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
@@ -83,5 +84,11 @@ final readonly class ChosenRunner
     public function poll(): Seconds
     {
         return $this->pacing->poll();
+    }
+
+    /** `runner.processes`: how many mutants the runner runs at once on a machine with these cores. */
+    public function processes(ProcessCount $cores): ProcessCount
+    {
+        return $this->pacing->processes($cores);
     }
 }

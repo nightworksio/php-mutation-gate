@@ -182,7 +182,12 @@ final readonly class PlanCommand
         $shards = $composed->settings->shards();
         $estimates = PlanEstimates::of($plan, $shards->setup());
 
-        $summary = $estimates->summary($composed->adapters->processes(), $shards->target(), $shards->max());
+        $summary = $estimates->summary(
+            $composed->adapters->processes(),
+            $shards->target(),
+            $shards->max(),
+            $shards->jobLimit(),
+        );
 
         foreach ([...$estimates->lines(), ...$summary] as $line) {
             $aside->writeln($line, OutputInterface::OUTPUT_RAW);

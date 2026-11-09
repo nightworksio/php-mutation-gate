@@ -14,11 +14,19 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * its full id, `check`, the check-run the verdict reported under,
  * `ownScopeProofs`, how many proofs of the scope's own ledger it used,
  * `ownScopeCoverage`, true only where its coverage map was measured against
- * the map the scope keeps, and `at`, the instant it passed, where it is known.
+ * the map the scope keeps, `at`, the instant it passed, where it is known, and
+ * `gate`, the release of the gate that judged it, where it is known.
  *
  * @internal the shape of the ledger and plan files
  *
- * @phpstan-type Written array{commit: string, check: string, ownScopeProofs: int, ownScopeCoverage?: true, at?: string}
+ * @phpstan-type Written array{
+ *     commit: string,
+ *     check: string,
+ *     ownScopeProofs: int,
+ *     ownScopeCoverage?: true,
+ *     at?: string,
+ *     gate?: string,
+ * }
  */
 final readonly class PassedRecord
 {
@@ -33,6 +41,8 @@ final readonly class PassedRecord
 
     private const string AT = ProofRecord::AT;
 
+    private const string GATE = 'gate';
+
     /** @return Written */
     public static function of(Passed $passed): array
     {
@@ -44,6 +54,7 @@ final readonly class PassedRecord
             self::OWN_SCOPE_PROOFS => $passed->ownScopeProofs(),
             ...$passed->measuredOnOwnScope() ? [self::OWN_SCOPE_COVERAGE => true] : [],
             ...$at instanceof Instant ? [self::AT => $at->value()] : [],
+            ...$passed->gate()->isRecorded() ? [self::GATE => $passed->gate()->value()] : [],
         ];
     }
 
@@ -69,6 +80,8 @@ final readonly class PassedRecord
             $coverage->boolean() => $read->onOwnScopeCoverage(),
             default => throw NotInShape::at($coverage->at(), 'true'),
         };
+        $gate = $record->field(self::GATE);
+        $read = $gate->isPresent() ? $read->judgedBy(GateRelease::spelt($gate->text())) : $read;
         $at = $record->field(self::AT);
 
         if (! $at->isPresent()) {

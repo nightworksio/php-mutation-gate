@@ -33,15 +33,20 @@ use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Tree\Tree as GateTree;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
@@ -134,6 +139,29 @@ it('lays out as a fixture project each directory reach.fixtures names, and none 
 
     expect(Reached::layout($adapters, Flows::settings(Reach::fixtures('tests/Fixtures/*')), $suite)->isInFixtures($change))->toBeTrue()
         ->and(Reached::layout($adapters, Flows::settings(), $suite)->isInFixtures($change))->toBeFalse();
+});
+
+it('lays out as a module each directory with a composer.json of its own inside the package, and the package itself as none', function (): void {
+    $files = [
+        ...Flows::FILES,
+        'app-modules/billing/composer.json' => "{}\n",
+        'app-modules/billing/tests/InvoiceTest.php' => "<?php\n",
+        'app-modules/billing/src/Invoice.php' => "<?php\n",
+        'packages/sdk/composer.json' => "{}\n",
+        'packages/sdk/src/Client.php' => "<?php\n",
+    ];
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [Revision::workingTree()->name() => $files, 'base' => $files]);
+    $trees = new TreeSourceFake(Trees::of(
+        ...Flows::trees(),
+        ...Trees::of(GateTree::at(Path::of('packages/sdk/src'), Floor::of(50), Package::at(Path::of('packages/sdk')))),
+    ));
+    $adapters = Flows::adapters(Flows::project(), [], $checkout, $trees);
+    $layout = Reached::layout($adapters, Flows::settings(), reachedSuite($checkout, $adapters));
+
+    expect(array_map(static fn(Path $module): string => $module->value(), [...$layout->modulesHolding(Path::of('app-modules/billing/tests/InvoiceTest.php'))]))
+        ->toBe(['app-modules/billing'])
+        ->and(count($layout->modulesHolding(Path::of('tests/MoneyTest.php'))))->toBe(0)
+        ->and(count($layout->modulesHolding(Path::of('packages/sdk/tests/ClientTest.php'))))->toBe(0);
 });
 
 it('reaches every unit of a full run, for its reason', function () use ($makeMoney, $makeHeld): void {

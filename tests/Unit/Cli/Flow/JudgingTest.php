@@ -40,6 +40,7 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -56,6 +57,9 @@ use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
@@ -196,7 +200,7 @@ it('records a pass under the check the config names', function () use ($makeTree
 
     expect($verdict->judgement())->toBe(Judgement::Passed)
         ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'gate / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'gate / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate)));
 });
 
 it('records a pass measured against its own scope\'s coverage map as one that used its own scope, which the default branch never trusts', function () use ($makeTree, $makeReporting, $makeJudged): void {
@@ -216,7 +220,7 @@ it('records a pass measured against its own scope\'s coverage map as one that us
     ));
     $passed = LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed();
 
-    expect($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->onOwnScopeCoverage())
+    expect($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate))->onOwnScopeCoverage())
         ->and($passed instanceof Passed && $passed->usedOwnScope())->toBeTrue();
 });
 
@@ -732,7 +736,7 @@ it('counts the proofs and the results of its own scope it took, and records how 
     $passed = LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed();
 
     expect($judgement instanceof Judged ? $judgement->verdict->judgement() : $judgement)->toBe(Judgement::Passed)
-        ->and($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 2)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
+        ->and($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 2)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate)));
 });
 
 it('uses none of its own scope where the default branch proved what it took', function () use (
@@ -761,7 +765,7 @@ it('uses none of its own scope where the default branch proved what it took', fu
     )->verdict($plan, JudgingRuns::noResults($project));
 
     expect(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate)));
 });
 
 it('cannot judge where a unit the plan proved or carried has lost its proof', function () use (
@@ -821,7 +825,7 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
 
     expect($judgement instanceof Judged ? count($judgement->verdict->trees()->units()) : $judgement)->toBe(1)
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate)));
 });
 
 it('carries the last result\'s mutants of a mutator the plan pruned into the unit, and writes no proof of it', function () use ($makeTree, $makeReporting, $makeJudged): void {
@@ -868,4 +872,20 @@ it('carries the last result\'s mutants of a mutator the plan pruned into the uni
             Decoded::column(JsonReport::encode($verdict), 'id', 'mutants'),
             array_filter(Decoded::column(JsonReport::encode($verdict), 'carriedPruned', 'mutants'), static fn(mixed $mark): bool => $mark === true),
         )))->toBe([$carried->value()]);
+});
+
+it('records with each proof the test files the coverage map it read says cover its file, which pruning then holds it to', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards()
+        ->digesting(Digests::of(Digest::sha256Of('mutation'))
+            ->withSource(Path::of('src/Held.php'), Digest::sha256Of('held source'))
+            ->withTest(Path::of('tests/HeldTest.php'), Digest::sha256Of('held test')))
+        ->naming(TestNames::none()->with(TestId::of('HeldTest::doubles'), TestName::in(Path::of('tests/HeldTest.php'), 'doubles')));
+
+    $makeJudged()($plan, Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(50))), JudgingRuns::settings(), $makeReporting()(new ReporterFake()));
+    $held = LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()->proofFor(Digest::sha256Of('held'));
+    $inputs = $held instanceof Proof ? $held->inputs() : $held;
+
+    expect($inputs instanceof Inputs ? $inputs->testDigest(Path::of('tests/HeldTest.php')) : $inputs)->toEqual(Digest::sha256Of('held test'));
 });

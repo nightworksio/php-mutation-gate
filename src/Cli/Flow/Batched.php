@@ -42,6 +42,7 @@ final readonly class Batched
         private Invoking $invoking,
         private ClockInterface $clock,
         private Deadline|Unlimited $deadline,
+        private Deadline|Unlimited $fittedTo,
         private Interruption $interruption,
         private Doom|Undoomed $doom,
         private bool $stops,
@@ -103,12 +104,16 @@ final readonly class Batched
     }
 
     /**
-     * The next batch that fits, or none once the run is interrupted.
+     * The next batch whose estimate fits a budget's time left, or none once
+     * the run is interrupted. `shards.jobLimit` turns no unit away on its
+     * estimate: a unit starts, and the runner stops at the limit.
      *
      * @param list<Weighed> $queue
      */
     private function batchOf(Batching $batching, array $queue, Seconds|Unlimited $left): Units
     {
-        return $this->interruption->arrived() ? Units::none() : $batching->next($queue, $left);
+        $fitted = $this->fittedTo instanceof Deadline ? $left : $this->fittedTo;
+
+        return $this->interruption->arrived() ? Units::none() : $batching->next($queue, $fitted);
     }
 }

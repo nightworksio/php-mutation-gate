@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -25,6 +26,18 @@ it('writes each learned limit it sets, and a written multiple', function (): voi
     ])
         ->and(Configs::written(Gate::configure()->with(Timeouts::multiple(4.5), Shards::learnedFromMax())))
         ->toBe(['timeouts' => ['multiple' => 4.5], 'shards' => ['learnedFrom' => 'max']]);
+});
+
+it('writes the headroom, and reads it into the settings, refusing one past the most', function (): void {
+    $written = Configs::written(Gate::configure()->with(Timeouts::headroom(0.25)));
+
+    expect($written)->toBe(['timeouts' => ['headroom' => 0.25]])
+        ->and(Configs::settings(['runner' => 'pest', 'timeouts' => ['headroom' => 0.9]])->triage()->headroom())
+        ->toEqual(TimeoutHeadroom::of(0.9))
+        ->and(Configs::settings(['runner' => 'pest', 'timeouts' => ['headroom' => 0]])->triage()->headroom())
+        ->toEqual(TimeoutHeadroom::of(0))
+        ->and(Configs::settings(['runner' => 'pest', 'timeouts' => ['headroom' => 0.25]])->triage()->headroom())
+        ->toEqual(TimeoutHeadroom::of(0.25));
 });
 
 it('reads learned limits into bounds that learn them, and writes them back as the builder calls them', function (): void {
@@ -69,6 +82,8 @@ it('learns no limit a config writes a number for, and takes no statistic for a w
 it('refuses a multiple under one and a word other than learned', function (array $config, string $problem): void {
     expect(Configs::problems(Configs::validated(['runner' => 'pest', ...$config])))->toContain($problem);
 })->with([
+    'a headroom under nothing' => [['timeouts' => ['headroom' => -0.1]], 'timeouts.headroom: expected a number from 0 to 0.9, got -0.1'],
+    'a headroom past the most' => [['timeouts' => ['headroom' => 0.95]], 'timeouts.headroom: expected a number from 0 to 0.9, got 0.95'],
     'a multiple under one' => [['timeouts' => ['multiple' => 0.5]], 'timeouts.multiple: expected a number of at least 1, or "learned", got 0.5'],
     'another word' => [['shards' => ['max' => 'many']], 'shards.max: expected an integer of at least 1, or "learned", got "many"'],
     'a statistic it does not know' => [['shards' => ['learnedFrom' => 'mean']], 'shards.learnedFrom: expected "max" or "median", got "mean"'],

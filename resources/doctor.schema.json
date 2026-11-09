@@ -43,6 +43,7 @@
                             "verdict-not-required",
                             "fork-approval-weak",
                             "schedule-not-running",
+                            "no-scheduled-run",
                             "online-unread",
                             "no-github-repository",
                             "memory-uncapped",

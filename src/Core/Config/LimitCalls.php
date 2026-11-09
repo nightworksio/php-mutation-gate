@@ -54,6 +54,18 @@ final readonly class LimitCalls
         };
     }
 
+    /** @return list<string> the builder's `$call` with whole seconds, where a layer sets them */
+    public static function wholeSeconds(string $call, Seconds|Absent $seconds): array
+    {
+        return $seconds instanceof Seconds ? [sprintf('%s(%d)', $call, intval($seconds->seconds()))] : [];
+    }
+
+    /** @return list<string> the builder's `$call` with seconds as written, where a layer sets them */
+    public static function writtenSeconds(string $call, Seconds|Absent $seconds): array
+    {
+        return $seconds instanceof Seconds ? [sprintf('%s(%s)', $call, PhpCalls::literal($seconds->written()))] : [];
+    }
+
     /** @return list<string> the builder's call that sets `timeouts.tighter`, where a layer sets it */
     public static function tighter(TighterSilence|Absent $tighter): array
     {
@@ -94,5 +106,11 @@ final readonly class LimitCalls
             },
             ...$statistic instanceof LearnedStatistic ? [$statistic->php()] : [],
         ];
+    }
+
+    /** @return list<string> the builder's call that sets `timeouts.headroom`; none where no layer set it */
+    public static function headroom(int|float|Absent $headroom): array
+    {
+        return $headroom instanceof Absent ? [] : [sprintf('Timeouts::headroom(%s)', PhpCalls::literal($headroom))];
     }
 }

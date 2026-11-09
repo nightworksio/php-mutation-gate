@@ -770,11 +770,14 @@ jobs:
   # fetch and deliver. The store's keys are passed by name, and their values
   # come from the environments fetch and deliver enter (ADR-0029). The plan
   # reads the map `tests` wrote, so the suite runs under coverage once, and a
-  # run whose suite fails spends no mutation. Its jobs run on Arm, where three
+  # run whose suite or fast gates fail spends no mutation. It runs on every pull
+  # request, the documentation-only ones included, because a required check from a called
+  # workflow reports only when its caller runs; where `tests` was skipped, the
+  # plan measures its own map if it needs one. Its jobs run on Arm, where three
   # of its shards gave the same verdicts in 29% less time (ADR-0035).
   mutation:
-    needs: [scope, tests]
-    if: ${{ !cancelled() && needs.tests.result == 'success' && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'mutation')) }}
+    needs: [scope, tests, checks, rules, scripts]
+    if: ${{ !cancelled() && needs.tests.result != 'failure' && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' }}
     permissions:
       contents: write # used only by publish, on the default branch, which writes the badge and the trend
       actions: read # used only by verdict and deliver, to find the run's HTML report the comment links
@@ -782,7 +785,7 @@ jobs:
       id-token: write # used only by fetch and deliver, for a store that signs in through OIDC
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
     with:
-      coverage: mutation-gate-map
+      coverage: ${{ needs.tests.result == 'success' && 'mutation-gate-map' || '' }}
       # The zstd extension, so the ledger's zstd is mutated through it as the tests cover it (ADR-0085).
       extensions: zstd
       runs-on: ubuntu-24.04-arm

@@ -116,14 +116,27 @@ final class PruningCases
     }
 
     /** A full result of a unit, made at this instant, of the code these digests name. */
-    public static function proof(string $unit, string $at, string $source, Mutants $mutants, string $mutation = 'mutation'): Proof
-    {
+    /** @param array<string, string> $tests each test file's content as the result recorded it, by its path */
+    public static function proof(
+        string $unit,
+        string $at,
+        string $source,
+        Mutants $mutants,
+        string $mutation = 'mutation',
+        array $tests = [],
+    ): Proof {
+        $inputs = Inputs::of(Digest::sha256Of($source), Digest::sha256Of($mutation));
+
+        foreach ($tests as $file => $content) {
+            $inputs = $inputs->withTest(Path::of($file), Digest::sha256Of($content));
+        }
+
         return Proof::of(
             Digest::of(sprintf('%s-%s', $unit, $at)),
             Path::of($unit),
             $mutants,
             Run::of('main', Moment::at($at), Digest::of(str_repeat('b', 64))),
-        )->withInputs(Inputs::of(Digest::sha256Of($source), Digest::sha256Of($mutation)));
+        )->withInputs($inputs);
     }
 
     /** The digests of the code on disk: each unit's source as named, and the mutant set's. */

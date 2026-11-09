@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Time\Day;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -96,4 +97,13 @@ it('never finds an ignore that does not expire', function () use ($unchanged): v
     $forever = IgnoredPattern::of(Glob::of('src/**'), 'boundary', 'The bound is never reached', Absent::setting());
 
     expect($unchanged()->expiredBy(Listed::of($forever), new DateTimeImmutable('2099-01-01T00:00:00Z')))->toEqual(NotGiven::value());
+});
+
+it('records the commit it stands for as passed by the release that judged the commit it stands on', function (): void {
+    $at = Instant::at(new DateTimeImmutable('2026-10-10T07:30:00Z'));
+    $base = Passed::of(Revision::ref(UNCHANGED_COMMIT), 'mutation / verdict', 2)
+        ->passedAt($at)
+        ->judgedBy(GateRelease::spelt('v0.1.0'));
+
+    expect(Unchanged::since($base, $at)->passing(Revision::ref('head'), $at)->gate())->toEqual(GateRelease::spelt('v0.1.0'));
 });

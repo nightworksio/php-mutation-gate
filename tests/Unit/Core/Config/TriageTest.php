@@ -6,7 +6,9 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -14,6 +16,15 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 it('writes the seconds a mutant may run and the most any may as the PHP config calls them', function (): void {
     expect(Triage::of(limit: Seconds::of(30), most: Seconds::of(600))->php(ProjectRoot::origin()))
         ->toEqual(PhpCalls::inWith('Timeouts::seconds(30)', 'Timeouts::most(600)'));
+});
+
+it('writes the headroom as the PHP config and the config file write it, and the standard where none is', function (): void {
+    expect(Triage::of(headroom: 0.25)->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith('Timeouts::headroom(0.25)'))
+        ->and(Triage::of(headroom: 0.25)->headroom())->toEqual(TimeoutHeadroom::of(0.25))
+        ->and(Triage::of()->headroom())->toEqual(TimeoutHeadroom::of(0.1))
+        ->and(Triage::standard()->headroom())->toEqual(TimeoutHeadroom::of(0.1))
+        ->and(Triage::of()->over(Triage::of(headroom: 0))->headroom())->toEqual(TimeoutHeadroom::of(0))
+        ->and(Triage::of(headroom: 0.25)->over(Triage::of())->headroom())->toEqual(TimeoutHeadroom::of(0.25));
 });
 
 it('writes each test\'s own limit as the PHP config and the config file write it, and its absence as nothing', function (): void {
@@ -41,7 +52,7 @@ it('allows a kill\'s control 900 seconds unless set, or timeouts.most where long
     $set = Triage::of(controlMost: Seconds::of(1200.0));
     $refused = Triage::of(most: Seconds::of(400.0), controlMost: Seconds::of(350.0))->refusal();
 
-    expect(Triage::none()->controlMost())->toEqual(Seconds::of(900.0))
+    expect(Triage::of()->controlMost())->toEqual(Seconds::of(900.0))
         ->and(Triage::of(most: Seconds::of(1500.0))->controlMost())->toEqual(Seconds::of(1500.0))
         ->and(Triage::of(most: Seconds::of(1500.0))->refusal())->toEqual(Absent::setting())
         ->and(Triage::standard()->written(ProjectRoot::origin())->line())->not->toContain('controlMost')
@@ -55,4 +66,20 @@ it('allows a kill\'s control 900 seconds unless set, or timeouts.most where long
         ->and(Triage::of(most: Seconds::of(60.0))->over($set)->controlMost())->toEqual(Seconds::of(1200.0))
         ->and($refused instanceof Invalid ? $refused->said() : '')
         ->toBe('timeouts.controlMost: expected at least timeouts.most, 400, got 350');
+});
+
+it('fills with heavy parts and caps none by default, writes each as a layer sets it, and takes a later layer\'s', function (): void {
+    $set = Triage::of(heavyFill: false, heavyParts: 10);
+    $on = Triage::of(heavyFill: true);
+    $over = Triage::of(heavyParts: 3);
+
+    expect(Triage::of()->heavy()->fills())->toBeTrue()
+        ->and(Triage::of()->heavy()->parts())->toEqual(NotGiven::value())
+        ->and(Triage::standard()->heavy()->parts())->toEqual(NotGiven::value())
+        ->and($set->heavy()->fills())->toBeFalse()
+        ->and($set->heavy()->parts())->toBe(10)
+        ->and($set->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith('HeavyMutants::notFilling()', 'HeavyMutants::partsAtMost(10)'))
+        ->and($on->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith('HeavyMutants::filling()'))
+        ->and($set->over($over)->heavy()->parts())->toBe(3)
+        ->and($set->over($over)->heavy()->fills())->toBeFalse();
 });

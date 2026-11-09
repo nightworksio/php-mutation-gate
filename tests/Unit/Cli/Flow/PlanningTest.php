@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
+use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
@@ -55,7 +56,9 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -68,6 +71,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -342,6 +346,26 @@ it('hands each shard the kill history the ledgers learned, which enters no key a
         ->toEqual($cold instanceof Plan ? $cold->keys() : $cold);
 });
 
+it('keys every unit by the whole timeouts.multiple it learned, where the config learns one', function () use ($coverage): void {
+    $keys = static function (float $kill) use ($coverage): Keys|CannotJudge {
+        $store = new ProofStoreFake();
+        $store->write(Scope::branch('main'), Ledger::empty()->withLearned(
+            LimitHistory::none()->afterKills(Multiple::of($kill)),
+        ));
+        $planned = Planned::from(new Planning(
+            Flows::adapters(Flows::project(), [], $store),
+            Flows::settings(Timeouts::learnedMultiple()),
+            Flows::setup(),
+        )->plan(Mode::full(), $coverage(), Cut::exactly(2), MatrixKind::FirstKiller));
+
+        return $planned instanceof Plan ? $planned->keys() : $planned;
+    };
+
+    expect($keys(4.2))->toBeInstanceOf(Keys::class)
+        ->and($keys(4.2))->toEqual($keys(4.9))
+        ->and($keys(4.2))->not->toEqual($keys(5.1));
+});
+
 it('names the coverage map\'s tests once, withholding what every process withholds, outside keys and digest', function () use (
     $plan,
 ): void {
@@ -402,8 +426,8 @@ it('estimates a unit no shard timed by what it measured of the first run, counti
         $planned instanceof Plan ? [...$planned] : [],
     );
 
-    // The fake runner starts a run of no test in 1.5 s and runs one mutant at a time.
-    expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(1.7), Seconds::of(0.0)]]);
+    // The fake runner starts a run of no test in 1.5 s and runs one mutant at a time; a shard takes 2.5 times that.
+    expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(4.25), Seconds::of(0.0)]]);
 });
 
 it('counts nothing and starts no run of no test where every unit to run is timed', function () use ($plan): void {
@@ -442,7 +466,7 @@ it('learns nothing from a timing another release of the gate measured, or one no
     $estimate = $planned instanceof Plan ? [...$planned][0]->estimate() : null;
 
     expect($estimate?->part(CostBasis::Learned))->toEqual(Seconds::of(0.0))
-        ->and($estimate?->part(CostBasis::Measured))->toEqual(Seconds::of(1.7))
+        ->and($estimate?->part(CostBasis::Measured))->toEqual(Seconds::of(4.25))
         ->and($runner->startedUp())->not->toBe([]);
 });
 

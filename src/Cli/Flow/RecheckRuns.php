@@ -69,7 +69,7 @@ final readonly class RecheckRuns
             $made[$mutant->id()->key()] = $mutant;
         }
 
-        $triage = MutantTriage::under($this->settings->triage()->timeouts());
+        $triage = MutantTriage::under($this->settings->triage()->timeouts(), $this->settings->triage()->headroom());
         $rechecks = [];
 
         foreach ($taken->survivors() as $before) {

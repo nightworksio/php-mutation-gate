@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Workspace as FileWorkspace;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
@@ -354,6 +355,17 @@ it('gives the action\'s token only to naming the default branch and fetching the
         ->and(Lenient::text($steps[$deliver]->field('if')))->toBe("inputs.deliver == 'true'")
         ->and($delivering)->toContain('php "${GITHUB_ACTION_PATH}/bin/mutation-gate" deliver --from=')
         ->and(Lenient::text($steps[$installs]->field('if')))->toBe("inputs.deliver != 'true'");
+});
+
+it('stops a shard by shards.jobLimit before its job is cancelled', function (): void {
+    $shards = (string) file_get_contents(Tree::at('scripts/workflows/mutation-gate/shards.yml'));
+    $trigger = (string) file_get_contents(Tree::at('scripts/workflows/mutation-gate/trigger.yml'));
+    $pattern = '/^      shard-timeout:\n(?:        \S.*\n)*?        default: (?<minutes>\d+)$/mu';
+    $minutes = preg_match($pattern, $trigger, $found) === 1 ? (int) $found['minutes'] : 0;
+
+    expect($shards)->toContain("  shard:\n    name: shard \${{ matrix.shard.id }} (\${{ matrix.shard.label }})\n    needs: plan\n")
+        ->and($shards)->toContain('    timeout-minutes: ${{ inputs.shard-timeout }}')
+        ->and(Shards::standard()->jobLimit()->seconds())->toBeLessThan($minutes * 60.0);
 });
 
 it('installs the gate the action delivers with from its own lock alone, running none of its scripts or plugins', function (): void {

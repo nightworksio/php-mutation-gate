@@ -308,7 +308,7 @@ final readonly class FlowOptions
             ? Cut::toTarget($target, $shards->setup(), $shards->max())
             : Cut::bySize((int) $shards->seconds()->seconds(), $shards->setup(), $shards->max());
 
-        return self::parting($cut->cuttingAt($shards->planning()->cutAt()), $settings);
+        return self::parting($cut->cuttingAt($shards->planning()->cutAt())->withinJobLimit($shards->jobLimit()), $settings);
     }
 
     /** The shard `--shard` names, or none, when the CI's environment names it. */

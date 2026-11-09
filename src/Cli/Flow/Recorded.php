@@ -13,9 +13,11 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\MutantTimes;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Untimed;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -67,6 +69,7 @@ final readonly class Recorded
         Passed|CannotTell $passed,
         LastRun|CannotTell $lastRun,
         RunTimings|Untimed $timings = new Untimed(),
+        CoverageMap|CannotJudge|NotGiven $map = new NotGiven(),
     ): Written|NotWritten|ReadsOnly|CannotJudge {
         $scope = $ledgers->access()->writes();
 
@@ -77,7 +80,7 @@ final readonly class Recorded
         $fresh = $this->checked($plan, $results, $ledgers);
         $written = $ledgers->written()->atBase($plan->base());
         $written = $written->withLearned($written->learned()->analysers()->plus($results->checks()->histories()));
-        $recordings = Recordings::of($plan, $fresh, $run, $this->adapters->project);
+        $recordings = Recordings::of($plan, $fresh, $run, $this->adapters->project, $map);
         $proved = $this->proved($written, $plan, $recordings);
         $learned = $this->adapters->narrowing->isNone()
             ? $this->learned(
