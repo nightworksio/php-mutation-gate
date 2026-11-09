@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function count;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -50,6 +51,9 @@ use function sprintf;
  */
 final readonly class KeptCoverage
 {
+    private const string EARLY = 'The run is full and splits its streams, and no proof could spare a unit, so it'
+        . ' plans without a fresh map: its streams record what their tests execute (ADR-0135).';
+
     private const string MEASURED = 'Coverage: measured %d of %d test files again; kept the rest from %s.';
 
     private const string NONE_KEPT = 'Coverage: there is no kept map, so every test was measured.';
@@ -185,6 +189,29 @@ final readonly class KeptCoverage
             : StoredCoverage::in($this->adapters->proofs, $access, $this->limits(), $this->adapters->maps);
 
         return $this->measuring($entries, $kept->map(), $kept->from(), $suites);
+    }
+
+    /**
+     * The map kept beside the default branch's ledger as it is, left in the
+     * workspace for a run planned without a fresh map, which reads it for
+     * its tests' times alone (ADR-0135); none where none is kept.
+     */
+    public function keptAsIs(Inventory $inventory): CoverageMeasured|NotGiven
+    {
+        $access = Access::of(
+            $inventory->standing->runOn()->scope(),
+            $inventory->standing->defaultBranch(),
+            Writing::from($this->settings->proofs()->write()->value),
+        );
+        $kept = StoredCoverage::in($this->adapters->proofs, $access, $this->limits(), $this->adapters->maps)->map();
+        $bytes = $kept instanceof KeptMap ? CoverageMapFile::keeping($kept, $this->limits(), $this->level()) : $kept;
+        $written = is_string($bytes)
+            ? $this->adapters->project->write(CoverageMapFile::in(Workspace::coverage()), Contents::of($bytes))
+            : NotGiven::value();
+
+        return $written instanceof Written
+            ? CoverageMeasured::of(CoverageRead::from(Workspace::coverage()), self::EARLY)
+            : NotGiven::value();
     }
 
     /**

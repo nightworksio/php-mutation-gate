@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\Coverage\Untested;
 use NightWorksIO\MutationGate\Core\File\ByPath;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -34,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -110,9 +112,57 @@ final readonly class Planning
         $unchanged = new UnchangedPlan($this->adapters, $this->settings, $this->setup)
             ->of($inventory, $ledgers, $mode, $matrix);
 
-        return $unchanged instanceof PlanMade
-            ? $unchanged
-            : $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap);
+        if ($unchanged instanceof PlanMade) {
+            return $unchanged;
+        }
+
+        $early = $this->early($inventory, $ledgers, $mode, $coverage);
+
+        if (! $early instanceof CoverageMeasured) {
+            return $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap);
+        }
+
+        $taking = $mode->takingNone();
+        $none = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing, TakenProofs::None);
+        $made = $this->measured($inventory, $none, $taking, $early->request(), $cut, $matrix, $ownMap);
+
+        return $made instanceof PlanMade ? $made->plannedEarly($early) : $made;
+    }
+
+    /**
+     * The kept map a full split-stream run plans by without a fresh one,
+     * where `splitStream.early` starts it early (ADR-0135): none handed, the
+     * run full, its streams split by tests, and, under `no-match`, no proof
+     * of the ledgers it reads may share its first five inputs; none where it
+     * waits for a fresh map, or none is kept.
+     */
+    private function early(
+        Inventory $inventory,
+        Ledgers $ledgers,
+        Mode $mode,
+        CoverageRun|CoverageRead $coverage,
+    ): CoverageMeasured|NotGiven {
+        $pest = $this->settings->effective()->pest();
+
+        $splits = $pest->splitsByTests($this->settings->runner()->choice());
+
+        if (! $coverage instanceof CoverageRun || ! $mode->isFull() || ! $splits) {
+            return NotGiven::value();
+        }
+
+        $reads = Keying::readsOf(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            LearnedLimits::of($this->settings, $ledgers)->multiple(),
+        );
+        $match = ! $reads instanceof Digest
+            || $ledgers->own()->proofs()->mayShareReads($reads)
+            || $ledgers->defaultBranch()->proofs()->mayShareReads($reads);
+
+        return $pest->splitStream()->early()->startsEarly($mode->isUnproven(), $match)
+            ? new KeptCoverage($this->adapters, $this->settings, $this->setup)->keptAsIs($inventory)
+            : NotGiven::value();
     }
 
     /**

@@ -102,6 +102,18 @@ final readonly class Mode
     }
 
     /** Whether every unit is considered, as `--full` asks. */
+    /** This mode, taking no proof, as a run planned without a fresh map takes none (ADR-0135). */
+    public function takingNone(): self
+    {
+        return new self($this->since, $this->sampled, unproven: true, byItself: $this->byItself);
+    }
+
+    /** Whether the run takes no proof, as under `unproven`. */
+    public function isUnproven(): bool
+    {
+        return $this->unproven;
+    }
+
     public function isFull(): bool
     {
         return $this->since === '';
