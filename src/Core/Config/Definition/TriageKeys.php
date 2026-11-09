@@ -56,6 +56,7 @@ final readonly class TriageKeys
         $testFloor = Field::optional('testFloor', Integer::atLeast(1), $results);
         $controlMost = Field::optional('controlMost', Integer::atLeast(1), $results);
         $startUp = Field::optional('startUp', Duration::written(), $results);
+        $startUpMultiple = Field::optional('startUpMultiple', Number::atLeast(1), $results);
         $learned = Field::section('learned', self::learned());
         $heavyFill = Field::optional('heavyFill', Flag::boolean(), $judges);
         $heavyParts = Field::optional('heavyParts', Integer::atLeast(1), $results);
@@ -83,6 +84,7 @@ final readonly class TriageKeys
                         $testFloor,
                         $controlMost,
                         $startUp,
+                        $startUpMultiple,
                         $learned,
                         $heavyFill,
                         $heavyParts,
@@ -97,6 +99,7 @@ final readonly class TriageKeys
                         $least = $testFloor->read($timeouts);
                         $controls = $controlMost->read($timeouts);
                         $starts = $startUp->read($timeouts);
+                        $startTimes = $startUpMultiple->read($timeouts);
                         $bounds = $learned->read($timeouts);
                         $fills = $heavyFill->read($timeouts);
                         $cap = $heavyParts->read($timeouts);
@@ -112,6 +115,7 @@ final readonly class TriageKeys
                                 testFloor: self::seconds($least->value()),
                                 controlMost: self::seconds($controls->value()),
                                 startUp: $starts->value(),
+                                startUpMultiple: $startTimes->value(),
                                 learned: $bounds->value(),
                                 heavyFill: $fills->value(),
                                 heavyParts: $cap->value(),
@@ -127,6 +131,7 @@ final readonly class TriageKeys
                             $least,
                             $controls,
                             $starts,
+                            $startTimes,
                             $bounds,
                             $fills,
                             $cap,
@@ -142,6 +147,7 @@ final readonly class TriageKeys
                     $testFloor,
                     $controlMost,
                     $startUp,
+                    $startUpMultiple,
                     $learned,
                     $heavyFill,
                     $heavyParts,

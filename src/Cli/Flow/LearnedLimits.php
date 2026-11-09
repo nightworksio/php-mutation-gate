@@ -48,7 +48,7 @@ final readonly class LearnedLimits
     private const string SHARDS_COLD = 'shards.max learned: %d, the fixed one: the ledger holds no sharded run yet.';
 
     private const string FLOOR
-        = 'timeouts.seconds learned: %d times each shard\'s start-up, at least 1 s; %d s where none is measured.';
+        = 'timeouts.seconds learned: %s times each shard\'s start-up, at least 1 s; %d s where none is measured.';
 
     private const string PACE
         = 'staticCheck.testsTime learned: %s times their tests\' own time, the median of %d kills.';
@@ -87,7 +87,7 @@ final readonly class LearnedLimits
 
         return new self($multiple, $shards, $pace, [
             ...$bounds->learnsFloor()
-                ? [sprintf(self::FLOOR, MutantLimit::FACTOR, $floor)]
+                ? [sprintf(self::FLOOR, round($bounds->startUpMultiple(), 2), $floor)]
                 : [],
             ...$bounds->learnsMultiple() ? [self::multipleSaid($kills, $read)] : [],
             ...$statistic instanceof LearnedStatistic ? [self::shardsSaid($runs, $statistic)] : [],

@@ -113,4 +113,10 @@ final readonly class LimitCalls
     {
         return $headroom instanceof Absent ? [] : [sprintf('Timeouts::headroom(%s)', PhpCalls::literal($headroom))];
     }
+
+    /** @return list<string> `timeouts.startUpMultiple` as the builder writes it; nothing where no layer set it */
+    public static function startUpMultiple(int|float|Absent $times): array
+    {
+        return $times instanceof Absent ? [] : [sprintf('Timeouts::startUpMultiple(%s)', PhpCalls::literal($times))];
+    }
 }

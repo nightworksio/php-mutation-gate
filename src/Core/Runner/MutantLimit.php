@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * The seconds a runner allows one mutant's run where it times each mutant
  * by its tests (ADR-0008): a start-up, plus a multiple of the
  * covering tests' own time, kept between the bounds. The gate's start-up is
- * three times how long a run of no test took to start on this machine,
+ * `timeouts.startUpMultiple` times how long a run of no test took to start on this machine,
  * where the run measured one, and 5 s where it did not, and its multiple is
  * the bounds', `timeouts.multiple`; Infection's own is always 5 s and five
  * times. Where the tests' time is not measured, the floor.
@@ -75,7 +75,7 @@ final readonly class MutantLimit
 
         return match (true) {
             ! $this->isTheGates => self::START_UP,
-            $measured instanceof Seconds => $this->factor * $measured->seconds(),
+            $measured instanceof Seconds => $bounds->startUpMultiple() * $measured->seconds(),
             default => $bounds->unmeasuredStartUp()->seconds(),
         };
     }

@@ -57,6 +57,7 @@ final readonly class Triage implements Part
         private LearnedBounds $learned,
         private HeavySetting $heavy,
         private int|float|Absent $headroom,
+        private int|float|Absent $startUpMultiple,
     ) {
     }
 
@@ -79,6 +80,7 @@ final readonly class Triage implements Part
         bool|Absent $heavyFill = new Absent(),
         int|Absent $heavyParts = new Absent(),
         int|float|Absent $headroom = new Absent(),
+        int|float|Absent $startUpMultiple = new Absent(),
     ): self {
         return new self(
             $budget,
@@ -97,6 +99,7 @@ final readonly class Triage implements Part
             LearnedBounds::orNone($learned),
             HeavySetting::of($heavyFill, $heavyParts),
             $headroom,
+            $startUpMultiple,
         );
     }
 
@@ -124,6 +127,7 @@ final readonly class Triage implements Part
             learned: LearnedBounds::standard(),
             heavyFill: $none->heavy()->fills(),
             headroom: TimeoutHeadroom::STANDARD,
+            startUpMultiple: MutantLimit::FACTOR,
         );
     }
 
@@ -147,6 +151,7 @@ final readonly class Triage implements Part
                 $this->learned->over($later->learned),
                 $this->heavy->over($later->heavy),
                 Absent::laid($this->headroom, $later->headroom),
+                Absent::laid($this->startUpMultiple, $later->startUpMultiple),
             )
             : $this;
     }
@@ -216,7 +221,7 @@ final readonly class Triage implements Part
     public function bounds(): LimitBounds
     {
         $startUp = $this->startUp instanceof Seconds ? $this->startUp->seconds() : MutantLimit::START_UP;
-        $bounds = LimitBounds::between($this->limit(), $this->most(), $startUp)
+        $bounds = LimitBounds::between($this->limit(), $this->most(), $startUp, $this->startUpMultiple())
             ->tighterFor($this->tighter instanceof TighterSilence ? $this->tighter : TighterSilence::standard())
             ->multipliedBy(match (true) {
                 $this->multiple instanceof Absent => Multiple::standard(),
@@ -226,6 +231,12 @@ final readonly class Triage implements Part
             ->watchingEachTest($this->perTest->limit());
 
         return $this->limit instanceof Learned ? $bounds->learningFloor() : $bounds;
+    }
+
+    /** `timeouts.startUpMultiple`: how many times a run of no test's measured start-up a mutant's run allows to start. */
+    public function startUpMultiple(): float
+    {
+        return $this->startUpMultiple instanceof Absent ? (float) MutantLimit::FACTOR : (float) $this->startUpMultiple;
     }
 
     /** `timeouts.heavyFill` and `timeouts.heavyParts`: how heavy mutants' parts run (ADR-0114). */
@@ -293,6 +304,7 @@ final readonly class Triage implements Part
                     Member::of('most', WholeSeconds::written($this->most)),
                     Member::of('multiple', LimitCalls::multipleWritten($this->multiple)),
                     Member::of('startUp', WholeSeconds::duration($this->startUp)),
+                    Member::of('startUpMultiple', $this->startUpMultiple),
                     Member::of('tighter', LimitCalls::tighterWritten($this->tighter)),
                     Member::of('controlMost', WholeSeconds::written($this->controlMost)),
                     $this->learned->written(),
@@ -321,6 +333,7 @@ final readonly class Triage implements Part
             ...LimitCalls::seconds($this->limit),
             ...LimitCalls::multiple($this->multiple),
             ...LimitCalls::writtenSeconds('Timeouts::startUp', $this->startUp),
+            ...LimitCalls::startUpMultiple($this->startUpMultiple),
             ...LimitCalls::wholeSeconds('Timeouts::most', $this->most),
             ...LimitCalls::tighter($this->tighter),
             ...$this->perTest->calls(),

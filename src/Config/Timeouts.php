@@ -109,6 +109,12 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.startUp', $duration));
     }
 
+    /** `timeouts.startUpMultiple`: how many times a run of no test's measured start-up a mutant's run allows to start. */
+    public static function startUpMultiple(int|float $times): self
+    {
+        return new self(Json::at('timeouts.startUpMultiple', $times));
+    }
+
     /** `timeouts.testFloor`: the least each test of a run may run, in seconds, where `timeouts.perTest` holds it. */
     public static function testFloor(int $seconds): self
     {
