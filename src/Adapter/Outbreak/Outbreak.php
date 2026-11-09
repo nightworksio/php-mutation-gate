@@ -232,7 +232,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
 
         return (string) json_encode([
             'store' => $request->store()->value,
-            'registry' => $registry instanceof NotGiven ? null : $registry,
+            ...$registry instanceof NotGiven ? [] : ['registry' => $registry],
             'base' => $request->base()->value(),
             'limits' => ['packed' => $request->limits()->packed(), 'unpacked' => $request->limits()->unpacked()],
             'packs' => (object) array_map($this->absolute(...), $request->packs()),

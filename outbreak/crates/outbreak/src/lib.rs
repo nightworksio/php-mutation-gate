@@ -16,6 +16,12 @@
 //!   the map of the report it names as the gate writes it, or declines a
 //!   report it does not read.
 //!
+//! - `outbreak cache pull` reads a cache request on its input, and pulls the
+//!   packs of proofs it names from their store into the gate's directory
+//!   (ADR-0131).
+//! - `outbreak cache push` reads a cache request on its input, and merges the
+//!   entries it names into their class's pack in the store.
+//!
 //! An answer is always one line of JSON with `"outbreak": 1`. A command that
 //! cannot run, for its arguments or for a file it cannot read or write, says
 //! why on its error stream and ends with a code other than nought, and the gate
@@ -63,7 +69,7 @@ impl fmt::Display for Failure {
 }
 
 /// How to run it, as it says where its arguments name no command.
-const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert";
+const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert | outbreak cache pull | outbreak cache push";
 
 /// Runs the command the arguments name, reading its input and writing its answer.
 ///
@@ -89,10 +95,19 @@ pub fn run(
         }
         ["report", "outline"] => report::outline(&read_all(input)?)?,
         ["report", "convert"] => report::convert(&read_all(input)?)?,
+        ["cache", "pull"] => cached("pulled", outbreak_cache::pull(&read_all(input)?))?,
+        ["cache", "push"] => cached("pushed", outbreak_cache::push(&read_all(input)?))?,
         _ => return Err(Failure::Usage(USAGE.to_owned())),
     };
 
     writeln!(output, "{answer}").map_err(|error| Failure::Io(format!("cannot answer: {error}")))
+}
+
+/// How many packs a command of the cache moved, as its answer says it; or why it moved none.
+fn cached(done: &str, moved: Result<usize, outbreak_cache::Failure>) -> Result<String, Failure> {
+    moved
+        .map(|count| format!(r#"{{"outbreak":{CONTRACT},"{done}":{count}}}"#))
+        .map_err(|failure| Failure::Io(failure.to_string()))
 }
 
 /// Whether a map's text is vouched for, and why not where it is not.

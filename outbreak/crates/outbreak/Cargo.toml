@@ -11,6 +11,7 @@ publish.workspace = true
 
 [dependencies]
 flate2.workspace = true
+outbreak-cache.workspace = true
 outbreak-map.workspace = true
 outbreak-report.workspace = true
 
