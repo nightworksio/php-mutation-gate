@@ -293,7 +293,9 @@ then sets `XDEBUG_MODE=off` for PHPStan too.
 `doctor` found `flaky.killControls: alone`. A kill's control then runs its
 killers alone, which is quicker, and gives up the proof that the kill happened
 in its run's order: a test that fails only after the tests before it counts as
-a kill, and no survivor shows it.
+a kill, and no survivor shows it. Under Pest it only turns off the replay of a
+run that loaded every test file: a narrowed run's replay stays, since it also
+vouches for the files that run left out.
 
 Remove the setting, or set it to `order`.
 
