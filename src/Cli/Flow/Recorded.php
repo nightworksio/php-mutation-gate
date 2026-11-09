@@ -34,7 +34,6 @@ use NightWorksIO\MutationGate\Core\Proof\Judged;
 use NightWorksIO\MutationGate\Core\Proof\KillPace;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
-use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\NotRecorded;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -399,12 +398,7 @@ final readonly class Recorded
             ! $written instanceof Written => null,
             $store === CacheStore::Actions => $packs->pushed($class, $entries, $plan->base()),
             $proofs instanceof DeliveredLedger && is_string($registry) => $proofs->cache(
-                CacheDelivery::request(
-                    $registry,
-                    $plan->base(),
-                    $class,
-                    LedgerLimits::kept($this->settings->proofs()->retained()),
-                ),
+                CacheDelivery::request($registry, $plan->base(), $class),
                 $bytes,
             ),
             default => null,

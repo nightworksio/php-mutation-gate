@@ -63,7 +63,7 @@ fn restored(request: &Request, class: &str) -> Option<Pack> {
     let bytes = fs::read(packed_in(directory, class)).ok()?;
     let read = pack::read(&bytes, request.limits).ok()?;
 
-    (read.class == class && read.base == request.base).then_some(read)
+    (read.class == class && (request.newest || read.base == request.base)).then_some(read)
 }
 
 fn packed_in(directory: &str, class: &str) -> String {

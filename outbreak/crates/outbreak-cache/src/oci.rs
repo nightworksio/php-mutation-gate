@@ -1,6 +1,6 @@
 //! The packs in an OCI registry: each class's pack at a base is an artifact
 //! tagged `<class>-<base>` in the repository the request names, one gzipped
-//! layer holding the pack. A pull reads it without credentials where the
+//! layer holding the pack, and the newest pushed is tagged `<class>` too. A pull reads it without credentials where the
 //! registry lets it, and with the token the job hands the gate otherwise; a
 //! push merges the entries into the tagged pack and tags the merged one.
 
@@ -42,6 +42,12 @@ pub fn pull(request: &Request) -> Result<usize, Failure> {
     for (class, into) in &request.packs {
         if let Some(found) = registry.pack(request, class, Access::Pull)? {
             let bytes = found.bytes(request.limits)?;
+
+            if let Some(parent) = std::path::Path::new(into).parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|error| Failure::Io(format!("cannot make {}: {error}", parent.display())))?;
+            }
+
             std::fs::write(into, bytes).map_err(|error| Failure::Io(format!("cannot write {into}: {error}")))?;
             pulled += 1;
         }
@@ -70,7 +76,9 @@ pub fn push(request: &Request) -> Result<usize, Failure> {
         let older = registry
             .pack(request, class, Access::Push)?
             .unwrap_or_else(|| Pack::empty(class, &request.base));
-        registry.tag(&tag(class, &request.base), &older.merged(newer).bytes(request.limits)?)?;
+        let merged = older.merged(newer).bytes(request.limits)?;
+        registry.tag(&tag(class, &request.base), &merged)?;
+        registry.tag(class, &merged)?;
         pushed += 1;
     }
 
@@ -110,7 +118,8 @@ impl Registry {
         let Some(repository) = request.registry.as_deref() else {
             return Err(Failure::Refused("the request names no registry".to_owned()));
         };
-        let Some((host, name)) = repository.split_once('/') else {
+        let Some((host, name)) = repository.split_once('/').filter(|_| crate::request::is_repository(repository))
+        else {
             return Err(Failure::Refused(format!("{repository} names no repository of a registry")));
         };
         let config = Agent::config_builder()
@@ -133,7 +142,8 @@ impl Registry {
     /// The pack of a class at the request's base the registry holds; none where it holds none.
     fn pack(&self, request: &Request, class: &str, access: Access) -> Result<Option<Pack>, Failure> {
         let bearer = self.bearer(access)?;
-        let manifest = self.get(&self.url(&format!("manifests/{}", tag(class, &request.base))), &bearer, MANIFEST_MOST)?;
+        let named = if request.newest { class.to_owned() } else { tag(class, &request.base) };
+        let manifest = self.get(&self.url(&format!("manifests/{named}")), &bearer, MANIFEST_MOST)?;
         let Some(manifest) = manifest else {
             return Ok(None);
         };
@@ -148,7 +158,7 @@ impl Registry {
 
         let read = pack::read(&bytes, request.limits)?;
 
-        Ok((read.class == class && read.base == request.base).then_some(read))
+        Ok((read.class == class && (request.newest || read.base == request.base)).then_some(read))
     }
 
     /// The pack's bytes tagged, its layer and the empty config uploaded first.

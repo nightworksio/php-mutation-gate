@@ -59,16 +59,23 @@ stay in `deliver` (ADR-0039).
      default branch's, and a pull request its base branch's too.
    - `oci` keeps a pack as an OCI artifact in the repository
      `outbreak.cache.registry` names, none by default, tagged
-     `<class>-<base digest>`. It is read without credentials where the
-     package is public, and with the job's token otherwise. Every scope of
-     the repository reads every pack of its base.
+     `<class>-<base>`, the newest pushed tagged `<class>` too. Packs move
+     only through the registry the workflow names in its own
+     `MUTATION_GATE_REGISTRY` variable, a plain `host[:port]/path`, and
+     only where the config names the same one: no file a run wrote, and no
+     config of a change, picks where a token goes. `fetch`, which runs none
+     of the project's code, pulls each class's newest pack before the plan,
+     with the job's token on any run but a pull request's and without one
+     there; the plan takes the packs from what `fetch` left and reaches no
+     registry. Every scope of the repository reads every pack of its base.
    - `outbreak.cache.store` and `outbreak.cache.registry` decide how the gate
      runs (ADR-0007): neither is in the key.
 3. **Only what the verdict accepted is written, where its ledger is.** The
    verdict leaves the entries of the proofs it wrote into its ledger beside
    that ledger in its delivery (ADR-0007). Under `oci`, `deliver`, which runs
    none of the project's code, merges them into the pack of the run's class
-   and base; under `actions`, the step that keeps the run's ledger in the
+   and base, in the workflow's registry alone and held to the gate's own
+   limits, whatever the delivery's request says; under `actions`, the step that keeps the run's ledger in the
    cache saves the pack in the run's own scope, which GitHub keeps apart.
    No shard and no plan writes. A write that fails, or that a later write
    replaces, costs a run later, never a verdict, as two verdicts writing one

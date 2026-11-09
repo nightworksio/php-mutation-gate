@@ -164,7 +164,12 @@ final readonly class Deliver
         $trusted = TrustedRun::scopeIn(Variables::of($this->environment)) instanceof Scope;
 
         return is_string($binary)
-            ? CacheDelivery::pushed(Outbreak::at($binary, $from), $from, $trusted, $this->environment)
+            ? CacheDelivery::pushed(
+                Outbreak::at($binary, $from),
+                $from,
+                $trusted,
+                Variables::of($this->environment),
+            )
             : NotWritten::because('No Outbreak binary ships for this machine, so deliver pushes no proof pack.');
     }
 }

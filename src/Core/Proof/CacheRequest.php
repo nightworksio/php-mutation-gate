@@ -30,6 +30,7 @@ final readonly class CacheRequest
         private LedgerLimits $limits,
         private array $packs,
         private array $restored,
+        private bool $newest = false,
     ) {
     }
 
@@ -37,6 +38,18 @@ final readonly class CacheRequest
     public static function to(CacheStore $store, string|NotGiven $registry, Digest $base, LedgerLimits $limits): self
     {
         return new self($store, $registry, $base, $limits, [], []);
+    }
+
+    /** This request, pulling each class's newest pack whatever its base, as a trusted job does before the plan. */
+    public function newest(): self
+    {
+        return new self($this->store, $this->registry, $this->base, $this->limits, $this->packs, $this->restored, true);
+    }
+
+    /** Whether it pulls each class's newest pack whatever its base. */
+    public function isNewest(): bool
+    {
+        return $this->newest;
     }
 
     /** This request, for one more class's pack, at this path, restored at that path under `actions`. */
@@ -49,6 +62,7 @@ final readonly class CacheRequest
             $this->limits,
             [...$this->packs, $class->value => $pack],
             [...$this->restored, $class->value => $restored],
+            $this->newest,
         );
     }
 

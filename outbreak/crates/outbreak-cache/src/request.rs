@@ -1,8 +1,11 @@
 //! What the gate asks of the cache, as JSON on the binary's input:
 //! `{"store": "actions"|"oci", "registry": <repository>, "base": <digest>,
-//! "limits": {"packed": <bytes>, "unpacked": <bytes>}, "packs": {<class>:
-//! <path>, …}, "restored": {<class>: <path>, …}}`. `registry` is read under
-//! `oci` alone; every other key is read once, and none other is.
+//! "newest": true, "limits": {"packed": <bytes>, "unpacked": <bytes>},
+//! "packs": {<class>: <path>, …}, "restored": {<class>: <path>, …}}`.
+//! `registry` is read under `oci` alone, and must be a plain
+//! `host[:port]/path`; `newest` pulls each class's newest pack whatever its
+//! base, and then no base is needed. Every key is read once, and none other
+//! is.
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -35,8 +38,10 @@ pub struct Request {
     pub store: Store,
     /// The repository of the registry, such as `ghcr.io/owner/proofs`, under `oci`.
     pub registry: Option<String>,
-    /// The base every proof of a pack is at.
+    /// The base every proof of a pack is at; empty where the newest pack of any base is pulled.
     pub base: String,
+    /// Whether each class's newest pack is pulled, whatever its base.
+    pub newest: bool,
     /// What a pack is held to.
     pub limits: Limits,
     /// Each class's pack: where it is pulled into, or the entries that are pushed.
@@ -64,7 +69,7 @@ fn read_json(text: &[u8]) -> Result<Request, Refused> {
     let mut members = json.object()?;
     let mut seen = HashSet::new();
     let (mut store, mut registry, mut base, mut limits) = (None, None, None, None);
-    let (mut packs, mut restored) = (None, None);
+    let (mut packs, mut restored, mut newest) = (None, None, false);
 
     while let Some(key) = members.next(&mut json)? {
         if !seen.insert(key.text.clone()) {
@@ -76,7 +81,8 @@ fn read_json(text: &[u8]) -> Result<Request, Refused> {
 
         match key.text.as_str() {
             "store" => store = Some(store_of(&mut json)?),
-            "registry" => registry = Some(json.string()?),
+            "registry" => registry = Some(repository(&mut json)?),
+            "newest" => newest = json.boolean()?,
             "base" => base = Some(json.string()?),
             "limits" => limits = Some(limits_of(&mut json)?),
             "packs" => packs = Some(paths_of(&mut json)?),
@@ -92,11 +98,12 @@ fn read_json(text: &[u8]) -> Result<Request, Refused> {
 
     json.end()?;
 
-    match (store, base, limits, packs) {
+    match (store, base.or_else(|| newest.then(String::new)), limits, packs) {
         (Some(store), Some(base), Some(limits), Some(packs)) => Ok(Request {
             store,
             registry,
             base,
+            newest,
             limits,
             packs,
             restored: restored.unwrap_or_default(),
@@ -106,6 +113,42 @@ fn read_json(text: &[u8]) -> Result<Request, Refused> {
             expected: "a store, a base, limits and packs",
         }),
     }
+}
+
+/// A repository of a registry, as a plain `host[:port]/path`: no scheme, no user, nothing a URL could add.
+fn repository(json: &mut Cursor<'_>) -> Result<String, Refused> {
+    let at = json.at();
+    let named = json.string()?;
+
+    if is_repository(&named) {
+        Ok(named)
+    } else {
+        Err(Refused {
+            at,
+            expected: "a repository as host[:port]/path",
+        })
+    }
+}
+
+/// Whether a text names a repository of a registry as a plain `host[:port]/path`.
+#[must_use]
+pub fn is_repository(named: &str) -> bool {
+    let Some((authority, path)) = named.split_once('/') else {
+        return false;
+    };
+    let (host, port) = authority.split_once(':').unwrap_or((authority, ""));
+
+    !host.is_empty()
+        && host.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-'))
+        && port.len() <= 5
+        && port.bytes().all(|byte| byte.is_ascii_digit())
+        && (port.is_empty() == !authority.contains(':'))
+        && !path.is_empty()
+        && !path.starts_with('/')
+        && !path.contains("..")
+        && path
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'_' | b'-' | b'/'))
 }
 
 fn store_of(json: &mut Cursor<'_>) -> Result<Store, Refused> {
@@ -189,6 +232,27 @@ mod tests {
         );
 
         assert!(matches!(request, Ok(ref read) if read.store == Store::Actions && read.limits.unpacked == 20));
+    }
+
+    #[test]
+    fn takes_a_plain_repository_and_nothing_a_url_could_add() {
+        assert!(super::is_repository("ghcr.io/owner/proofs"));
+        assert!(super::is_repository("localhost:5000/proofs"));
+        assert!(!super::is_repository("https://ghcr.io/owner/proofs"));
+        assert!(!super::is_repository("user@ghcr.io/owner/proofs"));
+        assert!(!super::is_repository("ghcr.io/owner/proofs?x=1"));
+        assert!(!super::is_repository("ghcr.io:/proofs"));
+        assert!(!super::is_repository("ghcr.io"));
+        assert!(!super::is_repository("ghcr.io/../x"));
+    }
+
+    #[test]
+    fn needs_no_base_where_it_pulls_the_newest() {
+        let request = read(
+            br#"{"store":"oci","registry":"ghcr.io/o/p","newest":true,"limits":{"packed":1,"unpacked":1},"packs":{"trusted":"/a"}}"#,
+        );
+
+        assert!(matches!(request, Ok(ref read) if read.newest && read.base.is_empty()));
     }
 
     #[test]

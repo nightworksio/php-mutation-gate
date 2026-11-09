@@ -66,6 +66,11 @@
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           MUTATION_GATE_GCS_PROVIDER: ${{ vars.MUTATION_GATE_GCS_PROVIDER }}
           MUTATION_GATE_GCS_SERVICE_ACCOUNT: ${{ vars.MUTATION_GATE_GCS_SERVICE_ACCOUNT }}
+          # ADR-0131: the registry the workflow trusts, never one the change's
+          # config names; fetch runs none of the project's code, and a pull
+          # request's run reads the registry without a token.
+          MUTATION_GATE_REGISTRY: ${{ vars.MUTATION_GATE_REGISTRY }}
+          MUTATION_GATE_REGISTRY_TOKEN: ${{ github.event_name != 'pull_request' && github.token || '' }}
         run: php "${GATE_ACTION}/bin/mutation-gate" fetch --to="${FETCHED}"
       - name: Read what the pull requests merged passed
         if: >-
@@ -297,6 +302,14 @@
           pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
           path: ${{ env.FETCHED }}
           merge-multiple: true
+      # The packs fetch pulled from the workflow's registry, where the plan's
+      # binary takes them as it takes the Actions cache's (ADR-0131).
+      - name: Hand the pulled proof packs to the plan
+        run: |
+          if [ -d "${FETCHED}/cache" ]; then
+            mkdir -p .mutation-gate/cache/restored
+            cp -R "${FETCHED}/cache/." .mutation-gate/cache/restored/
+          fi
       # The map the job that ran the suite under coverage wrote, so the plan
       # runs no suite of its own (ADR-0006).
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -311,7 +324,6 @@
           OPTIONS: ${{ steps.resolve.outputs.plan_options }}
           COVERAGE: ${{ inputs.coverage }}
           EARLY_ONLY: ${{ inputs.early-only }}
-          MUTATION_GATE_REGISTRY_TOKEN: ${{ steps.config.outputs.cache_store == 'oci' && github.token || '' }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")

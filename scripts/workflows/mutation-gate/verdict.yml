@@ -389,6 +389,7 @@
         id: deliver
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          MUTATION_GATE_REGISTRY: ${{ vars.MUTATION_GATE_REGISTRY }}
           MUTATION_GATE_REGISTRY_TOKEN: ${{ github.token }}
           MUTATION_GATE_DEFAULT_BRANCH: ${{ vars.MUTATION_GATE_DEFAULT_BRANCH }}
           MUTATION_GATE_STORE: ${{ vars.MUTATION_GATE_STORE }}

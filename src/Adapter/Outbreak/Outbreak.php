@@ -234,6 +234,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             'store' => $request->store()->value,
             ...$registry instanceof NotGiven ? [] : ['registry' => $registry],
             'base' => $request->base()->value(),
+            ...$request->isNewest() ? ['newest' => true] : [],
             'limits' => ['packed' => $request->limits()->packed(), 'unpacked' => $request->limits()->unpacked()],
             'packs' => (object) array_map($this->absolute(...), $request->packs()),
             'restored' => (object) array_map($this->absolute(...), $request->restored()),

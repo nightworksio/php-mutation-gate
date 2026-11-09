@@ -70,10 +70,13 @@ final readonly class CachedPacks
     }
 
     /**
-     * The packs a run of this standing reads at this base pulled into the
-     * gate's directory by Outbreak's binary, from the registry or from where
-     * the Actions cache restored them; what was there before removed first,
-     * so a pack the binary did not pull proves nothing.
+     * The packs a run of this standing reads at this base taken by
+     * Outbreak's binary into the gate's directory from where a job that runs
+     * none of the project's code left them: the Actions cache's restore, or
+     * `fetch`'s pull from the workflow's registry. The plan, which runs the
+     * project's code, reaches no registry and holds no token. What was there
+     * before is removed first, so a pack the binary did not take proves
+     * nothing.
      */
     public function pulled(Standing $standing, Digest $base): Written|NotWritten
     {
@@ -84,7 +87,7 @@ final readonly class CachedPacks
             return NotWritten::because(self::NO_STORE);
         }
 
-        $request = $this->request($store, $base);
+        $request = $this->request(CacheStore::Actions, $base);
 
         foreach ($this->classes($standing) as $class) {
             $this->adapters->project->remove(Workspace::cachePack($class));

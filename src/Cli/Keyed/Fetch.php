@@ -8,6 +8,11 @@ use function getenv;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Bundled;
+use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -86,6 +91,11 @@ final readonly class Fetch
             OutputInterface::OUTPUT_RAW,
         );
 
+        if (is_string($to) && $this->environment->valueOf(CacheDelivery::REGISTRY) !== '') {
+            $pulled = $this->packsPulled($to);
+            $output->writeln($pulled instanceof Written ? $pulled->said() : $pulled->why(), OutputInterface::OUTPUT_RAW);
+        }
+
         return ExitCode::Passed->value;
     }
 
@@ -118,5 +128,20 @@ final readonly class Fetch
             $written instanceof Unreadable => NotWritten::because($written->why()),
             default => NotWritten::because(sprintf(self::NOT_FETCHED, $written->why())),
         };
+    }
+
+    /**
+     * Each class's newest pack of proofs pulled from the registry the
+     * workflow names into the directory fetched into, by the binary the gate
+     * ships, for the plan to take without reaching the registry itself
+     * (ADR-0131); or why none was.
+     */
+    private function packsPulled(string $to): Written|NotWritten
+    {
+        $binary = Bundled::in(Resources::at(Shipped::Outbreak));
+
+        return is_string($binary)
+            ? CacheDelivery::pulled(Outbreak::at($binary, $to), $this->environment)
+            : NotWritten::because('No Outbreak binary ships for this machine, so fetch pulls no proof pack.');
     }
 }
