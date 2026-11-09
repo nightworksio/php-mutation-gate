@@ -34,7 +34,10 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
  * unmutated code, served as its mutant was (see Control), and what each
  * replay of a kill's own run said (see PrefixReplays). Each is slow to
  * learn, from a process started for it or a map that can reach hundreds of
- * megabytes, and none changes while the gate runs.
+ * megabytes, and none changes while the gate runs. The scan of the codebase
+ * for the files one run mutates is kept only until a run of other files
+ * scans: each holds the whole codebase, and a shard that runs in chunks
+ * scans once for each chunk.
  *
  * @internal
  */
@@ -61,7 +64,7 @@ final class Remembered
     /** @var array<string, ReplayVerdict> what each replay of a kill's own run, unmutated, said, by its key */
     private array $replays = [];
 
-    /** @var array<string, Selector> each scan of the codebase for the tests that read a value, by what it read */
+    /** @var array<string, Selector> the last scan of the codebase for the tests that read a value, by what it read */
     private array $selectors = [];
 
     /** @param Closure(): (TestListing|CannotJudge) $listing */
@@ -113,14 +116,17 @@ final class Remembered
 
     /**
      * The scan of the codebase that reads a whole map for the files one run
-     * mutates, made once: the run's values are read before it runs, and its
-     * trials read the same scan after it.
+     * mutates, made once for those files: the run's values are read before
+     * it runs, and its trials read the same scan after it. A scan for other
+     * files takes its place, so a shard holds one scan at a time, however
+     * many runs it makes.
      *
      * @param Closure(): Selector $scanning
      */
     public function selector(string $key, Closure $scanning): Selector
     {
         if (! array_key_exists($key, $this->selectors)) {
+            $this->selectors = [];
             $this->selectors[$key] = $scanning();
         }
 

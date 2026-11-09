@@ -123,6 +123,12 @@ final readonly class Workspace
         return Path::of(sprintf('%s/%d.json', $results->value(), $shard->number()));
     }
 
+    /** Where the CI says how a shard's job ended, in a directory of results, where the shard left no result. */
+    public static function ended(Path $results, ShardId $shard): Path
+    {
+        return Path::of(sprintf('%s/%d.ended.json', $results->value(), $shard->number()));
+    }
+
     /** Where each share of a re-check of the last run's survivors leaves what it made (ADR-0106). */
     public static function survivors(): Path
     {

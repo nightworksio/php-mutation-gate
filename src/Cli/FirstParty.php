@@ -70,6 +70,7 @@ use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Process\Saying;
 use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Adapter\Runtime\SystemGauge;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Testo\Installation as TestoInstallation;
 use NightWorksIO\MutationGate\Adapter\Testo\TestoFramework;
@@ -118,7 +119,8 @@ final readonly class FirstParty implements Extension
     {
         $environment = Variables::of(getenv());
         $clock = new SystemClock();
-        $processes = new LocalProcesses($clock, Saying::on(ErrorOutputLog::onErrorOutput(), $clock));
+        $gauge = new SystemGauge(SystemGauge::MEMINFO, self::HERE);
+        $processes = new LocalProcesses($clock, Saying::on(ErrorOutputLog::onErrorOutput(), $clock, $gauge));
         $public = new PublicBucket(HttpClient::create());
         $s3 = $this->keyed(BuiltinStore::S3, BucketLedger::fromOptions(...), $public->s3(...), $environment);
         $gcs = $this->keyed(
