@@ -241,6 +241,7 @@ final readonly class Planning
                 $measured->said(),
             )->without($ledgers->unread())->learning(
                 ...$learned->lines(),
+                ...new CachedPacks($this->adapters, $this->settings)->lines($planned, $ledgers),
                 ...JudgedRun::of($this->adapters->project, OwnArchive::running())->lines($this->settings->reach()->everything()),
             )
             : $planned;

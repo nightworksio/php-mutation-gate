@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\CacheClass;
 use NightWorksIO\MutationGate\Core\Proof\CachedProofs;
 use NightWorksIO\MutationGate\Core\Proof\CachePack;
@@ -20,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\ProofCache;
+
+use function sprintf;
 
 /**
  * The packs of `outbreak cache` a run reads (ADR-0131): those of the classes
@@ -35,6 +38,8 @@ use NightWorksIO\MutationGate\Port\ProofCache;
 final readonly class CachedPacks
 {
     private const string NO_STORE = 'No store of proof packs is in use.';
+
+    private const string PROVED = 'The proof cache proved %d units no ledger the run reads holds a proof of.';
 
     public function __construct(private Adapters $adapters, private Settings $settings)
     {
@@ -121,6 +126,31 @@ final readonly class CachedPacks
         }
 
         return $cached;
+    }
+
+    /**
+     * What the plan says of the cache: how many of the units it proved only
+     * a pack's proof covers, none of the ledgers' (ADR-0131); nothing where
+     * the cache proved none.
+     *
+     * @return list<string>
+     */
+    public function lines(Plan $plan, Ledgers $ledgers): array
+    {
+        $cached = $this->read(Standing::planned($plan), $plan->base());
+        $taken = 0;
+
+        foreach ($plan->considered()->proved() as $unit) {
+            $key = $plan->keys()->keyOf($unit->path());
+            $taken += $key instanceof Digest
+                && ! $ledgers->defaultBranch()->proofs()->has($key)
+                && ! $ledgers->own()->proofs()->has($key)
+                && ($cached->trusted()->has($key) || $cached->branch()->has($key))
+                    ? 1
+                    : 0;
+        }
+
+        return $taken === 0 ? [] : [sprintf(self::PROVED, $taken)];
     }
 
     private function request(CacheStore $store, Digest $base): CacheRequest
