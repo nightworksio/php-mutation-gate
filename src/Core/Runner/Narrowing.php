@@ -37,6 +37,7 @@ final readonly class Narrowing
         private Pruned $pruned,
         private TestCases $cases,
         private TestPart $part,
+        private string $recording = '',
     ) {
     }
 
@@ -56,25 +57,57 @@ final readonly class Narrowing
     /** This narrowing, making mutants with these mutators alone. */
     public function toMutators(Mutators $mutators): self
     {
-        return new self($mutators, $this->suite, $this->suites, $this->pruned, $this->cases, $this->part);
+        return new self(
+            $mutators,
+            $this->suite,
+            $this->suites,
+            $this->pruned,
+            $this->cases,
+            $this->part,
+            $this->recording,
+        );
     }
 
     /** This narrowing, its mutants judged by this suite's tests alone. */
     public function toSuite(SuiteName $suite): self
     {
-        return new self($this->mutators, $suite, $this->suites, $this->pruned, $this->cases, $this->part);
+        return new self(
+            $this->mutators,
+            $suite,
+            $this->suites,
+            $this->pruned,
+            $this->cases,
+            $this->part,
+            $this->recording,
+        );
     }
 
     /** This narrowing, its mutants judged by these suites' tests, as `tests.suites` and `tests.holding` list them. */
     public function amongSuites(JudgingSuites $suites): self
     {
-        return new self($this->mutators, $this->suite, $suites, $this->pruned, $this->cases, $this->part);
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $suites,
+            $this->pruned,
+            $this->cases,
+            $this->part,
+            $this->recording,
+        );
     }
 
     /** This narrowing, its runner told which files the suite runs as files of test cases. */
     public function amongTestCases(TestCases $cases): self
     {
-        return new self($this->mutators, $this->suite, $this->suites, $this->pruned, $cases, $this->part);
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $this->suites,
+            $this->pruned,
+            $cases,
+            $this->part,
+            $this->recording,
+        );
     }
 
     /** Which files the suite runs as files of test cases; none known, unless it was told. */
@@ -86,13 +119,53 @@ final readonly class Narrowing
     /** This narrowing, leaving these mutators out of these files. */
     public function pruning(Pruned $pruned): self
     {
-        return new self($this->mutators, $this->suite, $this->suites, $pruned, $this->cases, $this->part);
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $this->suites,
+            $pruned,
+            $this->cases,
+            $this->part,
+            $this->recording,
+        );
     }
 
     /** This narrowing, its mutants judged by the tests of this part of the test files alone (ADR-0117). */
     public function inTestPart(TestPart $part): self
     {
-        return new self($this->mutators, $this->suite, $this->suites, $this->pruned, $this->cases, $part);
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $this->suites,
+            $this->pruned,
+            $this->cases,
+            $part,
+            $this->recording,
+        );
+    }
+
+    /**
+     * This narrowing, its split streams recording the lines each test
+     * executes into this directory, for a run planned without a fresh map
+     * (ADR-0135).
+     */
+    public function recordingInto(string $directory): self
+    {
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $this->suites,
+            $this->pruned,
+            $this->cases,
+            $this->part,
+            $directory,
+        );
+    }
+
+    /** Where its split streams record each test's lines; none where they record nothing. */
+    public function recording(): string
+    {
+        return $this->recording;
     }
 
     /** The part of the test files whose tests judge its mutants: every test file, unless it was told one. */

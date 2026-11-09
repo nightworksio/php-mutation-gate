@@ -72,6 +72,7 @@
             .mutation-gate/results/${{ matrix.shard.id }}.json
             .mutation-gate/results/${{ matrix.shard.id }}.attempt
             .mutation-gate/results/*.by-${{ matrix.shard.id }}.json
+            .mutation-gate/results/*.recorded.json.gz
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1

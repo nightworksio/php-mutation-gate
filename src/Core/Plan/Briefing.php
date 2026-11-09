@@ -29,6 +29,7 @@ final readonly class Briefing
         private bool $ownScopeCoverage,
         private Unchanged|NotGiven $unchanged,
         private KillsLearned $kills,
+        private bool $early = false,
     ) {
     }
 
@@ -50,13 +51,13 @@ final readonly class Briefing
     /** This briefing, with the most memory the unmutated suite's largest process held, or none measured. */
     public function weighing(MemoryCap|NotGiven $peak): self
     {
-        return new self($peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $this->kills);
+        return new self($peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $this->kills, $this->early);
     }
 
     /** This briefing, for a run of this kind. */
     public function ofKind(RunProfile $kind): self
     {
-        return new self($this->peak, $kind, $this->ownScopeCoverage, $this->unchanged, $this->kills);
+        return new self($this->peak, $kind, $this->ownScopeCoverage, $this->unchanged, $this->kills, $this->early);
     }
 
     /** This briefing, recording this much of the kill matrix. */
@@ -68,6 +69,7 @@ final readonly class Briefing
             $this->ownScopeCoverage,
             $this->unchanged,
             $this->kills,
+            $this->early,
         );
     }
 
@@ -80,6 +82,7 @@ final readonly class Briefing
             $this->ownScopeCoverage,
             $this->unchanged,
             $this->kills,
+            $this->early,
         );
     }
 
@@ -92,6 +95,7 @@ final readonly class Briefing
             $this->ownScopeCoverage,
             $this->unchanged,
             $this->kills,
+            $this->early,
         );
     }
 
@@ -108,13 +112,30 @@ final readonly class Briefing
             ownScopeCoverage: true,
             unchanged: $this->unchanged,
             kills: $this->kills,
+            early: $this->early,
         );
+    }
+
+    /**
+     * This briefing, for a full split-stream run planned without a fresh
+     * map: it takes no proof, its streams record the lines each test
+     * executes, and its verdict keys by the map they recorded (ADR-0135).
+     */
+    public function plannedEarly(): self
+    {
+        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $this->kills, early: true);
+    }
+
+    /** Whether the run was planned without a fresh map (ADR-0135). */
+    public function isEarly(): bool
+    {
+        return $this->early;
     }
 
     /** This briefing, telling its shards what the plan learned from the ledgers' kills. */
     public function learning(KillsLearned $kills): self
     {
-        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $kills);
+        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $kills, $this->early);
     }
 
     /** What the plan learned from the ledgers' kills: the `timeouts.multiple` and the pace, where it learned each. */
@@ -126,7 +147,7 @@ final readonly class Briefing
     /** This briefing, for a plan that runs nothing because the verdict of a commit that passed stands. */
     public function unchangedSince(Unchanged $unchanged): self
     {
-        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $unchanged, $this->kills);
+        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $unchanged, $this->kills, $this->early);
     }
 
     /** This briefing, with the commit whose verdict stands for the plan that one names, where it names one. */

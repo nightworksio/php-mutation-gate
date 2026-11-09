@@ -44,6 +44,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     security?: true,
  *     suite?: string,
  *     ownScopeCoverage?: true,
+ *     early?: true,
  *     learnedMultiple?: float,
  *     learnedPace?: float,
  *     unchangedSince?: PassedWritten,
@@ -58,6 +59,9 @@ final readonly class BriefingRecord
 
     private const string PACE = 'learnedPace';
 
+    /** Where a plan says it was made without a fresh map (ADR-0135). */
+    private const string EARLY = 'early';
+
     /** @return Written */
     public static function of(Briefing $briefing): array
     {
@@ -70,6 +74,7 @@ final readonly class BriefingRecord
             ...$peak instanceof MemoryCap ? [self::PEAK => $peak->bytes()] : [],
             ...RunProfileRecord::of($briefing->profile()),
             ...$briefing->isOnOwnScopeCoverage() ? [PassedRecord::OWN_SCOPE_COVERAGE => true] : [],
+            ...$briefing->isEarly() ? [self::EARLY => true] : [],
             ...$multiple instanceof NotGiven ? [] : [self::MULTIPLE => $multiple->times()],
             ...$pace instanceof NotGiven ? [] : [self::PACE => $pace->times()],
             ...$unchanged instanceof Unchanged
@@ -93,6 +98,7 @@ final readonly class BriefingRecord
         $briefing = RunProfileRecord::isTrue($file->field(PassedRecord::OWN_SCOPE_COVERAGE))
             ? $briefing->onOwnScopeCoverage()
             : $briefing;
+        $briefing = RunProfileRecord::isTrue($file->field(self::EARLY)) ? $briefing->plannedEarly() : $briefing;
         $multiple = $file->field(self::MULTIPLE);
         $kills = $multiple->isPresent()
             ? KillsLearned::none()->allowing(Multiple::of($multiple->number()))

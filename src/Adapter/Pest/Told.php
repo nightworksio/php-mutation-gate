@@ -59,6 +59,7 @@ final readonly class Told
             ...$this->patching->schemata(),
             ...$this->patching->stepVariables(),
             ...StreamSettings::parting($request->narrowing()->testPart()),
+            ...StreamSettings::recordingInto($request->narrowing()->recording()),
         ];
     }
 

@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function is_dir;
+use function mkdir;
+
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
 use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordedMap;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
@@ -23,10 +27,13 @@ use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Secrets;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
@@ -168,6 +175,10 @@ final readonly class Running
             default => $this->resultOf($followed, $id, ShardDeadline::of($this->settings, $this->setup->clock->now())),
         };
 
+        if ($followed instanceof Plan && $id instanceof ShardId) {
+            $this->recordedLeft($followed, $id, $results);
+        }
+
         return ShardLeft::after($result, $this->written($result, $results));
     }
 
@@ -188,6 +199,7 @@ final readonly class Running
         foreach ($plan as $shard) {
             $result = $this->resultOf($plan, $shard->id(), $deadline);
             $ran = $this->written($result, $results);
+            $this->recordedLeft($plan, $shard->id(), $results);
 
             if ($ran instanceof CannotJudge) {
                 return $ran;
@@ -259,6 +271,7 @@ final readonly class Running
             }
 
             $result = $this->resultOf($plan, $item->id(), $deadline);
+            $this->recordedLeft($plan, $item->id(), $results);
             $written = ShardLeft::after(
                 $result,
                 $result instanceof CannotJudge ? $result : $this->adapters->project->write(
@@ -284,6 +297,39 @@ final readonly class Running
         }
 
         return $left;
+    }
+
+    /**
+     * The directory a shard's streams record each test's lines in, made
+     * ready, in a run planned without a fresh map (ADR-0135).
+     */
+    private static function recordingOf(Shard $shard): string
+    {
+        $directory = Root::here()->at(Workspace::recording($shard->id()))->value();
+
+        if (! is_dir($directory)) {
+            mkdir($directory, 0o700, recursive: true);
+        }
+
+        return $directory;
+    }
+
+    /**
+     * The map a shard's streams recorded, left beside its result where the
+     * verdict reads it, in a run planned without a fresh map (ADR-0135);
+     * nothing in any other run.
+     */
+    private function recordedLeft(Plan $plan, ShardId $id, Path $results): void
+    {
+        if (! $plan->briefing()->isEarly()) {
+            return;
+        }
+
+        $directory = Root::here()->at(Workspace::recording($id))->value();
+        $this->adapters->project->write(
+            Workspace::recorded($results, $id),
+            Contents::of(CoverageMapFile::encode(RecordedMap::in($directory, Root::here()), Unplaced::map())),
+        );
     }
 
     /** A shard's result, left where the verdict reads it; or why it has none. */
@@ -479,6 +525,7 @@ final readonly class Running
             $search,
             $pool,
             $pruned,
+            $plan->briefing()->isEarly(),
         );
         $spent = match (true) {
             $doom instanceof Doom && $stops => $batched->spent(
@@ -560,7 +607,8 @@ final readonly class Running
      * by the whole suite, reading the maps the plan handed the shard, each
      * mutant's killers looked for as asked, leaving the mutators the plan
      * prunes out of the files it prunes them in, its mutants judged by the
-     * shard's part of the test files (ADR-0117).
+     * shard's part of the test files (ADR-0117); in a run planned without a
+     * fresh map, its streams recording each test's lines (ADR-0135).
      */
     private function requestFor(
         Units $units,
@@ -568,6 +616,7 @@ final readonly class Running
         KillSearch $search,
         Pool $pool,
         Pruned $pruned,
+        bool $early,
     ): MutationRequest {
         $files = Paths::none();
         $judgedBy = WholeSuite::tests();
@@ -578,8 +627,10 @@ final readonly class Running
         }
 
         $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
+        $narrowing = $request->narrowing()->pruning($pruned)->inTestPart($shard->testPart());
+        $narrowing = $early ? $narrowing->recordingInto(self::recordingOf($shard)) : $narrowing;
 
-        return $request->narrowedTo($files, $request->narrowing()->pruning($pruned)->inTestPart($shard->testPart()))
+        return $request->narrowedTo($files, $narrowing)
             ->across($pool)
             ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard->id()), Workspace::coverage()))
             ->searching($search);
