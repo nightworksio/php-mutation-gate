@@ -12,8 +12,9 @@ Status and Date for each change it makes:
 
   **Amends:** [0003](0003-a-floor-only-rises.md): its lowering and truncated floors
 
-The verb is Supersedes, Amends, Narrows or Grows. A change that holds only
-in part ends in `, for <which part>`. The old ADR's cell reads "<status>;
+The verb is Supersedes, Amends, Narrows or Grows. One line may name several
+ADRs, each target after a `; `. A change that holds only in part ends in
+`, for <which part>`. The old ADR's cell reads "<status>;
 <what> <verb-ed> by [NNNN](...)", one clause a change, the ADRs that change
 one thing the same way joined by "and", the clauses in the order of the
 first ADR that makes each, and a clause's verb left out where the one
@@ -50,7 +51,8 @@ VERBS = {"Supersedes": "superseded", "Amends": "amended", "Narrows": "narrowed",
 FILE = re.compile(r"^(\d{4})-[a-z0-9-]+\.md$")
 HEADING = re.compile(r"^# ADR-(\d{4}): (.+)$", re.M)
 STATUS = re.compile(r"^\*\*Status:\*\* (.+)$", re.M)
-CHANGE = re.compile(r"^\*\*([A-Z][a-z]+):\*\* \[(\d{4})\]\((\d{4}-[a-z0-9-]+\.md)\): (.+)$", re.M)
+CHANGE = re.compile(r"^\*\*([A-Z][a-z]+):\*\* (\[\d{4}\]\(.+)$", re.M)
+TARGET = re.compile(r"\[(\d{4})\]\((\d{4}-[a-z0-9-]+\.md)\): (.+?)(?=; \[\d{4}\]\(|$)")
 QUALIFIED = re.compile(r"^(.+), (for .+)$")
 
 
@@ -68,7 +70,8 @@ def adrs(files: dict[str, str]) -> list[dict]:
         if not status:
             raise ValueError(f"{name} has no `**Status:**` line.")
         made = []
-        for verb, number, target, what in CHANGE.findall(text):
+        for verb, number, target, what in ((verb, *found) for verb, line in CHANGE.findall(text)
+                                           for found in TARGET.findall(line)):
             if verb not in VERBS:
                 raise ValueError(f"{name} {verb.lower()} ADR-{number}; a change is one of {', '.join(VERBS)}.")
             if not target.startswith(f"{number}-") or target not in files:
