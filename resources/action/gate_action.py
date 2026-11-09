@@ -24,6 +24,10 @@ Usage:
                            removes each shard's result an earlier attempt wrote
                            than its job's latest run, saying so, and every
                            attempt file beside the results
+  gate_action.py ended     from the run's jobs, JOBS, the error lines of their
+                           logs, ERRORS, one file a job, and the results,
+                           RESULTS: writes how each shard job that left no
+                           result ended beside where its result would be
   gate_action.py keep      copies the ledger and the coverage map the verdict
                            left in FROM into OWN, the scope's directory the
                            Actions cache keeps, and names the `key` they are
@@ -32,7 +36,7 @@ Usage:
 
 Every subcommand reads GitHub's environment and writes `key=value` lines to
 $GITHUB_OUTPUT, or refuses with exit code 2 and says why; `stale` writes no
-output.
+output, nor does `ended`.
 
 Two halves: the functions below `main` read the environment and files, and
 the ones above decide from what they read. The deciding half is what
@@ -152,6 +156,30 @@ SHARD_JOB = re.compile(r"(?:^| / )shard (\d+) \(")
 
 # The file beside a shard's result that holds the attempt whose job wrote it.
 ATTEMPT = ".attempt"
+
+# The file in a shard's result's place, where its job left none, that says how
+# the job ended: the gate names it in the verdict (see `ended`).
+ENDED = ".ended.json"
+
+# How a shard job that left no result ended, as that file names it: its runner
+# received a shutdown signal, lost contact with GitHub, the matrix or the run
+# cancelled it, it ran past its time limit, or it failed.
+SHUTDOWN = "shutdown"
+LOST = "lost"
+CANCELLED = "cancelled"
+TIMED_OUT = "timed-out"
+FAILED = "failed"
+
+# The fields of that file: how the job ended, the job's address, and the shard
+# whose failure the matrix cancelled it after.
+HOW = "how"
+JOB = "job"
+AFTER = "after"
+
+# What a job's log says, in a line GitHub marks as an error, where its runner
+# received a shutdown signal and where the job ran past its time limit.
+SHUTDOWN_SAID = "The runner has received a shutdown signal"
+TIMED_OUT_SAID = "has exceeded the maximum execution time"
 
 
 class Refused(Exception):
@@ -447,6 +475,60 @@ def stale(written: dict[str, int], latest: dict[str, int]) -> list[str]:
     return sorted((shard for shard, attempt in written.items() if attempt < latest.get(shard, 0)), key=int)
 
 
+def endings(jobs: list, errors: dict[int, str]) -> dict[str, dict]:
+    """How each shard job's latest run ended, by the shard's number, where it did not pass or skip.
+
+    `errors` holds the lines a job's log marks as errors, by the job's id. A job GitHub cancelled is named
+    beside the first shard job of its attempt that failed before it ended, which the matrix's fail-fast
+    cancels the others for; a failed job whose steps never all ended lost its runner.
+    """
+    latest = shard_attempts(jobs)
+    runs = {
+        number: job
+        for job in jobs
+        if isinstance(job, dict) and not kept(job)
+        for number in [_shard_number(job)]
+        if number is not None and job.get("run_attempt") == latest.get(number)
+    }
+    failed = sorted(
+        (str(job.get("completed_at", "")), number)
+        for number, job in runs.items()
+        if job.get("conclusion") == "failure"
+    )
+    ended = {}
+    for number, job in runs.items():
+        how = ending(job, errors.get(job.get("id"), "") if isinstance(job.get("id"), int) else "")
+        if how is None:
+            continue
+        ended[number] = {HOW: how} | ({JOB: job["html_url"]} if isinstance(job.get("html_url"), str) else {})
+        if how == CANCELLED:
+            before = [shard for at, shard in failed if shard != number and at <= str(job.get("completed_at", ""))]
+            ended[number] |= {AFTER: int(before[0])} if before else {}
+    return ended
+
+
+def ending(job: dict, errors: str) -> str | None:
+    """How a shard job ended, by its conclusion, its steps and its log's error lines; none where it passed or skipped."""
+    conclusion = job.get("conclusion")
+    steps = job.get("steps") if isinstance(job.get("steps"), list) else []
+    if conclusion in (None, "success", "skipped", "neutral"):
+        return None
+    if SHUTDOWN_SAID in errors:
+        return SHUTDOWN
+    if TIMED_OUT_SAID in errors or conclusion == "timed_out":
+        return TIMED_OUT
+    if conclusion == "cancelled":
+        return CANCELLED
+    if any(isinstance(step, dict) and step.get("conclusion") is None for step in steps):
+        return LOST
+    return FAILED
+
+
+def _shard_number(job: dict) -> str | None:
+    named = SHARD_JOB.search(str(job.get("name", "")))
+    return named.group(1) if named else None
+
+
 def stale_text(shard: str, written: int, latest: int) -> str:
     """Why a shard's result is not judged."""
     return (
@@ -519,6 +601,8 @@ def main(argv: list[str]) -> int:
     }
     if len(argv) == 2 and argv[1] == "stale":
         return _stale()
+    if len(argv) == 2 and argv[1] == "ended":
+        return _ended()
     if len(argv) != 2 or argv[1] not in commands:
         print(__doc__, file=sys.stderr)
         return 2
@@ -655,6 +739,24 @@ def _stale() -> int:
     for name in os.listdir(results) if os.path.isdir(results) else []:
         if name.endswith(ATTEMPT):
             os.remove(os.path.join(results, name))
+    return 0
+
+
+def _ended() -> int:
+    with open(os.environ["JOBS"], encoding="utf-8") as file:
+        listed = json.load(file)
+    results, logged = os.environ["RESULTS"], os.environ["ERRORS"]
+    errors = {}
+    for name in os.listdir(logged) if os.path.isdir(logged) else []:
+        job, extension = os.path.splitext(name)
+        if extension == ".txt" and job.isdigit():
+            with open(os.path.join(logged, name), encoding="utf-8", errors="replace") as file:
+                errors[int(job)] = file.read()
+    os.makedirs(results, exist_ok=True)
+    for shard, ended in endings(listed if isinstance(listed, list) else [], errors).items():
+        if not os.path.isfile(os.path.join(results, shard + ".json")):
+            with open(os.path.join(results, shard + ENDED), "w", encoding="utf-8") as file:
+                json.dump(ended, file)
     return 0
 
 

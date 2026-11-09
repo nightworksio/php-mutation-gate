@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Process\Saying;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Adapter\Runtime\SystemGauge;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Zstd\ZstdHere;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
@@ -599,7 +600,7 @@ function wiringPhpStanProject(string $include = 'parameters: {}', string $baseli
 /** The local processes the first-party extension hands every runner, saying what runs on the error output. */
 function firstPartyProcesses(): LocalProcesses
 {
-    return new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()));
+    return new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.')));
 }
 
 /**
@@ -731,9 +732,9 @@ it('tells Infection the bounds of each mutant\'s limit, and that the gate checks
     $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
 
     expect($checked instanceof Adapters ? $checked->runner : $checked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.'))), NotGiven::value()))
         ->and($unchecked instanceof Adapters ? $unchecked->runner : $unchecked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.'))), NotGiven::value()))
         ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 })->group(...$holds);
 

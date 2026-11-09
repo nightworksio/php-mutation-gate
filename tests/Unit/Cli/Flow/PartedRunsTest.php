@@ -60,7 +60,7 @@ it('serves each heavy mutant as its runner gives it to a static analyser, and ju
     $rounds = [];
 
     $judged = $parted->judged(Mutants::of(partedRunsHeavy()), $heavy, static function (array $asked) use (&$rounds): array {
-        $rounds[] = array_map(static fn(Control $control): ?Contents => $control->served() instanceof Contents ? $control->served() : null, $asked);
+        $rounds[] = array_map(static fn(Control $control) => $control->served() instanceof Contents ? $control->served() : null, $asked);
         $runs = ControlRuns::none();
 
         foreach ($asked as $control) {

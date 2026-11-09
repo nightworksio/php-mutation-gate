@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\GaugeFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 
@@ -54,7 +55,7 @@ it('says once a minute, on the clock it says by, which process runs longest and 
         }
     };
 
-    new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::to($file), new TickingClock('2026-10-26T10:00:00Z', 30)))
+    new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::to($file), new TickingClock('2026-10-26T10:00:00Z', 30), GaugeFake::silent()))
         ->run(ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', 'usleep(300000);'), $watch);
     $said = is_file($file) ? explode("\n", (string) file_get_contents($file)) : [];
 

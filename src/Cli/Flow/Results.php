@@ -38,7 +38,9 @@ use function sprintf;
  * Every shard's result, read from the files the shards left. The verdict
  * requires one for every shard in the plan: a shard that crashed, was
  * cancelled or never started left none, and the verdict cannot judge,
- * unless another shard stopped once the run could not pass (ADR-0008).
+ * naming how the CI said each such shard's job ended where it said so
+ * (see LeftNone), unless another shard stopped once the run could not pass
+ * (ADR-0008).
  * Then the run's other shards may have been cancelled, and their units
  * are stopped, as the units the doomed shard did not run are, since the
  * verdict fails whatever they come to. Nor can it judge a shard whose
@@ -49,19 +51,6 @@ use function sprintf;
  */
 final readonly class Results
 {
-    private const string LEFT_NONE = <<<'SAID'
-        Shard %d (%s) left no result at %s, so its mutants cannot be judged.
-        A shard that crashed, was cancelled or never started leaves none. Run it again.
-        SAID;
-
-    private const string LEFT_NONE_MANY = <<<'SAID'
-        Shards %s left no result in %s, so their mutants cannot be judged.
-        A shard that crashed, was cancelled or never started leaves none. Run them again.
-        SAID;
-
-    /** A shard as a list of them names it: its number, and its label. */
-    private const string NAMED = '%d (%s)';
-
     private const string ANOTHER_SHARD = <<<'SAID'
         The result in the place of shard %d is the result of shard %d, so it cannot stand for it.
         Leave each shard's result under its own number.
@@ -99,7 +88,7 @@ final readonly class Results
     public static function read(Plan $plan, Path $directory, Directory $project): self|CannotJudge
     {
         $read = [];
-        $missing = [];
+        $missing = LeftNone::in($directory);
         $unjudged = [];
 
         foreach ($plan as $shard) {
@@ -108,14 +97,14 @@ final readonly class Results
             $result = $contents instanceof Contents ? self::resultOf($plan, $shard, $contents) : $file;
 
             match (true) {
-                $result instanceof Path => $missing[] = [$shard, $result],
+                $result instanceof Path => $missing = $missing->with($shard, $result, $project),
                 $result instanceof CannotJudge => $unjudged[] = $result->why(),
                 default => $read[] = [$shard, ...$result],
             };
         }
 
-        $stopped = Stopped::among($read, array_map(static fn(array $left): Shard => $left[0], $missing));
-        $why = [...$unjudged, ...$stopped->isDoomed() ? [] : self::leftNone($missing, $directory)];
+        $stopped = Stopped::among($read, $missing->shards());
+        $why = [...$unjudged, ...$stopped->isDoomed() ? [] : $missing->why()];
 
         return $why === [] ? new self($read, $stopped) : CannotJudge::because(implode("\n", $why));
     }
@@ -226,28 +215,6 @@ final readonly class Results
     public function shards(): array
     {
         return $this->read;
-    }
-
-    /**
-     * Why the shards that left no result cannot be judged: one by its file, several together by their directory.
-     *
-     * @param  list<array{Shard, Path}> $missing
-     * @return list<string>
-     */
-    private static function leftNone(array $missing, Path $directory): array
-    {
-        if (count($missing) === 1) {
-            [$shard, $file] = $missing[0];
-
-            return [sprintf(self::LEFT_NONE, $shard->id()->number(), $shard->label(), $file->value())];
-        }
-
-        $named = array_map(
-            static fn(array $left): string => sprintf(self::NAMED, $left[0]->id()->number(), $left[0]->label()),
-            $missing,
-        );
-
-        return $missing === [] ? [] : [sprintf(self::LEFT_NONE_MANY, implode(', ', $named), $directory->value())];
     }
 
     /** @return array{ShardResult, MutationResult}|CannotJudge */

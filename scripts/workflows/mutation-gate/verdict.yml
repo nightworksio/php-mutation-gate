@@ -43,7 +43,9 @@
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" guard
       # The two steps that hold the token come before the project's
       # dependencies install, so none of its code runs while one does. This
-      # one also lists this attempt's jobs, for the `stale` step.
+      # one also lists this attempt's jobs, for the `stale` step, and keeps
+      # the error lines of the log of each that was cancelled or failed, for
+      # the `ended` step.
       - name: Name the default branch and list this attempt's jobs
         id: default
         env:
@@ -57,6 +59,12 @@
           fi
           echo "name=${NAMED}" >> "${GITHUB_OUTPUT}"
           gh api --paginate "${JOBS}?per_page=100" --jq '.jobs[]' | jq -s . > .mutation-gate/jobs.json
+          mkdir -p "${ERRORS}"
+          jq -r '.[] | select(.conclusion == "cancelled" or .conclusion == "failure") | .id' .mutation-gate/jobs.json \
+            | while read -r job; do
+                gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/${job}/logs" 2>/dev/null \
+                  | grep -F '##[error]' > "${ERRORS}/${job}.txt" || true
+              done
       # The trend appends to what was published last time (ADR-0009).
       - name: Restore what was published last time
         env:
@@ -135,6 +143,15 @@
           JOBS: .mutation-gate/jobs.json
           RESULTS: .mutation-gate/results
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" stale
+      # Where a shard left no result, how its job ended, which the verdict
+      # names: its runner shut down or lost, the matrix cancelling it once
+      # another shard failed, its time limit, or a failure.
+      - name: Say how each shard that left no result ended
+        if: needs.plan.outputs.shards != '[]'
+        env:
+          JOBS: .mutation-gate/jobs.json
+          RESULTS: .mutation-gate/results
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" ended
       # Every map the plan wrote: the verdict builds the kill matrix over its
       # own and learns each shard's timings by the map that shard was handed,
       # unless a verdict that passed stands for the plan (ADR-0062).

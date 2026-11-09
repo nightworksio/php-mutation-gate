@@ -129,6 +129,54 @@ it('cannot judge a shard that left no result, naming every one that left none', 
             SAID));
 });
 
+it('names how the CI said each job ended of a shard that left no result, and what leaves none of the rest', function (): void {
+    $project = Flows::project();
+    $one = Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(2.0), 'money'));
+    Scratch::write($project, '.mutation-gate/results/1.ended.json', '{"how": "shutdown", "job": "https://ci.example/job/1"}');
+
+    expect(Results::read($one, Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shard 1 (money) left no result at .mutation-gate/results/1.json, so its mutants cannot be judged.
+            Shard 1 (money): its runner received a shutdown signal, which stopped the job: https://ci.example/job/1. Run it again.
+            SAID))
+        ->and(Results::read(Planned::twoShards(), Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shards 1 (money), 2 (held) left no result in .mutation-gate/results, so their mutants cannot be judged.
+            Shard 1 (money): its runner received a shutdown signal, which stopped the job: https://ci.example/job/1.
+            A shard that crashed, was cancelled or never started leaves none. Run them again.
+            SAID));
+});
+
+it('names a shard the CI cancelled once another failed apart from the one whose runner it lost', function (): void {
+    $project = Flows::project();
+    Scratch::write($project, '.mutation-gate/results/1.ended.json', '{"how": "cancelled", "after": 2}');
+    Scratch::write($project, '.mutation-gate/results/2.ended.json', '{"how": "lost"}');
+
+    expect(Results::read(Planned::twoShards(), Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shards 1 (money), 2 (held) left no result in .mutation-gate/results, so their mutants cannot be judged.
+            Shard 1 (money): the CI cancelled it once shard 2 failed, as fail-fast cancels the other shards.
+            Shard 2 (held): its runner lost contact with the CI, as a runner starved of memory or CPU does. Run them again.
+            SAID));
+});
+
+it('reads an ending it cannot read as one the CI never said', function (string $said): void {
+    $project = Flows::project();
+    $one = Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(2.0), 'money'));
+    Scratch::write($project, '.mutation-gate/results/1.ended.json', $said);
+
+    expect(Results::read($one, Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shard 1 (money) left no result at .mutation-gate/results/1.json, so its mutants cannot be judged.
+            A shard that crashed, was cancelled or never started leaves none. Run it again.
+            SAID));
+})->with([
+    'not JSON' => ['not JSON'],
+    'an ending it does not know' => ['{"how": "evicted"}'],
+    'no ending' => ['{"job": "https://ci.example/job/1"}'],
+    'an address that is no text' => ['{"how": "lost", "job": 7}'],
+]);
+
 it('cannot judge a result that cannot be read, and says too which shards left none', function (): void {
     $project = Flows::project();
     Scratch::write($project, '.mutation-gate/results/1.json', 'not a result');

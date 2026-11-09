@@ -370,6 +370,93 @@ class Stale(unittest.TestCase):
         self.assertIn("the result attempt 1 wrote is not judged", why)
 
 
+def shard_job(number: int, conclusion: str, completed: str, **more) -> dict:
+    """A shard job of attempt 1 as GitHub lists it, with these fields beside."""
+    return {
+        "id": 100 + number,
+        "name": f"mutation / shard {number} (src, part {number} of 12)",
+        "run_attempt": 1,
+        "created_at": "2026-11-08T18:39:30Z",
+        "started_at": "2026-11-08T18:39:36Z",
+        "completed_at": completed,
+        "conclusion": conclusion,
+        "html_url": f"https://github.com/octo/gate/actions/runs/1/job/{100 + number}",
+        "steps": [{"name": "Set up job", "conclusion": "success"}],
+    } | more
+
+
+class Ended(unittest.TestCase):
+    def test_names_a_runner_shut_down_and_a_shard_the_matrix_cancelled_once_another_failed(self):
+        shutdown = "##[error]The runner has received a shutdown signal. This can happen when the runner service is stopped"
+        lost = [{"name": "Run ./.mutation-gate/workflow", "conclusion": None}]
+        jobs = [
+            shard_job(1, "cancelled", "2026-11-08T19:18:47Z"),
+            shard_job(3, "success", "2026-11-08T20:02:34Z"),
+            shard_job(7, "cancelled", "2026-11-08T20:19:52Z"),
+            shard_job(10, "failure", "2026-11-08T20:19:38Z", steps=lost),
+            {"name": "mutation / verdict", "run_attempt": 1, "conclusion": "failure"},
+        ]
+
+        ended = action.endings(jobs, {101: shutdown, 107: "##[error]The operation was canceled."})
+
+        self.assertEqual(
+            ended,
+            {
+                "1": {"how": "shutdown", "job": "https://github.com/octo/gate/actions/runs/1/job/101"},
+                "7": {"how": "cancelled", "job": "https://github.com/octo/gate/actions/runs/1/job/107", "after": 10},
+                "10": {"how": "lost", "job": "https://github.com/octo/gate/actions/runs/1/job/110"},
+            },
+        )
+
+    def test_a_cancel_before_any_shard_failed_names_none_and_a_failure_whose_steps_all_ended_failed(self):
+        jobs = [
+            shard_job(2, "cancelled", "2026-11-08T19:00:00Z"),
+            shard_job(4, "failure", "2026-11-08T19:30:00Z"),
+            shard_job(5, "failure", "2026-11-08T19:40:00Z"),
+        ]
+
+        ended = action.endings(jobs, {})
+
+        self.assertEqual(ended["2"], {"how": "cancelled", "job": jobs[0]["html_url"]})
+        self.assertEqual(ended["4"]["how"], "failed")
+
+    def test_a_job_past_its_time_limit_timed_out(self):
+        said = "##[error]The job has exceeded the maximum execution time of 6h0m0s"
+
+        self.assertEqual(action.ending(shard_job(1, "cancelled", ""), said), "timed-out")
+        self.assertEqual(action.ending(shard_job(1, "timed_out", ""), ""), "timed-out")
+
+    def test_reads_only_each_shard_s_latest_run_and_not_a_run_a_re_run_kept(self):
+        earlier = shard_job(6, "cancelled", "2026-11-08T19:00:00Z")
+        again = shard_job(6, "success", "2026-11-08T21:00:00Z", run_attempt=2, id=206)
+        carried = shard_job(8, "cancelled", "2026-11-08T19:10:00Z", run_attempt=2, created_at="2026-11-08T21:00:00Z")
+
+        self.assertEqual(action.endings([earlier, again, carried], {}), {})
+
+    def test_writes_how_each_shard_without_a_result_ended_beside_where_its_result_would_be(self):
+        with tempfile.TemporaryDirectory() as directory:
+            results, errors = os.path.join(directory, "results"), os.path.join(directory, "errors")
+            os.makedirs(results)
+            os.makedirs(errors)
+            jobs = os.path.join(directory, "jobs.json")
+            with open(jobs, "w", encoding="utf-8") as file:
+                json.dump([shard_job(1, "cancelled", "a"), shard_job(2, "failure", "b")], file)
+            with open(os.path.join(errors, "101.txt"), "w", encoding="utf-8") as file:
+                file.write("##[error]The runner has received a shutdown signal.")
+            with open(os.path.join(results, "2.json"), "w", encoding="utf-8") as file:
+                file.write("{}")
+
+            subprocess.run(
+                [sys.executable, action_script.PATH, "ended"],
+                env={**os.environ, "JOBS": jobs, "RESULTS": results, "ERRORS": errors},
+                check=True,
+            )
+
+            with open(os.path.join(results, "1.ended.json"), encoding="utf-8") as file:
+                self.assertEqual(json.load(file)["how"], "shutdown")
+            self.assertFalse(os.path.exists(os.path.join(results, "2.ended.json")))
+
+
 class Keep(unittest.TestCase):
     def test_keys_the_kept_files_by_the_scope_s_prefix_and_their_digest_and_names_none_where_none_is_kept(self):
         kept = {"ledger.json.gz": b"ledger", "coverage.json.gz": b"map"}

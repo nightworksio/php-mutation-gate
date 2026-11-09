@@ -117,3 +117,20 @@ it('scans the codebase once for the whole map and a run\'s files, and afresh for
         ->and($whole->selector(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $reading, $shared))
         ->not->toBe($whole->selector($money, $reading, $shared));
 });
+
+it('holds one scan at a time, so a shard that runs in chunks keeps no scan of an earlier chunk\'s files', function (): void {
+    $at = Unexecutables::project();
+    $reading = new HandedOver(CoverageMap::of(), $at);
+    $whole = new WholeMap($at, new Remembered());
+    $handed = Handed::maps(Path::of('own'), Path::of('whole'));
+    $money = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage($handed);
+    $other = MutationRequest::of(Paths::of(Path::of('src/Other.php')), WholeSuite::tests())->reusingCoverage($handed);
+    $shared = CoverageMap::of();
+
+    $first = $whole->selector($money, $reading, $shared);
+    $again = $whole->selector($money, $reading, $shared);
+    $whole->selector($other, $reading, $shared);
+
+    expect($again)->toBe($first)
+        ->and($whole->selector($money, $reading, $shared))->not->toBe($first);
+});

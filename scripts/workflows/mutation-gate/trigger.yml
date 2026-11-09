@@ -175,5 +175,7 @@ env:
   DELIVERY: .mutation-gate/delivery
   # Where the plan finds the map another job of the run handed over, as the `coverage` input names it.
   HANDED: .mutation-gate/handed
+  # Where the verdict keeps the error lines of each cancelled or failed job's log, a file a job by its id.
+  ERRORS: .mutation-gate/errors
 
 jobs:

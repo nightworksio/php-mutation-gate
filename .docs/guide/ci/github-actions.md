@@ -398,7 +398,10 @@ action's first job above is named so, and the reusable workflow's `verdict` job
 shows as `<calling job> / verdict`. It is the check through which a merged
 pull request's verdict proves its commit, so a job named otherwise needs
 `ci.check` set to its name. The verdict says *cannot judge* (exit code 2)
-when the plan could not judge, or when any planned shard left no result.
+when the plan could not judge, or when any planned shard left no result. The
+reusable workflow's verdict then names how each such shard's job ended: its
+runner shut down or lost, cancelled once another shard failed, past its time
+limit, or failed.
 Run it on a schedule as well: the full run, twice a week in the examples.
 
 ## Merge queues

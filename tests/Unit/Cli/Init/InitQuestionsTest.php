@@ -141,7 +141,7 @@ it('asks which CI where the project shows none, offering each it writes, and tak
     $none = Scratch::directory();
     $gitlab = Scratch::directory();
     Scratch::write($gitlab, '.gitlab-ci.yml', "stages: []\n");
-    $plan = static fn(InitAnswers $answers): ?BuiltinCiPlan => $answers->ci instanceof CiRequest ? $answers->ci->plan() : null;
+    $plan = static fn(InitAnswers $answers) => $answers->ci instanceof CiRequest ? $answers->ci->plan() : null;
 
     expect([$plan(initFirstIn($none, "github\n")), $plan(initFirstIn($none, "\n")), $plan(initFirstIn($gitlab, ''))])
         ->toBe([BuiltinCiPlan::GitHub, null, BuiltinCiPlan::GitLab]);

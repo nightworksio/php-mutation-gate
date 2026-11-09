@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\TrustedEvent;
 use NightWorksIO\MutationGate\Cli\ExitCode;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace as Results;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -14,6 +15,9 @@ use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Plan\JobEnding;
+use NightWorksIO\MutationGate\Core\Plan\ShardEndRecord;
+use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
@@ -71,6 +75,16 @@ function sortedCopy(array $values): array
 
     return $values;
 }
+
+it('writes how a shard\'s job ended where the verdict reads it, in the fields and by the names it reads', function (): void {
+    $ended = Results::ended(Path::of('results'), ShardId::of(4))->value();
+
+    expect(sprintf('results/4%s', scriptText('ENDED')))->toBe($ended)
+        ->and(array_map(scriptText(...), ['SHUTDOWN', 'LOST', 'CANCELLED', 'TIMED_OUT', 'FAILED']))
+        ->toBe(array_map(static fn(JobEnding $how): string => $how->value, JobEnding::cases()))
+        ->and([scriptText('HOW'), scriptText('JOB'), scriptText('AFTER')])
+        ->toBe([ShardEndRecord::HOW, ShardEndRecord::JOB, ShardEndRecord::AFTER]);
+});
 
 it('keeps the ledger where the directory store keeps it by default', function (): void {
     expect(scriptText('LEDGERS'))->toBe(Workspace::ledger()->value());
