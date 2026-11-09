@@ -65,3 +65,16 @@ it('waits for a worker to end on its own, signalling it nothing', function (): v
         ->and($waited)->toBeLessThan(Seat::WAIT / 2)
         ->and(is_dir($directory))->toBeFalse();
 });
+
+it('reads what kept workers warned of once, and leaves them and their directory for the next chunk', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $directory = WarmDirectory::beside($results);
+    mkdir($directory);
+    file_put_contents(Seat::at($directory, 1)->warned(), "loaded a\n");
+    file_put_contents(Seat::at($directory, 1)->pid(), (string) getmypid());
+
+    expect(WarmDirectory::warnedSoFar($results))->toEqual(Warnings::of(Warning::noting('loaded a')))
+        ->and(WarmDirectory::warnedSoFar($results))->toEqual(Warnings::none())
+        ->and(is_file(Seat::at($directory, 1)->pid()))->toBeTrue()
+        ->and(is_file(Seat::stopIn($directory)))->toBeFalse();
+});

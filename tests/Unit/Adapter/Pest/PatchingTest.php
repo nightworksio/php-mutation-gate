@@ -6,12 +6,17 @@ use NightWorksIO\MutationGate\Adapter\Pest\EveryRow;
 use NightWorksIO\MutationGate\Adapter\Pest\ExactRows;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\PestSteps;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Adapter\Pest\Suite;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\Unpatched;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -126,4 +131,17 @@ it('splits its streams where it is on, compiles schemata and is told to, keeping
         Patching::off()->splitting($splitting)->schemata(),
     ])->toBe([true, true, true, false, [], false, true, false, []])
         ->and($on->schemata())->toBe(['MUTATION_GATE_SCHEMATA' => '1', ...$splitting->variables()]);
+});
+
+it('keeps a shard\'s mutants\' workers for its next chunk only where pest.bootChunks asks and they boot and cache nothing', function (): void {
+    $kept = Patching::on(Group::named('canary'))->bootingMutants(boots: false)->cachingInWorkers(caches: false);
+    $asking = PestSteps::of(Toggles::none(), NarrowedKillTrust::Vouch, LongFilter::Files, Duplicates::JudgeOnce, bootChunks: true);
+
+    expect([
+        $kept->stepping($asking)->keepsChunkWorkers(),
+        $kept->keepsChunkWorkers(),
+        $kept->bootingMutants(boots: true)->stepping($asking)->keepsChunkWorkers(),
+        $kept->cachingInWorkers(caches: true)->stepping($asking)->keepsChunkWorkers(),
+        Patching::off()->stepping($asking)->keepsChunkWorkers(),
+    ])->toBe([true, false, false, false, false]);
 });

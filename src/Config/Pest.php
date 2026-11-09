@@ -198,6 +198,18 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.overlapSteps', value: false));
     }
 
+    /** `pest.bootChunks`: a shard's chunks keep their mutants' workers, where those boot and cache nothing. */
+    public static function bootingChunks(): self
+    {
+        return new self(Json::at('pest.bootChunks', value: true));
+    }
+
+    /** `pest.bootChunks` off, as by default: each chunk starts its mutants' workers afresh. */
+    public static function chunksUnbooted(): self
+    {
+        return new self(Json::at('pest.bootChunks', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

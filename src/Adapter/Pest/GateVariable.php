@@ -106,6 +106,13 @@ enum GateVariable: string
     /** The directory a patched run's warm workers share, where its mutants' runs fork from them (see Warm\Pool). */
     case Warm = 'MUTATION_GATE_WARM';
 
+    /**
+     * The process id of the gate that keeps a shard's mutants' warm workers
+     * for its later chunks, which the workers live as long as (see
+     * Patching::keepsChunkWorkers); unset where each run's workers end with it.
+     */
+    case WarmKeeper = 'MUTATION_GATE_WARM_KEEPER';
+
     /** How many seconds a warm worker's starter waits for it to start: `runner.workerWait`. */
     case WorkerWait = 'MUTATION_GATE_WORKER_WAIT';
 

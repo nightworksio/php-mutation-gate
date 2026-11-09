@@ -94,6 +94,25 @@ final readonly class WarmDirectory
         return $warnings;
     }
 
+    /**
+     * What the kept workers of the run that records to these results warned
+     * of since it started, each warning read once, the workers left running
+     * for the shard's next chunk.
+     */
+    public static function warnedSoFar(string $results): Warnings
+    {
+        $directory = self::beside($results);
+        $warnings = self::warnings($directory);
+
+        foreach (self::files($directory) as $file) {
+            if (str_ends_with($file, self::WARNED)) {
+                unlink($file);
+            }
+        }
+
+        return $warnings;
+    }
+
     /** Whether the file is a worker's process id, and that process is still there. */
     private static function isRunning(string $file): bool
     {

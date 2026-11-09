@@ -31,6 +31,7 @@ final readonly class PestKeys
         $opcache = Field::optional(Pest::WORKER_OPCACHE, Flag::boolean(), $results);
         $schemata = Field::optional(Pest::SCHEMATA, Flag::boolean(), $results);
         $bootMutants = Field::optional(Pest::BOOT_MUTANTS, Flag::boolean(), $results);
+        $bootChunks = Field::optional(Pest::BOOT_CHUNKS, Flag::boolean(), Effect::JudgesOrReportsOnly);
         $toggles = ToggleFields::in('pest');
         $narrowedKills = Field::optional(Pest::NARROWED_KILLS, Enumerated::of(NarrowedKillTrust::cases()), $results);
         $longFilter = Field::optional(Pest::LONG_FILTER, Enumerated::of(LongFilter::cases()), $results);
@@ -45,6 +46,7 @@ final readonly class PestKeys
                     $opcache,
                     $schemata,
                     $bootMutants,
+                    $bootChunks,
                     $toggles,
                     $narrowedKills,
                     $longFilter,
@@ -58,6 +60,7 @@ final readonly class PestKeys
                     $cached = $opcache->read($pest);
                     $compiled = $schemata->read($pest);
                     $forked = $bootMutants->read($pest);
+                    $kept = $bootChunks->read($pest);
                     $named = $group->value();
 
                     return Reading::built(
@@ -70,6 +73,7 @@ final readonly class PestKeys
                             $forked->value(),
                             $vouching->value(),
                             $selecting->value(),
+                            $kept->value(),
                         ), $toggles->set($switched)),
                         $patched,
                         $group,
@@ -79,6 +83,7 @@ final readonly class PestKeys
                         $forked,
                         $vouching,
                         $selecting,
+                        $kept,
                         ...$switched,
                     );
                 },
@@ -88,6 +93,7 @@ final readonly class PestKeys
                 $opcache,
                 $schemata,
                 $bootMutants,
+                $bootChunks,
                 $narrowedKills,
                 $longFilter,
                 ...$toggles->fields(),

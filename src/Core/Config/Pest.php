@@ -31,6 +31,9 @@ final readonly class Pest implements Part
     /** The key, and the Pest runner's option, that says whether mutants' workers boot the project. */
     public const string BOOT_MUTANTS = 'bootMutants';
 
+    /** The key, and the Pest runner's option, that says whether a shard's chunks keep their mutants' workers. */
+    public const string BOOT_CHUNKS = 'bootChunks';
+
     /** The key and option that say what a kill in a narrowed run needs (ADR-0142). */
     public const string NARROWED_KILLS = 'narrowedKills';
 
@@ -49,6 +52,7 @@ final readonly class Pest implements Part
         private SplitStream $splitStream,
         private NarrowedKillTrust|Absent $narrowedKills,
         private LongFilter|Absent $longFilter,
+        private bool|Absent $bootChunks,
     ) {
     }
 
@@ -61,6 +65,7 @@ final readonly class Pest implements Part
         bool|Absent $bootMutants = new Absent(),
         NarrowedKillTrust|Absent $narrowedKills = new Absent(),
         LongFilter|Absent $longFilter = new Absent(),
+        bool|Absent $bootChunks = new Absent(),
     ): self {
         return new self(
             $patch,
@@ -72,6 +77,7 @@ final readonly class Pest implements Part
             SplitStream::of(),
             $narrowedKills,
             $longFilter,
+            $bootChunks,
         );
     }
 
@@ -80,7 +86,7 @@ final readonly class Pest implements Part
     {
         $none = new Absent();
 
-        return new self($none, $none, $none, $none, $none, $none, $splitStream, $none, $none);
+        return new self($none, $none, $none, $none, $none, $none, $splitStream, $none, $none, $none);
     }
 
     public static function none(): self
@@ -101,6 +107,7 @@ final readonly class Pest implements Part
             $none->bootMutants(),
             $none->narrowedKills(),
             $none->longFilter(),
+            $none->bootChunks(),
         )->over(self::splitting(SplitStream::standard()));
     }
 
@@ -117,6 +124,7 @@ final readonly class Pest implements Part
                 $this->splitStream->over($later->splitStream),
                 Absent::laid($this->narrowedKills, $later->narrowedKills),
                 Absent::laid($this->longFilter, $later->longFilter),
+                Absent::laid($this->bootChunks, $later->bootChunks),
             )
             : $this;
     }
@@ -183,6 +191,17 @@ final readonly class Pest implements Part
         return $this->bootMutants instanceof Absent || $this->bootMutants;
     }
 
+    /**
+     * Whether a shard's chunks keep the warm workers of their mutants' own
+     * runs for the next chunk, where those workers boot nothing of the
+     * project and compile without opcache, so every chunk forks from an equal
+     * state (ADR-0023); false by default.
+     */
+    public function bootChunks(): bool
+    {
+        return ! $this->bootChunks instanceof Absent && $this->bootChunks;
+    }
+
     /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117). */
     public function splitStream(): SplitStream
     {
@@ -232,6 +251,7 @@ final readonly class Pest implements Part
             Member::of(self::WORKER_OPCACHE, $this->workerOpcache()),
             Member::of(self::SCHEMATA, $this->schemata()),
             Member::of(self::BOOT_MUTANTS, $this->bootMutants()),
+            Member::of(self::BOOT_CHUNKS, $this->bootChunks()),
             Member::of(self::NARROWED_KILLS, $this->narrowedKills()->value),
             Member::of(self::LONG_FILTER, $this->longFilter()->value),
             $this->splitStream->option(),
@@ -254,6 +274,7 @@ final readonly class Pest implements Part
                     Member::of(self::WORKER_OPCACHE, $this->workerOpcache),
                     Member::of(self::SCHEMATA, $this->schemata),
                     Member::of(self::BOOT_MUTANTS, $this->bootMutants),
+                    Member::of(self::BOOT_CHUNKS, $this->bootChunks),
                     Member::of(
                         self::NARROWED_KILLS,
                         $this->narrowedKills instanceof NarrowedKillTrust
@@ -281,6 +302,7 @@ final readonly class Pest implements Part
             ...$this->switched($this->workerOpcache, 'Pest::cachingInWorkers()', 'Pest::uncachedInWorkers()'),
             ...$this->switched($this->schemata, 'Pest::compilingSchemata()', 'Pest::withoutSchemata()'),
             ...$this->switched($this->bootMutants, 'Pest::bootingMutants()', 'Pest::mutantsUnbooted()'),
+            ...$this->switched($this->bootChunks, 'Pest::bootingChunks()', 'Pest::chunksUnbooted()'),
             ...$this->narrowedKills instanceof NarrowedKillTrust ? [$this->narrowedKills->php()] : [],
             ...$this->longFilter instanceof LongFilter ? [$this->longFilter->php()] : [],
         ]);

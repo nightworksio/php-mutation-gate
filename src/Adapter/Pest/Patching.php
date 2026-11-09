@@ -223,6 +223,17 @@ final readonly class Patching
     }
 
     /**
+     * Whether a shard's chunks keep their mutants' warm workers for the next
+     * chunk: where `pest.bootChunks` asks and those workers boot nothing of
+     * the project and compile without opcache, so a kept worker is in the
+     * state a fresh one starts in.
+     */
+    public function keepsChunkWorkers(): bool
+    {
+        return $this->isOn() && $this->steps->bootsChunks() && ! $this->bootsMutants && ! $this->caches;
+    }
+
+    /**
      * What a run is started with to keep each mutant's limit, and its silence
      * limit, within these bounds, where the project applies the patch (see
      * MutantTime); nothing where it does not, as Pest allows each mutant its

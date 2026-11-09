@@ -40,7 +40,9 @@ use function sprintf;
  * tail's workers boot the project (ADR-0075), false by default;
  * `workerOpcache`, whether its warm workers compile through opcache
  * (ADR-0088), true by default; `schemata`, whether each file's mutants are
- * compiled into a schema (ADR-0091), true by default; `trials`,
+ * compiled into a schema (ADR-0091), true by default; `bootChunks`,
+ * whether a shard's chunks keep their mutants' workers (ADR-0023), false by
+ * default; `trials`,
  * `valueReaders` and `narrow`, which steps of a run are on (ADR-0142), all
  * of them by default; `narrowedKills`, `vouch` by default, and `longFilter`,
  * `files` by default (ADR-0138, ADR-0142); `splitStream`,
@@ -82,6 +84,7 @@ final readonly class PestOptions
         $opcache = $options->flag(Key::of(ConfigPest::WORKER_OPCACHE));
         $schemata = $options->flag(Key::of(ConfigPest::SCHEMATA));
         $bootMutants = $options->flag(Key::of(ConfigPest::BOOT_MUTANTS));
+        $bootChunks = $options->flag(Key::of(ConfigPest::BOOT_CHUNKS));
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $bounds = BoundsOptions::read($options);
@@ -98,6 +101,7 @@ final readonly class PestOptions
             $opcache instanceof Problem => Invalid::because($opcache),
             $schemata instanceof Problem => Invalid::because($schemata),
             $bootMutants instanceof Problem => Invalid::because($bootMutants),
+            $bootChunks instanceof Problem => Invalid::because($bootChunks),
             $tests instanceof Problem => Invalid::because($tests),
             $mutators instanceof Problem => Invalid::because($mutators),
             $bounds instanceof Problem => Invalid::because($bounds),
@@ -113,7 +117,7 @@ final readonly class PestOptions
                     ->compilingSchemata($schemata !== false)
                     ->bootingMutants($bootMutants !== false)
                     ->splitting($streams)
-                    ->stepping(PestSteps::of($toggles, $vouching, $selecting, $judging)),
+                    ->stepping(PestSteps::of($toggles, $vouching, $selecting, $judging, $bootChunks === true)),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
                 $bounds,

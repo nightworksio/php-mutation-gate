@@ -337,7 +337,9 @@ final readonly class MutationRun
         );
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
-        $warned = WarmDirectory::cleared($results, $request->pool()->pace()->workerWait());
+        $warned = $this->patching->keepsChunkWorkers()
+            ? WarmDirectory::warnedSoFar($results)
+            : WarmDirectory::cleared($results, $request->pool()->pace()->workerWait());
         $coverage = $this->coveringOf($shared, $results);
         $opensOn = $this->patching->opensOn($request->judgedBy(), $shared instanceof CoverageMap);
         $left = fn(): Seconds|Unlimited => $this->left($request, $started);
