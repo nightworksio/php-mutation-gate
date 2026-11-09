@@ -47,6 +47,7 @@ jobs:
       warm: ${{ steps.diff.outputs.warm }}
       hooks: ${{ steps.diff.outputs.hooks }}
       builds: ${{ steps.diff.outputs.builds }}
+      judged: ${{ steps.nightly.outputs.judged }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,13 +67,28 @@ jobs:
             git diff --name-only "${BASE}" HEAD | python3 .github/scripts/scope.py "${EVENT}" | tee -a "$GITHUB_OUTPUT"
           fi
       # A push drops the gates its pull request passed on this very tree
-      # (ADR-0112). The repository variable PROVEN_PUSH set to false runs them.
+      # (ADR-0122). The repository variable PROVEN_PUSH set to false runs them.
       - id: proven
         if: github.event_name == 'push' && vars.PROVEN_PUSH != 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           JOBS: ${{ steps.diff.outputs.jobs }}
         run: python3 .github/scripts/proven_push.py | tee -a "$GITHUB_OUTPUT"
+      # The nightly unproven run judges nothing new where main's head is the
+      # head the last passing nightly run judged, so it is skipped.
+      - id: nightly
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          last="$(gh api "repos/${REPOSITORY}/actions/workflows/ci.yml/runs?event=schedule&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // ""')"
+          if [ "${last}" = "${HEAD}" ]; then
+            echo "judged=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::The last passing nightly run judged ${HEAD} in full, so this one judges nothing new and is skipped."
+          fi
       - name: what failed
         if: failure()
         run: python3 .github/scripts/gate_summary.py scope
@@ -788,7 +804,7 @@ jobs:
   # of its shards gave the same verdicts in 29% less time (ADR-0035).
   mutation:
     needs: [scope, tests, checks, rules, scripts]
-    if: ${{ !cancelled() && needs.tests.result != 'failure' && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' }}
+    if: ${{ !cancelled() && needs.tests.result != 'failure' && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' && needs.scope.outputs.judged != 'true' }}
     permissions:
       contents: write # used only by publish, on the default branch, which writes the badge and the trend
       actions: read # used only by verdict and deliver, to find the run's HTML report the comment links

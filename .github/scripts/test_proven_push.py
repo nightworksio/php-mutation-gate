@@ -1,4 +1,4 @@
-"""What a push to the default branch drops, tested without a runner (ADR-0112)."""
+"""What a push to the default branch drops, tested without a runner (ADR-0122)."""
 import os
 import unittest
 from unittest import mock

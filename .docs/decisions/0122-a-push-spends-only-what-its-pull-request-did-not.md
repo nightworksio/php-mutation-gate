@@ -1,4 +1,4 @@
-# ADR-0112: A push spends only what its pull request did not
+# ADR-0122: A push spends only what its pull request did not
 
 **Status:** Accepted
 **Date:** 2026-11-07

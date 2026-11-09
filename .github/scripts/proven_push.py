@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The jobs a push to the default branch still runs (ADR-0112).
+"""The jobs a push to the default branch still runs (ADR-0122).
 
 A push whose tree is the head of the pull request it merged has already had
 each gate that pull request ran on that very tree, under the same workflow, so
