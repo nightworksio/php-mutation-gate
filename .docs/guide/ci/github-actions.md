@@ -225,13 +225,12 @@ project's own copy
 `release` takes the newest signed release's judge, verified by its signature
 and its attestation as the release's PHAR is, and a commit or tag of
 `nightworksio/php-mutation-gate` builds the judge there. Only the gate's own
-repository names the other three, which build it from its own history:
-
-| Value | Judge |
-|---|---|
-| `auto` | Built where the change branched, or else at its base. Built at the change's own tip where the change touches the reusable workflow, the action, the gate's `mutation-gate.json` or the judge's build. |
-| `merge-base` | Built where the change branched, or else at its base. Where the change touches what `auto` lists, or neither commit holds a judge's build, the verdict is cannot-judge, and says why. |
-| `head` | Built at the change's own tip. |
+repository names `merge-base`, which builds it where the change branched, or
+else at its base, or else takes the newest signed release's. The gate's own CI
+passes `merge-base` on pull requests, and a push is judged by its own build.
+Under a judge, a `reach.everything` glob whose files are all the gate's own
+reaches nothing by itself, since the judge runs in their place; the plan names
+each one it leaves out.
 
 A `judge` job builds it once a run, cached by
 commit, and the plan, shards, survivors and verdict run it. The judge's
