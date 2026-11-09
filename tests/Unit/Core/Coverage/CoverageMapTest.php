@@ -258,3 +258,14 @@ it('covers a line with several tests at once, each once, knowing those it did no
     expect($ids($map->testsCovering(Path::of('src/Money.php'), Line::of(4), Line::of(4))))->toBe(['MoneyTest::adds', 'RateTest::reads'])
         ->and($ids($map->tests()))->toBe(['MoneyTest::adds', 'RateTest::reads']);
 });
+
+it('lays another map beside it, a line both hold keeping the tests of both and a test both timed its longer time', function (): void {
+    $file = Path::of('src/Money.php');
+    $one = CoverageMap::of()->covered($file, Line::of(3), TestId::of('a'))->timed(TestId::of('a'), Seconds::of(1.0));
+    $other = CoverageMap::of()->covered($file, Line::of(3), TestId::of('b'))->timed(TestId::of('a'), Seconds::of(2.0));
+    $both = $one->and($other);
+
+    expect(array_map(static fn(TestId $test): string => $test->value(), [...$both->testsCovering($file, Line::of(3), Line::of(3))]))
+        ->toBe(['a', 'b'])
+        ->and($both->durationOf(TestId::of('a')))->toEqual(Seconds::of(2.0));
+});

@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordedMap;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+it('reads each project line every test executed in a stream\'s parent, and the test\'s seconds, leaving out other files', function (): void {
+    $project = Scratch::directory();
+    $recorded = sprintf('%s/recorded', $project);
+    mkdir($recorded);
+    file_put_contents(
+        sprintf('%s/recorded-1-0.jsonl', $recorded),
+        StreamLine::covered('MoneyTest::adds', [sprintf('%s/src/Money.php', $project) => [11, 12], '/vendor/pest.php' => [3]], 0.5)
+        . StreamLine::covered('MoneyTest::subtracts', [sprintf('%s/src/Money.php', $project) => [12]], 0.25),
+    );
+    $map = RecordedMap::in($recorded, Root::of($project));
+
+    expect($map)->toEqual(
+        CoverageMap::of()
+            ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
+            ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('MoneyTest::adds'))
+            ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.5))
+            ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('MoneyTest::subtracts'))
+            ->timed(TestId::of('MoneyTest::subtracts'), Seconds::of(0.25)),
+    );
+});
+
+it('reads no map where the streams recorded nothing', function (): void {
+    expect(RecordedMap::in(Scratch::directory(), Root::of(Scratch::directory())))->toBeInstanceOf(NotGiven::class);
+});
