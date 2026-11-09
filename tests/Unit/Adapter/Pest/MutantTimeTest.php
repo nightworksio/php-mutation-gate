@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
@@ -183,7 +184,7 @@ it('allows a mutant whose filter is left out the standard limit of every timed t
         ->and(file_get_contents($results))->toBe(sprintf(
             '%s%s',
             RecordLine::limited('/tmp/mutations/abc', 7.25),
-            RecordLine::unfiltered('/tmp/mutations/abc'),
+            RecordLine::marked('/tmp/mutations/abc', RecordEvent::Unfiltered),
         ));
 });
 

@@ -14,6 +14,7 @@ use function hash;
 use function is_dir;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WholeFile;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Schema;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Site;
+use NightWorksIO\MutationGate\Mutator\Engine\Schema\SwitchCall;
 use Pest\Mutate\Mutation;
 use PhpParser\Node;
 use PhpParser\NodeVisitor;
@@ -51,6 +53,13 @@ final class Schemata
 
     /** The call each switch of a file's schema makes, by the file's key, `%d` where it takes the id. */
     private const string SWITCH = "\\%s::is('%s', %%d)";
+
+    /**
+     * The call a pure expression's site makes in a split stream, by the file's
+     * key (ADR-0117): `%1$d` where it takes the id, `%2$s` the original and
+     * `%3$s` the mutated code.
+     */
+    private const string VALUED = "\\%s::value('%s', %%1\$d, fn () => (%%2\$s), fn () => (%%3\$s))";
 
     /** The file in a run's warm directory that names each file's schema, by the file (ADR-0091). */
     private const string MAP = '%s/schemata.json';
@@ -88,7 +97,15 @@ final class Schemata
         unset(self::$sites[$file]);
         $sites = array_map(static fn(array $kept): Site => $kept[1], $kept);
         $key = hash(self::DIGEST, $file);
-        $schema = Schema::of($code, sprintf(self::SWITCH, SchemaSwitch::class, $key), ...$sites);
+        $switch = SwitchCall::of(sprintf(self::SWITCH, SchemaSwitch::class, $key));
+        $streams = StreamSettings::fromEnvironment();
+        $schema = Schema::of(
+            $code,
+            $streams->isOn() && $streams->checksChanges()
+                ? $switch->valuing(sprintf(self::VALUED, SchemaSwitch::class, $key))
+                : $switch,
+            ...$sites,
+        );
 
         if ($schema->isEmpty()) {
             return;
@@ -125,6 +142,19 @@ final class Schemata
                 GateVariable::SchemaOn->value => sprintf('%d', self::$switched[$mutation->id][1]),
             ]
             : [];
+    }
+
+    /**
+     * The key of a mutant's file and its switch's id, where its file's schema
+     * switches it and its mutator is not pinned by source; nothing otherwise.
+     *
+     * @return array{string, int}|NotGiven
+     */
+    public static function switchOf(Mutation $mutation): array|NotGiven
+    {
+        return array_key_exists($mutation->id, self::$switched) && ! Bridged::isPinnedBySource($mutation->mutator)
+            ? [hash(self::DIGEST, strval($mutation->file->getRealPath())), self::$switched[$mutation->id][1]]
+            : NotGiven::value();
     }
 
     /** Leaves each file's schema, by the file, in a run's warm directory, for its workers to serve as they boot. */

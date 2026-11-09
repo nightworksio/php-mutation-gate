@@ -11,13 +11,13 @@ use Closure;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PendingListings;
-use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 
 /**
  * The tests and groups each set of a Pest runner's suites lists, each listed
- * once for what is withheld: alone, or started side by side with others and
+ * once for its key, what is withheld and the digest of the test files where
+ * `watch` sets one: alone, or started side by side with others and
  * taken by whoever asks for it first. Listings stopped before they are taken
  * are forgotten, and listed anew where asked for after.
  *
@@ -41,10 +41,9 @@ final class RememberedListings
     private int $started = 0;
 
     /** @param Closure(): (TestListing|CannotJudge) $listing */
-    public function listing(Withheld $withheld, Suites $suites, Closure $listing): TestListing|CannotJudge
+    public function listing(string $key, Suites $suites, Closure $listing): TestListing|CannotJudge
     {
         $among = $suites->joined();
-        $key = $withheld->pattern();
         $this->settle($among, $key);
 
         if (! $this->has($this->listings, $among, $key)) {
@@ -61,9 +60,8 @@ final class RememberedListings
      *
      * @param Closure(Suites ...): PendingListings $starting
      */
-    public function listings(Withheld $withheld, Closure $starting, Suites ...$suites): PendingListings
+    public function listings(string $key, Closure $starting, Suites ...$suites): PendingListings
     {
-        $key = $withheld->pattern();
         $missing = $this->missing($key, ...$suites);
         $start = $missing === [] ? NotGiven::value() : $this->start($key, $starting, ...array_values($missing));
 

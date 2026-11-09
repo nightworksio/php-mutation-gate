@@ -11,6 +11,7 @@ use function implode;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -110,13 +111,23 @@ final readonly class PestRun
     /** That a patched run left the filter of the mutant with this native id out. */
     public static function unfiltered(string $id): string
     {
-        return self::line(RecordLine::unfiltered(self::mutated($id)));
+        return self::marked($id, RecordEvent::Unfiltered);
     }
 
     /** That the own process of the mutant with this native id had loaded its file before the mutant was in place. */
     public static function preloaded(string $id): string
     {
-        return self::line(RecordLine::preloaded(self::mutated($id)));
+        return self::marked($id, RecordEvent::Preloaded);
+    }
+
+    /**
+     * That the run marked the mutant with this native id with this event
+     * alone: a split stream judged it, or its shard's part of the test files
+     * left it to another part or judged it by its own covering tests.
+     */
+    public static function marked(string $id, RecordEvent $event): string
+    {
+        return self::line(RecordLine::marked(self::mutated($id), $event));
     }
 
     /**

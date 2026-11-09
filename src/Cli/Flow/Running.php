@@ -87,6 +87,7 @@ final readonly class Running
         private Setup $setup,
         private Interruption $interruption = new Interruption(),
         private Ruling $ruling = new Ruling(),
+        private BatchEnds $ends = new BatchEnds(),
     ) {
     }
 
@@ -99,7 +100,13 @@ final readonly class Running
     /** The same, stopping before its next batch once this says so, as at its deadline. */
     public function interrupted(Interruption $interruption): self
     {
-        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling);
+        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling, $this->ends);
+    }
+
+    /** The same, telling these what each batch judged as it ends (ADR-0120). */
+    public function telling(BatchEnds $ends): self
+    {
+        return new self($this->adapters, $this->settings, $this->setup, $this->interruption, $this->ruling, $ends);
     }
 
     /** The plan, where the checkout is the commit it was made on, as every shard and the verdict need. */
@@ -214,7 +221,7 @@ final readonly class Running
 
         return $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
             Warning::noting(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
-        ) : Warnings::none()));
+        ) : Warnings::none())->and(Unsplit::warnings($this->settings, $id)));
     }
 
     /** The result with what the shard's mutating left beside its mutants, warnings too: none where it cannot judge. */
@@ -275,6 +282,7 @@ final readonly class Running
                     $this->setup,
                     $this->interruption,
                     $this->ruling,
+                    $this->ends,
                 )->mutatedKept($plan, $part, $map, $held, $search, $deadline, $stopwatch),
             );
     }
@@ -291,7 +299,7 @@ final readonly class Running
     ): Mutated|CannotJudge {
         $samples = $this->settings->shards()->planning()->startUpSamples();
         $startUp = new StartUpTiming($this->adapters, $samples)->of($map, $kept->units());
-        $pool = Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
+        $pool = $this->adapters->pooled($this->settings->runner()->workers())
             ->pacedBy($this->settings->runner()->pace())
             ->startingIn($startUp)
             ->learning($plan->briefing()->learned()->multiple());
@@ -331,12 +339,20 @@ final readonly class Running
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);
         $stops = $this->settings->reach()->failingFast()->mode()->stops();
-        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom, $stops);
+        $batched = new Batched(
+            $invoking,
+            $this->setup->clock,
+            $deadline,
+            $this->interruption,
+            $doom,
+            $stops,
+            $this->ends,
+        );
         $batching = Batching::opening($map->suiteDuration());
         $pruned = $plan->considered()->pruned();
         $requestFor = fn(Units $units): MutationRequest => $this->requestFor(
             $units,
-            $kept->id(),
+            $kept,
             $search,
             $pool,
             $pruned,
@@ -392,8 +408,8 @@ final readonly class Running
 
     /**
      * The shard's units in order, each weighed by what the cost model expects
-     * of it, with what the ledgers the plan reads learned; a shard measures
-     * no first run of its own.
+     * of it, with what the ledgers the plan reads learned, at its share of the
+     * shard's part of the test files; a shard measures no first run of its own.
      *
      * @return list<Weighed>
      */
@@ -409,7 +425,7 @@ final readonly class Running
 
         foreach ($shard->units() as $unit) {
             $estimated = $ledgers->estimated($this->adapters->costs, $unit, FirstRun::unmeasured(), $this->setup->gate);
-            $weighed[] = Weighed::of($unit, $shard->package(), $estimated);
+            $weighed[] = Weighed::of($unit, $shard->package(), $estimated)->sharedAmong($shard->testPart());
         }
 
         return $weighed;
@@ -419,11 +435,12 @@ final readonly class Running
      * One invocation: a held unit alone by the tests that hold it, or files
      * by the whole suite, reading the maps the plan handed the shard, each
      * mutant's killers looked for as asked, leaving the mutators the plan
-     * prunes out of the files it prunes them in.
+     * prunes out of the files it prunes them in, its mutants judged by the
+     * shard's part of the test files (ADR-0117).
      */
     private function requestFor(
         Units $units,
-        ShardId $shard,
+        Shard $shard,
         KillSearch $search,
         Pool $pool,
         Pruned $pruned,
@@ -438,9 +455,9 @@ final readonly class Running
 
         $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
 
-        return $request->narrowedTo($files, $request->narrowing()->pruning($pruned))
+        return $request->narrowedTo($files, $request->narrowing()->pruning($pruned)->inTestPart($shard->testPart()))
             ->across($pool)
-            ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard), Workspace::coverage()))
+            ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard->id()), Workspace::coverage()))
             ->searching($search);
     }
 }

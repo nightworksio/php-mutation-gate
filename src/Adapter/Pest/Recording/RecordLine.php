@@ -151,11 +151,17 @@ final readonly class RecordLine
         ]);
     }
 
-    /** That a patched run left the filter of the mutant with this mutated copy out, so it ran every test it loaded. */
-    public static function unfiltered(string $mutated): string
+    /**
+     * That the plugin marked the mutant with this mutated copy with this
+     * event alone: a patched run left its filter out, so it ran every test it
+     * loaded (Unfiltered); its own process had loaded the original file before
+     * the mutant was in its place (Preloaded); or a split stream judged it
+     * (Streamed, ADR-0117).
+     */
+    public static function marked(string $mutated, RecordEvent $event): string
     {
         return self::line([
-            RecordField::Event->value => RecordEvent::Unfiltered->value,
+            RecordField::Event->value => $event->value,
             RecordField::Mutated->value => $mutated,
         ]);
     }
@@ -172,18 +178,6 @@ final readonly class RecordLine
             RecordField::Mutated->value => $mutated,
             ...$overran instanceof TestId ? [RecordField::Test->value => $overran->value()] : [],
             RecordField::Seconds->value => $seconds,
-        ]);
-    }
-
-    /**
-     * That the own process of the mutant Pest serves this mutated copy for had
-     * loaded the original file before the mutant was in its place.
-     */
-    public static function preloaded(string $mutated): string
-    {
-        return self::line([
-            RecordField::Event->value => RecordEvent::Preloaded->value,
-            RecordField::Mutated->value => $mutated,
         ]);
     }
 

@@ -13,6 +13,7 @@ use function is_float;
 use function is_string;
 use function max;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -69,7 +70,7 @@ final class MutantTime
         $passed = Selection::passable($filter);
         $running = $passed ? $tests : self::timed(CoveringFiles::loading($mutated, LoadedMap::tests()));
         $limit = MutantLimit::standard()->of(self::ownTime($running), $bounds)->seconds();
-        $unfiltered = $passed ? '' : RecordLine::unfiltered($mutated);
+        $unfiltered = $passed ? '' : RecordLine::marked($mutated, RecordEvent::Unfiltered);
         $lines = sprintf('%s%s', RecordLine::limited($mutated, $limit), $unfiltered);
 
         $recorded = $mutated !== '' && is_string($results) && $results !== ''

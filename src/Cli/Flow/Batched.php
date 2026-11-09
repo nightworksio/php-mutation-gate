@@ -32,7 +32,7 @@ use Psr\Clock\ClockInterface;
  * Invoking); under `mark` the first such survivor is noted and the batches run
  * on (ADR-0103). A batch the runner
  * cannot judge once the time is up is unjudged, as is every unit no batch
- * took.
+ * took. What each batch judged is told as it ends (ADR-0120).
  *
  * @internal
  */
@@ -45,6 +45,7 @@ final readonly class Batched
         private Interruption $interruption,
         private Doom|Undoomed $doom,
         private bool $stops,
+        private BatchEnds $ends = new BatchEnds(),
     ) {
     }
 
@@ -64,6 +65,7 @@ final readonly class Batched
         while ($batch->count() > 0) {
             $request = $requestFor($batch);
             $invoked = $this->invoking->invoked($this->within($request, $left));
+            $this->ends->ended($invoked);
             $queue = array_slice($queue, $batch->count());
             $spent = match (true) {
                 ! $invoked instanceof CannotJudge => $watch->after($spent, $batch, $invoked),

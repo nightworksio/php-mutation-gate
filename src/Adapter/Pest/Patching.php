@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
@@ -30,6 +31,7 @@ final readonly class Patching
 {
     private function __construct(
         private Group|Unpatched $canary,
+        private StreamSettings $streams,
         private bool $bootsTail = false,
         private bool $caches = true,
         private bool $compiles = true,
@@ -39,12 +41,12 @@ final readonly class Patching
 
     public static function off(): self
     {
-        return new self(Unpatched::Vendor);
+        return new self(Unpatched::Vendor, StreamSettings::off());
     }
 
     public static function on(Group $canary): self
     {
-        return new self($canary);
+        return new self($canary, StreamSettings::off());
     }
 
     public function isOn(): bool
@@ -55,7 +57,7 @@ final readonly class Patching
     /** The same, the tail's workers booting the project where it applies the patch, as `pest.bootTail` says. */
     public function bootingTail(bool $boots): self
     {
-        return new self($this->canary, $boots, $this->caches, $this->compiles, $this->bootsMutants);
+        return new self($this->canary, $this->streams, $boots, $this->caches, $this->compiles, $this->bootsMutants);
     }
 
     /**
@@ -64,31 +66,53 @@ final readonly class Patching
      */
     public function cachingInWorkers(bool $caches): self
     {
-        return new self($this->canary, $this->bootsTail, $caches, $this->compiles, $this->bootsMutants);
+        return new self($this->canary, $this->streams, $this->bootsTail, $caches, $this->compiles, $this->bootsMutants);
     }
 
     /** The same, each file's mutants compiled into a schema where it applies the patch, as `pest.schemata` says. */
     public function compilingSchemata(bool $compiles): self
     {
-        return new self($this->canary, $this->bootsTail, $this->caches, $compiles, $this->bootsMutants);
+        return new self($this->canary, $this->streams, $this->bootsTail, $this->caches, $compiles, $this->bootsMutants);
     }
 
     /** The same, mutants' workers booting the project where it applies the patch, as `pest.bootMutants` says. */
     public function bootingMutants(bool $boots): self
     {
-        return new self($this->canary, $this->bootsTail, $this->caches, $this->compiles, $boots);
+        return new self($this->canary, $this->streams, $this->bootsTail, $this->caches, $this->compiles, $boots);
+    }
+
+    /** The same, its mutants judged in split streams as `splitStream` says, where it compiles schemata (ADR-0117). */
+    public function splitting(StreamSettings $streams): self
+    {
+        return new self(
+            $this->canary,
+            $streams,
+            $this->bootsTail,
+            $this->caches,
+            $this->compiles,
+            $this->bootsMutants,
+        );
     }
 
     /**
      * What a run is started with to compile each file's mutants into a schema
-     * (see Schemata); nothing where the project does not apply the patch, or
-     * `pest.schemata` is off.
+     * (see Schemata), and to judge them in split streams where `splitStream`
+     * asks it to (ADR-0117); nothing where the project does not apply the
+     * patch, or `pest.schemata` is off.
      *
      * @return array<string, string>
      */
     public function schemata(): array
     {
-        return $this->isOn() && $this->compiles ? [GateVariable::Schemata->value => '1'] : [];
+        return $this->isOn() && $this->compiles
+            ? [GateVariable::Schemata->value => '1', ...$this->streams->variables()]
+            : [];
+    }
+
+    /** Whether a run judges its mutants in split streams: where it compiles schemata and `splitStream` asks it to. */
+    public function splitsStreams(): bool
+    {
+        return $this->isOn() && $this->compiles && $this->streams->isOn();
     }
 
     /** Whether the warm workers compile through opcache, keeping out each file the run mutates and copy it serves. */

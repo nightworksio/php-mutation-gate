@@ -69,6 +69,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -252,6 +253,24 @@ it('tells the runner of each invocation the suite\'s files of test cases, a glob
     );
 
     expect($told)->toBe([true, true]);
+});
+
+it('tells the runner of each invocation the shard\'s part of the test files, held units and the rest alike', function (): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $shard = static fn(int $number): Shard => Shard::of(
+        ShardId::of($number),
+        Package::at(Path::root()),
+        Units::of(Planned::money(), Planned::held()),
+        Seconds::of(3.0),
+        sprintf('everything, part %d of 2', $number),
+    )->inPart(TestPart::of($number, 2));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::of($shard(1), $shard(2))), ShardId::of(2), Workspace::results());
+
+    expect(array_map(static fn(MutationRequest $request): TestPart => $request->narrowing()->testPart(), $runner->requests()))
+        ->toEqual([TestPart::of(2, 2), TestPart::of(2, 2)]);
 });
 
 it('runs the held path by its group, the rest by the suite, on the shard\'s map, secrets withheld', function (): void {

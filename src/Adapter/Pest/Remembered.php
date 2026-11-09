@@ -12,7 +12,9 @@ use function array_values;
 
 use Closure;
 
+use function getenv;
 use function in_array;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Selector;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -24,12 +26,15 @@ use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\PendingListings;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Port\MapEngine;
+
+use function sprintf;
 
 /**
  * What one Pest runner learns once for every run it starts in a process: the
@@ -49,6 +54,12 @@ use NightWorksIO\MutationGate\Port\MapEngine;
  */
 final class Remembered
 {
+    /** A key of what was withheld and the digest of the test files. */
+    private const string KEYED = "%s\0%s";
+
+    /** @var array<string, Names|CannotJudge> by what naming withheld and the digest of the test files */
+    private array $names = [];
+
     /** @var array<string, Platform|CannotJudge> by what the PHP described withheld */
     private array $platforms = [];
 
@@ -89,14 +100,15 @@ final class Remembered
     }
 
     /**
-     * What a set of suites lists, listed once: taken where it was started
-     * side by side with others.
+     * What a set of suites lists, listed once for what is withheld and the
+     * digest of the test files `watch` sets (see ChildVariable::TestsKey):
+     * taken where it was started side by side with others.
      *
      * @param Closure(): (TestListing|CannotJudge) $listing
      */
     public function listing(Withheld $withheld, Suites $suites, Closure $listing): TestListing|CannotJudge
     {
-        return $this->listed->listing($withheld, $suites, $listing);
+        return $this->listed->listing($this->listingKey($withheld), $suites, $listing);
     }
 
     /**
@@ -107,7 +119,29 @@ final class Remembered
      */
     public function listings(Withheld $withheld, Closure $starting, Suites ...$suites): PendingListings
     {
-        return $this->listed->listings($withheld, $starting, ...$suites);
+        return $this->listed->listings($this->listingKey($withheld), $starting, ...$suites);
+    }
+
+    /**
+     * The names of the suite's tests, named once for what is withheld and the
+     * digest of the test files, where `watch` sets one; named afresh each
+     * time where none is set.
+     *
+     * @param Closure(): (Names|CannotJudge) $naming
+     */
+    public function names(Withheld $withheld, Closure $naming): Names|CannotJudge
+    {
+        if ($this->testsKey() === '') {
+            return $naming();
+        }
+
+        $key = $this->listingKey($withheld);
+
+        if (! array_key_exists($key, $this->names)) {
+            $this->names[$key] = $naming();
+        }
+
+        return $this->names[$key];
     }
 
     /** @param Closure(): (Platform|CannotJudge) $describing */
@@ -241,5 +275,19 @@ final class Remembered
                 : ReplayVerdict::NoTime,
             $keys,
         );
+    }
+
+    /** The digest of the test files `watch` set for this round; nothing outside it. */
+    /** What a listing or a naming is kept by: what was withheld and the digest of the test files. */
+    private function listingKey(Withheld $withheld): string
+    {
+        return sprintf(self::KEYED, $withheld->pattern(), $this->testsKey());
+    }
+
+    private function testsKey(): string
+    {
+        $key = getenv(ChildVariable::TestsKey->value);
+
+        return is_string($key) ? $key : '';
     }
 }

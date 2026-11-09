@@ -81,7 +81,7 @@ it('runs the whole suite under coverage into a directory, as --coverage expects 
     )->with([GateVariable::TimedTests->value => '/p/.mutation-gate/coverage/timed-tests.jsonl']));
 });
 
-it('runs one group under coverage', function (): void {
+it('runs one group under coverage, in Pest\'s own process where it is given one', function (): void {
     $request = CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('held'));
 
     expect(invocation()->coverage($request, '/p/held', reach())->arguments())->toBe([
@@ -91,9 +91,6 @@ it('runs one group under coverage', function (): void {
         '-d',
         'pcov.exclude=~^/p/vendor/~',
         'vendor/pestphp/pest/bin/pest',
-        '--parallel',
-        '--processes=1',
-        "--passthru-php='-d' 'pcov.directory=/p' '-d' 'pcov.exclude=~^/p/vendor/~'",
         '--no-tia',
         '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--coverage-php=/p/held/coverage.php',
@@ -105,7 +102,7 @@ it('runs one group under coverage', function (): void {
 });
 
 it('hands every process paratest starts the settings pcov collects with, each quoted for the shell paratest reads them through', function (): void {
-    $request = CoverageRun::of(WholeSuite::tests(), Path::of('c'));
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('c'))->across(ProcessCount::of(2));
     $arguments = invocation()->coverage($request, '/p/c', PcovReach::under("/it's here", Path::of('vendor')))->arguments();
 
     expect($arguments)->toContain(
@@ -193,7 +190,16 @@ it('mutates some files against the whole suite, over the project\'s own config, 
         '--colors=never',
         '--path=src/Money.php,src/Held.php',
         '--ignore=.mutation-gate',
-    )->with(['MUTATION_GATE_RESULTS' => '/p/results.jsonl', 'MUTATION_GATE_KILL_MATRIX' => 'first-killer']));
+    )->with(['MUTATION_GATE_RESULTS' => '/p/results.jsonl', 'MUTATION_GATE_AT_ONCE' => '1', 'MUTATION_GATE_KILL_MATRIX' => 'first-killer']));
+});
+
+it('tells the plugin how many mutants to run at once, the pool\'s processes, and never Pest', function (): void {
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->across(Pool::of(ProcessCount::of(3), Workers::Fork));
+    $mutation = invocation()->mutation($request, WholeSuite::tests(), '/p/r');
+
+    expect($mutation->environment())->toHaveKey(GateVariable::AtOnce->value, '3')
+        ->and(implode(' ', $mutation->arguments()))->not->toContain('--processes');
 });
 
 it('mutates a tree less its held paths, by a group and some mutators, by a deadline', function (): void {

@@ -3768,6 +3768,36 @@
             },
             "additionalProperties": false
         },
+        "splitStream": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "children": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                },
+                "changeCheck": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "killersFirst": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "sharding": {
+                    "enum": [
+                        "tests",
+                        "source"
+                    ],
+                    "default": "tests"
+                }
+            },
+            "additionalProperties": false
+        },
         "staticCheck": {
             "type": "object",
             "properties": {
@@ -4087,7 +4117,7 @@
                 "watchPoll": {
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                    "default": "1s"
+                    "default": "2s"
                 },
                 "memoryHeadroom": {
                     "type": "integer",
@@ -4098,6 +4128,88 @@
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "5s"
+                },
+                "cpu": {
+                    "enum": [
+                        "balanced",
+                        "fast",
+                        "quiet"
+                    ],
+                    "default": "balanced"
+                },
+                "workers": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "enum": [
+                                "half",
+                                "all-but-one"
+                            ]
+                        }
+                    ]
+                },
+                "priority": {
+                    "enum": [
+                        "normal",
+                        "utility",
+                        "background"
+                    ]
+                },
+                "macosClass": {
+                    "enum": [
+                        "none",
+                        "utility",
+                        "background",
+                        "maintenance"
+                    ]
+                },
+                "linuxNice": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 19
+                },
+                "windowsClass": {
+                    "enum": [
+                        "normal",
+                        "below-normal",
+                        "idle"
+                    ]
+                },
+                "onBattery": {
+                    "enum": [
+                        "reduce",
+                        "pause",
+                        "run"
+                    ],
+                    "default": "reduce"
+                },
+                "childWait": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "1s"
+                },
+                "watchStatus": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "coverageAlone": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "sizedPools": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "listOnce": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "streamBatches": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -7793,6 +7905,31 @@
                     },
                     "additionalProperties": false
                 },
+                "splitStream": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "children": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "changeCheck": {
+                            "type": "boolean"
+                        },
+                        "killersFirst": {
+                            "type": "boolean"
+                        },
+                        "sharding": {
+                            "enum": [
+                                "tests",
+                                "source"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "staticCheck": {
                     "type": "object",
                     "properties": {
@@ -8093,6 +8230,80 @@
                         "serveRequest": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "cpu": {
+                            "enum": [
+                                "balanced",
+                                "fast",
+                                "quiet"
+                            ]
+                        },
+                        "workers": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "enum": [
+                                        "half",
+                                        "all-but-one"
+                                    ]
+                                }
+                            ]
+                        },
+                        "priority": {
+                            "enum": [
+                                "normal",
+                                "utility",
+                                "background"
+                            ]
+                        },
+                        "macosClass": {
+                            "enum": [
+                                "none",
+                                "utility",
+                                "background",
+                                "maintenance"
+                            ]
+                        },
+                        "linuxNice": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 19
+                        },
+                        "windowsClass": {
+                            "enum": [
+                                "normal",
+                                "below-normal",
+                                "idle"
+                            ]
+                        },
+                        "onBattery": {
+                            "enum": [
+                                "reduce",
+                                "pause",
+                                "run"
+                            ]
+                        },
+                        "childWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "watchStatus": {
+                            "type": "boolean"
+                        },
+                        "coverageAlone": {
+                            "type": "boolean"
+                        },
+                        "sizedPools": {
+                            "type": "boolean"
+                        },
+                        "listOnce": {
+                            "type": "boolean"
+                        },
+                        "streamBatches": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false

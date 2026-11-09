@@ -278,3 +278,40 @@ it('prints a mutant whose code carries a comment on one line, the comment left o
         ->and($schema->text())->not->toContain('// two')
         ->and(substr_count($schema->text(), "\n"))->toBe(substr_count($code, "\n"));
 });
+
+it('switches a pure expression by a call that takes both values, where the schema asks for one', function (): void {
+    $code = "<?php\n\n\$a = 1;\n\nreturn \$a + 2;\n";
+    $schema = Schemata::of(
+        $code,
+        static fn(Nodes $nodes): array => [Site::of($nodes->nth(Plus::class), minusOf($nodes->nth(Plus::class)), 1)],
+        valuing: true,
+    );
+
+    expect(Schemata::returned($schema, 0))->toBe(exported(3))
+        ->and(Schemata::returned($schema, 1))->toBe(exported(-1))
+        ->and($schema->text())->toBe(sprintf("<?php\n\n\$a = 1;\n\nreturn %s;\n", sprintf(Schemata::valued(), 1, '$a + 2', '$a - 2')));
+});
+
+it('switches by a ternary what is no pure expression, where the schema asks for a call that takes both values', function (string $code, Closure $site): void {
+    $schema = Schemata::of($code, $site, valuing: true);
+
+    expect($schema->text())->toContain(sprintf(Schemata::switch(), 1))
+        ->and($schema->text())->not->toContain('::value(');
+})->with([
+    'a call in the original' => [
+        "<?php\n\nreturn strlen('a') + 2;\n",
+        static fn(Nodes $nodes): array => [Site::of($nodes->nth(Plus::class), minusOf($nodes->nth(Plus::class)), 1)],
+    ],
+    'a concatenation' => [
+        "<?php\n\nreturn 'a' . 'b';\n",
+        static fn(Nodes $nodes): array => [Site::of($nodes->nth(Concat::class), new Concat(new String_('b'), new String_('a')), 1)],
+    ],
+    'a property read' => [
+        "<?php\n\n\$o = new stdClass();\n\$o->a = 1;\n\nreturn \$o->a + 2;\n",
+        static fn(Nodes $nodes): array => [Site::of($nodes->nth(Plus::class), minusOf($nodes->nth(Plus::class)), 1)],
+    ],
+    'this' => [
+        "<?php\n\nreturn \$this + 2;\n",
+        static fn(Nodes $nodes): array => [Site::of($nodes->nth(Plus::class), minusOf($nodes->nth(Plus::class)), 1)],
+    ],
+]);

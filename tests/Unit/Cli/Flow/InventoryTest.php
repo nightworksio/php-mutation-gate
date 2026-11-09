@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -129,6 +130,11 @@ it('cannot find the units where anything it asks cannot answer', function (
             public function fingerprints(): CannotTell
             {
                 return CannotTell::because('git ls-files failed.');
+            }
+
+            public function lookedSince(Looked $then): CannotTell
+            {
+                return CannotTell::because('git status failed.');
             }
 
             public function listed(Paths $paths): CannotTell

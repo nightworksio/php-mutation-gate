@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnCovering;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Streams;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -77,6 +79,10 @@ use function sprintf;
  *   mutant the schema switches is served the schema in its file's place,
  *   its switch in force, rather than its own copy (see Schemata and
  *   SchemaSwitch, ADR-0091).
+ * - Where a run splits its streams, the mutants they can judge are judged
+ *   first, and where it cuts its test files across its shards, a mutant a
+ *   shard's part streams runs on its own, should a stream leave it, by the
+ *   covering tests of that part alone (see Split\Streams, ADR-0117).
  * - Each file is parsed once while its mutants are made, each attempt at a
  *   mutant traversing a copy of that parse, and printed once for every
  *   mutant's diff (see ParsedSource).
@@ -382,7 +388,12 @@ final readonly class Patch
         PHP;
 
     private const string START_BECOMES = <<<'PHP'
-                {MARK} a mutant the gate's static analysis rejected is tested without a run (see Verdicts).
+                {MARK} a mutant judged without a run keeps its result: one a split stream judged
+                // (ADR-0117), and one the gate's static analysis rejected, which is tested (see Verdicts).
+                if ($this->result !== MutationTestResult::None) {
+                    return false;
+                }
+
                 if (class_exists(\%1$s::class) && \%1$s::rejects($this->mutation->modifiedSourcePath)) {
                     $this->updateResult(result: MutationTestResult::Tested);
                     Facade::instance()->emitter()->mutationTested($this);
@@ -391,6 +402,24 @@ final readonly class Patch
                 }
 
                 // TODO: we should pass the tests to run in another way, maybe via cache, mutation or env variable
+        PHP;
+
+    private const string SPLIT_SHIPS = <<<'PHP'
+                Facade::instance()->emitter()->startMutationSuite($mutationSuite);
+        PHP;
+
+    private const string SPLIT_BECOMES = <<<'PHP'
+                Facade::instance()->emitter()->startMutationSuite($mutationSuite);
+
+                {MARK} the mutants split streams can judge are judged first, before any runs on its own (ADR-0117).
+                if (class_exists(\%1$s::class) && \%1$s::areOn()) {
+                    \%1$s::judge(
+                        $mutationSuite,
+                        $coveredLines,
+                        $this->originalArguments,
+                        $this->getConfiguration()->processes,
+                    );
+                }
         PHP;
 
     private const string ORDER_SHIPS = <<<'PHP'
@@ -461,6 +490,17 @@ final readonly class Patch
                 foreach (range($this->mutation->startLine, $this->mutation->endLine) as $lineNumber) {
                     foreach ($coveredLines[$this->mutation->file->getRealPath()][$lineNumber] ?? [] as $test) {
                         $covering[] = $test;
+        PHP;
+
+    private const string NARROWED_SHIPS = <<<'PHP'
+                $filters = array_unique($filters);
+        PHP;
+
+    private const string NARROWED_BECOMES = <<<'PHP'
+                $filters = array_unique($filters);
+
+                {MARK} a mutant a shard's part of the test files streams runs on its own by that part's tests.
+                $covering = class_exists(\%1$s::class) ? \%1$s::of($this->mutation, $covering) : $covering;
         PHP;
 
     private const string PATHS_SHIPS = <<<'PHP'
@@ -630,6 +670,7 @@ final readonly class Patch
             ),
             Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),
+            Hunk::in(self::MUTATION_TEST, self::NARROWED_SHIPS, sprintf(self::NARROWED_BECOMES, OwnCovering::class)),
             Hunk::in(self::MUTATION_TEST, self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),
             Hunk::in(self::MUTATION_TEST, self::LIMIT_SHIPS, sprintf(self::LIMIT_BECOMES, MutantTime::class)),
             Hunk::in(self::MUTATION_TEST, self::WATCH_SHIPS, sprintf(self::WATCH_BECOMES, Silence::class)),
@@ -665,6 +706,7 @@ final readonly class Patch
             ),
             Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class, Twins::class)),
             Hunk::in(self::TEST_RUNNER, self::ORDER_SHIPS, sprintf(self::ORDER_BECOMES, Verdicts::class)),
+            Hunk::in(self::TEST_RUNNER, self::SPLIT_SHIPS, sprintf(self::SPLIT_BECOMES, Streams::class)),
             Hunk::in(
                 self::MUTATE_PLUGIN,
                 self::SERVE_SHIPS,

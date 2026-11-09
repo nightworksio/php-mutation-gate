@@ -265,6 +265,13 @@ final readonly class SettingsCases
             "schemata": true,
             "bootMutants": true
         },
+        "splitStream": {
+            "enabled": false,
+            "children": 1,
+            "changeCheck": true,
+            "killersFirst": true,
+            "sharding": "tests"
+        },
         "staticCheck": {
             "tool": "auto",
             "seconds": 60,
@@ -287,9 +294,17 @@ final readonly class SettingsCases
             "serveStart": "watch",
             "serveStartWait": "10s",
             "inferSubsumed": true,
-            "watchPoll": "1s",
+            "watchPoll": "2s",
             "memoryHeadroom": 2,
-            "serveRequest": "5s"
+            "serveRequest": "5s",
+            "cpu": "balanced",
+            "onBattery": "reduce",
+            "childWait": "1s",
+            "watchStatus": true,
+            "coverageAlone": true,
+            "sizedPools": true,
+            "listOnce": true,
+            "streamBatches": true
         }
     }
     JSON;
@@ -386,6 +401,7 @@ final readonly class SettingsCases
         ],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
+        'splitStream' => ['enabled' => true, 'children' => 2, 'changeCheck' => false, 'killersFirst' => false, 'sharding' => 'source'],
         'staticCheck' => ['dependents' => 9, 'preCheckAfter' => 7, 'tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true, 'opcache' => ['batch' => 50, 'limit' => '30s']],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'sampling' => [
@@ -396,6 +412,6 @@ final readonly class SettingsCases
             'auto' => '2h',
             'autoRuns' => ['pullRequests', 'mergeGroups'],
         ],
-        'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s', 'watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false, 'watchPoll' => '5s'],
+        'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s', 'watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false, 'watchPoll' => '5s', 'cpu' => 'quiet', 'workers' => 3, 'priority' => 'background', 'macosClass' => 'maintenance', 'linuxNice' => 15, 'windowsClass' => 'idle', 'onBattery' => 'pause', 'childWait' => '3s', 'watchStatus' => false, 'coverageAlone' => false, 'sizedPools' => false, 'listOnce' => false, 'streamBatches' => false],
     ];
 }

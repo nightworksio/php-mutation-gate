@@ -20,6 +20,7 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\FileMode;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\SocketStreams;
 use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use function realpath;
@@ -48,8 +49,6 @@ final readonly class BootCheck
 
 
 
-    /** The resource type of PHP's streams. */
-    private const string STREAM = 'stream';
 
     private const string SOCKETS
         = 'The boot left %d socket open once %s ran, which every forked child would share, so each mutant ran fresh.';
@@ -147,7 +146,7 @@ final readonly class BootCheck
     /** How many of PHP's own stream resources are sockets. */
     private static function socketStreams(): int
     {
-        return SocketStreams::among(get_resources(self::STREAM));
+        return SocketStreams::among(get_resources(SocketStreams::STREAM));
     }
 
     /** @return list<string> each file the run mutates that the process has loaded */

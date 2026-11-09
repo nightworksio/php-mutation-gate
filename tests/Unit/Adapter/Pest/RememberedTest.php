@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -170,4 +171,39 @@ it('replays each key not yet kept once, though it is asked for twice, none where
         ->and($kept)->toBe([ReplayVerdict::Stands])
         ->and($first)->toBe([ReplayVerdict::Stands, ReplayVerdict::NoTime, ReplayVerdict::Stands])
         ->and($again)->toBe([ReplayVerdict::Stands, ReplayVerdict::NoTime]);
+});
+
+it('lists the tests once for each digest of the test files watch sets, and names them once for it, afresh without one', function (): void {
+    $remembered = new Remembered();
+    $listed = 0;
+    $named = 0;
+    $listing = static function () use (&$listed): TestListing {
+        ++$listed;
+
+        return TestListing::none();
+    };
+    $naming = static function () use (&$named): CannotJudge {
+        ++$named;
+
+        return CannotJudge::because('unnamed');
+    };
+    $round = static function (string $key) use ($remembered, $listing, $naming): void {
+        putenv(sprintf('%s=%s', ChildVariable::TestsKey->value, $key));
+        $remembered->listing(Withheld::standard(), Suites::all(), $listing);
+        $remembered->names(Withheld::standard(), $naming);
+    };
+
+    try {
+        $round('');
+        $round('');
+        $once = [$listed, $named];
+        $round('a');
+        $round('a');
+        $round('b');
+    } finally {
+        putenv(ChildVariable::TestsKey->value);
+    }
+
+    expect($once)->toBe([1, 2])
+        ->and([$listed, $named])->toBe([3, 4]);
 });

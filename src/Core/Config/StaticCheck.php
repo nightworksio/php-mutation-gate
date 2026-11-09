@@ -140,7 +140,9 @@ final readonly class StaticCheck implements Part
 
     /**
      * `staticCheck.before`: whether a mutant is also checked before its tests
-     * where that pays; yes by default (ADR-0077).
+     * where that pays; yes by default (ADR-0077), and no by default where the
+     * run splits its streams, as a kill there costs less than a check
+     * (ADR-0117).
      */
     public function before(): bool
     {

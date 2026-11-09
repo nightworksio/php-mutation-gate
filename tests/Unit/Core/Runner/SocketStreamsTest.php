@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Native\Warm\SocketStreams;
+use NightWorksIO\MutationGate\Core\Runner\SocketStreams;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {

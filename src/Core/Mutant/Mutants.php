@@ -66,6 +66,18 @@ final readonly class Mutants implements Countable, IteratorAggregate
         return count($this->mutants);
     }
 
+    /**
+     * These mutants but those a shard's part of the test files did not
+     * reach (ADR-0117): the ones it judged.
+     */
+    public function reached(): self
+    {
+        return new self(array_values(array_filter(
+            $this->mutants,
+            static fn(Mutant $mutant): bool => $mutant->status() !== MutantStatus::NotReached,
+        )));
+    }
+
     /** How many of these mutants have this status. */
     public function counting(MutantStatus $status): int
     {

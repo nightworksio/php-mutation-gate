@@ -81,3 +81,17 @@ it('counts the mutants of one status', function () use ($mutant): void {
     expect($mutants->counting(MutantStatus::Survived))->toBe(1)
         ->and($mutants->counting(MutantStatus::Uncovered))->toBe(0);
 });
+
+it('keeps the mutants a shard\'s part of the test files reached, in their order', function () use ($natives): void {
+    $at = static fn(string $native, MutantStatus $status): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'LessThan', $native, 0),
+        $native,
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('LessThan', MutatorFamily::Boundary, ''),
+        $status,
+        Unmeasured::duration(),
+    );
+
+    expect($natives(Mutants::of($at('a', MutantStatus::Survived), $at('b', MutantStatus::NotReached), $at('c', MutantStatus::Killed))->reached()))
+        ->toBe(['a', 'c']);
+});

@@ -66,6 +66,12 @@ final readonly class Prover
         ));
     }
 
+    /** This prover, with this many children compiling at once. */
+    public function across(ProcessCount $parallel): self
+    {
+        return new self($this->compiler->across($parallel->count()));
+    }
+
     /**
      * The keys of the mutants proven equivalent, of these pairs of an
      * original and its mutant; or that opcache dumped nothing.

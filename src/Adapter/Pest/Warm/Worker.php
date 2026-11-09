@@ -12,7 +12,6 @@ use function file_get_contents;
 use function file_put_contents;
 use function function_exists;
 use function get_included_files;
-use function getenv;
 use function getmypid;
 use function in_array;
 use function interface_exists;
@@ -27,9 +26,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
-use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\MaxRss;
-use NightWorksIO\MutationGate\Core\Runner\Polling;
 
 use function pcntl_waitpid;
 use function pcntl_wexitstatus;
@@ -250,7 +247,7 @@ final readonly class Worker
         $looked = $this->looked($child);
 
         while ($looked[0] === 0 && $this->isAlive($asker)) {
-            ($this->pause)(Polling::told(getenv(ChildVariable::Poll->value))->microseconds());
+            ($this->pause)(Wake::interval()->microseconds());
             $looked = $this->looked($child);
         }
 
@@ -294,7 +291,7 @@ final readonly class Worker
 
     private function idled(Baseline|NotGiven $baseline): Baseline|NotGiven
     {
-        ($this->pause)(Polling::told(getenv(ChildVariable::Poll->value))->microseconds());
+        ($this->pause)(Wake::interval()->microseconds());
 
         return $baseline;
     }

@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestCases;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -24,7 +25,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * tests alone judge them, as `--suite` names it (ADR-0025), the
  * suites whose tests judge them otherwise, as `tests.suites` and
  * `tests.holding` list them (ADR-0002), the mutators it leaves out of the files whose content is unchanged
- * (ADR-0025), and the files the suite runs as files of test cases, as its config declares them.
+ * (ADR-0025), the files the suite runs as files of test cases, as its config declares them, and the part
+ * of the test files whose tests judge them, where a run cuts its test files across its shards (ADR-0117).
  */
 final readonly class Narrowing
 {
@@ -34,6 +36,7 @@ final readonly class Narrowing
         private JudgingSuites $suites,
         private Pruned $pruned,
         private TestCases $cases,
+        private TestPart $part,
     ) {
     }
 
@@ -46,31 +49,32 @@ final readonly class Narrowing
             JudgingSuites::every(),
             Pruned::none(),
             TestCases::unknown(),
+            TestPart::whole(),
         );
     }
 
     /** This narrowing, making mutants with these mutators alone. */
     public function toMutators(Mutators $mutators): self
     {
-        return new self($mutators, $this->suite, $this->suites, $this->pruned, $this->cases);
+        return new self($mutators, $this->suite, $this->suites, $this->pruned, $this->cases, $this->part);
     }
 
     /** This narrowing, its mutants judged by this suite's tests alone. */
     public function toSuite(SuiteName $suite): self
     {
-        return new self($this->mutators, $suite, $this->suites, $this->pruned, $this->cases);
+        return new self($this->mutators, $suite, $this->suites, $this->pruned, $this->cases, $this->part);
     }
 
     /** This narrowing, its mutants judged by these suites' tests, as `tests.suites` and `tests.holding` list them. */
     public function amongSuites(JudgingSuites $suites): self
     {
-        return new self($this->mutators, $this->suite, $suites, $this->pruned, $this->cases);
+        return new self($this->mutators, $this->suite, $suites, $this->pruned, $this->cases, $this->part);
     }
 
     /** This narrowing, its runner told which files the suite runs as files of test cases. */
     public function amongTestCases(TestCases $cases): self
     {
-        return new self($this->mutators, $this->suite, $this->suites, $this->pruned, $cases);
+        return new self($this->mutators, $this->suite, $this->suites, $this->pruned, $cases, $this->part);
     }
 
     /** Which files the suite runs as files of test cases; none known, unless it was told. */
@@ -82,7 +86,19 @@ final readonly class Narrowing
     /** This narrowing, leaving these mutators out of these files. */
     public function pruning(Pruned $pruned): self
     {
-        return new self($this->mutators, $this->suite, $this->suites, $pruned, $this->cases);
+        return new self($this->mutators, $this->suite, $this->suites, $pruned, $this->cases, $this->part);
+    }
+
+    /** This narrowing, its mutants judged by the tests of this part of the test files alone (ADR-0117). */
+    public function inTestPart(TestPart $part): self
+    {
+        return new self($this->mutators, $this->suite, $this->suites, $this->pruned, $this->cases, $part);
+    }
+
+    /** The part of the test files whose tests judge its mutants: every test file, unless it was told one. */
+    public function testPart(): TestPart
+    {
+        return $this->part;
     }
 
     public function mutators(): Mutators

@@ -385,8 +385,8 @@ it('keeps whether each mutant\'s own process had loaded the original before the 
     $records = Records::in($results([
         $planned('a', '/p/src/Money.php', 10),
         $planned('b', '/p/src/Money.php', 20),
-        RecordLine::preloaded('/tmp/a'),
-        RecordLine::preloaded('/tmp/a'),
+        RecordLine::marked('/tmp/a', RecordEvent::Preloaded),
+        RecordLine::marked('/tmp/a', RecordEvent::Preloaded),
     ]));
 
     expect($records instanceof Records ? $records->runOf($mutant('a', '/p/src/Money.php', 10))->ranTheOriginal() : $records)

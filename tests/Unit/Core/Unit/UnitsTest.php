@@ -57,3 +57,11 @@ it('joins those units after its own, without changing either', function () use (
         ->and($paths($own))->toBe(['src/A.php'])
         ->and($paths($those))->toBe(['src/B.php', 'src/C.php']);
 });
+
+it('keeps each path once, where it first comes, as shards that each take every unit hold them', function () use ($paths): void {
+    $held = Unit::held(Path::of('src/Kernel'), Group::named('holds:kernel'));
+    $units = Units::of(Unit::file(Path::of('src/B.php')), $held, Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/A.php')));
+
+    expect($paths($units->distinct()))->toBe(['src/B.php', 'src/Kernel', 'src/A.php'])
+        ->and(iterator_to_array($units->distinct(), preserve_keys: false)[1])->toBe($held);
+});

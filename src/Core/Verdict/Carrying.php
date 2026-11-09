@@ -91,7 +91,8 @@ final readonly class Carrying
             MutantStatus::Unjudged,
             MutantStatus::IgnoredByMarker,
             MutantStatus::Skipped,
-            MutantStatus::FailsUnmutated => Carry::Stands,
+            MutantStatus::FailsUnmutated,
+            MutantStatus::NotReached => Carry::Stands,
         };
     }
 

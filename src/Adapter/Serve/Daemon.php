@@ -11,7 +11,6 @@ use Closure;
 use function hrtime;
 use function intdiv;
 use function max;
-use function min;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -48,7 +47,7 @@ final class Daemon
 
     private const string OTHER_USER = 'The daemon serves only its own user.';
 
-    /** The longest wait between two looks at the children, in microseconds. */
+    /** The longest wait between two looks at running children, in microseconds. */
     private const int LOOK = Seconds::MICROSECONDS;
 
     private const int NANOSECONDS_PER_MICROSECOND = Seconds::NANOSECONDS / Seconds::MICROSECONDS;
@@ -92,7 +91,12 @@ final class Daemon
         return NotGiven::value();
     }
 
-    /** One wait for a request or a client gone, and what follows it; the socket closed once the daemon has idled. */
+    /**
+     * One wait for a request or a client gone, and what follows it; the
+     * socket closed once the daemon has idled. With no child running, the
+     * wait is the idle time left, so an idle daemon wakes only for a request
+     * or to stop (ADR-0120); with one, it looks at the children each second.
+     */
     private function looked(): void
     {
         $left = $this->idleLeft();
@@ -103,7 +107,7 @@ final class Daemon
             return;
         }
 
-        $wait = $this->children->areNone() ? min($left, self::LOOK) : self::LOOK;
+        $wait = $this->children->areNone() ? $left : self::LOOK;
 
         [$waiting, $connections] = Listener::ready($this->listener, $this->children->connections(), $wait);
 

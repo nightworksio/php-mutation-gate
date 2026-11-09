@@ -76,6 +76,6 @@ final readonly class HeldCoverage
             $kept = $misses->misses($unit->path()) ? $kept : $kept->with($unit);
         }
 
-        return Shard::of($shard->id(), $shard->package(), $kept, $shard->cost(), $shard->label());
+        return $shard->holding($kept);
     }
 }

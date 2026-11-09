@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_fill;
 use function array_map;
+use function array_slice;
 
 use IteratorAggregate;
 
@@ -55,6 +56,12 @@ final readonly class WorkerSlots implements IteratorAggregate
     public static function alone(): self
     {
         return new self([WorkerSlot::alone()]);
+    }
+
+    /** The first this many of these places, or all of them where there are fewer. */
+    public function atMost(ProcessCount $count): self
+    {
+        return new self(array_slice($this->slots, 0, $count->count()));
     }
 
     /** @return Traversable<int, WorkerSlot> */

@@ -39,12 +39,13 @@ final readonly class Local implements Part
         private Seconds|Absent $prePushBudget,
         private Seconds|Absent $serveIdle,
         private ServeStart|Absent $serveStart,
-        private Seconds|Absent $serveStartWait = new Absent(),
-        private bool|Absent $inferSubsumed = new Absent(),
-        private Seconds|Absent $watchPoll = new Absent(),
-        private int|Absent $triageFewest = new Absent(),
-        private int|Absent $memoryHeadroom = new Absent(),
-        private Seconds|Absent $serveRequest = new Absent(),
+        private Seconds|Absent $serveStartWait,
+        private bool|Absent $inferSubsumed,
+        private Seconds|Absent $watchPoll,
+        private int|Absent $triageFewest,
+        private int|Absent $memoryHeadroom,
+        private Seconds|Absent $serveRequest,
+        private LocalWork $work,
     ) {
     }
 
@@ -59,6 +60,7 @@ final readonly class Local implements Part
         int|Absent $triageFewest = new Absent(),
         int|Absent $memoryHeadroom = new Absent(),
         Seconds|Absent $serveRequest = new Absent(),
+        LocalWork|Absent $work = new Absent(),
     ): self {
         return new self(
             $watchBudget,
@@ -71,6 +73,7 @@ final readonly class Local implements Part
             $triageFewest,
             $memoryHeadroom,
             $serveRequest,
+            $work instanceof LocalWork ? $work : LocalWork::of(),
         );
     }
 
@@ -94,6 +97,7 @@ final readonly class Local implements Part
             $none->triageFewest(),
             $none->memoryHeadroom(),
             $none->serveRequest(),
+            LocalWork::standard(),
         );
     }
 
@@ -111,6 +115,7 @@ final readonly class Local implements Part
                 Absent::laid($this->triageFewest, $later->triageFewest),
                 Absent::laid($this->memoryHeadroom, $later->memoryHeadroom),
                 Absent::laid($this->serveRequest, $later->serveRequest),
+                $this->work->over($later->work),
             )
             : $this;
     }
@@ -166,6 +171,12 @@ final readonly class Local implements Part
         return $this->inferSubsumed instanceof Absent || $this->inferSubsumed;
     }
 
+    /** How `watch` and `serve` use the machine, and the speed-ups they take (ADR-0120). */
+    public function work(): LocalWork
+    {
+        return $this->work;
+    }
+
     /** `local.watchPoll`: how long `watch` waits between two looks at the files it polls. */
     public function watchPoll(): Seconds
     {
@@ -190,7 +201,7 @@ final readonly class Local implements Part
             Member::unlessEmpty('triage', Json::object(Member::of('fewest', $this->triageFewest))),
             Member::unlessEmpty(
                 'local',
-                Json::object(
+                $this->work->written(Json::object(
                     Member::of('watchBudget', WholeSeconds::duration($this->watchBudget)),
                     Member::of('prePushBudget', WholeSeconds::duration($this->prePushBudget)),
                     Member::of('serveIdle', WholeSeconds::duration($this->serveIdle)),
@@ -203,7 +214,7 @@ final readonly class Local implements Part
                     Member::of('watchPoll', WholeSeconds::duration($this->watchPoll)),
                     Member::of('memoryHeadroom', $this->memoryHeadroom),
                     Member::of('serveRequest', WholeSeconds::duration($this->serveRequest)),
-                ),
+                )),
             ),
         );
     }
@@ -238,7 +249,7 @@ final readonly class Local implements Part
             ...$this->triageFewest instanceof Absent
                 ? []
                 : [sprintf('Local::triageFewest(%d)', $this->triageFewest)],
-        ]);
+        ])->and($this->work->php());
     }
 
     /** @return list<string> the builder's calls for `local.memoryHeadroom` and `local.serveRequest` */

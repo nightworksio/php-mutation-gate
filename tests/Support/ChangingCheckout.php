@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -100,6 +101,13 @@ final class ChangingCheckout implements ChangeSource
         $now = $this->changed || $this->looks >= $this->changesAt ? $this->after : $this->before;
 
         return $now instanceof CannotTell ? $now : $now->fingerprints();
+    }
+
+    public function lookedSince(Looked $then): Looked|CannotTell
+    {
+        $files = $this->fingerprints();
+
+        return $files instanceof CannotTell ? $files : Looked::whole($files);
     }
 
     public function listed(Paths $paths): Paths

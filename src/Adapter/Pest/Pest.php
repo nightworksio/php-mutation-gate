@@ -391,7 +391,12 @@ final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
      */
     public function names(TestIds $tests, Withheld $withheld): TestNames|CannotJudge
     {
-        return Names::listed($this->project, $this->shell, $withheld, $tests);
+        $names = $this->remembered->names(
+            $withheld,
+            fn(): Names|CannotJudge => Names::listed($this->project, $this->shell, $withheld),
+        );
+
+        return $names instanceof CannotJudge ? $names : $names->of($this->project, $tests);
     }
 
     /** Pest in a package's directory, where Composer installed it in the package's vendor directory. */

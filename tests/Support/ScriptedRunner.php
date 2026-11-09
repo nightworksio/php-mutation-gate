@@ -57,7 +57,8 @@ use function sprintf;
 /**
  * The fake runner, as a test scripts it: what it answers when asked to mutate
  * and to run survivors again, and what it names itself; and every request,
- * retry and listing of its groups it was handed, in order.
+ * retry, listing of its groups and mutant whose code it was asked for it was
+ * handed, in order.
  */
 final class ScriptedRunner implements Runner
 {
@@ -72,6 +73,9 @@ final class ScriptedRunner implements Runner
 
     /** @var list<array{Reproducible, MutationRequest, Seconds}> */
     private array $reproductions = [];
+
+    /** @var list<Mutant> */
+    private array $checkables = [];
 
     /** @var list<Withheld> */
     private array $listings = [];
@@ -557,8 +561,16 @@ final class ScriptedRunner implements Runner
         return $this->reproductions;
     }
 
+    /** @return list<Mutant> each mutant whose mutated code it was asked for, in order */
+    public function checkables(): array
+    {
+        return $this->checkables;
+    }
+
     public function checkable(Mutant $mutant): Checkable|CannotJudge
     {
+        $this->checkables[] = $mutant;
+
         return $this->checking instanceof RunnerFake ? $this->checking->checkable($mutant) : $this->checking;
     }
 

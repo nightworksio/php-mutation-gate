@@ -1,4 +1,4 @@
-# ADR-0120: A shard holds one codebase scan, and a shard lost to its machine says so
+# ADR-0121: A shard holds one codebase scan, and a shard lost to its machine says so
 
 **Status:** Accepted
 **Date:** 2026-11-09

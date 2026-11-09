@@ -21,8 +21,12 @@ use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\File\Fingerprints;
+use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
+use NightWorksIO\MutationGate\Core\Local\Power;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -37,12 +41,15 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `mutation-gate watch` judges what each save reaches (ADR-0010). It
  * polls the files of the trees and the test directories by their digests,
- * once each wait, and on a change runs a round: change-scoped since
+ * once each wait, hashing only what version control says may have changed
+ * (ADR-0120), and on a change runs a round: change-scoped since
  * `HEAD`, judged on the new-code floor over everything changed since then
  * and showing each tree against its floor without holding it, under
  * `local.watchBudget`, with proofs in the local ledger leaving out what
  * is judged already. A change that arrives mid-round stops it before its
- * next batch; what it judged is kept, and the next round starts at once.
+ * next batch, looked for at most once each wait; what it judged is kept,
+ * and the next round starts at once. What each batch judged is printed as
+ * it ends (ADR-0120).
  * The coverage map is built in the first round and kept: a change to
  * tests or test support measures the tests it touched again, and a change
  * that reaches everything builds it again. It never writes the baseline,
@@ -120,10 +127,26 @@ final readonly class WatchCommand
     private function rounds(Watched $seen): int
     {
         $ownMap = false;
+        $load = WatchLoad::of($this->composed->settings->local()->work());
 
         while (true) {
-            $planned = $this->round($seen, $ownMap);
-            $now = $this->after($seen);
+            $power = $load->powered(
+                fn(): bool => ($this->waited)($this->composed->settings->local()->watchPoll()) === true,
+                fn(string $said) => $this->printing->note($said, $this->output),
+            );
+
+            if (! $power instanceof Power) {
+                return ExitCode::Passed->value;
+            }
+
+            $looks = new WatchLooks(
+                $this->look(...),
+                $this->composed->setup->clock,
+                $this->composed->settings->local()->watchPoll(),
+                $seen,
+            );
+            $planned = $this->round($load->fitted($this->composed, $power, $seen), $ownMap, $looks);
+            $now = $this->after($seen, $looks);
 
             if (! $now instanceof Watched) {
                 return $now instanceof CannotJudge ? Failed::because($this->output, $now) : ExitCode::Passed->value;
@@ -135,11 +158,11 @@ final readonly class WatchCommand
     }
 
     /** The files once a round is over: as a change during it left them, or as the next change leaves them. */
-    private function after(Watched $seen): Watched|CannotJudge|NotGiven
+    private function after(Watched $seen, WatchLooks $looks): Watched|CannotJudge|NotGiven
     {
-        $now = $this->look($seen);
+        $now = $looks->after();
 
-        return $now instanceof Watched && count($now->changesSince($seen)) === 0 ? $this->nextChange($seen) : $now;
+        return $now instanceof Watched && count($now->changesSince($seen)) === 0 ? $this->nextChange($now) : $now;
     }
 
     /**
@@ -147,11 +170,13 @@ final readonly class WatchCommand
      * batch by a change; its verdict is printed unless a change arrived.
      * Whether it planned, and so left a coverage map for the next round.
      */
-    private function round(Watched $seen, bool $ownMap): bool
+    private function round(Composed $composed, bool $ownMap, WatchLooks $looks): bool
     {
-        $composed = $this->composed;
-        $arrived = Interruption::when(fn(): bool => $this->hasChanged($seen));
-        $running = Running::composed($composed)->interrupted($arrived);
+        $arrived = Interruption::when($looks->arrived(...));
+        $running = Running::composed($composed)->interrupted($arrived)->telling(BatchLines::streamed(
+            $composed->settings->local()->work(),
+            fn(string $line) => $this->printing->note($line, $this->output),
+        ));
         $this->printing->begin($this->output, $composed->adapters->project);
         $made = new Planning($composed->adapters, $composed->settings, $composed->setup)
             ->plan(
@@ -166,11 +191,13 @@ final readonly class WatchCommand
             ? VerdictCommand::ranAndJudged($running, $composed, $plan, $running->deadline(), HeldTo::NewCode)
             : $plan;
 
-        if ($arrived->arrived()) {
+        $stopped = $looks->arrived();
+
+        if ($stopped) {
             $this->printing->note(self::ARRIVED, $this->output);
         }
 
-        if (! $arrived->arrived()) {
+        if (! $stopped) {
             VerdictCommand::printed($judged, $this->output, $this->printing, $composed->adapters->project);
         }
 
@@ -191,18 +218,19 @@ final readonly class WatchCommand
         return NotGiven::value();
     }
 
-    private function hasChanged(Watched $seen): bool
-    {
-        $now = $this->look($seen);
-
-        return $now instanceof Watched && count($now->changesSince($seen)) > 0;
-    }
-
-    /** The watched files as they are on disk now. */
+    /**
+     * The watched files as they are on disk now, looked at through version
+     * control's status where `local.watchStatus` lets it, every file hashed
+     * where it does not.
+     */
     private function look(Watched $seen): Watched|CannotJudge
     {
-        $files = $this->composed->adapters->changes->fingerprints();
+        $changes = $this->composed->adapters->changes;
+        $files = $this->composed->settings->local()->work()->isOn(LocalSwitch::WatchStatus)
+            ? $changes->lookedSince($seen->looked())
+            : $changes->fingerprints();
+        $looked = $files instanceof Fingerprints ? Looked::whole($files) : $files;
 
-        return $files instanceof CannotTell ? CannotJudge::because($files->why()) : $seen->at($files);
+        return $looked instanceof CannotTell ? CannotJudge::because($looked->why()) : $seen->after($looked);
     }
 }

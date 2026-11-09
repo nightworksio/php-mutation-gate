@@ -29,7 +29,11 @@ final readonly class Settings
     {
         $runner = $layer->setup()->runner();
         $late = $layer->ignores()->late($now);
-        $settled = Layer::standard()->over($layer);
+        $settled = Layer::standard()->over(
+            $runner instanceof Choice && $layer->pest()->splits($runner)
+                ? Layer::of(StaticCheck::of(before: false))->over($layer)
+                : $layer,
+        );
         $unbounded = $settled->triage()->refusal();
         $paths = $settled->setup()->paths()->unbounded($settled);
         $problems = [

@@ -11,3 +11,8 @@ it('holds how many processes may run side by side', function (): void {
 it('is one process where nothing asks for more', function (): void {
     expect(ProcessCount::single()->count())->toBe(1);
 });
+
+it('is as many processes as a count, and one where the count comes to none', function (): void {
+    expect([ProcessCount::atLeastOne(3)->count(), ProcessCount::atLeastOne(1)->count(), ProcessCount::atLeastOne(0)->count(), ProcessCount::atLeastOne(-2)->count()])
+        ->toBe([3, 1, 1, 1]);
+});

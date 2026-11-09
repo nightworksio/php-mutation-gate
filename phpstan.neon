@@ -109,6 +109,9 @@ parameters:
             # A setting read as a type its definition does not make is a
             # mistake in the code that asked.
             - NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting
+            # A split stream's directory the gate cannot make as its own, which
+            # another local user may have planted, ends the run: nobody answers it.
+            - NightWorksIO\MutationGate\Adapter\Pest\Split\UnmadeDirectory
             # An option read that the command does not define is a mistake in the
             # code that reads it, never something a caller can answer.
             - Symfony\Component\Console\Exception\InvalidArgumentException
@@ -203,6 +206,9 @@ services:
                 - src/Adapter/Serve/Connection.php # PHP's sockets are resources, which have no native type
                 - src/Adapter/Serve/Listener.php # PHP's sockets are resources, which have no native type
                 - src/Adapter/Zstd/ZstdProgram.php # proc_open answers a process resource, which has no native type
+                - src/Adapter/Pest/SchemaSwitch.php # a schema's value site carries whatever its expression evaluates to
+                - src/Adapter/Pest/Split/Stream.php # a schema's value site carries whatever its expression evaluates to
+                - src/Adapter/Pest/Split/Unchanged.php # a schema's value site carries whatever its expression evaluates to
             decoders:
                 - src/Core/Format/Node.php
                 - src/Core/Format/Json.php
@@ -221,6 +227,8 @@ services:
                 - src/Adapter/Pest/Warm/Database/Laravel.php # Laravel's container hands its services untyped
                 - src/Adapter/Pest/Warm/Database/LaravelConfig.php # Laravel holds a connection's config untyped
                 - src/Adapter/Pest/Warm/Database/PdoStatements.php # PDO hands a row's values untyped
+                - src/Adapter/Pest/Split/StreamPlanFile.php # a split stream's plan, as JSON Pest's own process wrote
+                - src/Adapter/Pest/Split/StreamRead.php # a line of a split stream's results, as JSON a stream wrote
                 - tests/Support/Bucket.php
                 - tests/Support/Cloud.php # Symfony's MockHttpClient hands a responder request options untyped
                 - tests/Support/Commands.php
@@ -786,6 +794,43 @@ services:
                 'NightWorksIO\MutationGate\Core\Recheck\RecheckShare':
                     - RAN # a share's files run again, not a recorded event
                     - MUTANTS # a share's mutants made, not the kill history's section
+                    - UNREACHED # a share's mutants no test reached, not a recorded event
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\Children':
+                    - WAIT # microseconds between a stream parent's looks, not trend points kept
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDirectory':
+                    - RANDOM # random bytes that name a stream directory, not a span id's length
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine':
+                    - PARENT # a stream line from the parent, not the parent keyword
+                    - TIMEOUT # a stream line's word for a child stopped at its limit, not a mutant's status
+                    - FALLBACK # a stream line's word for a test that falls back, not a tree source's fallback
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\Unchanged':
+                    - ITEMS # the most items a change check looks through, not a signal number
+                'NightWorksIO\MutationGate\Adapter\Git\StatusLook':
+                    - FIELDS # the fields of a git status entry before its path, not a count of workers
+                'NightWorksIO\MutationGate\Core\Local\WindowsClass':
+                    - IDLE # the proc_nice value Windows reads as idle, not a niceness on Linux
+                    - BELOW_NORMAL # the proc_nice value Windows reads as below normal, not a score's noise
+                'NightWorksIO\MutationGate\Core\Local\Priority':
+                    - UTILITY_NICE # the niceness of utility work on Linux, not a count of presets
+                    - BACKGROUND_NICE # the niceness of background work on Linux, not a compression level
+                'NightWorksIO\MutationGate\Core\Local\WorkerShare':
+                    - MOST_HALF # the most workers half the cores comes to, not an order's first tests
+                'NightWorksIO\MutationGate\Adapter\Local\PowerSource':
+                    - SUPPLY_FILE # a file of a power supply, not a copy's path
+                    - READ_WITHIN # seconds a power reading may take, not a telemetry export's limit
+                'NightWorksIO\MutationGate\Adapter\Pest\Remembered':
+                    - KEYED # a listing's key of what was withheld and the tests' digest, not a proof's inputs
+                'NightWorksIO\MutationGate\Adapter\Pest\Warm\Wake':
+                    - DRAINED # bytes a pause drains from its wake pipe, not a signal number
+                'NightWorksIO\MutationGate\Cli\Command\BatchLines':
+                    - ONE # the word for one judged mutant, not a doomed record's field
+                    - MANY # the word for several judged mutants, not the killers record's section
+                'NightWorksIO\MutationGate\Core\Watch\Poll':
+                    - INTERVAL # seconds between watch's looks, not work per shard overhead
+                'NightWorksIO\MutationGate\Core\Watch\Watched':
+                    - ENTRY # a test file in the tests' digest, not a fitted line
+                'NightWorksIO\MutationGate\Core\Config\SplitStream':
+                    - ENABLED # the splitStream key, not a hook recipe's key
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())

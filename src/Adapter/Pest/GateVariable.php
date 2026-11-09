@@ -18,6 +18,9 @@ enum GateVariable: string
     /** The results file the plugin records a mutation run to. */
     case Results = ChildVariable::Results->value;
 
+    /** How many mutants a mutation run runs at once: its pool's processes (see MutantsAtOnce). */
+    case AtOnce = 'MUTATION_GATE_AT_ONCE';
+
     /** The coverage map another job handed over, which a patched shard's opening run reads. */
     case SharedCoverage = 'MUTATION_GATE_SHARED_COVERAGE';
 
@@ -122,4 +125,26 @@ enum GateVariable: string
 
     /** The id of the mutant a schema's switch puts in force in a mutant's own run (see Schemata). */
     case SchemaOn = 'MUTATION_GATE_SCHEMA_ON';
+
+    /** Set where a patched run judges its mutants in split streams (ADR-0117). */
+    case Split = 'MUTATION_GATE_SPLIT';
+
+    /** The most children a split stream holds at once: `splitStream.children` (see Split\StreamSettings). */
+    case SplitChildren = 'MUTATION_GATE_SPLIT_CHILDREN';
+
+    /** Set where a split stream forks a pure expression's mutant only where it changes the value (StreamSettings). */
+    case SplitChangeCheck = 'MUTATION_GATE_SPLIT_CHANGE_CHECK';
+
+    /** Set where a split stream forks each mutant first at its likely killer (see Split\StreamSettings). */
+    case SplitKillersFirst = 'MUTATION_GATE_SPLIT_KILLERS_FIRST';
+
+    /**
+     * The part of the test files whose tests judge a patched run's mutants,
+     * and of how many, as `<part>/<parts>`, where a run cuts its test files
+     * across its shards (see Split\StreamSettings).
+     */
+    case SplitPart = 'MUTATION_GATE_SPLIT_PART';
+
+    /** The plan a split stream's own Pest run reads, unset in every other run (see Split\Stream). */
+    case SplitPlan = 'MUTATION_GATE_SPLIT_PLAN';
 }

@@ -12,9 +12,10 @@ use function sprintf;
 
 /**
  * The optional Pest patches, the tests that show they work (ADR-0004),
- * whether the verification tail's workers boot the project (ADR-0075), and
+ * whether the verification tail's workers boot the project (ADR-0075),
  * how Pest's warm workers compile, serve and boot each mutant's run
- * (ADR-0088, ADR-0091): `pest`.
+ * (ADR-0088, ADR-0091): `pest`; and whether a patched run judges its
+ * mutants in split streams (ADR-0117): `splitStream`.
  */
 final readonly class Pest implements Part
 {
@@ -35,10 +36,11 @@ final readonly class Pest implements Part
     private function __construct(
         private bool|Absent $patch,
         private Group|Absent $canary,
-        private bool|Absent $bootTail = new Absent(),
-        private bool|Absent $workerOpcache = new Absent(),
-        private bool|Absent $schemata = new Absent(),
-        private bool|Absent $bootMutants = new Absent(),
+        private bool|Absent $bootTail,
+        private bool|Absent $workerOpcache,
+        private bool|Absent $schemata,
+        private bool|Absent $bootMutants,
+        private SplitStream $splitStream,
     ) {
     }
 
@@ -50,7 +52,15 @@ final readonly class Pest implements Part
         bool|Absent $schemata = new Absent(),
         bool|Absent $bootMutants = new Absent(),
     ): self {
-        return new self($patch, $canary, $bootTail, $workerOpcache, $schemata, $bootMutants);
+        return new self($patch, $canary, $bootTail, $workerOpcache, $schemata, $bootMutants, SplitStream::of());
+    }
+
+    /** What a layer sets of `splitStream`, and of no other Pest setting. */
+    public static function splitting(SplitStream $splitStream): self
+    {
+        $none = new Absent();
+
+        return new self($none, $none, $none, $none, $none, $none, $splitStream);
     }
 
     public static function none(): self
@@ -69,7 +79,7 @@ final readonly class Pest implements Part
             $none->workerOpcache(),
             $none->schemata(),
             $none->bootMutants(),
-        );
+        )->over(self::splitting(SplitStream::standard()));
     }
 
     public function over(Part $later): self
@@ -82,6 +92,7 @@ final readonly class Pest implements Part
                 Absent::laid($this->workerOpcache, $later->workerOpcache),
                 Absent::laid($this->schemata, $later->schemata),
                 Absent::laid($this->bootMutants, $later->bootMutants),
+                $this->splitStream->over($later->splitStream),
             )
             : $this;
     }
@@ -133,6 +144,35 @@ final readonly class Pest implements Part
         return $this->bootMutants instanceof Absent || $this->bootMutants;
     }
 
+    /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117). */
+    public function splitStream(): SplitStream
+    {
+        return $this->splitStream;
+    }
+
+    /**
+     * Whether a run under this runner judges its mutants in split streams:
+     * the Pest runner, patched and compiling schemata, where
+     * `splitStream.enabled` says so (ADR-0117).
+     */
+    public function splits(Choice $runner): bool
+    {
+        return $runner->use()->value() === BuiltinRunner::Pest->value
+            && $this->patch()
+            && $this->schemata()
+            && $this->splitStream->enabled();
+    }
+
+    /**
+     * Whether a run under this runner splits its streams and cuts its test
+     * files across its shards, as `splitStream.sharding: tests` asks
+     * (ADR-0117).
+     */
+    public function splitsByTests(Choice $runner): bool
+    {
+        return $this->splits($runner) && $this->splitStream->sharding() === StreamSharding::Tests;
+    }
+
     /** The group of tests that shows the patches work. */
     public function canary(): Group
     {
@@ -153,6 +193,7 @@ final readonly class Pest implements Part
             Member::of(self::WORKER_OPCACHE, $this->workerOpcache()),
             Member::of(self::SCHEMATA, $this->schemata()),
             Member::of(self::BOOT_MUTANTS, $this->bootMutants()),
+            $this->splitStream->option(),
         );
 
         return $runner->use()->value() === BuiltinRunner::Pest->value
@@ -162,22 +203,25 @@ final readonly class Pest implements Part
 
     public function written(PathOrigin $origin): Json
     {
-        return Json::object(Member::unlessEmpty(
-            'pest',
-            Json::object(
-                Member::of('patch', $this->patch),
-                Member::of('canary', $this->canary instanceof Group ? $this->canary->name() : $this->canary),
-                Member::of(self::BOOT_TAIL, $this->bootTail),
-                Member::of(self::WORKER_OPCACHE, $this->workerOpcache),
-                Member::of(self::SCHEMATA, $this->schemata),
-                Member::of(self::BOOT_MUTANTS, $this->bootMutants),
+        return Json::object(
+            Member::unlessEmpty(
+                'pest',
+                Json::object(
+                    Member::of('patch', $this->patch),
+                    Member::of('canary', $this->canary instanceof Group ? $this->canary->name() : $this->canary),
+                    Member::of(self::BOOT_TAIL, $this->bootTail),
+                    Member::of(self::WORKER_OPCACHE, $this->workerOpcache),
+                    Member::of(self::SCHEMATA, $this->schemata),
+                    Member::of(self::BOOT_MUTANTS, $this->bootMutants),
+                ),
             ),
-        ));
+            $this->splitStream->written(),
+        );
     }
 
     public function php(PathOrigin $origin): PhpCalls
     {
-        return PhpCalls::inWith(...[
+        $pest = PhpCalls::inWith(...[
             ...$this->switched($this->patch, 'Pest::patched()', 'Pest::unpatched()'),
             ...$this->canary instanceof Group
                 ? [sprintf('Pest::canary(%s)', PhpCalls::literal($this->canary->name()))]
@@ -187,6 +231,8 @@ final readonly class Pest implements Part
             ...$this->switched($this->schemata, 'Pest::compilingSchemata()', 'Pest::withoutSchemata()'),
             ...$this->switched($this->bootMutants, 'Pest::bootingMutants()', 'Pest::mutantsUnbooted()'),
         ]);
+
+        return $pest->and($this->splitStream->php());
     }
 
     /**

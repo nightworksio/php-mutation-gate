@@ -84,6 +84,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/Measured.php',
             'src/Cli/Flow/MeasuredFloors.php',
             'src/Cli/Flow/Measuring.php',
+            'src/Cli/Flow/MergedUnits.php',
             'src/Cli/Flow/Mode.php',
             'src/Cli/Flow/Moving.php',
             'src/Cli/Flow/NameGraph.php',
@@ -133,6 +134,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/UnchangedPlan.php',
             'src/Cli/Flow/UnchangedVerdict.php',
             'src/Cli/Flow/UnitMutants.php',
+            'src/Cli/Flow/Unsplit.php',
             'src/Cli/Flow/VerdictProvenance.php',
             'src/Cli/Flow/VerdictTimings.php',
             'src/Cli/Flow/VerdictWarnings.php',
@@ -171,6 +173,10 @@ final readonly class OutsideTheVerdict
             'src/Adapter/Serve/**',
             'src/Cli/Serve/**',
             'src/Core/Serve/**',
+        ],
+        'How the local loop uses the machine: how many workers, at what priority and on battery, never a result.' => [
+            'src/Adapter/Local/**',
+            'src/Core/Local/**',
         ],
         'CI providers, version control and the plan: where a run runs, keyed by its CI definitions and files.' => [
             'src/Core/Ci/**',

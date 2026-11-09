@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\SamplingKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\SetupKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ShardsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\SplitStreamKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\StaticCheckKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\SuggestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\TriageKeys;
@@ -164,6 +165,7 @@ final readonly class Definition
             ...CommentKeys::fields(),
             ...PublishingKeys::fields(),
             ...PestKeys::fields(),
+            ...SplitStreamKeys::fields(),
             ...StaticCheckKeys::fields($origin),
             ...PruningKeys::fields(),
             ...SamplingKeys::fields(),

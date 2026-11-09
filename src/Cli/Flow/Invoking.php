@@ -48,8 +48,9 @@ use Psr\Clock\ClockInterface;
 /**
  * One runner invocation of a shard, as the shard makes it: each survivor
  * proven equivalent where `equivalence.static` asks, each checked by static
- * analysis (see SurvivorChecking), and each other one neither proves equivalent
- * nor kills run once more, where `flaky.confirmSurvivors` asks for it
+ * analysis (see SurvivorChecking), but one another part of the test files
+ * owns (ADR-0117), and each other one neither proves equivalent nor kills
+ * run once more, where `flaky.confirmSurvivors` asks for it
  * (ADR-0008), so a survivor static analysis kills never runs again. A
  * mutant whose time ran out is never run again; its tests run unmutated, as
  * its control, under the same limit (see TimeoutControls), but for a heavy
@@ -98,8 +99,9 @@ final readonly class Invoking
      */
     private function triaged(MutationResult $result, MutationRequest $request): Invoked|CannotJudge
     {
-        $equivalent = $this->equivalent($result->mutants());
-        $checked = $this->checking->checked($result->mutants(), MutantIds::none());
+        $elsewhere = $result->evidence()->ownedElsewhere($result->mutants());
+        $equivalent = $this->equivalent($result->mutants(), $elsewhere);
+        $checked = $this->checking->checked($result->mutants(), $elsewhere);
         $again = $this->confirmed($checked->mutants, $equivalent, $request);
         $controlled = $again instanceof CannotJudge
             ? $again
@@ -117,6 +119,7 @@ final readonly class Invoking
                 $checked->checks,
                 $checked->examinedIds(),
                 $checked->unchecked,
+                $result->evidence()->judgedInPart($result->mutants()),
             ),
         };
     }
@@ -125,13 +128,18 @@ final readonly class Invoking
      * The survivors proven equivalent, where `equivalence.static` asks
      * (ADR-0013), timed: no test can tell one from its
      * original, so none runs again, and none dooms the run (see Doom). The
-     * verdict proves the survivors again itself.
+     * verdict proves the survivors again itself. Those passed over, which
+     * another part of the test files owns, are proven there (ADR-0117).
      */
-    private function equivalent(Mutants $mutants): MutantIds
+    private function equivalent(Mutants $mutants, MutantIds $passedOver): MutantIds
     {
         $from = $this->stopwatch->now();
-        $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($mutants)->proven;
-        $this->stopwatch->handled(Step::Equivalence, $from, $mutants->counting(MutantStatus::Survived));
+        $owned = Mutants::of(...array_filter(
+            [...$mutants],
+            static fn(Mutant $mutant): bool => ! $passedOver->has($mutant->id()),
+        ));
+        $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($owned)->proven;
+        $this->stopwatch->handled(Step::Equivalence, $from, $owned->counting(MutantStatus::Survived));
 
         return $equivalent;
     }
@@ -229,7 +237,8 @@ final readonly class Invoking
         $run = $this->adapters->runner->behaviour()->selection();
         $unfiltered = $this->unfilteredIn($mutants, $evidence);
         $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
-        $timed = $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $mutants;
+        $controllable = $this->unstreamed($mutants, $evidence);
+        $timed = $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $controllable;
         $heavy = $this->parted->among($timed, $run, $bounds);
         $timeouts = TimeoutControls::of(
             $heavy->without($timed),
@@ -240,9 +249,9 @@ final readonly class Invoking
             $bounds->perTest(),
         );
         $controls = $bounds->upToInstead($this->settings->triage()->controlMost());
-        $kills = KillControls::of($mutants, $evidence, $this->map, $run, $controls);
-        $memory = MemoryControls::of($mutants, $unfiltered, $this->map, $this->held, $run, $bounds);
-        $unnamed = UnnamedKillControls::of($mutants, $evidence, $this->map, $this->held, $run, $controls);
+        $kills = KillControls::of($controllable, $evidence, $this->map, $run, $controls);
+        $memory = MemoryControls::of($controllable, $unfiltered, $this->map, $this->held, $run, $bounds);
+        $unnamed = UnnamedKillControls::of($controllable, $evidence, $this->map, $this->held, $run, $controls);
         $asked = [...Controls::of(...[
             ...$timeouts->asked(),
             ...$kills->asked(),
@@ -282,6 +291,20 @@ final readonly class Invoking
         );
 
         return $this->partedIn($controlled, $heavy, $request);
+    }
+
+    /** The mutants no split stream judged: a stream's verdicts need no control (ADR-0117). */
+    private function unstreamed(Mutants $mutants, Evidences $evidence): Mutants
+    {
+        $controllable = [];
+
+        foreach ($mutants as $mutant) {
+            if (! $evidence->of($mutant->id())->isStreamed()) {
+                $controllable[] = $mutant;
+            }
+        }
+
+        return Mutants::of(...$controllable);
     }
 
     /** What the controls found, each heavy mutant judged by its parts; or why a part cannot be judged. */

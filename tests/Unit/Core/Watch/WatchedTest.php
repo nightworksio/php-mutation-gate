@@ -65,3 +65,19 @@ it('sees no change in a file written again as it was, or in one outside the tree
 
     expect(count($now->changesSince($then)))->toBe(0);
 });
+
+/** @param array<string, string> $files what each file holds, by its path */
+function testsDigestOf(array $files): string
+{
+    return watchedOver()->at(fingerprintsOf($files))->testsDigest();
+}
+
+it('moves the digest of the test files where a test file is added, changed or gone, and never for a tree\'s file', function (): void {
+    $digest = testsDigestOf(...);
+    $base = ['src/Money.php' => 'a', 'tests/MoneyTest.php' => 'b'];
+
+    expect($digest([...$base, 'src/Money.php' => 'changed']))->toBe($digest($base))
+        ->and($digest([...$base, 'tests/MoneyTest.php' => 'changed']))->not->toBe($digest($base))
+        ->and($digest([...$base, 'tests/HeldTest.php' => 'c']))->not->toBe($digest($base))
+        ->and($digest(['src/Money.php' => 'a']))->not->toBe($digest($base));
+});
