@@ -86,16 +86,33 @@ final readonly class Reached
             ? self::sinceLedger($ledger, $sinceRef, $adapters)
             : Changes::none();
 
-        return new self(
-            $reach->andSinceLedger(
-                $reaching->of(
-                    $sinceLedger,
-                    $judges,
-                    self::sources($sinceLedger, $ledger, $adapters, $suite->sources(), $config, $manifests),
-                    ChangedTestRuns::of($mode, $sinceLedger, $layout, $packages, $adapters, $map),
-                ),
-                $ledger,
+        $openSince = $base->openSince();
+        $sinceOpen = $openSince instanceof Revision
+            ? self::sinceLedger($openSince, $sinceRef, $adapters)
+            : Changes::none();
+        $reach = $reach->andSinceLedger(
+            $reaching->of(
+                $sinceLedger,
+                $judges,
+                self::sources($sinceLedger, $ledger, $adapters, $suite->sources(), $config, $manifests),
+                ChangedTestRuns::of($mode, $sinceLedger, $layout, $packages, $adapters, $map),
             ),
+            $ledger,
+            $openSince instanceof Revision,
+        );
+        $reach = $openSince instanceof Revision ? $reach->andOpenSince(
+            $reaching->of(
+                $sinceOpen,
+                $judges,
+                self::sources($sinceOpen, $openSince, $adapters, $suite->sources(), $config, $manifests),
+                ChangedTestRuns::of($mode, $sinceOpen, $layout, $packages, $adapters, $map),
+            ),
+            $base->open(),
+            $openSince,
+        ) : $reach;
+
+        return new self(
+            $reach,
             $sinceRef instanceof Changes ? self::withLines($sinceRef) : $sinceRef,
             is_array($fromRun) ? self::pathsOf($sinceRef) : Paths::none(),
         );

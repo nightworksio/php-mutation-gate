@@ -67,6 +67,7 @@ final readonly class LedgerJson
         $subsumption = SubsumptionRecord::of($ledger->learned()->subsumption());
         $passed = $ledger->runs()->passed();
         $lastRun = $ledger->runs()->lastRun();
+        $judged = $ledger->runs()->judged();
         $shared = ProofsShared::of(array_flip($mutators), $testIndex, $inputs, array_flip($bases));
         $proofs = self::proofsWritten($kept, $shared);
 
@@ -107,6 +108,10 @@ final readonly class LedgerJson
 
         if ($lastRun instanceof LastRun) {
             yield LastRunRecord::SECTION => JsonText::compact(LastRunRecord::of($lastRun));
+        }
+
+        if ($judged instanceof Judged) {
+            yield JudgedRecord::SECTION => JsonText::compact(JudgedRecord::of($judged));
         }
     }
 

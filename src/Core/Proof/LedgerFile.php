@@ -190,9 +190,11 @@ final readonly class LedgerFile
 
         $runs = self::passedIn($file);
         $lastRun = LastRunRecord::read($file->field(LastRunRecord::SECTION));
+        $runs = $lastRun instanceof LastRun ? $runs->lastRunAt($lastRun) : $runs;
+        $judged = JudgedRecord::read($file->field(JudgedRecord::SECTION));
 
         return Ledger::empty()
-            ->withRuns($lastRun instanceof LastRun ? $runs->lastRunAt($lastRun) : $runs)
+            ->withRuns($judged instanceof Judged ? $runs->judging($judged) : $runs)
             ->withBases(self::basesIn($file))
             ->withTimings(Timings::of(...array_merge(...$timings)))
             ->withLearned(AnalysersRecord::read($file->field(AnalysersRecord::SECTION)))

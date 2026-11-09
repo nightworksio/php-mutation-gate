@@ -198,7 +198,13 @@ final readonly class Planning
     ): Plan|CannotJudge {
         $map = $judges->map();
         $kind = $this->adapters->briefing(Briefing::standard()->recording($matrix))->profile();
-        $base = $mode->changeBase($ledgers, $inventory->standing, $kind, $this->settings->ci()->check());
+        $base = $mode->changeBase(
+            $ledgers,
+            $inventory->standing,
+            $kind,
+            $this->settings->ci()->check(),
+            $this->settings->reach()->defaultBranchSince(),
+        );
         $reached = $base instanceof ChangeBase
             ? Reached::since(
                 $base,

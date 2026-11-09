@@ -599,6 +599,7 @@ final readonly class Judging
                 $lastRun,
                 $verdict->account()->timings(),
                 $assessed->map,
+                $at,
             );
 
         return match (true) {

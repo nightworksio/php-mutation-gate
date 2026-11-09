@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
+use NightWorksIO\MutationGate\Core\Proof\Judged;
 use NightWorksIO\MutationGate\Core\Proof\KillPace;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -33,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Pruning\Outcomes;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
@@ -70,6 +72,7 @@ final readonly class Recorded
         LastRun|CannotTell $lastRun,
         RunTimings|Untimed $timings = new Untimed(),
         CoverageMap|CannotJudge|NotGiven $map = new NotGiven(),
+        Instant|NotGiven $ended = new NotGiven(),
     ): Written|NotWritten|ReadsOnly|CannotJudge {
         $scope = $ledgers->access()->writes();
 
@@ -102,6 +105,14 @@ final readonly class Recorded
         $runs = $lastRun instanceof LastRun && $this->judgedEvery($results, $recordings, $plan)
             ? $runs->lastRunAt($lastRun)
             : $runs->cutShort();
+        $runs = $ended instanceof Instant && $this->recordsJudged($ledgers, $plan)
+            ? $runs->judging(Judged::of(
+                $plan->commit(),
+                $this->settings->ci()->check(),
+                $ended,
+                self::open($plan, $ledger),
+            ))
+            : $runs;
 
         return $this->adapters->proofs->write($scope, $ledger->withRuns($runs));
     }
@@ -306,5 +317,38 @@ final readonly class Recorded
         return $timings instanceof RunTimings && $timings->isSharded()
             ? $ledger->withLearned($ledger->learned()->limits()->afterRuns($timings->mostAtOnce()))
             : $ledger;
+    }
+
+    /**
+     * Whether a run records what it judged: one on the default branch of the whole suite and every mutator, that
+     * drew no sample (ADR-0141).
+     */
+    private function recordsJudged(Ledgers $ledgers, Plan $plan): bool
+    {
+        return ! $ledgers->readsOwnScope()
+            && ! $plan->considered()->sample()->isDrawn()
+            && ! $this->adapters->isSecurityOnly()
+            && ! $this->adapters->isSuiteOnly();
+    }
+
+    /**
+     * The units a plan ran that the ledger it wrote holds no proof of under their key: left unjudged, flaky,
+     * unjudgeable or stopped by a budget (ADR-0141).
+     */
+    private static function open(Plan $plan, Ledger $ledger): Paths
+    {
+        $open = [];
+
+        foreach ($plan as $shard) {
+            foreach ($shard->units() as $unit) {
+                $key = $plan->keys()->keyOf($unit->path());
+
+                if (! $key instanceof Digest || ! $ledger->proofs()->has($key)) {
+                    $open[] = $unit->path();
+                }
+            }
+        }
+
+        return Paths::of(...$open);
     }
 }

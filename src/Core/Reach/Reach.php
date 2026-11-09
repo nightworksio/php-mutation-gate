@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 
 use function array_any;
 use function array_values;
+use function count;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
@@ -28,6 +29,11 @@ use function sprintf;
 final readonly class Reach
 {
     private const string SINCE_LEDGER = 'On the default branch since its ledger last passed, at %s: %s';
+
+    private const string SINCE_JUDGED = 'On the default branch since its last judged run, at %s: %s';
+
+    private const string OPEN = 'On the default branch since its last pass, at %s, a change reaches %d of the units'
+        . ' its last judged run left open.';
 
     /**
      * @param ByPath<Lines> $lines the changed lines of each source file
@@ -152,15 +158,20 @@ final readonly class Reach
 
     /**
      * This reach, and what the default branch changed since the commit its
-     * ledger last passed at reaches, each of those reasons after this one's,
-     * saying so; the changed lines this one's alone (ADR-0060).
+     * ledger last passed at, or its last judged run judged, reaches, each of
+     * those reasons after this one's, saying so; the changed lines this one's
+     * alone (ADR-0060, ADR-0141).
      */
-    public function andSinceLedger(self $sinceLedger, Revision $ledger): self
+    public function andSinceLedger(self $sinceLedger, Revision $ledger, bool $judged = false): self
     {
         $reasons = $this->reasons;
 
         foreach ($sinceLedger->reasons as $reason) {
-            $said = Reason::that(sprintf(self::SINCE_LEDGER, $ledger->name(), $reason->text()));
+            $said = Reason::that(sprintf(
+                $judged ? self::SINCE_JUDGED : self::SINCE_LEDGER,
+                $ledger->name(),
+                $reason->text(),
+            ));
             $reasons = $reasons->with($reason->widens() ? $said->widening() : $said);
         }
 
@@ -194,11 +205,39 @@ final readonly class Reach
     /** Whether the change reaches a unit: its package whole, a tree around it, or a file of it. */
     public function reaches(Unit $unit): bool
     {
+        return $this->reachesAt($unit->path());
+    }
+
+    /** Whether the change reaches the unit at a path: its package whole, a tree around it, or a file of it. */
+    public function reachesAt(Path $unit): bool
+    {
         return $this->everywhere
-            || $this->wholly->has($this->packages->holding($unit->path())->path())
-            || $this->files->anyWithin($unit->path())
-            || $this->trees->anyAround($unit->path())
-            || array_any($this->globs, static fn(Glob $glob): bool => $glob->matches($unit->path()));
+            || $this->wholly->has($this->packages->holding($unit)->path())
+            || $this->files->anyWithin($unit)
+            || $this->trees->anyAround($unit)
+            || array_any($this->globs, static fn(Glob $glob): bool => $glob->matches($unit));
+    }
+
+    /**
+     * This reach, and those of these units the default branch's last judged run left open that what it changed
+     * since its last pass reaches, saying so (ADR-0141).
+     */
+    public function andOpenSince(self $sincePassed, Paths $open, Revision $passed): self
+    {
+        $reached = [];
+
+        foreach ($open as $unit) {
+            if ($sincePassed->reachesAt($unit)) {
+                $reached[] = $unit;
+            }
+        }
+
+        return $reached === []
+            ? $this
+            : $this->files(
+                Paths::of(...$reached),
+                Reason::that(sprintf(self::OPEN, $passed->name(), count($reached))),
+            );
     }
 
     /** Whether the change reaches anything in a package, which is planned only if it does. */
