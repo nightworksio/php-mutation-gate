@@ -39,6 +39,8 @@ use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -472,4 +474,66 @@ it('still cannot judge a result that cannot be read, beside a doomed shard', fun
 
     expect(Results::read($plan, Workspace::results(), Directory::at($project)))
         ->toEqual(CannotJudge::because('A shard result cannot be read: the file.format is missing.'));
+});
+
+/** Two items, money listed for job 1 and held for job 2, of a plan whose shards pull their work. */
+$pulledPlan = static fn(): Plan => Planned::of(
+    Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(2.0), 'money')
+        ->workedBy(ShardId::of(1)),
+    Shard::of(ShardId::of(2), Package::at(Path::root()), Units::of(Planned::held()), Seconds::of(1.0), 'held')
+        ->workedBy(ShardId::of(2)),
+);
+
+/** An item's result as a job wrote it: every mutant killed, or each as the fixture runner judges it. */
+$pulledResult = static function (string $project, Plan $plan, int $item, int $job, MutantStatus $status): void {
+    $planned = $plan->shard(ShardId::of($item));
+    $mutants = Mutants::of(...array_map(
+        static fn(Mutant $mutant): Mutant => $status === MutantStatus::Survived ? $mutant : $mutant->killedBy(TestIds::of(TestId::of('MoneyTest::adds'))),
+        [...Flows::mutantsOf('src/Money.php')],
+    ));
+    $result = ShardResult::of(
+        $plan->digest(),
+        ShardId::of($item),
+        $planned instanceof Shard ? $plan->keys()->of($planned->units()) : Keys::none(),
+        MutationResult::of($mutants, 0),
+        Measurement::of(Seconds::of(1.0), 'fake', Instant::at(new DateTimeImmutable('2026-10-07T12:00:00Z'))),
+    );
+    Scratch::write($project, sprintf('.mutation-gate/results/%d.by-%d.json', $item, $job), ShardResultFile::encode($result));
+};
+
+it('reads one result for every item of a pulling plan, whichever job left it, or cannot judge an item none left', function (array $written, bool $judged) use ($pulledPlan, $pulledResult): void {
+    $project = Flows::project();
+    $plan = $pulledPlan();
+
+    foreach ($written as [$item, $job]) {
+        $pulledResult($project, $plan, $item, $job, MutantStatus::Killed);
+    }
+
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($results instanceof Results ? array_map(static fn(array $read): int => $read[1]->shard()->number(), $results->shards()) : $judged)
+        ->toBe($judged ? [1, 2] : false);
+})->with([
+    'each by its own job' => [[[1, 1], [2, 2]], true],
+    'each by the other job' => [[[1, 2], [2, 1]], true],
+    'one item by both jobs' => [[[1, 1], [1, 2], [2, 2]], true],
+    'every item by every job' => [[[1, 1], [1, 2], [2, 1], [2, 2]], true],
+    'an item by no job' => [[[1, 1], [1, 2]], false],
+    'nothing' => [[], false],
+]);
+
+it('takes an item\'s own job\'s result first, and counts each mutant another job judged otherwise as flaky', function () use ($pulledPlan, $pulledResult): void {
+    $project = Flows::project();
+    $plan = $pulledPlan();
+    $pulledResult($project, $plan, 1, 1, MutantStatus::Killed);
+    $pulledResult($project, $plan, 1, 2, MutantStatus::Survived);
+    $pulledResult($project, $plan, 2, 2, MutantStatus::Killed);
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+    $first = $results instanceof Results ? $results->shards()[0][1] : $results;
+
+    $otherwise = array_filter([...Flows::mutantsOf('src/Money.php')], static fn(Mutant $mutant): bool => $mutant->status() !== MutantStatus::Killed);
+
+    expect($otherwise)->not->toBe([])
+        ->and($first instanceof ShardResult ? count($first->flaky()) : $first)->toBe(count($otherwise))
+        ->and($results instanceof Results ? count($results->shards()[1][1]->flaky()) : $results)->toBe(0);
 });
