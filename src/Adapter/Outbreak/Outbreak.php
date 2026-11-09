@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
 use function array_map;
-
-use Closure;
-
 use function is_float;
 use function is_int;
 use function is_string;
@@ -154,8 +151,12 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine
     {
         $asked = $this->asking(Command::Outline, ReportAsked::outline($report));
 
-        return PendingOutline::taking(static function () use ($asked, $report): MapOutline|NotWritten {
-            $said = $asked();
+        if ($asked instanceof NotWritten) {
+            return PendingOutline::read($asked);
+        }
+
+        return PendingOutline::taking(function () use ($asked, $report): MapOutline|NotWritten {
+            $said = $this->said($asked);
 
             return $said instanceof Node ? ReportAnswer::outline($said, $report) : $said;
         });
@@ -164,7 +165,8 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine
     public function convert(RanReport $report, Conversion $conversion, Path $into): Written|NotWritten
     {
         $map = $this->absolute($into);
-        $said = $this->asking(Command::Convert, ReportAsked::conversion($report, $conversion, $map))();
+        $asked = $this->asking(Command::Convert, ReportAsked::conversion($report, $conversion, $map));
+        $said = $asked instanceof NotWritten ? $asked : $this->said($asked);
 
         return $said instanceof Node ? ReportAnswer::written($said, $map) : $said;
     }
@@ -204,26 +206,26 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine
     }
 
     /**
-     * A command of a report, started with this input: what the binary
-     * answered, waited for; why it did not answer, or that there is no binary.
-     *
-     * @return Closure(): (Node|NotWritten)
+     * A command of a report, started with this input; why it could not be
+     * started, or that there is no binary.
      */
-    private function asking(Command $command, string $input): Closure
+    private function asking(Command $command, string $input): BinaryRun|NotWritten
     {
         if ($this->binary instanceof NotGiven) {
-            $none = NotWritten::because(self::NO_BINARY);
-
-            return static fn(): NotWritten => $none;
+            return NotWritten::because(self::NO_BINARY);
         }
 
         $started = BinaryRun::started($this->binary, $command->words(), $input, $this->settings->timeout());
 
-        return static function () use ($started): Node|NotWritten {
-            $said = $started instanceof BinaryRun ? $started->answer() : $started;
+        return $started instanceof BinaryRun ? $started : NotWritten::because(sprintf(self::UNREAD, $started->why()));
+    }
 
-            return $said instanceof Node ? $said : NotWritten::because(sprintf(self::UNREAD, $said->why()));
-        };
+    /** What a run of the binary answered, once it ended; why it did not answer, otherwise. */
+    private function said(BinaryRun $run): Node|NotWritten
+    {
+        $said = $run->answer();
+
+        return $said instanceof Node ? $said : NotWritten::because(sprintf(self::UNREAD, $said->why()));
     }
 
     /** @return array{into: string, files: list<string>} */

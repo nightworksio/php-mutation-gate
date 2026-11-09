@@ -223,6 +223,8 @@ it('says why the binary outlined no report: it declined, failed, answered otherw
         ->and($outline('broken', exit: 1))
         ->toEqual(NotWritten::because('Outbreak did not read the report: broken'))
         ->and(Outbreak::none('/project')->outlining($report())->outline())
+        ->toEqual(NotWritten::because('No Outbreak binary is in use.'))
+        ->and(Outbreak::none('/project')->outlining($report())->noneAtOnce())
         ->toEqual(NotWritten::because('No Outbreak binary is in use.'));
 })->group(...$holds);
 
@@ -297,7 +299,9 @@ it('starts the binary on a report\'s outline at once and waits for its answer on
     ));
     chmod($waiting, 0o755);
     $pending = Outbreak::at($waiting, $root, OutbreakSettings::of(timeout: Seconds::of(30)))->outlining($report());
+    $none = $pending->noneAtOnce();
     touch($go);
 
-    expect($pending->outline())->toEqual(MapOutline::listed(TestIds::of(), [], []));
+    expect($none)->toEqual(NotGiven::value())
+        ->and($pending->outline())->toEqual(MapOutline::listed(TestIds::of(), [], []));
 })->group(...$holds);

@@ -66,9 +66,14 @@ final readonly class ReportConversion
             return NotWritten::because(self::NO_ENGINE);
         }
 
-        return $report instanceof RanReport
-            ? new self($adapters, $engine, $report, $engine->outlining($report))
-            : NotWritten::because(self::NO_REPORT);
+        if (! $report instanceof RanReport) {
+            return NotWritten::because(self::NO_REPORT);
+        }
+
+        $outline = $engine->outlining($report);
+        $none = $outline->noneAtOnce();
+
+        return $none instanceof NotWritten ? $none : new self($adapters, $engine, $report, $outline);
     }
 
     /**
