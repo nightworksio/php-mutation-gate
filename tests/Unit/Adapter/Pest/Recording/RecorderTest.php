@@ -42,6 +42,10 @@ use Pest\Mutate\Support\MutationTestResult;
 use Pest\Mutate\Support\MutatorMap;
 use Symfony\Component\Finder\SplFileInfo;
 
+beforeEach(function (): void {
+    Scratch::entered();
+});
+
 afterEach(function (): void {
     Scratch::sweep();
 });

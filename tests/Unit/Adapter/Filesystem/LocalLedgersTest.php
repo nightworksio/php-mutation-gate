@@ -26,6 +26,10 @@ use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+beforeEach(function (): void {
+    Scratch::entered();
+});
+
 afterEach(function (): void {
     Scratch::sweep();
 });
