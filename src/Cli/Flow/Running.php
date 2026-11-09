@@ -87,6 +87,7 @@ final readonly class Running
         private Setup $setup,
         private Interruption $interruption = new Interruption(),
         private Ruling $ruling = new Ruling(),
+        private BatchEnds $ends = new BatchEnds(),
     ) {
     }
 
@@ -99,7 +100,13 @@ final readonly class Running
     /** The same, stopping before its next batch once this says so, as at its deadline. */
     public function interrupted(Interruption $interruption): self
     {
-        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling);
+        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling, $this->ends);
+    }
+
+    /** The same, telling these what each batch judged as it ends (ADR-0120). */
+    public function telling(BatchEnds $ends): self
+    {
+        return new self($this->adapters, $this->settings, $this->setup, $this->interruption, $this->ruling, $ends);
     }
 
     /** The plan, where the checkout is the commit it was made on, as every shard and the verdict need. */
@@ -274,6 +281,7 @@ final readonly class Running
                     $this->setup,
                     $this->interruption,
                     $this->ruling,
+                    $this->ends,
                 )->mutatedKept($plan, $part, $map, $held, $search, $deadline, $stopwatch),
             );
     }
@@ -330,7 +338,15 @@ final readonly class Running
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);
         $stops = $this->settings->reach()->failingFast()->mode()->stops();
-        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom, $stops);
+        $batched = new Batched(
+            $invoking,
+            $this->setup->clock,
+            $deadline,
+            $this->interruption,
+            $doom,
+            $stops,
+            $this->ends,
+        );
         $batching = Batching::opening($map->suiteDuration());
         $pruned = $plan->considered()->pruned();
         $requestFor = fn(Units $units): MutationRequest => $this->requestFor(

@@ -48,7 +48,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `local.watchBudget`, with proofs in the local ledger leaving out what
  * is judged already. A change that arrives mid-round stops it before its
  * next batch, looked for at most once each wait; what it judged is kept,
- * and the next round starts at once.
+ * and the next round starts at once. What each batch judged is printed as
+ * it ends (ADR-0120).
  * The coverage map is built in the first round and kept: a change to
  * tests or test support measures the tests it touched again, and a change
  * that reaches everything builds it again. It never writes the baseline,
@@ -173,7 +174,10 @@ final readonly class WatchCommand
     private function round(Composed $composed, bool $ownMap, WatchLooks $looks): bool
     {
         $arrived = Interruption::when($looks->arrived(...));
-        $running = Running::composed($composed)->interrupted($arrived);
+        $running = Running::composed($composed)->interrupted($arrived)->telling(BatchLines::streamed(
+            $composed->settings->local()->work(),
+            fn(string $line) => $this->printing->note($line, $this->output),
+        ));
         $this->printing->begin($this->output, $composed->adapters->project);
         $made = new Planning($composed->adapters, $composed->settings, $composed->setup)
             ->plan(
