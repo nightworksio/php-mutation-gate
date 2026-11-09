@@ -43,6 +43,7 @@ jobs:
       runners: ${{ steps.diff.outputs.runners }}
       warm: ${{ steps.diff.outputs.warm }}
       hooks: ${{ steps.diff.outputs.hooks }}
+      builds: ${{ steps.diff.outputs.builds }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -748,6 +749,15 @@ jobs:
       warm: ${{ needs.scope.result != 'success' || needs.scope.outputs.warm == 'true' }}
       hooks: ${{ needs.scope.result != 'success' || needs.scope.outputs.hooks == 'true' }}
 
+  # Outbreak's core (ADR-0118), called on every run so its `passed` reports.
+  outbreak:
+    needs: scope
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/outbreak.yml # zizmor: ignore[self-repository]
+    with:
+      gates: ${{ needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'outbreak') }}
+      builds: ${{ needs.scope.result != 'success' || needs.scope.outputs.builds == 'true' }}
+
   # G8 — every mutant of src is killed, or its tree holds the floor
   # mutation-gate.baseline.json records, which only rises (G11). The package
   # holds its own code there through its own gate: the reusable workflow and
@@ -920,7 +930,7 @@ jobs:
   # earlier attempt gathered.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, mutation, replay, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, outbreak, mutation, replay, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

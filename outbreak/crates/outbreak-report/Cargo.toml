@@ -1,0 +1,16 @@
+[package]
+name = "outbreak-report"
+description = "The coverage map Outbreak makes from php-code-coverage's PHP report, read as data, as the gate's PHP makes it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+outbreak-map.workspace = true
+
+[lints]
+workspace = true

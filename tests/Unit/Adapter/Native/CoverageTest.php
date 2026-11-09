@@ -10,16 +10,19 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
+use NightWorksIO\MutationGate\Core\Coverage\RecordedBeside;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Native\Command;
 use NightWorksIO\MutationGate\Core\Native\TestTimes;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -262,4 +265,18 @@ it('reads the XML coverage a Testo run this job started itself left in a directo
 
     expect($coverage->of(CoverageRan::in(Path::of('build/suite'))))
         ->toEqual(CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('Tests\MoneyTest::adds')));
+});
+
+it('names the PHP report a run this job started left, with nothing recorded beside it, and none of Testo\'s XML coverage', function (): void {
+    $project = coverageProject();
+    $shell = PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $phpunit = new Coverage($project, $shell, new Invocation($project, '/gate/override.php', NativePhpUnit::in($project)), NativePhpUnit::in($project));
+    $report = $phpunit->report(CoverageRan::in(Path::of('build/suite')));
+
+    expect($report instanceof RanReport ? [$report->file(), $report->format(), $report->recorded()] : $report)
+        ->toEqual([sprintf('%s/build/suite/coverage.php', $project->root()), 4, RecordedBeside::nothing()])
+        ->and($report instanceof RanReport ? $report->relative(sprintf('%s/src/Money.php', $project->root())) : $report)
+        ->toEqual(Path::of('src/Money.php'))
+        ->and(testoCoverage($project, $shell)->report(CoverageRan::in(Path::of('build/suite'))))->toEqual(NotGiven::value())
+        ->and($shell->commands())->toBe([]);
 });

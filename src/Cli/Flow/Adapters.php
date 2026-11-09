@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\CostModel;
+use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
@@ -53,8 +54,9 @@ use function sprintf;
  * mutators whose mutants are security mutants, the mutators a run makes
  * mutants with, every one or the security mutators `--security` narrows it
  * to (ADR-0021), the suite whose tests alone judge them, where `--suite`
- * names one (ADR-0025), and what proves a survivor equivalent
- * (ADR-0013).
+ * names one (ADR-0025), what proves a survivor equivalent
+ * (ADR-0013), and the engine that takes the coverage map's bulk off PHP
+ * (ADR-0118).
  *
  * @internal
  */
@@ -92,6 +94,7 @@ final readonly class Adapters
         public Narrowing $narrowing,
         public Prover $equivalence,
         public ConfigReads $configReads,
+        public MapEngine $maps,
     ) {
     }
 
@@ -120,6 +123,7 @@ final readonly class Adapters
             $this->narrowing,
             $this->equivalence,
             $reads,
+            $this->maps,
         );
     }
 
@@ -148,6 +152,7 @@ final readonly class Adapters
             $this->narrowing,
             $this->equivalence,
             $this->configReads,
+            $this->maps,
         );
     }
 
@@ -180,6 +185,7 @@ final readonly class Adapters
             $this->narrowing,
             $this->equivalence,
             $this->configReads,
+            $this->maps,
         );
     }
 
@@ -216,6 +222,7 @@ final readonly class Adapters
                 $this->narrowing->toMutators(Mutators::named(...$security)),
                 $this->equivalence,
                 $this->configReads,
+                $this->maps,
             );
     }
 
@@ -253,6 +260,7 @@ final readonly class Adapters
                     $this->narrowing->toSuite($suite),
                     $this->equivalence,
                     $this->configReads,
+                    $this->maps,
                 ),
             $declared === [] => CannotJudge::because(sprintf(self::NO_SUITES, $asked)),
             default => CannotJudge::because(sprintf(self::NO_SUITE, $asked, $this->shown($declared))),
@@ -291,6 +299,7 @@ final readonly class Adapters
                 $this->narrowing->amongSuites($resolved),
                 $this->equivalence,
                 $this->configReads,
+                $this->maps,
             )
             : $resolved;
     }

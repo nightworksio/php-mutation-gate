@@ -8,11 +8,15 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Tests\Fakes\ProcessesFake;
 
 it('runs a command through the processes, in its directory, with its environment and deadline, and ends as it ends', function (): void {
@@ -56,4 +60,34 @@ it('stops a command at its silence limit where it has one, and only at its deadl
     [$silenced, $plain] = $processes->ran();
 
     expect([$silenced->silence(), $plain->silence(), $silenced->deadline()])->toEqual([$silence, NotGiven::value(), Seconds::of(4.0)]);
+});
+
+it('starts commands side by side through processes that start them, and runs them to their ends at once through others', function (): void {
+    $program = static fn(ProcessCommand $command): Ran => Ran::exited(0, $command->directory());
+    $starting = new ProcessesFake($program);
+    $running = new ProcessesFake($program);
+    $only = new readonly class ($running) implements Processes {
+        public function __construct(private Processes $processes)
+        {
+        }
+
+        public function run(ProcessCommand $command, ProcessWatch $watch = new Unwatched()): Ran
+        {
+            return $this->processes->run($command, $watch);
+        }
+
+        public function sideBySide(WorkerSlots $slots, Seconds|Unlimited $startingWithin, ProcessCommand ...$commands): ProcessEnds
+        {
+            return $this->processes->sideBySide($slots, $startingWithin, ...$commands);
+        }
+    };
+    $command = Command::of(PHP_BINARY, '-v');
+
+    $started = new ProcessShell($starting, '/project')->started(WorkerSlots::alone(), Unlimited::time(), $command, $command);
+    $ran = new ProcessShell($only, '/project')->started(WorkerSlots::alone(), Unlimited::time(), $command, $command);
+
+    expect([...$started->ends()])->toEqual([...$ran->ends()])
+        ->and(array_map(static fn(Ran $end): string => $end->output(), [...$ran->ends()]))->toBe(['/project', '/project'])
+        ->and([$starting->starts(), $running->starts()])->toBe([[2], []])
+        ->and($running->ran())->toEqual($starting->ran());
 });

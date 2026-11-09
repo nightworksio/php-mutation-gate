@@ -63,6 +63,8 @@ return RectorConfig::configure()
         __DIR__ . '/tests/Contract/Runner/phpunit-fixture',
         __DIR__ . '/tests/Contract/Runner/phpspec-fixture',
         __DIR__ . '/tests/Fixtures/Archive',
+        // Each report is php-code-coverage's own output, byte for byte, which the readers are held to.
+        __DIR__ . '/tests/Fixtures/CoverageReports',
         __DIR__ . '/tests/Contract/Runner/codeception-fixture',
         __DIR__ . '/tests/Contract/Runner/testo-fixture',
         // The static checker contract suite's fixture holds mutants, which are wrong on purpose.

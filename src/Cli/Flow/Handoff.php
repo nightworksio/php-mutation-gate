@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
+use NightWorksIO\MutationGate\Core\Coverage\MapSlice;
+use NightWorksIO\MutationGate\Core\Coverage\MapSlices;
 use NightWorksIO\MutationGate\Core\Coverage\MapText;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
@@ -23,6 +25,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -33,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Port\MapEngine;
 
 use function sprintf;
 
@@ -44,6 +48,9 @@ use function sprintf;
  * that run a line reading a value a mutant changes (ADR-0006); and the verdict
  * the lines of every unit the plan considered, for the kill matrix (ADR-0014).
  * A runner's own map, which may be code, never leaves the job that read it.
+ * Where an engine takes the map's bulk off PHP (ADR-0118), it writes the
+ * shards' and the verdict's maps from the whole one, and vouches for the
+ * maps read back; where it declines, the gate writes and reads them itself.
  *
  * @internal
  */
@@ -51,10 +58,15 @@ final readonly class Handoff
 {
     private const string UNHANDED = 'Shard %d was handed no coverage map at %s. Hand every job the plan\'s %s.';
 
+    private const string NO_ENGINE = 'No engine writes the maps.';
+
     private const string NO_MATRIX = 'The verdict was handed no coverage map at %s. Hand it the plan\'s %s.';
 
-    public function __construct(private Directory $project, private HandoffLimits $limits)
-    {
+    public function __construct(
+        private Directory $project,
+        private HandoffLimits $limits,
+        private MapEngine|NotGiven $engine = new NotGiven(),
+    ) {
     }
 
     /** The limits this process reads a map handed over within, by the memory it has. */
@@ -92,9 +104,13 @@ final readonly class Handoff
             return $whole;
         }
 
+        $slices = MapSlices::of();
+
         foreach ($plan as $shard) {
             $considered = Units::of(...$considered, ...$shard->units());
-            $wrote = $this->shardHanded($shard, $this->filesOf($shard->units(), $map), $text, $history, $held);
+            $files = $this->filesOf($shard->units(), $map);
+            $slices = $slices->with(MapSlice::of($this->fileOf($shard->id()), $files));
+            $wrote = $this->besideShard($shard, $files, $history, $held);
 
             if ($wrote instanceof CannotJudge) {
                 return $wrote;
@@ -102,10 +118,10 @@ final readonly class Handoff
         }
 
         $considered = Units::of(...$considered, ...$plan->considered()->proved(), ...$plan->considered()->carried());
-        $wrote = $this->project->write(
-            CoverageMapFile::in(Workspace::verdictCoverage()),
-            Contents::of(CoverageMapFile::encode($text->onlyFor($this->filesOf($considered, $map)), Unplaced::map())),
+        $slices = $slices->with(
+            MapSlice::of(CoverageMapFile::in(Workspace::verdictCoverage()), $this->filesOf($considered, $map)),
         );
+        $wrote = $this->sliced($text, $slices);
 
         return $wrote instanceof CannotJudge ? $wrote : $written;
     }
@@ -117,7 +133,7 @@ final readonly class Handoff
         $contents = $this->project->readAtMost($file, $this->limits->packed());
 
         return match (true) {
-            $contents instanceof Contents => CoverageMapFile::decode($contents->text(), $this->limits),
+            $contents instanceof Contents => $this->decoded($contents),
             $contents instanceof TooLarge => CannotJudge::because($contents->why()),
             $contents instanceof CannotJudge => $contents,
             default => CannotJudge::because(
@@ -164,7 +180,7 @@ final readonly class Handoff
         $contents = $this->project->readAtMost($file, $this->limits->packed());
 
         return match (true) {
-            $contents instanceof Contents => CoverageMapFile::decode($contents->text(), $this->limits),
+            $contents instanceof Contents => $this->decoded($contents),
             $contents instanceof TooLarge => CannotJudge::because($contents->why()),
             $contents instanceof CannotJudge => $contents,
             default => CannotJudge::because(
@@ -173,23 +189,48 @@ final readonly class Handoff
         };
     }
 
+    /** A map handed over, read within the limits, built straight from its text where the engine vouches for it. */
+    private function decoded(Contents $contents): CoverageMap|CannotJudge
+    {
+        return CoverageMapFile::decode($contents->text(), $this->limits, Vouching::by($this->engine));
+    }
+
     /**
-     * What a shard is handed of its files: their map, the history of their
+     * The shards' and the verdict's maps, each the whole map's for its files:
+     * written by the engine where it writes them, and by the gate otherwise.
+     */
+    private function sliced(MapText $text, MapSlices $slices): Written|NotWritten|CannotJudge
+    {
+        $split = $this->engine instanceof MapEngine
+            ? $this->engine->split(CoverageMapFile::in(Workspace::coverage()), $slices)
+            : NotWritten::because(self::NO_ENGINE);
+
+        foreach ($split instanceof Written ? [] : $slices as $slice) {
+            $wrote = $this->project->write(
+                $slice->into(),
+                Contents::of(CoverageMapFile::encode($text->onlyFor($slice->files()), Unplaced::map())),
+            );
+
+            if ($wrote instanceof CannotJudge) {
+                return $wrote;
+            }
+        }
+
+        return $split;
+    }
+
+    /**
+     * What a shard is handed beside its map: the history of its files'
      * functions, and which mutant subsumes which in them where its run holds
      * the subsumed back.
      */
-    private function shardHanded(
+    private function besideShard(
         Shard $shard,
         Paths $files,
-        MapText $text,
         KillHistory $history,
         Subsumption|NotGiven $held,
     ): Written|CannotJudge {
         $wrote = $this->project->write(
-            $this->fileOf($shard->id()),
-            Contents::of(CoverageMapFile::encode($text->onlyFor($files), Unplaced::map())),
-        );
-        $wrote = $wrote instanceof CannotJudge ? $wrote : $this->project->write(
             $this->killersOf($shard->id()),
             Contents::of(KillHistoryFile::encode($history->onlyIn($files))),
         );

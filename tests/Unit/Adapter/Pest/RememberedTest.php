@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\ListingStarts;
 use NightWorksIO\MutationGate\Tests\Support\ReplayRuns;
 
 it('learns each thing once, and each listing once for its suites and what it withheld', function (): void {
@@ -51,6 +52,69 @@ it('learns each thing once, and each listing once for its suites and what it wit
         ->and($patched)->toBe([true, true])
         ->and($mapAgain)->toBe($map)
         ->and($written)->toBe(1);
+});
+
+it('lists together only the sets of suites not yet listed, each once, and answers each in the order asked', function (): void {
+    $remembered = new Remembered();
+    $starts = new ListingStarts();
+
+    $known = $remembered->listing(Withheld::standard(), Suites::listed('Unit'), static fn(): TestListing => TestListing::none());
+    $listed = $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Process'), Suites::listed('Unit'), Suites::listed('Process'))->taken();
+    $again = $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Unit'), Suites::listed('Process'))->taken();
+
+    expect($listed[1])->toBe($known)
+        ->and($listed[0])->toBe($listed[2])
+        ->and($listed[0])->toEqual(TestListing::of(TestIds::of(TestId::of(Suites::listed('Process')->joined()))))
+        ->and($again)->toBe([$known, $listed[0]])
+        ->and($starts->asked)->toBe([[Suites::listed('Process')->joined()]])
+        ->and($starts->stopped)->toBe(0);
+});
+
+it('answers a set of suites started and not yet taken with what it lists, and starts it no second time', function (): void {
+    $remembered = new Remembered();
+    $starts = new ListingStarts();
+
+    $pending = $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Unit'), Suites::listed('Process'));
+    $again = $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Process'));
+    $alone = $remembered->listing(Withheld::standard(), Suites::listed('Unit'), static fn(): TestListing => TestListing::none());
+
+    expect($alone)->toEqual(TestListing::of(TestIds::of(TestId::of(Suites::listed('Unit')->joined()))))
+        ->and($again->taken())->toBe([$pending->taken()[1]])
+        ->and($pending->taken()[0])->toBe($alone)
+        ->and($starts->asked)->toBe([[Suites::listed('Unit')->joined(), Suites::listed('Process')->joined()]]);
+});
+
+it('lists a set of suites anew where the listing it waited on was stopped by those that started it', function (): void {
+    $remembered = new Remembered();
+    $starts = new ListingStarts();
+
+    $first = $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Unit'));
+    $waiting = $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Unit'), Suites::listed('Process'));
+    $first->stop();
+
+    expect($waiting->taken())->toEqual([
+        TestListing::of(TestIds::of(TestId::of(Suites::listed('Unit')->joined()))),
+        TestListing::of(TestIds::of(TestId::of(Suites::listed('Process')->joined()))),
+    ])
+        ->and($starts->asked)->toBe([
+            [Suites::listed('Unit')->joined()],
+            [Suites::listed('Process')->joined()],
+            [Suites::listed('Unit')->joined()],
+        ])
+        ->and($starts->stopped)->toBe(1);
+});
+
+it('stops the listings it started when stopped, and forgets them, so a set of suites asked after lists anew', function (): void {
+    $remembered = new Remembered();
+    $starts = new ListingStarts();
+
+    $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Unit'))->stop();
+    $alone = $remembered->listing(Withheld::standard(), Suites::listed('Unit'), static fn(): TestListing => TestListing::none());
+    $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Unit'))->stop();
+
+    expect($starts->stopped)->toBe(1)
+        ->and($alone)->toEqual(TestListing::none())
+        ->and($starts->asked)->toBe([[Suites::listed('Unit')->joined()]]);
 });
 
 it('runs each baseline once, all it does not know in one call, and keeps nothing of one stopped or never started', function (): void {

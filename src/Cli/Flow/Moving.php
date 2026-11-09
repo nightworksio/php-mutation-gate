@@ -9,6 +9,7 @@ use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -36,12 +37,12 @@ final readonly class Moving
     public static function of(CoverageEntries $entries, KeptMap $kept): self|CannotJudge
     {
         $map = $kept->map();
-        $executed = ExecutedFiles::in($map);
+        $outline = MapOutline::of($map);
         $files = $entries->testFiles();
         $moved = [];
 
         foreach ($files as $file) {
-            $key = $entries->keyOf($file, $map, $executed);
+            $key = $entries->keyOf($file, $map, $outline);
 
             if ($key instanceof CannotJudge) {
                 return $key;

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Coverage;
 use function array_key_exists;
 use function count;
 
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
@@ -42,5 +43,23 @@ final readonly class Tally
         }
 
         return LineTests::placed(TestIds::of(...$tests), ...$lines);
+    }
+
+    /**
+     * A line whose tests are found by their keys: each key's place in a list
+     * of tests, in the order of the keys.
+     *
+     * @param list<int>               $keys
+     * @param array<int, int<0, max>> $places each key's place
+     */
+    public static function placing(Path $file, int $line, array $keys, array $places): PlacedLine
+    {
+        $placed = [];
+
+        foreach ($keys as $key) {
+            $placed[] = $places[$key];
+        }
+
+        return PlacedLine::of($file, $line, ...$placed);
     }
 }

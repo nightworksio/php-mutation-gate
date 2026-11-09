@@ -90,7 +90,7 @@ final readonly class Planning
         bool $ownMap = false,
     ): PlanMade|CannotJudge {
         $inventory = $this->adapters->runner->behaviour()->records($matrix)
-            ? Inventory::of($this->adapters, $this->settings)
+            ? Inventory::forKeys($this->adapters, $this->settings)
             : CannotJudge::because(self::NOT_FULL);
 
         if ($inventory instanceof CannotJudge) {
@@ -364,7 +364,7 @@ final readonly class Planning
         KillHistory $history,
         Subsumption|NotGiven $held,
     ): Plan|CannotJudge {
-        $handed = new Handoff($this->adapters->project, Handoff::limits())
+        $handed = new Handoff($this->adapters->project, Handoff::limits(), $this->adapters->maps)
             ->write($plan, $map, $history, $at, $keys, $held);
 
         return $handed instanceof CannotJudge ? $handed : $plan;

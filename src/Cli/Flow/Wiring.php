@@ -12,12 +12,15 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\FetchedCopies;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Filesystem\ReferencedFiles;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Setup;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Adapter\Native\NativeOptions;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
@@ -163,6 +166,11 @@ final readonly class Wiring
                     $settings->staticCheck()->opcacheLimit()->seconds(),
                 ),
                 ConfigReads::none(),
+                Outbreak::configured(
+                    $settings->shards()->outbreak(),
+                    $project->root()->value(),
+                    Resources::at(Shipped::Outbreak),
+                ),
             )->judgedAmong($settings->triage()->suites()),
         };
     }

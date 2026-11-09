@@ -83,7 +83,9 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Tests\Fakes\MapEngineFake;
 use NightWorksIO\MutationGate\Tests\Support\Described;
+use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
@@ -171,6 +173,53 @@ it('lists the tests of each set of suites once', function (): void {
     expect($shell->commands())->toHaveCount(2);
 });
 
+it('lists several sets of suites side by side, each into a file of its own, as it lists each alone, and each set once', function (): void {
+    $at = PestCases::project();
+    $alone = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $together = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $pest = new Pest($at, $together, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $one = new Pest(PestCases::project(), $alone, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $listed = $pest->listingsStarted(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'))->taken();
+    $again = $pest->listingsStarted(Withheld::standard(), Suites::listed('Process'), Suites::listed('Unit'))->taken();
+
+    expect($listed)->toEqual([
+        $one->listing(Withheld::standard(), Suites::listed('Unit')),
+        $one->listing(Withheld::standard(), Suites::listed('Process')),
+    ])->and($again)->toEqual([$listed[1], $listed[0]])
+        ->and($together->batches())->toBe([2])
+        ->and($together->commands())->toEqual([
+            PestCases::invocation($at)->listing(Withheld::standard(), Suites::listed('Unit'), PestCases::listingFile($at)),
+            PestCases::invocation($at)->listing(
+                Withheld::standard(),
+                Suites::listed('Process'),
+                sprintf('%s/tests-2.xml', dirname(PestCases::listingFile($at))),
+            ),
+        ]);
+});
+
+it('says why it lists a set of suites side by side where an earlier list cannot be removed, and lists the others', function (): void {
+    $at = PestCases::project();
+    mkdir(PestCases::listingFile($at), recursive: true);
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $listed = $pest->listingsStarted(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'))->taken();
+
+    $blocked = PestCases::project();
+    $beside = sprintf('%s/tests-2.xml', dirname(PestCases::listingFile($blocked)));
+    mkdir(PestCases::listingFile($blocked), recursive: true);
+    mkdir($beside, recursive: true);
+    $untouched = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $none = new Pest($blocked, $untouched, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+        ->listingsStarted(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'))
+        ->taken();
+
+    expect($listed[0])->toEqual(Leftover::at(PestCases::listingFile($at)))
+        ->and($listed[1])->toBeInstanceOf(TestListing::class)
+        ->and($shell->batches())->toBe([1])
+        ->and($none)->toEqual([Leftover::at(PestCases::listingFile($blocked)), Leftover::at($beside)])
+        ->and($untouched->batches())->toBe([]);
+});
+
 it('cannot list the tests where Pest fails, or where an earlier list cannot be removed', function (): void {
     $at = PestCases::project();
     $failed = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
@@ -228,6 +277,18 @@ it('reads the map a coverage run this job started itself left in a directory, ru
         ->and(sprintf('%s/build/none', $at->root()))->not->toBeDirectory();
 });
 
+it('names the report a coverage run this job started left in a directory, in the format it reads, with what it timed beside it', function (): void {
+    $at = PestCases::project();
+    Scratch::write($at->root(), 'build/suite/timed-tests.jsonl', '["P\\\\Tests\\\\MoneyTest::adds",0.5,{"process":1,"firstLoaded":[],"startedProcesses":false}]');
+    $report = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: 'not run')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+        ->report(CoverageRan::in(Path::of('build/suite')));
+
+    expect($report->file())->toBe(sprintf('%s/build/suite/coverage.php', $at->root()))
+        ->and($report->format())->toBe(4)
+        ->and($report->recorded()->timed())->toEqual([TimedTest::of('P\Tests\MoneyTest::adds', 0.5)])
+        ->and($report->relative(sprintf('%s/src/Money.php', $at->root())))->toEqual(Path::of('src/Money.php'));
+});
+
 it('cannot judge a coverage run that failed, with what Pest said', function (): void {
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'No code coverage driver'));
@@ -283,6 +344,18 @@ it('reads the gate\'s own map another job handed over, running nothing', functio
 
     expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual($map)
         ->and($shell->commands())->toBe([]);
+});
+
+it('reads a handed map with the engine it was given, which may vouch for it, into the same map', function (): void {
+    $at = PestCases::project();
+    $map = CoverageMap::of()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(PestCases::RUN_ADDS));
+    PestCases::handedOver($at, 'planned', $map);
+    $text = Gunzipped::of((string) file_get_contents(sprintf('%s/planned/map.json.gz', $at->root())));
+    $engine = new MapEngineFake([$text]);
+    $pest = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: '')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), maps: $engine);
+
+    expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual($map)
+        ->and($engine->asked)->toBe([$text]);
 });
 
 it('never reads a runner\'s map another job wrote, which is PHP that reading runs', function (): void {

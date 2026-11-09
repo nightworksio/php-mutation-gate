@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -86,7 +87,9 @@ final readonly class KeptCoverage
     {
         $bytes = $this->adapters->project->read(CoverageMapFile::in(Workspace::coverage()));
 
-        return $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), $this->limits()) : $bytes;
+        return $bytes instanceof Contents
+            ? CoverageMapFile::kept($bytes->text(), $this->limits(), Vouching::by($this->adapters->maps))
+            : $bytes;
     }
 
     /**
@@ -179,7 +182,7 @@ final readonly class KeptCoverage
         );
         $kept = $ownMap
             ? StoredCoverage::of($this->fromWorkspace(), KeptFrom::LastRound)
-            : StoredCoverage::in($this->adapters->proofs, $access, $this->limits());
+            : StoredCoverage::in($this->adapters->proofs, $access, $this->limits(), $this->adapters->maps);
 
         return $this->measuring($entries, $kept->map(), $kept->from(), $suites);
     }
@@ -191,7 +194,15 @@ final readonly class KeptCoverage
      */
     public static function keysOf(CoverageEntries|CannotJudge|NotGiven $entries, CoverageMap $map): EntryKeys|NotGiven
     {
-        $keys = $entries instanceof CoverageEntries ? $entries->keysOf($map) : NotGiven::value();
+        return self::keysBy($entries, MapOutline::of($map));
+    }
+
+    /** Each test file's entry key by a map's outline, as `keysOf()` tells them. */
+    public static function keysBy(
+        CoverageEntries|CannotJudge|NotGiven $entries,
+        MapOutline $outline,
+    ): EntryKeys|NotGiven {
+        $keys = $entries instanceof CoverageEntries ? $entries->keysOf($outline) : NotGiven::value();
 
         return $keys instanceof CannotJudge ? NotGiven::value() : $keys;
     }

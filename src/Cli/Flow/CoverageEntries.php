@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -84,22 +85,26 @@ final readonly class CoverageEntries
         return $this->adapters->runner->testsIn($files, $map);
     }
 
-    /** The key of a test file's entries, by the files its tests executed in a map; or why its tests are unknown. */
-    public function keyOf(Path $file, CoverageMap $map, ExecutedFiles $executed): Digest|CannotJudge
+    /**
+     * The key of a test file's entries, by the files its tests ran a line of
+     * by a map's outline, its tests told from the map's; or why its tests are
+     * unknown.
+     */
+    public function keyOf(Path $file, CoverageMap $map, MapOutline $outline): Digest|CannotJudge
     {
         $tests = $this->testsIn(Paths::of($file), $map);
 
-        return $tests instanceof TestIds ? $this->keying->keyOf($file, $executed->by($tests)) : $tests;
+        return $tests instanceof TestIds ? $this->keying->keyOf($file, $outline->ranBy($tests)) : $tests;
     }
 
-    /** The key of every test file's entries by a map; or why a file's tests are unknown. */
-    public function keysOf(CoverageMap $map): EntryKeys|CannotJudge
+    /** The key of every test file's entries by a map's outline; or why a file's tests are unknown. */
+    public function keysOf(MapOutline $outline): EntryKeys|CannotJudge
     {
-        $executed = ExecutedFiles::in($map);
+        $map = $outline->map();
         $keys = EntryKeys::none();
 
         foreach ($this->testFiles as $file) {
-            $key = $this->keyOf($file, $map, $executed);
+            $key = $this->keyOf($file, $map, $outline);
 
             if ($key instanceof CannotJudge) {
                 return $key;

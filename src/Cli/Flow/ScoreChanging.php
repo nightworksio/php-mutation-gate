@@ -49,7 +49,7 @@ final readonly class ScoreChanging
 
     public function text(): string|CannotJudge
     {
-        $inventory = Inventory::of($this->adapters, $this->settings);
+        $inventory = Inventory::forKeys($this->adapters, $this->settings);
         $baseline = Baselines::of($this->adapters, $this->settings, $this->setup)->committed();
         $map = $this->adapters->runner->coverage(CoverageRead::from(Workspace::coverage()));
 

@@ -216,6 +216,19 @@ final class Running
     }
 
     /**
+     * How it ended by a time where it has ended, else stopped then with every
+     * process it started.
+     */
+    public function stop(float $now): Ran
+    {
+        $end = $this->endedBy($now);
+
+        return $end instanceof Ran
+            ? $end
+            : $this->stopped(Ran::stopped(...), $now, proc_get_status($this->process)['pid']);
+    }
+
+    /**
      * The environment it runs in: this process's own, with what `$_ENV`
      * holds over it, as Symfony's Process hands on, then what its command
      * tells and without what it unsets.

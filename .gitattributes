@@ -29,6 +29,7 @@
 /lychee.toml export-ignore
 /mutation-gate.baseline.json export-ignore
 /mutation-gate.json export-ignore
+/outbreak export-ignore
 /phpstan export-ignore
 /phpstan.neon export-ignore
 /phpunit.xml export-ignore

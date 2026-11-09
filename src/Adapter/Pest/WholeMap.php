@@ -45,7 +45,11 @@ final readonly class WholeMap
         }
 
         $whole = $handed->whole();
-        $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in($this->project, $whole);
+        $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in(
+            $this->project,
+            $whole,
+            $this->remembered->vouching(),
+        );
         $map = $this->remembered->map($whole, $reading);
 
         return $map instanceof CannotJudge ? $map : new HandedOver($map, $this->project);

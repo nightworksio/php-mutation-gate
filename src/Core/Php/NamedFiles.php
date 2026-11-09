@@ -106,16 +106,27 @@ final readonly class NamedFiles
         }
 
         foreach ($mentioning as $file => $read) {
-            $mentioned = $read->mentioned()->all();
-            $mentions[$file] = [
-                ...$mentioned,
-                ...$read->quoted()->all(),
-                ...self::tagged(self::CONSTANT, array_map(self::lastSegment(...), $mentioned)),
-                ...self::tagged(self::FILE, $read->words()->all()),
-            ];
+            $mentions[$file] = self::mentionedIn($read);
         }
 
         return self::byName($declares, $mentions);
+    }
+
+    /**
+     * The names a PHP file mentions, as {@see read()} links files by them.
+     *
+     * @return list<string>
+     */
+    public static function mentionedIn(PhpFile $file): array
+    {
+        $mentioned = $file->mentioned()->all();
+
+        return [
+            ...$mentioned,
+            ...$file->quoted()->all(),
+            ...self::tagged(self::CONSTANT, array_map(self::lastSegment(...), $mentioned)),
+            ...self::tagged(self::FILE, $file->words()->all()),
+        ];
     }
 
     /**

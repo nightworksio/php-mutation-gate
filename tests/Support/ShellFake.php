@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_map;
+
 use Closure;
 
 use function count;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
+use NightWorksIO\MutationGate\Adapter\Pest\StartsCommands;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\StartedProcesses;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -24,7 +28,7 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
  * function can write what the real program would have, such as Pest's
  * results file.
  */
-final class ShellFake implements Shell
+final class ShellFake implements Shell, StartsCommands
 {
     /** @var list<Command> */
     private array $commands = [];
@@ -34,6 +38,9 @@ final class ShellFake implements Shell
 
     /** @var list<int> */
     private array $batches = [];
+
+    /** @var list<StartedFake> */
+    private array $started = [];
 
     /** @param Closure(Command, int): Ran $answer */
     public function __construct(private readonly Closure $answer)
@@ -70,6 +77,27 @@ final class ShellFake implements Shell
         }
 
         return ProcessEnds::of(...$ends);
+    }
+
+    /**
+     * Each command answered in turn as {@see sideBySide()} answers them, all
+     * ended as they are handed back, and kept as handed back.
+     */
+    public function started(
+        WorkerSlots $slots,
+        Seconds|Unlimited $startingWithin,
+        Command ...$commands,
+    ): StartedProcesses {
+        $started = new StartedFake($this->sideBySide($slots, $startingWithin, ...$commands));
+        $this->started[] = $started;
+
+        return $started;
+    }
+
+    /** @return list<array{bool, bool}> whether each set of commands started was awaited, and whether stopped, in order */
+    public function handled(): array
+    {
+        return array_map(static fn(StartedFake $started): array => $started->handled(), $this->started);
     }
 
     /** @return list<int> how many commands each run side by side was given, in order */

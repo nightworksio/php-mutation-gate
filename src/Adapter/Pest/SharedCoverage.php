@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
 use function base64_encode;
+
+use Closure;
+
 use function count;
 use function file_get_contents;
 use function file_put_contents;
@@ -19,7 +22,9 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
+use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -65,9 +70,17 @@ final readonly class SharedCoverage
         );
         PHP;
 
-    /** The map the gate wrote into a directory of the project, or why there is none to read. */
-    public static function in(Project $project, Path $directory): CoverageMap|CannotJudge
-    {
+    /**
+     * The map the gate wrote into a directory of the project, built straight from its text where it is vouched for
+     * (ADR-0118), or why there is none to read.
+     *
+     * @param (Closure(string): MapVouch)|NotGiven $vouching
+     */
+    public static function in(
+        Project $project,
+        Path $directory,
+        Closure|NotGiven $vouching = new NotGiven(),
+    ): CoverageMap|CannotJudge {
         $file = $project->absolute(CoverageMapFile::in($directory));
         $limits = HandoffLimits::under(
             ini_get('memory_limit'),
@@ -76,7 +89,9 @@ final readonly class SharedCoverage
         );
         $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : null;
 
-        return is_string($bytes) ? CoverageMapFile::decode($bytes, $limits) : CoverageMapFile::missingAt($file);
+        return is_string($bytes)
+            ? CoverageMapFile::decode($bytes, $limits, $vouching)
+            : CoverageMapFile::missingAt($file);
     }
 
     /** How long the map's tests took, one after another. */

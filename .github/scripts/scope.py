@@ -36,6 +36,12 @@ What each job reads (INPUTS):
 - `replay`: what decides what a change reaches and how a plan carries and
   cuts (REPLAY), which it plans the newest pull requests again with. A push
   to main runs none: ci.yml's own condition leaves it to the night.
+- `outbreak`: Outbreak's Rust tree and its workflow (OUTBREAK), and the PHP
+  the binary talks to (OUTBREAK_BOUNDARY), which its boundary job runs
+  against the binary. A change to the Rust tree alone runs no PHP gate. Its
+  builds, the binary for every platform, run where the Rust tree or its
+  workflow changed, or ci.yml's call of it did, which the `builds` output
+  says. ci.yml calls it on every run, so its `passed` check always reports.
 
 A script under .github/scripts reaches each job that runs it, through the
 jobs of a workflow that job calls too, and any script those import. Every
@@ -76,7 +82,7 @@ LEG_TABLE = json.loads(Path(__file__).resolve().with_name("legs.json").read_text
 RUNNERS = tuple(LEG_TABLE)
 
 # The jobs of ci.yml this script gates, in the workflow's order.
-GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "image", "runner-contracts", "end-to-end", "mutation", "replay")
+GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "image", "runner-contracts", "end-to-end", "outbreak", "mutation", "replay")
 
 # The job that runs the legs, the end-to-end workflow's jobs by the input that
 # runs each, and the job that decides every output.
@@ -102,7 +108,8 @@ CODE_DOCS = (
 SHIPPED_CI = ("action.yml", ".github/workflows/mutation-gate.yml")
 
 # The files of the gates that read no PHP: the spelling, link and markdown
-# checks, the changelog, the image, and the benchmark, which bench.yml runs.
+# checks, the changelog, the image, the benchmark, which bench.yml runs, and
+# Outbreak's Rust tree, which outbreak.yml runs.
 OTHER_GATES = (
     "typos.toml",
     "lychee.toml",
@@ -111,6 +118,31 @@ OTHER_GATES = (
     "Dockerfile",
     ".dockerignore",
     "bench/",
+    "outbreak/",
+)
+
+# Outbreak's core (ADR-0118): its Rust tree, which its builds make for every
+# platform, and the workflow that builds and checks it; and the job of ci.yml
+# that calls it.
+OUTBREAK = ("outbreak/", ".github/workflows/outbreak.yml")
+OUTBREAK_CALLER = "outbreak"
+
+# The PHP the binary talks to, which `outbreak` checks against it: the port
+# and the interface it converts reports through, the adapter, the maps the
+# binary reads and writes, the runner's report it reads (ADR-0119), and their
+# tests and the reports they read.
+OUTBREAK_BOUNDARY = (
+    "src/Port/MapEngine.php",
+    "src/Adapter/Outbreak/",
+    "src/Core/Coverage/",
+    "src/Core/Runner/ConvertsPhpReports.php",
+    "src/Core/Runner/RanReport.php",
+    "tests/Contract/MapEngine/",
+    "tests/Process/Adapter/Outbreak/",
+    "tests/Fakes/MapEngineFake.php",
+    "tests/Fixtures/CoverageReports/",
+    "tests/Fixtures/DeclinedReports/",
+    "tests/Support/CoverageReports.php",
 )
 
 # The suites, which no project the gate is installed into loads.
@@ -318,6 +350,7 @@ INPUTS: dict[str, Callable[[str], bool]] = {
     "image": lambda path: path in IMAGE,
     "mutation": lambda path: is_program(path) or under(path, SHIPPED_CI),
     "replay": lambda path: under(path, REPLAY),
+    "outbreak": lambda path: under(path, OUTBREAK + OUTBREAK_BOUNDARY),
 }
 
 
@@ -411,7 +444,7 @@ def reaches_runner(path: str, runner: str) -> bool:
 
 
 def everything() -> dict[str, str]:
-    return {"jobs": json.dumps(list(GATED)), "runners": json.dumps(list(RUNNERS)), "warm": "true", "hooks": "true"}
+    return {"jobs": json.dumps(list(GATED)), "runners": json.dumps(list(RUNNERS)), "warm": "true", "hooks": "true", "builds": "true"}
 
 
 def outputs(
@@ -446,9 +479,16 @@ def outputs(
     called = END_TO_END_CALLER in named
     warm = called or runs("warm", lambda path: under(path, RUNTIME + WARM))
     hooks = called or runs("hooks", lambda path: is_program(path) and not path.startswith(TESTS))
+    builds = OUTBREAK_CALLER in named or any(under(path, OUTBREAK) for path in changed)
     gathered = {"runner-contracts": runners != [] or "runner-contracts" in named, END_TO_END_CALLER: warm or hooks}
     run = [job for job in GATED if gathered.get(job, False) or runs(job, INPUTS.get(job, lambda path: False))]
-    return {"jobs": json.dumps(run), "runners": json.dumps(runners), "warm": str(warm).lower(), "hooks": str(hooks).lower()}
+    return {
+        "jobs": json.dumps(run),
+        "runners": json.dumps(runners),
+        "warm": str(warm).lower(),
+        "hooks": str(hooks).lower(),
+        "builds": str(builds).lower(),
+    }
 
 
 def read_workflows(base: str, paths: list[str]) -> dict[str, tuple[str, str]]:

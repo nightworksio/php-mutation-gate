@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\MergedHeads;
@@ -22,6 +24,7 @@ use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest as PestRunner;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
@@ -827,13 +830,16 @@ it('tells each runner its timeouts and the classes of the registered mutators th
     $phpunit = $wired(Runner::phpunit());
     $native = [...$default instanceof MutatorSet ? $default : [], PlusToMinus::class];
 
+    $options = Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]]));
+
     expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
-        Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
+        $options,
         ComposerVendor::of('.'),
         new CapDirectory(),
         new PackageDirectory(),
         firstPartyProcesses(),
         NotGiven::value(),
+        Outbreak::beneath($options, (string) getcwd(), Resources::at(Shipped::Outbreak)),
     ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
             Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
@@ -913,6 +919,7 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
         new PackageDirectory(),
         firstPartyProcesses(),
         NotGiven::value(),
+        Outbreak::beneath(Configs::options($options(...$declared)), (string) getcwd(), Resources::at(Shipped::Outbreak)),
     ))
         ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(
             Configs::options($options(...$declared)),

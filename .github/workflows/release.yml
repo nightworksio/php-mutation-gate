@@ -4,7 +4,9 @@ name: release
 # (ADR-0019).
 #
 # - Drafting, on workflow_dispatch: the next version from the commits since the
-#   last tag, its CHANGELOG.md section from git-cliff, and the pull request
+#   last tag, its CHANGELOG.md section from git-cliff, Outbreak's core built
+#   for every platform and laid under resources/outbreak with the SHA256SUMS
+#   the gate checks each binary against (ADR-0118), and the pull request
 #   `release/vX.Y.Z`, opened as the App. A dispatch for a version whose
 #   branch exists is refused, so it never discards edits made there.
 # - Signing: the maintainer edits and merges that pull request, runs
@@ -44,8 +46,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Outbreak's core for every platform the package ships it for, which the
+  # draft lays under resources/outbreak (ADR-0118).
+  outbreak:
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/outbreak.yml # zizmor: ignore[self-repository]
+    with:
+      gates: false
+      builds: true
+
   draft:
     name: draft
+    needs: outbreak
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -93,6 +107,21 @@ jobs:
           else
             git-cliff --config cliff.toml --unreleased --tag "v${VERSION}" --output CHANGELOG.md
           fi
+      # Each platform's binary under resources/outbreak/<platform>, and every
+      # SHA-256 in the one list the gate reads, so the release commit ships
+      # them in the package.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: outbreak-*
+          path: resources/outbreak
+          merge-multiple: true
+      - name: List the binaries' checksums
+        working-directory: resources/outbreak
+        run: |
+          set -euo pipefail
+          cat ./*/SHA256SUM > SHA256SUMS
+          rm ./*/SHA256SUM
+          sha256sum --check --strict SHA256SUMS
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app
         with:

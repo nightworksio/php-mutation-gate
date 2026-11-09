@@ -4,20 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native;
 
-use function array_intersect_key;
+use Closure;
+
 use function file_get_contents;
+use function filesize;
 use function is_file;
-use function is_string;
+use function is_readable;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
+use NightWorksIO\MutationGate\Core\Coverage\ReportedLines;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
-
-use function rtrim;
-
-use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
 use SebastianBergmann\CodeCoverage\Exception as CoverageFailure;
 use SebastianBergmann\CodeCoverage\Serialization\Unserializer;
 
@@ -42,13 +40,21 @@ final readonly class CoverageFile
     /** @param non-empty-string $file */
     private static function readFrom(Project $project, string $file): CoverageMap|CannotJudge
     {
-        $text = file_get_contents($file);
-
         return match (true) {
-            ! is_string($text) => PhpReport::missingAt($file),
-            ! PhpReport::isWhole($text) => PhpReport::cutOffAt($file),
+            ! is_readable($file) => PhpReport::missingAt($file),
+            ! PhpReport::isWhole((int) filesize($file), self::from($file)) => PhpReport::cutOffAt($file),
             default => self::unserialized($project, $file),
         };
+    }
+
+    /**
+     * A file's bytes from a byte on.
+     *
+     * @return Closure(int): string
+     */
+    private static function from(string $file): Closure
+    {
+        return static fn(int $from): string => sprintf('%s', file_get_contents($file, offset: $from));
     }
 
     /** @phpstan-assert-if-true non-empty-string $file */
@@ -72,26 +78,9 @@ final readonly class CoverageFile
             $timed[] = TimedTest::of($test, $result['time']);
         }
 
-        return CoverageMap::of(...self::lines($project, $coverage['basePath'], $coverage['codeCoverage']))
-            ->timedEach(...$timed);
-    }
+        $data = $coverage['codeCoverage'];
 
-    /** @return list<CoveredLine> each executable line, with the tests that ran it: none for a line no test ran */
-    private static function lines(Project $project, string $base, ProcessedCodeCoverageData $data): array
-    {
-        $tests = $data->testIds();
-        $lines = [];
-
-        foreach ($data->lineCoverage() as $file => $covered) {
-            $path = $project->relative(sprintf('%s/%s', rtrim($base, '/'), $file));
-
-            foreach ($covered as $line => $ran) {
-                if ($ran !== null) {
-                    $lines[] = CoveredLine::of($path, $line, ...array_intersect_key($tests, $ran));
-                }
-            }
-        }
-
-        return $lines;
+        return ReportedLines::of($coverage['basePath'], $data->testIds(), $data->lineCoverage())
+            ->map($project->relative(...), ...$timed);
     }
 }

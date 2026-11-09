@@ -20,8 +20,8 @@ def pull(*paths: str) -> dict[str, str]:
 
 # The jobs that judge the program, in ci.yml's order.
 PROGRAM = ["alone", "guards", "checks", "tests", "lowest", "phar", "mutation"]
-NOTHING = {"jobs": "[]", "runners": "[]", "warm": "false", "hooks": "false"}
-EVERYTHING = {"jobs": json.dumps(list(scope.GATED)), "runners": json.dumps(list(scope.RUNNERS)), "warm": "true", "hooks": "true"}
+NOTHING = {"jobs": "[]", "runners": "[]", "warm": "false", "hooks": "false", "builds": "false"}
+EVERYTHING = {"jobs": json.dumps(list(scope.GATED)), "runners": json.dumps(list(scope.RUNNERS)), "warm": "true", "hooks": "true", "builds": "true"}
 
 
 class Outputs(unittest.TestCase):
@@ -67,6 +67,27 @@ class Outputs(unittest.TestCase):
         for path in ("Dockerfile", ".dockerignore"):
             self.assertEqual(pull(path), {**NOTHING, "jobs": '["image"]'}, path)
         self.assertEqual(pull("sonar-project.properties"), {**NOTHING, "jobs": '["tests"]'})
+
+    def test_runs_only_outbreak_s_gates_and_builds_for_its_rust_tree_and_its_workflow(self):
+        for path in ("outbreak/crates/outbreak-map/src/map.rs", "outbreak/Cargo.lock", "outbreak/fuzz/fuzz_targets/map.rs", ".github/workflows/outbreak.yml"):
+            self.assertEqual(pull(path), {**NOTHING, "jobs": '["outbreak"]', "builds": "true"}, path)
+
+    def test_runs_outbreak_s_boundary_beside_the_php_gates_for_the_php_the_binary_talks_to(self):
+        for path in (
+            "src/Port/MapEngine.php",
+            "src/Adapter/Outbreak/Outbreak.php",
+            "src/Core/Coverage/VouchedRead.php",
+            "src/Core/Runner/RanReport.php",
+            "tests/Contract/MapEngine/MapEngineTest.php",
+            "tests/Fixtures/CoverageReports/timed/coverage.php",
+        ):
+            found = pull(path)
+            self.assertIn("outbreak", ran(found), path)
+            self.assertEqual(found["builds"], "false", path)
+            self.assertIn("tests", ran(found), path)
+        unrelated = pull("src/Core/Report/Overview.php")
+        self.assertNotIn("outbreak", ran(unrelated))
+        self.assertEqual(unrelated["builds"], "false")
 
     def test_runs_every_program_job_for_the_program_and_the_hook_managers_outside_the_suites(self):
         found = pull("src/Core/Report/Overview.php")
@@ -272,7 +293,7 @@ class Scripts(unittest.TestCase):
         legs_only = pull(".github/scripts/leg_support.py")
         self.assertEqual((ran(legs_only), legs(legs_only)), (["runner-contracts"], sorted(scope.RUNNERS)))
         evidence = pull(".github/scripts/evidence.py")
-        self.assertEqual(ran(evidence), [job for job in scope.GATED if job not in ("mutation", "image")])
+        self.assertEqual(ran(evidence), [job for job in scope.GATED if job not in ("mutation", "image", "outbreak")])
         self.assertEqual((evidence["warm"], evidence["hooks"]), ("true", "true"))
 
 

@@ -114,7 +114,11 @@ final readonly class ShardMap
 
         $refusal = $this->refusal($request);
 
-        $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in($this->project, $directory);
+        $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in(
+            $this->project,
+            $directory,
+            $this->remembered->vouching(),
+        );
         $own = $refusal instanceof CannotJudge ? $refusal : $this->remembered->map($directory, $reading);
 
         return $own instanceof CoverageMap ? $this->read($request, $own) : $own;

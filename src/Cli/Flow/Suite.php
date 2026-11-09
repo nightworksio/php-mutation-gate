@@ -24,7 +24,6 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\PestHolds;
-use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
@@ -54,6 +53,7 @@ final readonly class Suite
         private Fingerprints $outside,
         private array $contents,
         private SupportPlaces $support,
+        private SuiteCode $code,
     ) {
     }
 
@@ -63,6 +63,7 @@ final readonly class Suite
         Fingerprints $files,
         Directory $project,
         TestSuite $configured,
+        SuiteCode $code,
     ): self|CannotJudge {
         $packages = self::packageTestsOf($trees, $configured->conventionalDirectory());
         $support = SupportPlaces::read($project, $trees);
@@ -98,6 +99,7 @@ final readonly class Suite
             $outside,
             $contentsOf,
             $support,
+            $code,
         );
     }
 
@@ -137,6 +139,19 @@ final readonly class Suite
         return $this->sources;
     }
 
+    /**
+     * What every PHP file of the test directories, and of the places their
+     * tests load support from besides, declares and mentions, by its path:
+     * each test file the holds were read from as its code kept it, which it
+     * then keeps no longer.
+     *
+     * @return array{array<string, list<string>>, array<string, list<string>>} declared, then mentioned
+     */
+    public function sourceNames(): array
+    {
+        return $this->code->namesIn($this->sources->phpNow());
+    }
+
     /** Every file outside the test directories. */
     public function outside(): Fingerprints
     {
@@ -172,7 +187,7 @@ final readonly class Suite
         $holds = PestHolds::after($first);
 
         foreach ($this->contentsAmong($first, $among) as $path => $contents) {
-            $holds = $holds->read(Path::of($path), PhpFile::read($contents)->holds());
+            $holds = $holds->read(Path::of($path), $this->code->of(Path::of($path), $contents)->holds());
 
             if ($holds instanceof CannotJudge) {
                 return $holds;
@@ -187,8 +202,8 @@ final readonly class Suite
     {
         $holdings = Holdings::none();
 
-        foreach ($this->contentsAmong(Paths::none(), $among) as $contents) {
-            $holdings = $holdings->merge(PhpFile::read($contents)->holdings());
+        foreach ($this->contentsAmong(Paths::none(), $among) as $path => $contents) {
+            $holdings = $holdings->merge($this->code->of(Path::of($path), $contents)->holdings());
         }
 
         return $holdings;

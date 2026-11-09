@@ -33,3 +33,11 @@ it('gives each of several processes a place numbered from one, and one process a
         ['PARATEST' => '1', 'TEST_TOKEN' => '3', 'UNIQUE_TEST_TOKEN' => '3_run', 'LARAVEL_PARALLEL_TESTING' => '1'],
     ])->and($variables([...WorkerSlots::of(ProcessCount::single(), 'run')]))->toBe([[]]);
 });
+
+it('gives several processes side by side places that tell them nothing, as one process alone is told', function (): void {
+    $slots = [...WorkerSlots::untold(2)];
+
+    expect($slots)->toHaveCount(2)
+        ->and(array_map(static fn(WorkerSlot $slot): array => iterator_to_array($slot->variables(), preserve_keys: true), $slots))
+        ->toBe([[], []]);
+});

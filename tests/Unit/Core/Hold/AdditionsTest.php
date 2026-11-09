@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Addition;
@@ -55,7 +56,7 @@ it('finds nothing unrun where each hold runs a line of what it holds', function 
         CoveredLine::of(Path::of('src/Shell.php'), 9, 'ShellTest::starts'),
     );
 
-    expect(additionsOfGitAndShell()->unrunIn($map))->toEqual(NotGiven::value());
+    expect(additionsOfGitAndShell()->unrunBy(MapOutline::of($map)))->toEqual(NotGiven::value());
 });
 
 it('names the first hold that runs no line of what it holds, though it runs lines elsewhere', function (): void {
@@ -65,7 +66,7 @@ it('names the first hold that runs no line of what it holds, though it runs line
         CoveredLine::of(Path::of('src/Shell.php'), 2, 'MoneyTest::adds'),
     );
 
-    expect(additionsOfGitAndShell()->unrunIn($map))->toEqual(CannotJudge::because(<<<'SAID'
+    expect(additionsOfGitAndShell()->unrunBy(MapOutline::of($map)))->toEqual(CannotJudge::because(<<<'SAID'
         holds:src/Shell.php in the holding suites runs no line of src/Shell.php, so it judges none of its mutants.
         Add the test that runs it to the group, or remove the hold.
         SAID));
@@ -78,22 +79,31 @@ it('names the first hold in the order written that runs nothing, wherever in the
     );
     $unrunBoth = CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 9, 'GitTest::runs', 'ShellTest::starts'));
 
-    expect(additionsOfGitAndShell()->unrunIn($map))->toEqual(CannotJudge::because(<<<'SAID'
+    expect(additionsOfGitAndShell()->unrunBy(MapOutline::of($map)))->toEqual(CannotJudge::because(<<<'SAID'
         holds:src/Git in the holding suites runs no line of src/Git, so it judges none of its mutants.
         Add the test that runs it to the group, or remove the hold.
         SAID))
-        ->and(additionsOfGitAndShell()->unrunIn($unrunBoth))->toEqual(CannotJudge::because(<<<'SAID'
+        ->and(additionsOfGitAndShell()->unrunBy(MapOutline::of($unrunBoth)))->toEqual(CannotJudge::because(<<<'SAID'
             holds:src/Git in the holding suites runs no line of src/Git, so it judges none of its mutants.
             Add the test that runs it to the group, or remove the hold.
             SAID));
 });
 
-it('keeps those of them that hold a file, in the order written', function (): void {
+it('keeps each test leaving on the files it runs that a hold of it holds, and on no other', function (): void {
     $additions = additionsOfGitAndShell()
         ->with(Addition::of(Path::of('src'), TestIds::of(TestId::of('AppTest::boots')), 'holds:src'));
-    $written = static fn(Additions $on): array => array_map(static fn(Addition $addition): string => $addition->written(), [...$on]);
+    $map = CoverageMap::of(
+        CoveredLine::of(Path::of('src/Git/Command.php'), 3, 'GitTest::runs', 'AppTest::boots', 'ShellTest::starts'),
+        CoveredLine::of(Path::of('src/Shell.php'), 4, 'GitTest::runs', 'ShellTest::starts'),
+        CoveredLine::of(Path::of('lib/Boot.php'), 5, 'AppTest::boots', 'OtherTest::runs'),
+    );
+    $leaving = TestIds::of(...array_map(TestId::of(...), ['GitTest::runs', 'AppTest::boots', 'ShellTest::starts', 'OtherTest::runs', 'GoneTest::went']));
 
-    expect($written($additions->on(Path::of('src/Git/Command.php'))))->toBe(['holds:src/Git', 'holds:src'])
-        ->and($written($additions->on(Path::of('src/Shell.php'))))->toBe(['holds:src/Shell.php', 'holds:src'])
-        ->and($written($additions->on(Path::of('tests/ShellTest.php'))))->toBe([]);
+    expect($additions->staying($leaving, MapOutline::of($map)))->toBe([
+        'GitTest::runs' => ['src/Git/Command.php' => true],
+        'AppTest::boots' => ['src/Git/Command.php' => true],
+        'ShellTest::starts' => ['src/Shell.php' => true],
+        'OtherTest::runs' => [],
+        'GoneTest::went' => [],
+    ]);
 });

@@ -7,17 +7,20 @@ use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\SuiteCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Coverage\Admission;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\LoadedPackages;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\Coverage\ProcessLoads;
 use NightWorksIO\MutationGate\Core\Coverage\TestLoad;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -209,4 +212,18 @@ it('keeps what the tests of the map recorded loading', function (): void {
     $admitted = $suites->admitted(everySuitesMap()->loading($loaded));
 
     expect($admitted instanceof CoverageMap ? $admitted->loaded() : $admitted)->toEqual($loaded);
+});
+
+it('decides the admission of a map by its outline, and none where every test file is a judging suite\'s', function (): void {
+    [$suites] = suiteCoverage(everySuitesMap());
+    $map = everySuitesMap();
+    $runner = new CoverageAsked(HoldingSuites::runner(TestListing::none(), TestListing::none(), $map), $map);
+    $adapters = Flows::adapters(HoldingSuites::project(), [], HoldingSuites::checkout(), $runner);
+    $inventory = Inventory::of($adapters, Flows::settings());
+    $whole = $inventory instanceof Inventory ? SuiteCoverage::of($adapters, $inventory)->admission(MapOutline::of($map)) : $inventory;
+
+    expect($suites->admission(MapOutline::of($map)))->toEqual(Admission::of([
+        HoldingSuites::STARTS => ['src/Held.php' => true],
+        HoldingSuites::RULES => [],
+    ]))->and($whole)->toEqual(NotGiven::value());
 });

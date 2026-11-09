@@ -92,7 +92,7 @@ final readonly class Since
             $trees instanceof CannotJudge => $trees,
             $files instanceof CannotTell => CannotJudge::because($files->why()),
             default => $this->graphOf(
-                Suite::read($trees, $files, $this->adapters->project, $this->adapters->suite),
+                Suite::read($trees, $files, $this->adapters->project, $this->adapters->suite, SuiteCode::unkept()),
                 $trees,
                 $files,
             ),

@@ -18,6 +18,7 @@ use function mkdir;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\FileMode;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -40,9 +41,6 @@ use function unlink;
  */
 final readonly class Hooks
 {
-    /** A hook git runs: readable and runnable by everyone, written by its owner. */
-    private const int RUNNABLE = 0o755;
-
     /** Why a hook is not removed. */
     private const string UNREMOVED = '%s could not be removed.';
 
@@ -118,7 +116,7 @@ final readonly class Hooks
             && ! is_file($directory)
             && (is_dir($directory) || mkdir($directory, recursive: true))
             && is_writable(is_file($file) ? $file : $directory);
-        $written = $writable && file_put_contents($file, $script->text()) !== false && chmod($file, self::RUNNABLE);
+        $written = $writable && file_put_contents($file, $script->text()) !== false && chmod($file, FileMode::RUNNABLE);
 
         return $written ? Written::to($file) : Written::failedAt($file);
     }

@@ -4102,6 +4102,27 @@
             },
             "additionalProperties": false
         },
+        "outbreak": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "binary": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "timeout": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                },
+                "threads": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            },
+            "additionalProperties": false
+        },
         "coverage": {
             "type": "object",
             "properties": {
@@ -8072,6 +8093,27 @@
                         "serveRequest": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "outbreak": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "binary": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "timeout": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "threads": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false

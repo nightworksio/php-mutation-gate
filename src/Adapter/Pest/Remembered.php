@@ -20,32 +20,35 @@ use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PendingListings;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
+use NightWorksIO\MutationGate\Port\MapEngine;
 
 /**
  * What one Pest runner learns once for every run it starts in a process: the
- * tests and groups each set of its suites lists, the PHP it starts, whether
- * the vendor is patched, each map another job handed over, the maps it has
- * written again for Pest, whether each control of a kill passes on the
- * unmutated code, served as its mutant was (see Control), and what each
- * replay of a kill's own run said (see PrefixReplays). Each is slow to
- * learn, from a process started for it or a map that can reach hundreds of
- * megabytes, and none changes while the gate runs. The scan of the codebase
- * for the files one run mutates is kept only until a run of other files
- * scans: each holds the whole codebase, and a shard that runs in chunks
- * scans once for each chunk.
+ * tests and groups each set of its suites lists (see RememberedListings), the
+ * PHP it starts, whether the vendor is patched, each map another job handed
+ * over, the maps it has written again for Pest, whether each control of a
+ * kill passes on the unmutated code, served as its mutant was (see Control),
+ * and what each replay of a kill's own run said (see PrefixReplays). Each is
+ * slow to learn, from a process started for it or a map that can reach
+ * hundreds of megabytes, and none changes while the gate runs. Each map
+ * handed over is read with the engine that vouches for its text, where one
+ * does (ADR-0118). The scan of the codebase for the files one run mutates is
+ * kept only until a run of other files scans: each holds the whole codebase,
+ * and a shard that runs in chunks scans once for each chunk.
  *
  * @internal
  */
 final class Remembered
 {
-    /** @var array<string, array<string, TestListing|CannotJudge>> by the suites listed, then what it withheld */
-    private array $listings = [];
-
     /** @var array<string, Platform|CannotJudge> by what the PHP described withheld */
     private array $platforms = [];
 
@@ -67,17 +70,44 @@ final class Remembered
     /** @var array<string, Selector> the last scan of the codebase for the tests that read a value, by what it read */
     private array $selectors = [];
 
-    /** @param Closure(): (TestListing|CannotJudge) $listing */
+    private readonly RememberedListings $listed;
+
+    /** The engine that vouches for a handed map's text, where one does. */
+    public function __construct(private readonly MapEngine|NotGiven $engine = new NotGiven())
+    {
+        $this->listed = new RememberedListings();
+    }
+
+    /** @return (Closure(string): MapVouch)|NotGiven what vouches for a handed map's text, where anything does */
+    public function vouching(): Closure|NotGiven
+    {
+        $engine = $this->engine;
+
+        return $engine instanceof MapEngine
+            ? static fn(string $json): MapVouch => $engine->vouches(Contents::of($json))
+            : $engine;
+    }
+
+    /**
+     * What a set of suites lists, listed once: taken where it was started
+     * side by side with others.
+     *
+     * @param Closure(): (TestListing|CannotJudge) $listing
+     */
     public function listing(Withheld $withheld, Suites $suites, Closure $listing): TestListing|CannotJudge
     {
-        $among = $suites->joined();
-        $key = $withheld->pattern();
+        return $this->listed->listing($withheld, $suites, $listing);
+    }
 
-        if (! array_key_exists($among, $this->listings) || ! array_key_exists($key, $this->listings[$among])) {
-            $this->listings[$among][$key] = $listing();
-        }
-
-        return $this->listings[$among][$key];
+    /**
+     * What each set of suites lists, each listed once: those neither listed
+     * nor started yet started together, and each taken once asked for.
+     *
+     * @param Closure(Suites ...): PendingListings $starting
+     */
+    public function listings(Withheld $withheld, Closure $starting, Suites ...$suites): PendingListings
+    {
+        return $this->listed->listings($withheld, $starting, ...$suites);
     }
 
     /** @param Closure(): (Platform|CannotJudge) $describing */

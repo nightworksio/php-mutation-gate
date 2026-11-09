@@ -40,10 +40,12 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\LeavesPhpReport;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -71,7 +73,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class NativeRunner implements Runner
+final readonly class NativeRunner implements LeavesPhpReport, Runner
 {
     /** Where the gate runs the framework: the project's root, which the gate runs in. */
     private const string ROOT = '.';
@@ -90,6 +92,9 @@ final readonly class NativeRunner implements Runner
     /** The map the last mutation run read, which a run again after it reads too. */
     private HeldCoverage $held;
 
+    /** The framework as the gate starts it, the override named where a mutant's run writes it. */
+    private Invocation $invocation;
+
     public function __construct(
         private Project $project,
         private Shell $shell,
@@ -100,6 +105,7 @@ final readonly class NativeRunner implements Runner
         private Clock $clock = new WallClock(),
     ) {
         $this->held = new HeldCoverage();
+        $this->invocation = new Invocation($this->project, Override::pathIn($this->project), $this->framework);
     }
 
     /**
@@ -147,7 +153,7 @@ final readonly class NativeRunner implements Runner
         $versions = $this->framework->versions();
         $platform = $versions instanceof CannotJudge
             ? $versions
-            : Platform::ofRunner($this->shell->run($this->invocation()->describing($withheld))->output());
+            : Platform::ofRunner($this->shell->run($this->invocation->describing($withheld))->output());
 
         return $platform instanceof Platform
             ? Identity::of($this->framework->runner()->value, $versions, $platform->digest())
@@ -181,7 +187,13 @@ final readonly class NativeRunner implements Runner
 
     public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge
     {
-        return new Coverage($this->project, $this->shell, $this->invocation(), $this->framework)->of($request);
+        return new Coverage($this->project, $this->shell, $this->invocation, $this->framework)->of($request);
+    }
+
+    /** The PHP report a run the project started in this job left; none where the framework writes another. */
+    public function report(CoverageRan $ran): RanReport|NotGiven
+    {
+        return new Coverage($this->project, $this->shell, $this->invocation, $this->framework)->report($ran);
     }
 
     /** The map's tests that these test files hold, by the framework's own rules. */
@@ -334,12 +346,6 @@ final readonly class NativeRunner implements Runner
                 $framework->runner()->program()->title(),
                 $project->vendor()->value(),
             ));
-    }
-
-    /** The framework as the gate starts it, the override named where a mutant's run writes it. */
-    private function invocation(): Invocation
-    {
-        return new Invocation($this->project, Override::pathIn($this->project), $this->framework);
     }
 
     /** A run of the gate's own mutants through this shell. */

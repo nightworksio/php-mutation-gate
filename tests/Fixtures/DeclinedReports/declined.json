@@ -1,0 +1,17 @@
+{
+    "custom-object": "expected a string at byte 492",
+    "cut-off": "expected the end php-code-coverage writes at byte 1156",
+    "duplicate-file": "expected each key once, as text at byte 946",
+    "extra-code": "expected the end php-code-coverage writes at byte 2323",
+    "format-3": "expected php-code-coverage's report in serialization format 4 at byte 0",
+    "function-coverage": "expected no function coverage at byte 1371",
+    "invalid-utf-8": "expected UTF-8 at byte 113",
+    "label-inside": "expected no end before the end at byte 1089",
+    "negative-line": "expected a line's number, once at byte 712",
+    "not-a-report": "expected php-code-coverage's report in serialization format 4 at byte 0",
+    "numeric-looking-name": "expected a file's name PHP sorts as text at byte 113",
+    "numeric-name": "expected each key once, as text at byte 801",
+    "other-class": "expected php-code-coverage's coverage data at byte 532",
+    "reference": "expected an array at byte 252",
+    "unknown-property": "expected a key php-code-coverage writes at byte 1483"
+}
