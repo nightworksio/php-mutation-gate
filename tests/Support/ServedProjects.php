@@ -32,6 +32,7 @@ use function pcntl_fork;
 use function pcntl_signal;
 use function pcntl_waitpid;
 use function posix_geteuid;
+use function posix_kill;
 use function random_bytes;
 use function range;
 use function register_shutdown_function;
@@ -53,6 +54,9 @@ final class ServedProjects
     public const string SOCKET = '.mutation-gate/serve.sock';
 
     private static string $left = '';
+
+    /** @var list<int> The processes standing in for a daemon, stopped once their test is done. */
+    private static array $standing = [];
 
     /** A scratch project, its gate's directory its owner's alone, changed into: its path. */
     public static function entered(): string
@@ -79,10 +83,32 @@ final class ServedProjects
     /** The directory the tests ran in, changed back into. */
     public static function left(): void
     {
+        self::stoppedAll();
+
         if (self::$left !== '') {
             chdir(self::$left);
             self::$left = '';
         }
+    }
+
+    /** A process standing in for a daemon, stopped when its test leaves its project or the suite ends. */
+    public static function standing(int $child): void
+    {
+        if (self::$standing === []) {
+            register_shutdown_function(self::stoppedAll(...));
+        }
+
+        self::$standing[] = $child;
+    }
+
+    /** Stops every process standing in for a daemon. */
+    public static function stoppedAll(): void
+    {
+        foreach (self::$standing as $child) {
+            self::stopped($child);
+        }
+
+        self::$standing = [];
     }
 
     /** The project's socket as this user's own. */
@@ -216,5 +242,12 @@ final class ServedProjects
         return ! Listener::ready($listener, [], 5_000_000)[0]
             ? NotGiven::value()
             : array_first($listener->accepted()) ?? NotGiven::value();
+    }
+
+    /** Stops a process started aside, then waits for it. */
+    private static function stopped(int $child): void
+    {
+        posix_kill($child, SIGKILL);
+        self::waitedFor($child);
     }
 }
