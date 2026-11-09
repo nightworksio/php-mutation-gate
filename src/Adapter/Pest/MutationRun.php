@@ -237,7 +237,7 @@ final readonly class MutationRun
         float $started,
         Laps $laps,
     ): MutationResult|CannotJudge {
-        $kills = NarrowedKills::in($result, $results, $this->project);
+        $kills = NarrowedKills::in($result, $results, $this->project, $request->search()->killControls());
         $from = $laps->now();
         $replayed = $this->unvouched($kills, $request, $results, $started);
         $doubtful = $this->doubted($kills, $request, $results, $started, $replayed);

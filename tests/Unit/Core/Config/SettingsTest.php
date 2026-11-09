@@ -98,7 +98,7 @@ describe('Settings', function (): void {
             ->and($settings->triage()->budget())->toEqual(Unlimited::time())
             ->and($settings->triage()->timeouts())->toBe(TimeoutMode::Confirm)
             ->and($settings->triage()->limit())->toEqual(Seconds::of(10))
-            ->and($settings->triage()->confirmSurvivors())->toBeTrue()
+            ->and($settings->triage()->flaky()->confirmSurvivors())->toBeTrue()
             ->and([...$settings->ignores()->entries()])->toBe([])
             ->and($settings->ignores()->maxDays())->toEqual(Absent::setting())
             ->and($settings->ignores()->native())->toBe(NativeMarkers::Refuse)
@@ -170,7 +170,7 @@ describe('Settings', function (): void {
             ->and($settings->triage()->budget())->toEqual(Seconds::of(5400))
             ->and($triage->timeouts())->toBe(TimeoutMode::Unjudged)
             ->and($triage->limit())->toEqual(Seconds::of(30))
-            ->and($triage->confirmSurvivors())->toBeFalse()
+            ->and($triage->flaky()->confirmSurvivors())->toBeFalse()
             ->and($settings->ignores()->maxDays())->toBe(90)
             ->and($settings->ignores()->native())->toBe(NativeMarkers::Allow)
             ->and([...$settings->publishing()->colors()])->toBe(['green' => 95])
@@ -260,7 +260,7 @@ describe('Settings', function (): void {
             '{"ci":{"azure":{"definition":"azure-pipelines.yml"},"bitbucket":{"definition":"bitbucket-pipelines.yml"},'
             . '"buildkite":{"definition":".buildkite/pipeline.yml","step":{}},'
             . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
-            . '"extensions":[],"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
+            . '"extensions":[],"flaky":{"confirmSurvivors":true,"killControls":"order"},"mutators":{"except":[],"sets":[]},"packages":[],'
             . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","patch":false,"schemata":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
             . '"runner":{"memory":"1G","pathRules":"partitioned","use":"pest","withhold":[],"workers":"fork"},"splitStream":{"changeCheck":true,"children":1,"early":"no-match","enabled":false,"killerStreams":false,"killersFirst":true,"sharding":"tests"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
             . '"timeouts":{"learned":{"least":2.0,"most":10.0,"percentile":0.99},"most":300,"multiple":3,"perTest":3,"seconds":10,"startUp":"5s","testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',

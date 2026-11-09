@@ -40,6 +40,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
 
     private const string LOCK = 'a moved package reaches less than every unit';
 
+    private const string ALONE = 'a kill\'s control runs its killers alone, so a test that fails only after the tests'
+        . ' before it counts as a kill';
+
     private const string OFF = 'false';
 
     private const string TRUST = 'ci.trustMergedPullRequests';
@@ -84,6 +87,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
                 : [],
             ...$ci->trustsMergedPullRequests() && $ci->mergedOwnScopeProofs() === OwnScopeTrust::Trust
                 ? [LooseValue::of('ci.mergedOwnScopeProofs', OwnScopeTrust::Trust->value, self::OWN_SCOPE)]
+                : [],
+            ...$settings->triage()->flaky()->killControls() === KillControl::Alone
+                ? [LooseValue::of('flaky.killControls', KillControl::Alone->value, self::ALONE)]
                 : [],
             ...$reach->lockMoves() !== LockMoveReach::Everything
                 ? [LooseValue::of('reach.lockMoves', $reach->lockMoves()->value, self::LOCK)]

@@ -195,7 +195,8 @@ final readonly class SettingsCases
             "heavyFill": true
         },
         "flaky": {
-            "confirmSurvivors": true
+            "confirmSurvivors": true,
+            "killControls": "order"
         },
         "tests": {
             "order": "killers-first"

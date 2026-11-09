@@ -288,6 +288,14 @@ findings are the same either way.
 
 Leave `xdebug.mode` at `off` in `staticCheck.php`, as by default; the gate
 then sets `XDEBUG_MODE=off` for PHPStan too.
+## kill-controls-alone
+
+`doctor` found `flaky.killControls: alone`. A kill's control then runs its
+killers alone, which is quicker, and gives up the proof that the kill happened
+in its run's order: a test that fails only after the tests before it counts as
+a kill, and no survivor shows it.
+
+Remove the setting, or set it to `order`.
 
 ## online-unread
 

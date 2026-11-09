@@ -7,9 +7,13 @@ namespace NightWorksIO\MutationGate\Core\Control;
 use function array_key_exists;
 use function count;
 
+use NightWorksIO\MutationGate\Core\Config\KillControl;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -18,13 +22,21 @@ use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
+use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
- * The unmutated control of each kill a test is named for (ADR-0014):
- * the tests that killed it, run with its file served unmutated as its
- * mutant was, allowed the standard mutant limit of their time as the
- * coverage map timed them. A kill whose own run left its filter out, as
+ * The unmutated control of each kill a test is named for (ADR-0014): its
+ * run again in its order, with its file served unmutated as its mutant was,
+ * allowed the standard mutant limit of the tests' time as the coverage map
+ * timed them, so a test that fails only after the tests before it kills
+ * nothing (ADR-0143). That is the tests its run started up to its last
+ * killer where the runner recorded them, and otherwise every test its run
+ * selected; a file's kills are first controlled by the longest of its
+ * orders that starts with a kill's own, which vouches for every shorter one
+ * (ADR-0089). A runner that replays each kill's order itself, before this,
+ * and `flaky.killControls: alone`, have this control run the tests that
+ * killed it instead. A kill whose own run left its filter out, as
  * too long to pass, is controlled as that run selected its tests, by the
  * test files it loaded, its limit that of those files' tests. A file's
  * kills are first controlled together, and where that control passes every
@@ -65,23 +77,39 @@ final readonly class KillControls implements ControlJudge
     {
     }
 
-    /** The controls of each of these mutants killed by a test named, each limit within these bounds. */
+    /**
+     * The controls of each of these mutants killed by a test named, each
+     * limit within these bounds: each kill's run replayed in its order, or
+     * its killers alone where the config or the runner says so.
+     */
     public static function of(
         Mutants $mutants,
         Evidences $evidence,
         CoverageMap $map,
+        HeldCovered $held,
         RunSelection $run,
         LimitBounds $bounds,
+        KillControl $control = KillControl::Order,
     ): self {
-        $kills = [];
+        if ($control === KillControl::Alone || $run->replaysKills()) {
+            return self::alone($mutants, $evidence, $map, $run, $bounds);
+        }
+
+        $tests = [];
 
         foreach ($mutants as $mutant) {
             if ($mutant->status() === MutantStatus::Killed && count($mutant->killers()) > 0) {
-                $kills[$mutant->id()->key()] = self::ownOf($mutant, $evidence, $map, $run, $bounds);
+                $tests[$mutant->id()->key()] = [
+                    $mutant->location()->file(),
+                    self::testsOf($mutant, $evidence->of($mutant->id()), $map, $held, $run),
+                ];
             }
         }
 
-        return new self(self::forFiles($kills, $map, $run, $bounds), $kills);
+        return new self(
+            self::controlled(KillOrders::vouchingFor($tests, alone: false), $map, $bounds),
+            self::controlled($tests, $map, $bounds),
+        );
     }
 
     /** The control of each file, every test that killed one of its mutants at once, each asked for once. */
@@ -139,6 +167,55 @@ final readonly class KillControls implements ControlJudge
     {
         return KillReasons::of(self::FAILS_UNMUTATED, self::OUT_OF_MEMORY, self::RAN_OUT, self::UNRUN)
             ->judged($mutant, $run, $control->tests());
+    }
+
+    /** The controls of each of these kills, run by the tests that killed it, alone. */
+    private static function alone(
+        Mutants $mutants,
+        Evidences $evidence,
+        CoverageMap $map,
+        RunSelection $run,
+        LimitBounds $bounds,
+    ): self {
+        $kills = [];
+
+        foreach ($mutants as $mutant) {
+            if ($mutant->status() === MutantStatus::Killed && count($mutant->killers()) > 0) {
+                $kills[$mutant->id()->key()] = self::ownOf($mutant, $evidence, $map, $run, $bounds);
+            }
+        }
+
+        return new self(self::forFiles($kills, $map, $run, $bounds), $kills);
+    }
+
+    /**
+     * @param  array<string, array{Path, TestIds|RunTests}> $tests
+     * @return array<string, Control>
+     */
+    private static function controlled(array $tests, CoverageMap $map, LimitBounds $bounds): array
+    {
+        $controls = [];
+
+        foreach ($tests as $key => [$file, $of]) {
+            $controls[$key] = Control::standard($file, $of, $map, $bounds);
+        }
+
+        return $controls;
+    }
+
+    /** What replays a kill's run: the tests it started up to its last killer, or all it selected. */
+    private static function testsOf(
+        Mutant $mutant,
+        Evidence $found,
+        CoverageMap $map,
+        HeldCovered $held,
+        RunSelection $run,
+    ): TestIds|RunTests {
+        $order = $found->order();
+
+        return $order instanceof TestIds
+            ? $order
+            : Control::judging($mutant, $map, $held, $run, $found->unfiltered());
     }
 
     /** A kill's own control: its killers, or as its run selected them where that run left its filter out. */

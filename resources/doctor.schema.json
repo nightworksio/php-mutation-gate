@@ -44,6 +44,7 @@
                             "fork-approval-weak",
                             "schedule-not-running",
                             "no-scheduled-run",
+                            "kill-controls-alone",
                             "online-unread",
                             "no-github-repository",
                             "memory-uncapped",

@@ -104,19 +104,32 @@ final readonly class Recorded
     public function prefix(): Prefix|NotGiven
     {
         $killers = $this->killers();
+        $position = 0;
+        $first = 0;
+
+        foreach ($this->started as $test) {
+            $position++;
+            $first = $first === 0 && $killers->has($test) ? $position : $first;
+        }
+
+        $digest = OrderDigest::of(...$this->upToLastKiller())->value();
+
+        return $first === 0 ? NotGiven::value() : Prefix::keyedAt($first, Prefix::keyOf(Paths::none(), $digest));
+    }
+
+    /** The tests it started up to the last of its killers, in order; none where no killer started. */
+    public function upToLastKiller(): TestIds
+    {
+        $killers = $this->killers();
         $order = [];
-        $first = $last = 0;
+        $last = 0;
 
         foreach ($this->started as $test) {
             $order[] = $test;
-            $killed = $killers->has($test);
-            $first = $killed && $first === 0 ? count($order) : $first;
-            $last = $killed ? count($order) : $last;
+            $last = $killers->has($test) ? count($order) : $last;
         }
 
-        $digest = OrderDigest::of(...array_slice($order, 0, $last))->value();
-
-        return $first === 0 ? NotGiven::value() : Prefix::keyedAt($first, Prefix::keyOf(Paths::none(), $digest));
+        return TestIds::of(...array_slice($order, 0, $last));
     }
 
     /** Whether any test started or finished. */

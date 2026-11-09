@@ -1793,6 +1793,13 @@
                 "confirmSurvivors": {
                     "type": "boolean",
                     "default": true
+                },
+                "killControls": {
+                    "enum": [
+                        "order",
+                        "alone"
+                    ],
+                    "default": "order"
                 }
             },
             "additionalProperties": false
@@ -6043,6 +6050,12 @@
                     "properties": {
                         "confirmSurvivors": {
                             "type": "boolean"
+                        },
+                        "killControls": {
+                            "enum": [
+                                "order",
+                                "alone"
+                            ]
                         }
                     },
                     "additionalProperties": false

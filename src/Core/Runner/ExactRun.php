@@ -21,4 +21,9 @@ final readonly class ExactRun implements RunSelection
     {
         return RunTests::of($judging);
     }
+
+    public function replaysKills(): bool
+    {
+        return false;
+    }
 }

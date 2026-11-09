@@ -245,8 +245,11 @@ final readonly class MutantRun
             return Evidence::none();
         }
 
-        $prefix = Recorded::in($prepared->files()->results(), $prepared->covering())->prefix();
-        $evidence = $prefix instanceof Prefix ? Evidence::none()->withPrefix($prefix) : Evidence::none();
+        $recorded = Recorded::in($prepared->files()->results(), $prepared->covering());
+        $prefix = $recorded->prefix();
+        $evidence = $prefix instanceof Prefix
+            ? Evidence::none()->withPrefix($prefix)->takingOrder($recorded->upToLastKiller())
+            : Evidence::none();
 
         return count($judged->killers()) > 0 ? $evidence : $evidence->withEnded(Ended::ofRun($ran));
     }

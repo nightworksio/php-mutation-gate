@@ -41,6 +41,7 @@ enum Slug: string
     case NoScheduledRun = 'no-scheduled-run';
     case KeyedContextBlocks = 'keyed-context-blocks';
     case PhpStanRestarts = 'phpstan-restarts';
+    case KillControlsAlone = 'kill-controls-alone';
     case OnlineUnread = 'online-unread';
     case NoGitHubRepository = 'no-github-repository';
     case MemoryUncapped = 'memory-uncapped';

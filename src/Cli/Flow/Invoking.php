@@ -223,7 +223,7 @@ final readonly class Invoking
      */
     private function confirmed(Mutants $mutants, MutantIds $equivalent, MutationRequest $request): Confirmed|CannotJudge
     {
-        if (! $this->settings->triage()->confirmSurvivors()) {
+        if (! $this->settings->triage()->flaky()->confirmSurvivors()) {
             return new Confirmed($mutants, MutantIds::none());
         }
 
@@ -283,7 +283,15 @@ final readonly class Invoking
             $bounds->perTest(),
         );
         $controls = $bounds->upToInstead($this->settings->triage()->controlMost());
-        $kills = KillControls::of($killed, $evidence, $this->map, $run, $controls);
+        $kills = KillControls::of(
+            $killed,
+            $evidence,
+            $this->map,
+            $this->held,
+            $run,
+            $controls,
+            $this->settings->triage()->flaky()->killControls(),
+        );
         $memory = MemoryControls::of($outOfMemory, $unfiltered, $this->map, $this->held, $run, $bounds);
         $unnamed = UnnamedKillControls::of($killed, $evidence, $this->map, $this->held, $run, $controls);
         $asked = [...Controls::of(...[

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
@@ -30,6 +31,7 @@ final readonly class Evidence
         private Paths|WholeSuite|NotGiven $unfiltered = new NotGiven(),
         private bool $streamed = false,
         private TestShare $share = TestShare::All,
+        private TestIds|NotGiven $order = new NotGiven(),
     ) {
     }
 
@@ -40,12 +42,28 @@ final readonly class Evidence
 
     public function withPrefix(Prefix $prefix): self
     {
-        return new self($prefix, $this->ended, $this->vouched, $this->unfiltered, $this->streamed, $this->share);
+        return new self(
+            $prefix,
+            $this->ended,
+            $this->vouched,
+            $this->unfiltered,
+            $this->streamed,
+            $this->share,
+            $this->order,
+        );
     }
 
     public function withEnded(Ended $ended): self
     {
-        return new self($this->prefix, $ended, $this->vouched, $this->unfiltered, $this->streamed, $this->share);
+        return new self(
+            $this->prefix,
+            $ended,
+            $this->vouched,
+            $this->unfiltered,
+            $this->streamed,
+            $this->share,
+            $this->order,
+        );
     }
 
     /**
@@ -61,6 +79,7 @@ final readonly class Evidence
             $this->unfiltered,
             streamed: true,
             share: $this->share,
+            order: $this->order,
         );
     }
 
@@ -73,7 +92,15 @@ final readonly class Evidence
     /** This evidence, of a mutant the shard judged by this share of its covering tests (ADR-0117). */
     public function sharing(TestShare $share): self
     {
-        return new self($this->prefix, $this->ended, $this->vouched, $this->unfiltered, $this->streamed, $share);
+        return new self(
+            $this->prefix,
+            $this->ended,
+            $this->vouched,
+            $this->unfiltered,
+            $this->streamed,
+            $share,
+            $this->order,
+        );
     }
 
     /** How many of the mutant's covering tests the shard judged it by: every one, unless it says otherwise. */
@@ -92,6 +119,7 @@ final readonly class Evidence
             unfiltered: $this->unfiltered,
             streamed: $this->streamed,
             share: $this->share,
+            order: $this->order,
         );
     }
 
@@ -101,7 +129,15 @@ final readonly class Evidence
      */
     public function loadingUnfiltered(Paths|WholeSuite $files): self
     {
-        return new self($this->prefix, $this->ended, $this->vouched, $files, $this->streamed, $this->share);
+        return new self(
+            $this->prefix,
+            $this->ended,
+            $this->vouched,
+            $files,
+            $this->streamed,
+            $this->share,
+            $this->order,
+        );
     }
 
     /** The test files the mutant's own run loaded with no filter, or every one; not given where it ran a filter. */
@@ -114,6 +150,30 @@ final readonly class Evidence
     public function isVouched(): bool
     {
         return $this->vouched;
+    }
+
+    /**
+     * This evidence, with the tests the mutant's own run started up to its
+     * last killer, in order, which its kill control replays (ADR-0108). It
+     * lasts the run, and no record holds it.
+     */
+    public function takingOrder(TestIds $order): self
+    {
+        return new self(
+            $this->prefix,
+            $this->ended,
+            $this->vouched,
+            $this->unfiltered,
+            $this->streamed,
+            $this->share,
+            $order,
+        );
+    }
+
+    /** The tests its run started up to its last killer, in order; not given where the runner did not record them. */
+    public function order(): TestIds|NotGiven
+    {
+        return $this->order;
     }
 
     public function prefix(): Prefix|NotGiven

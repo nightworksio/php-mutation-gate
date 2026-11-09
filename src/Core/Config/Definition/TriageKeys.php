@@ -11,6 +11,7 @@ use function is_int;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\KillControl;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Learned;
 use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
@@ -158,13 +159,7 @@ final readonly class TriageKeys
                     ...$toggles->fields(),
                 ),
             ),
-            Field::section(
-                'flaky',
-                Section::single(
-                    Field::optional('confirmSurvivors', Flag::boolean(), $results),
-                    static fn(bool|Absent $confirm): Layer => Layer::of(Triage::of(confirmSurvivors: $confirm)),
-                ),
-            ),
+            Field::section('flaky', self::flaky($results)),
             Field::section('tests', self::tests($results)),
             Field::section('survivorsFirst', self::survivorsFirst($judges)),
         ];
@@ -194,6 +189,36 @@ final readonly class TriageKeys
             $percentile,
             $least,
             $most,
+        );
+    }
+
+    /**
+     * `flaky`: whether each survivor runs once more before it counts, and what
+     * a kill's unmutated control runs (ADR-0008, ADR-0108).
+     *
+     * @return Section<Layer>
+     */
+    private static function flaky(Effect $results): Section
+    {
+        $confirm = Field::optional('confirmSurvivors', Flag::boolean(), $results);
+        $controls = Field::optional('killControls', Enumerated::of(KillControl::cases()), $results);
+
+        return Section::of(
+            static function (Node $flaky) use ($confirm, $controls): Layer|Invalid {
+                $confirming = $confirm->read($flaky);
+                $controlling = $controls->read($flaky);
+
+                return Reading::built(
+                    static fn(): Layer => Layer::of(Triage::of(
+                        confirmSurvivors: $confirming->value(),
+                        killControls: $controlling->value(),
+                    )),
+                    $confirming,
+                    $controlling,
+                );
+            },
+            $confirm,
+            $controls,
         );
     }
 

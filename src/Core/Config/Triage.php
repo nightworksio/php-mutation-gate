@@ -47,7 +47,7 @@ final readonly class Triage implements Part
         private Seconds|Absent $most,
         private int|float|Learned|Absent $multiple,
         private TighterSilence|Absent $tighter,
-        private bool|Absent $confirmSurvivors,
+        private FlakySetting $flaky,
         private TestOrder|Absent $order,
         private SurvivorsFirst $survivorsFirst,
         private SuiteLists $lists,
@@ -81,6 +81,7 @@ final readonly class Triage implements Part
         int|Absent $heavyParts = new Absent(),
         int|float|Absent $headroom = new Absent(),
         int|float|Absent $startUpMultiple = new Absent(),
+        KillControl|Absent $killControls = new Absent(),
     ): self {
         return new self(
             $budget,
@@ -89,7 +90,7 @@ final readonly class Triage implements Part
             $most,
             $multiple,
             $tighter,
-            $confirmSurvivors,
+            FlakySetting::of($confirmSurvivors, $killControls),
             $order,
             $survivorsFirst instanceof SurvivorsFirst ? $survivorsFirst : SurvivorsFirst::standard(),
             $lists instanceof SuiteLists ? $lists : SuiteLists::of(),
@@ -116,7 +117,7 @@ final readonly class Triage implements Part
             mode: $none->timeouts(),
             limit: $none->limit(),
             most: $none->most(),
-            confirmSurvivors: $none->confirmSurvivors(),
+            confirmSurvivors: $none->flaky()->confirmSurvivors(),
             order: $none->order(),
             survivorsFirst: $none->survivorsFirst()->resolved(),
             tighter: TighterSilence::standard(),
@@ -128,6 +129,7 @@ final readonly class Triage implements Part
             heavyFill: $none->heavy()->fills(),
             headroom: TimeoutHeadroom::STANDARD,
             startUpMultiple: MutantLimit::FACTOR,
+            killControls: $none->flaky()->killControls(),
         );
     }
 
@@ -141,7 +143,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->most, $later->most),
                 Absent::laid($this->multiple, $later->multiple),
                 Absent::laid($this->tighter, $later->tighter),
-                Absent::laid($this->confirmSurvivors, $later->confirmSurvivors),
+                $this->flaky->over($later->flaky),
                 Absent::laid($this->order, $later->order),
                 $this->survivorsFirst->over($later->survivorsFirst),
                 $this->lists->over($later->lists),
@@ -263,10 +265,10 @@ final readonly class Triage implements Part
         };
     }
 
-    /** `flaky.confirmSurvivors`: whether each survivor is run once more before it counts. */
-    public function confirmSurvivors(): bool
+    /** `flaky`: whether each survivor is run once more before it counts, and what a kill's control runs. */
+    public function flaky(): FlakySetting
     {
-        return $this->confirmSurvivors instanceof Absent || $this->confirmSurvivors;
+        return $this->flaky;
     }
 
     /** `tests.order`: the order each mutant's covering tests run in (ADR-0013). */
@@ -311,7 +313,7 @@ final readonly class Triage implements Part
                     ...$this->perTest->written(),
                 )),
             ),
-            Member::unlessEmpty('flaky', Json::object(Member::of('confirmSurvivors', $this->confirmSurvivors))),
+            Member::unlessEmpty('flaky', $this->flaky->written()),
             Member::unlessEmpty(
                 'tests',
                 Json::object(
@@ -338,9 +340,7 @@ final readonly class Triage implements Part
             ...LimitCalls::tighter($this->tighter),
             ...$this->perTest->calls(),
             ...LimitCalls::wholeSeconds('Timeouts::controlMost', $this->controlMost),
-            ...$this->confirmSurvivors instanceof Absent ? [] : [
-                $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
-            ],
+            ...$this->flaky->calls(),
             ...$this->order instanceof TestOrder ? [$this->order->php()] : [],
         ])
             ->and($this->heavy->calls())

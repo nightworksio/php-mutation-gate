@@ -8,6 +8,8 @@ use function array_diff_key;
 use function array_intersect_key;
 use function array_key_exists;
 use function array_key_first;
+use function array_keys;
+use function array_slice;
 use function array_values;
 
 use ArrayIterator;
@@ -87,6 +89,12 @@ final readonly class TestIds implements Countable, IteratorAggregate
     public function without(self $left): self
     {
         return new self(array_diff_key($this->tests, $left->tests));
+    }
+
+    /** Whether these tests begin with those of some others, in their order. */
+    public function startsWith(self $others): bool
+    {
+        return array_slice(array_keys($this->tests), 0, count($others->tests)) === array_keys($others->tests);
     }
 
     public function has(TestId $test): bool

@@ -45,4 +45,9 @@ final readonly class ExactRows implements RunSelection
             ? RunTests::filtered($selection->among($tests), $selection->filter())
             : RunTests::loading($tests, WholeSuite::tests());
     }
+
+    public function replaysKills(): bool
+    {
+        return true;
+    }
 }
