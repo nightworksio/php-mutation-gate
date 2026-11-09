@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use function array_key_exists;
+
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -159,18 +161,23 @@ final readonly class Sources
     }
 
     /**
-     * Every PHP file on disk, read, in the order the files came.
+     * Every PHP file on disk, read, in the order the files came: each file
+     * already read from what it holds on disk as it was read, every other
+     * read now.
      *
+     * @param  array<string, PhpFile> $known files already read from what they hold on disk, by path
      * @return ByPath<PhpFile>
      */
-    public function php(): ByPath
+    public function php(array $known = []): ByPath
     {
         $read = [];
         $paths = [];
 
         foreach ($this->now as $path => $contents) {
             if ($contents instanceof Contents && $path->isPhp()) {
-                $read[$path->value()] = PhpFile::read($contents);
+                $read[$path->value()] = array_key_exists($path->value(), $known)
+                    ? $known[$path->value()]
+                    : PhpFile::read($contents);
                 $paths[] = $path;
             }
         }

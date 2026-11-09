@@ -74,7 +74,7 @@ final readonly class NameGraph
     {
         $files = [];
 
-        foreach ($suite->sources()->php() as $path => $php) {
+        foreach ($suite->sourceCode() as $path => $php) {
             $files[$path->value()] = $php;
         }
 

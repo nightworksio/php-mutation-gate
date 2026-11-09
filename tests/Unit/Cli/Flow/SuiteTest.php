@@ -144,6 +144,23 @@ it('gathers what the #[Holds] of every test file declare', function () use ($lis
         ->with(Holding::byAttribute('src/Kernel.php', Holder::of('Tests\KernelTest'))));
 });
 
+it('reads the code of the test files the holds were read from for the name graph as reading them anew does, and holds it no longer', function () use ($listed): void {
+    $read = suiteOf(
+        [
+            'tests/HeldTest.php' => "<?php\n\nnamespace Tests;\n\nfinal class HeldTest { public function holds(): void { new \\App\\Money(); } }\n",
+            'tests/Pest.php' => "<?php\n\nuses(Tests\\TestCase::class)->in('Unit');\n",
+            'tests/fixture.json' => '{}',
+        ],
+        $listed('tests/HeldTest.php', 'tests/Pest.php', 'tests/fixture.json'),
+    );
+    $read->pestHolds(Paths::none(), Suites::all());
+    $code = $read->sourceCode();
+
+    expect($code)->toEqual($read->sources()->php())
+        ->and($code->paths())->toEqual(Paths::of(Path::of('tests/HeldTest.php'), Path::of('tests/Pest.php')))
+        ->and($read->sourceCode())->toEqual($code);
+});
+
 it('declares no holding where no test file holds anything', function () use ($listed): void {
     expect(suiteOf(['tests/MoneyTest.php' => "<?php\n"], $listed('tests/MoneyTest.php'))->holdings(Suites::all())->anyByAttribute())
         ->toBeFalse();

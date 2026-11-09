@@ -126,6 +126,7 @@ enum VerdictSet
                 'src/Cli/Flow/AnalyserWarmUp.php',
                 'src/Cli/Flow/Dependents.php',
                 'src/Cli/Flow/Suite.php',
+                'src/Cli/Flow/SuiteCode.php',
                 'src/Cli/Flow/SuiteCoverage.php',
                 'src/Cli/Flow/TestsOfTheSuite.php',
                 'src/Adapter/Project/**',

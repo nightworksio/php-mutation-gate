@@ -45,6 +45,18 @@ it('reads every PHP file on disk, and no other file', function (): void {
         ->and($money->declares()->meet(Names::of('Money')))->toBeTrue();
 });
 
+it('takes a PHP file already read as it was read, and reads every other', function (): void {
+    $known = PhpFile::read(Contents::of("<?php\n\nfinal class Known {}\n"));
+    $read = Sources::none()
+        ->withNow(Path::of('src/Money.php'), Contents::of("<?php\n\nfinal class Money {}\n"))
+        ->withNow(Path::of('src/Known.php'), Contents::of("<?php\n\nfinal class Known {}\n"))
+        ->php(['src/Known.php' => $known, 'src/Gone.php' => $known]);
+
+    expect($read->paths())->toEqual(Paths::of(Path::of('src/Money.php'), Path::of('src/Known.php')))
+        ->and($read->at(Path::of('src/Known.php'), PhpFile::read(Contents::of(''))))->toBe($known)
+        ->and($read->at(Path::of('src/Money.php'), $known))->toEqual(PhpFile::read(Contents::of("<?php\n\nfinal class Money {}\n")));
+});
+
 it('holds the files a change source read together, a missing one among them', function (): void {
     $paths = Paths::of(Path::of('src/Money.php'), Path::of('src/Gone.php'));
     $sources = Sources::of(

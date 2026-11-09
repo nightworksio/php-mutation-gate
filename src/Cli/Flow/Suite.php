@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -54,6 +55,7 @@ final readonly class Suite
         private Fingerprints $outside,
         private array $contents,
         private SupportPlaces $support,
+        private SuiteCode $code,
     ) {
     }
 
@@ -98,6 +100,7 @@ final readonly class Suite
             $outside,
             $contentsOf,
             $support,
+            new SuiteCode(),
         );
     }
 
@@ -137,6 +140,18 @@ final readonly class Suite
         return $this->sources;
     }
 
+    /**
+     * Every PHP file of the test directories, and of the places their tests
+     * load support from besides, read, each test file the holds were read
+     * from as they read it, which the suite then holds no longer.
+     *
+     * @return ByPath<PhpFile>
+     */
+    public function sourceCode(): ByPath
+    {
+        return $this->sources->php($this->code->taken());
+    }
+
     /** Every file outside the test directories. */
     public function outside(): Fingerprints
     {
@@ -172,7 +187,7 @@ final readonly class Suite
         $holds = PestHolds::after($first);
 
         foreach ($this->contentsAmong($first, $among) as $path => $contents) {
-            $holds = $holds->read(Path::of($path), PhpFile::read($contents)->holds());
+            $holds = $holds->read(Path::of($path), $this->code->of(Path::of($path), $contents)->holds());
 
             if ($holds instanceof CannotJudge) {
                 return $holds;
@@ -187,8 +202,8 @@ final readonly class Suite
     {
         $holdings = Holdings::none();
 
-        foreach ($this->contentsAmong(Paths::none(), $among) as $contents) {
-            $holdings = $holdings->merge(PhpFile::read($contents)->holdings());
+        foreach ($this->contentsAmong(Paths::none(), $among) as $path => $contents) {
+            $holdings = $holdings->merge($this->code->of(Path::of($path), $contents)->holdings());
         }
 
         return $holdings;
