@@ -15,6 +15,9 @@ use function stream_get_meta_data;
 final readonly class SocketStreams
 {
     /** The word in a stream's type that says it is a socket. */
+    /** The type of PHP's resources that are streams. */
+    public const string STREAM = 'stream';
+
     private const string SOCKET = 'socket';
 
     /**

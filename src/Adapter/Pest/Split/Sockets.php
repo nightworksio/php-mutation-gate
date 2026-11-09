@@ -32,12 +32,12 @@ final readonly class Sockets
     /** How Linux names a file descriptor that is a socket. */
     private const string SOCKET = 'socket:';
 
-    /** The type of PHP's resources that are streams. */
-    private const string STREAM = 'stream';
 
     public static function open(): int
     {
-        return is_dir(self::DESCRIPTORS) ? self::descriptors() : SocketStreams::among(get_resources(self::STREAM));
+        return is_dir(self::DESCRIPTORS)
+            ? self::descriptors()
+            : SocketStreams::among(get_resources(SocketStreams::STREAM));
     }
 
     private static function descriptors(): int

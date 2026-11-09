@@ -10,6 +10,9 @@ use FilesystemIterator;
 
 use function is_link;
 use function mkdir;
+
+use NightWorksIO\MutationGate\Core\File\FileMode;
+
 use function random_bytes;
 
 use RecursiveDirectoryIterator;
@@ -42,7 +45,6 @@ final readonly class StreamDirectory
     private const int RANDOM = 16;
 
     /** Only its owner may read, write or enter it. */
-    private const int OWNER_ONLY = 0700;
 
     /**
      * A fresh directory of this user's own.
@@ -62,7 +64,7 @@ final readonly class StreamDirectory
      */
     public static function at(string $directory): string
     {
-        if (is_link($directory) || file_exists($directory) || ! mkdir($directory, self::OWNER_ONLY)) {
+        if (is_link($directory) || file_exists($directory) || ! mkdir($directory, FileMode::OWNER_ONLY)) {
             throw UnmadeDirectory::at($directory);
         }
 

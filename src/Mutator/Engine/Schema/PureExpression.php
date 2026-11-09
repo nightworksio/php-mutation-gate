@@ -10,6 +10,7 @@ use function array_filter;
 use function in_array;
 use function is_string;
 
+use NightWorksIO\MutationGate\Mutator\Receiver;
 use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp;
 use PhpParser\Node\Expr\BinaryOp\Concat;
@@ -57,7 +58,7 @@ final readonly class PureExpression
     ];
 
     /** The variables a closure of the expression cannot read as the expression does. */
-    private const array NOT_READ = ['this', 'GLOBALS'];
+    private const array NOT_READ = [Receiver::THIS, 'GLOBALS'];
 
     public static function is(Node $node): bool
     {

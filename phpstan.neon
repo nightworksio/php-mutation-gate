@@ -785,6 +785,19 @@ services:
                 'NightWorksIO\MutationGate\Core\Recheck\RecheckShare':
                     - RAN # a share's files run again, not a recorded event
                     - MUTANTS # a share's mutants made, not the kill history's section
+                    - UNREACHED # a share's mutants no test reached, not a recorded event
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\Children':
+                    - WAIT # microseconds between a stream parent's looks, not trend points kept
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDirectory':
+                    - RANDOM # random bytes that name a stream directory, not a span id's length
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine':
+                    - PARENT # a stream line from the parent, not the parent keyword
+                    - TIMEOUT # a stream line's word for a child stopped at its limit, not a mutant's status
+                    - FALLBACK # a stream line's word for a test that falls back, not a tree source's fallback
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\Unchanged':
+                    - ITEMS # the most items a change check looks through, not a signal number
+                'NightWorksIO\MutationGate\Core\Config\SplitStream':
+                    - ENABLED # the splitStream key, not a hook recipe's key
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())
