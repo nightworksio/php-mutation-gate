@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\RiskOrder;
+use NightWorksIO\MutationGate\Core\Order\Saved;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
@@ -220,6 +221,12 @@ final readonly class Planning
             $learned->multiple(),
         );
         $at = Measuring::of($this->adapters, $request);
+        $saved = $quick instanceof QuickRound ? $quick->saved($entries, $judges->map()) : Saved::none();
+
+        if ($saved instanceof CannotJudge) {
+            return $saved;
+        }
+
         $planned = $keying instanceof Keying
             ? $this->planned(
                 $inventory,
@@ -231,6 +238,7 @@ final readonly class Planning
                 $mode,
                 $learned->cut($cut),
                 $matrix,
+                $saved,
             )
             : $keying;
 
@@ -261,6 +269,7 @@ final readonly class Planning
         Mode $mode,
         Cut $cut,
         MatrixKind $matrix,
+        Saved $saved,
     ): Plan|CannotJudge {
         $map = $judges->map();
         $kind = $this->adapters->briefing(Briefing::standard()->recording($matrix))->profile();
@@ -328,7 +337,7 @@ final readonly class Planning
             $ledgers,
             $firstRun,
             $cut->opening($opening),
-            $this->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun),
+            $this->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun)->saving($saved),
         );
         $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $digests = $this->committed($now, $inventory->standing->head());
