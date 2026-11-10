@@ -74,8 +74,9 @@ on:
         default: true
       merged-records:
         description: >-
-          Keep each pull request's pass as an artifact, and read it on the push that merged it, so that
-          ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers (ADR-0139).
+          Keep each pull request's pass as an artifact, and read it on the push that merged it or a merge
+          group built for it, so that ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers
+          (ADR-0139).
         type: boolean
         default: false
       merged-records-days:
@@ -88,6 +89,22 @@ on:
           that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
         type: string
         default: ''
+      early-only:
+        description: >-
+          Whether the plan plans nothing, and says why, where a full split-stream run cannot start without a fresh
+          map, leaving the run to a caller that hands one (ADR-0135).
+        type: boolean
+        default: false
+      watch-jobs:
+        description: >-
+          The names of jobs of the calling run, one per line, such as those that run the fast gates; once one concluded
+          in failure, a shard starts no further item (ADR-0135). Where empty, the default, no shard watches a job.
+        type: string
+        default: ''
+      download-timeout:
+        description: How many minutes each artifact download may take before it is tried once again.
+        type: number
+        default: 2
       plan-timeout:
         description: How many minutes the plan job may take, which runs the suite under coverage.
         type: number
@@ -176,6 +193,19 @@ on:
       plan:
         description: 'JSON: the plan, as plan --ci=json prints it.'
         value: ${{ jobs.plan.outputs.plan }}
+      waits:
+        description: >-
+          true where the plan, asked with early-only, planned nothing because the run cannot start without a fresh
+          map; a caller that hands one runs it (ADR-0135).
+        value: ${{ jobs.plan.outputs.waits }}
+      early:
+        description: true where the run was planned without a fresh map (ADR-0135).
+        value: ${{ jobs.plan.outputs.early }}
+      suite:
+        description: >-
+          true where the run was planned without a fresh map and its verdict left how the suite ran in its streams, with
+          the map they recorded, as the artifact mutation-gate-suite (ADR-0135).
+        value: ${{ jobs.verdict.outputs.suite }}
 
 permissions: {}
 
@@ -269,9 +299,16 @@ jobs:
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           MUTATION_GATE_GCS_PROVIDER: ${{ vars.MUTATION_GATE_GCS_PROVIDER }}
           MUTATION_GATE_GCS_SERVICE_ACCOUNT: ${{ vars.MUTATION_GATE_GCS_SERVICE_ACCOUNT }}
+          # ADR-0131: the registry the workflow trusts, never one the change's
+          # config names; fetch runs none of the project's code, and a pull
+          # request's run reads the registry without a token.
+          MUTATION_GATE_REGISTRY: ${{ vars.MUTATION_GATE_REGISTRY }}
+          MUTATION_GATE_REGISTRY_TOKEN: ${{ github.event_name != 'pull_request' && github.token || '' }}
         run: php "${GATE_ACTION}/bin/mutation-gate" fetch --to="${FETCHED}"
       - name: Read what the pull requests merged passed
-        if: inputs.merged-records && github.event_name == 'push' && github.ref_name == steps.default.outputs.name
+        if: >-
+          inputs.merged-records && (github.event_name == 'merge_group'
+          || (github.event_name == 'push' && github.ref_name == steps.default.outputs.name))
         env:
           DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
           GH_TOKEN: ${{ github.token }}
@@ -378,6 +415,10 @@ jobs:
       shards: ${{ steps.plan.outputs.shards }}
       plan: ${{ steps.plan.outputs.plan }}
       stands: ${{ steps.plan.outputs.stands }}
+      pulls: ${{ steps.plan.outputs.pulls }}
+      last-judges: ${{ steps.config.outputs.last_judges }}
+      waits: ${{ steps.plan.outputs.waits }}
+      early: ${{ steps.plan.outputs.early }}
       fail-fast: ${{ steps.config.outputs.fail_fast }}
       survivor-shares: ${{ steps.survivors.outputs.shares }}
       survivor-minutes: ${{ steps.survivors.outputs.minutes }}
@@ -421,7 +462,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-judge
         if: inputs.judge != ''
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
@@ -429,7 +470,7 @@ jobs:
       - name: Retry downloading the judge's PHAR
         if: steps.download-judge.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
           path: .mutation-gate/judge
@@ -481,10 +522,27 @@ jobs:
           path: ${{ steps.resolve.outputs.default_dir }}
           key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
           restore-keys: ${{ steps.resolve.outputs.default_prefix }}
+      # ADR-0131: under outbreak.cache.store actions, each class's newest pack
+      # of proofs, which the plan's binary pulls from here and reads after
+      # the ledgers. GitHub's scoping decides whose packs a run reaches.
+      - name: Restore the trusted proof pack
+        if: steps.config.outputs.cache_store == 'actions'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation-gate/cache/restored/trusted
+          key: mutation-gate-proofs-trusted-${{ github.run_id }}
+          restore-keys: mutation-gate-proofs-trusted-
+      - name: Restore the branch proof pack
+        if: steps.config.outputs.cache_store == 'actions'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation-gate/cache/restored/branch
+          key: mutation-gate-proofs-branch-${{ github.run_id }}
+          restore-keys: mutation-gate-proofs-branch-
       # The store's copy of the ledger fetch read, where it wrote one.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-fetched
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
@@ -493,17 +551,25 @@ jobs:
       - name: Retry downloading the store's copy of the ledger
         if: steps.download-fetched.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
           path: ${{ env.FETCHED }}
           merge-multiple: true
+      # The packs fetch pulled from the workflow's registry, where the plan's
+      # binary takes them as it takes the Actions cache's (ADR-0131).
+      - name: Hand the pulled proof packs to the plan
+        run: |
+          if [ -d "${FETCHED}/cache" ]; then
+            mkdir -p .mutation-gate/cache/restored
+            cp -R "${FETCHED}/cache/." .mutation-gate/cache/restored/
+          fi
       # The map the job that ran the suite under coverage wrote, so the plan
       # runs no suite of its own (ADR-0006).
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-map
         if: inputs.coverage != ''
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: ${{ inputs.coverage }}
@@ -511,7 +577,7 @@ jobs:
       - name: Retry downloading the coverage map
         if: steps.download-map.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: ${{ inputs.coverage }}
           path: ${{ env.HANDED }}
@@ -521,11 +587,15 @@ jobs:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.plan_options }}
           COVERAGE: ${{ inputs.coverage }}
+          EARLY_ONLY: ${{ inputs.early-only }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           if [ -n "${COVERAGE}" ]; then
             arguments+=("--coverage=${HANDED}")
+          fi
+          if [ "${EARLY_ONLY}" = "true" ]; then
+            arguments+=("--early-only")
           fi
           "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
       # ADR-0106: on a pull request whose plan runs a shard, the jobs the last
@@ -552,7 +622,9 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mutation-gate-plan-${{ github.run_attempt }}
-          path: .mutation-gate/plan.json
+          path: |
+            .mutation-gate/plan.json
+            .mutation-gate/cache/*.pack
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
@@ -586,7 +658,7 @@ jobs:
   deliver-plan:
     name: deliver plan
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.delivery == 'true' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.delivery == 'true' && needs.plan.outputs.waits != 'true' }}
     runs-on: ${{ startsWith(inputs.keyed-runs-on, '[') && fromJSON(inputs.keyed-runs-on) || inputs.keyed-runs-on }}
     timeout-minutes: 10
     permissions:
@@ -609,7 +681,7 @@ jobs:
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-delivery
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-delivery-plan-${{ needs.plan.outputs.attempt }}
@@ -617,7 +689,7 @@ jobs:
       - name: Retry downloading the plan's delivery
         if: steps.download-delivery.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-delivery-plan-${{ needs.plan.outputs.attempt }}
           path: ${{ env.DELIVERY }}/planned
@@ -629,12 +701,14 @@ jobs:
 
   shard:
     name: shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})
-    needs: [plan, judge]
+    needs: [fetch, plan, judge]
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.shards != '[]' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.shard-timeout }}
+    # `actions: read` lists the run's jobs for a verdict the last job computes (ADR-0134).
     permissions:
       contents: read
+      actions: read
     # ADR-0103: a doomed shard fails as `run.failFast` says; under `cancel`
     # the matrix cancels the other shards, with no token in this job.
     strategy:
@@ -653,7 +727,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-plan
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
@@ -661,13 +735,13 @@ jobs:
       - name: Retry downloading the plan
         if: steps.download-plan.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-coverage
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
@@ -675,11 +749,13 @@ jobs:
       - name: Retry downloading the plan's coverage maps
         if: steps.download-coverage.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
+      # ADR-0134: a job of a run whose shards pull their work may run any item.
       - name: Keep only this shard's coverage map and the whole map
+        if: needs.plan.outputs.pulls != 'true'
         env:
           SHARD: ${{ matrix.shard.id }}
         run: |
@@ -688,7 +764,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-judge
         if: inputs.judge != ''
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
@@ -696,7 +772,7 @@ jobs:
       - name: Retry downloading the judge's PHAR
         if: steps.download-judge.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
           path: .mutation-gate/judge
@@ -717,6 +793,7 @@ jobs:
           cache: ${{ inputs.cache }}
           install: composer
           judge: ${{ inputs.judge != '' && env.JUDGE || '' }}
+          watch-jobs: ${{ inputs.watch-jobs }}
           composer-auth: ${{ secrets.COMPOSER_AUTH }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
@@ -725,6 +802,175 @@ jobs:
           path: |
             .mutation-gate/results/${{ matrix.shard.id }}.json
             .mutation-gate/results/${{ matrix.shard.id }}.attempt
+            .mutation-gate/results/*.by-${{ matrix.shard.id }}.json
+            .mutation-gate/results/*.recorded.json.gz
+            .mutation-gate/results/*.suite.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1
+
+      # ADR-0134 decision 8: under `shards.lastJudges`, the job that finishes
+      # the last item of a plan whose shards pull their work computes the
+      # verdict, where no survivors job runs beside the shards, and leaves it
+      # for the verdict job, which reports it as the check. A job that finds
+      # every job's results uploaded after its own finished last; two that
+      # finish together both compute it, and the second upload is refused.
+      - name: Tell whether this job finished the last item
+        id: last
+        if: >-
+          ${{ !cancelled() && needs.plan.outputs.pulls == 'true' && needs.plan.outputs.last-judges == 'true'
+          && (needs.plan.outputs.survivor-shares == '' || needs.plan.outputs.survivor-shares == '[]') }}
+        continue-on-error: true
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          JOBS: ${{ needs.plan.outputs.shards }}
+          PREFIX: mutation-gate-result-${{ needs.plan.outputs.attempt }}-
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN;
+            const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+            const scope = String(claims.scp || '').split(' ').find((each) => each.startsWith('Actions.Results:'));
+            const [, run, job] = (scope || '::').split(':');
+            const service = new URL('twirp/github.actions.results.api.v1.ArtifactService/ListArtifacts', process.env.ACTIONS_RESULTS_URL);
+            const answer = await fetch(service, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ workflow_run_backend_id: run, workflow_job_run_backend_id: job }),
+            });
+            const listed = answer.ok ? await answer.json() : {};
+            const names = new Set((listed.artifacts || []).map((artifact) => artifact.name));
+            const every = JSON.parse(process.env.JOBS).every((shard) => names.has(`${process.env.PREFIX}${shard.id}`));
+            core.setOutput('last', every ? 'true' : 'false');
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-results
+        if: steps.last.outputs.last == 'true'
+        timeout-minutes: ${{ inputs.download-timeout }}
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-result-${{ needs.plan.outputs.attempt }}-*
+          path: .mutation-gate/results
+          merge-multiple: true
+      - name: Retry downloading the shards' results
+        if: steps.download-results.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: ${{ inputs.download-timeout }}
+        with:
+          pattern: mutation-gate-result-${{ needs.plan.outputs.attempt }}-*
+          path: .mutation-gate/results
+          merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-fetched
+        if: steps.last.outputs.last == 'true'
+        timeout-minutes: ${{ inputs.download-timeout }}
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
+          path: ${{ env.FETCHED }}
+          merge-multiple: true
+      - name: Retry downloading the store's copy of the ledger
+        if: steps.download-fetched.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: ${{ inputs.download-timeout }}
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
+          path: ${{ env.FETCHED }}
+          merge-multiple: true
+      - name: Name the default branch and list this attempt's jobs, to judge as the last job
+        id: default
+        if: steps.last.outputs.last == 'true'
+        env:
+          NAMED: ${{ github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH }}
+          GH_TOKEN: ${{ github.token }}
+          JOBS: repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs
+        run: |
+          set -euo pipefail
+          if [ -z "${NAMED}" ]; then
+            NAMED="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
+          fi
+          echo "name=${NAMED}" >> "${GITHUB_OUTPUT}"
+          gh api --paginate "${JOBS}?per_page=100" --jq '.jobs[]' | jq -s . > .mutation-gate/jobs.json
+          mkdir -p .mutation-gate/publish
+          for file in badge.json trend.json trend.svg savings.json; do
+            gh api "repos/${GITHUB_REPOSITORY}/contents/${file}?ref=${PUBLISHED}" \
+              -H 'Accept: application/vnd.github.raw' > ".mutation-gate/publish/${file}" 2>/dev/null \
+              || rm -f ".mutation-gate/publish/${file}"
+          done
+      - name: Resolve the run, to judge as the last job
+        id: resolve
+        if: steps.last.outputs.last == 'true'
+        env:
+          MODE: ${{ inputs.mode }}
+          CHANGED_SINCE: ${{ inputs.changed-since }}
+          CONFIG: ${{ inputs.config }}
+          RUNNER: ${{ inputs.runner }}
+          BUDGET: ${{ inputs.budget }}
+          REPORTS: ${{ inputs.reports }}
+          CACHE: ${{ inputs.cache }}
+          DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
+          INSTALLED_BY: ${{ inputs.judge != '' && 'judge' || 'composer' }}
+          GATE_PHAR: ${{ inputs.judge != '' && env.JUDGE || '' }}
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" resolve
+      - name: Read the effective config, to judge as the last job
+        id: config
+        if: steps.last.outputs.last == 'true'
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.options }}
+          CACHE: ${{ inputs.cache }}
+          STORE: ${{ vars.MUTATION_GATE_STORE }}
+          ON_DEFAULT: ${{ steps.resolve.outputs.default_dir == '' }}
+        run: |
+          set -euo pipefail
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          "${GATE}" config:show --format=json --resolved "${arguments[@]}" \
+            | python3 "${GATE_ACTION}/resources/action/gate_action.py" config
+      - name: Restore this scope's ledger, to judge as the last job
+        if: steps.last.outputs.last == 'true' && steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.resolve.outputs.own_dir }}
+          key: ${{ steps.resolve.outputs.own_prefix }}${{ github.run_id }}
+          restore-keys: ${{ steps.resolve.outputs.own_prefix }}
+      - name: Restore the default branch's ledger, to judge as the last job
+        if: steps.last.outputs.last == 'true' && steps.config.outputs.default_store == 'true' && steps.resolve.outputs.default_dir != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.resolve.outputs.default_dir }}
+          key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
+          restore-keys: ${{ steps.resolve.outputs.default_prefix }}
+      - name: Read what the run's jobs took, to judge as the last job
+        if: steps.last.outputs.last == 'true'
+        env:
+          JOBS: .mutation-gate/jobs.json
+          RUN_TIMES: .mutation-gate/run-times.json
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" run-times
+      - name: Judge as the job that finished the last item
+        if: steps.last.outputs.last == 'true'
+        continue-on-error: true
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.options }}
+          ACTION_REPORTS: ${{ steps.config.outputs.action_reports }}
+        run: |
+          set -uo pipefail
+          code=0
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          mapfile -t reports < <(jq -r '.[]' <<< "${ACTION_REPORTS}")
+          "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
+            "${reports[@]}" --deliver-later "${arguments[@]}" || code=$?
+          mkdir -p .mutation-gate/judged
+          echo "${code}" > .mutation-gate/judged/code
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.last.outputs.last == 'true' && hashFiles('.mutation-gate/judged/code') != ''
+        continue-on-error: true
+        with:
+          name: mutation-gate-verdict-${{ needs.plan.outputs.attempt }}
+          path: |
+            .mutation-gate/judged
+            .mutation-gate/action
+            .mutation-gate/delivery
+            .mutation-gate/publish
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
@@ -771,7 +1017,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-judge
         if: inputs.judge != ''
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
@@ -779,7 +1025,7 @@ jobs:
       - name: Retry downloading the judge's PHAR
         if: steps.download-judge.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
           path: .mutation-gate/judge
@@ -850,7 +1096,7 @@ jobs:
           restore-keys: ${{ steps.resolve.outputs.own_prefix }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-plan
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
@@ -858,7 +1104,7 @@ jobs:
       - name: Retry downloading the plan
         if: steps.download-plan.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
@@ -867,7 +1113,7 @@ jobs:
       # shard does.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-coverage
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
@@ -875,7 +1121,7 @@ jobs:
       - name: Retry downloading the plan's coverage maps
         if: steps.download-coverage.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
@@ -937,7 +1183,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-judge
         if: inputs.judge != ''
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
@@ -945,7 +1191,7 @@ jobs:
       - name: Retry downloading the judge's PHAR
         if: steps.download-judge.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
           path: .mutation-gate/judge
@@ -984,7 +1230,7 @@ jobs:
           restore-keys: ${{ steps.resolve.outputs.own_prefix }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-plan
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
@@ -992,13 +1238,13 @@ jobs:
       - name: Retry downloading the plan
         if: steps.download-plan.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-shares
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           pattern: mutation-gate-survivors-${{ needs.plan.outputs.attempt }}-*
@@ -1007,7 +1253,7 @@ jobs:
       - name: Retry downloading what the survivors' shares made
         if: steps.download-shares.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           pattern: mutation-gate-survivors-${{ needs.plan.outputs.attempt }}-*
           path: .mutation-gate/survivors
@@ -1067,7 +1313,7 @@ jobs:
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-delivery
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-delivery-survivors-${{ needs.survivors-report.outputs.attempt }}
@@ -1075,7 +1321,7 @@ jobs:
       - name: Retry downloading the survivors' delivery
         if: steps.download-delivery.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-delivery-survivors-${{ needs.survivors-report.outputs.attempt }}
           path: ${{ env.DELIVERY }}/survivors
@@ -1092,7 +1338,9 @@ jobs:
   verdict:
     name: verdict
     needs: [fetch, judge, plan, shard, survivors, survivors-report]
-    if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
+    # A plan that waits for a caller that hands a fresh map judges nothing,
+    # and leaves no verdict that could pass (ADR-0135).
+    if: ${{ !cancelled() && needs.plan.result != 'skipped' && needs.plan.outputs.waits != 'true' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.verdict-timeout }}
     permissions:
@@ -1100,6 +1348,7 @@ jobs:
       actions: read
     outputs:
       verdict: ${{ steps.outputs.outputs.verdict || steps.unplanned.outputs.verdict }}
+      suite: ${{ steps.suite.outcome == 'success' }}
       scores: ${{ steps.outputs.outputs.scores }}
       delivery: ${{ steps.delivery.outputs.left }}
       attempt: ${{ github.run_attempt }}
@@ -1184,7 +1433,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-judge
         if: inputs.judge != ''
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
@@ -1192,7 +1441,7 @@ jobs:
       - name: Retry downloading the judge's PHAR
         if: steps.download-judge.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
           path: .mutation-gate/judge
@@ -1240,7 +1489,7 @@ jobs:
           restore-keys: ${{ steps.resolve.outputs.default_prefix }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-plan
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
@@ -1248,14 +1497,14 @@ jobs:
       - name: Retry downloading the plan
         if: steps.download-plan.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-results
         if: needs.plan.outputs.shards != '[]'
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           pattern: mutation-gate-result-${{ needs.plan.outputs.attempt }}-*
@@ -1264,7 +1513,7 @@ jobs:
       - name: Retry downloading the shards' results
         if: steps.download-results.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           pattern: mutation-gate-result-${{ needs.plan.outputs.attempt }}-*
@@ -1279,8 +1528,9 @@ jobs:
       # Where a shard left no result, how its job ended, which the verdict
       # names: its runner shut down or lost, the matrix cancelling it once
       # another shard failed, its time limit, or a failure.
+      # A run whose shards pull their work has no job of an item's own to name.
       - name: Say how each shard that left no result ended
-        if: needs.plan.outputs.shards != '[]'
+        if: needs.plan.outputs.shards != '[]' && needs.plan.outputs.pulls != 'true'
         env:
           JOBS: .mutation-gate/jobs.json
           RESULTS: .mutation-gate/results
@@ -1291,7 +1541,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-coverage
         if: needs.plan.outputs.stands != 'true'
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           pattern: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
@@ -1300,7 +1550,7 @@ jobs:
       - name: Retry downloading the plan's coverage maps
         if: steps.download-coverage.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           pattern: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
@@ -1308,7 +1558,7 @@ jobs:
       # The store's copy of the ledger fetch read, as the plan reads it.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-fetched
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
@@ -1317,7 +1567,7 @@ jobs:
       - name: Retry downloading the store's copy of the ledger
         if: steps.download-fetched.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
           path: ${{ env.FETCHED }}
@@ -1328,8 +1578,37 @@ jobs:
           JOBS: .mutation-gate/jobs.json
           RUN_TIMES: .mutation-gate/run-times.json
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" run-times
+      # The verdict the job that finished the last item computed, where it
+      # left one (ADR-0134); this job reports it instead of computing it.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-verdict
+        if: needs.plan.outputs.pulls == 'true' && needs.plan.outputs.last-judges == 'true'
+        timeout-minutes: ${{ inputs.download-timeout }}
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-verdict-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate
+          merge-multiple: true
+      - name: Retry downloading the verdict the last shard computed
+        if: steps.download-verdict.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: ${{ inputs.download-timeout }}
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-verdict-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate
+          merge-multiple: true
       # The comment, the ledger, the alerts and the trace go into the delivery,
       # which the deliver job sends: this step holds no secret and no token.
+      # ADR-0131: the pack of the class this run writes, which the verdict
+      # merges the proofs it wrote into under outbreak.cache.store actions.
+      - name: Restore the proof pack this run writes
+        if: steps.config.outputs.cache_store == 'actions' && steps.resolve.outputs.save == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation-gate/cache/restored/${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}
+          key: mutation-gate-proofs-${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}-${{ github.run_id }}
+          restore-keys: mutation-gate-proofs-${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}-
       - name: Verdict
         id: verdict
         env:
@@ -1338,6 +1617,11 @@ jobs:
           ACTION_REPORTS: ${{ steps.config.outputs.action_reports }}
         run: |
           set -uo pipefail
+          if [ -f .mutation-gate/judged/code ]; then
+            echo "The job that finished the last item computed this verdict."
+            echo "code=$(cat .mutation-gate/judged/code)" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
           code=0
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           mapfile -t reports < <(jq -r '.[]' <<< "${ACTION_REPORTS}")
@@ -1359,6 +1643,17 @@ jobs:
           directory: ${{ steps.resolve.outputs.own_dir }}
           prefix: ${{ steps.resolve.outputs.own_prefix }}
           matched: ${{ steps.own.outputs.cache-matched-key }}
+      # The merged pack, saved in this run's own cache scope, which GitHub
+      # keeps apart; a fork's run saves nothing (ADR-0131).
+      - name: Keep the proof pack this run wrote
+        if: >-
+          steps.config.outputs.cache_store == 'actions' && steps.resolve.outputs.save == 'true'
+          && steps.verdict.outputs.code != ''
+          && hashFiles('.mutation-gate/cache/restored/*/*.pack') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation-gate/cache/restored/${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}
+          key: mutation-gate-proofs-${{ steps.resolve.outputs.default_dir == '' && 'trusted' || 'branch' }}-${{ github.run_id }}-${{ github.run_attempt }}
       # The pass alone, which the push that merges this pull request reads where
       # this run's cache cannot reach it. A fork's run keeps nothing (ADR-0139).
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -1387,6 +1682,19 @@ jobs:
           if [ -f "${DELIVERY}/verdict/delivery.json" ]; then
             echo "left=true" >> "${GITHUB_OUTPUT}"
           fi
+      # How the suite ran in a full early run's streams, with the map they
+      # recorded, for a job of the calling run that runs the suite to take the
+      # streamed suites from (ADR-0135 decision 8).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: suite
+        if: ${{ !cancelled() && steps.verdict.outputs.code != '' && hashFiles('.mutation-gate/suite/suite.json') != '' }}
+        with:
+          name: mutation-gate-suite
+          path: .mutation-gate/suite
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
       # The HTML report, unarchived under the name the comment's link finds it
       # by, so the link opens the page itself; deliver runs after this job.
       - name: Name the HTML report as the comment links it
@@ -1486,7 +1794,7 @@ jobs:
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-delivery
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-delivery-${{ needs.verdict.outputs.attempt }}
@@ -1494,7 +1802,7 @@ jobs:
       - name: Retry downloading the verdict's delivery
         if: steps.download-delivery.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-delivery-${{ needs.verdict.outputs.attempt }}
           path: ${{ env.DELIVERY }}/verdict
@@ -1502,6 +1810,8 @@ jobs:
         id: deliver
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          MUTATION_GATE_REGISTRY: ${{ vars.MUTATION_GATE_REGISTRY }}
+          MUTATION_GATE_REGISTRY_TOKEN: ${{ github.token }}
           MUTATION_GATE_DEFAULT_BRANCH: ${{ vars.MUTATION_GATE_DEFAULT_BRANCH }}
           MUTATION_GATE_STORE: ${{ vars.MUTATION_GATE_STORE }}
           MUTATION_GATE_STORE_BUCKET: ${{ vars.MUTATION_GATE_STORE_BUCKET }}
@@ -1551,7 +1861,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-publish
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         continue-on-error: true
         with:
           name: mutation-gate-publish-${{ needs.verdict.outputs.attempt }}
@@ -1559,7 +1869,7 @@ jobs:
       - name: Retry downloading what the verdict publishes
         if: steps.download-publish.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        timeout-minutes: 2
+        timeout-minutes: ${{ inputs.download-timeout }}
         with:
           name: mutation-gate-publish-${{ needs.verdict.outputs.attempt }}
           path: publish
