@@ -48,6 +48,12 @@ enum Toggle: string
     /** An invocation's controls run beside its survivors' runs again, each in a share of the pool. */
     case PestOverlapSteps = 'pest.overlapSteps';
 
+    /** A mutation run starts with pcov off, unless its streams record lines with pcov (ADR-0147). */
+    case PestPcovOff = 'pest.pcovOff';
+
+    /** A mutation run starts with Xdebug's mode off (ADR-0147). */
+    case PestXdebugOff = 'pest.xdebugOff';
+
     /** PHPStan's checks load its turbo extension, where a build of it is shipped for this PHP. */
     case StaticCheckTurbo = 'staticCheck.turbo';
 
@@ -73,7 +79,9 @@ enum Toggle: string
             self::PestShardScan,
             self::PestLongestFirst,
             self::PestRemember,
-            self::PestOverlapSteps => true,
+            self::PestOverlapSteps,
+            self::PestPcovOff,
+            self::PestXdebugOff => true,
             default => false,
         };
     }
@@ -94,7 +102,9 @@ enum Toggle: string
             self::PestShardScan,
             self::PestLongestFirst,
             self::PestRemember,
-            self::PestOverlapSteps => true,
+            self::PestOverlapSteps,
+            self::PestPcovOff,
+            self::PestXdebugOff => true,
             default => false,
         };
     }
@@ -116,6 +126,8 @@ enum Toggle: string
             self::PestLongestFirst => $on ? 'Pest::longestFirst()' : 'Pest::inTheirOrder()',
             self::PestRemember => $on ? 'Pest::remembering()' : 'Pest::forgetting()',
             self::PestOverlapSteps => $on ? 'Pest::overlappingSteps()' : 'Pest::stepByStep()',
+            self::PestPcovOff => $on ? 'Pest::pcovOff()' : 'Pest::pcovOn()',
+            self::PestXdebugOff => $on ? 'Pest::xdebugOff()' : 'Pest::xdebugAsConfigured()',
         };
     }
 

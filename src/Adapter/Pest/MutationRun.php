@@ -334,6 +334,7 @@ final readonly class MutationRun
             ...new Told($this->project, $this->patching, $this->only, $this->narrows())
                 ->of($request, $results, $handOff instanceof HandOff, $bounds),
             ...$this->streamExtension(),
+            ...CoverageDrivers::of($this->patching, $request->narrowing()->recording() !== ''),
         ];
         $warm = WarmDirectory::made($results);
 

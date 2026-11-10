@@ -11,9 +11,11 @@ use const FILTER_VALIDATE_BOOL;
 
 use function filter_var;
 use function function_exists;
+use function getenv;
 use function ini_get;
 use function is_array;
 use function is_int;
+use function is_string;
 use function pcov\clear;
 use function pcov\collect;
 use function pcov\start;
@@ -29,13 +31,22 @@ use function sort;
  */
 final readonly class Recorded
 {
+    /** The variable pcov reads before its `pcov.enabled`. */
+    public const string ENABLED = 'PCOV_ENABLED';
+
     /** pcov's mark of a line a test executed. */
     private const int EXECUTED = 1;
 
-    /** Whether pcov is loaded and enabled, so a test's lines can be collected. */
+    /**
+     * Whether pcov is loaded and enabled, so a test's lines can be collected:
+     * `PCOV_ENABLED` wins over `pcov.enabled`, as pcov reads them.
+     */
     public static function usable(): bool
     {
-        return function_exists('pcov\\start') && filter_var(ini_get('pcov.enabled'), FILTER_VALIDATE_BOOL);
+        $variable = getenv(self::ENABLED);
+        $enabled = is_string($variable) ? $variable : ini_get('pcov.enabled');
+
+        return function_exists('pcov\\start') && filter_var($enabled, FILTER_VALIDATE_BOOL);
     }
 
     /** Starts collecting a test's lines afresh; false where pcov cannot collect them. */

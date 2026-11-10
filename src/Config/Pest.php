@@ -198,6 +198,30 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.overlapSteps', value: false));
     }
 
+    /** `pest.pcovOff`, `true`: a mutation run starts with pcov off unless its streams record lines with it, as by default. */
+    public static function pcovOff(): self
+    {
+        return new self(Json::at('pest.pcovOff', value: true));
+    }
+
+    /** `pest.pcovOff`, `false`: a mutation run starts with pcov as PHP is configured. */
+    public static function pcovOn(): self
+    {
+        return new self(Json::at('pest.pcovOff', value: false));
+    }
+
+    /** `pest.xdebugOff`, `true`: a mutation run starts with Xdebug's mode off, as by default. */
+    public static function xdebugOff(): self
+    {
+        return new self(Json::at('pest.xdebugOff', value: true));
+    }
+
+    /** `pest.xdebugOff`, `false`: a mutation run starts with Xdebug as PHP is configured. */
+    public static function xdebugAsConfigured(): self
+    {
+        return new self(Json::at('pest.xdebugOff', value: false));
+    }
+
     /** `pest.bootChunks`: a shard's chunks keep their mutants' workers, where those boot and cache nothing. */
     public static function bootingChunks(): self
     {
