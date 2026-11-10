@@ -82,12 +82,16 @@ fallback.
    `outbreak.serve.debounce` judge or report only and are in no key: the
    state answers what the files answer.
 7. **It watches the files natively.** `outbreak serve` watches the trees
-   and the test directories through the platform's own notifications:
-   FSEvents or kqueue on macOS, inotify on Linux, `ReadDirectoryChangesW`
-   on Windows. Events settle for `outbreak.serve.debounce` (`50ms` by
-   default) before a round starts. Where the watcher cannot arm, as on
-   `ENOSPC`, or delivers nothing, the daemon looks as `watch` does without
-   it (ADR-0120) and says so once.
+   and the test directories `watch` names through the platform's own
+   notifications: kqueue on macOS and the BSDs, inotify on Linux,
+   `ReadDirectoryChangesW` on Windows; links, version control's directories
+   and `.mutation-gate` are not followed. A burst of events counts as one
+   change once it settled for `outbreak.serve.debounce` (`50ms` by default),
+   and `watch` looks at the files as soon as one did, and after
+   `local.watchPoll` at the latest. Where the watcher cannot arm, as on
+   `ENOSPC`, fails, or a look finds a change it did not tell of within one
+   more wait, `watch` looks as it does without it (ADR-0120) and says so
+   once.
 8. **It schedules a round's work, and cancels it by unit.** A round's work
    is queued in this order: the survivors at sites the saved test file now
    executes, the edited lines' mutants, the last round's survivors in the

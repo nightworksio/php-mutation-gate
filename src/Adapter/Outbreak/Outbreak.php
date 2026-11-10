@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\ProofCache;
@@ -86,6 +87,9 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
 
     /** The option `outbreak serve` takes the seconds between syncs of its journal with. */
     private const string SYNC_EVERY = '--sync-every';
+
+    /** The option `outbreak serve` takes the seconds the changes it watches settle for with. */
+    private const string DEBOUNCE = '--debounce';
 
     /** What separates `outbreak serve`'s options from the child's command line. */
     private const string CHILD = '--';
@@ -258,8 +262,16 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             sprintf('%F', $serve->snapshotEvery()->seconds()),
             self::SYNC_EVERY,
             sprintf('%F', $serve->syncEvery()->seconds()),
+            self::DEBOUNCE,
+            sprintf('%F', $serve->debounce()->seconds()),
             self::CHILD,
         ];
+    }
+
+    /** The changes `outbreak serve` watches the files for, where it serves the project; none otherwise. */
+    public function notices(): NoticesChanges|NotGiven
+    {
+        return $this->served;
     }
 
     /**

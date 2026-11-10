@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Watch;
 
 use function array_any;
 use function array_filter;
+use function array_unique;
 use function array_values;
 use function hash;
 use function implode;
@@ -70,6 +71,26 @@ final readonly class Watched
         );
 
         return new self($this->trees, $this->tests, Fingerprints::of(...$watched), $looked);
+    }
+
+    /**
+     * The directories it watches, each once: each tree's and each test directory's.
+     *
+     * @return list<string>
+     */
+    public function directories(): array
+    {
+        $directories = [];
+
+        foreach ($this->trees as $tree) {
+            $directories[] = $tree->path()->value();
+        }
+
+        foreach ($this->tests as $tests) {
+            $directories[] = $tests->path()->value();
+        }
+
+        return array_values(array_unique($directories));
     }
 
     /** The digest of the files in the test directories, which moves where one is added, changed or gone. */

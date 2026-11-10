@@ -19,14 +19,19 @@ use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Serve\ServesState;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
+use NightWorksIO\MutationGate\Core\Watch\Unwatched;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\ReachGraph;
 
+use function round;
 use function sprintf;
 
 /**
- * `outbreak serve` as the gate asks it (ADR-0133), for the proofs it holds
- * and for the static graph it keeps (ADR-0132): one request a connection
+ * `outbreak serve` as the gate asks it (ADR-0133), for the proofs it holds,
+ * for the static graph it keeps (ADR-0132) and for the changes it watches
+ * the files for, waiting for one as long as it asks on top of
+ * `outbreak.timeout`: one request a connection
  * on `.mutation-gate/outbreak/state.sock`, a verb and its JSON on one line,
  * its answer one line of JSON in contract 1, once the socket, its directory
  * and the process answering are found to be the user's own. No daemon, an
@@ -35,7 +40,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class ServedState implements ReachGraph, ServesState
+final readonly class ServedState implements NoticesChanges, ReachGraph, ServesState
 {
     private const string UNSERVED = 'No outbreak serve answers on %s.';
 
@@ -44,6 +49,9 @@ final readonly class ServedState implements ReachGraph, ServesState
     private const string UNREAD = 'outbreak serve answered in another shape: %s';
 
     private const string KEPT = 'outbreak serve kept %d proofs.';
+
+    /** The verb `watch` asks for the next change with. */
+    private const string CHANGED = 'changed';
 
     /** The contract every answer is written in. */
     private const int CONTRACT = 1;
@@ -65,7 +73,7 @@ final readonly class ServedState implements ReachGraph, ServesState
 
     public function proofs(string ...$keys): array|NotWritten
     {
-        $said = $this->asked('proofs', ['keys' => $keys]);
+        $said = $this->asked('proofs', ['keys' => $keys], Seconds::none());
 
         try {
             if ($said instanceof NotWritten) {
@@ -86,7 +94,7 @@ final readonly class ServedState implements ReachGraph, ServesState
 
     public function kept(array $proofs): Written|NotWritten
     {
-        $said = $this->asked('keep', ['proofs' => (object) $proofs]);
+        $said = $this->asked('keep', ['proofs' => (object) $proofs], Seconds::none());
 
         try {
             return $said instanceof Node
@@ -99,19 +107,39 @@ final readonly class ServedState implements ReachGraph, ServesState
 
     public function answered(GraphQuestion $question): GraphAnswer|NotWritten
     {
-        $said = $this->line('graph', GraphAsked::of($question, $this->root));
+        $said = $this->line('graph', GraphAsked::of($question, $this->root), Seconds::none());
 
         return $said instanceof Node ? GraphAnswered::of($said) : $said;
     }
 
-    /** @param array<string, mixed> $request */
-    private function asked(string $verb, array $request): Node|NotWritten
+    public function changed(array $directories, int $since, Seconds $wait): int|Unwatched|NotWritten
     {
-        return $this->line($verb, (string) json_encode($request, JsonText::FLAGS));
+        $milliseconds = (int) round($wait->seconds() * Seconds::MILLISECONDS);
+        $said = $this->asked(self::CHANGED, ['paths' => $directories, 'since' => $since, 'wait' => $milliseconds], $wait);
+
+        try {
+            if ($said instanceof NotWritten) {
+                return $said;
+            }
+
+            $unwatched = $said->field('unwatched');
+
+            return $unwatched->isPresent()
+                ? Unwatched::because($unwatched->text())
+                : $said->field(self::CHANGED)->integer();
+        } catch (NotInShape $unread) {
+            return NotWritten::because(sprintf(self::UNREAD, $unread->getMessage()));
+        }
     }
 
-    /** The daemon's answer to one request line; or why there is none. */
-    private function line(string $verb, string $json): Node|NotWritten
+    /** @param array<string, mixed> $request */
+    private function asked(string $verb, array $request, Seconds $longer): Node|NotWritten
+    {
+        return $this->line($verb, (string) json_encode($request, JsonText::FLAGS), $longer);
+    }
+
+    /** The daemon's answer to one request line, waited for this much longer than the timeout; or why there is none. */
+    private function line(string $verb, string $json, Seconds $longer): Node|NotWritten
     {
         $connection = $this->socket->connected();
 
@@ -119,7 +147,7 @@ final readonly class ServedState implements ReachGraph, ServesState
             return NotWritten::because(sprintf(self::UNSERVED, $this->socket->path()));
         }
 
-        $connection->waitingAtMost((int) ceil($this->timeout->seconds()));
+        $connection->waitingAtMost((int) ceil($this->timeout->seconds() + $longer->seconds()));
         $answer = $connection->sent(sprintf("%s %s\n", $verb, $json)) ? $connection->line() : NotGiven::value();
         $connection->closed();
 

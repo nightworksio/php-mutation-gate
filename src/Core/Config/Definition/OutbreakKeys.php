@@ -125,8 +125,9 @@ final readonly class OutbreakKeys
     }
 
     /**
-     * Whether `outbreak serve` holds the project's state, and its clocks
-     * (ADR-0133): each judges or reports only.
+     * Whether `outbreak serve` holds the project's state, its clocks and
+     * how long the changes it watches settle (ADR-0133): each judges or
+     * reports only.
      *
      * @return Section<OutbreakServe>
      */
@@ -136,23 +137,32 @@ final readonly class OutbreakKeys
         $enabled = Field::optional(OutbreakServe::ENABLED, Flag::boolean(), $none);
         $snapshot = Field::optional(OutbreakServe::SNAPSHOT_EVERY, Duration::written(), $none);
         $sync = Field::optional(OutbreakServe::SYNC_EVERY, Duration::written(), $none);
+        $debounce = Field::optional(OutbreakServe::DEBOUNCE, Duration::written(), $none);
 
         return Section::of(
-            static function (Node $serve) use ($enabled, $snapshot, $sync): OutbreakServe|Invalid {
+            static function (Node $serve) use ($enabled, $snapshot, $sync, $debounce): OutbreakServe|Invalid {
                 $on = $enabled->read($serve);
                 $every = $snapshot->read($serve);
                 $synced = $sync->read($serve);
+                $settled = $debounce->read($serve);
 
                 return Reading::built(
-                    static fn(): OutbreakServe => OutbreakServe::of($on->value(), $every->value(), $synced->value()),
+                    static fn(): OutbreakServe => OutbreakServe::of(
+                        $on->value(),
+                        $every->value(),
+                        $synced->value(),
+                        $settled->value(),
+                    ),
                     $on,
                     $every,
                     $synced,
+                    $settled,
                 );
             },
             $enabled,
             $snapshot,
             $sync,
+            $debounce,
         );
     }
 

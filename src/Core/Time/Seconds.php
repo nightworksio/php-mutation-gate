@@ -74,6 +74,11 @@ final readonly class Seconds
         return new self($minutes * self::PER_MINUTE);
     }
 
+    public static function milliseconds(int $milliseconds): self
+    {
+        return new self($milliseconds / self::MILLISECONDS);
+    }
+
     /** A duration as a config or an option writes it: `90s`, `15m`, `1h30m` or `7d`. */
     public static function parse(string $duration): self|CannotJudge
     {

@@ -166,6 +166,12 @@ final readonly class Outbreak implements Setting
         return new self(Json::at('outbreak.serve.syncEvery', $duration));
     }
 
+    /** `outbreak.serve.debounce`: how long the changes the daemon watches settle before a round starts, such as `50ms`. */
+    public static function debounce(string $duration): self
+    {
+        return new self(Json::at('outbreak.serve.debounce', $duration));
+    }
+
     /** `outbreak.cache.store`, `auto`, as by default: a registry where one is named, the Actions cache under the action. */
     public static function cacheStoredAuto(): self
     {

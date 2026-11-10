@@ -8,6 +8,7 @@ use Closure;
 
 use function count;
 
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
@@ -42,10 +43,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * `mutation-gate watch` judges what each save reaches (ADR-0010). It
- * polls the files of the trees and the test directories by their digests,
- * once each wait, hashing only what version control says may have changed
- * (ADR-0120), and on a change runs a round: change-scoped since
- * `HEAD`, judged on the new-code floor over everything changed since then
+ * looks at the files of the trees and the test directories by their digests,
+ * hashing only what version control says may have changed (ADR-0120), once
+ * `outbreak serve` tells of a change it watched settle (ADR-0133), and once
+ * each `local.watchPoll` where it does not (see WatchWaits); on a change it
+ * runs a round: change-scoped since `HEAD`, judged on the new-code floor over everything changed since then
  * and showing each tree against its floor without holding it, under
  * `local.watchBudget`, with proofs in the local ledger leaving out what
  * is judged already. A change that arrives mid-round drops the work of the
@@ -137,8 +139,16 @@ final readonly class WatchCommand
 
         $this->printing->note(self::WATCHING, $this->output);
         $watched = Watched::in($inventory->trees, ...$inventory->suite->directories())->at($inventory->files);
+        $engine = $this->composed->adapters->maps;
+        $waits = WatchWaits::armed(
+            $this->waited,
+            $engine instanceof Outbreak ? $engine->notices() : NotGiven::value(),
+            $watched->directories(),
+            $this->composed->settings->local()->watchPoll(),
+            fn(string $said) => $this->printing->note($said, $this->output),
+        );
 
-        return $this->rounds($watched);
+        return $this->rounds($watched, $waits);
     }
 
     /**
@@ -148,7 +158,7 @@ final readonly class WatchCommand
      * measures every test where the last round planned nothing and so left
      * none.
      */
-    private function rounds(Watched $seen): int
+    private function rounds(Watched $seen, WatchWaits $waits): int
     {
         $ownMap = false;
         $before = $seen;
@@ -174,7 +184,7 @@ final readonly class WatchCommand
                 ? QuickRound::after($seen->changesSince($before))
                 : NotGiven::value();
             $planned = $this->round($load->fitted($this->composed, $power, $seen), $ownMap, $quick, $looks);
-            $now = $this->after($seen, $looks);
+            $now = $this->after($seen, $looks, $waits);
 
             if (! $now instanceof Watched) {
                 return $now instanceof CannotJudge ? Failed::because($this->output, $now) : ExitCode::Passed->value;
@@ -187,11 +197,11 @@ final readonly class WatchCommand
     }
 
     /** The files once a round is over: as a change during it left them, or as the next change leaves them. */
-    private function after(Watched $seen, WatchLooks $looks): Watched|CannotJudge|NotGiven
+    private function after(Watched $seen, WatchLooks $looks, WatchWaits $waits): Watched|CannotJudge|NotGiven
     {
         $now = $looks->after();
 
-        return $now instanceof Watched && count($now->changesSince($seen)) === 0 ? $this->nextChange($now) : $now;
+        return $now instanceof Watched && count($now->changesSince($seen)) === 0 ? $this->nextChange($now, $waits) : $now;
     }
 
     /**
@@ -247,12 +257,18 @@ final readonly class WatchCommand
     }
 
     /** The files as they are once one changes, or nothing where the wait says to stop first. */
-    private function nextChange(Watched $seen): Watched|CannotJudge|NotGiven
+    private function nextChange(Watched $seen, WatchWaits $waits): Watched|CannotJudge|NotGiven
     {
-        while (($this->waited)($this->composed->settings->local()->watchPoll()) === true) {
+        while ($waits->waited()) {
             $now = $this->look($seen);
 
-            if (! $now instanceof Watched || count($now->changesSince($seen)) > 0) {
+            if (! $now instanceof Watched) {
+                return $now;
+            }
+
+            if (count($now->changesSince($seen)) > 0) {
+                $waits->found();
+
                 return $now;
             }
         }
