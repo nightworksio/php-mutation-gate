@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-10
-**Amends:** [0117](0117-a-kill-judged-against-its-own-unmutated-stream-needs-no-control.md): decision 5, what a child is held to where `outbreak.so` counts steps
+**Amends:** [0117](0117-a-kill-judged-against-its-own-unmutated-stream-needs-no-control.md): decision 5, what a child is held to where `outbreak.so` counts steps; decision 7, a test that holds a database connection
 **Amends:** [0146](0146-a-watch-round-is-quick-advisory-and-keyed-apart.md): decision 2, where a quick round's lines come from
 
 ## Context
@@ -22,6 +22,12 @@ A stream holds a child to `timeouts.perTest` times the parent's own time of
 the same test (ADR-0117 decision 5). Wall time moves with the machine's
 load: a busy laptop stretches a child past its limit, and a timeout counts
 as a kill.
+
+A test that holds a socket the stream did not hold as it started forks
+nothing (ADR-0117 decision 7): a child would share the connection, and its
+writes would reach the server the parent's run is judged against. A
+database connection is such a socket, so in a suite whose tests hold one,
+each mutant those tests cover runs its own run.
 
 `outbreak.so` (ADR-0130) already observes a stream's calls. TCE and the
 duplicates judged once (ADR-0130, ADR-0137) apply wherever a run hands its
@@ -64,6 +70,15 @@ mutants over, `watch`'s rounds among them.
    `timeouts.most`. Wall time then holds a child to `timeouts.most` alone. A
    child past its steps stops itself by `SIGXCPU`, which the parent reads as
    a timeout.
+6. **A child reconnects to its own copy of the database.** Where
+   `splitStream.reconnect` is on, a test that holds sockets the stream did
+   not hold as it started forks where each of them is a connection of the
+   application's own to a database, and none holds an open transaction. At
+   the fork the parent copies each such database as its committed state
+   stands, and the child connects to its copy before its mutant runs and
+   drops it as it ends. A test that holds any other socket, a connection
+   with an open transaction, or a database the parent cannot copy, falls
+   back as ADR-0117 decision 7 says.
 
 ### Settings
 
@@ -73,9 +88,10 @@ mutants over, `watch`'s rounds among them.
 | `pest.xdebugOff` | `true`, `false` | `true` | speed only |
 | `outbreak.lines` | `true`, `false` | `true` | which recorder a stream records with |
 | `local.recordLines` | `true`, `false` | `true` | a quick round's map |
-| `local.siteHits` | `true`, `false` | `false` | a quick round's map |
+| `local.siteHits` | `true`, `false` | `true` | a quick round's map |
 | `outbreak.steps` | `true`, `false` | `true` | which child is a timeout |
 | `outbreak.stepFloor` | a count of steps | `10000000` | the least steps a child may take past its parent's share |
+| `splitStream.reconnect` | `true`, `false` | `false` | which test a stream forks in |
 
 ### Why no verdict moves
 
@@ -85,6 +101,11 @@ mutants over, `watch`'s rounds among them.
   mutant only at a site a test executes; a placed test that executes
   nothing of a file costs its run and judges nothing. Quick rounds are
   advisory and keyed apart (ADR-0146).
+- **A copy is the parent's database.** Without an open transaction every
+  write the test made is committed, so the copy holds what the parent's
+  connection reads, and nothing the child writes reaches the parent. State a
+  server keeps per session, such as a temporary table, is not in a copy,
+  so the setting is off by default.
 - **Steps do not move with the machine.** A parent and its child count the
   same program's steps; a child that loops forever passes any limit, and
   one slowed by the machine's load passes none.
@@ -97,6 +118,8 @@ mutants over, `watch`'s rounds among them.
 | **Record sites alone, through the switch function** | Gives the round's own mutants, not the lines a later round's mutants need from the kept map. |
 | **Keep the wall-clock limit beside the step limit** | A loaded machine would still time children out. |
 | **Leave pcov on in mutation runs** | Its hook costs every op of every process that never collects. |
+| **A child reconnects to the same database** | Its writes reach the parent's server, and a reconnect drops the parent's open transaction. |
+| **A child copies the database itself** | The parent runs on while the child copies, so the copy could hold the parent's later writes. |
 
 ## Consequences
 
@@ -104,6 +127,9 @@ mutants over, `watch`'s rounds among them.
 - `watch` keeps a map as exact as a measured one for every test its
   streams ran, without a coverage run.
 - A child's timeout no longer depends on what else the machine runs.
+- A suite whose tests hold a database connection outside a transaction
+  streams under `splitStream.reconnect`, paying a copy of the database per
+  fork in place of a run per mutant.
 
 ## Related
 
