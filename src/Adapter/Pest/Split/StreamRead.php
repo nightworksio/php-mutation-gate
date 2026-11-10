@@ -24,6 +24,7 @@ final readonly class StreamRead
         public bool $failed,
         public bool $child = false,
         public string $digest = '',
+        public bool $touched = false,
     ) {
     }
 
@@ -38,6 +39,7 @@ final readonly class StreamRead
             array_key_exists('f', $read) && $read['f'] === true,
             array_key_exists('c', $read) && $read['c'] === true,
             self::text($read, 'd'),
+            array_key_exists('n', $read) && $read['n'] === true,
         );
     }
 

@@ -13,6 +13,7 @@ use const FILE_APPEND;
 use function file_put_contents;
 use function function_exists;
 use function get_included_files;
+use function getcwd;
 use function hrtime;
 use function is_string;
 
@@ -23,6 +24,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function outbreak_state_digest;
 use function outbreak_state_watch;
+use function outbreak_touched;
+use function outbreak_touches_start;
 use function pcntl_signal;
 use function posix_getpid;
 use function posix_kill;
@@ -49,7 +52,11 @@ use function substr;
  * Where `outbreak.so` is loaded, each fork also arms a watch on the call that
  * reached the site, in the parent and the child alike, and each writes the
  * digest of the state that call left as it returned, so the run counts the
- * forks that changed nothing (ADR-0130, H5). It changes no verdict.
+ * forks that changed nothing (ADR-0130, H5), which changes no verdict; and
+ * each child watches whether its test touches the clock, randomness, the
+ * environment, another process, the network or a file outside the project
+ * after the fork, so a kill by such a test is judged again by the mutant's
+ * own run.
  *
  * @internal
  */
@@ -197,7 +204,8 @@ final class Stream
 
         if ($this->mutant !== '') {
             $this->stated($this->mutant, $this->watch, child: true);
-            $this->write(StreamLine::child($this->mutant, $this->test, $this->failed, $seconds));
+            $touched = function_exists('outbreak_touched') && outbreak_touched();
+            $this->write(StreamLine::child($this->mutant, $this->test, $this->failed, $seconds, $touched));
             pcntl_signal(SIGUSR1, SIG_DFL);
             posix_kill(posix_getpid(), $this->failed ? SIGUSR1 : SIGKILL);
         }
@@ -287,6 +295,10 @@ final class Stream
 
         $this->watch = $watch;
         $this->mutant = $mutant;
+
+        if (function_exists('outbreak_touches_start')) {
+            outbreak_touches_start((string) getcwd());
+        }
         SchemaSwitch::unsplit();
         SchemaSwitch::on($file, $id);
 

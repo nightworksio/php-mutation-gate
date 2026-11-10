@@ -4,7 +4,8 @@
 //! runs; and it reads the state a forked call leaves behind, so a split
 //! stream counts the forks that changed nothing (H5); and it counts the
 //! descriptors a forked child would share, so a stream forks no test that
-//! holds one.
+//! holds one; and it sees a test touch a source of nondeterminism, so a
+//! kill by such a test is judged again.
 
 #![cfg_attr(windows, feature(abi_vectorcall))]
 #![allow(missing_docs, reason = "php_module and php_function generate items the extension's own docs describe")]
@@ -13,6 +14,7 @@ pub mod canon;
 mod descriptors;
 mod program;
 mod state;
+mod touches;
 mod value;
 
 use ext_php_rs::prelude::*;
@@ -48,6 +50,21 @@ pub fn outbreak_descriptors() -> Vec<i64> {
     vec![held.files, held.pipes, held.sockets]
 }
 
+/// Starts watching, for a project at this root, whether this process
+/// touches the clock, randomness, the environment, another process, the
+/// network or a file outside the root.
+#[php_function]
+pub fn outbreak_touches_start(root: &str) {
+    touches::start(root);
+}
+
+/// Whether this process touched any of them since watching started.
+#[php_function]
+#[must_use]
+pub fn outbreak_touched() -> bool {
+    touches::touched()
+}
+
 /// The extension's version, which a proof's evidence names.
 #[php_function]
 #[must_use]
@@ -62,6 +79,8 @@ pub fn module(module: ModuleBuilder) -> ModuleBuilder {
         .function(wrap_function!(outbreak_state_watch))
         .function(wrap_function!(outbreak_state_digest))
         .function(wrap_function!(outbreak_descriptors))
+        .function(wrap_function!(outbreak_touches_start))
+        .function(wrap_function!(outbreak_touched))
         .function(wrap_function!(outbreak_version))
         .fcall_observer(|| state::Watch)
 }

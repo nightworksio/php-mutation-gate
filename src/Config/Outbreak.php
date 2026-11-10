@@ -65,6 +65,18 @@ final readonly class Outbreak implements Setting
         return new self(Json::at('outbreak.forkStates', value: false));
     }
 
+    /** `outbreak.recheckTouchedKills` on, as by default: a stream's kill by a test that touched nondeterminism is judged again. */
+    public static function touchedKillsRechecked(): self
+    {
+        return new self(Json::at('outbreak.recheckTouchedKills', value: true));
+    }
+
+    /** `outbreak.recheckTouchedKills` off, which is loose: a stream's kill counts whatever its test touched. */
+    public static function touchedKillsTrusted(): self
+    {
+        return new self(Json::at('outbreak.recheckTouchedKills', value: false));
+    }
+
     /** `outbreak.equivalence` off: every mutant runs, and only survivors are proven equivalent after the run. */
     public static function equivalenceOff(): self
     {

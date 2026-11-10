@@ -269,14 +269,14 @@ final readonly class Streaming
     }
 
     /**
-     * What loads `outbreak.so` into a stream, where the gate asks it to count
-     * the forks that change no state (H5); nothing otherwise.
+     * What loads `outbreak.so` into a stream, where the gate asks it to watch
+     * states or touches (ADR-0130); nothing otherwise.
      *
      * @return list<string>
      */
     private static function counting(): array
     {
-        $extension = getenv(GateVariable::ForkStates->value);
+        $extension = getenv(GateVariable::StreamExtension->value);
 
         return is_string($extension) && $extension !== '' ? ['-d', sprintf('extension=%s', $extension)] : [];
     }

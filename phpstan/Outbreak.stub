@@ -20,3 +20,11 @@ function outbreak_version(): string
 function outbreak_descriptors(): array
 {
 }
+
+function outbreak_touches_start(string $root): void
+{
+}
+
+function outbreak_touched(): bool
+{
+}

@@ -11,7 +11,7 @@ use Closure;
 
 use function count;
 use function dirname;
-use function is_string;
+use function is_array;
 
 use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
@@ -333,7 +333,7 @@ final readonly class MutationRun
         $told = [
             ...new Told($this->project, $this->patching, $this->only, $this->narrows())
                 ->of($request, $results, $handOff instanceof HandOff, $bounds),
-            ...$this->forkStates(),
+            ...$this->streamExtension(),
         ];
         $warm = WarmDirectory::made($results);
 
@@ -389,17 +389,19 @@ final readonly class MutationRun
     }
 
     /**
-     * What tells a split stream to load `outbreak.so` and count the forks
-     * that change no state, where `outbreak.forkStates` asks (H5); nothing
-     * otherwise.
+     * What tells a split stream to load `outbreak.so`, and what it watches,
+     * where `outbreak.forkStates` or `outbreak.recheckTouchedKills` asks
+     * (ADR-0130); nothing otherwise.
      *
      * @return array<string, string>
      */
-    private function forkStates(): array
+    private function streamExtension(): array
     {
-        $path = $this->extension instanceof ShippedExtension ? $this->extension->forStreams() : NotGiven::value();
+        $streams = $this->extension instanceof ShippedExtension ? $this->extension->forStreams() : NotGiven::value();
 
-        return is_string($path) ? [GateVariable::ForkStates->value => $path] : [];
+        return is_array($streams)
+            ? [GateVariable::StreamExtension->value => $streams[0], GateVariable::Observe->value => $streams[1]]
+            : [];
     }
 
     /**

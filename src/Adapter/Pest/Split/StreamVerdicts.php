@@ -52,6 +52,9 @@ final class StreamVerdicts
     /** @var array<string, array<string, ChildEnd>> how each child came out of each test, by mutant and test */
     private array $children = [];
 
+    /** @var array<string, array<string, true>> each test a child touched nondeterminism in, by mutant */
+    private array $touched = [];
+
     /**
      * @var array<string, array{0?: string, 1?: string}> the digest of the state each fork's call left, in the
      *                                                   parent then the child, by mutant and test (H5)
@@ -102,6 +105,10 @@ final class StreamVerdicts
     {
         $events = Facade::instance();
         $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
+
+        if ($killer !== '' && array_key_exists($killer, $this->touched[$mutant] ?? [])) {
+            return;
+        }
 
         if ($killer !== '') {
             $this->note($test, KillerFile::line(RecordEvent::Killed, $killer, Placed::unplaced(0)));
@@ -216,6 +223,10 @@ final class StreamVerdicts
 
         if ($end instanceof ChildEnd) {
             $this->children[$read->mutant][$read->test] = $end;
+        }
+
+        if ($read->touched) {
+            $this->touched[$read->mutant][$read->test] = true;
         }
 
         if ($read->kind === StreamLine::STATE) {

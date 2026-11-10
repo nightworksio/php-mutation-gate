@@ -47,10 +47,21 @@ final readonly class StreamLine
         return self::line([self::KIND => self::PARENT, 't' => $test, 'p' => $passed, 's' => $seconds]);
     }
 
-    /** A child ended its mutant's test: failed or not, in this many seconds since the test began. */
-    public static function child(string $mutant, string $test, bool $failed, float $seconds): string
+    /**
+     * A child ended its mutant's test: failed or not, in this many seconds
+     * since the test began, and whether the test touched nondeterminism after
+     * the fork, as `outbreak.so` saw it.
+     */
+    public static function child(string $mutant, string $test, bool $failed, float $seconds, bool $touched = false): string
     {
-        return self::line([self::KIND => self::CHILD, 'm' => $mutant, 't' => $test, 'f' => $failed, 's' => $seconds]);
+        return self::line([
+            self::KIND => self::CHILD,
+            'm' => $mutant,
+            't' => $test,
+            'f' => $failed,
+            's' => $seconds,
+            'n' => $touched,
+        ]);
     }
 
     /** A child ended in its mutant's test without ending the test: by an exit with this code, or -1 for a signal. */

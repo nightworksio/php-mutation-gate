@@ -34,6 +34,7 @@ final readonly class OutbreakKeys
         $cache = Field::section(OutbreakCache::OPTION, self::cache());
         $equivalence = Field::optional(Outbreak::EQUIVALENCE, Flag::boolean(), Effect::AffectsResults);
         $forkStates = Field::optional(Outbreak::FORK_STATES, Flag::boolean(), Effect::DecidesHowTheGateRuns);
+        $recheck = Field::optional(Outbreak::RECHECK_TOUCHED_KILLS, Flag::boolean(), Effect::AffectsResults);
 
         return [Field::section(
             Outbreak::OPTION,
@@ -46,6 +47,7 @@ final readonly class OutbreakKeys
                     $cache,
                     $equivalence,
                     $forkStates,
+                    $recheck,
                 ): Layer|Invalid {
                     $on = $enabled->read($outbreak);
                     $at = $binary->read($outbreak);
@@ -54,6 +56,7 @@ final readonly class OutbreakKeys
                     $kept = $cache->read($outbreak);
                     $proves = $equivalence->read($outbreak);
                     $counts = $forkStates->read($outbreak);
+                    $rechecks = $recheck->read($outbreak);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Shards::of(outbreak: Outbreak::of(
@@ -64,6 +67,7 @@ final readonly class OutbreakKeys
                             $kept->value(),
                             $proves->value(),
                             $counts->value(),
+                            $rechecks->value(),
                         ))),
                         $on,
                         $at,
@@ -72,6 +76,7 @@ final readonly class OutbreakKeys
                         $kept,
                         $proves,
                         $counts,
+                        $rechecks,
                     );
                 },
                 $enabled,
@@ -81,6 +86,7 @@ final readonly class OutbreakKeys
                 $cache,
                 $equivalence,
                 $forkStates,
+                $recheck,
             ),
         )];
     }

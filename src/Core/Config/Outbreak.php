@@ -17,10 +17,12 @@ use function sprintf;
  * converted into, off the gate's PHP, which binary, how long one run of it
  * may take and on how many threads it writes (ADR-0118, ADR-0119), and
  * where `outbreak cache` keeps proofs by their keys (ADR-0131), and whether
- * `outbreak.so` proves a mutant equivalent before it runs (ADR-0130):
- * `outbreak`, which the `Shards` part holds. Only `outbreak.equivalence`
- * changes a result, so only it is in a proof's key: the binary's output is
- * the gate's own, and a cached proof stands under its key as a ledger's does.
+ * `outbreak.so` proves a mutant equivalent before it runs and rechecks a
+ * stream's kill by a test that touched nondeterminism (ADR-0130):
+ * `outbreak`, which the `Shards` part holds. Only `outbreak.equivalence` and
+ * `outbreak.recheckTouchedKills` change a result, so only they are in a
+ * proof's key: the binary's output is the gate's own, and a cached proof
+ * stands under its key as a ledger's does.
  */
 final readonly class Outbreak
 {
@@ -45,6 +47,9 @@ final readonly class Outbreak
     /** The key of `outbreak.forkStates`. */
     public const string FORK_STATES = 'forkStates';
 
+    /** The key of `outbreak.recheckTouchedKills`. */
+    public const string RECHECK_TOUCHED_KILLS = 'recheckTouchedKills';
+
     /** The minutes one run of the binary may take, where the config does not say. */
     private const int MINUTES = 5;
 
@@ -56,6 +61,7 @@ final readonly class Outbreak
         private OutbreakCache $cache,
         private bool|Absent $equivalence,
         private bool|Absent $forkStates,
+        private bool|Absent $recheckTouchedKills,
     ) {
     }
 
@@ -67,6 +73,7 @@ final readonly class Outbreak
         OutbreakCache|Absent $cache = new Absent(),
         bool|Absent $equivalence = new Absent(),
         bool|Absent $forkStates = new Absent(),
+        bool|Absent $recheckTouchedKills = new Absent(),
     ): self {
         return new self(
             $enabled,
@@ -76,6 +83,7 @@ final readonly class Outbreak
             $cache instanceof OutbreakCache ? $cache : OutbreakCache::of(),
             $equivalence,
             $forkStates,
+            $recheckTouchedKills,
         );
     }
 
@@ -90,6 +98,7 @@ final readonly class Outbreak
             $this->cache->over($later->cache),
             Absent::laid($this->equivalence, $later->equivalence),
             Absent::laid($this->forkStates, $later->forkStates),
+            Absent::laid($this->recheckTouchedKills, $later->recheckTouchedKills),
         );
     }
 
@@ -149,6 +158,18 @@ final readonly class Outbreak
         return $this->forkStates === true;
     }
 
+    /**
+     * `outbreak.recheckTouchedKills`: whether a split stream's kill by a test
+     * that touched the clock, randomness, the environment, another process,
+     * the network or a file outside the project after its fork, as
+     * `outbreak.so` sees it, is judged again by the mutant's own run; true by
+     * default, and false is loose.
+     */
+    public function recheckTouchedKills(): bool
+    {
+        return $this->recheckTouchedKills instanceof Absent || $this->recheckTouchedKills;
+    }
+
     /** `outbreak.cache`: where `outbreak cache` keeps proofs by their keys, and which packs are read (ADR-0131). */
     public function cache(): OutbreakCache
     {
@@ -171,6 +192,7 @@ final readonly class Outbreak
                 Member::of(self::THREADS, $this->threads),
                 Member::of(self::EQUIVALENCE, $this->equivalence()),
                 Member::of(self::FORK_STATES, $this->forkStates()),
+                Member::of(self::RECHECK_TOUCHED_KILLS, $this->recheckTouchedKills()),
                 $this->cache->option(),
             ),
         ));
@@ -191,6 +213,7 @@ final readonly class Outbreak
                 Member::of(self::THREADS, $this->threads),
                 Member::of(self::EQUIVALENCE, $this->equivalence),
                 Member::of(self::FORK_STATES, $this->forkStates),
+                Member::of(self::RECHECK_TOUCHED_KILLS, $this->recheckTouchedKills),
                 $this->cache->written(),
             ),
         ));
@@ -219,6 +242,11 @@ final readonly class Outbreak
             ...match ($this->forkStates) {
                 true => ['Outbreak::forkStatesCounted()'],
                 false => ['Outbreak::forkStatesUncounted()'],
+                default => [],
+            },
+            ...match ($this->recheckTouchedKills) {
+                true => ['Outbreak::touchedKillsRechecked()'],
+                false => ['Outbreak::touchedKillsTrusted()'],
                 default => [],
             },
             ...$this->cache->php(),

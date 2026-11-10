@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
+use function implode;
+
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Outbreak as OutbreakSettings;
@@ -15,9 +17,10 @@ use function sprintf;
 /**
  * `outbreak.so`, the extension the package ships for the PHP that runs the
  * gate and its tests (ADR-0130), and what the settings ask of it: to prove
- * mutants equivalent before they run, under `outbreak.equivalence`, and to
+ * mutants equivalent before they run, under `outbreak.equivalence`, to
  * count the forks of a split stream that change no state, under
- * `outbreak.forkStates` (H5).
+ * `outbreak.forkStates` (H5), and to see a stream's test touch
+ * nondeterminism, under `outbreak.recheckTouchedKills`.
  *
  * @internal
  */
@@ -26,11 +29,17 @@ final readonly class ShippedExtension
     /** Where a run's prover writes the programs it compiles, beside its results. */
     private const string PROGRAMS = '%s/outbreak-programs';
 
+    /** What a stream's extension watches, as its observer reads it. */
+    private const string STATES = 'states';
+
+    private const string TOUCHES = 'touches';
+
     private function __construct(
         private string $path,
         private bool $equivalence,
         private bool $forkStates,
         private Seconds $timeout,
+        private bool $recheckTouchedKills = false,
     ) {
     }
 
@@ -48,19 +57,32 @@ final readonly class ShippedExtension
             enabled: $read->flag(Key::of(OutbreakSettings::ENABLED)) !== false,
             equivalence: $read->flag(Key::of(OutbreakSettings::EQUIVALENCE)) !== false,
             forkStates: $read->flag(Key::of(OutbreakSettings::FORK_STATES)) === true,
+            recheckTouchedKills: $read->flag(Key::of(OutbreakSettings::RECHECK_TOUCHED_KILLS)) !== false,
         );
-        $wanted = $settings->enabled() && ($settings->equivalence() || $settings->forkStates());
+        $asked = $settings->equivalence() || $settings->forkStates() || $settings->recheckTouchedKills();
+        $wanted = $settings->enabled() && $asked;
         $path = $wanted ? Bundled::extensionIn($shipped) : NotGiven::value();
 
         return $path instanceof NotGiven
             ? $path
-            : new self($path, $settings->equivalence(), $settings->forkStates(), $settings->timeout());
+            : new self(
+                $path,
+                $settings->equivalence(),
+                $settings->forkStates(),
+                $settings->timeout(),
+                $settings->recheckTouchedKills(),
+            );
     }
 
-    /** The extension at this path, asked to prove equivalence and to count fork states as said. */
-    public static function at(string $path, bool $equivalence, bool $forkStates, Seconds $timeout): self
-    {
-        return new self($path, $equivalence, $forkStates, $timeout);
+    /** The extension at this path, asked to prove equivalence, count fork states and recheck touched kills as said. */
+    public static function at(
+        string $path,
+        bool $equivalence,
+        bool $forkStates,
+        Seconds $timeout,
+        bool $recheckTouchedKills,
+    ): self {
+        return new self($path, $equivalence, $forkStates, $timeout, $recheckTouchedKills);
     }
 
     /**
@@ -79,9 +101,20 @@ final readonly class ShippedExtension
             : NotGiven::value();
     }
 
-    /** The extension's path, which a stream loads where it counts fork states; none where it counts none. */
-    public function forStreams(): string|NotGiven
+    /**
+     * The extension's path, which a stream loads where it counts fork states
+     * or rechecks touched kills, and what it watches there; none where it
+     * does neither.
+     *
+     * @return array{string, string}|NotGiven
+     */
+    public function forStreams(): array|NotGiven
     {
-        return $this->forkStates ? $this->path : NotGiven::value();
+        $watched = [
+            ...$this->forkStates ? [self::STATES] : [],
+            ...$this->recheckTouchedKills ? [self::TOUCHES] : [],
+        ];
+
+        return $watched === [] ? NotGiven::value() : [$this->path, implode(',', $watched)];
     }
 }

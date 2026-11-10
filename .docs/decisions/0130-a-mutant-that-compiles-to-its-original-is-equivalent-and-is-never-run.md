@@ -99,6 +99,17 @@ so the prover after the run proved none there.
    object keeps out of its properties are not read, so the count is a
    measurement no verdict reads. A skip of such forks is built only where
    the count shows at least a fifth of forks alike.
+8. **A streamed kill by a test that touched nondeterminism is judged
+   again.** Under `outbreak.recheckTouchedKills`, `true` by default, a split
+   stream loads the extension, and each child watches whether its test,
+   after the fork, calls a function that reads the clock, randomness, the
+   environment, another process or the network, or names a file outside the
+   project. A kill by such a child is not taken from the stream: the mutant
+   runs its own run, with its verification (ADR-0008). A kill by a test that
+   touched none is trusted no more for it, since the extension cannot see
+   every source, such as randomness in an extension's own C code; nothing is
+   ever skipped because a test touched none. `false` is a loose value
+   (ADR-0142), and the setting affects results (key item 3).
 
 ### Settings
 
@@ -106,6 +117,7 @@ so the prover after the run proved none there.
 |---|---|---|---|
 | `outbreak.equivalence` | `true`, `false` | `true` | affects results (key item 3) |
 | `outbreak.forkStates` | `true`, `false` | `false` | decides how the gate runs; changes no result |
+| `outbreak.recheckTouchedKills` | `true`, **`false`** | `true` | affects results (key item 3) |
 
 ### Why no verdict passes that should not
 
