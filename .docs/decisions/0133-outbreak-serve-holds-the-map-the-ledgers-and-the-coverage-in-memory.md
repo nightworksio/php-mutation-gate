@@ -92,7 +92,9 @@ fallback.
    is queued in this order: the survivors at sites the saved test file now
    executes, the edited lines' mutants, the last round's survivors in the
    edited units, the rest riskiest first (ADR-0008), and inferred-subsumed
-   mutants last (ADR-0079). Work is keyed by its unit's content digest:
+   mutants last (ADR-0079); a quick round of `watch` takes its units in the
+   same order and cancels them the same way (ADR-0146 decisions 6 and 7).
+   Work is keyed by its unit's content digest:
    a later save drops every queued item and running process of a unit
    whose digest moved, by its process group, and every other unit's
    results stand. A cancelled mutant is pending, never judged. Workers run
@@ -102,8 +104,9 @@ fallback.
 9. **Each judged mutant is an event.** The daemon sends every client one
    line per judged mutant, `{"mutant", "site", "status", "by", "quick",
    "unit", "digest"}`, the status `killed`, `survived`, `timeout`,
-   `pending`, `equivalent` or `verifying`; `watch` repaints one block per
-   edited unit and prints the whole report only for `watch --report`.
+   `pending`, `equivalent` or `verifying`, as `watch --output=events`
+   prints them (ADR-0146 decision 8); `watch` prints one block per unit as
+   its results land and the whole report only for `watch --report`.
 10. **`outbreak lsp` brings the survivors to the editor.** It speaks the
     Language Server Protocol on stdio as a client of the daemon: each
     survivor is a `textDocument/publishDiagnostics` warning on its mutated

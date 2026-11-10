@@ -4,6 +4,7 @@
 **Date:** 2026-11-10
 **Amends:** [0010](0010-the-gate-runs-while-you-work-and-before-you-push.md): what a round of `watch` judges by and what it says, where `local.quick` is on
 **Amends:** [0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): which test files a round of `watch` measures again, where `local.quick` is on
+**Amends:** [0120](0120-the-local-loop-takes-a-share-of-the-machine-and-looks-only-at-what-changed.md): what a change during a round stops, and what a round prints
 
 ## Context
 
@@ -53,12 +54,42 @@ what a source file declares, without running anything.
    with `mutation-gate: quick, not a verdict`, names its scope and says that
    `mutation-gate pre-push` gives the verdict; each line `watch` prints of a
    batch as it ends starts with `[quick]`.
+6. **It takes the retested and the saved units first.** A quick round runs
+   first the units whose last result is unsettled and which a test of a test
+   file saved since the round before runs, by the kept map; then the units
+   saved since the round before; then the rest in the order a budget takes
+   them (ADR-0008). Within a run each mutant is forked first at its last
+   killer, and inferred-subsumed mutants run last (ADR-0079): the order
+   ADR-0133 decision 8 gives `outbreak serve`.
+7. **A save cancels by unit.** Where `local.cancelByUnit` is on, a save
+   during a round drops from its queue the units whose files it changed,
+   and every other unit runs on. A batch that runs such a unit is halted as
+   its deadline would halt it: every `local.watchPoll`, a second at the
+   least, the batch reads its units' files again, and once one has moved the
+   gate sends itself `SIGUSR2`, on which every set of processes it awaits
+   stops each one still running. Halted and dropped units are left
+   unjudged, so their mutants are pending, never judged; what any batch
+   judged stands, keyed by the digests it was planned on. Where `pcntl` is
+   missing a batch runs to its end. Off, a save stops the round before its
+   next batch (ADR-0010).
+8. **Each judged mutant is an event.** `watch --output=events` prints one
+   line of JSON per judged mutant as its batch ends, `{"mutant", "site",
+   "status", "by", "quick", "unit", "digest"}`: the status `killed`,
+   `survived`, `timeout`, `pending` or `equivalent`, `by` the killing test,
+   `digest` the digest the plan took of the unit's file; a mutant a marker
+   ignores is no event. `outbreak serve` sends the same lines (ADR-0133
+   decision 9), and `verifying` besides while a survivor's verification run
+   waits, which `watch` runs inside the batch. The console prints one block
+   per unit as each batch ends, and ends a round with the whole report only
+   with `watch --report`, or where `local.streamBatches` is off;
+   `--output=problems` still ends every round with its problems.
 
 ### Settings
 
 | Setting | Values | Default | Effect |
 |---|---|---|---|
 | `local.quick` | `true`, `false` | `true` | judges or reports only; a quick round's proofs are keyed apart |
+| `local.cancelByUnit` | `true`, `false` | `true` | judges or reports only |
 
 ### Why no verdict moves
 
@@ -70,6 +101,10 @@ what a source file declares, without running anything.
   labelled and keyed apart.
 - **Survivors can only grow.** No static check and a map that can lag show
   more survivors, never fewer; `pre-push` judges them all again.
+- **A cancel judges nothing.** A halted batch ends as its deadline would end
+  it, and a dropped unit as one no batch took: unjudged, never killed.
+- **Order moves no result.** It decides only which unit a budget reaches
+  first.
 
 ## Alternatives considered
 
@@ -80,6 +115,9 @@ what a source file declares, without running anything.
 | **Lay the stream and the check only where the config leaves them unset** | A config that sets `staticCheck.tool` or turns streams off would make every round as slow as today while it still says quick; `local.quick: false` already gives those rounds. |
 | **Let `pre-push` take a quick kill** | A quick kill can be one a whole-suite stream would not make; taking it loosens the verdict. |
 | **Measure every moved test file, as today** | The re-measure is the largest part of a round after a source save. |
+| **Stop the whole round on any save, as before** | A save to one unit throws away the work of every other; `local.cancelByUnit: false` keeps it. |
+| **Halt a batch by killing its processes from outside** | A process ended by a signal can read as a crash, and a crash as a kill; a halt the processes' own loop hears ends them as a deadline does, which every runner already reads as unjudged. |
+| **Print the whole report after every round** | It scrolls each round's blocks away; `--report` gives it. |
 
 ## Consequences
 
@@ -87,11 +125,17 @@ what a source file declares, without running anything.
   first at each mutant's last killer.
 - `pre-push` judges every unit a quick round judged again, by its own key.
 - `local.quick: false` gives the rounds ADR-0010 describes.
+- A save shows its own unit's results first and leaves every other unit's
+  work running.
+- An editor or a daemon client reads one JSON line per judged mutant.
 
 ## Related
 
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): key item 3
+- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): the order a budget takes units in
+- [ADR-0079](0079-a-local-run-infers-what-a-killed-mutant-subsumes.md): subsumed mutants last
 - [ADR-0117](0117-a-kill-judged-against-its-own-unmutated-stream-needs-no-control.md): split streams
 - [ADR-0120](0120-the-local-loop-takes-a-share-of-the-machine-and-looks-only-at-what-changed.md): the local loop
 - [ADR-0132](0132-a-static-graph-places-what-the-coverage-map-cannot-and-the-map-stays-the-check.md): the static graph in quick rounds
+- [ADR-0133](0133-outbreak-serve-holds-the-map-the-ledgers-and-the-coverage-in-memory.md): the same order, cancel and events in `outbreak serve`
 - [ADR-0136](0136-a-first-pass-stream-may-run-only-the-tests-that-killed-before.md): kills a shorter order can make
