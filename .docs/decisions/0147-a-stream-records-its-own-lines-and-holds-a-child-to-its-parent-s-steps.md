@@ -41,9 +41,8 @@ mutants over, `watch`'s rounds among them.
    lines are a superset of pcov's executed lines: a test may cover more
    lines, never fewer. Where another extension took the executor over after
    it, `outbreak_lines_start()` answers false and nothing is recorded by it.
-   `splitStream.lines` chooses the recorder: `auto` takes `outbreak.so` where
-   it records and pcov elsewhere; `outbreak` and `pcov` take that one alone.
-   A run that stands in for the suite's coverage report (ADR-0135) records
+   Where `outbreak.lines` is on, a stream records with `outbreak.so` where it
+   records, and with pcov elsewhere; off, with pcov alone. A run that stands in for the suite's coverage report (ADR-0135) records
    with pcov, whose executable lines its report reads.
 3. **A quick round's streams record their tests' lines.** Where
    `local.recordLines` is on, each test a stream's parent runs whole is
@@ -56,12 +55,12 @@ mutants over, `watch`'s rounds among them.
    tests keeps its entries and covers every line of each source file the
    graph says the test file reaches, until a stream records it. A test file
    the graph does not answer for is measured as before.
-5. **A child is held to its parent's steps.** Where `timeouts.steps` is on
+5. **A child is held to its parent's steps.** Where `outbreak.steps` is on
    and `outbreak.so` counts them, a stream's processes count steps: each
    jump an op takes back or forth, and each call of a user function. A child
    is a timeout once its steps since the fork pass `timeouts.perTest` times
    the parent's own steps from the fork to the test's end, plus
-   `timeouts.stepFloor`; until the parent ends the test, it is held only to
+   `outbreak.stepFloor`; until the parent ends the test, it is held only to
    `timeouts.most`. Wall time then holds a child to `timeouts.most` alone. A
    child past its steps stops itself by `SIGXCPU`, which the parent reads as
    a timeout.
@@ -72,11 +71,11 @@ mutants over, `watch`'s rounds among them.
 |---|---|---|---|
 | `pest.pcovOff` | `true`, `false` | `true` | speed only |
 | `pest.xdebugOff` | `true`, `false` | `true` | speed only |
-| `splitStream.lines` | `auto`, `outbreak`, `pcov` | `auto` | which recorder a stream records with |
+| `outbreak.lines` | `true`, `false` | `true` | which recorder a stream records with |
 | `local.recordLines` | `true`, `false` | `true` | a quick round's map |
 | `local.siteHits` | `true`, `false` | `false` | a quick round's map |
-| `timeouts.steps` | `true`, `false` | `true` | which child is a timeout |
-| `timeouts.stepFloor` | a count of steps | `10000000` | the least steps a child may take past its parent's share |
+| `outbreak.steps` | `true`, `false` | `true` | which child is a timeout |
+| `outbreak.stepFloor` | a count of steps | `10000000` | the least steps a child may take past its parent's share |
 
 ### Why no verdict moves
 
