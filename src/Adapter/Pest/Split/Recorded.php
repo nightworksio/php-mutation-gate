@@ -16,6 +16,8 @@ use function ini_get;
 use function is_array;
 use function is_int;
 use function is_string;
+use function outbreak_lines_start;
+use function outbreak_lines_stop;
 use function pcov\clear;
 use function pcov\collect;
 use function pcov\start;
@@ -23,9 +25,13 @@ use function pcov\stop;
 use function sort;
 
 /**
- * The lines a stream's parent executes in one test, collected by pcov where
- * it is loaded, for a run that plans without a fresh map (ADR-0135): the
- * streams record what the coverage run would have measured.
+ * The lines a stream's parent executes in one test, recorded by
+ * `outbreak.so` where the stream observes `lines` (ADR-0147), and collected
+ * by pcov where it is loaded otherwise, for a run that plans without a fresh
+ * map (ADR-0135) or a quick round of `watch`: the streams record what the
+ * coverage run would have measured. A run that stands in for the suite's
+ * coverage report never observes `lines`, so pcov reports its executable
+ * lines.
  *
  * @internal
  */
@@ -49,9 +55,13 @@ final readonly class Recorded
         return function_exists('pcov\\start') && filter_var($enabled, FILTER_VALIDATE_BOOL);
     }
 
-    /** Starts collecting a test's lines afresh; false where pcov cannot collect them. */
-    public static function start(): bool
+    /** Starts recording a test's lines afresh: what records them, or false where nothing can. */
+    public static function start(): LineRecorder|false
     {
+        if (function_exists('outbreak_lines_start') && outbreak_lines_start()) {
+            return LineRecorder::Outbreak;
+        }
+
         if (! self::usable()) {
             return false;
         }
@@ -59,19 +69,24 @@ final readonly class Recorded
         clear();
         start();
 
-        return true;
+        return LineRecorder::Pcov;
     }
 
     /**
-     * Stops collecting: the lines of each file the test executed, and every
-     * line pcov reports in each file it loaded that is not known yet,
-     * executed or not, which a coverage report counts as executable.
+     * Stops recording: the lines of each file the test executed, and, where
+     * pcov collected them, every line it reports in each file it loaded that
+     * is not known yet, executed or not, which a coverage report counts as
+     * executable.
      *
      * @param  array<string, list<int>>                                 $known
      * @return array{array<string, list<int>>, array<string, list<int>>}
      */
-    public static function stop(array $known = []): array
+    public static function stop(LineRecorder $recorder, array $known = []): array
     {
+        if ($recorder === LineRecorder::Outbreak) {
+            return [function_exists('outbreak_lines_stop') ? outbreak_lines_stop() : [], []];
+        }
+
         if (! function_exists('pcov\\stop') || ! function_exists('pcov\\collect')) {
             return [[], []];
         }

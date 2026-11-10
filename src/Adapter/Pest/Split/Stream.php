@@ -82,8 +82,8 @@ final class Stream
 
     private bool $deciding = false;
 
-    /** Whether the parent collects the lines of the current test (ADR-0135). */
-    private bool $recording = false;
+    /** What records the lines of the current test in the parent, or false where nothing does (ADR-0135, ADR-0147). */
+    private LineRecorder|false $recording = false;
 
     /** Whether the current test raised an issue: risky, or a deprecation, notice or warning. */
     private bool $troubled = false;
@@ -248,7 +248,7 @@ final class Stream
         $this->forked = [];
         $this->watching = [];
         $this->forkable = ! Descriptors::held()->shares($this->start);
-        $this->recording = $this->mutant === '' && $this->plan->recording !== '' && Recorded::start();
+        $this->recording = $this->mutant === '' && $this->plan->recording !== '' ? Recorded::start() : false;
 
         if (! $this->forkable && $this->mutant === '') {
             $this->write(StreamLine::fallback($test));
@@ -259,7 +259,7 @@ final class Stream
     {
         $this->own = true;
 
-        if ($this->recording) {
+        if ($this->recording !== false) {
             $own = StreamLine::covered($this->test, [], new TestEnded(passed: false, troubled: false, own: true, seconds: 0.0));
             file_put_contents($this->plan->recording, $own, FILE_APPEND | LOCK_EX);
         }
@@ -293,8 +293,8 @@ final class Stream
             posix_kill(posix_getpid(), $this->failed ? SIGUSR1 : SIGKILL);
         }
 
-        if ($this->recording) {
-            [$executed, $reported] = Recorded::stop($this->reported);
+        if ($this->recording !== false) {
+            [$executed, $reported] = Recorded::stop($this->recording, $this->reported);
             $this->reported += $reported;
             $ended = new TestEnded(! $this->failed, $this->troubled, $this->own, $seconds);
             file_put_contents($this->plan->recording, StreamLine::covered($this->test, $executed, $ended), FILE_APPEND | LOCK_EX);
