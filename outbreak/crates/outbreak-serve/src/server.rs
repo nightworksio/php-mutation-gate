@@ -7,10 +7,16 @@
 //! connected at most once every `snapshot_every`, and once more as it stops.
 //! It lives as long as the child it starts, where it starts one, or until
 //! no request came for `idle`, or it is asked to stop.
+//!
+//! It refuses `.mutation-gate` or its own directory where either is a link
+//! or not a directory of the user it runs as, and opens each of its files
+//! without following a link, refusing one that is not a regular file of that
+//! user; a snapshot is written to a name no file holds yet, then renamed
+//! into place.
 
-use std::fs::{self, DirBuilder, File, OpenOptions, Permissions, TryLockError};
-use std::io::{BufRead as _, BufReader, Read as _, Write as _};
-use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
+use std::fs::{self, DirBuilder, File, Metadata, OpenOptions, Permissions, TryLockError};
+use std::io::{BufRead as _, BufReader, ErrorKind, Read as _, Write as _};
+use std::os::unix::fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt as _;
 use std::path::Path;
@@ -18,7 +24,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::Options;
 use crate::journal::{self, Record};
@@ -27,6 +33,9 @@ use crate::state::State;
 
 /// The directory under a project's root the daemon keeps its files in.
 pub const DIRECTORY: &str = ".mutation-gate/outbreak";
+
+/// The gate's directory under a project's root, which holds the daemon's.
+const WORKSPACE: &str = ".mutation-gate";
 
 /// The socket the daemon answers on, in its directory.
 pub const SOCKET: &str = "state.sock";
@@ -87,15 +96,13 @@ pub fn detached(binary: &Path, arguments: &[String]) -> Result<u32, String> {
 /// Says why it cannot serve: its directory cannot be kept to its owner,
 /// another daemon serves the root, or its files or socket cannot be made.
 pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
+    let euid = rustix::process::geteuid().as_raw();
+    owned_directory(&options.root.join(WORKSPACE), euid)?;
     let directory = options.root.join(DIRECTORY);
-    DirBuilder::new()
-        .recursive(true)
-        .mode(0o700)
-        .create(&directory)
-        .map_err(|error| format!("cannot make {}: {error}", directory.display()))?;
+    owned_directory(&directory, euid)?;
     fs::set_permissions(&directory, Permissions::from_mode(0o700))
         .map_err(|error| format!("cannot keep {} to its owner: {error}", directory.display()))?;
-    let lock = owned(&directory.join(LOCK), false)?;
+    let lock = owned(&directory.join(LOCK), false, euid)?;
 
     match lock.try_lock() {
         Ok(()) => {}
@@ -103,9 +110,9 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
         Err(TryLockError::Error(error)) => return Err(format!("cannot lock {}: {error}", directory.display())),
     }
 
-    let state = read(&directory);
-    snapshotted(&directory, &state)?;
-    let journal = owned(&directory.join(JOURNAL), true)?;
+    let state = read(&directory, euid);
+    snapshotted(&directory, &state, euid)?;
+    let journal = owned(&directory.join(JOURNAL), true, euid)?;
     let socket = directory.join(SOCKET);
     let _ = fs::remove_file(&socket);
     let listener = UnixListener::bind(&socket).map_err(|error| format!("cannot listen on {}: {error}", socket.display()))?;
@@ -125,7 +132,7 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
         let directory = directory.clone();
         let socket = socket.clone();
         let lives_with_child = child.is_some();
-        thread::spawn(move || ticked(&shared, &options, &directory, &socket, lives_with_child))
+        thread::spawn(move || ticked(&shared, &options, &directory, &socket, lives_with_child, euid))
     };
 
     for stream in listener.incoming() {
@@ -148,49 +155,88 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
         let _ = process.wait();
     }
 
-    let _ = snapshotted(&directory, &locked(&shared.kept).state);
+    let _ = snapshotted(&directory, &locked(&shared.kept).state, euid);
     let _ = fs::remove_file(&socket);
 
     Ok(())
 }
 
+/// A directory of the user it runs as, made where it is missing; refused where
+/// it is a link, not a directory, or another user's.
+fn owned_directory(path: &Path, euid: u32) -> Result<(), String> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => own(path, &metadata, euid, Metadata::is_dir),
+        Err(error) if error.kind() == ErrorKind::NotFound => DirBuilder::new()
+            .mode(0o700)
+            .create(path)
+            .map_err(|error| format!("cannot make {}: {error}", path.display())),
+        Err(error) => Err(format!("cannot read {}: {error}", path.display())),
+    }
+}
+
+/// Whether what a path holds, unfollowed, is of the kind asked and the user's own; why not, otherwise.
+fn own(path: &Path, metadata: &Metadata, euid: u32, kind: impl Fn(&Metadata) -> bool) -> Result<(), String> {
+    match () {
+        () if metadata.file_type().is_symlink() => Err(format!("{} is a link, which the daemon never follows", path.display())),
+        () if !kind(metadata) => Err(format!("{} is not what the daemon keeps there", path.display())),
+        () if metadata.uid() != euid => Err(format!("{} belongs to another user", path.display())),
+        () => Ok(()),
+    }
+}
+
 /// The state the snapshot and then the journal leave; none where neither can be read.
-fn read(directory: &Path) -> State {
-    let snapshot = fs::read(directory.join(SNAPSHOT)).ok().and_then(|bytes| journal::snapshot_read(&bytes));
-    let journalled = fs::read(directory.join(JOURNAL)).map(|bytes| journal::journal(&bytes)).unwrap_or_default();
+fn read(directory: &Path, euid: u32) -> State {
+    let bytes = |name: &str| -> Option<Vec<u8>> {
+        let mut file = opened(&directory.join(name), OpenOptions::new().read(true), euid).ok()?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).ok()?;
+        Some(bytes)
+    };
+    let snapshot = bytes(SNAPSHOT).and_then(|bytes| journal::snapshot_read(&bytes));
+    let journalled = bytes(JOURNAL).map(|bytes| journal::journal(&bytes)).unwrap_or_default();
 
     State::of(snapshot.unwrap_or_default().into_iter().chain(journalled))
 }
 
-/// A snapshot of the state written in place of the last one, at once, and the journal it holds emptied.
-fn snapshotted(directory: &Path, state: &State) -> Result<(), String> {
-    let written = directory.join(format!("{SNAPSHOT}.new"));
-    let mut file = owned(&written, true)?;
+/// A snapshot of the state written to a name no file holds yet, renamed in
+/// place of the last one, and the journal it holds emptied.
+fn snapshotted(directory: &Path, state: &State, euid: u32) -> Result<(), String> {
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |since| since.as_nanos());
+    let written = directory.join(format!("{SNAPSHOT}.{}.{nanos}", std::process::id()));
+    let mut file = opened(&written, OpenOptions::new().write(true).create_new(true).mode(0o600), euid)?;
     file.write_all(&journal::snapshot(&state.records()))
         .and_then(|()| file.sync_all())
         .and_then(|()| fs::rename(&written, directory.join(SNAPSHOT)))
-        .map_err(|error| format!("cannot write the snapshot: {error}"))?;
+        .map_err(|error| {
+            let _ = fs::remove_file(&written);
+            format!("cannot write the snapshot: {error}")
+        })?;
 
-    match OpenOptions::new().write(true).open(directory.join(JOURNAL)) {
+    match opened(&directory.join(JOURNAL), OpenOptions::new().write(true), euid) {
         Ok(journal) => journal.set_len(0).map_err(|error| format!("cannot empty the journal: {error}")),
         Err(_) => Ok(()),
     }
 }
 
-/// A file only its owner reads and writes, opened to append, emptied where asked.
-fn owned(path: &Path, emptied: bool) -> Result<File, String> {
-    use std::os::unix::fs::OpenOptionsExt as _;
-
-    let file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .mode(0o600)
-        .open(path)
-        .map_err(|error| format!("cannot open {}: {error}", path.display()))?;
+/// A file only its owner reads and writes, made where missing and opened to append, emptied where asked.
+fn owned(path: &Path, emptied: bool, euid: u32) -> Result<File, String> {
+    let file = opened(path, OpenOptions::new().create(true).append(true).mode(0o600), euid)?;
 
     if emptied {
         file.set_len(0).map_err(|error| format!("cannot empty {}: {error}", path.display()))?;
     }
+
+    Ok(file)
+}
+
+/// A file opened without following a link or waiting on a pipe, where it is a regular file of the user it runs as.
+fn opened(path: &Path, options: &mut OpenOptions, euid: u32) -> Result<File, String> {
+    let file = options
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|error| format!("cannot open {}: {error}", path.display()))?;
+    let metadata = file.metadata().map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+    own(path, &metadata, euid, Metadata::is_file)?;
 
     Ok(file)
 }
@@ -230,7 +276,7 @@ fn started(argv: &[String], shared: &Arc<Shared>, socket: &Path) -> Result<Optio
 
 /// Looks at the clocks until the daemon stops: syncs the journal, writes a
 /// snapshot while no client is connected, and stops it once idle.
-fn ticked(shared: &Shared, options: &Options, directory: &Path, socket: &Path, lives_with_child: bool) {
+fn ticked(shared: &Shared, options: &Options, directory: &Path, socket: &Path, lives_with_child: bool, euid: u32) {
     while !shared.stopping.load(Ordering::SeqCst) {
         thread::sleep(TICK);
         let mut kept = locked(&shared.kept);
@@ -244,7 +290,7 @@ fn ticked(shared: &Shared, options: &Options, directory: &Path, socket: &Path, l
         if quiet && kept.journalled && kept.snapshotted.elapsed() >= options.snapshot_every {
             synced(&mut kept);
 
-            if snapshotted(directory, &kept.state).is_ok() {
+            if snapshotted(directory, &kept.state, euid).is_ok() {
                 kept.journalled = false;
                 kept.snapshotted = Instant::now();
             }
@@ -338,7 +384,9 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use super::{DIRECTORY, Options, SOCKET, detached, serve};
+    use std::os::unix::fs::symlink;
+
+    use super::{DIRECTORY, Options, SOCKET, detached, own, owned_directory, serve};
 
     fn options(root: PathBuf) -> Options {
         Options {
@@ -406,7 +454,7 @@ mod tests {
         assert_eq!(serve(&Options { idle: Some(Duration::from_millis(300)), ..options(root.clone()) }, 1), Ok(()));
         assert!(serve(&Options { child: vec!["/nonexistent/child".to_owned()], ..options(root.clone()) }, 1).is_err());
         std::fs::write(root.join("file"), "").unwrap();
-        assert!(serve(&options(root.join("file/inside")), 1).is_err_and(|why| why.starts_with("cannot make")));
+        assert!(serve(&options(root.join("file/inside")), 1).is_err_and(|why| why.starts_with("cannot")));
         std::fs::remove_dir_all(&root).unwrap();
     }
 
@@ -414,5 +462,58 @@ mod tests {
     fn starts_a_daemon_in_a_group_of_its_own() {
         assert!(detached(std::path::Path::new("true"), &[]).is_ok());
         assert!(detached(std::path::Path::new("/nonexistent/outbreak"), &[]).is_err_and(|why| why.starts_with("cannot start")));
+    }
+
+    fn fresh(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("outbreak-serve-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn refuses_a_linked_workspace_or_directory() {
+        let root = fresh("linked");
+        let elsewhere = fresh("elsewhere");
+        symlink(&elsewhere, root.join(".mutation-gate")).unwrap();
+
+        assert!(serve(&options(root.clone()), 1).is_err_and(|why| why.ends_with("is a link, which the daemon never follows")));
+
+        std::fs::remove_file(root.join(".mutation-gate")).unwrap();
+        std::fs::create_dir(root.join(".mutation-gate")).unwrap();
+        symlink(&elsewhere, root.join(DIRECTORY)).unwrap();
+
+        assert!(serve(&options(root.clone()), 1).is_err_and(|why| why.ends_with("is a link, which the daemon never follows")));
+        assert_eq!(std::fs::read_dir(&elsewhere).unwrap().count(), 0);
+        std::fs::remove_dir_all(&root).unwrap();
+        std::fs::remove_dir_all(&elsewhere).unwrap();
+    }
+
+    #[test]
+    fn follows_no_link_to_its_journal_or_snapshot() {
+        let root = fresh("files");
+        let outside = fresh("outside").join("victim");
+        std::fs::write(&outside, "kept").unwrap();
+        std::fs::create_dir_all(root.join(DIRECTORY)).unwrap();
+        symlink(&outside, root.join(DIRECTORY).join("journal.bin")).unwrap();
+        symlink(&outside, root.join(DIRECTORY).join("state.bin")).unwrap();
+
+        assert!(serve(&options(root.clone()), 1).is_err_and(|why| why.starts_with("cannot open")));
+        assert_eq!(std::fs::read_to_string(&outside).unwrap(), "kept");
+        assert!(!std::fs::symlink_metadata(root.join(DIRECTORY).join("state.bin")).unwrap().file_type().is_symlink());
+        std::fs::remove_dir_all(&root).unwrap();
+        std::fs::remove_dir_all(outside.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn refuses_what_is_not_its_own_kind_or_its_user_s() {
+        let root = fresh("owner");
+        let euid = rustix::process::geteuid().as_raw();
+        let directory = std::fs::symlink_metadata(&root).unwrap();
+
+        assert!(owned_directory(&root, euid + 1).is_err_and(|why| why.ends_with("belongs to another user")));
+        assert!(own(&root, &directory, euid, std::fs::Metadata::is_file).is_err_and(|why| why.ends_with("is not what the daemon keeps there")));
+        assert_eq!(owned_directory(&root, euid), Ok(()));
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }

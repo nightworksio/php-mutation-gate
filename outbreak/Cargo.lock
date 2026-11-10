@@ -877,8 +877,10 @@ dependencies = [
 name = "outbreak-serve"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "outbreak-graph",
  "outbreak-map",
+ "rustix",
  "sha2 0.10.9",
 ]
 
