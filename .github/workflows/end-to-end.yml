@@ -43,7 +43,7 @@ jobs:
   warm-workers:
     name: warm workers
     if: inputs.warm
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     env:
       JWT_VERSION: "5.6.0"
@@ -166,7 +166,7 @@ jobs:
   hook-managers:
     name: hook managers
     if: inputs.hooks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     env:
       PRE_COMMIT_VERSION: "4.6.2"
