@@ -629,7 +629,7 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
         ->and($result instanceof MutationResult ? array_slice(array_map(
             static fn(StepTime $step): Step => $step->step(),
             [...$result->steps()],
-        ), 0, 2) : [])->toBe([Step::Coverage, Step::Mutation])
+        ), 0, 4) : [])->toBe([Step::Coverage, Step::ValueReaderCoverage, Step::ValueReaders, Step::Mutation])
         ->and($loaded instanceof CoverageFile ? $loaded->map($at) : $loaded)->toEqual(
             CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 11, PestCases::RUN_ADDS))
                 ->timedEach(TimedTest::of(PestCases::RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)),
