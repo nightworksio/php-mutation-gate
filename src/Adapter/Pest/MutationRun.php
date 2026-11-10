@@ -357,7 +357,7 @@ final readonly class MutationRun
         $coverage = $this->coveringOf($shared, $results);
         $opensOn = $this->patching->opensOn($request->judgedBy(), $shared instanceof CoverageMap);
         $left = fn(): Seconds|Unlimited => $this->left($request, $started);
-        $opening = OpeningIssues::of($this->shell, $this->project, $request, $opensOn, $left, $results);
+        $opening = OpeningIssues::of($this->driven(), $this->project, $request, $opensOn, $left, $results);
         $memory = $request->memory();
         $interpretation = new Interpretation(
             $this->project,
@@ -575,7 +575,16 @@ final readonly class MutationRun
     /** The shell the request's verification tail runs Pest in (see TailShell). */
     private function tail(MutationRequest $request): Shell
     {
-        return TailShell::of($this->shell, $this->project, $this->patching, $request);
+        return DriversSetShell::over(
+            TailShell::of($this->shell, $this->project, $this->patching, $request),
+            CoverageDrivers::of($this->patching, recordsWithPcov: false),
+        );
+    }
+
+    /** The shell the run's other processes start in, with the coverage drivers a mutation run sets (ADR-0147). */
+    private function driven(): Shell
+    {
+        return DriversSetShell::over($this->shell, CoverageDrivers::of($this->patching, recordsWithPcov: false));
     }
 
     private function shardMap(): ShardMap

@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function count;
+use function in_array;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Recorded;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
+use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\EndedProcesses;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -49,6 +52,9 @@ final readonly class TailShell implements Shell, StartsCommands
 
     /** The file the workers of controls started beside the survivors' runs again are named beside (see apart). */
     private const string APART = 'pest/tail-apart';
+
+    /** The variables PHP and its extensions read as a process starts. */
+    private const array STARTING = [MemoryCap::SCAN_DIR, Recorded::ENABLED, Xdebug::MODE_VARIABLE];
 
     private function __construct(
         private Shell $shell,
@@ -170,19 +176,20 @@ final readonly class TailShell implements Shell, StartsCommands
     /**
      * What a command sets of the variables PHP reads as it starts, which the
      * workers it forks from must start with, as a fresh process of it would:
-     * the directories of ini files it scans, a memory cap's among them.
+     * the directories of ini files it scans, a memory cap's among them, and
+     * the coverage drivers' (ADR-0147).
      *
      * @return array<string, string>
      */
     private function startingWith(Command $command): array
     {
+        $starting = [];
+
         foreach ($command->environment() as $name => $value) {
-            if ($name === MemoryCap::SCAN_DIR && is_string($value)) {
-                return [$name => $value];
-            }
+            $starting += in_array($name, self::STARTING, strict: true) && is_string($value) ? [$name => $value] : [];
         }
 
-        return [];
+        return $starting;
     }
 
     /**
