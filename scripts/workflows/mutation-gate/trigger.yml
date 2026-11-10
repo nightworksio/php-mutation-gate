@@ -93,10 +93,10 @@ on:
           map, leaving the run to a caller that hands one (ADR-0135).
         type: boolean
         default: false
-      watch-job:
+      watch-jobs:
         description: >-
-          The name of a job of the calling run, such as the one that runs the suite; once it concluded in failure, a
-          shard starts no further item (ADR-0135). Where empty, the default, no shard watches a job.
+          The names of jobs of the calling run, one per line, such as those that run the fast gates; once one concluded
+          in failure, a shard starts no further item (ADR-0135). Where empty, the default, no shard watches a job.
         type: string
         default: ''
       download-timeout:
@@ -199,6 +199,11 @@ on:
       early:
         description: true where the run was planned without a fresh map (ADR-0135).
         value: ${{ jobs.plan.outputs.early }}
+      suite:
+        description: >-
+          true where the run was planned without a fresh map and its verdict left how the suite ran in its streams, with
+          the map they recorded, as the artifact mutation-gate-suite (ADR-0135).
+        value: ${{ jobs.verdict.outputs.suite }}
 
 permissions: {}
 

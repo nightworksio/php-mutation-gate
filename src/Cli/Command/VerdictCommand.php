@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Judging;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\StreamedSuites;
 use NightWorksIO\MutationGate\Cli\Flow\UnchangedVerdict;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -165,7 +166,8 @@ final readonly class VerdictCommand
     /**
      * A plan's results judged; where it was planned early, by the keys the
      * verdict builds from the map its streams recorded, with the held units
-     * whose holding tests miss what that map shows (ADR-0135).
+     * whose holding tests miss what that map shows, and how the suite ran in
+     * its streams left for a job that runs the suite (ADR-0135).
      */
     private static function judged(
         Composed $following,
@@ -176,8 +178,10 @@ final readonly class VerdictCommand
     ): Judged|Invalid|CannotJudge {
         $map = EarlyKeys::recorded($following, $plan, $results);
 
-        if ($map instanceof CannotJudge) {
-            return $map;
+        $suite = $map instanceof CoverageMap ? StreamedSuites::left($following, $plan, $results, $map) : $map;
+
+        if ($suite instanceof CannotJudge) {
+            return $suite;
         }
 
         $keyed = EarlyKeys::of($following, $plan, $map);

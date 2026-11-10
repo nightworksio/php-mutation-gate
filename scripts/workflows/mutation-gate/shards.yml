@@ -62,7 +62,7 @@
           cache: ${{ inputs.cache }}
           install: composer
           judge: ${{ inputs.judge != '' && env.JUDGE || '' }}
-          watch-job: ${{ inputs.watch-job }}
+          watch-jobs: ${{ inputs.watch-jobs }}
           composer-auth: ${{ secrets.COMPOSER_AUTH }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
@@ -73,6 +73,7 @@
             .mutation-gate/results/${{ matrix.shard.id }}.attempt
             .mutation-gate/results/*.by-${{ matrix.shard.id }}.json
             .mutation-gate/results/*.recorded.json.gz
+            .mutation-gate/results/*.suite.json
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1

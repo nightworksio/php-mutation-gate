@@ -10,7 +10,7 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 $environment = static fn(string $watched): Variables => Variables::of([
-    'MUTATION_GATE_WATCH_JOB' => $watched,
+    'MUTATION_GATE_WATCH_JOBS' => $watched,
     'GITHUB_API_URL' => 'https://api.github.example',
     'GITHUB_REPOSITORY' => 'acme/shop',
     'GITHUB_RUN_ID' => '42',
@@ -29,6 +29,16 @@ it('stops once the watched job concluded in failure', function () use ($environm
     expect($watched->stopped())->toBe('The job tests and coverage failed, so this shard starts no further item.');
 });
 
+it('stops once any of the jobs it watches, one per line, concluded in failure', function () use ($environment, $jobs): void {
+    $watched = WatchedJob::of(
+        $environment("checks\n\n  rules  \nscripts\n"),
+        ArtifactService::of('runtime', 'https://results.example/', 'ghs_job'),
+        $jobs(['name' => 'checks', 'conclusion' => 'success'], ['name' => 'rules', 'conclusion' => 'failure']),
+    );
+
+    expect($watched->stopped())->toBe('The job rules failed, so this shard starts no further item.');
+});
+
 it('runs on while the watched job has not failed, another job failed, or nothing is watched or can be read', function (string $watched, array $job, bool $handed) use ($environment, $jobs): void {
     expect(WatchedJob::of(
         $environment($watched),
@@ -39,5 +49,6 @@ it('runs on while the watched job has not failed, another job failed, or nothing
     'still running' => ['tests and coverage', ['name' => 'tests and coverage', 'conclusion' => null], true],
     'another job failed' => ['tests and coverage', ['name' => 'lint', 'conclusion' => 'failure'], true],
     'nothing watched' => ['', ['name' => 'tests and coverage', 'conclusion' => 'failure'], true],
+    'only blank lines watched' => ["\n \n", ['name' => 'tests and coverage', 'conclusion' => 'failure'], true],
     'no token handed' => ['tests and coverage', ['name' => 'tests and coverage', 'conclusion' => 'failure'], false],
 ]);

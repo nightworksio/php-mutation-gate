@@ -80,6 +80,15 @@ final class Stream
     /** Whether the parent collects the lines of the current test (ADR-0135). */
     private bool $recording = false;
 
+    /** Whether the current test raised an issue: risky, or a deprecation, notice or warning. */
+    private bool $troubled = false;
+
+    /** Whether the current test runs in a process of its own, where the parent collects none of its lines. */
+    private bool $own = false;
+
+    /** @var array<string, list<int>> every line pcov reported in each file the parent's tests loaded, executed or not */
+    private array $reported = [];
+
     /** The mutant this process runs, in a child; none in the parent. */
     private string $mutant = '';
 
@@ -138,6 +147,14 @@ final class Stream
         }
     }
 
+    /** The test raised an issue: it was risky, or triggered a deprecation, a notice or a warning. */
+    public static function troubled(): void
+    {
+        if (self::$stream instanceof self) {
+            self::$stream->troubled = true;
+        }
+    }
+
     /** The test runs in a process of its own, where no fork reaches it. */
     public static function isolated(): void
     {
@@ -167,6 +184,10 @@ final class Stream
             $stream->kills->failedIn($stream->children->reaped(blocking: true));
         }
 
+        if ($stream->plan->recording !== '') {
+            file_put_contents($stream->plan->recording, StreamLine::finished($stream->reported), FILE_APPEND | LOCK_EX);
+        }
+
         SchemaSwitch::unsplit();
     }
 
@@ -175,6 +196,8 @@ final class Stream
         $this->test = $test;
         $this->started = (int) hrtime(as_number: true);
         $this->failed = false;
+        $this->troubled = false;
+        $this->own = false;
         $this->forked = [];
         $this->watching = [];
         $this->forkable = ! Descriptors::held()->shares($this->start);
@@ -187,6 +210,13 @@ final class Stream
 
     private function isolate(): void
     {
+        $this->own = true;
+
+        if ($this->recording) {
+            $own = StreamLine::covered($this->test, [], new TestEnded(passed: false, troubled: false, own: true, seconds: 0.0));
+            file_put_contents($this->plan->recording, $own, FILE_APPEND | LOCK_EX);
+        }
+
         if ($this->forkable && $this->mutant === '') {
             $this->write(StreamLine::fallback($this->test));
         }
@@ -211,8 +241,10 @@ final class Stream
         }
 
         if ($this->recording) {
-            $covered = StreamLine::covered($this->test, Recorded::stop(), $seconds);
-            file_put_contents($this->plan->recording, $covered, FILE_APPEND | LOCK_EX);
+            [$executed, $reported] = Recorded::stop($this->reported);
+            $this->reported += $reported;
+            $ended = new TestEnded(! $this->failed, $this->troubled, $this->own, $seconds);
+            file_put_contents($this->plan->recording, StreamLine::covered($this->test, $executed, $ended), FILE_APPEND | LOCK_EX);
         }
 
         foreach ($this->watching as $mutant => $watch) {

@@ -84,10 +84,10 @@ inputs:
       builds or fetches it; where empty, the default, install decides.
     required: false
     default: ''
-  watch-job:
+  watch-jobs:
     description: >-
-      The name of a job of this run a shard watches: once it concluded in failure, the shard starts no further item
-      (ADR-0135). Where empty, the default, it watches none.
+      The names of jobs of this run a shard watches, one per line: once one concluded in failure, the shard starts no
+      further item (ADR-0135). Where empty, the default, it watches none.
     required: false
     default: ''
   composer-auth:
@@ -303,12 +303,12 @@ runs:
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       env:
         SERVICE_FILE: ${{ runner.temp }}/mutation-gate-artifact-service.json
-        WATCH_JOB: ${{ inputs.watch-job }}
+        WATCH_JOBS: ${{ inputs.watch-jobs }}
       with:
         script: |
           const fs = require('fs');
           const plan = JSON.parse(fs.readFileSync('.mutation-gate/plan.json', 'utf8'));
-          const watches = process.env.WATCH_JOB !== '';
+          const watches = process.env.WATCH_JOBS.trim() !== '';
           if (watches || (plan.shards || []).some((shard) => 'worker' in shard)) {
             const service = {
               token: process.env.ACTIONS_RUNTIME_TOKEN || '',
@@ -330,7 +330,7 @@ runs:
         OPTIONS: ${{ steps.resolve.outputs.options }}
         SHARD: ${{ inputs.shard }}
         MUTATION_GATE_ARTIFACT_SERVICE: ${{ runner.temp }}/mutation-gate-artifact-service.json
-        MUTATION_GATE_WATCH_JOB: ${{ inputs.watch-job }}
+        MUTATION_GATE_WATCH_JOBS: ${{ inputs.watch-jobs }}
       run: |
         set -uo pipefail
         code=0

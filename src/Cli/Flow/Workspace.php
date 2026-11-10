@@ -33,7 +33,6 @@ final readonly class Workspace
         return Path::of(sprintf('%s/coverage', GateDirectory::root()->value()));
     }
 
-    /** The directory of the coverage map the plan hands one shard: the lines of that shard's files alone. */
     /** Where a shard's split streams record the lines each test executed, in a run planned without a fresh map. */
     public static function recording(ShardId $shard): Path
     {
@@ -46,6 +45,23 @@ final readonly class Workspace
         return Path::of(sprintf('%s/%d.recorded.json.gz', $results->value(), $shard->number()));
     }
 
+    /** Where a shard leaves how its tests ran in its streams, in a directory of results (ADR-0135). */
+    public static function streamedSuite(Path $results, ShardId $shard): Path
+    {
+        return Path::of(sprintf('%s/%d.suite.json', $results->value(), $shard->number()));
+    }
+
+    /**
+     * The directory the verdict leaves how the suite ran in a run's streams
+     * in, with the map they recorded, for a job that runs the suite to take
+     * the streamed suites from (ADR-0135).
+     */
+    public static function suite(): Path
+    {
+        return Path::of(sprintf('%s/suite', GateDirectory::root()->value()));
+    }
+
+    /** The directory of the coverage map the plan hands one shard: the lines of that shard's files alone. */
     public static function shardCoverage(ShardId $shard): Path
     {
         return Path::of(sprintf('%s/coverage/shard-%d', GateDirectory::root()->value(), $shard->number()));

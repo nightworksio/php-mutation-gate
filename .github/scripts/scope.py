@@ -20,6 +20,11 @@ Run by `what changed`. It prints the job's outputs, one `name=value` per line:
 - `hooks`: whether end-to-end's `hook managers` runs. It installs this
   checkout into another project and drives it through the hook managers, so
   it runs where the program outside the suites changed.
+- `streams`: whether a full split-stream run of the gate's own mutation can
+  start early (ADR-0135), so the early caller of the reusable workflow runs
+  and `tests and coverage` waits for it: true where `mutation-gate.json`, at
+  its top level or in any block that sets `splitStream` over it, turns split
+  streams on, shards them by tests and leaves `early` other than `never`.
 
 What each job reads (INPUTS):
 
@@ -439,6 +444,36 @@ def reaches_runner(path: str, runner: str) -> bool:
     return under(path, RUNTIME + CONTRACT_RUN) or own or contract
 
 
+def split_blocks(node: object) -> list[dict[str, object]]:
+    """Every `splitStream` object a config holds, at any depth."""
+    if isinstance(node, list):
+        return [block for item in node for block in split_blocks(item)]
+    if not isinstance(node, dict):
+        return []
+    own = [node["splitStream"]] if isinstance(node.get("splitStream"), dict) else []
+    return own + [block for key, value in node.items() if key != "splitStream" for block in split_blocks(value)]
+
+
+def streams(config: object) -> bool:
+    """Whether any context of the config lets a full split-stream run start early, each block over the top level's."""
+    top = config.get("splitStream") if isinstance(config, dict) else None
+    base = top if isinstance(top, dict) else {}
+    for block in [base, *split_blocks(config)]:
+        merged = {**base, **block}
+        if merged.get("enabled") is True and merged.get("sharding", "tests") == "tests" and merged.get("early", "no-match") != "never":
+            return True
+    return False
+
+
+def own_streams() -> str:
+    """`streams` for this checkout's `mutation-gate.json`; true where it cannot be read, which only waits longer."""
+    try:
+        config = json.loads((ROOT / "mutation-gate.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "true"
+    return str(streams(config)).lower()
+
+
 def everything() -> dict[str, str]:
     return {"jobs": json.dumps(list(GATED)), "runners": json.dumps(list(RUNNERS)), "warm": "true", "hooks": "true", "builds": "true"}
 
@@ -506,7 +541,7 @@ def main() -> int:
     paths = None if len(sys.argv) == 3 and sys.argv[2] == "--no-base" else sys.stdin.read().splitlines()
     base = os.environ.get("BASE", "")
     workflows = read_workflows(base, paths) if base != "" and paths is not None else None
-    for name, value in outputs(sys.argv[1], paths, workflows).items():
+    for name, value in {**outputs(sys.argv[1], paths, workflows), "streams": own_streams()}.items():
         print(f"{name}={value}")
     return 0
 

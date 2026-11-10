@@ -15,8 +15,9 @@ use function sprintf;
 /**
  * One line a split stream writes to its results (ADR-0117): how the parent
  * ended a test, how a child ended its mutant's test, a child it stopped at
- * its limit, or a test it forks nothing in. Each is a JSON object on a line
- * of its own, appended under a lock.
+ * its limit, or a test it forks nothing in; and in a run planned without a
+ * fresh map, a test's lines and the end of the stream. Each is a JSON object
+ * on a line of its own, appended under a lock.
  *
  * @internal
  */
@@ -40,6 +41,8 @@ final readonly class StreamLine
     public const string COVERED = 'covered';
 
     public const string STATE = 'state';
+
+    public const string FINISHED = 'finished';
 
     /** The parent ended a test: passed or not, in this many seconds. */
     public static function parent(string $test, bool $passed, float $seconds): string
@@ -98,15 +101,35 @@ final readonly class StreamLine
     }
 
     /**
-     * The lines of each source file the parent executed in a test, and the
-     * test's seconds, as a run that plans without a fresh map records them
-     * (ADR-0135).
+     * The lines of each source file the parent executed in a test, and how
+     * the test ended there, as a run that plans without a fresh map records
+     * them (ADR-0135).
      *
      * @param array<string, list<int>> $lines
      */
-    public static function covered(string $test, array $lines, float $seconds): string
+    public static function covered(string $test, array $lines, TestEnded $ended): string
     {
-        return self::line([self::KIND => self::COVERED, 't' => $test, 'l' => $lines, 's' => $seconds]);
+        return self::line([
+            self::KIND => self::COVERED,
+            't' => $test,
+            'l' => $lines,
+            's' => $ended->seconds,
+            'p' => $ended->passed,
+            'i' => $ended->troubled,
+            'o' => $ended->own,
+        ]);
+    }
+
+    /**
+     * The parent ran every test of its stream: each line pcov reported in
+     * each file its tests loaded, executed or not, which a coverage report
+     * counts as the file's executable lines.
+     *
+     * @param array<string, list<int>> $reported
+     */
+    public static function finished(array $reported): string
+    {
+        return self::line([self::KIND => self::FINISHED, 'l' => $reported]);
     }
 
     /** @param array<string, string|bool|float|int|array<string, list<int>>> $fields */

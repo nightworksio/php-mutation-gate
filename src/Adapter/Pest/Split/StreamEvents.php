@@ -25,8 +25,8 @@ use PHPUnit\Event\TestRunner\ExecutionFinishedSubscriber;
  * Tells a split stream where it stands in PHPUnit's run (ADR-0117): a test
  * begins as its preparation starts, so its hooks run within it; it fails
  * where it, or its preparation, failed or errored; it ends as it finishes;
- * a test that runs in a process of its own forks nothing; the run ends as
- * its execution finishes.
+ * a test that runs in a process of its own forks nothing; a test that
+ * raises an issue is troubled; the run ends as its execution finishes.
  *
  * @internal
  */
@@ -82,6 +82,7 @@ final readonly class StreamEvents
                     Stream::finished();
                 }
             },
+            ...StreamIssues::subscribers(),
         );
     }
 

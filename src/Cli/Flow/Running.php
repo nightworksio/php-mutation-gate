@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
 use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordedMap;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordedSuite;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\StreamedSuite;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -315,9 +317,9 @@ final readonly class Running
     }
 
     /**
-     * The map a shard's streams recorded, left beside its result where the
-     * verdict reads it, in a run planned without a fresh map (ADR-0135);
-     * nothing in any other run.
+     * The map a shard's streams recorded, and how its tests ran in them,
+     * left beside its result where the verdict reads them, in a run planned
+     * without a fresh map (ADR-0135); nothing in any other run.
      */
     private function recordedLeft(Plan $plan, ShardId $id, Path $results): void
     {
@@ -325,13 +327,19 @@ final readonly class Running
             return;
         }
 
-        $map = RecordedMap::in(Root::here()->at(Workspace::recording($id))->value(), Root::here());
+        $directory = Root::here()->at(Workspace::recording($id))->value();
+        $map = RecordedMap::in($directory, Root::here());
+        $suite = RecordedSuite::in($directory, Root::here());
 
         if ($map instanceof CoverageMap) {
             $this->adapters->project->write(
                 Workspace::recorded($results, $id),
                 Contents::of(CoverageMapFile::encode($map, Unplaced::map())),
             );
+        }
+
+        if ($suite instanceof StreamedSuite) {
+            $this->adapters->project->write(Workspace::streamedSuite($results, $id), Contents::of($suite->encoded()));
         }
     }
 

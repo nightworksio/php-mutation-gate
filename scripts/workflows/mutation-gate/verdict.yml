@@ -15,6 +15,7 @@
       actions: read
     outputs:
       verdict: ${{ steps.outputs.outputs.verdict || steps.unplanned.outputs.verdict }}
+      suite: ${{ steps.suite.outcome == 'success' }}
       scores: ${{ steps.outputs.outputs.scores }}
       delivery: ${{ steps.delivery.outputs.left }}
       attempt: ${{ github.run_attempt }}
@@ -284,6 +285,19 @@
           if [ -f "${DELIVERY}/verdict/delivery.json" ]; then
             echo "left=true" >> "${GITHUB_OUTPUT}"
           fi
+      # How the suite ran in a full early run's streams, with the map they
+      # recorded, for a job of the calling run that runs the suite to take the
+      # streamed suites from (ADR-0135 decision 8).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: suite
+        if: ${{ !cancelled() && steps.verdict.outputs.code != '' && hashFiles('.mutation-gate/suite/suite.json') != '' }}
+        with:
+          name: mutation-gate-suite
+          path: .mutation-gate/suite
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
       # The HTML report, unarchived under the name the comment's link finds it
       # by, so the link opens the page itself; deliver runs after this job.
       - name: Name the HTML report as the comment links it

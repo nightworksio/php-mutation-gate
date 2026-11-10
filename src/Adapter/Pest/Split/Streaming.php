@@ -227,7 +227,9 @@ final readonly class Streaming
     }
 
     /**
-     * One stream of a pass, started on its selecting arguments, then its test files.
+     * One stream of a pass, started on its selecting arguments, then its test
+     * files; where it records, its file of lines starts empty, so a stream
+     * that never ended its tests leaves a file that says so (ADR-0135).
      *
      * @param array<string, array<int, array{string, string, array<string, string>}>> $planned
      * @param array<string, float>                                                    $times
@@ -253,6 +255,10 @@ final readonly class Streaming
             'recording' => $this->recording === '' ? '' : sprintf(self::RECORDED, $this->recording, $pass, $at),
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+        if ($fields['recording'] !== '') {
+            file_put_contents($fields['recording'], '');
+        }
         $process = new Process(
             [PHP_BINARY, ...self::counting(), ...$this->runArguments($this->arguments), ...$files],
             env: [

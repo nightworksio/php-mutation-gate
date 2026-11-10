@@ -48,6 +48,7 @@ jobs:
       hooks: ${{ steps.diff.outputs.hooks }}
       builds: ${{ steps.diff.outputs.builds }}
       judged: ${{ steps.nightly.outputs.judged }}
+      streams: ${{ steps.diff.outputs.streams }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -367,9 +368,12 @@ jobs:
   # report is what the mutation plan's map is read from, so the suite runs once
   # for all three. It runs on pushes to main as well, because `sonar` analyses
   # main from its report.
+  # Where a full early run's streams ran the judging suites (ADR-0135
+  # decision 8), it takes those suites from them and runs only the rest; in
+  # any other run, or where the streams cannot stand in, the whole suite.
   tests:
     name: tests and coverage
-    needs: scope
+    needs: [scope, mutation-early]
     if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'tests')) }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
@@ -384,10 +388,17 @@ jobs:
           # The zstd extension, so the ledger's zstd is covered both through it and through the program (ADR-0085).
           extensions: zstd
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: ${{ needs.mutation-early.outputs.suite == 'true' }}
+        with:
+          name: mutation-gate-suite
+          path: .mutation-gate/streamed
       # Pest's --coverage writes its PHP report to its own path and deletes it
       # once it has printed the summary, so that path is linked to the one
       # the gate's map is read from, which keeps the report.
       - id: suite
+        env:
+          STREAMED: ${{ needs.mutation-early.outputs.suite == 'true' && '.mutation-gate/streamed' || '' }}
         run: |
           set -euo pipefail
           report=$(php -r 'require "vendor/autoload.php"; echo \Pest\Support\Coverage::getPath();')
@@ -803,12 +814,14 @@ jobs:
   # plan measures its own map if it needs one. Its jobs run on Arm, where three
   # of its shards gave the same verdicts in 29% less time (ADR-0035).
   # ADR-0135: a full split-stream run that takes no proof plans without the
-  # map `tests` writes, so it starts beside that job and stops between items
-  # once it failed; where a run cannot start so, this caller plans nothing
-  # and `mutation` runs it with the fresh map.
+  # map `tests` writes. Where the config lets one start early (`streams`),
+  # this caller runs at once, beside the fast gates, and its shards stop
+  # between items once one of them failed; where a run cannot start so, it
+  # plans nothing and `mutation` runs it with the fresh map. Where the config
+  # lets none start early it is skipped, and `tests` waits for nothing.
   mutation-early:
-    needs: [scope, checks, rules, scripts]
-    if: ${{ !cancelled() && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' && needs.scope.outputs.judged != 'true' }}
+    needs: [scope]
+    if: ${{ !cancelled() && needs.scope.outputs.streams == 'true' && needs.scope.outputs.judged != 'true' }}
     permissions:
       contents: write # used only by publish, on the default branch, which writes the badge and the trend
       actions: read # used only by verdict and deliver, to find the run's HTML report the comment links
@@ -817,7 +830,10 @@ jobs:
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
     with:
       early-only: true
-      watch-job: tests and coverage
+      watch-jobs: |
+        checks
+        rules
+        scripts
       # The zstd extension, so the ledger's zstd is mutated through it as the tests cover it (ADR-0085).
       extensions: zstd
       # On a pull request, main's build at the commit the change branched from judges, so a change to the runner
@@ -835,7 +851,7 @@ jobs:
 
   mutation:
     needs: [scope, tests, checks, rules, scripts, mutation-early]
-    if: ${{ !cancelled() && needs.mutation-early.outputs.waits == 'true' && needs.tests.result != 'failure' && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' && needs.scope.outputs.judged != 'true' }}
+    if: ${{ !cancelled() && (needs.mutation-early.result == 'skipped' || needs.mutation-early.outputs.waits == 'true') && needs.tests.result != 'failure' && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' && needs.scope.outputs.judged != 'true' }}
     permissions:
       contents: write # used only by publish, on the default branch, which writes the badge and the trend
       actions: read # used only by verdict and deliver, to find the run's HTML report the comment links
@@ -865,8 +881,8 @@ jobs:
   # (ADR-0135). A skipped caller's own verdict check is required by nothing.
   mutation-verdict:
     name: mutation verdict
-    needs: [mutation-early, mutation]
-    if: ${{ !cancelled() && needs.mutation-early.result != 'skipped' }}
+    needs: [scope, mutation-early, mutation]
+    if: ${{ !cancelled() && needs.scope.outputs.judged != 'true' }}
     runs-on: ubuntu-latest
     permissions: {}
     timeout-minutes: 5
@@ -876,12 +892,13 @@ jobs:
           persist-credentials: false
       - name: Pass only where the caller that ran passed
         env:
+          RAN_EARLY: ${{ needs.mutation-early.result }}
           WAITS: ${{ needs.mutation-early.outputs.waits }}
           EARLY: ${{ needs.mutation-early.outputs.verdict }}
           LATE: ${{ needs.mutation.outputs.verdict }}
         run: |
           set -euo pipefail
-          if [ "${WAITS}" = "true" ]; then verdict="${LATE}"; else verdict="${EARLY}"; fi
+          if [ "${RAN_EARLY}" = "skipped" ] || [ "${WAITS}" = "true" ]; then verdict="${LATE}"; else verdict="${EARLY}"; fi
           echo "The mutation verdict is ${verdict:-missing}."
           [ "${verdict}" = "passed" ]
       - name: what failed

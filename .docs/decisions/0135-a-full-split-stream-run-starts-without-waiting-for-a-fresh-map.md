@@ -76,27 +76,48 @@ verdict: 17 to 22 minutes, of which the tests job is 4.5.
    with every line the recorded map shows the suite covering, and a held unit
    they miss lines of fails the verdict, as today.
 5. **A shard stops between items once a named job has failed.** The reusable
-   workflow takes `watch-job`, the name of a job of the calling run, empty by
-   default. Where it is set, a shard reads that job's conclusion through the
-   REST API before each item, and stops, leaving the items it did not start
-   without a result, once the job concluded in failure. The shard job asks
-   for `actions: read` to do so, a permission that only reads.
-6. **The gate's own CI starts mutation early on such runs.** Its `mutation`
-   job needs `tests`; a second caller of the reusable workflow, needing only
-   `what changed`, plans with no map, `early-only: true` and `watch-job:
-   tests and coverage`, and the caller that needs `tests` runs only where
-   the early plan planned nothing. A job of `ci.yml` of its own, `mutation
-   verdict`, needs both callers and passes only where the caller that ran
-   passed its verdict. It is the one check `main` requires, and the gate's
-   config names it in `ci.check`, so `passed`, `lastRun` and the trust of
-   merged pull requests read one name whichever caller ran (ADR-0005,
+   workflow takes `watch-jobs`, the names of jobs of the calling run, one per
+   line, empty by default. Where it is set, a shard reads their conclusions
+   through the REST API before each item, and stops, leaving the items it
+   did not start without a result, once one concluded in failure. The shard
+   job asks for `actions: read` to do so, a permission that only reads.
+6. **The gate's own CI starts mutation early on such runs.** `what changed`
+   outputs `streams`, true where `mutation-gate.json` lets a full
+   split-stream run start early in any of its contexts. Only then does a
+   second caller of the reusable workflow run: needing only `what changed`,
+   it plans with no map, `early-only: true` and `watch-jobs` naming
+   `checks`, `rules` and `scripts`, so an early run that a fast gate fails
+   stops between items. The caller that hands `tests`' map runs where that
+   caller was skipped or planned nothing. A job of `ci.yml` of its own,
+   `mutation verdict`, needs both callers and passes only where the caller
+   that ran passed its verdict. It is the one check `main` requires, and the
+   gate's config names it in `ci.check`, so `passed`, `lastRun` and the trust
+   of merged pull requests read one name whichever caller ran (ADR-0005,
    ADR-0007). A skipped caller's own verdict check is required by nothing.
 7. **For a project, the reusable workflow does the same alone.** Its plan job
    runs the suite under coverage itself where no map is handed, so on an
-   early run it skips that run; a project's own test job is what `watch-job`
-   names.
-8. `splitStream.early` decides how the gate runs and is in no key; the
-   inputs `early-only` and `watch-job` are the reusable workflow's.
+   early run it skips that run; a project's own test job is what
+   `watch-jobs` names.
+8. **On a full early run, the streams stand in for the suite's own run.**
+   Each stream parent records, beside each test's lines, whether the test
+   passed, whether it raised an issue (risky, or a deprecation, error, notice
+   or warning from PHP, the code or PHPUnit), and whether it ran in a
+   process of its own; once it ran every test of its stream it records every
+   line pcov reported in each file its tests loaded, executed or not, which
+   a coverage report counts as executable. Each recording file starts empty,
+   so a stream that stopped short leaves one that says so. Each shard leaves
+   `<shard>.suite.json` beside its recorded map, and the verdict merges them
+   into `.mutation-gate/suite/`, with the merged map and the judging suites,
+   which the reusable workflow uploads as `mutation-gate-suite` and reports
+   in its output `suite`. In the gate's own CI, `tests and coverage` needs
+   the early caller: where every stream ran each of its tests, each passed
+   with no issue and none ran in a process of its own, it runs only the
+   suites the streams did not, merges the streams' lines into that run's
+   report and holds the whole to its floor; anything short of that, the
+   floor included, runs the whole suite as before. The streams never fail
+   the job: a failure is always the suite's own run's.
+9. `splitStream.early` decides how the gate runs and is in no key; the
+   inputs `early-only` and `watch-jobs` are the reusable workflow's.
 
 ### Settings
 
@@ -104,7 +125,7 @@ verdict: 17 to 22 minutes, of which the tests job is 4.5.
 |---|---|---|---|
 | `splitStream.early` | `no-match`, `always`, `unproven-only`, `never` | `no-match` | decides how the gate runs |
 | reusable-workflow input `early-only` | `true`, `false` | `false` | the caller's |
-| reusable-workflow input `watch-job` | a job's name | empty | the caller's |
+| reusable-workflow input `watch-jobs` | job names, one per line | empty | the caller's |
 
 ### Why no verdict moves
 

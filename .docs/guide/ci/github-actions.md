@@ -191,9 +191,11 @@ download may take before it is tried once again, each in minutes,
 the plan sets up, `publish-branch` (`mutation-gate`), where publish writes
 the badge and trend, `early-only` (`false`), with which the plan plans
 nothing, and says why, where a full split-stream run cannot start without a
-fresh map, and `watch-job` (empty), the name of a job of the calling run
-whose failure stops each shard before its next item (ADR-0135). Its outputs are
-`verdict`, `scores` and `plan`, and it uploads the reports as the artifact
+fresh map, and `watch-jobs` (empty), the names of jobs of the calling run,
+one per line, whose failure stops each shard before its next item
+(ADR-0135). Its outputs are `verdict`, `scores`, `plan` and `suite`, true
+where a full early run's streams left how the suite ran in them as the
+artifact `mutation-gate-suite`, and it uploads the reports as the artifact
 `mutation-gate-reports`.
 
 A project whose dependencies come from a private Composer repository passes

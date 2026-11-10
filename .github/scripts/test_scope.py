@@ -429,5 +429,31 @@ MACOS_JOB = """  # The suite on macOS, the other platform the gate supports for 
 """
 
 
+
+class Streams(unittest.TestCase):
+    def test_streams_where_a_context_lets_a_full_run_start_early(self):
+        for config in (
+            {"splitStream": {"enabled": True}},
+            {"splitStream": {"enabled": True, "sharding": "tests", "early": "always"}},
+            {"splitStream": {"sharding": "tests"}, "contexts": {"main": {"splitStream": {"enabled": True}}}},
+            {"contexts": {"pr": {"splitStream": {"enabled": True, "early": "unproven-only"}}}},
+        ):
+            self.assertTrue(scope.streams(config), config)
+
+    def test_no_streams_where_none_can_start_early(self):
+        for config in (
+            {},
+            [],
+            {"splitStream": {"enabled": False}},
+            {"splitStream": {"enabled": True, "sharding": "source"}},
+            {"splitStream": {"enabled": True, "early": "never"}},
+            {"splitStream": {"enabled": True, "early": "never"}, "contexts": {"main": {"splitStream": {"children": 2}}}},
+        ):
+            self.assertFalse(scope.streams(config), config)
+
+    def test_the_own_config_is_read_or_streams_to_be_safe(self):
+        self.assertIn(scope.own_streams(), ("true", "false"))
+
+
 if __name__ == "__main__":
     unittest.main()
