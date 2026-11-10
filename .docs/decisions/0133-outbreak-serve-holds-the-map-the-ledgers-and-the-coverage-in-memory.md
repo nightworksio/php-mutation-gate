@@ -113,12 +113,20 @@ fallback.
    them (ADR-0146 decision 8); `watch` prints one block per unit as its
    results land and the whole report only for `watch --report`.
 10. **`outbreak lsp` brings the survivors to the editor.** It speaks the
-    Language Server Protocol on stdio as a client of the daemon: each
-    survivor is a `textDocument/publishDiagnostics` warning on its mutated
-    range, its code actions show the diff, `stub` (ADR-0015) and `explain`,
-    and files the editor reports through `workspace/didChangeWatchedFiles`
-    count as changes. The problem matcher of `watch --output=problems`
-    stays.
+    Language Server Protocol on stdio. Once the editor initialized it, it
+    starts `mutation-gate watch --output=events` in the workspace's root, a
+    client of the daemon as every `watch` is, and shows each survivor that
+    tells of as a `textDocument/publishDiagnostics` diagnostic over the whole
+    line its site starts on, coded with the mutant's id, a warning unless
+    `--severity` says otherwise. A survivor stands until a later event of the
+    same mutant judges it killed, timed out or equivalent; an event of a
+    later digest of its unit leaves it standing, said to be judged against
+    an earlier version of the file. Its code actions run `explain`, which
+    shows the diff, and `stub` and `stub --write` (ADR-0015) for that id.
+    The daemon watches the files (decision 7), so the server asks the editor
+    for no file events. `mutation-gate lsp` starts it with the binary in
+    use, the gate's own script and PHP, and hands `watch` every other option
+    it was given. The problem matcher of `watch --output=problems` stays.
 11. **Windows gets everything that needs no fork.** Where `pcntl` is
     missing, the daemon keeps `local.workers` PHP workers booted up to the
     point a fork would come, each running one mutant's run and exiting,

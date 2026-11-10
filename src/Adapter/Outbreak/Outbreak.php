@@ -91,8 +91,17 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
     /** The option `outbreak serve` takes the seconds the changes it watches settle for with. */
     private const string DEBOUNCE = '--debounce';
 
-    /** What separates `outbreak serve`'s options from the child's command line. */
+    /** What separates `outbreak serve`'s options from the child's command line, and `outbreak lsp`'s from `watch`'s. */
     private const string CHILD = '--';
+
+    /** The option `outbreak lsp` takes the gate's script with. */
+    private const string GATE = '--gate';
+
+    /** The option `outbreak lsp` takes the PHP that runs the gate with. */
+    private const string PHP = '--php';
+
+    /** The option `outbreak lsp` takes how the editor shows a survivor with. */
+    private const string SEVERITY = '--severity';
 
     private function __construct(
         private string|NotGiven $binary,
@@ -265,6 +274,32 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             self::DEBOUNCE,
             sprintf('%F', $serve->debounce()->seconds()),
             self::CHILD,
+        ];
+    }
+
+    /**
+     * The command line of `outbreak lsp` (ADR-0133 decision 10), serving an
+     * editor the survivors this gate's script, run by this PHP, tells of in
+     * `watch` with these options, shown at this severity; none where no
+     * binary is in use.
+     *
+     * @param list<string> $watching
+     *
+     * @return list<string>|NotGiven
+     */
+    public function editing(string $script, string $php, string $severity, array $watching): array|NotGiven
+    {
+        return $this->binary instanceof NotGiven ? NotGiven::value() : [
+            $this->binary,
+            ...Command::Lsp->words(),
+            self::GATE,
+            $script,
+            self::PHP,
+            $php,
+            self::SEVERITY,
+            $severity,
+            self::CHILD,
+            ...$watching,
         ];
     }
 

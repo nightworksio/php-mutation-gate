@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\ExplainCommand;
 use NightWorksIO\MutationGate\Cli\Command\HookCommand;
 use NightWorksIO\MutationGate\Cli\Command\Init;
+use NightWorksIO\MutationGate\Cli\Command\LspCommand;
 use NightWorksIO\MutationGate\Cli\Command\MigrateCommand;
 use NightWorksIO\MutationGate\Cli\Command\MutatorsCommand;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
@@ -158,6 +159,7 @@ final readonly class Console
         $application->addCommand(WatchCommand::command($composition, Waiting::between(...)));
         $application->addCommand(ServeCommand::command($composition, $project, $vendor, $forking));
         $application->servedBy(new Serving($composition, $project, self::script()));
+        $application->addCommand(LspCommand::command($composition, self::script()));
         $application->addCommand(ReproduceCommand::command($composition));
         $application->addCommand(SurvivorsCommand::command($composition));
         $application->addCommand(ExplainCommand::command($composition));

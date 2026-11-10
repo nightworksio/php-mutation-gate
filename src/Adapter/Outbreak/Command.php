@@ -16,7 +16,8 @@ use function explode;
  * names from their store, and `cache push`, which merges a verdict's
  * entries into their class's pack (ADR-0131); and `graph reach`, which
  * answers what the static graph a request on its input asks (ADR-0132);
- * and `serve`, the daemon that holds the project's state (ADR-0133).
+ * `serve`, the daemon that holds the project's state (ADR-0133); and `lsp`,
+ * the language server that shows an editor the survivors `watch` tells of.
  *
  * @internal
  */
@@ -31,6 +32,7 @@ enum Command: string
     case Push = 'cache push';
     case Graph = 'graph reach';
     case Serve = 'serve';
+    case Lsp = 'lsp';
 
     /** @return non-empty-list<string> the binary's arguments */
     public function words(): array
