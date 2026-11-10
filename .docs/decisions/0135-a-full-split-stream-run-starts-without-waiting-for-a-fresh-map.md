@@ -77,10 +77,14 @@ verdict: 17 to 22 minutes, of which the tests job is 4.5.
    they miss lines of fails the verdict, as today.
 5. **A shard stops between items once a named job has failed.** The reusable
    workflow takes `watch-jobs`, the names of jobs of the calling run, one per
-   line, empty by default. Where it is set, a shard reads their conclusions
-   through the REST API before each item, and stops, leaving the items it
-   did not start without a result, once one concluded in failure. The shard
-   job asks for `actions: read` to do so, a permission that only reads.
+   line, empty by default. Where it is set, a `watch` job of the reusable
+   workflow, which runs none of the project's code and alone holds
+   `actions: read`, reads their conclusions through the REST API, and once
+   one concluded in failure leaves an artifact named for the attempt and
+   that job. A shard lists the run's artifacts with its runtime token before
+   each item, and stops, leaving the items it did not start without a
+   result, once that artifact is there. The shard job holds no token of its
+   own.
 6. **The gate's own CI starts mutation early on such runs.** `what changed`
    outputs `streams`, true where `mutation-gate.json` lets a full
    split-stream run start early in any of its contexts. Only then does a

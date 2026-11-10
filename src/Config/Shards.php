@@ -140,18 +140,6 @@ final readonly class Shards implements Setting
         return new self(Json::at('shards.pull', 'off'));
     }
 
-    /** `shards.lastJudges`: the shard that finishes the last item computes the verdict. */
-    public static function lastJudging(): self
-    {
-        return new self(Json::at('shards.lastJudges', value: true));
-    }
-
-    /** `shards.lastJudges` off, as by default: the verdict job computes the verdict. */
-    public static function verdictJobJudging(): self
-    {
-        return new self(Json::at('shards.lastJudges', value: false));
-    }
-
     public function written(): Json
     {
         return $this->json;

@@ -113,7 +113,7 @@ final readonly class Shards implements Part
             Planning::standard(),
             Outbreak::of(),
             $none->jobLimit(),
-            Pulling::of($none->pulling()->pull(), $none->pulling()->lastJudges()),
+            Pulling::of($none->pulling()->pull()),
         );
     }
 
@@ -188,7 +188,7 @@ final readonly class Shards implements Part
     }
 
     /** `shards.jobLimit`: how long a shard's job can run: it is cut to fit it, and stops at it with what it judged. */
-    /** `shards.pull` and `shards.lastJudges` (ADR-0134). */
+    /** `shards.pull` (ADR-0134). */
     public function pulling(): Pulling
     {
         return $this->pulling;

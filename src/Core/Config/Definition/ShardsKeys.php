@@ -39,7 +39,6 @@ final readonly class ShardsKeys
         $cutAt = Field::optional('cutAt', Number::atLeast(0), $judges);
         $jobLimit = Field::optional('jobLimit', Duration::written(), $judges);
         $pull = Field::optional(Pulling::PULL, Enumerated::of(ShardPull::cases()), $judges);
-        $lastJudges = Field::optional(Pulling::LAST_JUDGES, Flag::boolean(), $judges);
         $perLine = Field::optional(SecondsPerLine::KEY, NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
         $perMinute = Field::optional('perRunnerMinute', self::price(), $judges);
         $window = Field::optional(SavingsWindow::KEY, Duration::written(), $judges);
@@ -61,7 +60,6 @@ final readonly class ShardsKeys
                         $cutAt,
                         $jobLimit,
                         $pull,
-                        $lastJudges,
                     ): Layer|Invalid {
                         $cut = $seconds->read($shards);
                         $most = $max->read($shards);
@@ -71,7 +69,6 @@ final readonly class ShardsKeys
                         $cuts = $cutAt->read($shards);
                         $limit = $jobLimit->read($shards);
                         $pulled = $pull->read($shards);
-                        $last = $lastJudges->read($shards);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
@@ -82,7 +79,7 @@ final readonly class ShardsKeys
                                 learnedFrom: $statistic->value(),
                                 planning: Planning::of(cutAt: $cuts->value()),
                                 jobLimit: $limit->value(),
-                                pulling: Pulling::of($pulled->value(), $last->value()),
+                                pulling: Pulling::of($pulled->value()),
                             )),
                             $cut,
                             $most,
@@ -92,7 +89,6 @@ final readonly class ShardsKeys
                             $cuts,
                             $limit,
                             $pulled,
-                            $last,
                         );
                     },
                     $seconds,
@@ -103,7 +99,6 @@ final readonly class ShardsKeys
                     $cutAt,
                     $jobLimit,
                     $pull,
-                    $lastJudges,
                 )->atMostOne(['seconds', 'target']),
             ),
             Field::section('plan', self::plan()),

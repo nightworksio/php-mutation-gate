@@ -6,49 +6,50 @@ use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
 use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use Symfony\Component\HttpClient\MockHttpClient;
-use Symfony\Component\HttpClient\Response\MockResponse;
+use NightWorksIO\MutationGate\Tests\Support\Cloud;
+
+const WATCHED_LIST = 'https://results.example/twirp/github.actions.results.api.v1.ArtifactService/ListArtifacts';
 
 $environment = static fn(string $watched): Variables => Variables::of([
     'MUTATION_GATE_WATCH_JOBS' => $watched,
-    'GITHUB_API_URL' => 'https://api.github.example',
-    'GITHUB_REPOSITORY' => 'acme/shop',
-    'GITHUB_RUN_ID' => '42',
-    'GITHUB_RUN_ATTEMPT' => '1',
+    'GITHUB_RUN_ATTEMPT' => '2',
 ]);
 
-$jobs = static fn(array ...$jobs): MockHttpClient => new MockHttpClient(new MockResponse(json_encode(['jobs' => $jobs], JSON_THROW_ON_ERROR)));
+$service = static fn(): ArtifactService => ArtifactService::of(sprintf(
+    'header.%s.signature',
+    rtrim(strtr(base64_encode(json_encode(['scp' => 'Actions.Results:run-1:job-7'], JSON_THROW_ON_ERROR)), '+/', '-_'), '='),
+), 'https://results.example/');
 
-it('stops once the watched job concluded in failure', function () use ($environment, $jobs): void {
-    $watched = WatchedJob::of(
-        $environment('tests and coverage'),
-        ArtifactService::of('runtime', 'https://results.example/', 'ghs_job'),
-        $jobs(['name' => 'tests and coverage', 'conclusion' => 'failure'], ['name' => 'lint', 'conclusion' => 'success']),
-    );
+$listing = static fn(string ...$names): Cloud => new Cloud()->answering(
+    WATCHED_LIST,
+    200,
+    json_encode(['artifacts' => array_map(static fn(string $name): array => ['name' => $name], $names)], JSON_THROW_ON_ERROR),
+);
 
-    expect($watched->stopped())->toBe('The job tests and coverage failed, so this shard starts no further item.');
+it('stops once the watch job left the artifact of a failed job for this attempt', function () use ($environment, $service, $listing): void {
+    $cloud = $listing('mutation-gate-result-2-1', 'mutation-gate-stopped-2-tests and coverage');
+
+    expect(WatchedJob::of($environment('tests and coverage'), $service(), $cloud->exchange())->stopped())
+        ->toBe('The job tests and coverage failed, so this shard starts no further item.')
+        ->and($cloud->requests[0]['body'])->toBe('{"workflow_run_backend_id":"run-1","workflow_job_run_backend_id":"job-7"}');
 });
 
-it('stops once any of the jobs it watches, one per line, concluded in failure', function () use ($environment, $jobs): void {
-    $watched = WatchedJob::of(
-        $environment("checks\n\n  rules  \nscripts\n"),
-        ArtifactService::of('runtime', 'https://results.example/', 'ghs_job'),
-        $jobs(['name' => 'checks', 'conclusion' => 'success'], ['name' => 'rules', 'conclusion' => 'failure']),
-    );
+it('runs on while no artifact names a failed job of this attempt, nothing is watched, or nothing can be listed', function (string $watched, array $names, bool $handed) use ($environment, $service, $listing): void {
+    $cloud = $listing(...$names);
 
-    expect($watched->stopped())->toBe('The job rules failed, so this shard starts no further item.');
-});
-
-it('runs on while the watched job has not failed, another job failed, or nothing is watched or can be read', function (string $watched, array $job, bool $handed) use ($environment, $jobs): void {
-    expect(WatchedJob::of(
-        $environment($watched),
-        $handed ? ArtifactService::of('runtime', 'https://results.example/', 'ghs_job') : NotGiven::value(),
-        $jobs($job),
-    )->stopped())->toBe('');
+    expect(WatchedJob::of($environment($watched), $handed ? $service() : NotGiven::value(), $cloud->exchange())->stopped())
+        ->toBe('')
+        ->and($cloud->requests)->toHaveCount($watched === 'checks' && $handed ? 1 : 0);
 })->with([
-    'still running' => ['tests and coverage', ['name' => 'tests and coverage', 'conclusion' => null], true],
-    'another job failed' => ['tests and coverage', ['name' => 'lint', 'conclusion' => 'failure'], true],
-    'nothing watched' => ['', ['name' => 'tests and coverage', 'conclusion' => 'failure'], true],
-    'only blank lines watched' => ["\n \n", ['name' => 'tests and coverage', 'conclusion' => 'failure'], true],
-    'no token handed' => ['tests and coverage', ['name' => 'tests and coverage', 'conclusion' => 'failure'], false],
+    'no failure' => ['checks', ['mutation-gate-result-2-1'], true],
+    'an earlier attempt failed' => ['checks', ['mutation-gate-stopped-1-checks'], true],
+    'nothing watched' => ['', ['mutation-gate-stopped-2-checks'], true],
+    'only blank lines watched' => ["\n \n", ['mutation-gate-stopped-2-checks'], true],
+    'no service handed' => ['checks', ['mutation-gate-stopped-2-checks'], false],
 ]);
+
+it('runs on where the service refuses the list', function () use ($environment, $service): void {
+    $cloud = new Cloud()->answering(WATCHED_LIST, 500, '');
+
+    expect(WatchedJob::of($environment('checks'), $service(), $cloud->exchange())->stopped())->toBe('');
+});

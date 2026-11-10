@@ -42,6 +42,10 @@ Usage:
                            logs, ERRORS, one file a job, and the results,
                            RESULTS: writes how each shard job that left no
                            result ended beside where its result would be
+  gate_action.py watch     reads the run's jobs, JOBS, until one WATCH_JOBS names
+                           concluded in failure, naming it as `stopped` in
+                           what an artifact's name may hold, or until none of
+                           them can fail any more (ADR-0135)
   gate_action.py keep      copies the ledger and the coverage map the verdict
                            left in FROM into OWN, the scope's directory the
                            Actions cache keeps, and names the `key` they are
@@ -66,6 +70,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 
 # Each value below that the gate also holds is tied to the gate's own by
@@ -155,6 +160,17 @@ JUDGE_RELEASE = "release"
 JUDGE_OWN_HISTORY = (JUDGE_MERGE_BASE,)
 
 # The script a commit of the gate holds where it builds a judge.
+# What a job's conclusion and status are once it failed and once it ended.
+FAILURE = "failure"
+COMPLETED = "completed"
+
+# What an artifact's name may not hold, which a failed job's name is written without.
+ARTIFACT_UNSAFE = re.compile(r'[":<>|*?\\/\r\n]')
+
+# How often `watch` reads the run's jobs, and how long it waits for a watched job the run does not list.
+WATCH_EVERY_SECONDS = 15
+WATCH_UNLISTED_SECONDS = 300
+
 JUDGE_BUILD = "scripts/judge/scope.py"
 
 # How the resolve step names a judge's PHAR as the gate that runs.
@@ -575,9 +591,25 @@ def fail_fast(config: dict) -> str:
     return (config.get("run") or {}).get("failFast") or MARK
 
 
-def last_judges(config: dict) -> bool:
-    """Whether the job that finishes the last item of a pulling plan computes the verdict: `shards.lastJudges`."""
-    return (config.get("shards") or {}).get("lastJudges") is True
+def watched_names(text: str) -> list[str]:
+    """The jobs `watch-jobs` names, one per line, blank lines left out."""
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def watched_failure(jobs: list[dict], names: list[str]) -> str:
+    """The first watched job that concluded in failure, in what an artifact's name may hold; none where none did."""
+    failed = next(
+        (job.get("name", "") for job in jobs if job.get("name") in names and job.get("conclusion") == FAILURE), ""
+    )
+    return ARTIFACT_UNSAFE.sub("-", failed)
+
+
+def watch_settled(jobs: list[dict], names: list[str], unlisted_waited: bool) -> bool:
+    """Whether no watched job can still fail: each one listed completed, and each is listed or the wait for it
+    is over."""
+    listed = [job for job in jobs if job.get("name") in names]
+    every = {job.get("name") for job in listed} >= set(names)
+    return all(job.get("status") == COMPLETED for job in listed) and (every or unlisted_waited)
 
 
 def cache_store(config: dict) -> str:
@@ -652,7 +684,7 @@ def endings(jobs: list, errors: dict[int, str]) -> dict[str, dict]:
     failed = sorted(
         (str(job.get("completed_at", "")), number)
         for number, job in runs.items()
-        if job.get("conclusion") == "failure"
+        if job.get("conclusion") == FAILURE
     )
     ended = {}
     for number, job in runs.items():
@@ -760,6 +792,7 @@ def main(argv: list[str]) -> int:
         "keep": _keep,
         "run-times": _run_times,
         "merged-records": _merged_records,
+        "watch": _watch,
     }
     if len(argv) == 2 and argv[1] == "stale":
         return _stale()
@@ -774,6 +807,24 @@ def main(argv: list[str]) -> int:
         print(f"::error::{refused}", file=sys.stderr)
         return 2
     return 0
+
+
+def _watch() -> dict[str, str]:
+    names = watched_names(os.environ.get("WATCH_JOBS", ""))
+    started = time.monotonic()
+    while names:
+        listed = _ran(
+            ["gh", "api", "--paginate", f"{os.environ['JOBS']}?per_page=100", "--jq", ".jobs[]"],
+            "The run's jobs could not be listed",
+        )
+        jobs = [json.loads(line) for line in listed.splitlines() if line.strip()]
+        failed = watched_failure(jobs, names)
+        if failed:
+            return {"stopped": failed}
+        if watch_settled(jobs, names, time.monotonic() - started > WATCH_UNLISTED_SECONDS):
+            break
+        time.sleep(WATCH_EVERY_SECONDS)
+    return {}
 
 
 def _guard() -> dict[str, str]:
@@ -929,7 +980,6 @@ def _config() -> dict[str, str]:
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
         "fail_fast": fail_fast(config),
-        "last_judges": "true" if last_judges(config) else "false",
         "cache_store": cache_store(config),
         "action_reports": json.dumps(action_reports(config)),
     }

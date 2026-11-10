@@ -50,7 +50,6 @@ DOWNLOADS = (
     ("mutation-gate-coverage-", "coverage", "the plan's coverage maps"),
     ("mutation-gate-result-", "results", "the shards' results"),
     ("mutation-gate-publish-", "publish", "what the verdict publishes"),
-    ("mutation-gate-verdict-", "verdict", "the verdict the last shard computed"),
 )
 
 

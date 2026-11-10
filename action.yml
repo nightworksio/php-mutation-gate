@@ -313,7 +313,6 @@ runs:
             const service = {
               token: process.env.ACTIONS_RUNTIME_TOKEN || '',
               url: process.env.ACTIONS_RESULTS_URL || '',
-              github: watches ? core.getInput('github-token') : '',
             };
             fs.writeFileSync(process.env.SERVICE_FILE, JSON.stringify(service), { mode: 0o600, flag: 'w' });
             fs.chmodSync(process.env.SERVICE_FILE, 0o600);

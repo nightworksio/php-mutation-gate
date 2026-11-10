@@ -170,7 +170,11 @@ final readonly class Running
             return $this->pulled($followed, $id, $results, $deadline, $service);
         }
 
-        $stopped = WatchedJob::of($this->adapters->environment, $service, HttpClient::create())->stopped();
+        $stopped = WatchedJob::of(
+            $this->adapters->environment,
+            $service,
+            HttpExchange::over(HttpClient::create()),
+        )->stopped();
 
         $result = match (true) {
             $followed instanceof CannotJudge => $followed,
@@ -249,7 +253,7 @@ final readonly class Running
         );
         $queue = PullQueue::of($plan, $job);
         $left = ShardsLeft::none($job);
-        $watched = WatchedJob::of($this->adapters->environment, $service, HttpClient::create());
+        $watched = WatchedJob::of($this->adapters->environment, $service, HttpExchange::over(HttpClient::create()));
 
         if ($claims instanceof CannotJudge) {
             [$queue, $left] = [$queue->ownAlone(), $left->alone($claims)];

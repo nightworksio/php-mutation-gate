@@ -444,15 +444,32 @@ class InfectionPatch(unittest.TestCase):
         self.assertEqual(action.action_reports({"outputs": {"actionReports": []}}), [])
         self.assertEqual(action.action_reports({"outputs": {"verdictOnly": True}}), [])
 
+    def test_names_each_watched_job_once_a_line_and_leaves_blank_lines_out(self):
+        self.assertEqual(action.watched_names("checks\n\n  rules  \nscripts\n"), ["checks", "rules", "scripts"])
+        self.assertEqual(action.watched_names("\n \n"), [])
+
+    def test_names_the_first_watched_job_that_failed_in_what_an_artifact_s_name_may_hold(self):
+        jobs = [
+            {"name": "lint", "conclusion": "failure"},
+            {"name": "checks", "conclusion": "success"},
+            {"name": "tests: unit/php", "conclusion": "failure"},
+        ]
+
+        self.assertEqual(action.watched_failure(jobs, ["checks", "tests: unit/php"]), "tests- unit-php")
+        self.assertEqual(action.watched_failure(jobs, ["checks"]), "")
+
+    def test_watches_until_every_watched_job_ended_and_waits_a_while_for_one_the_run_does_not_list(self):
+        jobs = [{"name": "checks", "status": "completed"}, {"name": "rules", "status": "in_progress"}]
+
+        self.assertFalse(action.watch_settled(jobs, ["checks", "rules"], unlisted_waited=True))
+        self.assertTrue(action.watch_settled(jobs, ["checks"], unlisted_waited=False))
+        self.assertFalse(action.watch_settled(jobs, ["checks", "scripts"], unlisted_waited=False))
+        self.assertTrue(action.watch_settled(jobs, ["checks", "scripts"], unlisted_waited=True))
+
     def test_reads_what_a_doomed_shard_does_and_marks_where_the_config_names_nothing(self):
         self.assertEqual(action.fail_fast({"run": {"failFast": "cancel"}}), "cancel")
         self.assertEqual(action.fail_fast({"run": {"full": True}}), "mark")
         self.assertEqual(action.fail_fast({}), "mark")
-
-    def test_reads_whether_the_last_job_judges_and_leaves_the_verdict_to_its_job_where_the_config_names_nothing(self):
-        self.assertTrue(action.last_judges({"shards": {"lastJudges": True}}))
-        self.assertFalse(action.last_judges({"shards": {"lastJudges": False}}))
-        self.assertFalse(action.last_judges({}))
 
     def test_patches_where_the_config_runs_infection(self):
         self.assertTrue(action.patches_infection({"runner": {"use": "infection", "memory": "1G"}}))

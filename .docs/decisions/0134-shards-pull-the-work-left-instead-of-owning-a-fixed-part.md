@@ -82,27 +82,20 @@ them is not documented.
    reusable workflow hands the gate's step the token every `upload-artifact`
    step uses, through a step of the gate's own action that exposes it. The
    shard job asks for no new permission.
-8. **The verdict's compute may run in the shard that finishes the last
-   item.** `shards.lastJudges`, a boolean, has that shard compute the verdict
-   and upload it, where no survivors job (ADR-0106) is still running; the
-   verdict job then downloads it and reports it as the check, and computes
-   it itself where none was uploaded. It is `false` by default. The verdict
-   job stays the check a branch protects, since GitHub passes a required
-   check that was skipped, and a shard cannot report a check without
-   `checks: write` in a job that runs the project's code; so the shard saves
-   the verdict's compute and its install of the project, not the verdict
-   job's wait to start.
-9. **Both settings judge or report only,** as the other `shards` keys do
-   (ADR-0007): `shards.pull` and `shards.lastJudges` are in no key, and a
-   change to either reaches nothing, since which shard runs an item, or
-   where the verdict is computed, changes no result.
+8. **Only the verdict job computes the verdict.** A shard runs the
+   project's code, so nothing it leaves is taken as the verdict, the
+   delivery or what is published: the verdict job computes them from the
+   shards' results, and the shard job holds no token beyond `contents:
+   read`.
+9. **The setting judges or reports only,** as the other `shards` keys do
+   (ADR-0007): `shards.pull` is in no key, and a change to it reaches
+   nothing, since which shard runs an item changes no result.
 
 ### Settings
 
 | Setting | Values | Default | Effect |
 |---|---|---|---|
 | `shards.pull` | `auto`, `claim`, `steal`, `off` | `auto` | judges or reports only |
-| `shards.lastJudges` | `true`, `false` | `false` | judges or reports only |
 
 ### Why no verdict moves
 
@@ -150,6 +143,7 @@ failure of the claims (decision 5) keep the static cut.
 | **Git refs as claims, created if absent through REST** | It needs `contents: write` in jobs that run a pull request's code, against ADR-0019's line. |
 | **Only sort each shard's own work longest first** | It balances within a shard; a shard that starts late still owns its whole part. |
 | **More shards, cut smaller** | Each shard pays its setup, and under the job cap more shards queue longer. |
+| **The shard that finishes the last item computes the verdict** | That shard runs the project's code, so a verdict, delivery or publish material it leaves can be forged by the change under judgement, and listing the run's jobs for it needs `actions: read` in that job. It would save only the verdict's compute and install, not the verdict job's wait to start. |
 | **A coordinator job handing out items** | It holds a runner for the whole shard phase and a token to talk to every shard. |
 
 ## Consequences

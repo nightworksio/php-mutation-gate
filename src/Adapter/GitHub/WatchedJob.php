@@ -4,28 +4,28 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
-use function count;
 use function explode;
-use function in_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Http\Exchange;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
-
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-
+use function str_starts_with;
+use function strlen;
+use function substr;
 use function trim;
 
 /**
  * The jobs of the run a shard watches, as the reusable workflow's
  * `watch-jobs` names them, one per line (ADR-0135): once one concluded in
- * failure, the shard starts no further item. Read through the REST API with
- * the job's own token, which the action hands the gate as it hands the
- * artifact service; a run that watches no job, or cannot read the jobs,
- * never stops for them.
+ * failure, the shard starts no further item. The reusable workflow's
+ * `watch` job, which runs none of the project's code, reads their
+ * conclusions and leaves an artifact named for the attempt and the failed
+ * job; the shard lists the run's artifacts with its runtime token and
+ * holds no token of its own. A run that watches no job, or cannot list
+ * the artifacts, never stops for them.
  *
  * @internal
  */
@@ -34,72 +34,45 @@ final readonly class WatchedJob
     /** The variable of the gate's step that names the watched jobs, one per line. */
     public const string NAME = 'MUTATION_GATE_WATCH_JOBS';
 
-    private const string JOBS = '/repos/%s/actions/runs/%s/attempts/%s/jobs?per_page=100&page=%d';
-
-    private const int PAGE = 100;
-
-    private const int MOST_PAGES = 10;
-
-    private const string FAILURE = 'failure';
+    /** The artifact the `watch` job leaves once a watched job failed, before the failed job's name. */
+    private const string STOPPED_ARTIFACT = 'mutation-gate-stopped-%d-';
 
     private const string STOPPED = 'The job %s failed, so this shard starts no further item.';
 
-    /** @param list<string> $names */
-    private function __construct(
-        private Api|NotGiven $api,
-        private array $names,
-        private string $run,
-        private string $attempt,
-        private string $repository,
-    ) {
+    private function __construct(private RunArtifacts|NotGiven $artifacts, private string $prefix)
+    {
     }
 
-    /** The jobs the environment names, read with the token the gate was handed; none where either is missing. */
+    /** The jobs the environment names, read through the service the gate was handed; none where either is missing. */
     public static function of(
         Variables $environment,
         ArtifactService|CannotJudge|NotGiven $service,
-        HttpClientInterface $client,
+        Exchange $exchange,
     ): self {
-        $names = [];
+        $watches = false;
 
         foreach (explode("\n", $environment->valueOf(self::NAME)) as $name) {
-            if (trim($name) !== '') {
-                $names[] = trim($name);
-            }
+            $watches = $watches || trim($name) !== '';
         }
 
-        $token = $service instanceof ArtifactService ? $service->github() : '';
+        $artifacts = $watches && $service instanceof ArtifactService
+            ? RunArtifacts::of($service, $exchange)
+            : NotGiven::value();
 
         return new self(
-            $names === [] || $token === ''
-                ? NotGiven::value()
-                : Api::at($client, $environment->valueOf('GITHUB_API_URL'), $token),
-            $names,
-            $environment->valueOf('GITHUB_RUN_ID'),
-            $environment->valueOf('GITHUB_RUN_ATTEMPT'),
-            $environment->valueOf('GITHUB_REPOSITORY'),
+            $artifacts instanceof RunArtifacts ? $artifacts : NotGiven::value(),
+            sprintf(self::STOPPED_ARTIFACT, RunArtifacts::attempt($environment)),
         );
     }
 
-    /** Why the shard stops: a watched job concluded in failure; none where none did, or they cannot be read. */
+    /** Why the shard stops: a watched job concluded in failure; none where none did, or the artifacts cannot be read. */
     public function stopped(): string
     {
-        if (! $this->api instanceof Api) {
-            return '';
-        }
+        $names = $this->artifacts instanceof RunArtifacts ? $this->artifacts->names() : [];
 
-        for ($page = 1; $page <= self::MOST_PAGES; $page++) {
-            $answer = $this->api->get(sprintf(self::JOBS, $this->repository, $this->run, $this->attempt, $page));
-            $jobs = $answer instanceof CannotTell ? [] : $answer->items('jobs');
-
-            foreach ($jobs as $job) {
-                if (in_array($job->text('name'), $this->names, true) && $job->text('conclusion') === self::FAILURE) {
-                    return sprintf(self::STOPPED, $job->text('name'));
-                }
-            }
-
-            if (count($jobs) < self::PAGE) {
-                return '';
+        foreach ($names instanceof CannotJudge ? [] : $names as $name) {
+            if (str_starts_with($name, $this->prefix)) {
+                return sprintf(self::STOPPED, substr($name, strlen($this->prefix)));
             }
         }
 

@@ -22,11 +22,11 @@ it('pulls under every value but off', function (ShardPull $pull, bool $pulls): v
     'off' => [ShardPull::Off, false],
 ]);
 
-it('pulls automatically and leaves the verdict to its job where no layer says, and takes a later layer\'s word', function (): void {
+it('pulls automatically where no layer says, and takes a later layer\'s word', function (): void {
     $none = Pulling::of();
-    $laid = $none->over(Pulling::of(ShardPull::Off))->over(Pulling::of(new Absent(), lastJudges: true));
+    $laid = $none->over(Pulling::of(ShardPull::Off))->over(Pulling::of(new Absent()));
 
-    expect([$none->pull(), $none->lastJudges(), $none->php()])->toBe([ShardPull::Auto, false, []])
-        ->and([$laid->pull(), $laid->lastJudges(), $laid->php()])
-        ->toBe([ShardPull::Off, true, ['Shards::owningTheirParts()', 'Shards::lastJudging()']]);
+    expect([$none->pull(), $none->php()])->toBe([ShardPull::Auto, []])
+        ->and([$laid->pull(), $laid->php()])
+        ->toBe([ShardPull::Off, ['Shards::owningTheirParts()']]);
 });

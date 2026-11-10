@@ -183,7 +183,6 @@
       plan: ${{ steps.plan.outputs.plan }}
       stands: ${{ steps.plan.outputs.stands }}
       pulls: ${{ steps.plan.outputs.pulls }}
-      last-judges: ${{ steps.config.outputs.last_judges }}
       waits: ${{ steps.plan.outputs.waits }}
       early: ${{ steps.plan.outputs.early }}
       fail-fast: ${{ steps.config.outputs.fail_fast }}

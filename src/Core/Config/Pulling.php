@@ -7,8 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
- * How shards find their work and who computes the verdict (ADR-0134):
- * `shards.pull` and `shards.lastJudges`. Neither is in a key.
+ * How shards find their work (ADR-0134): `shards.pull`, which is in no key.
  *
  * @internal
  */
@@ -16,24 +15,19 @@ final readonly class Pulling
 {
     public const string PULL = 'pull';
 
-    public const string LAST_JUDGES = 'lastJudges';
-
-    private function __construct(private ShardPull|Absent $pull, private bool|Absent $lastJudges)
+    private function __construct(private ShardPull|Absent $pull)
     {
     }
 
-    public static function of(ShardPull|Absent $pull = new Absent(), bool|Absent $lastJudges = new Absent()): self
+    public static function of(ShardPull|Absent $pull = new Absent()): self
     {
-        return new self($pull, $lastJudges);
+        return new self($pull);
     }
 
     /** This, with what a later layer sets laid over it, key by key. */
     public function over(self $later): self
     {
-        return new self(
-            Absent::laid($this->pull, $later->pull),
-            Absent::laid($this->lastJudges, $later->lastJudges),
-        );
+        return new self(Absent::laid($this->pull, $later->pull));
     }
 
     /** `shards.pull`: `auto` where no layer says. */
@@ -42,31 +36,15 @@ final readonly class Pulling
         return $this->pull instanceof ShardPull ? $this->pull : ShardPull::Auto;
     }
 
-    /** `shards.lastJudges`: whether the shard that finishes the last item computes the verdict; off by default. */
-    public function lastJudges(): bool
-    {
-        return $this->lastJudges === true;
-    }
-
     /** @return list<Member> the keys a layer sets, as `shards` writes them */
     public function members(): array
     {
-        return [
-            Member::of(self::PULL, $this->pull instanceof ShardPull ? $this->pull->value : $this->pull),
-            Member::of(self::LAST_JUDGES, $this->lastJudges),
-        ];
+        return [Member::of(self::PULL, $this->pull instanceof ShardPull ? $this->pull->value : $this->pull)];
     }
 
     /** @return list<string> the builder's calls for the keys a layer sets */
     public function php(): array
     {
-        return [
-            ...$this->pull instanceof ShardPull ? [$this->pull->php()] : [],
-            ...match ($this->lastJudges) {
-                true => ['Shards::lastJudging()'],
-                false => ['Shards::verdictJobJudging()'],
-                default => [],
-            },
-        ];
+        return $this->pull instanceof ShardPull ? [$this->pull->php()] : [];
     }
 }
