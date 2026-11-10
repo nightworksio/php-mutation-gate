@@ -625,7 +625,7 @@ final readonly class Judging
                 $timings,
                 static fn(Unit $unit): Estimated => $costs->cost($unit, $timings, FirstRun::unmeasured()),
                 $this->settings->shards()->setup(),
-            )->into($assessed->verdict->account(), $spent, $this->settings->shards()->perRunnerMinute()),
+            )->into($assessed->verdict->account(), $spent, $this->settings->shards()->costs()->perRunnerMinute()),
             $plan->runOn(),
             $this->adapters->project,
             $this->reporting->publishedIn(),

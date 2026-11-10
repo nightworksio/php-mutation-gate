@@ -244,7 +244,7 @@ function invokedTimedOutMap(): CoverageMap
 {
     $location = invokedTimedOut()->location();
 
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered($location->file(), $location->start(), TestId::of('a'), TestId::of('b'))
         ->timed(TestId::of('a'), Seconds::of(200.0))
         ->timed(TestId::of('b'), Seconds::of(200.0));

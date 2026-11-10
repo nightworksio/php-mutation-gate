@@ -747,7 +747,7 @@ it('records with each proof each test file that covers its file, where the run r
         MutantStatus::TimedOut,
         Seconds::of(0.1),
     );
-    $covering = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(9), TestId::of('TaxTest::rounds'));
+    $covering = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(9), TestId::of('TaxTest::rounds'));
     $results = recordedRanOf($plan, $project, ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0), $map());
 
     new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(

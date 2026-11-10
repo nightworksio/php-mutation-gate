@@ -335,7 +335,7 @@ it('replays the tests each kill\'s run started up to its last killer, one run vo
 });
 
 it('replays all a kill\'s run selected where the runner recorded no order, and only its own run vouches for it', function (): void {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
         ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::b'))
         ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::c'));
