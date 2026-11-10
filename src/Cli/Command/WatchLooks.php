@@ -17,9 +17,11 @@ use NightWorksIO\MutationGate\Core\Watch\Watched;
 use Psr\Clock\ClockInterface;
 
 /**
- * The looks `watch` takes while a round runs (ADR-0010, ADR-0120): it looks
- * only once `local.watchPoll` has passed since its last look, so a round costs
- * at most one look a wait; the latest change one finds is kept, and once the
+ * The looks `watch` takes while a round runs (ADR-0010, ADR-0120): where
+ * `outbreak serve` watches the files (ADR-0133), it looks only once the
+ * daemon tells of a change; otherwise only once `local.watchPoll` has passed
+ * since its last look, so a round costs at most one look a wait. The latest
+ * change one finds is kept, and once the
  * round is over, it is what the next round starts from, or one look more
  * finds what changed meanwhile. Where `local.cancelByUnit` is on, the round
  * reads which files have moved since it began (ADR-0146).
@@ -32,9 +34,13 @@ final class WatchLooks
 
     private DateTimeImmutable $since;
 
-    /** @param Closure(Watched): (Watched|CannotJudge) $look */
+    /**
+     * @param Closure(Watched): (Watched|CannotJudge) $look
+     * @param Closure(): (bool|NotGiven)              $told whether the daemon told of a change since it was last asked; none where it watches nothing
+     */
     public function __construct(
         private readonly Closure $look,
+        private readonly Closure $told,
         private readonly ClockInterface $clock,
         private readonly Seconds $every,
         private readonly Watched $seen,
@@ -67,10 +73,17 @@ final class WatchLooks
         return $this->arrived instanceof Watched ? $this->arrived : ($this->look)($this->seen);
     }
 
-    /** The latest look that found a change kept, none where it found none, looking where a wait has passed. */
+    /**
+     * The latest look that found a change kept, none where it found none,
+     * looking where the daemon told of a change, or, where it watches
+     * nothing, where a wait has passed.
+     */
     private function looked(): void
     {
-        if ($this->every->outlasts(Seconds::between($this->since, $this->clock->now()))) {
+        $told = ($this->told)();
+        $early = $this->every->outlasts(Seconds::between($this->since, $this->clock->now()));
+
+        if ($told === false || ($told instanceof NotGiven && $early)) {
             return;
         }
 

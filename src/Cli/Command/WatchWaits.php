@@ -18,10 +18,12 @@ use function sprintf;
 
 /**
  * The waits `watch` takes between two looks at the files once a round is
- * over (ADR-0010, ADR-0120, ADR-0133 decision 7). Where `outbreak serve`
- * watches the trees and the test directories natively, a wait ends once a
- * change it watched settled, and after `local.watchPoll` at the latest;
- * every wait is `local.watchPoll` long where no daemon serves the project,
+ * over, and whether to look while one runs (ADR-0010, ADR-0120, ADR-0133
+ * decisions 7 and 8). Where `outbreak serve` watches the trees and the test
+ * directories natively, a wait ends once a change it watched settled, and
+ * after `local.watchPoll` at the latest, and a running round looks only once
+ * it told of a change; every wait is `local.watchPoll` long where no daemon
+ * serves the project,
  * where it watches nothing or stops answering, or where a look finds a change
  * it did not tell of within one more wait, and it says so once.
  *
@@ -85,20 +87,13 @@ final class WatchWaits
     /** Waits until the next look, and says whether to go on watching. */
     public function waited(): bool
     {
-        $now = $this->notices instanceof NoticesChanges
-            ? $this->notices->changed($this->directories, $this->seen, $this->every)
-            : $this->notices;
+        return $this->asked($this->every) instanceof NotGiven ? ($this->waited)($this->every) : true;
+    }
 
-        if (! is_int($now)) {
-            $this->dropped($now);
-
-            return ($this->waited)($this->every);
-        }
-
-        $this->told = $now > $this->seen;
-        $this->seen = $now;
-
-        return true;
+    /** Whether the daemon told of a change since it was last asked, at once; none where it watches nothing. */
+    public function told(): bool|NotGiven
+    {
+        return $this->asked(Seconds::none());
     }
 
     /**
@@ -107,19 +102,31 @@ final class WatchWaits
      */
     public function found(): void
     {
-        if (! $this->notices instanceof NoticesChanges || $this->told) {
-            return;
+        if ($this->notices instanceof NoticesChanges && ! $this->told && $this->asked($this->every) === false) {
+            $this->dropped(NotGiven::value());
+        }
+    }
+
+    /**
+     * Whether the daemon told of a change past the last one it told of,
+     * waiting this long for one; none where it watches nothing.
+     */
+    private function asked(Seconds $wait): bool|NotGiven
+    {
+        $now = $this->notices instanceof NoticesChanges
+            ? $this->notices->changed($this->directories, $this->seen, $wait)
+            : $this->notices;
+
+        if (! is_int($now)) {
+            $this->dropped($now);
+
+            return NotGiven::value();
         }
 
-        $now = $this->notices->changed($this->directories, $this->seen, $this->every);
+        $this->told = $now > $this->seen;
+        $this->seen = $now;
 
-        if (is_int($now) && $now > $this->seen) {
-            $this->seen = $now;
-
-            return;
-        }
-
-        $this->dropped(is_int($now) ? NotGiven::value() : $now);
+        return $this->told;
     }
 
     /** No more waits on the daemon, said once where it watched before. */

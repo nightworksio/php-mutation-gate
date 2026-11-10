@@ -42,22 +42,23 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * `mutation-gate watch` judges what each save reaches (ADR-0010). It
- * looks at the files of the trees and the test directories by their digests,
+ * `mutation-gate watch` judges what each save reaches (ADR-0010). It looks
+ * at the files of the trees and the test directories by their digests,
  * hashing only what version control says may have changed (ADR-0120), once
  * `outbreak serve` tells of a change it watched settle (ADR-0133), and once
  * each `local.watchPoll` where it does not (see WatchWaits); on a change it
- * runs a round: change-scoped since `HEAD`, judged on the new-code floor over everything changed since then
- * and showing each tree against its floor without holding it, under
- * `local.watchBudget`, with proofs in the local ledger leaving out what
- * is judged already. A change that arrives mid-round drops the work of the
- * units it moved and halts a batch running one, under `local.cancelByUnit`,
- * or stops the round before its next batch, looked for at most once each
- * wait; what it judged is kept, and the next round starts once the round
- * ends. What each batch judged is printed as it ends, one block per unit, or
- * one line of JSON per mutant with `--output=events` (ADR-0120, ADR-0146);
- * the whole report ends a round only with `--report`, as problems, or where
- * batches are not printed.
+ * runs a round: change-scoped since `HEAD`, judged on the new-code floor
+ * over everything changed since then and showing each tree against its floor
+ * without holding it, under `local.watchBudget`, with proofs in the local
+ * ledger leaving out what is judged already. A change that arrives mid-round
+ * drops the work of the units it moved and halts a batch running one, under
+ * `local.cancelByUnit`, or stops the round before its next batch, looked for
+ * once the daemon tells of one, or at most once each wait; what it judged is
+ * kept, and the next round starts once the round ends. What each batch
+ * judged is printed as it ends, one block per unit, or one line of JSON per
+ * mutant with `--output=events` (ADR-0120, ADR-0146); the whole report ends
+ * a round only with `--report`, as problems, or where batches are not
+ * printed.
  * The coverage map is built in the first round and kept: a change to
  * tests or test support measures the tests it touched again, and a change
  * that reaches everything builds it again. Under `local.quick` each round
@@ -176,6 +177,7 @@ final readonly class WatchCommand
 
             $looks = new WatchLooks(
                 $this->look(...),
+                $waits->told(...),
                 $this->composed->setup->clock,
                 $this->composed->settings->local()->watchPoll(),
                 $seen,
