@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Library;
 
 /**
- * Three sums for a split stream to judge: one its stream kills, one whose
- * mutant never ends, which the child's limit stops, and one only a test that
- * holds a socket reaches, which no stream forks in.
+ * Sums for a split stream to judge: one its stream kills, one whose mutant
+ * never ends, which the child's limit stops, three only a test reaches that
+ * holds a socket, a writable file or a file-backed SQLite database, which no
+ * stream forks in, and one a test reaches that reads a file, which it does.
  */
 final readonly class Streamed
 {
@@ -30,5 +31,20 @@ final readonly class Streamed
     public function doubled(int $number): int
     {
         return $number * 2;
+    }
+
+    public function tripled(int $number): int
+    {
+        return $number * 3;
+    }
+
+    public function quadrupled(int $number): int
+    {
+        return $number * 4;
+    }
+
+    public function shifted(int $number): int
+    {
+        return $number + 10;
     }
 }

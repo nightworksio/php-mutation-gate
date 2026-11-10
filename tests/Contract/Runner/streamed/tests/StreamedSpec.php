@@ -22,3 +22,35 @@ it('doubles while it holds a socket', function (): void {
         fclose($pair[1]);
     }
 });
+
+it('triples while it holds a writable file', function (): void {
+    $file = tmpfile();
+
+    expect(new Streamed()->tripled(6))->toBe(18);
+
+    if (is_resource($file)) {
+        fwrite($file, 'held');
+        fclose($file);
+    }
+});
+
+it('quadruples while it holds a file-backed SQLite database', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'streamed');
+    $database = new PDO(sprintf('sqlite:%s', $path));
+    $database->exec('CREATE TABLE held (value INTEGER)');
+
+    expect(new Streamed()->quadrupled(5))->toBe(20);
+
+    unset($database);
+    unlink($path);
+});
+
+it('shifts while it reads a file', function (): void {
+    $file = fopen(__FILE__, 'r');
+
+    expect(new Streamed()->shifted(1))->toBe(11);
+
+    if (is_resource($file)) {
+        fclose($file);
+    }
+});

@@ -89,7 +89,7 @@ final class Stream
         private readonly StreamPlan $plan,
         private readonly Children $children,
         private readonly Kills $kills,
-        private readonly int $sockets,
+        private readonly Descriptors $start,
     ) {
     }
 
@@ -106,7 +106,7 @@ final class Stream
             return false;
         }
 
-        self::$stream = new self($plan, new Children($plan), new Kills(), Sockets::open());
+        self::$stream = new self($plan, new Children($plan), new Kills(), Descriptors::held());
 
         foreach ($plan->unservedIn(get_included_files()) as $mutant) {
             self::$stream->write(StreamLine::unserved($mutant));
@@ -170,7 +170,7 @@ final class Stream
         $this->failed = false;
         $this->forked = [];
         $this->watching = [];
-        $this->forkable = Sockets::open() <= $this->sockets;
+        $this->forkable = ! Descriptors::held()->shares($this->start);
         $this->recording = $this->mutant === '' && $this->plan->recording !== '' && Recorded::start();
 
         if (! $this->forkable && $this->mutant === '') {
@@ -261,12 +261,12 @@ final class Stream
 
     /**
      * Forks a site's mutant: true in the child, which runs it, false in the
-     * parent, and false where the test opened a socket since it began, which
-     * then forks nothing more.
+     * parent, and false where the test holds a descriptor a child would
+     * share (see Descriptors), which then forks nothing more.
      */
     private function fork(string $file, int $id): bool
     {
-        if (Sockets::open() > $this->sockets) {
+        if (Descriptors::held()->shares($this->start)) {
             $this->isolate();
 
             return false;

@@ -2,12 +2,15 @@
 //! in the PHP that loaded it and answers one digest of its op arrays, so a
 //! mutant whose program is its original's is proven equivalent before it
 //! runs; and it reads the state a forked call leaves behind, so a split
-//! stream counts the forks that changed nothing (H5).
+//! stream counts the forks that changed nothing (H5); and it counts the
+//! descriptors a forked child would share, so a stream forks no test that
+//! holds one.
 
 #![cfg_attr(windows, feature(abi_vectorcall))]
 #![allow(missing_docs, reason = "php_module and php_function generate items the extension's own docs describe")]
 
 pub mod canon;
+mod descriptors;
 mod program;
 mod state;
 mod value;
@@ -35,6 +38,16 @@ pub fn outbreak_state_digest(slot: i64) -> Option<String> {
     state::taken(slot)
 }
 
+/// The descriptors this process holds that a forked child would share with
+/// it: regular files and pipes open for writing, then sockets, as counts.
+#[php_function]
+#[must_use]
+pub fn outbreak_descriptors() -> Vec<i64> {
+    let held = descriptors::held();
+
+    vec![held.files, held.pipes, held.sockets]
+}
+
 /// The extension's version, which a proof's evidence names.
 #[php_function]
 #[must_use]
@@ -48,6 +61,7 @@ pub fn module(module: ModuleBuilder) -> ModuleBuilder {
         .function(wrap_function!(outbreak_op_arrays))
         .function(wrap_function!(outbreak_state_watch))
         .function(wrap_function!(outbreak_state_digest))
+        .function(wrap_function!(outbreak_descriptors))
         .function(wrap_function!(outbreak_version))
         .fcall_observer(|| state::Watch)
 }

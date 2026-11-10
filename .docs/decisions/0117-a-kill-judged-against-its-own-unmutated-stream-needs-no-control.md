@@ -63,10 +63,16 @@ switch (ADR-0091), so the stream's program holds every site.
    survivor a stream judged runs no baseline, kill control, replay, trial,
    timeout control or confirmation, and its evidence says the stream judged
    it. A survivor survived every covering test the stream reached it in.
-7. **A test the stream cannot fork in falls back.** No fork is made in a
-   test that holds a socket the stream did not hold as it started, counted
-   among PHP's streams and, on Linux, among the process's file descriptors,
-   or that runs in a separate process. A mutant whose covering tests
+7. **A test the stream cannot fork in falls back.** A child shares every
+   descriptor its parent holds, and its offset, so a child's write through
+   one can change the parent, which is its control. No fork is made in a
+   test that holds a regular file open for writing, a temporary file or a
+   file-backed SQLite database among them, nor in one that holds a pipe open
+   for writing or a socket the stream did not hold as it started; nor in one
+   that runs in a separate process. `outbreak.so` counts the descriptors
+   where it is loaded; on Linux the process's own list and its flags do,
+   which also see a database client's; elsewhere PHP's streams do. A file
+   open only for reading forks. A mutant whose covering tests
    include such a test, and that no stream killed, runs its own run as
    before, narrowed to its covering tests, with its verification. Without
    `pcntl` and `posix` every mutant runs its own run, and the run warns.

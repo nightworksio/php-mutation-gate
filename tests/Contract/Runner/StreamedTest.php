@@ -26,7 +26,7 @@ $holds = [
     'holds:src/Adapter/Pest',
 ];
 
-it('kills in its stream a mutant a test tells apart, stops at its limit one that never ends, and runs on its own one only a test holding a socket reaches', function (): void {
+it('kills in its stream a mutant a test tells apart, stops at its limit one that never ends, and runs on its own one only a test holding a socket, a writable file or a file-backed database reaches', function (): void {
     $source = Tree::at(sprintf('%s/src/Streamed.php', Library::DIRECTORY));
     $test = Tree::at(sprintf('%s/tests/StreamedSpec.php', Library::DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/streamed/src/Streamed.php'), $source);
@@ -60,11 +60,15 @@ it('kills in its stream a mutant a test tells apart, stops at its limit one that
         $result instanceof MutationResult && $result->evidence()->of($mutant->id())->isStreamed(),
     ], $result instanceof MutationResult ? [...$result->mutants()] : []);
     usort($judged, static fn(array $one, array $other): int => $one[0] <=> $other[0]);
+    $seesClients = is_dir('/proc/self/fd') || function_exists('outbreak_descriptors');
 
     expect($judged)->toBe([
-        [16, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_adds'], true],
-        [23, MutantStatus::TimedOut, [], true],
-        [32, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_doubles_while_it_holds_a_socket'], false],
+        [17, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_adds'], true],
+        [24, MutantStatus::TimedOut, [], true],
+        [33, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_doubles_while_it_holds_a_socket'], false],
+        [38, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_triples_while_it_holds_a_writable_file'], false],
+        [43, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_quadruples_while_it_holds_a_file_backed_SQLite_database'], ! $seesClients],
+        [48, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_shifts_while_it_reads_a_file'], true],
     ]);
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),

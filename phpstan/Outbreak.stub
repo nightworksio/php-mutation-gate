@@ -15,3 +15,8 @@ function outbreak_state_digest(int $slot): ?string
 function outbreak_version(): string
 {
 }
+
+/** @return list<int> */
+function outbreak_descriptors(): array
+{
+}
