@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Watch\Watched;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -47,10 +48,14 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `HEAD`, judged on the new-code floor over everything changed since then
  * and showing each tree against its floor without holding it, under
  * `local.watchBudget`, with proofs in the local ledger leaving out what
- * is judged already. A change that arrives mid-round stops it before its
- * next batch, looked for at most once each wait; what it judged is kept,
- * and the next round starts at once. What each batch judged is printed as
- * it ends (ADR-0120).
+ * is judged already. A change that arrives mid-round drops the work of the
+ * units it moved and halts a batch running one, under `local.cancelByUnit`,
+ * or stops the round before its next batch, looked for at most once each
+ * wait; what it judged is kept, and the next round starts once the round
+ * ends. What each batch judged is printed as it ends, one block per unit, or
+ * one line of JSON per mutant with `--output=events` (ADR-0120, ADR-0146);
+ * the whole report ends a round only with `--report`, as problems, or where
+ * batches are not printed.
  * The coverage map is built in the first round and kept: a change to
  * tests or test support measures the tests it touched again, and a change
  * that reaches everything builds it again. Under `local.quick` each round
@@ -72,12 +77,17 @@ final readonly class WatchCommand
 
     private const string MOVED = 'A change arrived: the units it moved wait for the next round, which judges again.';
 
+    private const string REPORT = 'report';
+
+    private const string REPORT_SAID = 'Print the whole report after each round';
+
     /** @param Closure(Seconds): bool $waited waits this long between looks, and says whether to go on watching */
     private function __construct(
         private Composed $composed,
         private Printing $printing,
         private OutputInterface $output,
         private Closure $waited,
+        private bool $report,
     ) {
     }
 
@@ -86,11 +96,12 @@ final readonly class WatchCommand
     {
         return FlowOptions::editing(new Command(self::NAME))
             ->setDescription('Re-judge what each save reaches')
+            ->addOption(self::REPORT, mode: InputOption::VALUE_NONE, description: self::REPORT_SAID)
             ->setCode(static function (InputInterface $input, OutputInterface $output) use (
                 $composition,
                 $waited,
             ): int {
-                $printing = FlowOptions::printing($input);
+                $printing = FlowOptions::printing($input, events: true);
                 $composed = $composition->composeForWatch($input);
                 $composed = $composed instanceof Composed ? self::budgeted($composed, $input) : $composed;
 
@@ -102,6 +113,7 @@ final readonly class WatchCommand
                         $composed->settings->local()->quick() ? $printing->quickly() : $printing,
                         $output,
                         $waited,
+                        $input->getOption(self::REPORT) === true,
                     )->watched(),
                 };
             });
@@ -194,11 +206,16 @@ final readonly class WatchCommand
         $arrived = $local->cancelsByUnit()
             ? Interruption::byUnit($looks->moved(...), $composed->adapters->project, $local->watchPoll())
             : Interruption::when($looks->arrived(...));
-        $running = Running::composed($composed)->interrupted($arrived)->telling(BatchLines::streamed(
-            $local->work(),
-            fn(string $line) => $this->printing->note($line, $this->output),
-            $local->quick(),
-        ));
+        $running = Running::composed($composed)->interrupted($arrived)->telling($this->printing->events()
+            ? BatchLines::events(
+                fn(string $line) => $this->output->writeln($line, OutputInterface::OUTPUT_RAW),
+                $local->quick(),
+            )
+            : BatchLines::streamed(
+                $local->work(),
+                fn(string $line) => $this->printing->note($line, $this->output),
+                $local->quick(),
+            ));
         $this->printing->begin($this->output, $composed->adapters->project);
         $made = new Planning($composed->adapters, $composed->settings, $composed->setup)
             ->plan(
@@ -220,7 +237,9 @@ final readonly class WatchCommand
             $this->printing->note($local->cancelsByUnit() ? self::MOVED : self::ARRIVED, $this->output);
         }
 
-        if (! $stopped) {
+        $reports = $this->report || ! $local->work()->isOn(LocalSwitch::StreamBatches);
+
+        if (! $stopped && $this->printing->endsRounds($reports)) {
             VerdictCommand::printed($judged, $this->output, $this->printing, $composed->adapters->project);
         }
 

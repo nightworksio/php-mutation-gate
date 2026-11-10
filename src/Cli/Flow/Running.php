@@ -528,7 +528,7 @@ final readonly class Running
             $this->interruption,
             $doom,
             $stops,
-            $this->ends,
+            $this->ends->digested($plan->digests()),
         );
         $batching = Batching::opening($map->suiteDuration());
         $pruned = $plan->considered()->pruned();

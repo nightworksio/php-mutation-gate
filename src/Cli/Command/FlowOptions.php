@@ -90,6 +90,8 @@ final readonly class FlowOptions
 
     private const string OUTPUTS = '--output is console or problems, not "%s".';
 
+    private const string WATCH_OUTPUTS = '--output is console, problems or events, not "%s".';
+
     private const string ONLY_WHAT = '--only takes changed, not "%s".';
 
     private const string MATRIX_SAID = <<<'SAID'
@@ -190,7 +192,8 @@ final readonly class FlowOptions
             ->addOption(
                 self::OUTPUT,
                 mode: InputOption::VALUE_REQUIRED,
-                description: 'Print the verdict as console, or as problems: one line per result, for editors',
+                description: 'Print the verdict as console, or as problems: one line per result, for editors;'
+                    . ' watch also prints events: one line of JSON per judged mutant',
             )
             ->addOption(
                 self::ONLY,
@@ -199,15 +202,17 @@ final readonly class FlowOptions
             );
     }
 
-    /** How the options ask for the verdict to be printed. */
-    public static function printing(InputInterface $input): Printing|CannotJudge
+    /** How the options ask for the verdict to be printed; as events only where the command streams them. */
+    public static function printing(InputInterface $input, bool $events = false): Printing|CannotJudge
     {
         $asked = self::text($input, self::OUTPUT);
         $output = VerdictOutput::tryFrom($asked === '' ? VerdictOutput::Console->value : $asked);
         $only = self::text($input, self::ONLY);
 
         return match (true) {
-            ! $output instanceof VerdictOutput => CannotJudge::because(sprintf(self::OUTPUTS, $asked)),
+            $events && ! $output instanceof VerdictOutput => CannotJudge::because(sprintf(self::WATCH_OUTPUTS, $asked)),
+            ! $output instanceof VerdictOutput,
+            ! $events && $output === VerdictOutput::Events => CannotJudge::because(sprintf(self::OUTPUTS, $asked)),
             $only === '' => Printing::of($output, ProblemsShown::All),
             $only !== ProblemsShown::Changed->value => CannotJudge::because(sprintf(self::ONLY_WHAT, $only)),
             $output !== VerdictOutput::Problems => CannotJudge::because(self::ONLY_WHERE),

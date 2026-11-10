@@ -14,23 +14,29 @@ use function ksort;
 use NightWorksIO\MutationGate\Cli\Flow\BatchEnds;
 use NightWorksIO\MutationGate\Cli\Flow\Invoked;
 use NightWorksIO\MutationGate\Core\Config\LocalWork;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
+use NightWorksIO\MutationGate\Core\Watch\MutantEvent;
 
 use function sprintf;
 
 /**
- * What `watch` prints of a batch as it ends (ADR-0120): how many mutants it
- * judged, by status, and each survivor where it is, so a survivor shows
- * before the round's verdict does; each line of a quick round says so
- * (ADR-0146).
+ * What `watch` prints of a batch as it ends (ADR-0120, ADR-0146): one block
+ * per unit, how many of its mutants the batch judged, by status, and each
+ * survivor where it is, so a survivor shows before the round's verdict does;
+ * each line of a quick round says so. With `--events`, one line of JSON per
+ * judged mutant instead (see MutantEvent).
  *
  * @internal
  */
 final readonly class BatchLines
 {
-    private const string JUDGED = 'Judged %d %s: %s.';
+    private const string JUDGED = '%s: judged %d %s: %s.';
 
     private const string COUNTED = '%d %s';
 
@@ -60,13 +66,55 @@ final readonly class BatchLines
             : new BatchEnds();
     }
 
-    /** @return list<string> */
+    /**
+     * Each mutant a batch judged, said as one event line as the batch ends.
+     *
+     * @param Closure(string): void $said
+     */
+    public static function events(Closure $said, bool $quick): BatchEnds
+    {
+        return BatchEnds::telling(static function (Invoked $invoked, Digests|Undigested $digests) use (
+            $said,
+            $quick,
+        ): void {
+            foreach ($invoked->result->mutants() as $mutant) {
+                $file = $mutant->location()->file();
+                $digest = $digests instanceof Digests ? $digests->sourceOf($file) : NotGiven::value();
+                $event = MutantEvent::of($mutant, $quick, $digest instanceof Digest ? $digest : NotGiven::value());
+
+                if ($event instanceof MutantEvent) {
+                    $said($event->line());
+                }
+            }
+        });
+    }
+
+    /**
+     * One block per unit: how many of its mutants were judged, by status, and each survivor.
+     *
+     * @return list<string>
+     */
     public static function of(Mutants $mutants): array
     {
-        if ($mutants->count() === 0) {
-            return [];
+        $units = [];
+
+        foreach ($mutants as $mutant) {
+            $file = $mutant->location()->file()->value();
+            $units[$file] = [...array_key_exists($file, $units) ? $units[$file] : [], $mutant];
         }
 
+        $lines = [];
+
+        foreach ($units as $file => $judged) {
+            $lines = [...$lines, ...self::block((string) $file, Mutants::of(...$judged))];
+        }
+
+        return $lines;
+    }
+
+    /** @return list<string> how many of a unit's mutants were judged, by status, and each survivor */
+    private static function block(string $unit, Mutants $mutants): array
+    {
         $counted = [];
 
         foreach ($mutants as $mutant) {
@@ -83,6 +131,7 @@ final readonly class BatchLines
 
         return [sprintf(
             self::JUDGED,
+            $unit,
             $mutants->count(),
             $mutants->count() === 1 ? self::ONE : self::MANY,
             implode(', ', $statuses),
