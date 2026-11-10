@@ -100,6 +100,18 @@ final readonly class LocalWork implements Setting
         return new self(Json::at('local.streamBatches', $on));
     }
 
+    /** `local.recordLines`: whether a quick round's streams record their tests' lines into the kept map; on by default. */
+    public static function recordLines(bool $on): self
+    {
+        return new self(Json::at('local.recordLines', $on));
+    }
+
+    /** `local.siteHits`: whether a quick round places a changed test file by the static graph; on by default. */
+    public static function siteHits(bool $on): self
+    {
+        return new self(Json::at('local.siteHits', $on));
+    }
+
     public function written(): Json
     {
         return $this->json;

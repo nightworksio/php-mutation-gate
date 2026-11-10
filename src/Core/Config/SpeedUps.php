@@ -27,6 +27,8 @@ final readonly class SpeedUps
         bool|Absent $sizedPools = new Absent(),
         bool|Absent $listOnce = new Absent(),
         bool|Absent $streamBatches = new Absent(),
+        bool|Absent $recordLines = new Absent(),
+        bool|Absent $siteHits = new Absent(),
     ): self {
         return new self([
             LocalSwitch::WatchStatus->value => $watchStatus,
@@ -34,13 +36,23 @@ final readonly class SpeedUps
             LocalSwitch::SizedPools->value => $sizedPools,
             LocalSwitch::ListOnce->value => $listOnce,
             LocalSwitch::StreamBatches->value => $streamBatches,
+            LocalSwitch::RecordLines->value => $recordLines,
+            LocalSwitch::SiteHits->value => $siteHits,
         ]);
     }
 
     /** Every speed-up on, as when no layer sets one. */
     public static function standard(): self
     {
-        return self::of(watchStatus: true, coverageAlone: true, sizedPools: true, listOnce: true, streamBatches: true);
+        return self::of(
+            watchStatus: true,
+            coverageAlone: true,
+            sizedPools: true,
+            listOnce: true,
+            streamBatches: true,
+            recordLines: true,
+            siteHits: true,
+        );
     }
 
     /** These, with what a later layer sets laid over them, key by key. */

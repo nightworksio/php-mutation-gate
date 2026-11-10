@@ -24,4 +24,10 @@ enum LocalSwitch: string
 
     /** `watch` prints what each batch judged as it ends. */
     case StreamBatches = 'streamBatches';
+
+    /** A quick round's streams record their tests' lines into the kept map (ADR-0147). */
+    case RecordLines = 'recordLines';
+
+    /** A quick round places a changed test file by the static graph rather than measuring it (ADR-0147). */
+    case SiteHits = 'siteHits';
 }
