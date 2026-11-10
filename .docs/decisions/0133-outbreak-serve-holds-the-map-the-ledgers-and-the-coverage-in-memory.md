@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-11-10
 **Amends:** [0078](0078-a-daemon-keeps-the-gate-loaded-between-local-runs.md): which daemon `watch` and the hooks talk to, and its consequence that CI runs no daemon
+**Amends:** [0120](0120-the-local-loop-takes-a-share-of-the-machine-and-looks-only-at-what-changed.md): how `watch` sees a change and schedules its work, where `outbreak serve` runs
 
 ## Context
 
@@ -77,9 +78,45 @@ fallback.
    (ADR-0118). An answer that does not come within `outbreak.timeout`, or
    any other answer, is no answer, and the gate reads the file itself.
 6. **`outbreak.serve.enabled`, `true` by default, turns it on.** It,
-   `outbreak.serve.snapshotEvery` and `outbreak.serve.syncEvery` judge or
-   report only and are in no key: the state answers what the files answer.
-7. **One suite holds the daemon to the gate's readers.** A snapshot and
+   `outbreak.serve.snapshotEvery`, `outbreak.serve.syncEvery` and
+   `outbreak.serve.debounce` judge or report only and are in no key: the
+   state answers what the files answer.
+7. **It watches the files natively.** `outbreak serve` watches the trees
+   and the test directories through the platform's own notifications:
+   FSEvents or kqueue on macOS, inotify on Linux, `ReadDirectoryChangesW`
+   on Windows. Events settle for `outbreak.serve.debounce` (`50ms` by
+   default) before a round starts. Where the watcher cannot arm, as on
+   `ENOSPC`, or delivers nothing, the daemon looks as `watch` does without
+   it (ADR-0120) and says so once.
+8. **It schedules a round's work, and cancels it by unit.** A round's work
+   is queued in this order: the survivors at sites the saved test file now
+   executes, the edited lines' mutants, the last round's survivors in the
+   edited units, the rest riskiest first (ADR-0008), and inferred-subsumed
+   mutants last (ADR-0079). Work is keyed by its unit's content digest:
+   a later save drops every queued item and running process of a unit
+   whose digest moved, by its process group, and every other unit's
+   results stand. A cancelled mutant is pending, never judged. Workers run
+   at the priority and with the share `local.*` gives (ADR-0120); on
+   battery or in Low Power Mode `local.onBattery` reduces, pauses or runs
+   on, read on the platform's power notification rather than a poll.
+9. **Each judged mutant is an event.** The daemon sends every client one
+   line per judged mutant, `{"mutant", "site", "status", "by", "quick",
+   "unit", "digest"}`, the status `killed`, `survived`, `timeout`,
+   `pending`, `equivalent` or `verifying`; `watch` repaints one block per
+   edited unit and prints the whole report only for `watch --report`.
+10. **`outbreak lsp` brings the survivors to the editor.** It speaks the
+    Language Server Protocol on stdio as a client of the daemon: each
+    survivor is a `textDocument/publishDiagnostics` warning on its mutated
+    range, its code actions show the diff, `stub` (ADR-0015) and `explain`,
+    and files the editor reports through `workspace/didChangeWatchedFiles`
+    count as changes. The problem matcher of `watch --output=problems`
+    stays.
+11. **Windows gets everything that needs no fork.** Where `pcntl` is
+    missing, the daemon keeps `local.workers` PHP workers booted up to the
+    point a fork would come, each running one mutant's run and exiting,
+    with a new one booting behind it, under a Job Object that ends them with
+    the daemon. WSL2 is documented as the path with split streams.
+12. **One suite holds the daemon to the gate's readers.** A snapshot and
    journal decode to the ledger's proofs and the map's text exactly as the
    PHP readers read them, and a state written, journalled and read back
    writes `ledger.json.gz` and `map.json.gz` holding the text the PHP gate
@@ -93,6 +130,7 @@ fallback.
 | `outbreak.serve.enabled` | `true`, `false` | `true` | judges or reports only |
 | `outbreak.serve.snapshotEvery` | duration | `10m` | judges or reports only |
 | `outbreak.serve.syncEvery` | duration | `1s` | judges or reports only |
+| `outbreak.serve.debounce` | duration | `50ms` | judges or reports only |
 
 ### Why no verdict moves
 
@@ -127,6 +165,9 @@ fallback.
 - A save's round reads no ledger, map or inventory from disk and writes
   kilobytes to the journal.
 - A pull request's shard reads its maps once, whatever its chunks.
+- A save is seen in milliseconds with no polling, and an idle daemon takes
+  no measurable CPU.
+- A re-save never waits for work its own change made stale.
 - A project gains `.mutation-gate/outbreak/`, which the gate's own files
   rule leaves out of every key (ADR-0007 item 6).
 
@@ -138,4 +179,6 @@ fallback.
 - [ADR-0078](0078-a-daemon-keeps-the-gate-loaded-between-local-runs.md): the daemon, its socket and its checks
 - [ADR-0118](0118-outbreak-s-core-vouches-for-and-slices-coverage-maps.md): contract 1, `outbreak.timeout`
 - [ADR-0119](0119-outbreak-s-core-converts-a-run-s-php-report-into-the-gate-s-map.md): an internal interface beside `MapEngine`
+- [ADR-0120](0120-the-local-loop-takes-a-share-of-the-machine-and-looks-only-at-what-changed.md): the local loop's share of the machine
 - [ADR-0132](0132-a-static-graph-places-what-the-coverage-map-cannot-and-the-map-stays-the-check.md): the graph the daemon keeps
+- [ADR-0146](0146-a-watch-round-is-quick-advisory-and-keyed-apart.md): the quick rounds it serves
