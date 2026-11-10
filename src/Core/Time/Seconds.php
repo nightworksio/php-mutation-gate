@@ -32,11 +32,16 @@ final readonly class Seconds
     /** Microseconds in a second. */
     public const int MICROSECONDS = 1_000_000;
 
+    /** Milliseconds in a second. */
+    public const int MILLISECONDS = 1_000;
+
     /** How many decimals of a second a millisecond is. */
     private const int MILLISECOND_DIGITS = 3;
 
-    /** Days, hours, minutes and seconds, each optional and in that order: `90s`, `15m`, `1h30m`, `7d`. */
-    private const string DURATION = '/^(?:(?<d>\d+)d)?(?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?:(?<s>\d+)s)?$/D';
+    /** Days, hours, minutes, seconds and milliseconds, each optional and in that order: `50ms`, `90s`, `1h30m`. */
+    private const string DURATION
+        = '/^(?:(?<d>\d+)d)?(?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?:(?<s>\d+)s)?(?:(?<ms>\d+)ms)?$/D';
+
 
     private function __construct(private float $seconds)
     {
@@ -74,7 +79,7 @@ final readonly class Seconds
     {
         if ($duration === '' || preg_match(self::DURATION, $duration, $parts, PREG_UNMATCHED_AS_NULL) !== 1) {
             return CannotJudge::because(
-                sprintf('"%s" is not a duration. Write it as 90s, 15m, 1h30m or 7d.', $duration),
+                sprintf('"%s" is not a duration. Write it as 50ms, 90s, 15m, 1h30m or 7d.', $duration),
             );
         }
 
@@ -82,7 +87,9 @@ final readonly class Seconds
         $hours = intval($parts['h']) * self::PER_HOUR;
         $minutes = intval($parts['m']) * self::PER_MINUTE;
 
-        return new self($days + $hours + $minutes + intval($parts['s']));
+        $milliseconds = intval($parts['ms']) / self::MILLISECONDS;
+
+        return new self($days + $hours + $minutes + intval($parts['s']) + $milliseconds);
     }
 
     /** The duration in whole microseconds, as `usleep` takes it. */
@@ -143,20 +150,26 @@ final readonly class Seconds
         return round($this->seconds) < self::PER_MINUTE ? sprintf('%.2fs', $this->seconds) : $this->text();
     }
 
-    /** As a config writes a duration, in whole seconds: `90s` is `1m30s`, `3600s` is `1h`, and none is `0s`. */
+    /**
+     * As a config writes a duration, to the millisecond: `90s` is `1m30s`,
+     * `3600s` is `1h`, half a second is `500ms`, and none is `0s`.
+     */
     public function written(): string
     {
-        $whole = intval($this->seconds);
+        $all = intval(round($this->seconds * self::MILLISECONDS));
+        $whole = intdiv($all, self::MILLISECONDS);
+        $milliseconds = $all % self::MILLISECONDS;
         $days = intdiv($whole, self::PER_DAY);
         $hours = intdiv($whole % self::PER_DAY, self::PER_HOUR);
         $minutes = intdiv($whole % self::PER_HOUR, self::PER_MINUTE);
         $seconds = $whole % self::PER_MINUTE;
         $written = sprintf(
-            '%s%s%s%s',
+            '%s%s%s%s%s',
             $days > 0 ? sprintf('%dd', $days) : '',
             $hours > 0 ? sprintf('%dh', $hours) : '',
             $minutes > 0 ? sprintf('%dm', $minutes) : '',
             $seconds > 0 ? sprintf('%ds', $seconds) : '',
+            $milliseconds > 0 ? sprintf('%dms', $milliseconds) : '',
         );
 
         return $written === '' ? '0s' : $written;

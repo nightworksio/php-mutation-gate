@@ -131,7 +131,7 @@ path: `--report json:/tmp/mutation.json`.
 ## Every key
 
 Every key, with its type, its default and the design decision that sets it. Durations
-are written `90s`, `15m`, `1h30m` or `7d`, and dates `YYYY-MM-DD`. A key that
+are written `50ms`, `90s`, `15m`, `1h30m` or `7d`, and dates `YYYY-MM-DD`. A key that
 chooses an adapter takes a registered name or `{"use": <name or class>,
 "with": <options>}`. A glob of paths is matched against the whole path: `*`
 and `?` match within one directory, and `**` across any number of them.
