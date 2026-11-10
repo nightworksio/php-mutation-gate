@@ -73,7 +73,7 @@ Composer.
 - PHP 8.4 or a later 8.x, with pcov or Xdebug for coverage, and the sodium
   extension, which the gate encodes with because it is timing-safe.
 - Linux. macOS is best-effort: expected to work, not tested by CI. Windows is
-  not supported.
+  not supported; WSL2 runs the gate as Linux does.
 - One of the runners:
   - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0.2, on
     the PHPUnit 13 release Pest pins;
