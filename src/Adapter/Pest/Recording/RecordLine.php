@@ -246,6 +246,16 @@ final readonly class RecordLine
         ]);
     }
 
+    /** How many forks read their state in parent and child, and how many found it alike (H5). */
+    public static function forkStates(int $forks, int $alike): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::ForkStates->value,
+            RecordField::Count->value => $forks,
+            RecordField::Alike->value => $alike,
+        ]);
+    }
+
     public static function end(): string
     {
         return self::line([RecordField::Event->value => RecordEvent::End->value]);

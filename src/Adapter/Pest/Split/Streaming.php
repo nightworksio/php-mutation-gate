@@ -13,6 +13,7 @@ use function array_values;
 use function count;
 use function file_put_contents;
 use function getenv;
+use function is_string;
 use function json_encode;
 
 use const JSON_THROW_ON_ERROR;
@@ -253,7 +254,7 @@ final readonly class Streaming
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $process = new Process(
-            [PHP_BINARY, ...$this->runArguments($this->arguments), ...$files],
+            [PHP_BINARY, ...self::counting(), ...$this->runArguments($this->arguments), ...$files],
             env: [
                 GateVariable::SplitPlan->value => $plan,
                 Mutate::ENV_MUTATION_TESTING => false,
@@ -265,6 +266,19 @@ final readonly class Streaming
         $process->start();
 
         return $process;
+    }
+
+    /**
+     * What loads `outbreak.so` into a stream, where the gate asks it to count
+     * the forks that change no state (H5); nothing otherwise.
+     *
+     * @return list<string>
+     */
+    private static function counting(): array
+    {
+        $extension = getenv(GateVariable::ForkStates->value);
+
+        return is_string($extension) && $extension !== '' ? ['-d', sprintf('extension=%s', $extension)] : [];
     }
 
     /**

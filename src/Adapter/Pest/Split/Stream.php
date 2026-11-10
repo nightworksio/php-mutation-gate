@@ -14,12 +14,15 @@ use function file_put_contents;
 use function function_exists;
 use function get_included_files;
 use function hrtime;
+use function is_string;
 
 use const LOCK_EX;
 
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
+use function outbreak_state_digest;
+use function outbreak_state_watch;
 use function pcntl_signal;
 use function posix_getpid;
 use function posix_kill;
@@ -30,6 +33,8 @@ use const SIGKILL;
 use const SIGUSR1;
 
 use function sprintf;
+use function strlen;
+use function substr;
 
 /**
  * A split stream (ADR-0117): the unmutated suite runs once, and where a test
@@ -41,10 +46,18 @@ use function sprintf;
  * It loads no class of the gate but its own and SchemaSwitch, as every
  * other may be served a schema whose sites it decides.
  *
+ * Where `outbreak.so` is loaded, each fork also arms a watch on the call that
+ * reached the site, in the parent and the child alike, and each writes the
+ * digest of the state that call left as it returned, so the run counts the
+ * forks that changed nothing (ADR-0130, H5). It changes no verdict.
+ *
  * @internal
  */
 final class Stream
 {
+    /** This class's name under the gate's root namespace, which a watch skips the frames of. */
+    private const string OWN = 'Adapter\\Pest\\Split\\Stream';
+
     private static ?self $stream = null;
 
     private string $test = '';
@@ -65,6 +78,12 @@ final class Stream
 
     /** @var array<string, true> the sites forked in the current test, by file key and switch id */
     private array $forked = [];
+
+    /** The watch on the forked call's state, in a child; none in the parent. */
+    private int $watch = 0;
+
+    /** @var array<string, int> the watch on each forked call's state, by mutant, in the parent's current test */
+    private array $watching = [];
 
     private function __construct(
         private readonly StreamPlan $plan,
@@ -150,6 +169,7 @@ final class Stream
         $this->started = (int) hrtime(as_number: true);
         $this->failed = false;
         $this->forked = [];
+        $this->watching = [];
         $this->forkable = Sockets::open() <= $this->sockets;
         $this->recording = $this->mutant === '' && $this->plan->recording !== '' && Recorded::start();
 
@@ -176,6 +196,7 @@ final class Stream
         $seconds = ((int) hrtime(as_number: true) - $this->started) / Seconds::NANOSECONDS;
 
         if ($this->mutant !== '') {
+            $this->stated($this->mutant, $this->watch, child: true);
             $this->write(StreamLine::child($this->mutant, $this->test, $this->failed, $seconds));
             pcntl_signal(SIGUSR1, SIG_DFL);
             posix_kill(posix_getpid(), $this->failed ? SIGUSR1 : SIGKILL);
@@ -184,6 +205,10 @@ final class Stream
         if ($this->recording) {
             $covered = StreamLine::covered($this->test, Recorded::stop(), $seconds);
             file_put_contents($this->plan->recording, $covered, FILE_APPEND | LOCK_EX);
+        }
+
+        foreach ($this->watching as $mutant => $watch) {
+            $this->stated($mutant, $watch, child: false);
         }
 
         $this->write(StreamLine::parent($this->test, ! $this->failed, $seconds));
@@ -250,13 +275,17 @@ final class Stream
         [$mutant, , $variables] = $this->plan->sites[$file][$id];
         $this->deciding = true;
         $this->forked[sprintf('%s:%d', $file, $id)] = true;
+        $watch = self::watched();
         $pid = $this->children->forked($mutant, $this->test);
         $this->deciding = false;
 
         if ($pid !== 0) {
+            $this->watching = $watch > 0 ? [...$this->watching, $mutant => $watch] : $this->watching;
+
             return false;
         }
 
+        $this->watch = $watch;
         $this->mutant = $mutant;
         SchemaSwitch::unsplit();
         SchemaSwitch::on($file, $id);
@@ -266,6 +295,27 @@ final class Stream
         }
 
         return true;
+    }
+
+    /**
+     * A watch on the call that reached the site being forked, the nearest
+     * outside the gate, where `outbreak.so` is loaded; none otherwise.
+     */
+    private static function watched(): int
+    {
+        $gate = substr(self::class, 0, -strlen(self::OWN));
+
+        return function_exists('outbreak_state_watch') ? (int) outbreak_state_watch($gate) : 0;
+    }
+
+    /** Writes the digest of the state a watched call left, where it returned and its state could be read. */
+    private function stated(string $mutant, int $watch, bool $child): void
+    {
+        $digest = $watch > 0 && function_exists('outbreak_state_digest') ? outbreak_state_digest($watch) : null;
+
+        if (is_string($digest)) {
+            $this->write(StreamLine::state($mutant, $this->test, $child, $digest));
+        }
     }
 
     private function write(string $line): void

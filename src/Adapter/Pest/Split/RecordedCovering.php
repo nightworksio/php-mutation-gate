@@ -59,7 +59,7 @@ final readonly class RecordedCovering
     {
         $executed = [];
 
-        foreach ($directory === '' ? [] : glob(sprintf(self::RECORDED, $directory)) ?: [] as $file) {
+        foreach ($directory === '' ? [] : (glob(sprintf(self::RECORDED, $directory)) ?: []) as $file) {
             foreach (file($file) ?: [] as $text) {
                 $line = json_decode($text, true);
 

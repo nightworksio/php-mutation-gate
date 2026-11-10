@@ -163,6 +163,9 @@ enum GateVariable: string
     /** Whether a first-pass stream runs only the killers of its mutants (ADR-0136). */
     case SplitKillerStreams = 'MUTATION_GATE_SPLIT_KILLER_STREAMS';
 
+    /** The `outbreak.so` a split stream loads to count the forks that change no state (ADR-0130, H5). */
+    case ForkStates = 'MUTATION_GATE_FORK_STATES';
+
     /**
      * The part of the test files whose tests judge a patched run's mutants,
      * and of how many, as `<part>/<parts>`, where a run cuts its test files

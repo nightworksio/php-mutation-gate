@@ -22,6 +22,8 @@ final readonly class StreamRead
         public string $test,
         public bool $passed,
         public bool $failed,
+        public bool $child = false,
+        public string $digest = '',
     ) {
     }
 
@@ -34,6 +36,8 @@ final readonly class StreamRead
             self::text($read, 't'),
             array_key_exists('p', $read) && $read['p'] === true,
             array_key_exists('f', $read) && $read['f'] === true,
+            array_key_exists('c', $read) && $read['c'] === true,
+            self::text($read, 'd'),
         );
     }
 

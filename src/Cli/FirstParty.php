@@ -62,6 +62,7 @@ use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
+use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Installation as PhpSpecInstallation;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\PhpSpecFramework;
@@ -212,6 +213,7 @@ final readonly class FirstParty implements Extension
                     OwnArchive::running(),
                     PestPlugin::class,
                     Outbreak::beneath($options, self::root(), Resources::at(Shipped::Outbreak)),
+                    ShippedExtension::beneath($options, Resources::at(Shipped::Outbreak)),
                 ),
             )
             ->withReporter(BuiltinReporter::Console->named(), ConsoleReport::fromOptions(...))

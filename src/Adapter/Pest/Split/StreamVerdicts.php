@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_any;
+use function array_filter;
 use function array_key_exists;
 
 use Closure;
 
+use function count;
 use function explode;
 use function file_get_contents;
 use function is_array;
@@ -49,6 +51,12 @@ final class StreamVerdicts
 
     /** @var array<string, array<string, ChildEnd>> how each child came out of each test, by mutant and test */
     private array $children = [];
+
+    /**
+     * @var array<string, array{0?: string, 1?: string}> the digest of the state each fork's call left, in the
+     *                                                   parent then the child, by mutant and test (H5)
+     */
+    private array $states = [];
 
     public static function none(): self
     {
@@ -133,6 +141,20 @@ final class StreamVerdicts
     }
 
     /**
+     * How many forks read their state in parent and child, and how many of
+     * those found it alike (H5).
+     *
+     * @return array{int, int}
+     */
+    public function forkStates(): array
+    {
+        $read = array_filter($this->states, static fn(array $both): bool => count($both) === 2);
+        $alike = array_filter($read, static fn(array $both): bool => ($both[0] ?? '') === ($both[1] ?? ''));
+
+        return [count($read), count($alike)];
+    }
+
+    /**
      * The first covering test the parent passed in which a child of the
      * mutant came out as asked; '' where none did.
      *
@@ -194,6 +216,10 @@ final class StreamVerdicts
 
         if ($end instanceof ChildEnd) {
             $this->children[$read->mutant][$read->test] = $end;
+        }
+
+        if ($read->kind === StreamLine::STATE) {
+            $this->states[sprintf('%s %s', $read->mutant, $read->test)][$read->child ? 1 : 0] = $read->digest;
         }
     }
 

@@ -1,0 +1,31 @@
+[package]
+name = "outbreak-ext"
+description = "outbreak.so, Outbreak's PHP extension: a program's op arrays as one digest, and the state a forked call leaves behind."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lib]
+name = "outbreak"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ext-php-rs = { workspace = true }
+sha2.workspace = true
+
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "deny"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"

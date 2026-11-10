@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_map;
 use function count;
 use function implode;
+use function is_array;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
@@ -34,6 +35,8 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 use function sprintf;
 
@@ -62,6 +65,10 @@ final readonly class Interpretation
 
     private const string RAN_NO_TEST = 'its own run ran no test';
 
+    /** What a run that counts its forks' states says of them (H5). */
+    private const string FORK_STATES = 'Split streams read the state %d forks left in parent and child; %d of them '
+        . 'found it alike, so the fork changed nothing the call returned or held (outbreak.forkStates).';
+
     public function __construct(
         private Project $project,
         private Patching $patching,
@@ -82,6 +89,11 @@ final readonly class Interpretation
             $coverage instanceof CannotJudge => $coverage,
             default => $this->mutants($records, $coverage),
         };
+
+        $counted = $records instanceof Records ? $records->forkStates() : NotGiven::value();
+        $result = $result instanceof MutationResult && is_array($counted)
+            ? $result->withWarnings(Warnings::of(Warning::that(sprintf(self::FORK_STATES, $counted[0], $counted[1]))))
+            : $result;
 
         return $result instanceof MutationResult && $ran->wasStopped() ? $result->stoppedAtDeadline() : $result;
     }
@@ -108,7 +120,8 @@ final readonly class Interpretation
 
         $suite = Suite::of($coverage->tests());
 
-        foreach ($planned as $at => $mutant) {
+        foreach ($planned as $at => $made) {
+            $mutant = $this->handOff instanceof HandOff ? $this->handOff->judgedAs($made) : $made;
             $selection = $this->patching->selecting(
                 $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
                 $suite,
@@ -242,15 +255,22 @@ final readonly class Interpretation
     }
 
     /**
-     * A mutant whose mutated copy static analysis rejected before its tests,
-     * killed by it (ADR-0020), whether Pest ran it or not; as it
-     * was otherwise.
+     * A mutant `outbreak.so` proved equivalent before its tests, never run
+     * (ADR-0130); one whose mutated copy static analysis rejected before its
+     * tests, killed by it (ADR-0020), whether Pest ran it or not; as it was
+     * otherwise.
      */
     private function rejected(Mutant $mutant, PlannedMutant $planned): Mutant
     {
-        $rejection = $this->handOff instanceof HandOff ? $this->handOff->rejectionOf($planned) : NotGiven::value();
+        $handOff = $this->handOff;
+        $proof = $handOff instanceof HandOff ? $handOff->equivalenceOf($planned) : NotGiven::value();
+        $rejection = $handOff instanceof HandOff ? $handOff->rejectionOf($planned) : NotGiven::value();
 
-        return $rejection instanceof Rejection ? $mutant->rejected($rejection) : $mutant;
+        return match (true) {
+            $proof instanceof Reason => $mutant->provenEquivalent($proof),
+            $rejection instanceof Rejection => $mutant->rejected($rejection),
+            default => $mutant,
+        };
     }
 
     /**

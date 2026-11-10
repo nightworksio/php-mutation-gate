@@ -92,5 +92,12 @@ enum RecordEvent: string
     case OtherPart = 'other-part';
 
     /** The run reached its end. */
+    /**
+     * How many forks of a run's split streams read the state their call
+     * left in the parent and in the child, and how many of those found it
+     * alike (ADR-0130, H5).
+     */
+    case ForkStates = 'fork-states';
+
     case End = 'end';
 }

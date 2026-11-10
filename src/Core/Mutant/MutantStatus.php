@@ -27,6 +27,12 @@ enum MutantStatus: string
     /** Its process ran out of the memory `runner.memory` caps it at (ADR-0004). */
     case OutOfMemory = 'out-of-memory';
 
+    /**
+     * `outbreak.so` compiled it to its original's op arrays before any test
+     * ran, so no test ran on it (ADR-0130).
+     */
+    case Equivalent = 'equivalent';
+
     /** Its tests fail without it: the unmutated control that judges it failed (ADR-0008). */
     case FailsUnmutated = 'fails-unmutated';
 
@@ -61,6 +67,7 @@ enum MutantStatus: string
             self::TimedOut,
             self::Errored,
             self::IgnoredByMarker,
+            self::Equivalent,
             self::Skipped,
             self::OutOfMemory,
             self::FailsUnmutated,

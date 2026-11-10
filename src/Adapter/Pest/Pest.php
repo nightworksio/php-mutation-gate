@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_values;
 
+use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -105,6 +106,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
         private Clock $clock = new WallClock(),
         private Bridges $bridges = new Bridges(),
         MapEngine|NotGiven $maps = new NotGiven(),
+        ShippedExtension|NotGiven $extension = new NotGiven(),
     ) {
         $this->tests = new TestFiles($project);
         $this->remembered = new Remembered($maps, $patching->toggled(Toggle::PestRemember));
@@ -119,6 +121,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
             $bounds,
             $clock,
             $bridges,
+            $extension,
         );
     }
 
@@ -143,6 +146,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
         OwnArchive|NotGiven $archive,
         string $plugin,
         MapEngine|NotGiven $maps = new NotGiven(),
+        ShippedExtension|NotGiven $extension = new NotGiven(),
     ): self|Invalid {
         $read = PestOptions::read($options);
 
@@ -165,6 +169,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
             $read->bounds(),
             bridges: $read->bridges(),
             maps: $maps,
+            extension: $extension,
         );
     }
 

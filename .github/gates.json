@@ -308,8 +308,8 @@
     },
     "outbreak/boundary": {
       "check": "outbreak / boundary",
-      "checks": "The map engine's PHP contract suite and the Outbreak adapter's process tests, run against the binary this commit builds: what it answers is what the gate's PHP gives (ADR-0118).",
-      "reproduce": "cd outbreak && cargo build --release --package outbreak && cd .. && OUTBREAK_BINARY=$PWD/outbreak/target/release/outbreak vendor/bin/pest tests/Contract/MapEngine tests/Process/Adapter/Outbreak",
+      "checks": "The map engine's PHP contract suite, the equivalence contract suite against outbreak.so, and the Outbreak adapter's process tests, run against the binary and the extension this commit builds: what they answer is what the gate's PHP gives (ADR-0118, ADR-0130).",
+      "reproduce": "cd outbreak && cargo build --release --package outbreak --package outbreak-ext && cd .. && OUTBREAK_BINARY=$PWD/outbreak/target/release/outbreak OUTBREAK_EXTENSION=$PWD/outbreak/target/release/liboutbreak.so vendor/bin/pest tests/Contract/MapEngine tests/Contract/Equivalence tests/Process/Adapter/Outbreak",
       "evidence": "none",
       "why": "Pest's log, which the job shows, names each test that failed and the difference it found."
     },
@@ -319,6 +319,13 @@
       "reproduce": "cd outbreak && cargo build --release --locked --package outbreak --target <target> && target/<target>/release/outbreak contract",
       "evidence": "none",
       "why": "Each platform's leg runs on a runner of its own, and cargo's log, which the job shows, names what failed to build."
+    },
+    "outbreak/extension": {
+      "check": "outbreak / extension ${{ matrix.platform }} php ${{ matrix.php }}",
+      "checks": "outbreak.so builds for every platform and PHP minor the package ships it for, and loads into that PHP where the runner's architecture is the platform's (ADR-0130).",
+      "reproduce": "cd outbreak && cargo build --release --locked --package outbreak-ext --target <target> && php -n -d extension=$PWD/target/<target>/release/liboutbreak.so -r 'echo outbreak_version();'",
+      "evidence": "none",
+      "why": "Each leg runs on a runner of its own, and cargo's log, which the job shows, names what failed to build or load."
     },
     "outbreak/passed": {
       "check": "outbreak / passed",

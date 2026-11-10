@@ -60,8 +60,10 @@ parameters:
         - phpstan/DescribeCall.stub
         - phpstan/Pcntl.stub
         - phpstan/TestCall.stub
-    # PHP's zstd extension, which the gate uses where it is loaded and which is not loaded where it is analysed.
+    # PHP's zstd extension and outbreak.so, which the gate uses where they are loaded and which are not loaded where
+    # it is analysed.
     scanFiles:
+        - phpstan/Outbreak.stub
         - phpstan/Zstd.stub
 
     # There is no `ignoreErrors` and no baseline. A rule that is wrong somewhere

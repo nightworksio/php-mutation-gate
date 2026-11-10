@@ -32,16 +32,28 @@ final readonly class OutbreakKeys
         $timeout = Field::optional(Outbreak::TIMEOUT, Duration::written(), $none);
         $threads = Field::optional(Outbreak::THREADS, Integer::atLeast(1), $none);
         $cache = Field::section(OutbreakCache::OPTION, self::cache());
+        $equivalence = Field::optional(Outbreak::EQUIVALENCE, Flag::boolean(), Effect::AffectsResults);
+        $forkStates = Field::optional(Outbreak::FORK_STATES, Flag::boolean(), Effect::DecidesHowTheGateRuns);
 
         return [Field::section(
             Outbreak::OPTION,
             Section::of(
-                static function (Node $outbreak) use ($enabled, $binary, $timeout, $threads, $cache): Layer|Invalid {
+                static function (Node $outbreak) use (
+                    $enabled,
+                    $binary,
+                    $timeout,
+                    $threads,
+                    $cache,
+                    $equivalence,
+                    $forkStates,
+                ): Layer|Invalid {
                     $on = $enabled->read($outbreak);
                     $at = $binary->read($outbreak);
                     $within = $timeout->read($outbreak);
                     $cores = $threads->read($outbreak);
                     $kept = $cache->read($outbreak);
+                    $proves = $equivalence->read($outbreak);
+                    $counts = $forkStates->read($outbreak);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Shards::of(outbreak: Outbreak::of(
@@ -50,12 +62,16 @@ final readonly class OutbreakKeys
                             $within->value(),
                             $cores->value(),
                             $kept->value(),
+                            $proves->value(),
+                            $counts->value(),
                         ))),
                         $on,
                         $at,
                         $within,
                         $cores,
                         $kept,
+                        $proves,
+                        $counts,
                     );
                 },
                 $enabled,
@@ -63,6 +79,8 @@ final readonly class OutbreakKeys
                 $timeout,
                 $threads,
                 $cache,
+                $equivalence,
+                $forkStates,
             ),
         )];
     }

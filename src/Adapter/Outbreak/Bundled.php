@@ -24,7 +24,10 @@ use function sprintf;
  * (ADR-0118): `<os>-<arch>/outbreak` under the package's `resources/outbreak`,
  * `.exe` on Windows, used only where its SHA-256 is the one `SHA256SUMS`
  * beside it lists. A machine no binary is built for, a binary missing or one
- * whose checksum differs has none, and the gate does the work itself.
+ * whose checksum differs has none, and the gate does the work itself. So with
+ * `outbreak.so` (ADR-0130), under `<os>-<arch>/php<minor>/`, built for each
+ * PHP minor without thread safety, listed in the same file: a PHP it is not
+ * built for, Windows among them, has none, and every mutant runs.
  *
  * @internal
  */
@@ -37,6 +40,9 @@ final readonly class Bundled
     private const string BINARY = '%s/outbreak%s';
 
     private const string EXE = '.exe';
+
+    /** Each extension's path under the directory, by its platform and PHP minor. */
+    private const string EXTENSION = '%s/php%s/outbreak.so';
 
     /** A line of the list as `sha256sum` writes it: a SHA-256 in hex, two spaces, and the file's path. */
     private const string LINE = '/^([0-9a-f]{64})  (.+)$/m';
@@ -62,6 +68,40 @@ final readonly class Bundled
 
         return array_key_exists($name, $listed) && is_file($binary) && self::matches($binary, $listed[$name])
             ? self::runnable($binary)
+            : NotGiven::value();
+    }
+
+    /**
+     * The extension for this PHP, built as the tests' PHP is, in this
+     * directory, where it is there and its checksum is the one listed.
+     */
+    public static function extensionIn(string $directory): string|NotGiven
+    {
+        return PHP_ZTS
+            ? NotGiven::value()
+            : self::extensionFor(
+                $directory,
+                PHP_OS_FAMILY,
+                php_uname('m'),
+                sprintf('%d.%d', PHP_MAJOR_VERSION, PHP_MINOR_VERSION),
+            );
+    }
+
+    /** The extension for a PHP of this minor on a machine of this OS family and architecture, as for `extensionIn()`. */
+    public static function extensionFor(string $directory, string $family, string $machine, string $minor): string|NotGiven
+    {
+        $platform = Platform::of($family, $machine);
+
+        if (! $platform instanceof Platform || $platform->isWindows()) {
+            return NotGiven::value();
+        }
+
+        $name = sprintf(self::EXTENSION, $platform->name(), $minor);
+        $listed = self::listed($directory);
+        $extension = sprintf('%s/%s', $directory, $name);
+
+        return array_key_exists($name, $listed) && is_file($extension) && self::matches($extension, $listed[$name])
+            ? $extension
             : NotGiven::value();
     }
 

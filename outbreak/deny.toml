@@ -1,7 +1,8 @@
 # What Outbreak may depend on (ADR-0118), as herald's deny.toml holds it: no
 # advisory, no yanked crate, one version of each crate, no wildcard, only the
 # licenses below, only crates.io, and no crate that reports on the person
-# running it or runs code it was handed.
+# running it or runs code it was handed; libloading only as clang-sys loads
+# libclang in the build of outbreak.so.
 [graph]
 all-features = true
 
@@ -30,7 +31,7 @@ deny = [
   { crate = "snowplow", reason = "reports on the person running it" },
   { crate = "abi_stable", reason = "runs code it was handed" },
   { crate = "dlopen", reason = "runs code it was handed" },
-  { crate = "libloading", reason = "runs code it was handed" },
+  { crate = "libloading", reason = "runs code it was handed", wrappers = ["clang-sys"] },
   { crate = "sharedlib", reason = "runs code it was handed" },
   { crate = "boa_engine", reason = "runs code it was handed" },
   { crate = "deno_core", reason = "runs code it was handed" },

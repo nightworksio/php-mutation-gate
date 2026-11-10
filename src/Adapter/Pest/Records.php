@@ -64,6 +64,8 @@ final class Records
 
     /** How a record is named. */
     private const string RECORD = 'the record';
+    /** @var array{int, int}|NotGiven */
+    private array|NotGiven $forkStates;
 
     /** @var list<PlannedMutant> in the order the plugin wrote them, which is the order it writes them finished */
     private array $planned = [];
@@ -97,6 +99,7 @@ final class Records
         $this->opening = Unmeasured::duration();
         $this->orders = new PlannedOrders();
         $this->runs = new OwnRuns();
+        $this->forkStates = NotGiven::value();
     }
 
     public static function in(string $file): self|CannotJudge
@@ -246,6 +249,17 @@ final class Records
     }
 
     /**
+     * How many forks of the run's split streams read their state in parent
+     * and child, and how many found it alike (H5); none where none counted.
+     *
+     * @return array{int, int}|NotGiven
+     */
+    public function forkStates(): array|NotGiven
+    {
+        return $this->forkStates;
+    }
+
+    /**
      * Reads one line: the last may be cut short, or empty after the file's
      * final newline, and is then no record; any other must be one.
      *
@@ -270,6 +284,10 @@ final class Records
         match ($event) {
             RecordEvent::Planned, RecordEvent::Twin => $this->withPlanned($record),
             RecordEvent::Made => $this->withMade($record),
+            RecordEvent::ForkStates => $this->forkStates = [
+                $record->field(RecordField::Count->value)->integer(),
+                $record->field(RecordField::Alike->value)->integer(),
+            ],
             RecordEvent::Outcome => $this->outcomes[$record->field(RecordField::Id->value)->text()][]
                 = $this->statusIn($record),
             RecordEvent::Finished => $this->withFinished($record),

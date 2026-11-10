@@ -7,7 +7,12 @@
 # every platform the package ships it for: Linux, static against musl, on
 # x86_64 and aarch64; macOS on both; and Windows on x86_64. Each answers
 # `outbreak contract` where it is built, and is uploaded as
-# `outbreak-<platform>` with its SHA-256 beside it.
+# `outbreak-<platform>` with its SHA-256 beside it. outbreak.so, the
+# extension (ADR-0130), is built beside it for each supported PHP minor, and
+# every job that builds the workspace installs PHP's headers and libclang,
+# which its bindings are generated with. Its compiling and reading of op
+# arrays and state runs only inside PHP, so the boundary's contract suite
+# holds it, not the Rust suite's coverage or mutants.
 #
 # ci.yml calls it on every run, with the gates where `what changed` lists
 # `outbreak` (the Rust tree, its workflow, or the PHP the binary talks to) and
@@ -77,6 +82,12 @@ jobs:
             ~/.cargo/registry/cache
             outbreak/target
           key: outbreak-clippy-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: what failed
         if: failure()
@@ -99,6 +110,12 @@ jobs:
             ~/.cargo/registry/cache
             outbreak/target
           key: outbreak-test-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
       - run: ci/install-tool.sh cargo-nextest
       - run: cargo nextest run --workspace --locked
       - name: what failed
@@ -124,9 +141,17 @@ jobs:
             ~/.cargo/registry/cache
             outbreak/target
           key: outbreak-coverage-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
       - run: ci/install-tool.sh cargo-nextest
       - run: ci/install-tool.sh cargo-llvm-cov
-      - run: cargo llvm-cov nextest --workspace --locked --fail-under-lines 100 --show-missing-lines
+      - run: >-
+          cargo llvm-cov nextest --workspace --locked --fail-under-lines 100 --show-missing-lines
+          --ignore-filename-regex 'crates/outbreak-ext/src/(lib|program|state|value)\.rs'
       - name: what failed
         if: failure()
         working-directory: .
@@ -195,6 +220,12 @@ jobs:
             ~/.cargo/registry/cache
             outbreak/target
           key: outbreak-msrv-${{ hashFiles('outbreak/Cargo.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
       - run: cargo test --workspace --locked
       - name: what failed
         if: failure()
@@ -222,6 +253,12 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
           key: outbreak-mutants-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
       - run: ci/install-tool.sh cargo-nextest
       - run: ci/install-tool.sh cargo-mutants
       - env:
@@ -236,7 +273,8 @@ jobs:
             git diff "$(git merge-base "$BASE" HEAD)" HEAD -- . > "${RUNNER_TEMP}/change.diff"
             scope=(--in-diff "${RUNNER_TEMP}/change.diff")
           fi
-          cargo mutants --workspace --no-shuffle --shard "${SHARD}/${SHARDS}" "${scope[@]}"
+          cargo mutants --workspace --no-shuffle --shard "${SHARD}/${SHARDS}" "${scope[@]}" \
+            --exclude 'crates/outbreak-ext/src/{lib,program,state,value}.rs'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
@@ -314,11 +352,15 @@ jobs:
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
+          tools: php-config, phpize
+      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+      - run: cargo build --release --locked --package outbreak-ext
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       - working-directory: .
         env:
           OUTBREAK_BINARY: ${{ github.workspace }}/outbreak/target/release/outbreak
-        run: vendor/bin/pest tests/Contract/MapEngine tests/Process/Adapter/Outbreak
+          OUTBREAK_EXTENSION: ${{ github.workspace }}/outbreak/target/release/liboutbreak.so
+        run: vendor/bin/pest tests/Contract/MapEngine tests/Contract/Equivalence tests/Process/Adapter/Outbreak
       - name: what failed
         if: failure()
         working-directory: .
@@ -401,12 +443,107 @@ jobs:
         working-directory: .
         run: python3 .github/scripts/gate_summary.py outbreak/build
 
+  # outbreak.so (ADR-0130) for each PHP minor the package supports, NTS, on
+  # every platform but Windows, against the oldest glibc the hosted runners
+  # offer. Each loads into its PHP where it is built for the runner's own
+  # architecture, and is uploaded as `outbreak-ext-<platform>-php<minor>`,
+  # laid out as resources/outbreak/<platform>/php<minor>/outbreak.so with its
+  # SHA-256 beside it.
+  extension:
+    name: extension ${{ matrix.platform }} php ${{ matrix.php }}
+    if: inputs.builds
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+        platform: [linux-x86_64, linux-aarch64, darwin-x86_64, darwin-aarch64]
+        include:
+          - platform: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            library: liboutbreak.so
+            loads: true
+          - platform: linux-aarch64
+            target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04-arm
+            library: liboutbreak.so
+            loads: true
+          - platform: darwin-x86_64
+            target: x86_64-apple-darwin
+            runner: macos-15
+            library: liboutbreak.dylib
+            loads: false
+          - platform: darwin-aarch64
+            target: aarch64-apple-darwin
+            runner: macos-15
+            library: liboutbreak.dylib
+            loads: true
+    defaults:
+      run:
+        shell: bash
+        working-directory: outbreak
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: php-config, phpize
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+      - env:
+          TARGET: ${{ matrix.target }}
+        run: rustup target add "${TARGET}"
+      - env:
+          TARGET: ${{ matrix.target }}
+        run: cargo build --release --locked --package outbreak-ext --target "${TARGET}"
+      - name: Load it, and keep it with its SHA-256
+        env:
+          TARGET: ${{ matrix.target }}
+          PLATFORM: ${{ matrix.platform }}
+          LIBRARY: ${{ matrix.library }}
+          LOADS: ${{ matrix.loads }}
+          PHP: ${{ matrix.php }}
+        run: |
+          set -euo pipefail
+          built="target/${TARGET}/release/${LIBRARY}"
+          if [ "${LOADS}" = "true" ]; then
+            said="$(php -n -d "extension=${PWD}/${built}" -r 'echo function_exists("outbreak_op_arrays") ? outbreak_version() : "missing";')"
+            if [ "${said}" = "missing" ] || [ -z "${said}" ]; then
+              echo "::error::${built} did not load into PHP ${PHP}."
+              exit 1
+            fi
+          fi
+          placed="${PLATFORM}/php${PHP}"
+          mkdir -p "dist/${placed}"
+          cp "${built}" "dist/${placed}/outbreak.so"
+          cd dist
+          if command -v sha256sum > /dev/null; then
+            sha256sum "${placed}/outbreak.so" > "${placed}/SHA256SUM"
+          else
+            shasum -a 256 "${placed}/outbreak.so" > "${placed}/SHA256SUM"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: outbreak-ext-${{ matrix.platform }}-php${{ matrix.php }}
+          path: outbreak/dist
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/extension
+
   # The check main requires of Outbreak's core: every job this run was asked
   # for passed. Where it was asked for none it is skipped, which a required
   # check reads as passed.
   passed:
     name: passed
-    needs: [fmt, clippy, test, coverage, deny, audit, msrv, mutants, fuzz, boundary, build]
+    needs: [fmt, clippy, test, coverage, deny, audit, msrv, mutants, fuzz, boundary, build, extension]
     if: ${{ !cancelled() && (inputs.gates || inputs.builds) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -425,7 +562,7 @@ jobs:
           BUILDS: ${{ inputs.builds }}
         run: |
           failed="$(jq -r --argjson gates "${GATES}" --argjson builds "${BUILDS}" \
-            'to_entries[] | select((if .key == "build" then $builds else $gates end) and .value.result != "success")
+            'to_entries[] | select((if .key == "build" or .key == "extension" then $builds else $gates end) and .value.result != "success")
               | "\(.key) ended \(.value.result)"' <<< "${NEEDS}")"
           if [ -n "${failed}" ]; then
             echo "::error title=outbreak::${failed//$'\n'/; }. Each job's own log says why."

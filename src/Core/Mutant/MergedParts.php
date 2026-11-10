@@ -41,6 +41,7 @@ final readonly class MergedParts
         MutantStatus::OutOfMemory,
         MutantStatus::FailsUnmutated,
         MutantStatus::Skipped,
+        MutantStatus::Equivalent,
         MutantStatus::Unjudged,
         MutantStatus::IgnoredByMarker,
         MutantStatus::Uncovered,

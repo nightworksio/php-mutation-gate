@@ -10,7 +10,10 @@ use function array_values;
 use Closure;
 
 use function count;
+use function dirname;
+use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
@@ -90,6 +93,7 @@ final readonly class MutationRun
         private bool $whole = false,
         private Bridges $bridges = new Bridges(),
         private PreChecker $preChecker = new NoPreCheck(),
+        private ShippedExtension|NotGiven $extension = new NotGiven(),
     ) {
     }
 
@@ -113,6 +117,7 @@ final readonly class MutationRun
             $this->whole,
             $this->bridges,
             $preChecker,
+            $this->extension,
         );
     }
 
@@ -137,6 +142,7 @@ final readonly class MutationRun
             $this->whole,
             $this->bridges,
             $this->preChecker,
+            $this->extension,
         );
     }
 
@@ -157,6 +163,7 @@ final readonly class MutationRun
             $this->whole,
             $this->bridges,
             $this->preChecker,
+            $this->extension,
         );
     }
 
@@ -180,6 +187,7 @@ final readonly class MutationRun
             whole: true,
             bridges: $this->bridges,
             preChecker: $this->preChecker,
+            extension: $this->extension,
         );
     }
 
@@ -322,8 +330,11 @@ final readonly class MutationRun
         $bounds = $request->pool()->bounding($this->bounds);
         $from = $laps->now();
         $handOff = $this->handOff($request, $results, $shared);
-        $told = new Told($this->project, $this->patching, $this->only, $this->narrows())
-            ->of($request, $results, $handOff instanceof HandOff, $bounds);
+        $told = [
+            ...new Told($this->project, $this->patching, $this->only, $this->narrows())
+                ->of($request, $results, $handOff instanceof HandOff, $bounds),
+            ...$this->forkStates(),
+        ];
         $warm = WarmDirectory::made($results);
 
         if ($this->patching->cachesInWorkers()) {
@@ -378,6 +389,20 @@ final readonly class MutationRun
     }
 
     /**
+     * What tells a split stream to load `outbreak.so` and count the forks
+     * that change no state, where `outbreak.forkStates` asks (H5); nothing
+     * otherwise.
+     *
+     * @return array<string, string>
+     */
+    private function forkStates(): array
+    {
+        $path = $this->extension instanceof ShippedExtension ? $this->extension->forStreams() : NotGiven::value();
+
+        return is_string($path) ? [GateVariable::ForkStates->value => $path] : [];
+    }
+
+    /**
      * The hand-off of the run's mutants to static analysis before their
      * tests, and of those it holds back until the others ran, where
      * pest-plugin-mutate is patched and a pre-checker is given or the run
@@ -388,15 +413,21 @@ final readonly class MutationRun
     {
         $held = $request->search()->held();
 
-        return $this->patching->isOn() && HandOff::isWanted($this->preChecker, $held) ? new HandOff(
-            $this->project,
-            $results,
-            $this->preChecker,
-            $request->pool()->processes(),
-            fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
-            $this->bridges,
-            $held,
-        ) : NotGiven::value();
+        $prover = $this->extension instanceof ShippedExtension ? $this->extension->prover(dirname($results)) : NotGiven::value();
+
+        return $this->patching->isOn() && HandOff::isWanted($this->preChecker, $held, $prover)
+            ? new HandOff(
+                $this->project,
+                $results,
+                $this->preChecker,
+                $request->pool()->processes(),
+                fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
+                $this->bridges,
+                $held,
+                $prover,
+                $this->patching->judgesDuplicatesOnce(),
+            )
+            : NotGiven::value();
     }
 
     /** Whether each mutant's own run loads only the test files its covering tests need, as `pest.narrow` says. */

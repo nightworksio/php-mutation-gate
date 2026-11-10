@@ -194,6 +194,26 @@ final readonly class Mutant
     }
 
     /**
+     * This mutant, proven equivalent before it ran (ADR-0130): so run by no
+     * test, killed by none, for the reason that proved it.
+     */
+    public function provenEquivalent(Reason $proof): self
+    {
+        return new self(
+            $this->id,
+            $this->nativeId,
+            $this->location,
+            $this->mutation,
+            MutantStatus::Equivalent,
+            Unmeasured::duration(),
+            $this->limit,
+            $this->unmutatedNeed,
+            $proof,
+            TestIds::none(),
+        );
+    }
+
+    /**
      * This mutant, killed by these tests: the first that failed on it, or
      * every one that failed under a full kill matrix.
      */

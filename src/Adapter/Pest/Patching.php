@@ -73,6 +73,12 @@ final readonly class Patching
         );
     }
 
+    /** Whether a mutant that is the same program as one made before it is judged by that one's run (ADR-0137). */
+    public function judgesDuplicatesOnce(): bool
+    {
+        return $this->steps->duplicates() === Duplicates::JudgeOnce;
+    }
+
     /**
      * The same, its warm workers compiling through opcache where it applies
      * the patch, as `pest.workerOpcache` says.

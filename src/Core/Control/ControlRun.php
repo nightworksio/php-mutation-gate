@@ -89,6 +89,7 @@ final readonly class ControlRun
             MutantStatus::Uncovered,
             MutantStatus::Unjudged,
             MutantStatus::IgnoredByMarker,
+            MutantStatus::Equivalent,
             MutantStatus::NotReached => self::unrun($reason instanceof Reason ? $reason->text() : self::NO_ANSWER),
         };
     }

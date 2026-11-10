@@ -16,10 +16,11 @@ use function sprintf;
  * coverage maps a plan hands its shards, and of the map a run's report is
  * converted into, off the gate's PHP, which binary, how long one run of it
  * may take and on how many threads it writes (ADR-0118, ADR-0119), and
- * where `outbreak cache` keeps proofs by their keys (ADR-0131): `outbreak`,
- * which the `Shards` part holds. None changes a result, since the binary's
- * output is the gate's own and a cached proof stands under its key as a
- * ledger's does, so none is in a proof's key.
+ * where `outbreak cache` keeps proofs by their keys (ADR-0131), and whether
+ * `outbreak.so` proves a mutant equivalent before it runs (ADR-0130):
+ * `outbreak`, which the `Shards` part holds. Only `outbreak.equivalence`
+ * changes a result, so only it is in a proof's key: the binary's output is
+ * the gate's own, and a cached proof stands under its key as a ledger's does.
  */
 final readonly class Outbreak
 {
@@ -38,6 +39,12 @@ final readonly class Outbreak
     /** The key of `outbreak.threads`. */
     public const string THREADS = 'threads';
 
+    /** The key of `outbreak.equivalence`. */
+    public const string EQUIVALENCE = 'equivalence';
+
+    /** The key of `outbreak.forkStates`. */
+    public const string FORK_STATES = 'forkStates';
+
     /** The minutes one run of the binary may take, where the config does not say. */
     private const int MINUTES = 5;
 
@@ -47,6 +54,8 @@ final readonly class Outbreak
         private Seconds|Absent $timeout,
         private int|Absent $threads,
         private OutbreakCache $cache,
+        private bool|Absent $equivalence,
+        private bool|Absent $forkStates,
     ) {
     }
 
@@ -56,6 +65,8 @@ final readonly class Outbreak
         Seconds|Absent $timeout = new Absent(),
         int|Absent $threads = new Absent(),
         OutbreakCache|Absent $cache = new Absent(),
+        bool|Absent $equivalence = new Absent(),
+        bool|Absent $forkStates = new Absent(),
     ): self {
         return new self(
             $enabled,
@@ -63,6 +74,8 @@ final readonly class Outbreak
             $timeout,
             $threads,
             $cache instanceof OutbreakCache ? $cache : OutbreakCache::of(),
+            $equivalence,
+            $forkStates,
         );
     }
 
@@ -75,6 +88,8 @@ final readonly class Outbreak
             Absent::laid($this->timeout, $later->timeout),
             Absent::laid($this->threads, $later->threads),
             $this->cache->over($later->cache),
+            Absent::laid($this->equivalence, $later->equivalence),
+            Absent::laid($this->forkStates, $later->forkStates),
         );
     }
 
@@ -114,6 +129,26 @@ final readonly class Outbreak
         return $this->threads instanceof Absent ? NotGiven::value() : $this->threads;
     }
 
+    /**
+     * `outbreak.equivalence`: whether `outbreak.so`, where it loads into the
+     * tests' PHP, proves a mutant whose op arrays are its original's
+     * equivalent before it runs (ADR-0130); true by default.
+     */
+    public function equivalence(): bool
+    {
+        return $this->equivalence instanceof Absent || $this->equivalence;
+    }
+
+    /**
+     * `outbreak.forkStates`: whether a split stream loads `outbreak.so` and
+     * counts the forks whose call returned the same state as its parent's
+     * (H5), a measurement no verdict reads; false by default.
+     */
+    public function forkStates(): bool
+    {
+        return $this->forkStates === true;
+    }
+
     /** `outbreak.cache`: where `outbreak cache` keeps proofs by their keys, and which packs are read (ADR-0131). */
     public function cache(): OutbreakCache
     {
@@ -134,6 +169,8 @@ final readonly class Outbreak
                 Member::of(self::BINARY, $this->binary),
                 Member::of(self::TIMEOUT, $this->timeout()->seconds()),
                 Member::of(self::THREADS, $this->threads),
+                Member::of(self::EQUIVALENCE, $this->equivalence()),
+                Member::of(self::FORK_STATES, $this->forkStates()),
                 $this->cache->option(),
             ),
         ));
@@ -152,6 +189,8 @@ final readonly class Outbreak
                 Member::of(self::BINARY, $this->binary),
                 Member::of(self::TIMEOUT, WholeSeconds::duration($this->timeout)),
                 Member::of(self::THREADS, $this->threads),
+                Member::of(self::EQUIVALENCE, $this->equivalence),
+                Member::of(self::FORK_STATES, $this->forkStates),
                 $this->cache->written(),
             ),
         ));
@@ -172,6 +211,16 @@ final readonly class Outbreak
                 ? [sprintf('Outbreak::timeout(%s)', PhpCalls::literal($this->timeout->written()))]
                 : [],
             ...$this->threads instanceof Absent ? [] : [sprintf('Outbreak::threads(%d)', $this->threads)],
+            ...match ($this->equivalence) {
+                true => ['Outbreak::equivalenceOn()'],
+                false => ['Outbreak::equivalenceOff()'],
+                default => [],
+            },
+            ...match ($this->forkStates) {
+                true => ['Outbreak::forkStatesCounted()'],
+                false => ['Outbreak::forkStatesUncounted()'],
+                default => [],
+            },
             ...$this->cache->php(),
         ]);
     }

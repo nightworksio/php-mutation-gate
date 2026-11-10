@@ -9,12 +9,15 @@ use function array_filter;
 use function array_key_exists;
 use function array_unique;
 use function array_values;
+use function file_put_contents;
 use function getcwd;
 use function getenv;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -99,7 +102,23 @@ final readonly class Streams
             $verdicts->give($mutant, $test, $covering[$mutant]);
         }
 
+        self::counted($verdicts);
+
         StreamDirectory::removed($directory);
+    }
+
+    /**
+     * Writes how many forks read their state, and how many found it alike,
+     * to the run's results, where the streams counted any (H5).
+     */
+    private static function counted(StreamVerdicts $verdicts): void
+    {
+        [$forks, $alike] = $verdicts->forkStates();
+        $results = getenv(GateVariable::Results->value);
+
+        if ($forks > 0 && is_string($results) && $results !== '') {
+            file_put_contents($results, RecordLine::forkStates($forks, $alike), FILE_APPEND | LOCK_EX);
+        }
     }
 
     /**

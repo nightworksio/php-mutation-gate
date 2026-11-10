@@ -39,6 +39,8 @@ final readonly class StreamLine
 
     public const string COVERED = 'covered';
 
+    public const string STATE = 'state';
+
     /** The parent ended a test: passed or not, in this many seconds. */
     public static function parent(string $test, bool $passed, float $seconds): string
     {
@@ -61,6 +63,15 @@ final readonly class StreamLine
     public static function timedOut(string $mutant, string $test): string
     {
         return self::line([self::KIND => self::TIMEOUT, 'm' => $mutant, 't' => $test]);
+    }
+
+    /**
+     * The digest of the state a forked call left as it returned, in the
+     * child or in the parent, by its mutant and test (H5).
+     */
+    public static function state(string $mutant, string $test, bool $child, string $digest): string
+    {
+        return self::line([self::KIND => self::STATE, 'm' => $mutant, 't' => $test, 'c' => $child, 'd' => $digest]);
     }
 
     /** The stream forks nothing in this test. */

@@ -60,6 +60,7 @@ final readonly class Outcomes
         return match (true) {
             $status->letsThrough() => Outcome::through($mutator, $id),
             $status === MutantStatus::IgnoredByMarker,
+            $status === MutantStatus::Equivalent,
             $status === MutantStatus::Skipped,
             $status === MutantStatus::FailsUnmutated => NotGiven::value(),
             default => Outcome::killed($mutator, $id),

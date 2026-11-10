@@ -47,6 +47,30 @@ final readonly class Outbreak implements Setting
         return new self(Json::at('outbreak.threads', $threads));
     }
 
+    /** `outbreak.equivalence` on: `outbreak.so` proves a mutant equivalent before it runs, as it does by default. */
+    public static function equivalenceOn(): self
+    {
+        return new self(Json::at('outbreak.equivalence', value: true));
+    }
+
+    /** `outbreak.forkStates` on: a split stream counts the forks that change no state (H5). */
+    public static function forkStatesCounted(): self
+    {
+        return new self(Json::at('outbreak.forkStates', value: true));
+    }
+
+    /** `outbreak.forkStates` off, as by default: a split stream counts nothing of its forks' states. */
+    public static function forkStatesUncounted(): self
+    {
+        return new self(Json::at('outbreak.forkStates', value: false));
+    }
+
+    /** `outbreak.equivalence` off: every mutant runs, and only survivors are proven equivalent after the run. */
+    public static function equivalenceOff(): self
+    {
+        return new self(Json::at('outbreak.equivalence', value: false));
+    }
+
     /** `outbreak.cache.store`, `auto`, as by default: a registry where one is named, the Actions cache under the action. */
     public static function cacheStoredAuto(): self
     {
