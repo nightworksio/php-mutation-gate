@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 use function array_map;
 
 use Closure;
+use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
