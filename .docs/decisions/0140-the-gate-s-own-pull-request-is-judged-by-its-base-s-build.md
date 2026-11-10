@@ -54,9 +54,12 @@ gate on fixture projects; both are required.
 4. **A judged run's key reads the judge's verdict code.** Key item 2
    (ADR-0084) digests the verdict sets of the build that judges, so a proof
    made by one judge stands only for that judge.
-5. **The gate's own CI passes `judge: merge-base` on pull requests.** A push
-   to the default branch is judged by its own build, the merged commit, as
-   today.
+5. **The gate's own CI passes `judge: merge-base` on pull requests once the
+   base holds a judge build** (`scripts/judge/scope.py`). Until it does, and
+   no release's judge exists to fall back to, `merge-base` refuses, so the
+   gate's own pull requests pass no `judge` and are judged by their own
+   build. A push to the default branch is judged by its own build, the
+   merged commit, as today.
 6. **Under a judge, a `reach.everything` glob that matches only the gate's
    own files reaches nothing by itself.** Where the run's judge is another
    build than the checkout's, and every file a glob matches is a file of the
