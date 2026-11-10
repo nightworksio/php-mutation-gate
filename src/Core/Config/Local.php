@@ -47,6 +47,7 @@ final readonly class Local implements Part
         private Seconds|Absent $serveRequest,
         private LocalWork $work,
         private bool|Absent $quick,
+        private bool|Absent $cancelByUnit,
     ) {
     }
 
@@ -63,6 +64,7 @@ final readonly class Local implements Part
         Seconds|Absent $serveRequest = new Absent(),
         LocalWork|Absent $work = new Absent(),
         bool|Absent $quick = new Absent(),
+        bool|Absent $cancelByUnit = new Absent(),
     ): self {
         return new self(
             $watchBudget,
@@ -77,6 +79,7 @@ final readonly class Local implements Part
             $serveRequest,
             $work instanceof LocalWork ? $work : LocalWork::of(),
             $quick,
+            $cancelByUnit,
         );
     }
 
@@ -102,6 +105,7 @@ final readonly class Local implements Part
             $none->serveRequest(),
             LocalWork::standard(),
             $none->quick(),
+            $none->cancelsByUnit(),
         );
     }
 
@@ -121,6 +125,7 @@ final readonly class Local implements Part
                 Absent::laid($this->serveRequest, $later->serveRequest),
                 $this->work->over($later->work),
                 Absent::laid($this->quick, $later->quick),
+                Absent::laid($this->cancelByUnit, $later->cancelByUnit),
             )
             : $this;
     }
@@ -185,6 +190,17 @@ final readonly class Local implements Part
         return $this->quick instanceof Absent || $this->quick;
     }
 
+    /**
+     * `local.cancelByUnit`: whether a save during a round of `watch` drops
+     * only the work of the units it moved, halting a batch that runs one, and
+     * the round goes on (ADR-0146); it does by default. Off, a save stops the
+     * round before its next batch.
+     */
+    public function cancelsByUnit(): bool
+    {
+        return $this->cancelByUnit instanceof Absent || $this->cancelByUnit;
+    }
+
     /** How `watch` and `serve` use the machine, and the speed-ups they take (ADR-0120). */
     public function work(): LocalWork
     {
@@ -229,6 +245,7 @@ final readonly class Local implements Part
                     Member::of('memoryHeadroom', $this->memoryHeadroom),
                     Member::of('serveRequest', WholeSeconds::duration($this->serveRequest)),
                     Member::of('quick', $this->quick),
+                    Member::of('cancelByUnit', $this->cancelByUnit),
                 )),
             ),
         );
@@ -263,6 +280,11 @@ final readonly class Local implements Part
             ...match ($this->quick) {
                 true => ['Local::quickRounds()'],
                 false => ['Local::fullRounds()'],
+                default => [],
+            },
+            ...match ($this->cancelByUnit) {
+                true => ['Local::cancellingByUnit()'],
+                false => ['Local::cancellingByRound()'],
                 default => [],
             },
             ...$this->roomPhp(),

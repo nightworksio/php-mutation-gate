@@ -89,6 +89,18 @@ final readonly class Local implements Setting
         return new self(Json::at('local.quick', value: false));
     }
 
+    /** `local.cancelByUnit`, as by default: a save drops only the work of the units it moved (ADR-0146). */
+    public static function cancellingByUnit(): self
+    {
+        return new self(Json::at('local.cancelByUnit', value: true));
+    }
+
+    /** `local.cancelByUnit` off: a save stops the round of `watch` before its next batch. */
+    public static function cancellingByRound(): self
+    {
+        return new self(Json::at('local.cancelByUnit', value: false));
+    }
+
     /** `triage.fewest`: the fewest runs `triage --repeat` takes; 2. */
     public static function triageFewest(int $runs): self
     {

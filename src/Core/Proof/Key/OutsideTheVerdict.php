@@ -50,6 +50,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/Assessed.php',
             'src/Cli/Flow/AutoSampling.php',
             'src/Cli/Flow/Baselines.php',
+            'src/Cli/Flow/BatchHalt.php',
             'src/Cli/Flow/ChangeBase.php',
             'src/Cli/Flow/ChangedTestRuns.php',
             'src/Cli/Flow/CodeOwnersFile.php',

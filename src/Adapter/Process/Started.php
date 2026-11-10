@@ -35,7 +35,8 @@ use Psr\Clock\ClockInterface;
  * awaited, looking at the running ones as soon as one prints or ends and at
  * least about a hundred times a second, and at the watch as often. Where they
  * are given a saying, it says in its log once a minute while any runs what
- * runs (see Saying). Let go, it stops every one still running.
+ * runs (see Saying). Let go, or halted (see Halting), it stops every one
+ * still running.
  *
  * @internal
  */
@@ -104,14 +105,22 @@ final class Started implements StartedProcesses
 
     public function ends(): ProcessEnds
     {
-        while ($this->isRunning()) {
-            if ($this->ended === [] && $this->running !== []) {
-                $this->watch->look();
-                Running::awaitAny(Polling::told(getenv(ChildVariable::Poll->value)), ...$this->running);
-            }
+        $halting = Halting::listened();
 
-            $this->step();
+        try {
+            while ($this->isRunning() && ! $halting->heard()) {
+                if ($this->ended === [] && $this->running !== []) {
+                    $this->watch->look();
+                    Running::awaitAny(Polling::told(getenv(ChildVariable::Poll->value)), ...$this->running);
+                }
+
+                $this->step();
+            }
+        } finally {
+            $halting->letGo();
         }
+
+        $this->stop();
 
         $ends = $this->ends;
         ksort($ends);

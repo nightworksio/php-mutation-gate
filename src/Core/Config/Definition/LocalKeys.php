@@ -33,6 +33,7 @@ final readonly class LocalKeys
         $headroom = Field::optional('memoryHeadroom', Integer::atLeast(1), $judges);
         $request = Field::optional('serveRequest', Duration::written(), $judges);
         $quick = Field::optional('quick', Flag::boolean(), $judges);
+        $cancel = Field::optional('cancelByUnit', Flag::boolean(), $judges);
 
         return [Field::section(
             'triage',
@@ -54,6 +55,7 @@ final readonly class LocalKeys
                     $headroom,
                     $request,
                     $quick,
+                    $cancel,
                 ): Layer|Invalid {
                     $working = LocalWorkKeys::read($local);
                     $watching = $watch->read($local);
@@ -66,6 +68,7 @@ final readonly class LocalKeys
                     $room = $headroom->read($local);
                     $requesting = $request->read($local);
                     $quickly = $quick->read($local);
+                    $cancelling = $cancel->read($local);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Local::of(
@@ -80,6 +83,7 @@ final readonly class LocalKeys
                             serveRequest: $requesting->value(),
                             work: $working->value(),
                             quick: $quickly->value(),
+                            cancelByUnit: $cancelling->value(),
                         )),
                         $watching,
                         $pushing,
@@ -92,6 +96,7 @@ final readonly class LocalKeys
                         $requesting,
                         $working,
                         $quickly,
+                        $cancelling,
                     );
                 },
                 $watch,
@@ -104,6 +109,7 @@ final readonly class LocalKeys
                 $headroom,
                 $request,
                 $quick,
+                $cancel,
                 ...LocalWorkKeys::fields(),
             ),
         )];

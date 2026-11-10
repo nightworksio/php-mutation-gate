@@ -27,13 +27,7 @@ final readonly class QuickRound
     /** The round after one that left its map, with each path these changes name, by its name now and before. */
     public static function after(Changes $changes): self
     {
-        $paths = Paths::none();
-
-        foreach ($changes as $change) {
-            $paths = $paths->with($change->path())->with($change->previousPath());
-        }
-
-        return new self($paths);
+        return new self($changes->paths());
     }
 
     /** The files changed since the round before, by their names now and before. */

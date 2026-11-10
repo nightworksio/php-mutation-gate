@@ -70,6 +70,8 @@ final readonly class WatchCommand
 
     private const string ARRIVED = 'A change arrived, so the round stops and the gate judges again.';
 
+    private const string MOVED = 'A change arrived: the units it moved wait for the next round, which judges again.';
+
     /** @param Closure(Seconds): bool $waited waits this long between looks, and says whether to go on watching */
     private function __construct(
         private Composed $composed,
@@ -181,17 +183,21 @@ final readonly class WatchCommand
     }
 
     /**
-     * One round from the files as they were seen, stopped before its next
-     * batch by a change; its verdict is printed unless a change arrived.
+     * One round from the files as they were seen, cancelled by a change unit
+     * by unit where `local.cancelByUnit` is on, stopped before its next batch
+     * otherwise; its verdict is printed unless a change arrived.
      * Whether it planned, and so left a coverage map for the next round.
      */
     private function round(Composed $composed, bool $ownMap, QuickRound|NotGiven $quick, WatchLooks $looks): bool
     {
-        $arrived = Interruption::when($looks->arrived(...));
+        $local = $composed->settings->local();
+        $arrived = $local->cancelsByUnit()
+            ? Interruption::byUnit($looks->moved(...), $composed->adapters->project, $local->watchPoll())
+            : Interruption::when($looks->arrived(...));
         $running = Running::composed($composed)->interrupted($arrived)->telling(BatchLines::streamed(
-            $composed->settings->local()->work(),
+            $local->work(),
             fn(string $line) => $this->printing->note($line, $this->output),
-            $composed->settings->local()->quick(),
+            $local->quick(),
         ));
         $this->printing->begin($this->output, $composed->adapters->project);
         $made = new Planning($composed->adapters, $composed->settings, $composed->setup)
@@ -211,7 +217,7 @@ final readonly class WatchCommand
         $stopped = $looks->arrived();
 
         if ($stopped) {
-            $this->printing->note(self::ARRIVED, $this->output);
+            $this->printing->note($local->cancelsByUnit() ? self::MOVED : self::ARRIVED, $this->output);
         }
 
         if (! $stopped) {

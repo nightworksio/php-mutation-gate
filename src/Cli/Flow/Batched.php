@@ -32,7 +32,9 @@ use Psr\Clock\ClockInterface;
  * Invoking); under `mark` the first such survivor is noted and the batches run
  * on (ADR-0103). A batch the runner
  * cannot judge once the time is up is unjudged, as is every unit no batch
- * took. What each batch judged is told as it ends (ADR-0120).
+ * took. What each batch judged is told as it ends (ADR-0120). Where a
+ * change cancels by unit, the units it moved leave the queue unjudged, and a
+ * batch it halts leaves its units unjudged as a deadline would (ADR-0146).
  *
  * @internal
  */
@@ -60,17 +62,27 @@ final readonly class Batched
     {
         $spent = Spent::none();
         $left = $this->left();
-        $batch = $this->batchOf($batching, $queue, $left);
         $watch = DoomWatch::from($this->doom, $this->clock, $this->stops);
 
-        while ($batch->count() > 0) {
+        while (true) {
+            $kept = $this->interruption->kept($queue);
+            $spent = $spent->leaving(self::unitsOf($queue)->except(self::unitsOf($kept)));
+            $queue = $kept;
+            $batch = $watch->stopsAfter($spent) ? Units::none() : $this->batchOf($batching, $queue, $left);
+
+            if ($batch->count() === 0) {
+                break;
+            }
+
             $request = $requestFor($batch);
+            $halt = $this->interruption->halting($batch);
             $invoked = $this->invoking->invoked($this->within($request, $left));
+            $halted = $halt instanceof BatchHalt && $halt->disarmed();
             $this->ends->ended($invoked);
             $queue = array_slice($queue, $batch->count());
             $spent = match (true) {
                 ! $invoked instanceof CannotJudge => $watch->after($spent, $batch, $invoked),
-                $this->isOver() => $spent->leaving($batch),
+                $halted || $this->isOver() => $spent->leaving($batch),
                 default => $invoked,
             };
 
@@ -79,10 +91,19 @@ final readonly class Batched
             }
 
             $left = $this->left();
-            $batch = $watch->stopsAfter($spent) ? Units::none() : $this->batchOf($batching, $queue, $left);
         }
 
-        return $spent->leaving(Units::of(...array_map(static fn(Weighed $weighed): Unit => $weighed->unit(), $queue)));
+        return $spent->leaving(self::unitsOf($queue));
+    }
+
+    /**
+     * The units of these.
+     *
+     * @param list<Weighed> $weighed
+     */
+    private static function unitsOf(array $weighed): Units
+    {
+        return Units::of(...array_map(static fn(Weighed $one): Unit => $one->unit(), $weighed));
     }
 
     /** The time left before the deadline, or no limit where the run has none. */
