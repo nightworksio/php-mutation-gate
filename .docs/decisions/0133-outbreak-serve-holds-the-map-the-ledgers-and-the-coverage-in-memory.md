@@ -91,9 +91,9 @@ fallback.
    state answers what the files answer.
 7. **It watches the files natively.** `outbreak serve` watches the trees
    and the test directories `watch` names through the platform's own
-   notifications: kqueue on macOS and the BSDs, inotify on Linux,
-   `ReadDirectoryChangesW` on Windows; links, version control's directories
-   and `.mutation-gate` are not followed. A burst of events counts as one
+   notifications: kqueue on macOS and the BSDs, inotify on Linux, WSL2
+   included; links, version control's directories and `.mutation-gate` are
+   not followed. A burst of events counts as one
    change once it settled for `outbreak.serve.debounce` (`50ms` by default),
    and `watch` looks at the files as soon as one did, and after
    `local.watchPoll` at the latest. Where the watcher cannot arm, as on
@@ -135,11 +135,12 @@ fallback.
     for no file events. `mutation-gate lsp` starts it with the binary in
     use, the gate's own script and PHP, and hands `watch` every other option
     it was given. The problem matcher of `watch --output=problems` stays.
-11. **Windows gets everything that needs no fork.** Where `pcntl` is
-    missing, the daemon keeps `local.workers` PHP workers booted up to the
-    point a fork would come, each running one mutant's run and exiting,
-    with a new one booting behind it, under a Job Object that ends them with
-    the daemon. WSL2 is documented as the path with split streams.
+11. **Windows stays unsupported; WSL2 is the path.** The gate's warm
+    workers fork, talk over Unix sockets and start through `/bin/sh`, and
+    no job of CI runs the PHP gate on Windows, so the daemon builds no
+    second worker transport for it. Inside WSL2 the gate runs as it does on
+    Linux, split streams and `outbreak serve` included, as the README and
+    the watch recipe say.
 12. **One suite holds the daemon to the gate's readers.** A proof the
    daemon keeps is the entry a pack of `outbreak cache` holds (ADR-0131), a
    ledger of that proof alone, kept as the gate wrote it, so a state
@@ -190,6 +191,7 @@ fallback.
 | **A database file, such as SQLite** | A dependency for an append-only log and one snapshot, where a checksummed journal does the same. |
 | **An external store, such as Redis** | A service to run beside a laptop's test suite, and a socket the project does not own. |
 | **The scheduler in `outbreak serve`**, with PHP workers it supervises over inherited sockets | A port of the PHP `serve`'s queue, cancel and priority that no profile has shown to gain time; it is taken where a profile of the local loop shows the PHP `serve`'s polling of its workers to cost time. |
+| **Pre-booted single-use PHP workers on Windows**, under a Job Object | A second worker transport (loopback sockets with a token, processes started without a shell) and a Windows API binding, for a platform the gate does not support and CI does not run; WSL2 runs the gate as Linux does. |
 | **No daemon in CI** | Each chunk of a pull request's shard then reads and slices its map again. |
 
 ## Consequences
