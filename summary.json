@@ -1,14 +1,14 @@
 {
     "format": 1,
     "commit": "d76f62def53725d55deb2e9f7ca9d733e1fdf3ef",
-    "time": "2026-11-09T20:47:21Z",
-    "verdict": "passed",
-    "score": 100.0,
+    "time": "2026-11-10T13:23:18Z",
+    "verdict": "failed",
+    "score": 99.99,
     "trees": [
         {
             "path": "src",
             "floor": 100.0,
-            "score": 100.0
+            "score": 99.99
         },
         {
             "path": "plugins/default/src",
@@ -38,75 +38,81 @@
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Logical\\InstanceOfToTrue",
-            "seconds": 67075.01087783228,
+            "seconds": 67075.7043119517,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Logical\\InstanceOfToFalse",
-            "seconds": 64811.027146427354,
+            "seconds": 64814.46475974356,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\TernaryNegated",
-            "seconds": 41595.274785745045,
+            "seconds": 41600.617438739115,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\ForeachEmptyIterable",
-            "seconds": 39863.63102356945,
+            "seconds": 39868.23287387081,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Removal\\RemoveArrayItem",
-            "seconds": 31419.021926765134,
-            "survived": 0,
-            "killRate": 100.0
-        },
-        {
-            "runner": "pest",
-            "mutator": "Pest\\Mutate\\Mutators\\Array\\UnwrapArrayValues",
-            "seconds": 16072.726225369379,
+            "seconds": 31443.164928943883,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Number\\DecrementInteger",
-            "seconds": 15350.708782246447,
+            "seconds": 17518.749987742885,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Logical\\BooleanAndToBooleanOr",
-            "seconds": 15059.038225929116,
+            "seconds": 16688.20533101421,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\Array\\UnwrapArrayValues",
+            "seconds": 16079.298404485638,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Number\\IncrementInteger",
-            "seconds": 13476.576131846678,
+            "seconds": 13498.079970434988,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\IfNegated",
-            "seconds": 11991.667551427758,
+            "seconds": 11996.525000290232,
             "survived": 0,
             "killRate": 100.0
         }
     ],
     "heatmap": [
+        {
+            "path": "src/Core/Config/Definition/CapRead.php",
+            "score": 57.14,
+            "base": 100.0,
+            "notKilled": 3
+        },
         {
             "path": "plugins/default/src/Argument.php",
             "score": 100.0,
@@ -157,12 +163,6 @@
         },
         {
             "path": "plugins/default/src/Arithmetic/PlusToMinus.php",
-            "score": 100.0,
-            "base": 100.0,
-            "notKilled": 0
-        },
-        {
-            "path": "plugins/default/src/Arithmetic/PostDecrementToPostIncrement.php",
             "score": 100.0,
             "base": 100.0,
             "notKilled": 0
