@@ -23,7 +23,8 @@ use function sprintf;
 /**
  * What `watch` prints of a batch as it ends (ADR-0120): how many mutants it
  * judged, by status, and each survivor where it is, so a survivor shows
- * before the round's verdict does.
+ * before the round's verdict does; each line of a quick round says so
+ * (ADR-0146).
  *
  * @internal
  */
@@ -39,18 +40,21 @@ final readonly class BatchLines
 
     private const string MANY = 'mutants';
 
+    private const string QUICK = '[quick] ';
+
     /**
-     * What each batch judged, said line by line as it ends, where
-     * `local.streamBatches` says so; nothing told otherwise.
+     * What each batch judged, said line by line as it ends, each labelled
+     * where the round is quick, where `local.streamBatches` says so; nothing
+     * told otherwise.
      *
      * @param Closure(string): void $said
      */
-    public static function streamed(LocalWork $work, Closure $said): BatchEnds
+    public static function streamed(LocalWork $work, Closure $said, bool $quick = false): BatchEnds
     {
         return $work->isOn(LocalSwitch::StreamBatches)
-            ? BatchEnds::telling(static function (Invoked $invoked) use ($said): void {
+            ? BatchEnds::telling(static function (Invoked $invoked) use ($said, $quick): void {
                 foreach (self::of($invoked->result->mutants()) as $line) {
-                    $said($line);
+                    $said($quick ? self::QUICK . $line : $line);
                 }
             })
             : new BatchEnds();

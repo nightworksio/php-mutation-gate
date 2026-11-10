@@ -89,7 +89,8 @@ final readonly class Planning
      * The plan of a run that records this much of the kill matrix, and how
      * its coverage map was measured, against the map its own scope or the
      * default branch keeps or, for `watch`, against the one its last round
-     * left; or why there is no plan.
+     * left, which a quick round takes the changed files' coverage from
+     * (ADR-0146); or why there is no plan.
      */
     public function plan(
         Mode $mode,
@@ -98,6 +99,7 @@ final readonly class Planning
         MatrixKind $matrix,
         bool $ownMap = false,
         bool $earlyOnly = false,
+        QuickRound|NotGiven $quick = new NotGiven(),
     ): PlanMade|CannotJudge {
         $inventory = $this->adapters->runner->behaviour()->records($matrix)
             ? Inventory::forKeys($this->adapters, $this->settings)
@@ -130,12 +132,12 @@ final readonly class Planning
         }
 
         if (! $early instanceof CoverageMeasured) {
-            return $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap);
+            return $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap, $quick);
         }
 
         $taking = $mode->takingNone();
         $none = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing, TakenProofs::None);
-        $made = $this->measured($inventory, $none, $taking, $early->request(), $cut, $matrix, $ownMap);
+        $made = $this->measured($inventory, $none, $taking, $early->request(), $cut, $matrix, $ownMap, $quick);
 
         return $made instanceof PlanMade ? $made->plannedEarly($early) : $made;
     }
@@ -188,12 +190,13 @@ final readonly class Planning
         Cut $cut,
         MatrixKind $matrix,
         bool $ownMap,
+        QuickRound|NotGiven $quick,
     ): PlanMade|CannotJudge {
         $suites = SuiteCoverage::of($this->adapters, $inventory, $this->settings->proofs()->coverageCompressionLevel());
         $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
         $names = new NameGraph($this->adapters)->named($inventory->suite);
         $entries = $kept->entries($inventory, $names);
-        $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap, $suites);
+        $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap, $suites, $quick);
         $request = $measured->request();
         $map = $kept->mapOf($measured, $suites);
 
@@ -242,7 +245,8 @@ final readonly class Planning
             )->without($ledgers->unread())->learning(
                 ...$learned->lines(),
                 ...new CachedPacks($this->adapters, $this->settings)->lines($planned, $ledgers),
-                ...JudgedRun::of($this->adapters->project, OwnArchive::running())->lines($this->settings->reach()->everything()),
+                ...JudgedRun::of($this->adapters->project, OwnArchive::running())
+                    ->lines($this->settings->reach()->everything()),
             )
             : $planned;
     }

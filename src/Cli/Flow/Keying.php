@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Local\LocalLoop;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
@@ -74,7 +75,7 @@ final readonly class Keying
             ? new self(
                 ContentKeys::of(
                     InstalledVerdictCode::installed()->of($identity->runner()),
-                    self::config($settings, $adapters->narrowing, $learned),
+                    self::config($settings, $adapters->narrowing, $learned, $adapters->loop),
                     $identity,
                     self::analyser($adapters),
                     $setup->installed,
@@ -133,7 +134,7 @@ final readonly class Keying
 
         return $identity instanceof CannotJudge ? $identity : ContentKeys::readsOf(
             InstalledVerdictCode::installed()->of($identity->runner()),
-            self::config($settings, $adapters->narrowing, $learned),
+            self::config($settings, $adapters->narrowing, $learned, $adapters->loop),
             $identity,
             self::analyser($adapters),
             $setup->installed,
@@ -205,19 +206,22 @@ final readonly class Keying
      * The config as it affects results (ADR-0007); what a narrowed run is
      * narrowed to, the mutators it makes mutants with and the suite whose
      * tests judge them, so its proofs never stand in for a whole unit's
-     * (ADR-0021, ADR-0025); and the `timeouts.multiple` a plan learned, which
-     * is what its mutants ran under (ADR-0108).
+     * (ADR-0021, ADR-0025); the `timeouts.multiple` a plan learned, which
+     * is what its mutants ran under (ADR-0108); and whether a quick round of
+     * `watch` judged them, so no other run takes its proofs (ADR-0146).
      */
     private static function config(
         Settings $settings,
         Narrowing $narrowing,
         Multiple|NotGiven $learned = new NotGiven(),
+        LocalLoop|NotGiven $loop = new NotGiven(),
     ): string {
         $suite = $narrowing->suite();
         $beside = [
             ...$narrowing->isNone() ? [] : ['mutators' => [...$narrowing->mutators()]],
             ...$suite instanceof SuiteName ? ['suite' => $suite->value()] : [],
             ...$learned instanceof Multiple ? ['learnedMultiple' => $learned->times()] : [],
+            ...$loop instanceof LocalLoop && $loop->isQuick() ? ['quick' => true] : [],
         ];
 
         return $beside === []

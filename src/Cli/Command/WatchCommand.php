@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
+use NightWorksIO\MutationGate\Cli\Flow\QuickRound;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -52,8 +53,12 @@ use Symfony\Component\Console\Output\OutputInterface;
  * it ends (ADR-0120).
  * The coverage map is built in the first round and kept: a change to
  * tests or test support measures the tests it touched again, and a change
- * that reaches everything builds it again. It never writes the baseline,
- * and it runs until it is stopped.
+ * that reaches everything builds it again. Under `local.quick` each round
+ * is quick (ADR-0146): it measures again only the test files that changed,
+ * covers each changed source file by the tests the kept map and the static
+ * graph show running it, streams its mutants by their covering test files
+ * with no static check, says it is no verdict, and keys its proofs apart.
+ * It never writes the baseline, and it runs until it is stopped.
  *
  * @internal
  */
@@ -84,13 +89,18 @@ final readonly class WatchCommand
                 $waited,
             ): int {
                 $printing = FlowOptions::printing($input);
-                $composed = $composition->composeLocally($input);
+                $composed = $composition->composeForWatch($input);
                 $composed = $composed instanceof Composed ? self::budgeted($composed, $input) : $composed;
 
                 return match (true) {
                     $printing instanceof CannotJudge => Failed::because($output, $printing),
                     ! $composed instanceof Composed => Failed::because($output, $composed),
-                    default => new self($composed, $printing, $output, $waited)->watched(),
+                    default => new self(
+                        $composed,
+                        $composed->settings->local()->quick() ? $printing->quickly() : $printing,
+                        $output,
+                        $waited,
+                    )->watched(),
                 };
             });
     }
@@ -127,6 +137,7 @@ final readonly class WatchCommand
     private function rounds(Watched $seen): int
     {
         $ownMap = false;
+        $before = $seen;
         $load = WatchLoad::of($this->composed->settings->local()->work());
 
         while (true) {
@@ -145,7 +156,10 @@ final readonly class WatchCommand
                 $this->composed->settings->local()->watchPoll(),
                 $seen,
             );
-            $planned = $this->round($load->fitted($this->composed, $power, $seen), $ownMap, $looks);
+            $quick = $ownMap && $this->composed->settings->local()->quick()
+                ? QuickRound::after($seen->changesSince($before))
+                : NotGiven::value();
+            $planned = $this->round($load->fitted($this->composed, $power, $seen), $ownMap, $quick, $looks);
             $now = $this->after($seen, $looks);
 
             if (! $now instanceof Watched) {
@@ -153,6 +167,7 @@ final readonly class WatchCommand
             }
 
             $ownMap = $planned;
+            $before = $seen;
             $seen = $now;
         }
     }
@@ -170,12 +185,13 @@ final readonly class WatchCommand
      * batch by a change; its verdict is printed unless a change arrived.
      * Whether it planned, and so left a coverage map for the next round.
      */
-    private function round(Composed $composed, bool $ownMap, WatchLooks $looks): bool
+    private function round(Composed $composed, bool $ownMap, QuickRound|NotGiven $quick, WatchLooks $looks): bool
     {
         $arrived = Interruption::when($looks->arrived(...));
         $running = Running::composed($composed)->interrupted($arrived)->telling(BatchLines::streamed(
             $composed->settings->local()->work(),
             fn(string $line) => $this->printing->note($line, $this->output),
+            $composed->settings->local()->quick(),
         ));
         $this->printing->begin($this->output, $composed->adapters->project);
         $made = new Planning($composed->adapters, $composed->settings, $composed->setup)
@@ -185,6 +201,7 @@ final readonly class WatchCommand
                 FlowOptions::configuredCut($composed->settings),
                 MatrixKind::FirstKiller,
                 ownMap: $ownMap,
+                quick: $quick,
             );
         $plan = $made instanceof PlanMade ? $made->plan() : $made;
         $judged = $plan instanceof Plan

@@ -28,7 +28,7 @@ final readonly class StaticCheckKeys
     public static function fields(PathOrigin $origin): array
     {
         $results = Effect::AffectsResults;
-        $tool = Field::optional('tool', Adapter::choosing(Builtins::staticCheckers($origin)), $results);
+        $tool = Field::optional(StaticCheck::TOOL, Adapter::choosing(Builtins::staticCheckers($origin)), $results);
         $config = Field::optional('config', Location::path($origin), $results);
         $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
         $before = Field::optional('before', Flag::boolean(), Effect::JudgesOrReportsOnly);
@@ -37,11 +37,11 @@ final readonly class StaticCheckKeys
         $opcache = Field::section('opcache', self::opcache());
         $dependents = Field::optional('dependents', Integer::atLeast(0), $judges);
         $preCheckAfter = Field::optional('preCheckAfter', Integer::atLeast(0), $judges);
-        $toggles = ToggleFields::in('staticCheck');
+        $toggles = ToggleFields::in(StaticCheck::SECTION);
         $php = Field::optional('php', OpenObject::any(), $judges);
 
         return [Field::section(
-            'staticCheck',
+            StaticCheck::SECTION,
             Section::of(
                 static function (Node $staticCheck) use (
                     $tool,

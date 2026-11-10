@@ -15,14 +15,18 @@ use Symfony\Component\Console\Output\OutputInterface;
  * How a command prints its verdict: the console's report, or, with
  * `--output=problems`, one line per result for an editor's problem matcher,
  * after the line a background matcher waits for before the run; with
- * `--only=changed`, only the results on changed lines (ADR-0015).
+ * `--only=changed`, only the results on changed lines (ADR-0015); a quick
+ * round's report says it is no verdict (ADR-0146).
  *
  * @internal
  */
 final readonly class Printing
 {
-    private function __construct(private VerdictOutput $output, private ProblemsShown $shown)
-    {
+    private function __construct(
+        private VerdictOutput $output,
+        private ProblemsShown $shown,
+        private bool $quick = false,
+    ) {
     }
 
     public static function of(VerdictOutput $output, ProblemsShown $shown): self
@@ -34,6 +38,12 @@ final readonly class Printing
     public static function console(): self
     {
         return new self(VerdictOutput::Console, ProblemsShown::All);
+    }
+
+    /** The same, printing a quick round's report, which says it is no verdict. */
+    public function quickly(): self
+    {
+        return new self($this->output, $this->shown, quick: true);
     }
 
     /** Say a judgement begins, before the run, where an editor reads what follows. */
@@ -57,7 +67,7 @@ final readonly class Printing
     {
         $reporter = $this->output === VerdictOutput::Problems
             ? ProblemsReport::to($output, $project->root(), $this->shown)
-            : ConsoleReport::to($output);
+            : ($this->quick ? ConsoleReport::quick($output) : ConsoleReport::to($output));
         $reporter->report($verdict);
     }
 }

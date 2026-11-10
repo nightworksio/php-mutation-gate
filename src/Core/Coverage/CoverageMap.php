@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Coverage;
 use function array_filter;
 use function array_key_exists;
 use function array_map;
+use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -85,6 +86,22 @@ final readonly class CoverageMap
         }
 
         return $map;
+    }
+
+    /**
+     * This map with these lines laid beside its own, built at once: a line
+     * both hold keeps the tests of both, and every test it knows keeps its
+     * time, with the methods it ran and the packages it loaded.
+     */
+    public function besides(CoveredLine ...$covered): self
+    {
+        return new self(
+            LineTests::of(...iterator_to_array($this->lines(), false), ...$covered)
+                ->knowing(...iterator_to_array($this->tests(), false)),
+            $this->durations,
+            $this->methods,
+            $this->loaded,
+        );
     }
 
     /** This map, with these tests covering a line. */

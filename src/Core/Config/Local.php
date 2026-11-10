@@ -46,6 +46,7 @@ final readonly class Local implements Part
         private int|Absent $memoryHeadroom,
         private Seconds|Absent $serveRequest,
         private LocalWork $work,
+        private bool|Absent $quick,
     ) {
     }
 
@@ -61,6 +62,7 @@ final readonly class Local implements Part
         int|Absent $memoryHeadroom = new Absent(),
         Seconds|Absent $serveRequest = new Absent(),
         LocalWork|Absent $work = new Absent(),
+        bool|Absent $quick = new Absent(),
     ): self {
         return new self(
             $watchBudget,
@@ -74,6 +76,7 @@ final readonly class Local implements Part
             $memoryHeadroom,
             $serveRequest,
             $work instanceof LocalWork ? $work : LocalWork::of(),
+            $quick,
         );
     }
 
@@ -98,6 +101,7 @@ final readonly class Local implements Part
             $none->memoryHeadroom(),
             $none->serveRequest(),
             LocalWork::standard(),
+            $none->quick(),
         );
     }
 
@@ -116,6 +120,7 @@ final readonly class Local implements Part
                 Absent::laid($this->memoryHeadroom, $later->memoryHeadroom),
                 Absent::laid($this->serveRequest, $later->serveRequest),
                 $this->work->over($later->work),
+                Absent::laid($this->quick, $later->quick),
             )
             : $this;
     }
@@ -171,6 +176,15 @@ final readonly class Local implements Part
         return $this->inferSubsumed instanceof Absent || $this->inferSubsumed;
     }
 
+    /**
+     * `local.quick`: whether each round of `watch` is quick, advisory and
+     * keyed apart from every other run's proofs (ADR-0146); it is by default.
+     */
+    public function quick(): bool
+    {
+        return $this->quick instanceof Absent || $this->quick;
+    }
+
     /** How `watch` and `serve` use the machine, and the speed-ups they take (ADR-0120). */
     public function work(): LocalWork
     {
@@ -214,6 +228,7 @@ final readonly class Local implements Part
                     Member::of('watchPoll', WholeSeconds::duration($this->watchPoll)),
                     Member::of('memoryHeadroom', $this->memoryHeadroom),
                     Member::of('serveRequest', WholeSeconds::duration($this->serveRequest)),
+                    Member::of('quick', $this->quick),
                 )),
             ),
         );
@@ -245,6 +260,11 @@ final readonly class Local implements Part
             ...$this->watchPoll instanceof Seconds
                 ? [sprintf('Local::watchPoll(%s)', PhpCalls::literal($this->watchPoll->written()))]
                 : [],
+            ...match ($this->quick) {
+                true => ['Local::quickRounds()'],
+                false => ['Local::fullRounds()'],
+                default => [],
+            },
             ...$this->roomPhp(),
             ...$this->triageFewest instanceof Absent
                 ? []

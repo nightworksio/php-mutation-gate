@@ -77,6 +77,18 @@ final readonly class Local implements Setting
         return new self(Json::at('local.serveRequest', $duration));
     }
 
+    /** `local.quick`, as by default: each round of `watch` is quick, advisory and keyed apart (ADR-0146). */
+    public static function quickRounds(): self
+    {
+        return new self(Json::at('local.quick', value: true));
+    }
+
+    /** `local.quick` off: each round of `watch` measures, checks and judges as `run` does. */
+    public static function fullRounds(): self
+    {
+        return new self(Json::at('local.quick', value: false));
+    }
+
     /** `triage.fewest`: the fewest runs `triage --repeat` takes; 2. */
     public static function triageFewest(int $runs): self
     {

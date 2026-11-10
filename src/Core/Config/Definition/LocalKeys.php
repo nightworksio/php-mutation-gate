@@ -32,6 +32,7 @@ final readonly class LocalKeys
         $poll = Field::optional('watchPoll', Duration::written(), $judges);
         $headroom = Field::optional('memoryHeadroom', Integer::atLeast(1), $judges);
         $request = Field::optional('serveRequest', Duration::written(), $judges);
+        $quick = Field::optional('quick', Flag::boolean(), $judges);
 
         return [Field::section(
             'triage',
@@ -52,6 +53,7 @@ final readonly class LocalKeys
                     $poll,
                     $headroom,
                     $request,
+                    $quick,
                 ): Layer|Invalid {
                     $working = LocalWorkKeys::read($local);
                     $watching = $watch->read($local);
@@ -63,6 +65,7 @@ final readonly class LocalKeys
                     $polling = $poll->read($local);
                     $room = $headroom->read($local);
                     $requesting = $request->read($local);
+                    $quickly = $quick->read($local);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Local::of(
@@ -76,6 +79,7 @@ final readonly class LocalKeys
                             memoryHeadroom: $room->value(),
                             serveRequest: $requesting->value(),
                             work: $working->value(),
+                            quick: $quickly->value(),
                         )),
                         $watching,
                         $pushing,
@@ -87,6 +91,7 @@ final readonly class LocalKeys
                         $room,
                         $requesting,
                         $working,
+                        $quickly,
                     );
                 },
                 $watch,
@@ -98,6 +103,7 @@ final readonly class LocalKeys
                 $poll,
                 $headroom,
                 $request,
+                $quick,
                 ...LocalWorkKeys::fields(),
             ),
         )];

@@ -83,6 +83,21 @@ final readonly class Composition
         return $this->given(CommandLine::from($input)->defaultingTo(Context::Local));
     }
 
+    /**
+     * What a round of `watch` composes: as a command a developer runs, and,
+     * where `local.quick` makes its rounds quick, with what a quick round
+     * lays over the config (ADR-0146).
+     */
+    public function composeForWatch(InputInterface $input): Composed|Invalid|CannotJudge
+    {
+        $given = CommandLine::from($input)->defaultingTo(Context::Local);
+        $composed = $this->given($given);
+
+        return $composed instanceof Composed && $composed->settings->local()->quick()
+            ? $this->given($given->quickly())
+            : $composed;
+    }
+
     private function given(CommandLine $given): Composed|Invalid|CannotJudge
     {
         $settings = $this->effective->settings($given);

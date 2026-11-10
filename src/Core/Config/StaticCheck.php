@@ -30,6 +30,10 @@ use function sprintf;
  */
 final readonly class StaticCheck implements Part
 {
+    public const string SECTION = 'staticCheck';
+
+    public const string TOOL = 'tool';
+
     /** The analyser zero-config finds: the first installed and configured, or none. */
     public const string AUTO = 'auto';
 
@@ -208,9 +212,9 @@ final readonly class StaticCheck implements Part
     public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
-            'staticCheck',
+            self::SECTION,
             Json::object(
-                Member::of('tool', $this->tool instanceof Choice ? $this->tool->written() : $this->tool),
+                Member::of(self::TOOL, $this->tool instanceof Choice ? $this->tool->written() : $this->tool),
                 Member::of('config', $this->config instanceof Path ? $origin->written($this->config) : $this->config),
                 Member::of('seconds', WholeSeconds::written($this->seconds)),
                 Member::of('before', $this->before),

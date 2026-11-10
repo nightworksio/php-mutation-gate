@@ -31,7 +31,8 @@ use NightWorksIO\MutationGate\Port\ReachGraph;
  * change deleted or moved away read from its text at the base. It asks only
  * where `outbreak.graph` narrows or widens, a binary is in use and the
  * change touched a PHP file, about each such file, checked by the coverage
- * map where there is one.
+ * map where there is one; and, for a quick round of `watch`, which test
+ * files reach the files a save changed.
  *
  * @internal
  */
@@ -80,6 +81,27 @@ final readonly class StaticGraph
         $answer = $question->asks() ? $graph->answered($question) : NotGiven::value();
 
         return new GraphReach($use, $answer instanceof GraphAnswer ? $answer : NotGiven::value());
+    }
+
+    /**
+     * Which test files reach each of these files, for a quick round of
+     * `watch` (ADR-0146); nothing where `outbreak.graph` is off, no binary is
+     * in use, or the graph answers nothing.
+     */
+    public function forQuickRound(Suite $suite, Paths $files): GraphAnswer|NotGiven
+    {
+        $graph = $this->adapters->maps;
+        $question = self::over($suite)->about($files);
+
+        if (! $this->settings->shards()->outbreak()->graph()->addsToQuickRounds()
+            || ! $graph instanceof ReachGraph
+            || ! $question->asks()) {
+            return NotGiven::value();
+        }
+
+        $answer = $graph->answered($question);
+
+        return $answer instanceof GraphAnswer ? $answer : NotGiven::value();
     }
 
     /** The question of the graph of a suite's files as they are on disk, asking nothing yet. */

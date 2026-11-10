@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Local\QuickLayer;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
@@ -28,8 +29,8 @@ use Symfony\Component\Console\Input\InputInterface;
 /**
  * What the command line says about the config: the file `--config` names,
  * the settings `--runner`, `--report`, `--budget` and `--ci` lay over
- * everything else (ADR-0002), and the context `--context` puts the run in
- * (ADR-0071).
+ * everything else (ADR-0002), the context `--context` puts the run in
+ * (ADR-0071), and those a quick round of `watch` lays over (ADR-0146).
  *
  * @internal
  */
@@ -44,6 +45,7 @@ final readonly class CommandLine
         public string|NotGiven $ci,
         public bool $firstPartyOnly,
         public string|NotGiven $context,
+        public bool $quick = false,
     ) {
     }
 
@@ -80,6 +82,7 @@ final readonly class CommandLine
             $this->ci,
             $this->firstPartyOnly,
             $this->context,
+            $this->quick,
         );
     }
 
@@ -94,6 +97,7 @@ final readonly class CommandLine
             $this->ci,
             $this->firstPartyOnly,
             $this->context,
+            $this->quick,
         );
     }
 
@@ -108,6 +112,7 @@ final readonly class CommandLine
             $this->ci,
             $this->firstPartyOnly,
             $this->context,
+            $this->quick,
         );
     }
 
@@ -122,6 +127,7 @@ final readonly class CommandLine
             $this->ci,
             $this->firstPartyOnly,
             $this->context,
+            $this->quick,
         );
     }
 
@@ -136,6 +142,7 @@ final readonly class CommandLine
             $plan,
             $this->firstPartyOnly,
             $this->context,
+            $this->quick,
         );
     }
 
@@ -150,6 +157,7 @@ final readonly class CommandLine
             $this->ci,
             firstPartyOnly: true,
             context: $this->context,
+            quick: $this->quick,
         );
     }
 
@@ -164,6 +172,7 @@ final readonly class CommandLine
             $this->ci,
             $this->firstPartyOnly,
             $this->context,
+            $this->quick,
         );
     }
 
@@ -179,8 +188,28 @@ final readonly class CommandLine
                 $this->ci,
                 $this->firstPartyOnly,
                 $context->value,
+                $this->quick,
             )
             : $this;
+    }
+
+    /**
+     * This command line, laying what a quick round of `watch` judges by over
+     * everything else (ADR-0146): its mutants in split streams of their
+     * covering test files, with no static check.
+     */
+    public function quickly(): self
+    {
+        return new self(
+            $this->config,
+            $this->runner,
+            $this->reports,
+            $this->budget,
+            $this->ci,
+            $this->firstPartyOnly,
+            $this->context,
+            quick: true,
+        );
     }
 
     /** The context `--context` puts the run in (ADR-0071), nothing where it is left off, or why it names none. */
@@ -218,6 +247,7 @@ final readonly class CommandLine
             ? $layer
             : $layer->with(Member::of('reports', Json::items(...array_map($this->report(...), $this->reports))));
         $layer = $this->budget instanceof NotGiven ? $layer : $layer->with(Member::of('budget', $this->budget));
+        $layer = $this->quick ? $layer->with(...QuickLayer::members()) : $layer;
 
         return $this->ci instanceof NotGiven
             ? $layer

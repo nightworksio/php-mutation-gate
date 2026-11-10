@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
@@ -33,9 +34,16 @@ final readonly class Moving
     ) {
     }
 
-    /** What moved of a kept map, as the project's test files stand; or why their tests are unknown. */
-    public static function of(CoverageEntries $entries, KeptMap $kept): self|CannotJudge
-    {
+    /**
+     * What moved of a kept map, as the project's test files stand, of which
+     * a quick round measures again only what it says (ADR-0146); or why
+     * their tests are unknown.
+     */
+    public static function of(
+        CoverageEntries $entries,
+        KeptMap $kept,
+        QuickCoverage|NotGiven $quick = new NotGiven(),
+    ): self|CannotJudge {
         $map = $kept->map();
         $outline = MapOutline::of($map);
         $files = $entries->testFiles();
@@ -49,7 +57,9 @@ final readonly class Moving
             }
 
             $was = $kept->keys()->keyOf($file);
-            $moved = $was instanceof Digest && $was->value() === $key->value() ? $moved : [...$moved, $file];
+            $unchanged = $was instanceof Digest && $was->value() === $key->value();
+            $measured = ! $quick instanceof QuickCoverage || $quick->measures($file, $was instanceof Digest);
+            $moved = $unchanged || ! $measured ? $moved : [...$moved, $file];
         }
 
         $gone = array_filter([...$kept->keys()->files()], static fn(Path $file): bool => ! $files->has($file));

@@ -90,8 +90,9 @@ final readonly class WatchLoad
 
     /**
      * The composition a round of these files runs with, this process lowered
-     * to its priority, and its runner told the digest of the test files to
-     * list them by, where `local.listOnce` reuses a listing.
+     * to its priority, its runner told the digest of the test files to list
+     * them by, where `local.listOnce` reuses a listing, and its proofs keyed
+     * apart where `local.quick` makes the round quick (ADR-0146).
      */
     public function fitted(Composed $composed, Power $power, Watched $seen): Composed
     {
@@ -107,10 +108,11 @@ final readonly class WatchLoad
             ? $this->priority->lowered($background->macos(), $background->nice(), $background->windows())
             : $this->priority->lowered($work->macosClass(), $work->linuxNice(), $work->windowsClass());
         $workers = $reduced ? ProcessCount::single() : $this->work->workers($this->cores);
+        $loop = LocalLoop::of($this->work);
 
         return new Composed(
             $composed->settings,
-            $composed->adapters->looping($workers, LocalLoop::of($this->work)),
+            $composed->adapters->looping($workers, $composed->settings->local()->quick() ? $loop->quickly() : $loop),
             $composed->setup,
             $composed->reporting,
             $composed->ruling,
