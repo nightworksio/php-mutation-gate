@@ -54,6 +54,7 @@
     "reach": {
         "everything": [
             "src/Adapter/Pest/Warm/**",
+            "src/Adapter/Pest/ByName.php",
             "src/Adapter/Pest/Recording/**",
             "src/Adapter/Pest/Grouping/**",
             "src/Adapter/Pest/Order/**",

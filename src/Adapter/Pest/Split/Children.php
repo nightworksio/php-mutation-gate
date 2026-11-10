@@ -20,6 +20,7 @@ use const LOCK_EX;
 
 use function min;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function outbreak_steps;
@@ -37,6 +38,7 @@ use const PHP_INT_MAX;
 
 use function posix_kill;
 use function range;
+use function register_shutdown_function;
 
 use const SIGKILL;
 use const SIGUSR1;
@@ -53,7 +55,8 @@ use const WNOHANG;
  * test named, so the stream can kill its mutant. Where the stream counts
  * steps (ADR-0147), each child is bound to a slot of limits it shares with
  * its parent, unlimited until the parent ends the test, and a child past its
- * steps stops itself by `SIGXCPU`.
+ * steps stops itself by `SIGXCPU`. The databases copied for a child
+ * (ADR-0147) are dropped once it ended, and each left as the process ends.
  *
  * @internal
  */
@@ -77,19 +80,24 @@ final class Children
     /** @var list<array{string, string}> the children that failed or ended in their test while the parent forked */
     private array $pending = [];
 
+    /** @var array<int, Copies> the databases copied for each running child, by pid */
+    private array $copies = [];
+
     public function __construct(private readonly StreamPlan $plan)
     {
         $this->steps = $plan->limit->countsSteps()
             && function_exists('outbreak_steps_share')
             && outbreak_steps_share($plan->children);
+        register_shutdown_function($this->leftDropped(...));
     }
 
     /**
-     * Forks a child for this mutant in this test, once a place is free: the
+     * Forks a child for this mutant in this test, once a place is free, on
+     * the databases copied for it, which the parent drops once it ended: the
      * child's pid in the parent, 0 in the child, and -1 where PHP could not
      * fork.
      */
-    public function forked(string $mutant, string $test): int
+    public function forked(string $mutant, string $test, Copies $copies): int
     {
         $failed = [];
 
@@ -109,6 +117,7 @@ final class Children
 
         if ($pid === 0) {
             $this->running = [];
+            $this->copies = [];
 
             if ($this->steps) {
                 outbreak_steps_bind($slot);
@@ -119,6 +128,11 @@ final class Children
             $started = $this->now();
             $own = array_key_exists($test, $this->plan->times) ? $this->plan->times[$test] : false;
             $this->running[$pid] = [$mutant, $test, $started, $started + $this->secondsOf($own), $slot, $atFork];
+            $this->copies[$pid] = $copies;
+        }
+
+        if ($pid === -1) {
+            $copies->dropped();
         }
 
         return $pid;
@@ -208,7 +222,7 @@ final class Children
         }
 
         [$mutant, $test] = $this->running[$pid];
-        unset($this->running[$pid]);
+        $this->gone($pid);
         $signal = pcntl_wifsignaled($status) ? pcntl_wtermsig($status) : 0;
 
         if ($this->steps && $signal === SIGXCPU) {
@@ -241,10 +255,28 @@ final class Children
             if ($now > $deadline) {
                 posix_kill($pid, SIGKILL);
                 pcntl_waitpid($pid, $status);
-                unset($this->running[$pid]);
+                $this->gone($pid);
                 $this->write(StreamLine::timedOut($mutant, $test));
             }
         }
+    }
+
+    /** A child that ended no longer runs, and the databases copied for it are dropped. */
+    private function gone(int $pid): void
+    {
+        unset($this->running[$pid]);
+        ($this->copies[$pid] ?? Copies::none())->dropped();
+        unset($this->copies[$pid]);
+    }
+
+    /** Each database copied for a child still running as the process ends dropped. */
+    private function leftDropped(): void
+    {
+        foreach ($this->copies as $copies) {
+            $copies->dropped();
+        }
+
+        $this->copies = [];
     }
 
     /** The seconds a child may run in a test its parent took this long: the most, where the stream counts steps. */

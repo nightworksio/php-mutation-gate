@@ -72,14 +72,21 @@ mutants over, `watch`'s rounds among them.
    child past its steps stops itself by `SIGXCPU`, which the parent reads as
    a timeout.
 6. **A child reconnects to its own copy of the database.** Where
-   `splitStream.reconnect` is on, a test that holds sockets the stream did
-   not hold as it started forks where each of them is a connection of the
-   application's own to a database, and none holds an open transaction. At
-   the fork the parent copies each such database as its committed state
-   stands, and the child connects to its copy before its mutant runs and
-   drops it as it ends. A test that holds any other socket, a connection
-   with an open transaction, or a database the parent cannot copy, falls
-   back as ADR-0117 decision 7 says.
+   `splitStream.reconnect` is on, a test that holds descriptors the stream
+   did not hold as it started forks where each connection the application
+   holds open is to a MySQL, MariaDB, PostgreSQL or file-backed SQLite
+   database, outside a transaction, not read and written apart, and its
+   session keeps nothing a copy would lack: no temporary table, user
+   variable, lock it took, channel it listens on, statement it prepared by
+   name or held cursor, as each server lists them, and every setting a
+   fresh connection of its config holds alike. At the fork the parent
+   checks that, closes each connection, which connects again as it is next
+   used, and forks only where it then holds no descriptor a child would
+   share. It copies each such database as its committed state stands, the
+   child points each connection to it at its copy before its mutant runs,
+   and the parent drops each copy once the child ended, or as its own
+   process ends. A test where any of this fails, or whose server lists none
+   of what its session keeps, falls back as ADR-0117 decision 7 says.
 
 ### Settings
 
@@ -105,8 +112,11 @@ mutants over, `watch`'s rounds among them.
 - **A copy is the parent's database.** Without an open transaction every
   write the test made is committed, so the copy holds what the parent's
   connection reads, and nothing the child writes reaches the parent. State a
-  server keeps per session, such as a temporary table, is not in a copy,
-  so the setting is off by default.
+  server keeps per session is not in a copy; a session that holds what its
+  server lists of it falls back, but MySQL lists only InnoDB's temporary
+  tables, no server lists the last value a session generated, and an
+  SQLite connection's functions are PHP's own, so the setting is off by
+  default.
 - **Steps do not move with the machine.** A parent and its child count the
   same program's steps; a child that loops forever passes any limit, and
   one slowed by the machine's load passes none.

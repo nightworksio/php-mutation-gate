@@ -9,6 +9,8 @@ use function clearstatcache;
 
 use Closure;
 
+use function dirname;
+
 use const FILE_APPEND;
 
 use function file_put_contents;
@@ -23,6 +25,7 @@ use function is_string;
 use const LOCK_EX;
 
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function outbreak_state_digest;
@@ -52,7 +55,9 @@ use function substr;
  * which judges every child of that test.
  *
  * It loads no class of the gate but its own and SchemaSwitch, as every
- * other may be served a schema whose sites it decides.
+ * other may be served a schema whose sites it decides; where it reconnects,
+ * the database classes Copies runs, which it runs only where it forks at
+ * none of their sites.
  *
  * Where `outbreak.so` is loaded, each fork also arms a watch on the call that
  * reached the site, in the parent and the child alike, and each writes the
@@ -62,6 +67,11 @@ use function substr;
  * environment, another process, the network or a file outside the project
  * after the fork, so a kill by such a test is judged again by the mutant's
  * own run.
+ *
+ * Where the plan reconnects (ADR-0147), a test that holds descriptors the
+ * stream did not hold as it started forks where Copies takes a copy of each
+ * database the application holds open, and the child points the
+ * application at its copies before its mutant turns on.
  *
  * @internal
  */
@@ -247,7 +257,7 @@ final class Stream
         $this->handed = false;
         $this->forked = [];
         $this->watching = [];
-        $this->forkable = ! Descriptors::held()->shares($this->start);
+        $this->forkable = $this->plan->reconnect || ! Descriptors::held()->shares($this->start);
         $this->recording = $this->mutant === '' && $this->plan->recording !== '' ? Recorded::start() : false;
 
         if (! $this->forkable && $this->mutant === '') {
@@ -417,21 +427,25 @@ final class Stream
     /**
      * Forks a site's mutant: true in the child, which runs it, false in the
      * parent, and false where the test holds a descriptor a child would
-     * share (see Descriptors), which then forks nothing more.
+     * share (see Descriptors) and no copies stand in for it, which then
+     * forks nothing more.
      */
     private function fork(string $file, int $id): bool
     {
-        if (Descriptors::held()->shares($this->start)) {
+        $this->deciding = true;
+        $copies = $this->copiesAtFork();
+
+        if (! $copies instanceof Copies) {
+            $this->deciding = false;
             $this->isolate();
 
             return false;
         }
 
         [$mutant, , $variables] = $this->plan->sites[$file][$id];
-        $this->deciding = true;
         $this->forked[sprintf('%s:%d', $file, $id)] = true;
         $watch = self::watched();
-        $pid = $this->children->forked($mutant, $this->test);
+        $pid = $this->children->forked($mutant, $this->test, $copies);
         $this->deciding = false;
 
         if ($pid !== 0) {
@@ -447,6 +461,7 @@ final class Stream
             outbreak_touches_start((string) getcwd());
         }
         SchemaSwitch::unsplit();
+        $copies->reconnected();
         SchemaSwitch::on($file, $id);
 
         foreach ($variables as $name => $value) {
@@ -454,6 +469,20 @@ final class Stream
         }
 
         return true;
+    }
+
+    /**
+     * The databases copied for a child forked here: none where the process
+     * holds no descriptor a child would share; null where it does and the
+     * plan does not reconnect, or Copies cannot take them.
+     */
+    private function copiesAtFork(): ?Copies
+    {
+        if (! Descriptors::held()->shares($this->start)) {
+            return Copies::none();
+        }
+
+        return $this->plan->reconnect ? Copies::taken($this->start, dirname($this->plan->results)) : null;
     }
 
     /**
