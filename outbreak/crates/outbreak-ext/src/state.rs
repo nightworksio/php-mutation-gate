@@ -18,29 +18,34 @@ use ext_php_rs::types::Zval;
 use ext_php_rs::zend::{ExecuteData, FcallInfo, FcallObserver};
 
 use crate::canon::Canon;
-use crate::touches;
+use crate::{steps, touches};
 use crate::value::{self, Seen};
 
-/// The variable that says what a stream's observer watches: `states`, `touches`, or both, by commas.
+/// The variable that says what a stream's process observes: `states`, `touches`, `lines` and `steps`, by commas.
 const OBSERVE: &str = "MUTATION_GATE_OBSERVE";
 
 /// A user function, as `zend_function.type` says it.
 const USER_FUNCTION: u8 = 2;
 
-/// What the observer watches, read once from the process's environment.
-struct Observing {
+/// What the process observes, read once from its environment.
+pub struct Observing {
     states: bool,
     touches: bool,
+    /// Whether the process records the lines it executes.
+    pub lines: bool,
+    /// Whether the process counts its steps.
+    pub steps: bool,
 }
 
-fn observing() -> &'static Observing {
+/// What the process observes.
+pub fn observing() -> &'static Observing {
     static OBSERVING: OnceLock<Observing> = OnceLock::new();
 
     OBSERVING.get_or_init(|| {
         let asked = std::env::var(OBSERVE).unwrap_or_default();
         let has = |part: &str| asked.split(',').any(|item| item == part);
 
-        Observing { states: has("states"), touches: has("touches") }
+        Observing { states: has("states"), touches: has("touches"), lines: has("lines"), steps: has("steps") }
     })
 }
 
@@ -69,13 +74,15 @@ impl FcallObserver for Watch {
         if info.is_internal {
             observing().touches && touches::observes(info)
         } else {
-            observing().states
+            observing().states || observing().steps
         }
     }
 
     fn begin(&self, execute_data: &ExecuteData) {
         // SAFETY: a frame's function is live while it runs.
-        if unsafe { (*execute_data.func).type_ } != USER_FUNCTION {
+        if unsafe { (*execute_data.func).type_ } == USER_FUNCTION {
+            steps::stepped();
+        } else {
             touches::called(execute_data);
         }
     }

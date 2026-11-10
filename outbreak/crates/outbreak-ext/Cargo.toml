@@ -1,6 +1,6 @@
 [package]
 name = "outbreak-ext"
-description = "outbreak.so, Outbreak's PHP extension: a program's op arrays as one digest, and the state a forked call leaves behind."
+description = "outbreak.so, Outbreak's PHP extension: a program's op arrays as one digest, the state a forked call leaves behind, and the lines and steps a stream takes."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

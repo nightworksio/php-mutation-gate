@@ -5,15 +5,20 @@
 //! stream counts the forks that changed nothing (H5); and it counts the
 //! descriptors a forked child would share, so a stream forks no test that
 //! holds one; and it sees a test touch a source of nondeterminism, so a
-//! kill by such a test is judged again.
+//! kill by such a test is judged again; and it records the lines a stream's
+//! parent executes and counts the steps a stream's processes take, so a
+//! stream measures its own coverage and holds a child to its parent's steps
+//! (ADR-0147).
 
 #![cfg_attr(windows, feature(abi_vectorcall))]
 #![allow(missing_docs, reason = "php_module and php_function generate items the extension's own docs describe")]
 
 pub mod canon;
 mod descriptors;
+mod lines;
 mod program;
 mod state;
+mod steps;
 mod touches;
 mod value;
 
@@ -65,6 +70,50 @@ pub fn outbreak_touched() -> bool {
     touches::touched()
 }
 
+/// Starts recording the lines this process executes, afresh; false where
+/// it started without `lines` among what it observes, or another extension
+/// took PHP's executor over.
+#[php_function]
+#[must_use]
+pub fn outbreak_lines_start() -> bool {
+    state::observing().lines && lines::start()
+}
+
+/// Stops recording: the lines executed since recording started, by file.
+#[php_function]
+#[must_use]
+pub fn outbreak_lines_stop() -> std::collections::HashMap<String, Vec<i64>> {
+    lines::stop()
+}
+
+/// The steps this process took since it started; null where it started without `steps` among what it observes.
+#[php_function]
+#[must_use]
+pub fn outbreak_steps() -> Option<i64> {
+    state::observing().steps.then(steps::taken)
+}
+
+/// Shares this many step limits with the children this process forks; false where they cannot be shared.
+#[php_function]
+#[must_use]
+pub fn outbreak_steps_share(slots: i64) -> bool {
+    state::observing().steps && usize::try_from(slots).is_ok_and(steps::shared)
+}
+
+/// Sets the most steps a child bound to this slot may count before it stops itself by `SIGXCPU`.
+#[php_function]
+#[must_use]
+pub fn outbreak_steps_limit(slot: i64, most: i64) -> bool {
+    usize::try_from(slot).is_ok_and(|slot| steps::limited(slot, most))
+}
+
+/// Binds this process, a forked child, to a slot's limit.
+#[php_function]
+#[must_use]
+pub fn outbreak_steps_bind(slot: i64) -> bool {
+    usize::try_from(slot).is_ok_and(steps::bound)
+}
+
 /// The extension's version, which a proof's evidence names.
 #[php_function]
 #[must_use]
@@ -73,6 +122,7 @@ pub fn outbreak_version() -> String {
 }
 
 #[php_module]
+#[php(startup = started)]
 pub fn module(module: ModuleBuilder) -> ModuleBuilder {
     module
         .function(wrap_function!(outbreak_op_arrays))
@@ -81,6 +131,35 @@ pub fn module(module: ModuleBuilder) -> ModuleBuilder {
         .function(wrap_function!(outbreak_descriptors))
         .function(wrap_function!(outbreak_touches_start))
         .function(wrap_function!(outbreak_touched))
+        .function(wrap_function!(outbreak_lines_start))
+        .function(wrap_function!(outbreak_lines_stop))
+        .function(wrap_function!(outbreak_steps))
+        .function(wrap_function!(outbreak_steps_share))
+        .function(wrap_function!(outbreak_steps_limit))
+        .function(wrap_function!(outbreak_steps_bind))
         .function(wrap_function!(outbreak_version))
+        .shutdown_function(stopped)
         .fcall_observer(|| state::Watch)
+}
+
+/// What module startup answers once it succeeded.
+const STARTED: i32 = 0;
+
+/// What module startup answers where a part could not start.
+const FAILED: i32 = 1;
+
+/// Takes PHP's executor over and counts jumps, as what the process observes asks.
+fn started(_kind: i32, _module: i32) -> i32 {
+    if state::observing().lines {
+        lines::install();
+    }
+
+    if state::observing().steps && !steps::install() { FAILED } else { STARTED }
+}
+
+/// Hands PHP's executor back.
+extern "C" fn stopped(_kind: i32, _module: i32) -> i32 {
+    lines::uninstall();
+
+    STARTED
 }
