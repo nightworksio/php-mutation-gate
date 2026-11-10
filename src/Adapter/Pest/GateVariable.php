@@ -168,12 +168,16 @@ enum GateVariable: string
 
     /**
      * The `outbreak.so` a split stream loads, to count the forks that change
-     * no state (H5) or to see a test touch nondeterminism (ADR-0130).
+     * no state (H5), to see a test touch nondeterminism (ADR-0130), to record
+     * its tests' lines or to count its steps (ADR-0147).
      */
     case StreamExtension = 'MUTATION_GATE_STREAM_EXTENSION';
 
-    /** What a stream's `outbreak.so` watches: `states`, `touches`, or both, by commas. */
+    /** What a stream's `outbreak.so` watches: any of `states`, `touches`, `lines` and `steps`, by commas. */
     case Observe = 'MUTATION_GATE_OBSERVE';
+
+    /** The least steps a stream's child may take past its parent's share, where its `outbreak.so` counts steps. */
+    case StepFloor = 'MUTATION_GATE_STEP_FLOOR';
 
     /**
      * The part of the test files whose tests judge a patched run's mutants,

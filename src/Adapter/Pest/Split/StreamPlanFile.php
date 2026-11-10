@@ -41,6 +41,7 @@ final readonly class StreamPlanFile
                 self::number($read, 'multiple'),
                 self::number($read, 'floor'),
                 self::number($read, 'longest'),
+                max(0, self::holds($read, 'stepFloor') && is_int($read['stepFloor']) ? $read['stepFloor'] : 0),
             ),
             self::holds($read, 'recording') && is_string($read['recording']) ? $read['recording'] : '',
             self::holds($read, 'bootOnce') && $read['bootOnce'] === true,

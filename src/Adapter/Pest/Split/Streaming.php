@@ -253,6 +253,7 @@ final readonly class Streaming
             'multiple' => $perTest->isOn() ? $perTest->multiple() : 0,
             'floor' => $perTest->floor()->seconds(),
             'longest' => ($most instanceof Seconds ? $most : Triage::none()->most())->seconds(),
+            'stepFloor' => (int) getenv(GateVariable::StepFloor->value),
             'recording' => $this->recording === '' ? '' : sprintf(self::RECORDED, $this->recording, $pass, $at),
             'bootOnce' => $this->bootOnce && $pass === 1,
         ];

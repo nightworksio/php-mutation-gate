@@ -12,6 +12,7 @@ use Closure;
 use function count;
 use function dirname;
 use function is_array;
+use function is_int;
 
 use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
@@ -399,8 +400,14 @@ final readonly class MutationRun
     {
         $streams = $this->extension instanceof ShippedExtension ? $this->extension->forStreams(recording: false) : NotGiven::value();
 
+        $floor = $this->extension instanceof ShippedExtension ? $this->extension->stepFloor() : NotGiven::value();
+
         return is_array($streams)
-            ? [GateVariable::StreamExtension->value => $streams[0], GateVariable::Observe->value => $streams[1]]
+            ? [
+                GateVariable::StreamExtension->value => $streams[0],
+                GateVariable::Observe->value => $streams[1],
+                ...is_int($floor) ? [GateVariable::StepFloor->value => (string) $floor] : [],
+            ]
             : [];
     }
 
