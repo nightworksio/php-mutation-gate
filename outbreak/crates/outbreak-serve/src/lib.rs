@@ -1,16 +1,22 @@
 //! `outbreak serve` (ADR-0133): a daemon that holds a project's proofs and
 //! the names of its static graph's files in memory, keeps them as a snapshot
-//! and a journal under `.mutation-gate/outbreak`, and answers the gate's PHP
-//! on a socket there, one JSON line a request. It serves on Unix alone.
+//! and a journal under `.mutation-gate/outbreak`, watches the files a client
+//! names through the platform's notifications, and answers the gate's PHP on
+//! a socket there, one JSON line a request. It serves on Unix alone.
 
 pub mod journal;
 pub mod protocol;
 #[cfg(unix)]
 pub mod server;
 pub mod state;
+#[cfg(unix)]
+pub mod watching;
 
 use std::path::PathBuf;
 use std::time::Duration;
+
+/// How long the changes the daemon watches settle, where its command line does not say.
+const DEBOUNCE: Duration = Duration::from_millis(50);
 
 /// How a daemon runs.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,12 +29,15 @@ pub struct Options {
     pub snapshot_every: Duration,
     /// How often, at most, it syncs the journal to disk.
     pub sync_every: Duration,
+    /// How long the changes it watches settle before they count.
+    pub debounce: Duration,
     /// The command line of the child it starts and lives as long as; none for no child.
     pub child: Vec<String>,
 }
 
 /// How the daemon's command line reads: `<root> [--detach] [--idle <seconds>]
-/// [--snapshot-every <seconds>] [--sync-every <seconds>] [-- <child> …]`; and
+/// [--snapshot-every <seconds>] [--sync-every <seconds>] [--debounce <seconds>]
+/// [-- <child> …]`; and
 /// whether it is to start in a process of its own.
 ///
 /// # Errors
@@ -46,6 +55,7 @@ pub fn options(arguments: &[String]) -> Result<(Options, bool), String> {
         idle: None,
         snapshot_every: Duration::from_secs(600),
         sync_every: Duration::from_secs(1),
+        debounce: DEBOUNCE,
         child: child.to_vec(),
     };
     let mut detach = false;
@@ -56,6 +66,7 @@ pub fn options(arguments: &[String]) -> Result<(Options, bool), String> {
             "--idle" => options.idle = Some(seconds(words.next(), word)?),
             "--snapshot-every" => options.snapshot_every = seconds(words.next(), word)?,
             "--sync-every" => options.sync_every = seconds(words.next(), word)?,
+            "--debounce" => options.debounce = seconds(words.next(), word)?,
             other => return Err(format!("serve takes no {other}")),
         }
     }
@@ -83,14 +94,16 @@ mod tests {
 
     #[test]
     fn reads_the_root_the_clocks_and_the_child() {
-        let (read, detach) = options(&words("/p --detach --idle 1.5 --snapshot-every 60 --sync-every 0 -- php gate serve")).unwrap();
+        let (read, detach) =
+            options(&words("/p --detach --idle 1.5 --snapshot-every 60 --sync-every 0 --debounce 0.02 -- php gate serve")).unwrap();
 
         assert!(detach);
         assert_eq!(read.idle, Some(Duration::from_millis(1500)));
         assert_eq!(read.snapshot_every, Duration::from_secs(60));
         assert_eq!(read.sync_every, Duration::ZERO);
+        assert_eq!(read.debounce, Duration::from_millis(20));
         assert_eq!(read.child, words("php gate serve"));
-        assert_eq!(options(&words("/p")).map(|(read, _)| read.child.len()), Ok(0));
+        assert_eq!(options(&words("/p")).map(|(read, _)| (read.child.len(), read.debounce)), Ok((0, Duration::from_millis(50))));
     }
 
     #[test]

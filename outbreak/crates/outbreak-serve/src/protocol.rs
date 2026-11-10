@@ -9,15 +9,21 @@
 //! - `graph <request>` answers a request of the static graph as `outbreak
 //!   graph reach` does (ADR-0132), each file read for its names again only
 //!   where its bytes changed.
+//! - `changed {"paths": [<directory>, …], "since": <generation>, "wait":
+//!   <milliseconds>}` watches each directory, relative to the root, and
+//!   answers `{"changed": <generation>}` once a change settled past `since`,
+//!   or once the wait passed; `{"unwatched": <why>}` where it watches nothing
+//!   (decision 7). The server answers it, outside the state's lock.
 //! - `stop` answers `{"stopping": true}`, and the daemon stops.
 //!
 //! Anything else is answered `{"refused": <why>}`.
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
+use std::time::Duration;
 
 use outbreak_graph::{names::FileNames, quoted, request};
-use outbreak_map::json::{Cursor, Refused};
+use outbreak_map::json::{Cursor, Number, Refused};
 
 use crate::journal::{Kind, Record};
 use crate::state::State;
@@ -39,6 +45,47 @@ impl Answer {
     }
 }
 
+/// What a client waiting for a change asks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Waiting {
+    /// The directories it watches, each relative to the root.
+    pub paths: Vec<String>,
+    /// The generation of changes it saw last.
+    pub since: u64,
+    /// How long it waits for a change, at most.
+    pub wait: Duration,
+}
+
+/// The verb a client waiting for a change asks with.
+const CHANGED: &str = "changed";
+
+/// The request a line is where it waits for a change, or why it cannot be
+/// read; none where it asks something else.
+#[must_use]
+pub fn waiting(line: &str) -> Option<Result<Waiting, String>> {
+    let (verb, json) = line.split_once(' ').unwrap_or((line, ""));
+
+    (verb == CHANGED).then(|| waited(json.as_bytes()))
+}
+
+/// The answer to a client waiting for a change: the generation of changes now.
+#[must_use]
+pub fn changed(generation: u64, contract: u32) -> String {
+    format!(r#"{{"outbreak":{contract},"changed":{generation}}}"#)
+}
+
+/// The answer to a client waiting for a change where the daemon watches nothing, and why.
+#[must_use]
+pub fn unwatched(why: &str, contract: u32) -> String {
+    format!(r#"{{"outbreak":{contract},"unwatched":{}}}"#, quoted(why))
+}
+
+/// The answer to a request it refuses, and why.
+#[must_use]
+pub fn refused(why: &str, contract: u32) -> String {
+    format!(r#"{{"outbreak":{contract},"refused":{}}}"#, quoted(why))
+}
+
 /// The answer to one request line, the state changed by what it keeps; each
 /// file of a graph read by `read`, which gives its bytes where it has them.
 pub fn answer(state: &mut State, line: &str, contract: u32, read: impl Fn(&str, &str) -> Option<Vec<u8>>) -> Answer {
@@ -52,7 +99,7 @@ pub fn answer(state: &mut State, line: &str, contract: u32, read: impl Fn(&str, 
         _ => Err(format!("{verb} is no request the daemon answers")),
     };
 
-    answered.unwrap_or_else(|why| Answer::said(format!(r#"{{"outbreak":{contract},"refused":{}}}"#, quoted(&why))))
+    answered.unwrap_or_else(|why| Answer::said(refused(&why, contract)))
 }
 
 fn proofs(state: &State, json: &[u8], contract: u32) -> Result<Answer, String> {
@@ -127,6 +174,46 @@ fn graph(
     Ok(Answer::said(line))
 }
 
+fn waited(json: &[u8]) -> Result<Waiting, String> {
+    let mut cursor = Cursor::over(json).map_err(|refused| said(&refused))?;
+    let mut members = cursor.object().map_err(|refused| said(&refused))?;
+    let (mut paths, mut since, mut wait) = (None, None, None);
+
+    while let Some(key) = members.next(&mut cursor).map_err(|refused| said(&refused))? {
+        match key.text.as_str() {
+            "paths" => paths = Some(strings(&mut cursor).map_err(|refused| said(&refused))?),
+            "since" => since = Some(whole(&mut cursor, "since")?),
+            "wait" => wait = Some(Duration::from_millis(whole(&mut cursor, "wait")?)),
+            other => return Err(format!("the request: expected no {other}")),
+        }
+    }
+
+    cursor.end().map_err(|refused| said(&refused))?;
+
+    match (paths, since, wait) {
+        (Some(paths), Some(since), Some(wait)) => Ok(Waiting { paths, since, wait }),
+        _ => Err(String::from("the request: expected paths, since and wait")),
+    }
+}
+
+fn strings(cursor: &mut Cursor<'_>) -> Result<Vec<String>, Refused> {
+    let mut items = cursor.array()?;
+    let mut strings = Vec::new();
+
+    while items.next(cursor)? {
+        strings.push(cursor.string()?);
+    }
+
+    Ok(strings)
+}
+
+fn whole(cursor: &mut Cursor<'_>, name: &str) -> Result<u64, String> {
+    match cursor.number().map_err(|refused| said(&refused))? {
+        Number::Whole(value) => Ok(value),
+        Number::Other { .. } => Err(format!("the request: expected {name} as a whole number")),
+    }
+}
+
 /// The one member of an object a request is, as `value` reads it.
 fn only<T>(json: &[u8], name: &str, value: impl FnOnce(&mut Cursor<'_>) -> Result<T, Refused>) -> Result<T, String> {
     let mut cursor = Cursor::over(json).map_err(|refused| said(&refused))?;
@@ -155,7 +242,9 @@ fn said(refused: &Refused) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::answer;
+    use std::time::Duration;
+
+    use super::{Waiting, answer, changed, unwatched, waiting};
     use crate::state::State;
 
     fn asked(state: &mut State, line: &str) -> String {
@@ -194,5 +283,22 @@ mod tests {
         for line in ["other", "proofs []", r#"proofs {"other": []}"#, r#"proofs {"keys": [], "more": 1}"#, r#"proofs {"keys": []} x"#, "graph {}", r#"keep {"proofs": {"k": 1}}"#] {
             assert!(asked(&mut state, line).contains(r#""refused":"#), "{line}");
         }
+    }
+
+    #[test]
+    fn reads_a_client_waiting_for_a_change_and_answers_it() {
+        assert_eq!(
+            waiting(r#"changed {"wait": 2000, "paths": ["src", "tests"], "since": 3}"#),
+            Some(Ok(Waiting { paths: vec![String::from("src"), String::from("tests")], since: 3, wait: Duration::from_secs(2) }))
+        );
+        assert_eq!(waiting("contract"), None);
+        assert_eq!(waiting(r#"proofs {"keys": []}"#), None);
+
+        for line in ["changed", r#"changed {"paths": [], "since": 0}"#, r#"changed {"paths": [], "since": -1, "wait": 0}"#, r#"changed {"paths": [], "since": 0, "wait": 0.5}"#, r#"changed {"paths": [1], "since": 0, "wait": 0}"#, r#"changed {"paths": [], "since": 0, "wait": 0, "more": 1}"#] {
+            assert!(matches!(waiting(line), Some(Err(_))), "{line}");
+        }
+
+        assert_eq!(changed(4, 1), r#"{"outbreak":1,"changed":4}"#);
+        assert_eq!(unwatched("no \"inotify\"", 1), r#"{"outbreak":1,"unwatched":"no \"inotify\""}"#);
     }
 }

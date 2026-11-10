@@ -5,8 +5,10 @@
 //! snapshot, journals what it is asked to keep, syncing the journal at most
 //! once every `sync_every`, writes a snapshot again while no client is
 //! connected at most once every `snapshot_every`, and once more as it stops.
-//! It lives as long as the child it starts, where it starts one, or until
-//! no request came for `idle`, or it is asked to stop.
+//! It watches the directories a client waiting for a change names (decision
+//! 7), a waiting client counting as no client connected. It lives as long as
+//! the child it starts, where it starts one, or until no request came for
+//! `idle`, or it is asked to stop.
 //!
 //! It refuses `.mutation-gate` or its own directory where either is a link
 //! or not a directory of the user it runs as, and opens each of its files
@@ -30,6 +32,7 @@ use crate::Options;
 use crate::journal::{self, Record};
 use crate::protocol;
 use crate::state::State;
+use crate::watching::{Noticed, Watching};
 
 /// The directory under a project's root the daemon keeps its files in.
 pub const DIRECTORY: &str = ".mutation-gate/outbreak";
@@ -49,8 +52,8 @@ const JOURNAL: &str = "journal.bin";
 /// The longest request line the daemon reads.
 const LONGEST_LINE: u64 = 1 << 26;
 
-/// How often the daemon looks at its clocks while it waits.
-const TICK: Duration = Duration::from_millis(200);
+/// How often the daemon looks at its clocks, and its watcher whether it is to stop, while each waits.
+pub(crate) const TICK: Duration = Duration::from_millis(200);
 
 struct Kept {
     state: State,
@@ -69,6 +72,7 @@ struct Shared {
     connected: AtomicUsize,
     asked: Mutex<Instant>,
     stopping: AtomicBool,
+    watching: Arc<Watching>,
 }
 
 /// Starts a daemon in a process of its own group, which a terminal's
@@ -124,6 +128,7 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
         connected: AtomicUsize::new(0),
         asked: Mutex::new(now),
         stopping: AtomicBool::new(false),
+        watching: Watching::new(options.root.clone(), options.root.join(WORKSPACE), options.debounce),
     });
     let child = started(&options.child, &shared, &socket)?;
     let ticking = {
@@ -149,6 +154,7 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
     }
 
     let _ = ticking.join();
+    shared.watching.stop();
 
     if let Some(mut process) = child.as_ref().and_then(|held| locked(held).take()) {
         let _ = process.kill();
@@ -331,6 +337,18 @@ fn connected(stream: UnixStream, shared: &Shared, root: &Path, socket: &Path, co
         }
 
         *locked(&shared.asked) = Instant::now();
+
+        if let Some(asked) = protocol::waiting(line.trim_end()) {
+            let answer = waited(shared, asked, contract);
+            *locked(&shared.asked) = Instant::now();
+
+            if writeln!(writer, "{answer}").is_err() {
+                break;
+            }
+
+            continue;
+        }
+
         let answer = {
             let mut kept = locked(&shared.kept);
             let answer = protocol::answer(&mut kept.state, line.trim_end(), contract, |asked, path| {
@@ -351,6 +369,22 @@ fn connected(stream: UnixStream, shared: &Shared, root: &Path, socket: &Path, co
     }
 
     shared.connected.fetch_sub(1, Ordering::SeqCst);
+}
+
+/// The answer to a client waiting for a change, which counts as no client connected while it waits.
+fn waited(shared: &Shared, asked: Result<protocol::Waiting, String>, contract: u32) -> String {
+    let asked = match asked {
+        Ok(asked) => asked,
+        Err(why) => return protocol::refused(&why, contract),
+    };
+    shared.connected.fetch_sub(1, Ordering::SeqCst);
+    let noticed = shared.watching.changed(&asked.paths, asked.since, asked.wait);
+    shared.connected.fetch_add(1, Ordering::SeqCst);
+
+    match noticed {
+        Noticed::Changed(generation) => protocol::changed(generation, contract),
+        Noticed::Unwatched(why) => protocol::unwatched(&why, contract),
+    }
 }
 
 /// The records a request kept, appended to the journal.
@@ -394,6 +428,7 @@ mod tests {
             idle: Some(Duration::from_secs(30)),
             snapshot_every: Duration::from_millis(1),
             sync_every: Duration::from_millis(1),
+            debounce: Duration::from_millis(10),
             child: Vec::new(),
         }
     }
@@ -440,6 +475,28 @@ mod tests {
         assert_eq!(asked(&mut stream, r#"proofs {"keys": ["k"]}"#), r#"{"outbreak":1,"proofs":{"k":"v"}}"#);
         assert_eq!(asked(&mut stream, "stop"), r#"{"outbreak":1,"stopping":true}"#);
         assert_eq!(second.join().unwrap(), Ok(()));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn answers_a_client_waiting_for_a_change_of_the_files() {
+        let root = std::env::temp_dir().join(format!("outbreak-serve-watch-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let serving = { let options = options(root.clone()); thread::spawn(move || serve(&options, 1)) };
+        let mut stream = connected(&root);
+
+        assert_eq!(asked(&mut stream, r#"changed {"paths": ["src"], "since": 0, "wait": 0}"#), r#"{"outbreak":1,"changed":0}"#);
+        let writing = { let file = root.join("src/A.php"); thread::spawn(move || { thread::sleep(Duration::from_millis(100)); std::fs::write(file, "<?php\n") }) };
+        let after = asked(&mut stream, r#"changed {"paths": ["src"], "since": 0, "wait": 5000}"#);
+        writing.join().unwrap().unwrap();
+
+        assert_ne!(after, r#"{"outbreak":1,"changed":0}"#);
+        assert!(after.starts_with(r#"{"outbreak":1,"changed":"#), "{after}");
+        assert!(asked(&mut stream, r#"changed {"paths": ["/"], "since": 0, "wait": 0}"#).contains(r#""unwatched":"#));
+        assert!(asked(&mut stream, r#"changed {"since": 0}"#).contains(r#""refused":"#));
+        assert_eq!(asked(&mut stream, "stop"), r#"{"outbreak":1,"stopping":true}"#);
+        assert_eq!(serving.join().unwrap(), Ok(()));
         std::fs::remove_dir_all(&root).unwrap();
     }
 
