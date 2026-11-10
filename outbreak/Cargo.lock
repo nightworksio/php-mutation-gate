@@ -851,6 +851,7 @@ dependencies = [
  "flate2",
  "outbreak-cache",
  "outbreak-graph",
+ "outbreak-lsp",
  "outbreak-map",
  "outbreak-report",
  "outbreak-serve",
@@ -880,6 +881,15 @@ name = "outbreak-graph"
 version = "0.1.0"
 dependencies = [
  "outbreak-map",
+]
+
+[[package]]
+name = "outbreak-lsp"
+version = "0.1.0"
+dependencies = [
+ "outbreak-graph",
+ "outbreak-map",
+ "rustix",
 ]
 
 [[package]]

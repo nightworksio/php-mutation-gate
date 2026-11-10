@@ -12,6 +12,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 outbreak-cache = { path = "../crates/outbreak-cache" }
 outbreak-graph = { path = "../crates/outbreak-graph" }
+outbreak-lsp = { path = "../crates/outbreak-lsp" }
 outbreak-map = { path = "../crates/outbreak-map" }
 outbreak-report = { path = "../crates/outbreak-report" }
 outbreak-serve = { path = "../crates/outbreak-serve" }
@@ -64,6 +65,13 @@ bench = false
 [[bin]]
 name = "journal"
 path = "fuzz_targets/journal.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lsp"
+path = "fuzz_targets/lsp.rs"
 test = false
 doc = false
 bench = false

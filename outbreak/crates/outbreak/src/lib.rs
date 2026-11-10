@@ -28,6 +28,11 @@
 //!   [--sync-every <s>] [-- <child> …]` serves the project's state on a
 //!   socket until it stops (ADR-0133); with `--detach` it starts the daemon
 //!   in a process group of its own and answers its process id.
+//! - `outbreak lsp [--stdio] [--gate <path>] [--php <binary>] [--severity <s>]
+//!   [-- <watch option> …]` speaks the Language Server Protocol on its
+//!   standard streams until the editor asks it to exit, showing the survivors
+//!   `mutation-gate watch` tells of (ADR-0133 decision 10); it answers no line
+//!   of JSON of its own.
 //!
 //! An answer is always one line of JSON with `"outbreak": 1`. A command that
 //! cannot run, for its arguments or for a file it cannot read or write, says
@@ -38,7 +43,7 @@ mod report;
 mod split;
 
 use std::fmt;
-use std::io::{Read, Write};
+use std::io::{self, BufReader, Read, Write};
 use std::num::NonZero;
 
 use outbreak_map::json::Refused;
@@ -46,6 +51,9 @@ use outbreak_map::map;
 
 /// The contract every answer is written in.
 pub const CONTRACT: u32 = 1;
+
+/// The command that serves an editor on the process's own standard streams.
+pub const LSP: &str = "lsp";
 
 /// Why a command could not run.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,7 +84,7 @@ impl fmt::Display for Failure {
 }
 
 /// How to run it, as it says where its arguments name no command.
-const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert | outbreak cache pull | outbreak cache push | outbreak graph reach | outbreak serve <root> [--detach] [--idle <s>] [--snapshot-every <s>] [--sync-every <s>] [-- <child> ...]";
+const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert | outbreak cache pull | outbreak cache push | outbreak graph reach | outbreak serve <root> [--detach] [--idle <s>] [--snapshot-every <s>] [--sync-every <s>] [-- <child> ...] | outbreak lsp [--stdio] [--gate <path>] [--php <binary>] [--severity <s>] [-- <watch option> ...]";
 
 /// Runs the command the arguments name, reading its input and writing its answer.
 ///
@@ -110,6 +118,18 @@ pub fn run(
     };
 
     writeln!(output, "{answer}").map_err(|error| Failure::Io(format!("cannot answer: {error}")))
+}
+
+/// `outbreak lsp` on the process's standard streams, which the threads it starts write to too.
+///
+/// # Errors
+///
+/// Fails where the arguments name no option it takes, or the editor's streams break or close
+/// before it asked the server to shut down.
+pub fn lsp(arguments: &[String]) -> Result<(), Failure> {
+    let options = outbreak_lsp::options(arguments).map_err(Failure::Usage)?;
+
+    outbreak_lsp::serve(&options, BufReader::new(io::stdin()), io::stdout()).map_err(Failure::Io)
 }
 
 /// What `outbreak serve` answers once it stopped, or once the daemon it detached started.

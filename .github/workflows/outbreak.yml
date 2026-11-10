@@ -288,8 +288,8 @@ jobs:
 
   # Every parser and decoder: a map's text, a split request, a slice of a map
   # the slicer takes, which must itself be a map it vouches for, a run's
-  # report, a pack of proofs, a PHP file with a graph request, and the
-  # daemon's journal and snapshot.
+  # report, a pack of proofs, a PHP file with a graph request, the daemon's
+  # journal and snapshot, and what the language server reads.
   fuzz:
     name: fuzz ${{ matrix.target }}
     if: inputs.gates
@@ -302,7 +302,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [map, request, slice, report, pack, graph, journal]
+        target: [map, request, slice, report, pack, graph, journal, lsp]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

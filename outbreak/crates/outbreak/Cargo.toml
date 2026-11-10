@@ -13,6 +13,7 @@ publish.workspace = true
 flate2.workspace = true
 outbreak-cache.workspace = true
 outbreak-graph.workspace = true
+outbreak-lsp.workspace = true
 outbreak-map.workspace = true
 outbreak-report.workspace = true
 outbreak-serve.workspace = true

@@ -22,6 +22,7 @@ sha2 = { version = "0.10", default-features = false }
 ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
 outbreak-cache = { path = "crates/outbreak-cache" }
 outbreak-graph = { path = "crates/outbreak-graph" }
+outbreak-lsp = { path = "crates/outbreak-lsp" }
 outbreak-map = { path = "crates/outbreak-map" }
 outbreak-report = { path = "crates/outbreak-report" }
 outbreak-serve = { path = "crates/outbreak-serve" }
