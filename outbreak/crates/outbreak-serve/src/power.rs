@@ -11,12 +11,12 @@ pub(crate) fn source() -> Result<Box<dyn Notices>, String> {
     notifyd::Notifyd::started().map(|notices| Box::new(notices) as Box<dyn Notices>)
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(target_os = "linux")]
 pub(crate) fn source() -> Result<Box<dyn Notices>, String> {
     uevents::Uevents::bound().map(|notices| Box::new(notices) as Box<dyn Notices>)
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "android")))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub(crate) fn source() -> Result<Box<dyn Notices>, String> {
     Err(String::from("this platform tells the daemon of no change of the power source"))
 }
@@ -88,7 +88,7 @@ mod notifyd {
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(target_os = "linux")]
 mod uevents {
     use std::fs::File;
     use std::io::{Read as _, Seek as _, SeekFrom};

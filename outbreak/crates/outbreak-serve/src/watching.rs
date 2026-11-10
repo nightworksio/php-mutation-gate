@@ -229,7 +229,7 @@ fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(target_os = "linux")]
 fn native(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Box<dyn Notices>, String> {
     inotify::Inotify::armed(paths, skipped).map(|notices| Box::new(notices) as Box<dyn Notices>)
 }
@@ -248,7 +248,6 @@ fn native(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Box<dyn Notices>,
 
 #[cfg(not(any(
     target_os = "linux",
-    target_os = "android",
     target_os = "macos",
     target_os = "ios",
     target_os = "freebsd",
@@ -260,7 +259,7 @@ fn native(_: &BTreeSet<PathBuf>, _: &Path) -> Result<Box<dyn Notices>, String> {
     Err(String::from("this platform has no notifications the daemon watches through"))
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(target_os = "linux")]
 mod inotify {
     use std::collections::{BTreeSet, HashMap};
     use std::ffi::OsStr;
