@@ -34,7 +34,8 @@ use Psr\Clock\ClockInterface;
  * cannot judge once the time is up is unjudged, as is every unit no batch
  * took. What each batch judged is told as it ends (ADR-0120). Where a
  * change cancels by unit, the units it moved leave the queue unjudged, and a
- * batch it halts leaves its units unjudged as a deadline would (ADR-0146).
+ * batch it halts is told of to no one and leaves every unit of it unjudged,
+ * whatever its stopped processes came to (ADR-0146).
  *
  * @internal
  */
@@ -78,11 +79,16 @@ final readonly class Batched
             $halt = $this->interruption->halting($batch);
             $invoked = $this->invoking->invoked($this->within($request, $left));
             $halted = $halt instanceof BatchHalt && $halt->disarmed();
-            $this->ends->ended($invoked);
+
+            if (! $halted) {
+                $this->ends->ended($invoked);
+            }
+
             $queue = array_slice($queue, $batch->count());
             $spent = match (true) {
+                $halted => $spent->leaving($batch),
                 ! $invoked instanceof CannotJudge => $watch->after($spent, $batch, $invoked),
-                $halted || $this->isOver() => $spent->leaving($batch),
+                $this->isOver() => $spent->leaving($batch),
                 default => $invoked,
             };
 

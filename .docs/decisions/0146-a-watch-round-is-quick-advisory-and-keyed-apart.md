@@ -63,15 +63,15 @@ what a source file declares, without running anything.
    ADR-0133 decision 8 gives `outbreak serve`.
 7. **A save cancels by unit.** Where `local.cancelByUnit` is on, a save
    during a round drops from its queue the units whose files it changed,
-   and every other unit runs on. A batch that runs such a unit is halted as
-   its deadline would halt it: every `local.watchPoll`, a second at the
-   least, the batch reads its units' files again, and once one has moved the
-   gate sends itself `SIGUSR2`, on which every set of processes it awaits
-   stops each one still running. Halted and dropped units are left
-   unjudged, so their mutants are pending, never judged; what any batch
-   judged stands, keyed by the digests it was planned on. Where `pcntl` is
-   missing a batch runs to its end. Off, a save stops the round before its
-   next batch (ADR-0010).
+   and every other unit runs on. A batch that runs such a unit is halted:
+   every `local.watchPoll`, a second at the least, the batch reads its
+   units' files again, and once one has moved the gate sends itself
+   `SIGUSR2`, on which every set of processes it awaits stops each one still
+   running. Nothing a halted batch came to is read or told: every unit of it
+   is left unjudged, as is every dropped unit, so their mutants are pending,
+   never judged; what every other batch judged stands, keyed by the digests
+   it was planned on. Where `pcntl` is missing a batch runs to its end. Off,
+   a save stops the round before its next batch (ADR-0010).
 8. **Each judged mutant is an event.** `watch --output=events` prints one
    line of JSON per judged mutant as its batch ends, `{"mutant", "site",
    "status", "by", "quick", "unit", "digest"}`: the status `killed`,
@@ -101,8 +101,9 @@ what a source file declares, without running anything.
   labelled and keyed apart.
 - **Survivors can only grow.** No static check and a map that can lag show
   more survivors, never fewer; `pre-push` judges them all again.
-- **A cancel judges nothing.** A halted batch ends as its deadline would end
-  it, and a dropped unit as one no batch took: unjudged, never killed.
+- **A cancel judges nothing.** A stopped process can read to its runner as
+  a timeout, so nothing a halted batch came to is read; its units and the
+  dropped ones are left as units no batch took: unjudged, never killed.
 - **Order moves no result.** It decides only which unit a budget reaches
   first.
 
@@ -116,7 +117,7 @@ what a source file declares, without running anything.
 | **Let `pre-push` take a quick kill** | A quick kill can be one a whole-suite stream would not make; taking it loosens the verdict. |
 | **Measure every moved test file, as today** | The re-measure is the largest part of a round after a source save. |
 | **Stop the whole round on any save, as before** | A save to one unit throws away the work of every other; `local.cancelByUnit: false` keeps it. |
-| **Halt a batch by killing its processes from outside** | A process ended by a signal can read as a crash, and a crash as a kill; a halt the processes' own loop hears ends them as a deadline does, which every runner already reads as unjudged. |
+| **Read what a halted batch judged before the halt** | Its runner reads a stopped process as one that ran out of time, which counts as a kill; only a whole batch's result is sound. |
 | **Print the whole report after every round** | It scrolls each round's blocks away; `--report` gives it. |
 
 ## Consequences

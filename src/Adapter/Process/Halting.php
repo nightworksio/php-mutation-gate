@@ -16,9 +16,9 @@ use const SIG_DFL;
 use const SIGUSR2;
 
 /**
- * The signal that halts the processes this machine runs for the gate as
- * their deadline would (ADR-0146): `watch` sends it to its own process once a
- * save moves a unit of the batch running. Each set of processes hears it
+ * The signal that halts the processes this machine runs for the gate
+ * (ADR-0146): `watch` sends it to its own process once a save moves a unit
+ * of the batch running, and reads nothing the batch came to. Each set of processes hears it
  * while it awaits their ends, as does every set it waits inside, and stops
  * every one still running. Where `pcntl` is missing, nothing hears it and
  * nothing sends it.

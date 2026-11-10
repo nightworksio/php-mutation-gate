@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * sees arrive mid-run (ADR-0010). Where `local.cancelByUnit` is off, a change
  * stops the run before its next batch. Where it is on, a change drops from
  * the queue only the units whose files it moved, and halts a batch running
- * one as its deadline would, and the run goes on (ADR-0146). The batches
+ * one, leaving all of its units unjudged, and the run goes on (ADR-0146). The batches
  * already run keep their results; the units no batch took are left
  * unjudged, as when the time runs out. A run with none is stopped only by
  * its deadline.

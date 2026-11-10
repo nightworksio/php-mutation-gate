@@ -26,8 +26,8 @@ use const SIG_DFL;
 use const SIGALRM;
 
 /**
- * A batch of a round of `watch`, halted as its deadline would halt it once a
- * save moves one of its units (ADR-0146): every `local.watchPoll`, a second
+ * A batch of a round of `watch`, halted once a save moves one of its units
+ * (ADR-0146): every `local.watchPoll`, a second
  * at the least, it reads its units' files again, and from the first look that
  * finds one unlike it was as the batch began it halts the processes the
  * batch runs at each look (see Halting). Where `pcntl` is missing, a batch
