@@ -20,6 +20,19 @@ enum Step: string
      */
     case Coverage = 'coverage';
 
+    /**
+     * Reading the map of every file, where the tests that read a value the
+     * run's files declare are found (ADR-0037).
+     */
+    case ValueReaderCoverage = 'value reader coverage';
+
+    /**
+     * Scanning the codebase for the tests that read each value the run's
+     * files declare, and covering each value's lines, and each line of a
+     * match's arms, by them (ADR-0037).
+     */
+    case ValueReaders = 'value readers';
+
     /** Making the mutants and writing what their runs read, before any of them runs. */
     case Preparing = 'preparing';
 

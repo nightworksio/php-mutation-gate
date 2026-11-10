@@ -216,11 +216,10 @@ final readonly class MutationRun
         }
 
         $laps = Laps::since(fn(): Seconds => Seconds::of($this->clock->seconds()), Seconds::of($started));
-        $from = $laps->now();
-        $shared = $this->shardMap()->of($request);
-        $read = $shared instanceof CoverageMap ? StepTimes::of($laps->lap(Step::Coverage, $from)) : StepTimes::none();
+        $opened = $this->shardMap()->of($request, $laps);
+        $shared = $opened->map();
         $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started, $laps);
-        $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($read);
+        $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($opened->steps());
 
         return match (true) {
             $shared instanceof CannotJudge,

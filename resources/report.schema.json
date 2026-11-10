@@ -1455,6 +1455,8 @@
                                             "enum": [
                                                 "held coverage",
                                                 "coverage",
+                                                "value reader coverage",
+                                                "value readers",
                                                 "preparing",
                                                 "mutation",
                                                 "reading",
