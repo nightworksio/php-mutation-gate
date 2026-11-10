@@ -32,6 +32,7 @@ final readonly class SplitStreamKeys
         $sharding = Field::optional(SplitStream::SHARDING, Enumerated::of(StreamSharding::cases()), $results);
         $killerStreams = Field::optional(SplitStream::KILLER_STREAMS, Flag::boolean(), $results);
         $bootOnce = Field::optional(SplitStream::BOOT_ONCE, Flag::boolean(), $results);
+        $reconnect = Field::optional(SplitStream::RECONNECT, Flag::boolean(), $results);
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -50,6 +51,7 @@ final readonly class SplitStreamKeys
                     $killerStreams,
                     $early,
                     $bootOnce,
+                    $reconnect,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -59,6 +61,7 @@ final readonly class SplitStreamKeys
                     $streamed = $killerStreams->read($split);
                     $starts = $early->read($split);
                     $booted = $bootOnce->read($split);
+                    $reconnected = $reconnect->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -70,6 +73,7 @@ final readonly class SplitStreamKeys
                             $streamed->value(),
                             $starts->value(),
                             $booted->value(),
+                            $reconnected->value(),
                         ))),
                         $on,
                         $most,
@@ -79,6 +83,7 @@ final readonly class SplitStreamKeys
                         $streamed,
                         $starts,
                         $booted,
+                        $reconnected,
                     );
                 },
                 $enabled,
@@ -89,6 +94,7 @@ final readonly class SplitStreamKeys
                 $killerStreams,
                 $early,
                 $bootOnce,
+                $reconnect,
             ),
         )];
     }

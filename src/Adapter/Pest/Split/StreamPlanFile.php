@@ -45,6 +45,7 @@ final readonly class StreamPlanFile
             ),
             self::holds($read, 'recording') && is_string($read['recording']) ? $read['recording'] : '',
             self::holds($read, 'bootOnce') && $read['bootOnce'] === true,
+            self::holds($read, 'reconnect') && $read['reconnect'] === true,
         );
     }
 

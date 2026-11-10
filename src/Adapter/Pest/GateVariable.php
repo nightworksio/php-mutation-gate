@@ -169,6 +169,9 @@ enum GateVariable: string
     /** Whether a first-pass stream boots the application once and forks each test from it. */
     case SplitBootOnce = 'MUTATION_GATE_SPLIT_BOOT_ONCE';
 
+    /** Whether a stream's child reconnects to its own copy of each database a test holds open (ADR-0147). */
+    case SplitReconnect = 'MUTATION_GATE_SPLIT_RECONNECT';
+
     /**
      * The `outbreak.so` a split stream loads, to count the forks that change
      * no state (H5), to see a test touch nondeterminism (ADR-0130), to record

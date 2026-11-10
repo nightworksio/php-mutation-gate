@@ -86,6 +86,22 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.bootOnce', value: false));
     }
 
+    /**
+     * `splitStream.reconnect`: a test that holds a connection of the
+     * application's own to a database, outside a transaction and with no
+     * state its session keeps, forks, each child on its own copy of it.
+     */
+    public static function reconnect(): self
+    {
+        return new self(Json::at('splitStream.reconnect', value: true));
+    }
+
+    /** `splitStream.reconnect` off, as by default: a test that holds such a connection forks nothing. */
+    public static function connectionsFallBack(): self
+    {
+        return new self(Json::at('splitStream.reconnect', value: false));
+    }
+
     /** `splitStream.sharding` `tests`, as by default: each shard streams a part of the test files, timed alike. */
     public static function shardingByTests(): self
     {

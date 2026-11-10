@@ -85,6 +85,7 @@ final readonly class Streaming
         private int $children,
         private string $recording = '',
         private bool $bootOnce = false,
+        private bool $reconnect = false,
     ) {
     }
 
@@ -268,6 +269,7 @@ final readonly class Streaming
                 ? ''
                 : sprintf(self::RECORDED, $this->recording, $pass, $at),
             'bootOnce' => $this->bootsOnceIn($pass),
+            'reconnect' => $this->reconnect,
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 

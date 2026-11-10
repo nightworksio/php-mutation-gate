@@ -36,6 +36,9 @@ final readonly class SplitStream
     /** The key whose `true` has a stream boot a framework's application once and fork each test from it. */
     public const string BOOT_ONCE = 'bootOnce';
 
+    /** The key whose `true` has a child reconnect to its own copy of each database a test holds open (ADR-0147). */
+    public const string RECONNECT = 'reconnect';
+
     /** The key of which full runs plan without a fresh map (ADR-0135). */
     public const string EARLY = 'early';
 
@@ -56,6 +59,7 @@ final readonly class SplitStream
         private bool|Absent $killerStreams,
         private SplitEarly|Absent $early = new Absent(),
         private bool|Absent $bootOnce = new Absent(),
+        private bool|Absent $reconnect = new Absent(),
     ) {
     }
 
@@ -68,8 +72,19 @@ final readonly class SplitStream
         bool|Absent $killerStreams = new Absent(),
         SplitEarly|Absent $early = new Absent(),
         bool|Absent $bootOnce = new Absent(),
+        bool|Absent $reconnect = new Absent(),
     ): self {
-        return new self($enabled, $children, $changeCheck, $killersFirst, $sharding, $killerStreams, $early, $bootOnce);
+        return new self(
+            $enabled,
+            $children,
+            $changeCheck,
+            $killersFirst,
+            $sharding,
+            $killerStreams,
+            $early,
+            $bootOnce,
+            $reconnect,
+        );
     }
 
     /** Every key at the value it takes when every layer leaves it out. */
@@ -86,6 +101,7 @@ final readonly class SplitStream
             $none->killerStreams(),
             $none->early(),
             $none->bootOnce(),
+            $none->reconnect(),
         );
     }
 
@@ -101,6 +117,7 @@ final readonly class SplitStream
             Absent::laid($this->killerStreams, $later->killerStreams),
             Absent::laid($this->early, $later->early),
             Absent::laid($this->bootOnce, $later->bootOnce),
+            Absent::laid($this->reconnect, $later->reconnect),
         );
     }
 
@@ -163,6 +180,17 @@ final readonly class SplitStream
     }
 
     /**
+     * `splitStream.reconnect`: whether a test that holds a connection of the
+     * application's own to a database, outside a transaction and with no
+     * state its session keeps, still forks, each child reconnecting to its
+     * own copy of that database (ADR-0147); off by default.
+     */
+    public function reconnect(): bool
+    {
+        return $this->reconnect === true;
+    }
+
+    /**
      * `splitStream.early`: which full split-stream runs plan without a fresh
      * coverage map (ADR-0135); `no-match` by default. It is in no key, and
      * not in the runner's option.
@@ -182,6 +210,7 @@ final readonly class SplitStream
             Member::of(self::KILLERS_FIRST, $this->killersFirst()),
             Member::of(self::KILLER_STREAMS, $this->killerStreams()),
             Member::of(self::BOOT_ONCE, $this->bootOnce()),
+            Member::of(self::RECONNECT, $this->reconnect()),
         );
 
         return Member::of(self::SECTION, $option);
@@ -200,6 +229,7 @@ final readonly class SplitStream
             Member::of(self::KILLER_STREAMS, $this->killerStreams),
             Member::of(self::EARLY, $this->early instanceof SplitEarly ? $this->early->value : $this->early),
             Member::of(self::BOOT_ONCE, $this->bootOnce),
+            Member::of(self::RECONNECT, $this->reconnect),
         );
 
         return Member::unlessEmpty(self::SECTION, $written);
@@ -217,6 +247,7 @@ final readonly class SplitStream
             ...$this->switched($this->killerStreams, 'SplitStream::killerStreams()', 'SplitStream::wholeFirstPass()'),
             ...$this->early instanceof SplitEarly ? [$this->early->php()] : [],
             ...$this->switched($this->bootOnce, 'SplitStream::bootOnce()', 'SplitStream::bootPerTest()'),
+            ...$this->switched($this->reconnect, 'SplitStream::reconnect()', 'SplitStream::connectionsFallBack()'),
         );
     }
 

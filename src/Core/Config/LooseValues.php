@@ -52,6 +52,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
     private const string BOOT_ONCE = 'a split stream runs each test in a process forked from an application booted once,'
         . ' where it no longer sees the state the tests before it left';
 
+    private const string RECONNECT = 'a split stream\'s child runs on a copy of each database its test holds open, which'
+        . ' lacks what the server keeps per session and no check of its dialect reads';
+
     private const string GRAPH = 'a change the coverage map cannot place reaches what the static graph joins to it,'
         . ' not its whole package';
 
@@ -115,6 +118,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
                 : [],
             ...$split->enabled() && $split->bootOnce()
                 ? [LooseValue::of('splitStream.bootOnce', 'true', self::BOOT_ONCE)]
+                : [],
+            ...$split->enabled() && $split->reconnect()
+                ? [LooseValue::of('splitStream.reconnect', 'true', self::RECONNECT)]
                 : [],
             ...$reach->lockMoves() !== LockMoveReach::Everything
                 ? [LooseValue::of('reach.lockMoves', $reach->lockMoves()->value, self::LOCK)]

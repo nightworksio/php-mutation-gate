@@ -94,6 +94,7 @@ final readonly class Streams
             $settings->children(),
             $settings->lines(),
             $settings->bootsOnce(),
+            $settings->reconnects(),
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $settings);
         $again = [...self::undecided($sites, $covering, $verdicts), ...$unrun, ...self::booted($sites, $verdicts)];

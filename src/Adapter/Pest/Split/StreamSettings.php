@@ -48,6 +48,7 @@ final readonly class StreamSettings
         private string $recording = '',
         private bool $bootOnce = false,
         private string $lines = '',
+        private bool $reconnect = false,
     ) {
     }
 
@@ -89,6 +90,7 @@ final readonly class StreamSettings
             self::recordingIn(getenv(GateVariable::SplitRecording->value)),
             getenv(GateVariable::SplitBootOnce->value) === self::ON,
             self::recordingIn(getenv(GateVariable::SplitLines->value)),
+            getenv(GateVariable::SplitReconnect->value) === self::ON,
         );
     }
 
@@ -105,6 +107,7 @@ final readonly class StreamSettings
             $this->recording,
             $this->bootOnce,
             $this->lines,
+            $this->reconnect,
         );
     }
 
@@ -121,7 +124,35 @@ final readonly class StreamSettings
             $this->recording,
             $bootOnce,
             $this->lines,
+            $this->reconnect,
         );
+    }
+
+    /**
+     * These, a test holding a connection of the application's own to a
+     * database forking, each child on its own copy of it, where this says
+     * (ADR-0147).
+     */
+    public function reconnecting(bool $reconnect): self
+    {
+        return new self(
+            $this->enabled,
+            $this->children,
+            $this->changeCheck,
+            $this->killersFirst,
+            $this->part,
+            $this->killerStreams,
+            $this->recording,
+            $this->bootOnce,
+            $this->lines,
+            $reconnect,
+        );
+    }
+
+    /** Whether a stream's child reconnects to its own copy of each database a test holds open (ADR-0147). */
+    public function reconnects(): bool
+    {
+        return $this->reconnect;
     }
 
     /**
@@ -218,6 +249,7 @@ final readonly class StreamSettings
                 GateVariable::SplitKillersFirst->value => $this->killersFirst ? self::ON : self::OFF,
                 GateVariable::SplitKillerStreams->value => $this->killerStreams ? self::ON : self::OFF,
                 GateVariable::SplitBootOnce->value => $this->bootOnce ? self::ON : self::OFF,
+                GateVariable::SplitReconnect->value => $this->reconnect ? self::ON : self::OFF,
             ]
             : [];
     }
