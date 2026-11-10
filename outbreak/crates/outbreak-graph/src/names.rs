@@ -45,6 +45,9 @@ const MAGIC: [&str; 4] = ["__call", "__callstatic", "__get", "__set"];
 
 const RESOLVERS: [&str; 5] = ["get", "make", "resolve", "build", "app"];
 
+/// What a constant is named by, apart from a class-like or a function: its last segment after this.
+const CONSTANT: &str = "const ";
+
 const KEYWORDS: [&str; 70] = [
     "abstract", "and", "array", "as", "bool", "break", "callable", "case", "catch", "class", "clone", "const",
     "continue", "declare", "default", "do", "echo", "else", "elseif", "empty", "enddeclare", "endfor",
@@ -123,6 +126,7 @@ impl<'a> Reader<'a> {
             }
             Some(Token::Variable) => self.variable(index, before.as_ref()),
             Some(Token::Name(name)) => return self.name(index, &name.clone(), before.as_ref()),
+            Some(Token::Quoted(text)) => self.spelt(text),
             _ => {}
         }
 
@@ -149,44 +153,100 @@ impl<'a> Reader<'a> {
         let lower = name.to_ascii_lowercase();
         let next = self.at(index + 1).cloned();
 
-        if before == Some(&Token::Arrow) {
-            if next == Some(Token::Punct(b'(')) && RESOLVERS.contains(&lower.as_str()) {
-                self.resolver(index + 2);
-            }
-            return index + 1;
+        if before == Some(&Token::Arrow) && next == Some(Token::Punct(b'(')) && RESOLVERS.contains(&lower.as_str()) {
+            self.resolver(index + 2);
         }
 
-        if before == Some(&Token::DoubleColon) {
+        if matches!(before, Some(Token::Arrow | Token::DoubleColon)) {
+            self.mention(name);
             return index + 1;
         }
 
         match lower.as_str() {
             "namespace" => return self.namespace(index + 1),
             "use" if self.class_depth.is_none() => return self.import(index + 1),
-            "function" | "fn" | "const" => return self.declared_function(index + 1, &lower),
+            "function" | "fn" => return self.declared_function(index + 1, &lower),
+            "const" => self.declared_constants(index + 1),
             "new" => self.new_at(index + 1),
-            word if DECLARING.contains(&word) && !matches!(before, Some(Token::DoubleColon)) => {
-                return self.declared_class(index + 1);
-            }
+            word if DECLARING.contains(&word) => return self.declared_class(index + 1),
             word if INCLUDES.contains(&word) => self.included(index + 1),
             word if DYNAMIC_CALLS.contains(&word) && next == Some(Token::Punct(b'(')) => {
                 self.unplace("a call by a name held as it runs");
             }
             "app" | "resolve" if next == Some(Token::Punct(b'(')) => self.resolver(index + 2),
-            word if is_keyword(word) => {}
-            _ => {
-                let resolved = self.resolved(name);
-                if REFLECTIONS.iter().any(|reflection| resolved.ends_with(reflection)) {
-                    self.unplace("a reflection");
-                }
-                self.out.names.insert(resolved);
-                if next == Some(Token::Punct(b'(')) && !name.contains('\\') && !self.namespace.is_empty() {
-                    self.out.names.insert(lower.clone());
-                }
-            }
+            "define" if next == Some(Token::Punct(b'(')) => self.defined(index + 2),
+            _ => {}
         }
 
+        if REFLECTIONS.iter().any(|reflection| self.resolved(name).ends_with(reflection)) {
+            self.unplace("a reflection");
+        }
+
+        self.mention(name);
+
         index + 1
+    }
+
+    /// Every name a name written here may stand for, as the gate's own name
+    /// graph reads it: as resolved against the namespace and the imports, as
+    /// written where it is not fully qualified, and as a constant by its last
+    /// segment.
+    fn mention(&mut self, name: &str) {
+        let lower = name.to_ascii_lowercase();
+        let last = lower.rsplit('\\').next().unwrap_or_default();
+        self.out.names.insert(format!("{CONSTANT}{last}"));
+
+        if is_keyword(&lower) {
+            return;
+        }
+
+        self.out.names.insert(self.resolved(name));
+
+        if !lower.starts_with('\\') && !lower.starts_with("namespace\\") {
+            self.out.names.insert(lower);
+        }
+    }
+
+    /// Every fully qualified name a quoted string spells, as a class-string does: two or more segments joined by
+    /// backslashes, single or doubled, with or without a leading one.
+    fn spelt(&mut self, text: &str) {
+        let text = text.replace("\\\\", "\\");
+        let bytes = text.as_bytes();
+        let mut at = 0;
+
+        while at < bytes.len() {
+            match qualified_at(bytes, at) {
+                Some(end) => {
+                    let found = text.get(at..end).unwrap_or_default().trim_start_matches('\\');
+                    self.out.names.insert(found.to_ascii_lowercase());
+                    at = end;
+                }
+                None => at += 1,
+            }
+        }
+    }
+
+    /// Each constant a `const` declares, by its last segment, up to the statement's end.
+    fn declared_constants(&mut self, mut index: usize) {
+        while let Some(token) = self.at(index) {
+            match (token, self.at(index + 1)) {
+                (Token::Punct(b';'), _) => return,
+                (Token::Name(name), Some(Token::Punct(b'='))) => {
+                    let declared = format!("{CONSTANT}{}", name.to_ascii_lowercase());
+                    self.out.declares.insert(declared);
+                }
+                _ => {}
+            }
+            index += 1;
+        }
+    }
+
+    /// The constant a `define()` declares by a quoted name, by its last segment.
+    fn defined(&mut self, argument: usize) {
+        if let Some(Token::Quoted(name)) = self.at(argument) {
+            let last = name.rsplit('\\').next().unwrap_or_default().to_ascii_lowercase();
+            self.out.declares.insert(format!("{CONSTANT}{last}"));
+        }
     }
 
     fn new_at(&mut self, index: usize) {
@@ -217,14 +277,19 @@ impl<'a> Reader<'a> {
     }
 
     fn namespace(&mut self, mut index: usize) -> usize {
-        self.namespace = match self.at(index) {
+        let named = match self.at(index) {
             Some(Token::Name(name)) => {
                 index += 1;
-                name.trim_start_matches('\\').to_ascii_lowercase()
+                name.clone()
             }
             _ => String::new(),
         };
+        self.namespace = named.trim_start_matches('\\').to_ascii_lowercase();
         self.imports.clear();
+
+        if !named.is_empty() {
+            self.mention(&named);
+        }
 
         index
     }
@@ -267,6 +332,8 @@ impl<'a> Reader<'a> {
         };
         let full = if prefix.is_empty() { name } else { format!("{prefix}\\{name}") }.to_ascii_lowercase();
         let short = alias.unwrap_or_else(|| full.rsplit('\\').next().unwrap_or_default().to_owned());
+        self.out.names.insert(self.qualified(&full));
+        self.mention(&full);
         self.out.names.insert(full.clone());
         self.imports.insert(short, full);
     }
@@ -274,6 +341,7 @@ impl<'a> Reader<'a> {
     fn declared_class(&mut self, index: usize) -> usize {
         if let Some(Token::Name(name)) = self.at(index) {
             let declared = self.qualified(&name.to_ascii_lowercase());
+            self.mention(name);
             self.out.declares.insert(declared);
             self.class_depth = Some(self.depth + 1);
             return index + 1;
@@ -288,6 +356,7 @@ impl<'a> Reader<'a> {
         match self.at(index) {
             Some(Token::Name(name)) => {
                 let lower = name.to_ascii_lowercase();
+                self.mention(name);
                 if keyword == "function" && self.class_depth.is_some() && MAGIC.contains(&lower.as_str()) {
                     self.unplace("a magic method that answers any name");
                 }
@@ -330,6 +399,44 @@ impl<'a> Reader<'a> {
     }
 }
 
+/// Where a fully qualified name a string spells starting at a byte ends: one
+/// that matches `\\?[A-Za-z_][A-Za-z0-9_]*(\\[A-Za-z_][A-Za-z0-9_]*)+` there,
+/// as long as it runs; none where none starts there.
+fn qualified_at(bytes: &[u8], start: usize) -> Option<usize> {
+    let mut at = start + usize::from(bytes.get(start) == Some(&b'\\'));
+    at = segment_at(bytes, at)?;
+    let mut segments = 1;
+
+    while bytes.get(at) == Some(&b'\\') {
+        match segment_at(bytes, at + 1) {
+            Some(end) => {
+                at = end;
+                segments += 1;
+            }
+            None => break,
+        }
+    }
+
+    (segments > 1).then_some(at)
+}
+
+/// Where a segment of a name starting at a byte ends; none where none starts there.
+fn segment_at(bytes: &[u8], start: usize) -> Option<usize> {
+    let first = *bytes.get(start)?;
+
+    if !(first.is_ascii_alphabetic() || first == b'_') {
+        return None;
+    }
+
+    let mut at = start + 1;
+
+    while bytes.get(at).is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_') {
+        at += 1;
+    }
+
+    Some(at)
+}
+
 #[cfg(test)]
 mod tests {
     use super::read;
@@ -362,6 +469,22 @@ mod tests {
         ] {
             assert_eq!(read(text.as_bytes()).unplaced, Some(why), "{text}");
         }
+    }
+
+    #[test]
+    fn reads_constants_class_strings_and_members_as_the_gate_does() {
+        let found = read(
+            b"<?php namespace App; const LIMIT = 1; define('App\\\\RATE', 2); class Bag { const int SIZE = 3, MORE = 4; }\n\
+              $x = 'App\\\\Fake\\\\Clock'; $y = \"\\\\Other\\\\Thing x-y\\\\z\"; 'Single'; $w->total(); Rate::MAX;",
+        );
+
+        for name in ["const limit", "const rate", "const size", "const more"] {
+            assert!(found.declares.contains(name), "{name} in {:?}", found.declares);
+        }
+        for name in ["app\\fake\\clock", "other\\thing", "y\\z", "total", "app\\total", "const max", "app\\rate", "app"] {
+            assert!(found.names.contains(name), "{name} in {:?}", found.names);
+        }
+        assert!(!found.names.contains("single"));
     }
 
     #[test]

@@ -301,15 +301,15 @@
     },
     "outbreak/fuzz": {
       "check": "outbreak / fuzz ${{ matrix.target }}",
-      "checks": "Each of Outbreak's parsers, fuzzed: a map's text, a split request, and a slice, which must itself be a map it vouches for (ADR-0118).",
-      "reproduce": "cd outbreak/fuzz && cargo +nightly fuzz run <map|request|slice> -- -max_total_time=60 -dict=outbreak.dict",
+      "checks": "Each of Outbreak's parsers, fuzzed: a map's text, a split request, a slice, which must itself be a map it vouches for, a run's report, a pack of proofs with a cache request, and a PHP file with a graph request (ADR-0118).",
+      "reproduce": "cd outbreak/fuzz && cargo +nightly fuzz run <map|request|slice|report|pack|graph> -- -max_total_time=60 -dict=outbreak.dict",
       "evidence": "none",
       "why": "libFuzzer's log, which the job shows, holds the panic, and the input that failed is uploaded as the target's artifact."
     },
     "outbreak/boundary": {
       "check": "outbreak / boundary",
-      "checks": "The map engine's PHP contract suite, the equivalence contract suite against outbreak.so, and the Outbreak adapter's process tests, run against the binary and the extension this commit builds: what they answer is what the gate's PHP gives (ADR-0118, ADR-0130).",
-      "reproduce": "cd outbreak && cargo build --release --package outbreak --package outbreak-ext && cd .. && OUTBREAK_BINARY=$PWD/outbreak/target/release/outbreak OUTBREAK_EXTENSION=$PWD/outbreak/target/release/liboutbreak.so vendor/bin/pest tests/Contract/MapEngine tests/Contract/Equivalence tests/Process/Adapter/Outbreak",
+      "checks": "The map engine's, the proof cache's and the static graph's PHP contract suites, the equivalence contract suite against outbreak.so, and the Outbreak adapter's process tests, run against the binary and the extension this commit builds: what they answer is what the gate's PHP gives (ADR-0118, ADR-0130, ADR-0131, ADR-0132).",
+      "reproduce": "cd outbreak && cargo build --release --package outbreak --package outbreak-ext && cd .. && OUTBREAK_BINARY=$PWD/outbreak/target/release/outbreak OUTBREAK_EXTENSION=$PWD/outbreak/target/release/liboutbreak.so vendor/bin/pest tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph tests/Contract/Equivalence tests/Process/Adapter/Outbreak",
       "evidence": "none",
       "why": "Pest's log, which the job shows, names each test that failed and the difference it found."
     },

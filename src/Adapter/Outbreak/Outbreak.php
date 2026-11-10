@@ -28,18 +28,22 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
+use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
+use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\ProofCache;
+use NightWorksIO\MutationGate\Port\ReachGraph;
 
 use function sprintf;
 
 /**
  * Outbreak's core, the `outbreak` binary, as the gate's map engine (ADR-0118),
- * which converts a run's PHP report too (ADR-0119): each answer is one run of
+ * which converts a run's PHP report too (ADR-0119), the store of `outbreak
+ * cache` (ADR-0131) and the static graph (ADR-0132): each answer is one run of
  * the binary, its input handed on its standard input and its answer read as
  * one line of JSON in contract 1. Where there is no binary, or a run fails,
  * ends with another code, runs past its time or answers otherwise, the engine
@@ -48,7 +52,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCache
+final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCache, ReachGraph
 {
     private const string NO_BINARY = 'No Outbreak binary is in use.';
 
@@ -65,6 +69,8 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
     private const string UNCACHED = 'Outbreak did not %s the proof cache\'s packs: %s';
 
     private const string CACHED = 'Outbreak %s %d of the proof cache\'s packs.';
+
+    private const string UNGRAPHED = 'Outbreak\'s graph answered nothing: %s';
 
     /** The option the binary takes how many threads it writes on with. */
     private const string THREADS = '--threads';
@@ -205,6 +211,20 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
     public function pushed(CacheRequest $request): Written|NotWritten
     {
         return $this->cached(Command::Push, 'push', 'pushed', $request);
+    }
+
+    public function answered(GraphQuestion $question): GraphAnswer|NotWritten
+    {
+        if ($this->binary instanceof NotGiven) {
+            return NotWritten::because(self::NO_BINARY);
+        }
+
+        $asked = GraphAsked::of($question, $this->root);
+        $said = BinaryRun::ran($this->binary, Command::Graph->words(), $asked, $this->settings->timeout());
+
+        return $said instanceof Node
+            ? GraphAnswered::of($said)
+            : NotWritten::because(sprintf(self::UNGRAPHED, $said->why()));
     }
 
     /** What the binary said of a request to the proof cache: how many packs it moved, or why none. */

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\CacheStore;
 use NightWorksIO\MutationGate\Core\Config\CacheTrust;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Config\GraphUse;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Outbreak;
@@ -16,8 +17,9 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
  * How the `outbreak` keys a config writes are read into its `Shards` part
- * (ADR-0118). The binary's output is the gate's own, so changing any of them
- * re-runs nothing, as a key that judges or reports only does.
+ * (ADR-0118). The binary's output is the gate's own, so changing most of them
+ * re-runs nothing, as a key that judges or reports only does; the static
+ * graph decides what a run reaches (ADR-0132).
  *
  * @internal
  */
@@ -35,6 +37,7 @@ final readonly class OutbreakKeys
         $equivalence = Field::optional(Outbreak::EQUIVALENCE, Flag::boolean(), Effect::AffectsResults);
         $forkStates = Field::optional(Outbreak::FORK_STATES, Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $recheck = Field::optional(Outbreak::RECHECK_TOUCHED_KILLS, Flag::boolean(), Effect::AffectsResults);
+        $graph = Field::optional(Outbreak::GRAPH, Enumerated::of(GraphUse::cases()), Effect::DecidesHowTheGateRuns);
 
         return [Field::section(
             Outbreak::OPTION,
@@ -48,6 +51,7 @@ final readonly class OutbreakKeys
                     $equivalence,
                     $forkStates,
                     $recheck,
+                    $graph,
                 ): Layer|Invalid {
                     $on = $enabled->read($outbreak);
                     $at = $binary->read($outbreak);
@@ -57,6 +61,7 @@ final readonly class OutbreakKeys
                     $proves = $equivalence->read($outbreak);
                     $counts = $forkStates->read($outbreak);
                     $rechecks = $recheck->read($outbreak);
+                    $acts = $graph->read($outbreak);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Shards::of(outbreak: Outbreak::of(
@@ -68,6 +73,7 @@ final readonly class OutbreakKeys
                             $proves->value(),
                             $counts->value(),
                             $rechecks->value(),
+                            $acts->value(),
                         ))),
                         $on,
                         $at,
@@ -77,6 +83,7 @@ final readonly class OutbreakKeys
                         $proves,
                         $counts,
                         $rechecks,
+                        $acts,
                     );
                 },
                 $enabled,
@@ -87,6 +94,7 @@ final readonly class OutbreakKeys
                 $equivalence,
                 $forkStates,
                 $recheck,
+                $graph,
             ),
         )];
     }

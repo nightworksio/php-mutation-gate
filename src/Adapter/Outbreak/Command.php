@@ -14,7 +14,8 @@ use function explode;
  * of the map of the report a request names; and `report convert`, which
  * writes that map; `cache pull`, which pulls the packs of proofs a request
  * names from their store, and `cache push`, which merges a verdict's
- * entries into their class's pack (ADR-0131).
+ * entries into their class's pack (ADR-0131); and `graph reach`, which
+ * answers what the static graph a request on its input asks (ADR-0132).
  *
  * @internal
  */
@@ -27,6 +28,7 @@ enum Command: string
     case Convert = 'report convert';
     case Pull = 'cache pull';
     case Push = 'cache push';
+    case Graph = 'graph reach';
 
     /** @return non-empty-list<string> the binary's arguments */
     public function words(): array

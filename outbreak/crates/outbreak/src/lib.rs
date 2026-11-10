@@ -222,6 +222,18 @@ mod tests {
     }
 
     #[test]
+    fn answers_the_graph_on_its_input() {
+        assert_eq!(
+            ran(&["graph", "reach"], r#"{"root":"/nowhere","sources":[],"tests":[],"reach":[]}"#).unwrap(),
+            "{\"outbreak\":1,\"reaching\":{},\"joined\":{},\"named\":{},\"wrong\":[],\"unplaced\":{}}\n"
+        );
+        assert!(matches!(
+            ran(&["graph", "reach"], "[]").unwrap_err(),
+            Failure::Usage(why) if why.starts_with("the graph's request")
+        ));
+    }
+
+    #[test]
     fn refuses_arguments_that_name_no_command() {
         for arguments in [&[][..], &["map"], &["map", "vouch", "x"], &["other"]] {
             let failure = ran(arguments, "").unwrap_err();

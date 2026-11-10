@@ -8,8 +8,9 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * Whether Outbreak's core takes the coverage maps' bulk off the gate's PHP,
- * its binary, how long a run of it may take and its threads (ADR-0118), and
- * where `outbreak cache` keeps proofs by their keys (ADR-0131): `outbreak`.
+ * its binary, how long a run of it may take and its threads (ADR-0118),
+ * where `outbreak cache` keeps proofs by their keys (ADR-0131), and where its
+ * static graph acts (ADR-0132): `outbreak`.
  */
 final readonly class Outbreak implements Setting
 {
@@ -81,6 +82,33 @@ final readonly class Outbreak implements Setting
     public static function equivalenceOff(): self
     {
         return new self(Json::at('outbreak.equivalence', value: false));
+    }
+
+    /** `outbreak.graph`, `local`, as by default: the static graph adds tests to `watch`'s quick rounds alone. */
+    public static function graphInQuickRounds(): self
+    {
+        return new self(Json::at('outbreak.graph', 'local'));
+    }
+
+    /**
+     * `outbreak.graph`, `narrow`: a change the coverage map cannot place reaches what the static graph joins to it
+     * in place of its whole package. A loose value.
+     */
+    public static function graphNarrowing(): self
+    {
+        return new self(Json::at('outbreak.graph', 'narrow'));
+    }
+
+    /** `outbreak.graph`, `widen`: a changed source file also reaches the units its joined tests run. */
+    public static function graphWidening(): self
+    {
+        return new self(Json::at('outbreak.graph', 'widen'));
+    }
+
+    /** `outbreak.graph`, `off`: the static graph acts nowhere. */
+    public static function graphOff(): self
+    {
+        return new self(Json::at('outbreak.graph', 'off'));
     }
 
     /** `outbreak.cache.store`, `auto`, as by default: a registry where one is named, the Actions cache under the action. */

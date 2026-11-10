@@ -18,11 +18,12 @@ use function sprintf;
  * may take and on how many threads it writes (ADR-0118, ADR-0119), and
  * where `outbreak cache` keeps proofs by their keys (ADR-0131), and whether
  * `outbreak.so` proves a mutant equivalent before it runs and rechecks a
- * stream's kill by a test that touched nondeterminism (ADR-0130):
- * `outbreak`, which the `Shards` part holds. Only `outbreak.equivalence` and
- * `outbreak.recheckTouchedKills` change a result, so only they are in a
- * proof's key: the binary's output is the gate's own, and a cached proof
- * stands under its key as a ledger's does.
+ * stream's kill by a test that touched nondeterminism (ADR-0130), and where
+ * its static graph acts (ADR-0132): `outbreak`, which the `Shards` part
+ * holds. Only `outbreak.equivalence` and `outbreak.recheckTouchedKills`
+ * change a result, so only they are in a proof's key: the binary's output is
+ * the gate's own, a cached proof stands under its key as a ledger's does, and
+ * the graph decides what a run reaches, as a `reach` setting does.
  */
 final readonly class Outbreak
 {
@@ -50,6 +51,9 @@ final readonly class Outbreak
     /** The key of `outbreak.recheckTouchedKills`. */
     public const string RECHECK_TOUCHED_KILLS = 'recheckTouchedKills';
 
+    /** The key of `outbreak.graph`. */
+    public const string GRAPH = 'graph';
+
     /** The minutes one run of the binary may take, where the config does not say. */
     private const int MINUTES = 5;
 
@@ -62,6 +66,7 @@ final readonly class Outbreak
         private bool|Absent $equivalence,
         private bool|Absent $forkStates,
         private bool|Absent $recheckTouchedKills,
+        private GraphUse|Absent $graph,
     ) {
     }
 
@@ -74,6 +79,7 @@ final readonly class Outbreak
         bool|Absent $equivalence = new Absent(),
         bool|Absent $forkStates = new Absent(),
         bool|Absent $recheckTouchedKills = new Absent(),
+        GraphUse|Absent $graph = new Absent(),
     ): self {
         return new self(
             $enabled,
@@ -84,6 +90,7 @@ final readonly class Outbreak
             $equivalence,
             $forkStates,
             $recheckTouchedKills,
+            $graph,
         );
     }
 
@@ -99,6 +106,7 @@ final readonly class Outbreak
             Absent::laid($this->equivalence, $later->equivalence),
             Absent::laid($this->forkStates, $later->forkStates),
             Absent::laid($this->recheckTouchedKills, $later->recheckTouchedKills),
+            Absent::laid($this->graph, $later->graph),
         );
     }
 
@@ -170,6 +178,15 @@ final readonly class Outbreak
         return $this->recheckTouchedKills instanceof Absent || $this->recheckTouchedKills;
     }
 
+    /**
+     * `outbreak.graph`: where the static graph acts; `local` by default, in
+     * `watch`'s quick rounds alone, and `narrow` is loose.
+     */
+    public function graph(): GraphUse
+    {
+        return $this->graph instanceof GraphUse ? $this->graph : GraphUse::Local;
+    }
+
     /** `outbreak.cache`: where `outbreak cache` keeps proofs by their keys, and which packs are read (ADR-0131). */
     public function cache(): OutbreakCache
     {
@@ -214,6 +231,7 @@ final readonly class Outbreak
                 Member::of(self::EQUIVALENCE, $this->equivalence),
                 Member::of(self::FORK_STATES, $this->forkStates),
                 Member::of(self::RECHECK_TOUCHED_KILLS, $this->recheckTouchedKills),
+                Member::of(self::GRAPH, $this->graph instanceof GraphUse ? $this->graph->value : $this->graph),
                 $this->cache->written(),
             ),
         ));
@@ -249,6 +267,7 @@ final readonly class Outbreak
                 false => ['Outbreak::touchedKillsTrusted()'],
                 default => [],
             },
+            ...$this->graph instanceof GraphUse ? [$this->graph->php()] : [],
             ...$this->cache->php(),
         ]);
     }

@@ -1,6 +1,7 @@
 //! A PHP file's tokens, as far as the graph reads them: names, variables,
-//! strings (literal or not), and single-byte punctuation, with `::`, `->`
-//! and `#[` as tokens of their own. Comments and inline HTML are dropped.
+//! quoted strings PHP fills nothing into with their text, other strings
+//! (literal or not), and single-byte punctuation, with `::`, `->` and `#[`
+//! as tokens of their own. Comments and inline HTML are dropped.
 
 /// One token of a PHP file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9,7 +10,9 @@ pub enum Token {
     Name(String),
     /// A variable, `$` and its name.
     Variable,
-    /// A string: literal where its text holds nothing PHP fills in as it runs.
+    /// A single- or double-quoted string PHP fills nothing into, with the text between its quotes as written.
+    Quoted(String),
+    /// Any other string: a heredoc or nowdoc, or one PHP fills in; literal where its text holds nothing PHP fills in.
     Str {
         /// Whether the string is literal.
         literal: bool,
@@ -95,13 +98,16 @@ impl Lexer<'_> {
             b'#' => self.line_comment(),
             b'/' if self.peek(1) == b'/' => self.line_comment(),
             b'/' if self.peek(1) == b'*' => self.block_comment(),
-            b'\'' => {
-                self.quoted(b'\'');
-                self.out.push(Token::Str { literal: true });
-            }
-            b'"' | b'`' => {
+            b'\'' | b'"' | b'`' => {
+                let start = self.at + 1;
                 let literal = self.quoted(byte);
-                self.out.push(Token::Str { literal });
+                let text = self.text.get(start..self.at.saturating_sub(1)).unwrap_or_default();
+
+                self.out.push(if literal {
+                    Token::Quoted(String::from_utf8_lossy(text).into_owned())
+                } else {
+                    Token::Str { literal }
+                });
             }
             b'<' if self.starts(b"<<<") => self.heredoc(),
             b'$' if is_name_start(self.peek(1)) => {
@@ -287,11 +293,13 @@ mod tests {
             .into_iter()
             .filter_map(|token| match token {
                 Token::Str { literal } => Some(literal),
+                Token::Quoted(_) => Some(true),
                 _ => None,
             })
             .collect();
 
         assert_eq!(strings, [true, true, false, true, false]);
+        assert!(tokens(b"<?php 'App\\Money';").contains(&Token::Quoted("App\\Money".to_owned())));
     }
 
     #[test]

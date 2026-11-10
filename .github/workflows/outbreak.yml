@@ -286,8 +286,9 @@ jobs:
         working-directory: .
         run: python3 .github/scripts/gate_summary.py outbreak/mutants
 
-  # Every parser and decoder: a map's text, a split request, and a slice of
-  # a map the slicer takes, which must itself be a map it vouches for.
+  # Every parser and decoder: a map's text, a split request, a slice of a map
+  # the slicer takes, which must itself be a map it vouches for, a run's
+  # report, a pack of proofs, and a PHP file with a graph request.
   fuzz:
     name: fuzz ${{ matrix.target }}
     if: inputs.gates
@@ -300,7 +301,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [map, request, slice, report, pack]
+        target: [map, request, slice, report, pack, graph]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -360,7 +361,7 @@ jobs:
         env:
           OUTBREAK_BINARY: ${{ github.workspace }}/outbreak/target/release/outbreak
           OUTBREAK_EXTENSION: ${{ github.workspace }}/outbreak/target/release/liboutbreak.so
-        run: vendor/bin/pest tests/Contract/MapEngine tests/Contract/Equivalence tests/Process/Adapter/Outbreak
+        run: vendor/bin/pest tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph tests/Contract/Equivalence tests/Process/Adapter/Outbreak
       - name: what failed
         if: failure()
         working-directory: .

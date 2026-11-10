@@ -27,7 +27,10 @@ use function sprintf;
  * `reach.changedTests` is `file` (ADR-0065), support and a fixture reach what
  * the tests that use them run, and anything else reaches nothing by itself.
  * A file moved into or out of a fixture also reaches what it reaches where it
- * is outside one.
+ * is outside one. Where `outbreak.graph` narrows, a deleted test, a test
+ * or support with no map to read, and support that reaches its whole package
+ * reach what the static graph joins to them instead, where it answers
+ * (ADR-0132).
  *
  * @internal
  */
@@ -66,6 +69,7 @@ final readonly class TestReach
         private SupportUsers $users,
         private TestRuns $runs,
         private FixtureReach $fixtures,
+        private GraphReach $graph,
     ) {
     }
 
@@ -77,12 +81,13 @@ final readonly class TestReach
         Sources $sources,
         Changes $changes,
         TestRuns $runs,
+        GraphReach $graph = new GraphReach(),
     ): self {
         $packages = Packages::of($trees);
         $users = SupportUsers::ofChanges($layout, $packages, $sources, $changes);
         $fixtures = FixtureReach::of($layout, $trees, $coverage, $users, $changes);
 
-        return new self($layout, $packages, $trees, $coverage, $sources, $users, $runs, $fixtures);
+        return new self($layout, $packages, $trees, $coverage, $sources, $users, $runs, $fixtures, $graph);
     }
 
     public function reach(Reach $reach, Change $change): Reach
@@ -142,7 +147,10 @@ final readonly class TestReach
         $gone = $change->kind() === ChangeKind::Deleted;
 
         if ($gone || $this->coverage instanceof NoMap) {
-            return $reach->wholly(
+            $mapped = $this->coverage instanceof Judges ? $this->coverage->filesRunBy($path) : Paths::none();
+            $narrowed = $this->graph->narrowed($reach, $path, $mapped);
+
+            return $narrowed instanceof Reach ? $this->withModules($narrowed, $path) : $reach->wholly(
                 Paths::of($package->path()),
                 Reason::that(sprintf($gone ? self::GONE : self::NO_MAP, $path->value(), self::named($package))),
             );
@@ -196,11 +204,12 @@ final readonly class TestReach
         $users = $this->users->ofChanged($change, $this->sources, self::named($package));
 
         if ($users instanceof Reason || $this->coverage instanceof NoMap) {
+            $narrowed = $this->graph->narrowed($reach, $path, Paths::none());
             $why = $users instanceof Reason
                 ? $users
                 : Reason::that(sprintf(self::NO_MAP, $path->value(), self::named($package)));
 
-            return $reach->wholly(Paths::of($package->path()), $why);
+            return $narrowed instanceof Reach ? $narrowed : $reach->wholly(Paths::of($package->path()), $why);
         }
 
         [$reach, $files] = $this->runBy($reach, $users, $this->coverage);

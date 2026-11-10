@@ -11,6 +11,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 outbreak-cache = { path = "../crates/outbreak-cache" }
+outbreak-graph = { path = "../crates/outbreak-graph" }
 outbreak-map = { path = "../crates/outbreak-map" }
 outbreak-report = { path = "../crates/outbreak-report" }
 
@@ -48,6 +49,13 @@ bench = false
 [[bin]]
 name = "pack"
 path = "fuzz_targets/pack.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "graph"
+path = "fuzz_targets/graph.rs"
 test = false
 doc = false
 bench = false

@@ -29,7 +29,8 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 
 /**
  * What a run reaches: every unit for a full run, and otherwise what the
- * change since its base reaches, by the rules of ADR-0005, with the lines
+ * change since its base reaches, by the rules of ADR-0005 and what Outbreak's
+ * static graph adds where `outbreak.graph` narrows or widens (ADR-0132), with the lines
  * each source file's change since the base's ref added or modified; or why
  * those lines are not known, for a full run or where git cannot tell what
  * changed. Where the base is a last run whose commit git can read, or whose
@@ -69,27 +70,29 @@ final readonly class Reached
         $fromRun = $sinceRef instanceof Changes ? self::fromLastRun($base, $adapters) : $sinceRef;
         [$changes, $from] = is_array($fromRun) ? $fromRun : [$sinceRef, $base->ref()];
         $layout = self::layout($adapters, $settings, $suite);
-        $reaching = new Reaching($layout, $trees);
         $judges = $judged->judges();
         $packages = Packages::of($trees);
         $manifests = DecidingManifests::in($packages, $settings->reach()->lockPackages())->measuredBy($map);
         $mode = $settings->reach()->changedTests();
-        $reach = $reaching->of(
-            $changes,
-            $judges,
-            self::sources($changes, $from, $adapters, $suite->sources(), $config, $manifests),
-            ChangedTestRuns::of($mode, $changes, $layout, $packages, $adapters, $map),
-        );
+        $read = self::sources($changes, $from, $adapters, $suite->sources(), $config, $manifests);
         $ledger = $base->ledgerAt();
         $ledger = $ledger instanceof Revision ? $ledger : $from;
         $sinceLedger = $base->ledgerAt() instanceof Revision
             ? self::sinceLedger($ledger, $sinceRef, $adapters)
             : Changes::none();
-
         $openSince = $base->openSince();
         $sinceOpen = $openSince instanceof Revision
             ? self::sinceLedger($openSince, $sinceRef, $adapters)
             : Changes::none();
+        $graph = new StaticGraph($adapters, $settings)
+            ->forReach($suite, $layout, $packages, $read, $judges, $changes, $sinceLedger, $sinceOpen);
+        $reaching = new Reaching($layout, $trees, $graph);
+        $reach = $reaching->of(
+            $changes,
+            $judges,
+            $read,
+            ChangedTestRuns::of($mode, $changes, $layout, $packages, $adapters, $map),
+        );
         $reach = $reach->andSinceLedger(
             $reaching->of(
                 $sinceLedger,
@@ -110,6 +113,7 @@ final readonly class Reached
             $base->open(),
             $openSince,
         ) : $reach;
+        $reach = $graph->noted($reach);
 
         return new self(
             $reach,

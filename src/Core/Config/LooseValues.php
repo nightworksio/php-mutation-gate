@@ -52,6 +52,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
     private const string BOOT_ONCE = 'a split stream runs each test in a process forked from an application booted once,'
         . ' where it no longer sees the state the tests before it left';
 
+    private const string GRAPH = 'a change the coverage map cannot place reaches what the static graph joins to it,'
+        . ' not its whole package';
+
     private const string OFF = 'false';
 
     private const string TRUST = 'ci.trustMergedPullRequests';
@@ -104,6 +107,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
             ...$settings->shards()->outbreak()->recheckTouchedKills()
                 ? []
                 : [LooseValue::of('outbreak.recheckTouchedKills', self::OFF, self::TOUCHED)],
+            ...$settings->shards()->outbreak()->graph()->isLoose()
+                ? [LooseValue::of('outbreak.graph', GraphUse::Narrow->value, self::GRAPH)]
+                : [],
             ...$settings->shards()->outbreak()->cache()->trust()->isLoose()
                 ? [LooseValue::of('outbreak.cache.trust', CacheTrust::Repository->value, self::CACHE)]
                 : [],

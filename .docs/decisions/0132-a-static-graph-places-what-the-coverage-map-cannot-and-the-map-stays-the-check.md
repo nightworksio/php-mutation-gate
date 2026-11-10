@@ -34,11 +34,14 @@ processes of it (measured for the local loop, 2026-11-09).
    `outbreak graph reach` reads every PHP file of the suite's sources and its
    test files, and joins each file to every file that declares a name it
    uses, resolved by its namespace and imports (grouped, aliased and
-   function imports): classes, interfaces, traits and enums named anywhere
-   but after `->` or `::`, and functions called by name. A test file is a
-   node, and a test reaches what its file reaches. A method called on a
-   receiver joins the caller to the receiver's class where the caller names
-   that class, as a type declaration does.
+   function imports), as the gate's name graph reads names: classes,
+   interfaces, traits, enums and functions named anywhere, as written and as
+   resolved, fully qualified names a quoted string spells, and constants by
+   their last segment. A test file is a node, and a test reaches what its
+   file reaches; every test file is joined to each file of the test
+   directories that is neither a file of test cases nor support, such as
+   `tests/Pest.php`, which every test loads. A file a change deleted is read
+   from its text at the base.
 2. **A node the graph cannot place is reached as today.** A file holds an
    unplaced node where it calls by a name held as it runs (a variable
    function, `call_user_func` with a non-literal, a string class name, `new
@@ -49,9 +52,11 @@ processes of it (measured for the local loop, 2026-11-09).
    and the map's answer alone stands.
 3. **The coverage map stays the check.** The graph never removes a unit or a
    test the map gives. Where the two disagree, the map's answer stands: a
-   test the map shows executing a unit the graph does not join to it marks
-   the graph wrong for that test, and the graph is not used for it again
-   until the graph is rebuilt.
+   test the map shows executing a file of the graph that the graph does not
+   join to it marks the graph wrong for that test, and the graph is not used
+   for it again until the graph is rebuilt: it adds that test nowhere, and,
+   since that test could reach any file unseen, `narrow` gives no answer
+   while it stands.
 4. **A quick round adds what the map cannot know yet.** A `watch` round runs
    the map's covering tests of the edited sites first. Where the edit added a
    call the map has not measured, it then runs the tests the graph says reach
@@ -65,17 +70,20 @@ processes of it (measured for the local loop, 2026-11-09).
      everything in a package only because the map cannot place a change: a
      deleted test, no map to read, support that runs code when it is
      loaded, or support named by anything but a test or support. Such a
-     change reaches the units the graph joins to it, and everything wherever
-     its answer would pass through a node it cannot place. Every unit the map
-     reaches is still reached. **`narrow` loosens**: an edge the graph misses
-     leaves a unit unreached, and an unreached unit carries its result by its
-     source alone (ADR-0060 rule 2) until the scheduled full run. It is an
-     opt-in under ADR-0142's rules: set in bold in the reference, marked by
-     `config:show`, and, where in force, noted in the verdict and the comment
-     unless `suggest.looseValues` is off.
+     change reaches every file the tests that reach it reach, where the graph
+     places every test: where any test reaches a node the graph cannot place,
+     or is one the map shows it wrong of, the change reaches everything in
+     its package, as today. Every unit the map reaches is still reached.
+     **`narrow` loosens**: an edge the graph misses leaves a unit
+     unreached, and an unreached unit carries its result by its source alone
+     (ADR-0060 rule 2) until the scheduled full run. It is an opt-in under
+     ADR-0142's rules: set in bold in the reference, marked by `config:show`,
+     and, where in force, noted in the verdict and the comment unless
+     `suggest.looseValues` is off.
    - **`widen`**: also in every run, where a changed source file reaches,
-     beside its own unit, every unit whose covering tests the graph joins to
-     it, which ADR-0005 rule 6 otherwise leaves to the scheduled full run.
+     beside its own unit, every unit the map shows the tests the graph joins
+     to it executing, or, with no map, every file those tests reach, which
+     ADR-0005 rule 6 otherwise leaves to the scheduled full run.
      It is stricter than ADR-0005's rules, and costs runs.
    - **`off`**: quick rounds run the map's covering tests alone.
 6. **`outbreak.graph` decides how the gate runs,** as `reach` settings do:
