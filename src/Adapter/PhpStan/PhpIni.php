@@ -12,6 +12,8 @@ use function is_file;
 use function is_scalar;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
+
 use const PHP_MAJOR_VERSION;
 use const PHP_MINOR_VERSION;
 use const PHP_OS_FAMILY;
@@ -38,9 +40,6 @@ final readonly class PhpIni
 {
     /** The setting of Xdebug's mode, which its variable overrides. */
     public const string XDEBUG_MODE = 'xdebug.mode';
-
-    /** The variable that sets Xdebug's mode over its setting. */
-    public const string XDEBUG_MODE_VARIABLE = 'XDEBUG_MODE';
 
     private const string FILE_CACHE = 'opcache.file_cache';
 
@@ -110,7 +109,7 @@ final readonly class PhpIni
     public function environment(array $environment): array
     {
         return array_key_exists(self::XDEBUG_MODE, $this->settings)
-            ? [...$environment, self::XDEBUG_MODE_VARIABLE => $this->settings[self::XDEBUG_MODE]]
+            ? [...$environment, Xdebug::MODE_VARIABLE => $this->settings[self::XDEBUG_MODE]]
             : $environment;
     }
 
