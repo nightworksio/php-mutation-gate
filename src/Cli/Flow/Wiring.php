@@ -304,7 +304,7 @@ final readonly class Wiring
         $options = $config instanceof Path ? $tool->options()->overPath(Key::of('config'), $config) : $tool->options();
         $options = $named instanceof Name && $named->value() === BuiltinAnalyser::PhpStan->value
             ? $options->over(Json::object(
-                Member::of(PhpStanOption::Php->value, $static->php()),
+                Member::of(PhpStanOption::Php->value, $static->phpIni()),
                 Member::of(PhpStanOption::Turbo->value, $toggles->on(Toggle::StaticCheckTurbo)),
             ))
             : $options;

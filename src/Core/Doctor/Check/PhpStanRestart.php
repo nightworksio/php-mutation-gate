@@ -56,7 +56,7 @@ final readonly class PhpStanRestart
         }
 
         $static = $settings->staticCheck();
-        $mode = self::modeOf($php, $static->php());
+        $mode = self::modeOf($php, $static->phpIni());
         $phpStan = in_array($static->tool()->use()->value(), [self::ANALYSER, StaticCheck::AUTO], true);
 
         return $phpStan && $mode !== self::OFF

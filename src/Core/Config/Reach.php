@@ -288,13 +288,13 @@ final readonly class Reach implements Part
                             ? Json::items(...WrittenPaths::globs($origin, $this->fixtures))
                             : $this->fixtures,
                     ),
-                    ...$this->lock->members(),
                     Member::of(
                         'defaultBranchSince',
                         $this->defaultBranchSince instanceof DefaultBranchSince
                             ? $this->defaultBranchSince->value
                             : $this->defaultBranchSince,
                     ),
+                    ...$this->lock->members(),
                 ),
             ),
             Member::unlessEmpty(

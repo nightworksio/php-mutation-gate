@@ -100,7 +100,7 @@ final readonly class StaticCheck implements Part
             opcacheLimit: $none->opcacheLimit(),
             dependents: $none->dependents(),
             preCheckAfter: $none->preCheckAfter(),
-            php: $none->php(),
+            php: $none->phpIni(),
         );
     }
 
@@ -128,7 +128,7 @@ final readonly class StaticCheck implements Part
      * findings: pcov and Xdebug off, opcache on with a file cache alone and no timestamp checks, where no layer
      * says (ADR-0020).
      */
-    public function php(): Json
+    public function phpIni(): Json
     {
         return $this->php instanceof Json ? $this->php : Json::object(
             Member::of('pcov.enabled', '0'),
