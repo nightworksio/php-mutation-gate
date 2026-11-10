@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Config\Mutants;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
+use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
@@ -44,8 +45,9 @@ use function sprintf;
  * whether a shard's chunks keep their mutants' workers (ADR-0023), false by
  * default; `trials`,
  * `valueReaders` and `narrow`, which steps of a run are on (ADR-0142), all
- * of them by default; `narrowedKills`, `vouch` by default, and `longFilter`,
- * `files` by default (ADR-0138, ADR-0142); `splitStream`,
+ * of them by default; `narrowedKills`, `vouch` by default, `longFilter`,
+ * `files` by default (ADR-0138, ADR-0142), and `preloaded`, `fresh` by
+ * default (ADR-0148); `splitStream`,
  * whether and how a patched run judges its mutants in split streams
  * (ADR-0117), off by default; `tests`, the directories the tests live
  * in, which the flows write from the PHPUnit config, `tests` by default;
@@ -93,6 +95,7 @@ final readonly class PestOptions
         $vouching = self::chosen($options, ConfigPest::NARROWED_KILLS, NarrowedKillTrust::Vouch);
         $selecting = self::chosen($options, ConfigPest::LONG_FILTER, LongFilter::Files);
         $judging = self::chosen($options, Mutants::DUPLICATES, Duplicates::JudgeOnce);
+        $rejudging = self::chosen($options, ConfigPest::PRELOADED, Preloaded::Fresh);
 
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
@@ -110,6 +113,7 @@ final readonly class PestOptions
             $vouching instanceof Problem => Invalid::because($vouching),
             $selecting instanceof Problem => Invalid::because($selecting),
             $judging instanceof Problem => Invalid::because($judging),
+            $rejudging instanceof Problem => Invalid::because($rejudging),
             default => new self(
                 self::patchingOf($patch, $canary)
                     ->bootingTail($bootTail === true)
@@ -117,7 +121,9 @@ final readonly class PestOptions
                     ->compilingSchemata($schemata !== false)
                     ->bootingMutants($bootMutants !== false)
                     ->splitting($streams)
-                    ->stepping(PestSteps::of($toggles, $vouching, $selecting, $judging, $bootChunks === true)),
+                    ->stepping(
+                        PestSteps::of($toggles, $vouching, $selecting, $judging, $bootChunks === true, $rejudging),
+                    ),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
                 $bounds,
@@ -158,7 +164,7 @@ final readonly class PestOptions
     /**
      * The case of an enum an option names, this one where it names none, or why it names no case.
      *
-     * @template E of NarrowedKillTrust|LongFilter|Duplicates
+     * @template E of NarrowedKillTrust|LongFilter|Duplicates|Preloaded
      *
      * @param  E           $standard
      * @return E|Problem
@@ -166,8 +172,8 @@ final readonly class PestOptions
     private static function chosen(
         Options $options,
         string $key,
-        NarrowedKillTrust|LongFilter|Duplicates $standard,
-    ): NarrowedKillTrust|LongFilter|Duplicates|Problem {
+        NarrowedKillTrust|LongFilter|Duplicates|Preloaded $standard,
+    ): NarrowedKillTrust|LongFilter|Duplicates|Preloaded|Problem {
         $named = $options->text(Key::of($key));
 
         return match (true) {

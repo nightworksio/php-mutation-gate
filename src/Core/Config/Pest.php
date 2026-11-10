@@ -14,7 +14,8 @@ use function sprintf;
  * The optional Pest patches, the tests that show they work (ADR-0004),
  * whether the verification tail's workers boot the project (ADR-0075),
  * how Pest's warm workers compile, serve and boot each mutant's run
- * (ADR-0088, ADR-0091): `pest`; and whether a patched run judges its
+ * (ADR-0088, ADR-0091), and what becomes of a mutant whose file its own run
+ * loaded first (ADR-0148): `pest`; and whether a patched run judges its
  * mutants in split streams (ADR-0117): `splitStream`.
  */
 final readonly class Pest implements Part
@@ -40,6 +41,9 @@ final readonly class Pest implements Part
     /** The key and option that say what a run selects where its filter cannot be passed (ADR-0138). */
     public const string LONG_FILTER = 'longFilter';
 
+    /** The key and option that say what becomes of a mutant whose file its own run loaded first (ADR-0148). */
+    public const string PRELOADED = 'preloaded';
+
     private const string CANARY = 'mutation-canary';
 
     private function __construct(
@@ -53,6 +57,7 @@ final readonly class Pest implements Part
         private NarrowedKillTrust|Absent $narrowedKills,
         private LongFilter|Absent $longFilter,
         private bool|Absent $bootChunks,
+        private Preloaded|Absent $preloaded,
     ) {
     }
 
@@ -66,6 +71,7 @@ final readonly class Pest implements Part
         NarrowedKillTrust|Absent $narrowedKills = new Absent(),
         LongFilter|Absent $longFilter = new Absent(),
         bool|Absent $bootChunks = new Absent(),
+        Preloaded|Absent $preloaded = new Absent(),
     ): self {
         return new self(
             $patch,
@@ -78,6 +84,7 @@ final readonly class Pest implements Part
             $narrowedKills,
             $longFilter,
             $bootChunks,
+            $preloaded,
         );
     }
 
@@ -86,7 +93,7 @@ final readonly class Pest implements Part
     {
         $none = new Absent();
 
-        return new self($none, $none, $none, $none, $none, $none, $splitStream, $none, $none, $none);
+        return new self($none, $none, $none, $none, $none, $none, $splitStream, $none, $none, $none, $none);
     }
 
     public static function none(): self
@@ -108,6 +115,7 @@ final readonly class Pest implements Part
             $none->narrowedKills(),
             $none->longFilter(),
             $none->bootChunks(),
+            $none->preloaded(),
         )->over(self::splitting(SplitStream::standard()));
     }
 
@@ -125,6 +133,7 @@ final readonly class Pest implements Part
                 Absent::laid($this->narrowedKills, $later->narrowedKills),
                 Absent::laid($this->longFilter, $later->longFilter),
                 Absent::laid($this->bootChunks, $later->bootChunks),
+                Absent::laid($this->preloaded, $later->preloaded),
             )
             : $this;
     }
@@ -142,6 +151,15 @@ final readonly class Pest implements Part
     public function longFilter(): LongFilter
     {
         return $this->longFilter instanceof LongFilter ? $this->longFilter : LongFilter::Files;
+    }
+
+    /**
+     * `pest.preloaded`: what becomes of a mutant whose own run had loaded its file before the mutant was in place;
+     * `fresh` unless a layer says (ADR-0148).
+     */
+    public function preloaded(): Preloaded
+    {
+        return $this->preloaded instanceof Preloaded ? $this->preloaded : Preloaded::Fresh;
     }
 
     /** Whether the optional Pest patches are applied. */
@@ -254,6 +272,7 @@ final readonly class Pest implements Part
             Member::of(self::BOOT_CHUNKS, $this->bootChunks()),
             Member::of(self::NARROWED_KILLS, $this->narrowedKills()->value),
             Member::of(self::LONG_FILTER, $this->longFilter()->value),
+            Member::of(self::PRELOADED, $this->preloaded()->value),
             $this->splitStream->option(),
         );
 
@@ -285,6 +304,10 @@ final readonly class Pest implements Part
                         self::LONG_FILTER,
                         $this->longFilter instanceof LongFilter ? $this->longFilter->value : $this->longFilter,
                     ),
+                    Member::of(
+                        self::PRELOADED,
+                        $this->preloaded instanceof Preloaded ? $this->preloaded->value : $this->preloaded,
+                    ),
                 ),
             ),
             $this->splitStream->written(),
@@ -305,6 +328,7 @@ final readonly class Pest implements Part
             ...$this->switched($this->bootChunks, 'Pest::bootingChunks()', 'Pest::chunksUnbooted()'),
             ...$this->narrowedKills instanceof NarrowedKillTrust ? [$this->narrowedKills->php()] : [],
             ...$this->longFilter instanceof LongFilter ? [$this->longFilter->php()] : [],
+            ...$this->preloaded instanceof Preloaded ? [$this->preloaded->php()] : [],
         ]);
 
         return $pest->and($this->splitStream->php());

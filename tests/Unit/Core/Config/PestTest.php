@@ -5,9 +5,12 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Pest;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
+use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\Config\StreamSharding;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
@@ -15,11 +18,11 @@ it('lays its settings beneath the Pest runner\'s options, where the runner\'s ow
     $pest = Pest::of(patch: true, canary: Group::named('smoke'));
 
     expect($pest->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "smoke", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false}}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "smoke", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')))
         ->and($pest->beneath(Choice::of('pest', Configs::options('{"canary": "own", "tests": ["spec"]}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "own", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false}, "tests": ["spec"]}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "own", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}, "tests": ["spec"]}')))
         ->and(Pest::none()->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false}}')));
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')));
 });
 
 it('leaves any other runner\'s options as they are', function (): void {
@@ -33,7 +36,7 @@ it('boots the tail\'s workers only where pest.bootTail says so, a later layer wi
     expect([Pest::none()->bootTail(), $booting->bootTail(), $booting->over(Pest::of(bootTail: false))->bootTail(), $booting->over(Pest::of())->bootTail()])
         ->toBe([false, true, false, true])
         ->and($booting->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": true, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false}}')));
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": true, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')));
 });
 
 it('writes pest.bootTail as the PHP config calls it, and nothing where it is not set', function (): void {
@@ -54,7 +57,7 @@ it('caches in the warm workers unless pest.workerOpcache turns it off, a later l
     expect([Pest::none()->workerOpcache(), $off->workerOpcache(), $off->over(Pest::of(workerOpcache: true))->workerOpcache(), $off->over(Pest::of())->workerOpcache()])
         ->toBe([true, false, true, false])
         ->and($off->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": false, "schemata": true, "bootMutants": true, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false}}')));
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": false, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')));
 });
 
 it('writes pest.workerOpcache as the PHP config calls it, and nothing where it is not set', function (): void {
@@ -77,7 +80,7 @@ it('compiles schemata unless pest.schemata turns them off, a later layer winning
     expect([Pest::none()->schemata(), $off->schemata(), $off->over(Pest::of(schemata: true))->schemata(), $off->over(Pest::of())->schemata()])
         ->toBe([true, false, true, false])
         ->and($off->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": false, "bootMutants": true, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false}}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": false, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')))
         ->and([Pest::of(schemata: true)->php(ProjectRoot::origin()), $off->php(ProjectRoot::origin())])
         ->toEqual([PhpCalls::inWith('Pest::compilingSchemata()'), PhpCalls::inWith('Pest::withoutSchemata()')]);
 });
@@ -88,7 +91,7 @@ it('boots mutants\' workers unless pest.bootMutants turns it off, a later layer 
     expect([Pest::none()->bootMutants(), $off->bootMutants(), $off->over(Pest::of(bootMutants: true))->bootMutants(), $off->over(Pest::of())->bootMutants()])
         ->toBe([true, false, true, false])
         ->and($off->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": false, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false}}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": false, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')))
         ->and([Pest::of(bootMutants: true)->php(ProjectRoot::origin()), $off->php(ProjectRoot::origin())])
         ->toEqual([PhpCalls::inWith('Pest::bootingMutants()'), PhpCalls::inWith('Pest::mutantsUnbooted()')]);
 });
@@ -105,4 +108,17 @@ it('splits its streams under the patched Pest runner compiling schemata where as
         ->and($splitting(SplitStream::of(enabled: true))->splitsByTests($infection))->toBeFalse()
         ->and($splitting(SplitStream::of())->splitsByTests($pest))->toBeFalse()
         ->and(Pest::of(patch: false, schemata: true)->over(Pest::splitting(SplitStream::of(enabled: true)))->splitsByTests($pest))->toBeFalse();
+});
+
+it('judges a preloaded mutant again in a fresh run unless pest.preloaded says unjudged, a later layer winning, and writes it as the PHP config calls it', function (): void {
+    $unjudged = Pest::of(preloaded: Preloaded::Unjudged);
+
+    expect([Pest::none()->preloaded(), $unjudged->preloaded(), $unjudged->over(Pest::of(preloaded: Preloaded::Fresh))->preloaded(), $unjudged->over(Pest::of())->preloaded()])
+        ->toBe([Preloaded::Fresh, Preloaded::Unjudged, Preloaded::Fresh, Preloaded::Unjudged])
+        ->and($unjudged->beneath(Choice::of('pest', Configs::options('{}'))))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "unjudged", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')))
+        ->and([Pest::of(preloaded: Preloaded::Fresh)->php(ProjectRoot::origin()), $unjudged->php(ProjectRoot::origin()), Pest::none()->php(ProjectRoot::origin())])
+        ->toEqual([PhpCalls::inWith('Pest::preloadedFresh()'), PhpCalls::inWith('Pest::preloadedUnjudged()'), PhpCalls::inWith()])
+        ->and([Pest::of(preloaded: Preloaded::Unjudged)->written(ProjectRoot::origin()), Pest::none()->written(ProjectRoot::origin())])
+        ->toEqual([Json::object(Member::of('pest', Json::object(Member::of('preloaded', 'unjudged')))), Json::object()]);
 });

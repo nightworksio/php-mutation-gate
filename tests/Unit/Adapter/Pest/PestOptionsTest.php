@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -168,4 +169,14 @@ it('refuses every mutation run where the options name a class that is not a muta
     ))->and(PestOptions::read(Configs::options('{"mutators": "acme"}')))->toEqual(Invalid::because(
         Problem::at('mutators', 'expected a list of text, got "acme"'),
     ));
+});
+
+it('judges a preloaded mutant again in a fresh run unless the options say unjudged, and refuses any other value', function (): void {
+    $preloaded = static fn(string $json): Preloaded|Invalid => ($read = PestOptions::read(Configs::options($json))) instanceof PestOptions
+        ? $read->patching()->preloaded()
+        : $read;
+
+    expect([$preloaded('{}'), $preloaded('{"preloaded": "unjudged"}'), $preloaded('{"patch": true, "preloaded": "fresh"}')])
+        ->toBe([Preloaded::Fresh, Preloaded::Unjudged, Preloaded::Fresh])
+        ->and($preloaded('{"preloaded": "skip"}'))->toEqual(Invalid::because(Problem::mismatch('preloaded', 'one of its values', '"skip"')));
 });

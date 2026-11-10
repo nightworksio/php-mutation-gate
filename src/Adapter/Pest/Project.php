@@ -15,12 +15,14 @@ use function is_link;
 use function is_string;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Adapter\Native\Project as NativeProject;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -82,6 +84,16 @@ final readonly class Project
     public function in(Path $directory, Paths $tests): self
     {
         return self::at($this->absolute($directory), $tests, $this->workspace, $this->vendor);
+    }
+
+    /**
+     * The same project as the native runner's classes write a mutant's files
+     * in it, the override among them, inside the Pest runner's own directory
+     * of the gate's (ADR-0148).
+     */
+    public function native(): NativeProject
+    {
+        return NativeProject::at($this->root(), $this->tests, $this->vendor, $this->workspace, BuiltinRunner::Pest);
     }
 
     /** The root's real path, as Pest's coverage and the processes it starts take it. */

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /** The Pest runner's own settings (ADR-0004): `pest`. */
@@ -148,6 +149,18 @@ final readonly class Pest implements Setting
     public static function longFilterUntilKiller(): self
     {
         return new self(Json::at('pest.longFilter', LongFilter::UntilKiller->value));
+    }
+
+    /** `pest.preloaded`, `fresh`: a mutant whose file its own run loaded first is judged in a fresh run, as by default. */
+    public static function preloadedFresh(): self
+    {
+        return new self(Json::at('pest.preloaded', Preloaded::Fresh->value));
+    }
+
+    /** `pest.preloaded`, `unjudged`: such a mutant stays unjudged (ADR-0148). */
+    public static function preloadedUnjudged(): self
+    {
+        return new self(Json::at('pest.preloaded', Preloaded::Unjudged->value));
     }
 
     /** `pest.shardScan`, `true`: a shard scans the codebase for a value's readers once, not once a chunk. */

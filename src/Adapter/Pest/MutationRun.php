@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
@@ -200,7 +201,11 @@ final readonly class MutationRun
      * those files alone cannot vouch for (see NarrowedKills) runs again with
      * every test file before it counts, within the time left, or is unjudged
      * where none is; under `pest.narrowedKills: trust` it counts as it is
-     * (ADR-0142).
+     * (ADR-0142). Under `pest.preloaded: fresh`, each mutant its own run left
+     * unjudged as it had loaded the mutant's file first is judged again in a
+     * fresh run (see FreshRuns), its covering tests read off this run's
+     * coverage before a run again replaces it; where that cannot be read, it
+     * stays unjudged.
      */
     public function of(MutationRequest $request): MutationResult|CannotJudge
     {
@@ -221,13 +226,29 @@ final readonly class MutationRun
         $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started, $laps);
         $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($opened->steps());
 
-        return match (true) {
+        $coverage = $result instanceof MutationResult
+            && ! $shared instanceof CannotJudge
+            && $this->patching->preloaded() === Preloaded::Fresh
+            && FreshRuns::findAny($result->mutants())
+            ? $this->coveringOf($shared, $results)
+            : NotGiven::value();
+        $vouched = match (true) {
             $shared instanceof CannotJudge,
             $result instanceof CannotJudge,
             ! $this->narrows(),
             $this->patching->narrowedKills() === NarrowedKillTrust::Trust => $result,
             default => $this->vouched($result, $request, $results, $shared, $started, $laps),
         };
+
+        return $vouched instanceof MutationResult && $coverage instanceof Covering
+            ? new FreshRuns($this->project, $this->driven(), $this->files, $this->patching, $this->bounds)->judged(
+                $vouched,
+                $request,
+                $coverage,
+                fn(): Seconds|Unlimited => $this->left($request, $started),
+                $laps,
+            )
+            : $vouched;
     }
 
     /**

@@ -57,9 +57,8 @@ use function register_shutdown_function;
  * databases from what the worker handed it (see Warm\Database\WarmDatabase).
  *
  * Pest loads this class before pest-plugin-mutate puts a mutated file in the
- * place of the original, so a mutant of this file would never run, and the
- * gate's own config leaves it out of the trees it mutates. The recording is
- * the recorder's.
+ * place of the original, so a mutant of this file is judged again in a fresh
+ * run (ADR-0148). The recording is the recorder's.
  *
  * @internal
  */

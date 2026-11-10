@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
@@ -162,6 +163,12 @@ final readonly class Patching
     public function narrowedKills(): NarrowedKillTrust
     {
         return $this->steps->narrowedKills();
+    }
+
+    /** What becomes of a mutant whose file its own run loaded first, as `pest.preloaded` says (ADR-0148). */
+    public function preloaded(): Preloaded
+    {
+        return $this->steps->preloaded();
     }
 
     /** What a run selects where its filter cannot be passed, as `pest.longFilter` says. */

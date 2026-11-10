@@ -10,30 +10,7 @@
     },
     "trees": [
         {
-            "path": "src",
-            "exclude": [
-                "src/Adapter/Pest/Bridged.php",
-                "src/Adapter/Pest/Grouping/HoldsGroups.php",
-                "src/Adapter/Pest/Order/Option.php",
-                "src/Adapter/Pest/Order/Reordering.php",
-                "src/Adapter/Pest/Order/Seed.php",
-                "src/Adapter/Pest/Plugin.php",
-                "src/Adapter/Pest/Recording/Guard.php",
-                "src/Adapter/Pest/Recording/Killers.php",
-                "src/Adapter/Pest/Recording/LastError.php",
-                "src/Adapter/Pest/Recording/Naming.php",
-                "src/Adapter/Pest/Recording/OnFailed.php",
-                "src/Adapter/Pest/Recording/Placed.php",
-                "src/Adapter/Pest/Recording/RanTests.php",
-                "src/Adapter/Pest/Recording/ReplayStop.php",
-                "src/Adapter/Pest/Recording/TimedTests.php",
-                "src/Adapter/Pest/SchemaSwitch.php",
-                "src/Adapter/Pest/ServedClasses.php",
-                "src/Adapter/Native/MutantFile.php",
-                "src/Adapter/Runtime/ForkedChild.php",
-                "src/Cli/PestPlugin.php",
-                "src/Core/Mutant/OrderDigest.php"
-            ]
+            "path": "src"
         },
         {
             "path": "plugins/default/src"
