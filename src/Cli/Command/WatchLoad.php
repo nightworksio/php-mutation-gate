@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Local\Priority;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Watch\Watched;
 
 use function putenv;
@@ -30,7 +32,9 @@ use function sprintf;
  * one worker at background priority on battery or in Low Power Mode where
  * `local.onBattery` reduces, and no round until the machine runs on power
  * again where it pauses. The power source is read at the start of each
- * round, and at each wait while a round is held.
+ * round, and at each wait while a round is held, from its source again only
+ * where it changed, where `outbreak serve` tells of its changes (see
+ * PowerReads).
  *
  * @internal
  */
@@ -40,31 +44,40 @@ final readonly class WatchLoad
 
     private function __construct(
         private LocalWork $work,
-        private PowerSource $power,
+        private PowerReads $power,
         private OwnPriority $priority,
         private ProcessCount $cores,
     ) {
     }
 
-    /** This machine's, as these settings say, a warm worker and its client told how long they wait for a wake. */
-    public static function of(LocalWork $work): self
+    /**
+     * This machine's, as these settings say, a warm worker and its client
+     * told how long they wait for a wake; its power source read again once
+     * this daemon tells of a change of it, waiting this long at most for one.
+     */
+    public static function of(LocalWork $work, NoticesChanges|NotGiven $notices, Seconds $every): self
     {
         putenv(sprintf('%s=%F', ChildVariable::WarmWait->value, $work->childWait()->seconds()));
 
-        return new self($work, PowerSource::here(), OwnPriority::here(), Cores::counted());
+        return new self(
+            $work,
+            PowerReads::of(PowerSource::here(), $notices, $every),
+            OwnPriority::here(),
+            Cores::counted(),
+        );
     }
 
     /** One as these say, of a machine with this many cores, reading this source and lowering this process. */
     public static function on(LocalWork $work, PowerSource $power, OwnPriority $priority, ProcessCount $cores): self
     {
-        return new self($work, $power, $priority, $cores);
+        return new self($work, PowerReads::of($power, NotGiven::value(), Seconds::none()), $priority, $cores);
     }
 
     /**
      * Where the machine draws its power from once a round may run: at once,
      * or, where `local.onBattery` pauses while it saves power, once it runs
-     * on power again, read at each wait and said once; nothing where the wait
-     * says to stop first.
+     * on power again, read at each wait, the daemon's or this one, and said
+     * once; nothing where the wait says to stop first.
      *
      * @param Closure(): bool       $waited waits once, and says whether to go on watching
      * @param Closure(string): void $said   says this
@@ -78,7 +91,7 @@ final readonly class WatchLoad
         }
 
         while ($this->holds($power)) {
-            if (! $waited()) {
+            if (! $this->power->waited() && ! $waited()) {
                 return NotGiven::value();
             }
 

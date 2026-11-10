@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
+use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Watch\Watched;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -140,10 +141,9 @@ final readonly class WatchCommand
 
         $this->printing->note(self::WATCHING, $this->output);
         $watched = Watched::in($inventory->trees, ...$inventory->suite->directories())->at($inventory->files);
-        $engine = $this->composed->adapters->maps;
         $waits = WatchWaits::armed(
             $this->waited,
-            $engine instanceof Outbreak ? $engine->notices() : NotGiven::value(),
+            $this->notices(),
             $watched->directories(),
             $this->composed->settings->local()->watchPoll(),
             fn(string $said) => $this->printing->note($said, $this->output),
@@ -163,11 +163,12 @@ final readonly class WatchCommand
     {
         $ownMap = false;
         $before = $seen;
-        $load = WatchLoad::of($this->composed->settings->local()->work());
+        $local = $this->composed->settings->local();
+        $load = WatchLoad::of($local->work(), $this->notices(), $local->watchPoll());
 
         while (true) {
             $power = $load->powered(
-                fn(): bool => ($this->waited)($this->composed->settings->local()->watchPoll()) === true,
+                fn(): bool => ($this->waited)($local->watchPoll()) === true,
                 fn(string $said) => $this->printing->note($said, $this->output),
             );
 
@@ -179,10 +180,10 @@ final readonly class WatchCommand
                 $this->look(...),
                 $waits->told(...),
                 $this->composed->setup->clock,
-                $this->composed->settings->local()->watchPoll(),
+                $local->watchPoll(),
                 $seen,
             );
-            $quick = $ownMap && $this->composed->settings->local()->quick()
+            $quick = $ownMap && $local->quick()
                 ? QuickRound::after($seen->changesSince($before))
                 : NotGiven::value();
             $planned = $this->round($load->fitted($this->composed, $power, $seen), $ownMap, $quick, $looks);
@@ -256,6 +257,14 @@ final readonly class WatchCommand
         }
 
         return $plan instanceof Plan;
+    }
+
+    /** What `outbreak serve` tells of the changes it watches for, where it serves the project. */
+    private function notices(): NoticesChanges|NotGiven
+    {
+        $engine = $this->composed->adapters->maps;
+
+        return $engine instanceof Outbreak ? $engine->notices() : NotGiven::value();
     }
 
     /** The files as they are once one changes, or nothing where the wait says to stop first. */

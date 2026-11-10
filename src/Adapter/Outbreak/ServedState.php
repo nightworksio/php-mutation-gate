@@ -30,13 +30,13 @@ use function sprintf;
 /**
  * `outbreak serve` as the gate asks it (ADR-0133), for the proofs it holds,
  * for the static graph it keeps (ADR-0132) and for the changes it watches
- * the files for, waiting for one as long as it asks on top of
- * `outbreak.timeout`: one request a connection
- * on `.mutation-gate/outbreak/state.sock`, a verb and its JSON on one line,
- * its answer one line of JSON in contract 1, once the socket, its directory
- * and the process answering are found to be the user's own. No daemon, an
- * answer that does not come within `outbreak.timeout`, a refusal or any
- * other answer is no answer.
+ * the files and the power source for, waiting for one as long as it asks on
+ * top of `outbreak.timeout`: one request a connection on
+ * `.mutation-gate/outbreak/state.sock`, a verb and its JSON on one line, its
+ * answer one line of JSON in contract 1, once the socket, its directory and
+ * the process answering are found to be the user's own. No daemon, an answer
+ * that does not come within `outbreak.timeout`, a refusal or any other
+ * answer is no answer.
  *
  * @internal
  */
@@ -50,8 +50,11 @@ final readonly class ServedState implements NoticesChanges, ReachGraph, ServesSt
 
     private const string KEPT = 'outbreak serve kept %d proofs.';
 
-    /** The verb `watch` asks for the next change with. */
+    /** The verb `watch` asks for the next change of the files with, and the member each such answer holds. */
     private const string CHANGED = 'changed';
+
+    /** The verb `watch` asks for the next change of the power source with. */
+    private const string POWER = 'power';
 
     /** The contract every answer is written in. */
     private const int CONTRACT = 1;
@@ -114,8 +117,23 @@ final readonly class ServedState implements NoticesChanges, ReachGraph, ServesSt
 
     public function changed(array $directories, int $since, Seconds $wait): int|Unwatched|NotWritten
     {
+        return $this->generation(self::CHANGED, ['paths' => $directories], $since, $wait);
+    }
+
+    public function powered(int $since, Seconds $wait): int|Unwatched|NotWritten
+    {
+        return $this->generation(self::POWER, [], $since, $wait);
+    }
+
+    /**
+     * The generation a request waiting for a change is answered with, or why the daemon watches none.
+     *
+     * @param array<string, mixed> $request
+     */
+    private function generation(string $verb, array $request, int $since, Seconds $wait): int|Unwatched|NotWritten
+    {
         $milliseconds = (int) round($wait->seconds() * Seconds::MILLISECONDS);
-        $said = $this->asked(self::CHANGED, ['paths' => $directories, 'since' => $since, 'wait' => $milliseconds], $wait);
+        $said = $this->asked($verb, [...$request, 'since' => $since, 'wait' => $milliseconds], $wait);
 
         try {
             if ($said instanceof NotWritten) {
