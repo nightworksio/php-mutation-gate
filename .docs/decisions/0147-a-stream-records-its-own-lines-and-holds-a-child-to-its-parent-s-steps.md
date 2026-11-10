@@ -57,10 +57,11 @@ mutants over, `watch`'s rounds among them.
    or that the stream handed to a forked process, keeps its entries.
 4. **A changed test file can be placed instead of measured.** Where
    `local.siteHits` is on and the round's streams record lines, a changed
-   test file the static graph answers for is not measured: each of its
-   tests keeps its entries and covers every line of each source file the
-   graph says the test file reaches, until a stream records it. A test file
-   the graph does not answer for is measured as before.
+   test file the kept map holds and the static graph answers for is not
+   measured: each of its tests keeps its entries and covers every line of
+   each file the graph says the test file reaches, until a stream records
+   it. A test file the graph does not answer for, or that the kept map
+   holds nothing of, is measured as before.
 5. **A child is held to its parent's steps.** Where `outbreak.steps` is on
    and `outbreak.so` counts them, a stream's processes count steps: each
    jump an op takes back or forth, and each call of a user function. A child

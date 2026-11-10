@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Coverage\QuickCovered;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Local\LocalLoop;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -24,7 +25,11 @@ use function substr_count;
  * (ADR-0146): it measures again only the test files that changed themselves
  * or that map holds nothing of, and covers each source file the save changed
  * by the tests the map shows running it and those the static graph says
- * reach it (see QuickCovered).
+ * reach it (see QuickCovered). Where the round places test files
+ * (ADR-0147), a changed test file the map holds and the graph answers for
+ * is not measured: its tests keep their entries and cover every line of
+ * each file the graph says the test file reaches, until a stream records
+ * them.
  *
  * @internal
  */
@@ -32,8 +37,12 @@ final readonly class QuickCoverage
 {
     private const string LINE = "\n";
 
-    private function __construct(private Paths $changed, private Paths $sources, private GraphAnswer|NotGiven $graph)
-    {
+    private function __construct(
+        private Paths $changed,
+        private Paths $sources,
+        private GraphAnswer|NotGiven $graph,
+        private Paths $placed,
+    ) {
     }
 
     /** A quick round's, over a suite whose test files these entries name, asking the static graph about its sources. */
@@ -51,29 +60,32 @@ final readonly class QuickCoverage
         }
 
         $outside = Paths::of(...$outside);
+        $places = $adapters->loop instanceof LocalLoop && $adapters->loop->placesTestFiles();
         $sources = [];
+        $tests = [];
 
         foreach ($round->changed() as $path) {
-            $sources = $path->isPhp() && $outside->has($path) && ! $entries->testFiles()->has($path)
-                ? [...$sources, $path]
-                : $sources;
+            $test = $entries->testFiles()->has($path);
+            $sources = $path->isPhp() && $outside->has($path) && ! $test ? [...$sources, $path] : $sources;
+            $tests = $places && $path->isPhp() && $test ? [...$tests, $path] : $tests;
         }
 
         $sources = Paths::of(...$sources);
+        $asked = $sources->and(Paths::of(...$tests));
+        $graph = count($asked) === 0
+            ? NotGiven::value()
+            : new StaticGraph($adapters, $settings)->forQuickRound($suite, $asked);
 
-        return new self(
-            $round->changed(),
-            $sources,
-            count($sources) === 0
-                ? NotGiven::value()
-                : new StaticGraph($adapters, $settings)->forQuickRound($suite, $sources),
-        );
+        return new self($round->changed(), $sources, $graph, self::placedBy($graph, ...$tests));
     }
 
-    /** Whether a test file whose entries moved is measured again: it changed, or the kept map keyed none of it. */
+    /**
+     * Whether a test file whose entries moved is measured again: it changed
+     * and the round does not place it, or the kept map keyed none of it.
+     */
     public function measures(Path $test, bool $kept): bool
     {
-        return ! $kept || $this->changed->has($test);
+        return ! $kept || ($this->changed->has($test) && ! $this->placed->has($test));
     }
 
     /** How many source files the save changed, which the round covers without measuring them. */
@@ -84,7 +96,8 @@ final readonly class QuickCoverage
 
     /**
      * The map with each changed source file still on disk covered on every
-     * line by its tests in it; or why the tests of a test file cannot be told.
+     * line by its tests in it, and each file a placed test file reaches by
+     * that file's tests; or why the tests of a test file cannot be told.
      */
     public function over(CoverageMap $map, CoverageEntries $entries, Adapters $adapters): CoverageMap|CannotJudge
     {
@@ -111,6 +124,52 @@ final readonly class QuickCoverage
                 : $covered;
         }
 
-        return QuickCovered::over($map, ...$covered);
+        $placed = $this->placedOver($map, $entries, $adapters);
+
+        return $placed instanceof CannotJudge ? $placed : QuickCovered::over($map, ...$covered, ...$placed);
+    }
+
+    /**
+     * Each file a placed test file reaches, on disk, covered on every line
+     * by that test file's tests; or why the tests of a test file cannot be
+     * told.
+     *
+     * @return list<QuickCovered>|CannotJudge
+     */
+    private function placedOver(CoverageMap $map, CoverageEntries $entries, Adapters $adapters): array|CannotJudge
+    {
+        $covered = [];
+
+        foreach ($this->placed as $test) {
+            $joined = $this->graph instanceof GraphAnswer ? $this->graph->joined($test) : NotGiven::value();
+            $tests = $entries->testsIn(Paths::of($test), $map);
+
+            if ($tests instanceof CannotJudge) {
+                return $tests;
+            }
+
+            foreach ($joined instanceof Paths ? $joined : Paths::none() as $file) {
+                $text = $adapters->project->read($file);
+                $covered = $text instanceof Contents
+                    ? [...$covered, QuickCovered::of($file, substr_count($text->text(), self::LINE) + 1, $tests)]
+                    : $covered;
+            }
+        }
+
+        return $covered;
+    }
+
+    /** The test files among these the graph says which files they reach. */
+    private static function placedBy(GraphAnswer|NotGiven $graph, Path ...$tests): Paths
+    {
+        $placed = [];
+
+        foreach ($tests as $test) {
+            $placed = $graph instanceof GraphAnswer && $graph->joined($test) instanceof Paths
+                ? [...$placed, $test]
+                : $placed;
+        }
+
+        return Paths::of(...$placed);
     }
 }
