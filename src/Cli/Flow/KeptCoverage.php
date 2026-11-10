@@ -101,6 +101,32 @@ final readonly class KeptCoverage
     }
 
     /**
+     * The map the last round left, with each test a quick round's streams
+     * recorded taking the lines it executed in place of its entries
+     * (ADR-0147), written back where the next round reads it; the map as it
+     * was where it cannot be read or written, which the next round measures
+     * against as before.
+     */
+    public function recorded(CoverageMap $recorded): void
+    {
+        $kept = $this->fromWorkspace();
+
+        if (! $kept instanceof KeptMap) {
+            return;
+        }
+
+        $this->adapters->project->write(
+            CoverageMapFile::in(Workspace::coverage()),
+            Contents::of(CoverageMapFile::encode(
+                Remeasured::over($kept->map(), $recorded->tests(), $recorded),
+                $kept->measuredAt(),
+                $kept->keys(),
+                $this->level(),
+            )),
+        );
+    }
+
+    /**
      * What a run measures where it asks for the whole suite: the kept map,
      * brought up to date and written where the run reads it, or the whole
      * suite, with the line that says which.

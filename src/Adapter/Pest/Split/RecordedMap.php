@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function str_starts_with;
+use function unlink;
 
 /**
  * The coverage map a run's streams recorded (ADR-0135): each line of the
@@ -34,8 +35,13 @@ final readonly class RecordedMap
 {
     private const string RECORDED = '%s/recorded-*.jsonl';
 
-    /** The map recorded in a directory; none where its streams recorded nothing. */
-    public static function in(string $directory, Root $root): CoverageMap|NotGiven
+    /**
+     * The map recorded in a directory; none where its streams recorded
+     * nothing. Where the tests that ran whole are asked for alone, a test
+     * that ran in a process of its own is left out, as one a stream handed
+     * to a forked process always is.
+     */
+    public static function in(string $directory, Root $root, bool $wholeOnly = false): CoverageMap|NotGiven
     {
         $map = CoverageMap::of();
         $files = glob(sprintf(self::RECORDED, $directory)) ?: [];
@@ -46,16 +52,28 @@ final readonly class RecordedMap
 
         foreach ($files as $file) {
             foreach (file($file) ?: [] as $text) {
-                $map = self::with($map, json_decode($text, true), $root);
+                $map = self::with($map, json_decode($text, true), $root, $wholeOnly);
             }
         }
 
         return $map;
     }
 
-    private static function with(CoverageMap $map, mixed $line, Root $root): CoverageMap
+    /** Removes every file of lines a directory's streams recorded, so a later run there starts with none. */
+    public static function cleared(string $directory): void
+    {
+        foreach (glob(sprintf(self::RECORDED, $directory)) ?: [] as $file) {
+            unlink($file);
+        }
+    }
+
+    private static function with(CoverageMap $map, mixed $line, Root $root, bool $wholeOnly): CoverageMap
     {
         if (! is_array($line) || ($line[StreamLine::KIND] ?? '') !== StreamLine::COVERED) {
+            return $map;
+        }
+
+        if ($wholeOnly && ($line[StreamLine::OWN] ?? false) === true) {
             return $map;
         }
 

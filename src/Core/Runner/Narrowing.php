@@ -37,7 +37,7 @@ final readonly class Narrowing
         private Pruned $pruned,
         private TestCases $cases,
         private TestPart $part,
-        private string $recording = '',
+        private LineRecording $recording,
     ) {
     }
 
@@ -51,6 +51,7 @@ final readonly class Narrowing
             Pruned::none(),
             TestCases::unknown(),
             TestPart::whole(),
+            LineRecording::none(),
         );
     }
 
@@ -146,10 +147,10 @@ final readonly class Narrowing
 
     /**
      * This narrowing, its split streams recording the lines each test
-     * executes into this directory, for a run planned without a fresh map
-     * (ADR-0135).
+     * executes as this says, for a run planned without a fresh map
+     * (ADR-0135) or a quick round's kept map (ADR-0147).
      */
-    public function recordingInto(string $directory): self
+    public function recordingInto(LineRecording $recording): self
     {
         return new self(
             $this->mutators,
@@ -158,12 +159,12 @@ final readonly class Narrowing
             $this->pruned,
             $this->cases,
             $this->part,
-            $directory,
+            $recording,
         );
     }
 
-    /** Where its split streams record each test's lines; none where they record nothing. */
-    public function recording(): string
+    /** Where its split streams record each test's lines, and what for. */
+    public function recording(): LineRecording
     {
         return $this->recording;
     }

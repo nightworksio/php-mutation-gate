@@ -160,6 +160,9 @@ enum GateVariable: string
     /** Where each stream's parent records the lines each test executed, in a run planned without a fresh map. */
     case SplitRecording = 'MUTATION_GATE_SPLIT_RECORDING';
 
+    /** Where each stream's parent records the lines each test executed, for a quick round's kept map (ADR-0147). */
+    case SplitLines = 'MUTATION_GATE_SPLIT_LINES';
+
     /** Whether a first-pass stream runs only the killers of its mutants (ADR-0136). */
     case SplitKillerStreams = 'MUTATION_GATE_SPLIT_KILLER_STREAMS';
 

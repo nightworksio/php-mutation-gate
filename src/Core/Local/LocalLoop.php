@@ -11,7 +11,10 @@ use NightWorksIO\MutationGate\Core\Config\LocalWork;
  * do not (ADR-0120): a coverage run of one test file in one process, where
  * `local.coverageAlone` says so, and sets of warm workers no larger than
  * their runs, where `local.sizedPools` does; and, for a quick round of
- * `watch`, proofs keyed apart from every other run's (ADR-0146).
+ * `watch`, proofs keyed apart from every other run's (ADR-0146), its
+ * streams' recorded lines taken into the kept map, where
+ * `local.recordLines` says so, and a changed test file placed by the static
+ * graph, where `local.siteHits` does too (ADR-0147).
  *
  * @internal
  */
@@ -36,6 +39,18 @@ final readonly class LocalLoop
     public function isQuick(): bool
     {
         return $this->quick;
+    }
+
+    /** Whether its streams record their tests' lines into the kept map: a quick round's, under `local.recordLines`. */
+    public function recordsLines(): bool
+    {
+        return $this->quick && $this->work->isOn(LocalSwitch::RecordLines);
+    }
+
+    /** Whether it places a changed test file by the static graph: where it records lines, under `local.siteHits`. */
+    public function placesTestFiles(): bool
+    {
+        return $this->recordsLines() && $this->work->isOn(LocalSwitch::SiteHits);
     }
 
     public function runsFileAlone(): bool

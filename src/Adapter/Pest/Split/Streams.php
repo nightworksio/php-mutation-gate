@@ -92,7 +92,7 @@ final readonly class Streams
             $arguments,
             $processes,
             $settings->children(),
-            $settings->recording(),
+            $settings->lines(),
             $settings->bootsOnce(),
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $settings);

@@ -26,6 +26,9 @@ final readonly class StreamLine
     /** The field that says what a line is. */
     public const string KIND = 'k';
 
+    /** The field of a recorded test's line that says it ran in a process of its own. */
+    public const string OWN = 'o';
+
     public const string PARENT = 'parent';
 
     public const string CHILD = 'child';
@@ -124,7 +127,7 @@ final readonly class StreamLine
             's' => $ended->seconds,
             'p' => $ended->passed,
             'i' => $ended->troubled,
-            'o' => $ended->own,
+            self::OWN => $ended->own,
         ]);
     }
 

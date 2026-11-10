@@ -12,6 +12,7 @@ use function is_string;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 use function sprintf;
@@ -46,6 +47,7 @@ final readonly class StreamSettings
         private bool $killerStreams = false,
         private string $recording = '',
         private bool $bootOnce = false,
+        private string $lines = '',
     ) {
     }
 
@@ -86,6 +88,7 @@ final readonly class StreamSettings
             getenv(GateVariable::SplitKillerStreams->value) === self::ON,
             self::recordingIn(getenv(GateVariable::SplitRecording->value)),
             getenv(GateVariable::SplitBootOnce->value) === self::ON,
+            self::recordingIn(getenv(GateVariable::SplitLines->value)),
         );
     }
 
@@ -101,6 +104,7 @@ final readonly class StreamSettings
             $killerStreams,
             $this->recording,
             $this->bootOnce,
+            $this->lines,
         );
     }
 
@@ -116,6 +120,7 @@ final readonly class StreamSettings
             $this->killerStreams,
             $this->recording,
             $bootOnce,
+            $this->lines,
         );
     }
 
@@ -146,14 +151,29 @@ final readonly class StreamSettings
     }
 
     /**
-     * What a run that plans without a fresh map tells Pest's own process: the
-     * directory its streams record each test's lines in.
+     * The directory each stream's parent records the lines its tests
+     * executed in, for a quick round's kept map (ADR-0147); none where it
+     * records nothing.
+     */
+    public function lines(): string
+    {
+        return $this->lines;
+    }
+
+    /**
+     * What a run whose streams record tells Pest's own process: the directory
+     * they record each test's lines in, as a stand-in for the suite's
+     * coverage report or for the kept map.
      *
      * @return array<string, string>
      */
-    public static function recordingInto(string $directory): array
+    public static function recordingInto(LineRecording $recording): array
     {
-        return $directory === '' ? [] : [GateVariable::SplitRecording->value => $directory];
+        return match (true) {
+            $recording->standsIn() => [GateVariable::SplitRecording->value => $recording->directory()],
+            $recording->records() => [GateVariable::SplitLines->value => $recording->directory()],
+            default => [],
+        };
     }
 
     public function isOn(): bool

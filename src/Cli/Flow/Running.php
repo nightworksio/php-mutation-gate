@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Secrets;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
+use NightWorksIO\MutationGate\Core\Local\LocalLoop;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
@@ -55,6 +56,7 @@ use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
+use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\NoProcessLog;
@@ -303,7 +305,9 @@ final readonly class Running
 
     /**
      * The directory a shard's streams record each test's lines in, made
-     * ready, in a run planned without a fresh map (ADR-0135).
+     * ready and holding nothing an earlier run recorded, in a run planned
+     * without a fresh map (ADR-0135) or a quick round that records lines
+     * (ADR-0147).
      */
     private static function recordingOf(Shard $shard): string
     {
@@ -313,20 +317,46 @@ final readonly class Running
             mkdir($directory, 0o700, recursive: true);
         }
 
+        RecordedMap::cleared($directory);
+
         return $directory;
+    }
+
+    /** Whether the run is a quick round whose streams record their tests' lines into the kept map (ADR-0147). */
+    private function recordsLines(): bool
+    {
+        return $this->adapters->loop instanceof LocalLoop && $this->adapters->loop->recordsLines();
     }
 
     /**
      * The map a shard's streams recorded, and how its tests ran in them,
      * left beside its result where the verdict reads them, in a run planned
-     * without a fresh map (ADR-0135); nothing in any other run.
+     * without a fresh map (ADR-0135); in a quick round that records lines,
+     * the tests its streams' parents ran whole taken into the kept map
+     * (ADR-0147); nothing in any other run.
      */
     private function recordedLeft(Plan $plan, ShardId $id, Path $results): void
     {
-        if (! $plan->briefing()->isEarly()) {
-            return;
+        if ($plan->briefing()->isEarly()) {
+            $this->standInLeft($id, $results);
+        } elseif ($this->recordsLines()) {
+            $this->recordedKept($id);
         }
+    }
 
+    /** The tests a quick round's streams' parents ran whole, taken into the kept map with the lines they recorded. */
+    private function recordedKept(ShardId $id): void
+    {
+        $recorded = RecordedMap::in(Root::here()->at(Workspace::recording($id))->value(), Root::here(), wholeOnly: true);
+
+        if ($recorded instanceof CoverageMap) {
+            new KeptCoverage($this->adapters, $this->settings, $this->setup)->recorded($recorded);
+        }
+    }
+
+    /** The map and the suite a shard's streams recorded, left beside its result for the verdict. */
+    private function standInLeft(ShardId $id, Path $results): void
+    {
         $directory = Root::here()->at(Workspace::recording($id))->value();
         $map = RecordedMap::in($directory, Root::here());
         $suite = RecordedSuite::in($directory, Root::here());
@@ -641,7 +671,11 @@ final readonly class Running
 
         $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
         $narrowing = $request->narrowing()->pruning($pruned)->inTestPart($shard->testPart());
-        $narrowing = $early ? $narrowing->recordingInto(self::recordingOf($shard)) : $narrowing;
+        $narrowing = match (true) {
+            $early => $narrowing->recordingInto(LineRecording::standingIn(self::recordingOf($shard))),
+            $this->recordsLines() => $narrowing->recordingInto(LineRecording::forTheMap(self::recordingOf($shard))),
+            default => $narrowing,
+        };
 
         return $request->narrowedTo($files, $narrowing)
             ->across($pool)

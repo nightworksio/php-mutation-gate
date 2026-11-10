@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
@@ -334,8 +335,8 @@ final readonly class MutationRun
         $told = [
             ...new Told($this->project, $this->patching, $this->only, $this->narrows())
                 ->of($request, $results, $handOff instanceof HandOff, $bounds),
-            ...$this->streamExtension(),
-            ...CoverageDrivers::of($this->patching, $request->narrowing()->recording() !== ''),
+            ...$this->streamExtension($request->narrowing()->recording()),
+            ...CoverageDrivers::of($this->patching, $this->recordsWithPcov($request->narrowing()->recording())),
         ];
         $warm = WarmDirectory::made($results);
 
@@ -392,13 +393,18 @@ final readonly class MutationRun
 
     /**
      * What tells a split stream to load `outbreak.so`, and what it watches,
-     * where a setting asks (ADR-0130, ADR-0147); nothing otherwise.
+     * where a setting asks (ADR-0130, ADR-0147); nothing otherwise. It
+     * records lines only for a quick round's kept map: a stand-in for the
+     * suite's coverage report reads pcov's executable lines.
      *
      * @return array<string, string>
      */
-    private function streamExtension(): array
+    private function streamExtension(LineRecording $recording): array
     {
-        $streams = $this->extension instanceof ShippedExtension ? $this->extension->forStreams(recording: false) : NotGiven::value();
+        $forMap = $recording->records() && ! $recording->standsIn();
+        $streams = $this->extension instanceof ShippedExtension
+            ? $this->extension->forStreams($forMap)
+            : NotGiven::value();
 
         $floor = $this->extension instanceof ShippedExtension ? $this->extension->stepFloor() : NotGiven::value();
 
@@ -409,6 +415,18 @@ final readonly class MutationRun
                 ...is_int($floor) ? [GateVariable::StepFloor->value => (string) $floor] : [],
             ]
             : [];
+    }
+
+    /**
+     * Whether the run's streams record lines with pcov: where they stand in
+     * for the suite's coverage report, or record for the kept map without
+     * `outbreak.so` recording them (ADR-0147).
+     */
+    private function recordsWithPcov(LineRecording $recording): bool
+    {
+        $byOutbreak = $this->extension instanceof ShippedExtension && $this->extension->recordsLines();
+
+        return $recording->standsIn() || ($recording->records() && ! $byOutbreak);
     }
 
     /**

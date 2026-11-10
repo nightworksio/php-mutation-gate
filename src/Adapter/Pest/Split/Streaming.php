@@ -228,6 +228,16 @@ final readonly class Streaming
     }
 
     /**
+     * Whether a pass's streams boot the application once and fork each test
+     * from it: the first's, where the run says so. Such a stream records no
+     * lines, which would miss what the boot executed.
+     */
+    private function bootsOnceIn(int $pass): bool
+    {
+        return $this->bootOnce && $pass === 1;
+    }
+
+    /**
      * One stream of a pass, started on its selecting arguments, then its test
      * files; where it records, its file of lines starts empty, so a stream
      * that never ended its tests leaves a file that says so (ADR-0135).
@@ -254,8 +264,10 @@ final readonly class Streaming
             'floor' => $perTest->floor()->seconds(),
             'longest' => ($most instanceof Seconds ? $most : Triage::none()->most())->seconds(),
             'stepFloor' => (int) getenv(GateVariable::StepFloor->value),
-            'recording' => $this->recording === '' ? '' : sprintf(self::RECORDED, $this->recording, $pass, $at),
-            'bootOnce' => $this->bootOnce && $pass === 1,
+            'recording' => $this->recording === '' || $this->bootsOnceIn($pass)
+                ? ''
+                : sprintf(self::RECORDED, $this->recording, $pass, $at),
+            'bootOnce' => $this->bootsOnceIn($pass),
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 

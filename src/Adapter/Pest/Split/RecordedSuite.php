@@ -82,7 +82,7 @@ final readonly class RecordedSuite
      */
     private static function ended(array $line): array|NotGiven
     {
-        [$passed, $troubled, $own, $seconds] = [$line['p'] ?? null, $line['i'] ?? null, $line['o'] ?? null, $line['s'] ?? null];
+        [$passed, $troubled, $own, $seconds] = [$line['p'] ?? null, $line['i'] ?? null, $line[StreamLine::OWN] ?? null, $line['s'] ?? null];
 
         return is_bool($passed) && is_bool($troubled) && is_bool($own) && (is_float($seconds) || is_int($seconds))
             ? ['passed' => $passed, 'troubled' => $troubled, 'own' => $own, 'seconds' => (float) $seconds]
