@@ -69,7 +69,7 @@ impl fmt::Display for Failure {
 }
 
 /// How to run it, as it says where its arguments name no command.
-const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert | outbreak cache pull | outbreak cache push";
+const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert | outbreak cache pull | outbreak cache push | outbreak graph reach";
 
 /// Runs the command the arguments name, reading its input and writing its answer.
 ///
@@ -97,6 +97,7 @@ pub fn run(
         ["report", "convert"] => report::convert(&read_all(input)?)?,
         ["cache", "pull"] => cached("pulled", outbreak_cache::pull(&read_all(input)?))?,
         ["cache", "push"] => cached("pushed", outbreak_cache::push(&read_all(input)?))?,
+        ["graph", "reach"] => outbreak_graph::answer(&read_all(input)?, CONTRACT).map_err(Failure::Usage)?,
         _ => return Err(Failure::Usage(USAGE.to_owned())),
     };
 
