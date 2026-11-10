@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor;
 
+use NightWorksIO\MutationGate\Core\Doctor\Check\ArmRunners;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Config;
 use NightWorksIO\MutationGate\Core\Doctor\Check\CoverageDriver;
 use NightWorksIO\MutationGate\Core\Doctor\Check\CoverageRun;
@@ -81,6 +82,7 @@ final readonly class Diagnosis
             OnlineRead::in($observed),
             VerdictRequired::in($observed),
             ForkApprovalPolicy::in($observed),
+            ArmRunners::in($observed),
             PublicContainer::in($observed),
             ScheduleRunning::in($observed),
             ScheduledRun::in($observed),

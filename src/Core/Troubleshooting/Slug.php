@@ -37,6 +37,7 @@ enum Slug: string
     case HotPathUnheld = 'hot-path-unheld';
     case VerdictNotRequired = 'verdict-not-required';
     case ForkApprovalWeak = 'fork-approval-weak';
+    case ArmRunners = 'arm-runners';
     case ScheduleNotRunning = 'schedule-not-running';
     case NoScheduledRun = 'no-scheduled-run';
     case KeyedContextBlocks = 'keyed-context-blocks';

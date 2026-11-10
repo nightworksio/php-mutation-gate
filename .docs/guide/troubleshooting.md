@@ -247,6 +247,18 @@ Require approval for all external contributors, under Settings, Actions,
 General, in the approval for running fork pull request workflows from
 contributors.
 
+## arm-runners
+
+`doctor --online` found that the repository is public and that no workflow
+running the gate names an arm runner. GitHub's hosted arm runners are free for
+a public repository, and the gate's shards took 29% fewer runner minutes on
+them where the gate measured it. Proofs are keyed by the architecture, so the
+first run there is a full one.
+
+Pass `runs-on: ubuntu-24.04-arm` to the reusable workflow, where every
+extension the tests need builds on arm. `init --ci` keeps `ubuntu-latest`, and
+suggests the label for a public repository.
+
 ## schedule-not-running
 
 `doctor --online` found that no GitHub workflow that runs the gate ran on a
