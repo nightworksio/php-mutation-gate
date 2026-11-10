@@ -1,0 +1,149 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Adapter\Outbreak;
+
+use function ceil;
+use function json_encode;
+
+use NightWorksIO\MutationGate\Adapter\Serve\Connection;
+use NightWorksIO\MutationGate\Adapter\Serve\ServeSocket;
+use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
+use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
+use NightWorksIO\MutationGate\Core\Serve\ServesState;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Port\ReachGraph;
+
+use function sprintf;
+
+/**
+ * `outbreak serve` as the gate asks it (ADR-0133), for the proofs it holds
+ * and for the static graph it keeps (ADR-0132): one request a connection
+ * on `.mutation-gate/outbreak/state.sock`, a verb and its JSON on one line,
+ * its answer one line of JSON in contract 1, once the socket, its directory
+ * and the process answering are found to be the user's own. No daemon, an
+ * answer that does not come within `outbreak.timeout`, a refusal or any
+ * other answer is no answer.
+ *
+ * @internal
+ */
+final readonly class ServedState implements ReachGraph, ServesState
+{
+    private const string UNSERVED = 'No outbreak serve answers on %s.';
+
+    private const string REFUSED = 'outbreak serve refused the request: %s';
+
+    private const string UNREAD = 'outbreak serve answered in another shape: %s';
+
+    private const string KEPT = 'outbreak serve kept %d proofs.';
+
+    /** The contract every answer is written in. */
+    private const int CONTRACT = 1;
+
+    /** What a message calls the daemon's answer. */
+    private const string ANSWER = 'outbreak serve\'s answer';
+
+    public function __construct(private ServeSocket $socket, private Seconds $timeout, private string $root)
+    {
+    }
+
+    /** The daemon of the project at this root, as its owner asks it, waiting this long for each answer. */
+    public static function of(string $root, int $owner, Seconds $timeout): self
+    {
+        $socket = sprintf('%s/%s', $root, Workspace::servedState()->value());
+
+        return new self(ServeSocket::at($socket, $owner), $timeout, $root);
+    }
+
+    public function proofs(string ...$keys): array|NotWritten
+    {
+        $said = $this->asked('proofs', ['keys' => $keys]);
+
+        try {
+            if ($said instanceof NotWritten) {
+                return $said;
+            }
+
+            $proofs = [];
+
+            foreach ($said->field('proofs')->entries() as $key => $proof) {
+                $proofs[$key] = $proof->text();
+            }
+
+            return $proofs;
+        } catch (NotInShape $unread) {
+            return NotWritten::because(sprintf(self::UNREAD, $unread->getMessage()));
+        }
+    }
+
+    public function kept(array $proofs): Written|NotWritten
+    {
+        $said = $this->asked('keep', ['proofs' => (object) $proofs]);
+
+        try {
+            return $said instanceof Node
+                ? Written::noting($this->socket->path(), sprintf(self::KEPT, $said->field('kept')->integer()))
+                : $said;
+        } catch (NotInShape $unread) {
+            return NotWritten::because(sprintf(self::UNREAD, $unread->getMessage()));
+        }
+    }
+
+    public function answered(GraphQuestion $question): GraphAnswer|NotWritten
+    {
+        $said = $this->line('graph', GraphAsked::of($question, $this->root));
+
+        return $said instanceof Node ? GraphAnswered::of($said) : $said;
+    }
+
+    /** @param array<string, mixed> $request */
+    private function asked(string $verb, array $request): Node|NotWritten
+    {
+        return $this->line($verb, (string) json_encode($request, JsonText::FLAGS));
+    }
+
+    /** The daemon's answer to one request line; or why there is none. */
+    private function line(string $verb, string $json): Node|NotWritten
+    {
+        $connection = $this->socket->connected();
+
+        if (! $connection instanceof Connection) {
+            return NotWritten::because(sprintf(self::UNSERVED, $this->socket->path()));
+        }
+
+        $connection->waitingAtMost((int) ceil($this->timeout->seconds()));
+        $answer = $connection->sent(sprintf("%s %s\n", $verb, $json)) ? $connection->line() : NotGiven::value();
+        $connection->closed();
+
+        return $answer instanceof NotGiven
+            ? NotWritten::because(sprintf(self::UNSERVED, $this->socket->path()))
+            : self::read($answer);
+    }
+
+    /** An answer's line, where it is in the contract and refuses nothing; or why it is no answer. */
+    private static function read(string $answer): Node|NotWritten
+    {
+        $said = Node::decode($answer, self::ANSWER);
+        $refused = $said->field('refused');
+
+        try {
+            return match (true) {
+                $said->field('outbreak')->integer() !== self::CONTRACT => NotWritten::because(
+                    sprintf(self::UNREAD, $answer),
+                ),
+                $refused->isPresent() => NotWritten::because(sprintf(self::REFUSED, $refused->text())),
+                default => $said,
+            };
+        } catch (NotInShape $unread) {
+            return NotWritten::because(sprintf(self::UNREAD, $unread->getMessage()));
+        }
+    }
+}

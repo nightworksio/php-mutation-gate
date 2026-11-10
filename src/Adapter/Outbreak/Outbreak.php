@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
 use function array_map;
+use function function_exists;
 use function is_float;
 use function is_int;
 use function is_string;
@@ -38,12 +39,14 @@ use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\ProofCache;
 use NightWorksIO\MutationGate\Port\ReachGraph;
 
+use function posix_geteuid;
 use function sprintf;
 
 /**
  * Outbreak's core, the `outbreak` binary, as the gate's map engine (ADR-0118),
  * which converts a run's PHP report too (ADR-0119), the store of `outbreak
- * cache` (ADR-0131) and the static graph (ADR-0132): each answer is one run of
+ * cache` (ADR-0131) and the static graph (ADR-0132), which `outbreak serve`
+ * answers first where it runs (ADR-0133): each other answer is one run of
  * the binary, its input handed on its standard input and its answer read as
  * one line of JSON in contract 1. Where there is no binary, or a run fails,
  * ends with another code, runs past its time or answers otherwise, the engine
@@ -75,10 +78,23 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
     /** The option the binary takes how many threads it writes on with. */
     private const string THREADS = '--threads';
 
+    /** The option that starts `outbreak serve` in a process of its own. */
+    private const string DETACH = '--detach';
+
+    /** The option `outbreak serve` takes the seconds between snapshots with. */
+    private const string SNAPSHOT_EVERY = '--snapshot-every';
+
+    /** The option `outbreak serve` takes the seconds between syncs of its journal with. */
+    private const string SYNC_EVERY = '--sync-every';
+
+    /** What separates `outbreak serve`'s options from the child's command line. */
+    private const string CHILD = '--';
+
     private function __construct(
         private string|NotGiven $binary,
         private string $root,
         private OutbreakSettings $settings,
+        private ServedState|NotGiven $served = new NotGiven(),
     ) {
     }
 
@@ -135,7 +151,12 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
         $settled = $settings instanceof OutbreakSettings ? $settings : OutbreakSettings::of();
         $said = BinaryRun::ran($binary, Command::Contract->words(), '', $settled->timeout());
 
-        return new self($said instanceof Node ? $binary : NotGiven::value(), $root, $settled);
+        $speaks = $said instanceof Node;
+        $served = $speaks && $settled->serve()->enabled() && function_exists('posix_geteuid')
+            ? ServedState::of($root, posix_geteuid(), $settled->timeout())
+            : NotGiven::value();
+
+        return new self($speaks ? $binary : NotGiven::value(), $root, $settled, $served);
     }
 
     /** No binary, in a project at this root: every answer declines. */
@@ -213,10 +234,49 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
         return $this->cached(Command::Push, 'push', 'pushed', $request);
     }
 
+    /**
+     * What goes before the PHP daemon's command line of `serve` (ADR-0078)
+     * so `outbreak serve` starts it as its child in a process group of its
+     * own (ADR-0133), launched as the PHP daemon would be: where a binary is
+     * in use and `outbreak.serve.enabled` is on; the launch alone otherwise.
+     *
+     * @param list<string> $launch what the daemon is launched under, such as its priority
+     *
+     * @return list<string>
+     */
+    public function serving(array $launch): array
+    {
+        $serve = $this->settings->serve();
+
+        return $this->binary instanceof NotGiven || ! $serve->enabled() ? $launch : [
+            ...$launch,
+            $this->binary,
+            ...Command::Serve->words(),
+            $this->root,
+            self::DETACH,
+            self::SNAPSHOT_EVERY,
+            sprintf('%F', $serve->snapshotEvery()->seconds()),
+            self::SYNC_EVERY,
+            sprintf('%F', $serve->syncEvery()->seconds()),
+            self::CHILD,
+        ];
+    }
+
+    /**
+     * What the static graph answers: the daemon's graph, which reads a file
+     * for its names again only where it changed, where `outbreak serve`
+     * answers; one run of the binary otherwise.
+     */
     public function answered(GraphQuestion $question): GraphAnswer|NotWritten
     {
         if ($this->binary instanceof NotGiven) {
             return NotWritten::because(self::NO_BINARY);
+        }
+
+        $served = $this->served instanceof ServedState ? $this->served->answered($question) : NotGiven::value();
+
+        if ($served instanceof GraphAnswer) {
+            return $served;
         }
 
         $asked = GraphAsked::of($question, $this->root);

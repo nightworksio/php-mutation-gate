@@ -9,8 +9,9 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 /**
  * Whether Outbreak's core takes the coverage maps' bulk off the gate's PHP,
  * its binary, how long a run of it may take and its threads (ADR-0118),
- * where `outbreak cache` keeps proofs by their keys (ADR-0131), and where its
- * static graph acts (ADR-0132): `outbreak`.
+ * where `outbreak cache` keeps proofs by their keys (ADR-0131), where its
+ * static graph acts (ADR-0132), and whether `outbreak serve` holds the
+ * project's state (ADR-0133): `outbreak`.
  */
 final readonly class Outbreak implements Setting
 {
@@ -109,6 +110,30 @@ final readonly class Outbreak implements Setting
     public static function graphOff(): self
     {
         return new self(Json::at('outbreak.graph', 'off'));
+    }
+
+    /** `outbreak.serve.enabled`, as by default: `outbreak serve` holds the project's state where the binary is in use. */
+    public static function serving(): self
+    {
+        return new self(Json::at('outbreak.serve.enabled', value: true));
+    }
+
+    /** `outbreak.serve.enabled` off: `watch` and the hooks talk to the PHP daemon alone, which reads every file. */
+    public static function notServing(): self
+    {
+        return new self(Json::at('outbreak.serve.enabled', value: false));
+    }
+
+    /** `outbreak.serve.snapshotEvery`: how often, at most, the daemon writes its snapshot, such as `10m`. */
+    public static function snapshotEvery(string $duration): self
+    {
+        return new self(Json::at('outbreak.serve.snapshotEvery', $duration));
+    }
+
+    /** `outbreak.serve.syncEvery`: how often, at most, the daemon syncs its journal to disk, such as `1s`. */
+    public static function syncEvery(string $duration): self
+    {
+        return new self(Json::at('outbreak.serve.syncEvery', $duration));
     }
 
     /** `outbreak.cache.store`, `auto`, as by default: a registry where one is named, the Actions cache under the action. */

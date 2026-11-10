@@ -21,6 +21,13 @@
 //!   (ADR-0131).
 //! - `outbreak cache push` reads a cache request on its input, and merges the
 //!   entries it names into their class's pack in the store.
+//! - `outbreak graph reach` reads a graph request on its input, and answers
+//!   which test files reach each file it names, and what they reach
+//!   (ADR-0132).
+//! - `outbreak serve <root> [--detach] [--idle <s>] [--snapshot-every <s>]
+//!   [--sync-every <s>] [-- <child> …]` serves the project's state on a
+//!   socket until it stops (ADR-0133); with `--detach` it starts the daemon
+//!   in a process group of its own and answers its process id.
 //!
 //! An answer is always one line of JSON with `"outbreak": 1`. A command that
 //! cannot run, for its arguments or for a file it cannot read or write, says
@@ -69,7 +76,7 @@ impl fmt::Display for Failure {
 }
 
 /// How to run it, as it says where its arguments name no command.
-const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert | outbreak cache pull | outbreak cache push | outbreak graph reach";
+const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert | outbreak cache pull | outbreak cache push | outbreak graph reach | outbreak serve <root> [--detach] [--idle <s>] [--snapshot-every <s>] [--sync-every <s>] [-- <child> ...]";
 
 /// Runs the command the arguments name, reading its input and writing its answer.
 ///
@@ -98,10 +105,41 @@ pub fn run(
         ["cache", "pull"] => cached("pulled", outbreak_cache::pull(&read_all(input)?))?,
         ["cache", "push"] => cached("pushed", outbreak_cache::push(&read_all(input)?))?,
         ["graph", "reach"] => outbreak_graph::answer(&read_all(input)?, CONTRACT).map_err(Failure::Usage)?,
+        ["serve", ..] => served(arguments.get(1..).unwrap_or_default())?,
         _ => return Err(Failure::Usage(USAGE.to_owned())),
     };
 
     writeln!(output, "{answer}").map_err(|error| Failure::Io(format!("cannot answer: {error}")))
+}
+
+/// What `outbreak serve` answers once it stopped, or once the daemon it detached started.
+#[cfg(unix)]
+fn served(arguments: &[String]) -> Result<String, Failure> {
+    let (options, detach) = outbreak_serve::options(arguments).map_err(Failure::Usage)?;
+
+    if detach {
+        let binary = std::env::current_exe().map_err(|error| Failure::Io(format!("cannot find itself: {error}")))?;
+        let child = arguments.iter().position(|argument| argument == "--").unwrap_or(arguments.len());
+        let own: Vec<String> = arguments
+            .iter()
+            .enumerate()
+            .filter(|(at, argument)| *at >= child || *argument != "--detach")
+            .map(|(_, argument)| argument.clone())
+            .collect();
+        let started = outbreak_serve::server::detached(&binary, &own).map_err(Failure::Io)?;
+
+        return Ok(format!(r#"{{"outbreak":{CONTRACT},"started":{started}}}"#));
+    }
+
+    outbreak_serve::server::serve(&options, CONTRACT).map_err(Failure::Io)?;
+
+    Ok(format!(r#"{{"outbreak":{CONTRACT},"served":true}}"#))
+}
+
+/// `outbreak serve` serves on Unix alone.
+#[cfg(not(unix))]
+fn served(_: &[String]) -> Result<String, Failure> {
+    Err(Failure::Usage("serve runs on Unix alone".to_owned()))
 }
 
 /// How many packs a command of the cache moved, as its answer says it; or why it moved none.
@@ -230,6 +268,15 @@ mod tests {
         assert!(matches!(
             ran(&["graph", "reach"], "[]").unwrap_err(),
             Failure::Usage(why) if why.starts_with("the graph's request")
+        ));
+    }
+
+    #[test]
+    fn says_why_it_cannot_serve() {
+        assert_eq!(ran(&["serve"], "").unwrap_err(), Failure::Usage("serve takes the project's root".to_owned()));
+        assert!(matches!(
+            ran(&["serve", "/nonexistent/root"], "").unwrap_err(),
+            Failure::Io(why) if why.starts_with("cannot make")
         ));
     }
 

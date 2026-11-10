@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Outbreak;
 use NightWorksIO\MutationGate\Core\Config\OutbreakCache;
+use NightWorksIO\MutationGate\Core\Config\OutbreakServe;
 use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
@@ -38,6 +39,7 @@ final readonly class OutbreakKeys
         $forkStates = Field::optional(Outbreak::FORK_STATES, Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $recheck = Field::optional(Outbreak::RECHECK_TOUCHED_KILLS, Flag::boolean(), Effect::AffectsResults);
         $graph = Field::optional(Outbreak::GRAPH, Enumerated::of(GraphUse::cases()), Effect::DecidesHowTheGateRuns);
+        $serve = Field::section(OutbreakServe::OPTION, self::serve());
 
         return [Field::section(
             Outbreak::OPTION,
@@ -52,6 +54,7 @@ final readonly class OutbreakKeys
                     $forkStates,
                     $recheck,
                     $graph,
+                    $serve,
                 ): Layer|Invalid {
                     $on = $enabled->read($outbreak);
                     $at = $binary->read($outbreak);
@@ -62,6 +65,7 @@ final readonly class OutbreakKeys
                     $counts = $forkStates->read($outbreak);
                     $rechecks = $recheck->read($outbreak);
                     $acts = $graph->read($outbreak);
+                    $serves = $serve->read($outbreak);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Shards::of(outbreak: Outbreak::of(
@@ -74,6 +78,7 @@ final readonly class OutbreakKeys
                             $counts->value(),
                             $rechecks->value(),
                             $acts->value(),
+                            $serves->value(),
                         ))),
                         $on,
                         $at,
@@ -84,6 +89,7 @@ final readonly class OutbreakKeys
                         $counts,
                         $rechecks,
                         $acts,
+                        $serves,
                     );
                 },
                 $enabled,
@@ -95,8 +101,41 @@ final readonly class OutbreakKeys
                 $forkStates,
                 $recheck,
                 $graph,
+                $serve,
             ),
         )];
+    }
+
+    /**
+     * Whether `outbreak serve` holds the project's state, and its clocks
+     * (ADR-0133): each judges or reports only.
+     *
+     * @return Section<OutbreakServe>
+     */
+    private static function serve(): Section
+    {
+        $none = Effect::JudgesOrReportsOnly;
+        $enabled = Field::optional(OutbreakServe::ENABLED, Flag::boolean(), $none);
+        $snapshot = Field::optional(OutbreakServe::SNAPSHOT_EVERY, Duration::written(), $none);
+        $sync = Field::optional(OutbreakServe::SYNC_EVERY, Duration::written(), $none);
+
+        return Section::of(
+            static function (Node $serve) use ($enabled, $snapshot, $sync): OutbreakServe|Invalid {
+                $on = $enabled->read($serve);
+                $every = $snapshot->read($serve);
+                $synced = $sync->read($serve);
+
+                return Reading::built(
+                    static fn(): OutbreakServe => OutbreakServe::of($on->value(), $every->value(), $synced->value()),
+                    $on,
+                    $every,
+                    $synced,
+                );
+            },
+            $enabled,
+            $snapshot,
+            $sync,
+        );
     }
 
     /**

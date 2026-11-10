@@ -1,0 +1,18 @@
+[package]
+name = "outbreak-serve"
+description = "Outbreak's daemon (ADR-0133): a project's proofs and static graph held in memory, kept as a snapshot and a journal, served on a socket the gate's PHP asks."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+outbreak-graph.workspace = true
+outbreak-map.workspace = true
+sha2.workspace = true
+
+[lints]
+workspace = true

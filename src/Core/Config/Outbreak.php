@@ -19,7 +19,8 @@ use function sprintf;
  * where `outbreak cache` keeps proofs by their keys (ADR-0131), and whether
  * `outbreak.so` proves a mutant equivalent before it runs and rechecks a
  * stream's kill by a test that touched nondeterminism (ADR-0130), and where
- * its static graph acts (ADR-0132): `outbreak`, which the `Shards` part
+ * its static graph acts (ADR-0132), and whether `outbreak serve` holds the
+ * project's state (ADR-0133): `outbreak`, which the `Shards` part
  * holds. Only `outbreak.equivalence` and `outbreak.recheckTouchedKills`
  * change a result, so only they are in a proof's key: the binary's output is
  * the gate's own, a cached proof stands under its key as a ledger's does, and
@@ -67,6 +68,7 @@ final readonly class Outbreak
         private bool|Absent $forkStates,
         private bool|Absent $recheckTouchedKills,
         private GraphUse|Absent $graph,
+        private OutbreakServe $serve,
     ) {
     }
 
@@ -80,6 +82,7 @@ final readonly class Outbreak
         bool|Absent $forkStates = new Absent(),
         bool|Absent $recheckTouchedKills = new Absent(),
         GraphUse|Absent $graph = new Absent(),
+        OutbreakServe|Absent $serve = new Absent(),
     ): self {
         return new self(
             $enabled,
@@ -91,6 +94,7 @@ final readonly class Outbreak
             $forkStates,
             $recheckTouchedKills,
             $graph,
+            $serve instanceof OutbreakServe ? $serve : OutbreakServe::of(),
         );
     }
 
@@ -107,6 +111,7 @@ final readonly class Outbreak
             Absent::laid($this->forkStates, $later->forkStates),
             Absent::laid($this->recheckTouchedKills, $later->recheckTouchedKills),
             Absent::laid($this->graph, $later->graph),
+            $this->serve->over($later->serve),
         );
     }
 
@@ -187,6 +192,12 @@ final readonly class Outbreak
         return $this->graph instanceof GraphUse ? $this->graph : GraphUse::Local;
     }
 
+    /** `outbreak.serve`: whether `outbreak serve` holds the project's state, and its clocks (ADR-0133). */
+    public function serve(): OutbreakServe
+    {
+        return $this->serve;
+    }
+
     /** `outbreak.cache`: where `outbreak cache` keeps proofs by their keys, and which packs are read (ADR-0131). */
     public function cache(): OutbreakCache
     {
@@ -232,6 +243,7 @@ final readonly class Outbreak
                 Member::of(self::FORK_STATES, $this->forkStates),
                 Member::of(self::RECHECK_TOUCHED_KILLS, $this->recheckTouchedKills),
                 Member::of(self::GRAPH, $this->graph instanceof GraphUse ? $this->graph->value : $this->graph),
+                $this->serve->written(),
                 $this->cache->written(),
             ),
         ));
@@ -268,6 +280,7 @@ final readonly class Outbreak
                 default => [],
             },
             ...$this->graph instanceof GraphUse ? [$this->graph->php()] : [],
+            ...$this->serve->php(),
             ...$this->cache->php(),
         ]);
     }

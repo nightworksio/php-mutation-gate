@@ -14,6 +14,7 @@ outbreak-cache = { path = "../crates/outbreak-cache" }
 outbreak-graph = { path = "../crates/outbreak-graph" }
 outbreak-map = { path = "../crates/outbreak-map" }
 outbreak-report = { path = "../crates/outbreak-report" }
+outbreak-serve = { path = "../crates/outbreak-serve" }
 
 [workspace]
 members = ["."]
@@ -56,6 +57,13 @@ bench = false
 [[bin]]
 name = "graph"
 path = "fuzz_targets/graph.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "journal"
+path = "fuzz_targets/journal.rs"
 test = false
 doc = false
 bench = false

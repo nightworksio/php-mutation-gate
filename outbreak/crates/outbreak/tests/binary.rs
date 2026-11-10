@@ -53,3 +53,28 @@ fn says_why_it_cannot_run_on_its_error_stream_and_ends_with_its_code() -> Result
 
     Ok(())
 }
+
+#[test]
+fn starts_a_daemon_of_its_own_that_stops_once_idle() -> Result<(), Box<dyn Error>> {
+    let root = std::env::temp_dir().join(format!("outbreak-detach-{}", std::process::id()));
+    std::fs::create_dir_all(&root)?;
+    let at = root.to_string_lossy().into_owned();
+    let (code, said, _) = ran(&["serve", &at, "--detach", "--idle", "0.2"], b"")?;
+    let socket = root.join(".mutation-gate/outbreak/state.sock");
+    let listened = (0..100).any(|_| {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        socket.exists()
+    });
+    let stopped = (0..200).any(|_| {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        !socket.exists()
+    });
+
+    assert_eq!(code, Some(0));
+    assert!(said.starts_with("{\"outbreak\":1,\"started\":"), "{said}");
+    assert!(listened && stopped);
+    assert!(root.join(".mutation-gate/outbreak/state.bin").exists());
+    std::fs::remove_dir_all(&root)?;
+
+    Ok(())
+}

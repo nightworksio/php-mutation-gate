@@ -27,6 +27,8 @@ final readonly class Workspace
 
     private const string SERVE = 'serve.sock';
 
+    private const string SERVED_STATE = 'outbreak/state.sock';
+
     /** Where a runner's bridges are, under the directory. */
     private const string BRIDGES = 'mutators/%s/bridges.php';
 
@@ -70,6 +72,12 @@ final readonly class Workspace
     public static function serveSocket(): Path
     {
         return Path::of(sprintf('%s/%s', self::ROOT, self::SERVE));
+    }
+
+    /** The socket `outbreak serve` answers the gate on (ADR-0133): `.mutation-gate/outbreak/state.sock`. */
+    public static function servedState(): Path
+    {
+        return Path::of(sprintf('%s/%s', self::ROOT, self::SERVED_STATE));
     }
 
     /**

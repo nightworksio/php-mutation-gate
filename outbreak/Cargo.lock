@@ -833,6 +833,7 @@ dependencies = [
  "outbreak-graph",
  "outbreak-map",
  "outbreak-report",
+ "outbreak-serve",
 ]
 
 [[package]]
@@ -870,6 +871,15 @@ name = "outbreak-report"
 version = "0.1.0"
 dependencies = [
  "outbreak-map",
+]
+
+[[package]]
+name = "outbreak-serve"
+version = "0.1.0"
+dependencies = [
+ "outbreak-graph",
+ "outbreak-map",
+ "sha2 0.10.9",
 ]
 
 [[package]]

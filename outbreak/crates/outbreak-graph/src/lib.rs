@@ -31,20 +31,27 @@ pub fn answer(text: &[u8], contract: u32) -> Result<String, String> {
     let request = request::read(text)
         .map_err(|refused| format!("the graph's request: expected {} at byte {}", refused.expected, refused.at))?;
     let root = Path::new(&request.root);
+
+    Ok(answered(&request, |path| names_of(root, path, request.given.get(path)), contract))
+}
+
+/// The answer to a request, each file of the graph read by what it declares and names.
+#[must_use]
+pub fn answered(request: &request::Request, mut read: impl FnMut(&str) -> names::FileNames, contract: u32) -> String {
     let files = request
         .sources
         .iter()
         .map(|path| (path, false))
         .chain(request.tests.iter().map(|path| (path, true)))
-        .map(|(path, test)| (path.clone(), names_of(root, path, request.given.get(path)), test))
+        .map(|(path, test)| (path.clone(), read(path), test))
         .collect();
     let graph = Graph::of(files, &request.always).checked(&request.map);
     let mut out = format!(r#"{{"outbreak":{contract},"reaching":"#);
-    answered(&mut out, &request.reach, |path| graph.reaching(path));
+    answered_each(&mut out, &request.reach, |path| graph.reaching(path));
     out.push_str(r#","joined":"#);
-    answered(&mut out, &request.joined, |path| graph.joined(path));
+    answered_each(&mut out, &request.joined, |path| graph.joined(path));
     out.push_str(r#","named":"#);
-    answered(&mut out, &request.names, |path| graph.names(path));
+    answered_each(&mut out, &request.names, |path| graph.names(path));
     out.push_str(r#","wrong":"#);
     out.push_str(&listed(&graph.wrong()));
     out.push_str(r#","unplaced":{"#);
@@ -56,12 +63,13 @@ pub fn answer(text: &[u8], contract: u32) -> Result<String, String> {
 
     out.push_str("}}");
 
-    Ok(out)
+    out
 }
 
 /// What a file declares and names: from the request's text of it where it
 /// gives one, and from the disk otherwise.
-fn names_of(root: &Path, path: &str, given: Option<&String>) -> names::FileNames {
+#[must_use]
+pub fn names_of(root: &Path, path: &str, given: Option<&String>) -> names::FileNames {
     given.map_or_else(
         || {
             fs::read(root.join(path)).map_or_else(
@@ -74,7 +82,7 @@ fn names_of(root: &Path, path: &str, given: Option<&String>) -> names::FileNames
 }
 
 /// Each path asked for with its answer, as a JSON object: a list of paths, or `null`.
-fn answered(out: &mut String, asked: &[String], answer: impl Fn(&str) -> Option<Vec<String>>) {
+fn answered_each(out: &mut String, asked: &[String], answer: impl Fn(&str) -> Option<Vec<String>>) {
     out.push('{');
 
     for (at, path) in asked.iter().enumerate() {
