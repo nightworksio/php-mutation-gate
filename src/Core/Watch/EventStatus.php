@@ -9,8 +9,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * What an event of `watch` says of a mutant (ADR-0146, ADR-0133): killed,
- * survived, out of time, not judged yet, proven equivalent, or a survivor
- * whose verification run is still to come.
+ * survived, out of time, not judged yet, or proven equivalent.
  */
 enum EventStatus: string
 {
@@ -19,7 +18,6 @@ enum EventStatus: string
     case Timeout = 'timeout';
     case Pending = 'pending';
     case Equivalent = 'equivalent';
-    case Verifying = 'verifying';
 
     /** What an event says of a mutant a run reported so; nothing of one a marker ignored, which no run judges. */
     public static function of(MutantStatus $status): self|NotGiven

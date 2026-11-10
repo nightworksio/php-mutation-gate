@@ -77,12 +77,13 @@ what a source file declares, without running anything.
    "status", "by", "quick", "unit", "digest"}`: the status `killed`,
    `survived`, `timeout`, `pending` or `equivalent`, `by` the killing test,
    `digest` the digest the plan took of the unit's file; a mutant a marker
-   ignores is no event. `outbreak serve` sends the same lines (ADR-0133
-   decision 9), and `verifying` besides while a survivor's verification run
-   waits, which `watch` runs inside the batch. The console prints one block
-   per unit as each batch ends, and ends a round with the whole report only
-   with `watch --report`, or where `local.streamBatches` is off;
-   `--output=problems` still ends every round with its problems.
+   ignores is no event; a survivor's verification run is inside its batch,
+   so its event says what the verification judged. The PHP `serve` that
+   `outbreak serve` starts sends the same lines to every client (ADR-0133
+   decision 9). The console prints one block per unit as each batch ends,
+   and ends a round with the whole report only with `watch --report`, or
+   where `local.streamBatches` is off; `--output=problems` still ends every
+   round with its problems.
 
 ### Settings
 

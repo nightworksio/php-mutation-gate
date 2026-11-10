@@ -92,25 +92,26 @@ fallback.
    `ENOSPC`, fails, or a look finds a change it did not tell of within one
    more wait, `watch` looks as it does without it (ADR-0120) and says so
    once.
-8. **It schedules a round's work, and cancels it by unit.** A round's work
-   is queued in this order: the survivors at sites the saved test file now
-   executes, the edited lines' mutants, the last round's survivors in the
-   edited units, the rest riskiest first (ADR-0008), and inferred-subsumed
-   mutants last (ADR-0079); a quick round of `watch` takes its units in the
-   same order and cancels them the same way (ADR-0146 decisions 6 and 7).
-   Work is keyed by its unit's content digest:
-   a later save drops every queued item and running process of a unit
-   whose digest moved, by its process group, and every other unit's
-   results stand. A cancelled mutant is pending, never judged. Workers run
-   at the priority and with the share `local.*` gives (ADR-0120); on
-   battery or in Low Power Mode `local.onBattery` reduces, pauses or runs
-   on, read on the platform's power notification rather than a poll.
-9. **Each judged mutant is an event.** The daemon sends every client one
-   line per judged mutant, `{"mutant", "site", "status", "by", "quick",
-   "unit", "digest"}`, the status `killed`, `survived`, `timeout`,
-   `pending`, `equivalent` or `verifying`, as `watch --output=events`
-   prints them (ADR-0146 decision 8); `watch` prints one block per unit as
-   its results land and the whole report only for `watch --report`.
+8. **The PHP `serve` it starts schedules a round's work, and cancels it by
+   unit.** `outbreak serve` tells it of each change of the files and of the
+   power source, and the PHP `serve` queues a round's work in this order:
+   the survivors at sites the saved test file now executes, the edited
+   lines' mutants, the last round's survivors in the edited units, the rest
+   riskiest first (ADR-0008), and inferred-subsumed mutants last (ADR-0079),
+   as a quick round of `watch` does (ADR-0146 decisions 6 and 7). Work is
+   keyed by its unit's content digest: a later save drops every queued item
+   and running process of a unit whose digest moved, by its process group,
+   and every other unit's results stand. A cancelled mutant is pending,
+   never judged. Workers run at the priority and with the share `local.*`
+   gives (ADR-0120); on battery or in Low Power Mode `local.onBattery`
+   reduces, pauses or runs on, read again only once `outbreak serve` tells
+   of a change of the power source.
+9. **Each judged mutant is an event.** The PHP `serve` it starts sends
+   every client one line per judged mutant, `{"mutant", "site", "status",
+   "by", "quick", "unit", "digest"}`, the status `killed`, `survived`,
+   `timeout`, `pending` or `equivalent`, as `watch --output=events` prints
+   them (ADR-0146 decision 8); `watch` prints one block per unit as its
+   results land and the whole report only for `watch --report`.
 10. **`outbreak lsp` brings the survivors to the editor.** It speaks the
     Language Server Protocol on stdio as a client of the daemon: each
     survivor is a `textDocument/publishDiagnostics` warning on its mutated
@@ -165,6 +166,7 @@ fallback.
 | **Keep the state in the PHP daemon** | Each request runs in a forked child, which cannot write what it learned back into its parent; the parent would reload files to see a round's results. |
 | **A database file, such as SQLite** | A dependency for an append-only log and one snapshot, where a checksummed journal does the same. |
 | **An external store, such as Redis** | A service to run beside a laptop's test suite, and a socket the project does not own. |
+| **The scheduler in `outbreak serve`**, with PHP workers it supervises over inherited sockets | A port of the PHP `serve`'s queue, cancel and priority that no profile has shown to gain time; it is taken where a profile of the local loop shows the PHP `serve`'s polling of its workers to cost time. |
 | **No daemon in CI** | Each chunk of a pull request's shard then reads and slices its map again. |
 
 ## Consequences
