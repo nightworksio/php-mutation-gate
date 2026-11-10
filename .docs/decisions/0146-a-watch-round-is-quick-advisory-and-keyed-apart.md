@@ -41,7 +41,11 @@ what a source file declares, without running anything.
    `staticCheck.tool: none` over the config: each mutant is forked first at
    the test the ledger last saw kill it (ADR-0117 decision 8), then at every
    covering test, in the covering test files in suite order. A mutant no
-   stream can judge runs its own run as before.
+   stream can judge runs its own run as before. These win over what the
+   config sets, an explicit `splitStream.enabled: false` or
+   `staticCheck.tool` among them: streaming is what makes a round quick,
+   and `local.quick: false` gives rounds that judge by the config as it
+   stands.
 4. **Its proofs are keyed apart.** The configuration part of every key a
    quick round builds carries `quick` (ADR-0007 item 3), so `pre-push`,
    `run` and CI never take a quick proof, and a later quick round does.
@@ -73,6 +77,7 @@ what a source file declares, without running anything.
 |---|---|
 | **Stream the whole suite in each round** | The verdict CI gives, at seconds to minutes per save. |
 | **Keep today's rounds and their tail** | A round stays at 15 s to its first result on a one-file fixture. |
+| **Lay the stream and the check only where the config leaves them unset** | A config that sets `staticCheck.tool` or turns streams off would make every round as slow as today while it still says quick; `local.quick: false` already gives those rounds. |
 | **Let `pre-push` take a quick kill** | A quick kill can be one a whole-suite stream would not make; taking it loosens the verdict. |
 | **Measure every moved test file, as today** | The re-measure is the largest part of a round after a source save. |
 
