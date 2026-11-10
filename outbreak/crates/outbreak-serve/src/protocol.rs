@@ -6,6 +6,8 @@
 //!   each key it holds a proof of.
 //! - `keep {"proofs": {<key>: <text>, …}}` holds each proof, journals it, and
 //!   answers `{"kept": <count>}`.
+//! - `forget {"keys": [<key>, …]}` holds no proof under each key, journals
+//!   that, and answers `{"forgot": <count>}`.
 //! - `graph <request>` answers a request of the static graph as `outbreak
 //!   graph reach` does (ADR-0132), each file read for its names again only
 //!   where its bytes changed.
@@ -112,6 +114,7 @@ pub fn answer(state: &mut State, line: &str, contract: u32, read: impl Fn(&str, 
         "contract" => Ok(Answer::said(format!(r#"{{"outbreak":{contract},"serving":true}}"#))),
         "proofs" => proofs(state, json.as_bytes(), contract),
         "keep" => kept(state, json.as_bytes(), contract),
+        "forget" => forgot(state, json.as_bytes(), contract),
         "graph" => graph(state, json.as_bytes(), contract, &read),
         "stop" => Ok(Answer { stops: true, ..Answer::said(format!(r#"{{"outbreak":{contract},"stopping":true}}"#)) }),
         _ => Err(format!("{verb} is no request the daemon answers")),
@@ -120,17 +123,12 @@ pub fn answer(state: &mut State, line: &str, contract: u32, read: impl Fn(&str, 
     answered.unwrap_or_else(|why| Answer::said(refused(&why, contract)))
 }
 
+fn keys(json: &[u8]) -> Result<BTreeSet<String>, String> {
+    only(json, "keys", |cursor| Ok(strings(cursor)?.into_iter().collect()))
+}
+
 fn proofs(state: &State, json: &[u8], contract: u32) -> Result<Answer, String> {
-    let keys = only(json, "keys", |cursor| {
-        let mut items = cursor.array()?;
-        let mut keys = BTreeSet::new();
-
-        while items.next(cursor)? {
-            keys.insert(cursor.string()?);
-        }
-
-        Ok(keys)
-    })?;
+    let keys = keys(json)?;
     let mut line = format!(r#"{{"outbreak":{contract},"proofs":{{"#);
     let mut first = true;
 
@@ -166,6 +164,21 @@ fn kept(state: &mut State, json: &[u8], contract: u32) -> Result<Answer, String>
     Ok(Answer {
         line: format!(r#"{{"outbreak":{contract},"kept":{}}}"#, proofs.len()),
         kept: proofs,
+        stops: false,
+    })
+}
+
+fn forgot(state: &mut State, json: &[u8], contract: u32) -> Result<Answer, String> {
+    let forgotten: Vec<Record> =
+        keys(json)?.into_iter().map(|key| Record { kind: Kind::Forgotten, key, value: Vec::new() }).collect();
+
+    for record in &forgotten {
+        state.apply(record.clone());
+    }
+
+    Ok(Answer {
+        line: format!(r#"{{"outbreak":{contract},"forgot":{}}}"#, forgotten.len()),
+        kept: forgotten,
         stops: false,
     })
 }
@@ -283,6 +296,12 @@ mod tests {
         assert_eq!(kept.line, r#"{"outbreak":1,"kept":2}"#);
         assert_eq!(kept.kept.len(), 2);
         assert_eq!(asked(&mut state, r#"proofs {"keys": ["k2", "k3", "k1"]}"#), r#"{"outbreak":1,"proofs":{"k1":"one","k2":"two"}}"#);
+
+        let forgot = answer(&mut state, r#"forget {"keys": ["k1", "k3"]}"#, 1, |_, _| None);
+
+        assert_eq!(forgot.line, r#"{"outbreak":1,"forgot":2}"#);
+        assert_eq!(forgot.kept.len(), 2);
+        assert_eq!(asked(&mut state, r#"proofs {"keys": ["k1", "k2"]}"#), r#"{"outbreak":1,"proofs":{"k2":"two"}}"#);
     }
 
     #[test]

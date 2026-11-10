@@ -50,6 +50,8 @@ final readonly class ServedState implements NoticesChanges, ReachGraph, ServesSt
 
     private const string KEPT = 'outbreak serve kept %d proofs.';
 
+    private const string FORGOT = 'outbreak serve forgot %d proofs.';
+
     /** The verb `watch` asks for the next change of the files with, and the member each such answer holds. */
     private const string CHANGED = 'changed';
 
@@ -97,15 +99,12 @@ final readonly class ServedState implements NoticesChanges, ReachGraph, ServesSt
 
     public function kept(array $proofs): Written|NotWritten
     {
-        $said = $this->asked('keep', ['proofs' => (object) $proofs], Seconds::none());
+        return $this->counted('keep', ['proofs' => (object) $proofs], 'kept', self::KEPT);
+    }
 
-        try {
-            return $said instanceof Node
-                ? Written::noting($this->socket->path(), sprintf(self::KEPT, $said->field('kept')->integer()))
-                : $said;
-        } catch (NotInShape $unread) {
-            return NotWritten::because(sprintf(self::UNREAD, $unread->getMessage()));
-        }
+    public function forgotten(string ...$keys): Written|NotWritten
+    {
+        return $this->counted('forget', ['keys' => $keys], 'forgot', self::FORGOT);
     }
 
     public function answered(GraphQuestion $question): GraphAnswer|NotWritten
@@ -145,6 +144,24 @@ final readonly class ServedState implements NoticesChanges, ReachGraph, ServesSt
             return $unwatched->isPresent()
                 ? Unwatched::because($unwatched->text())
                 : $said->field(self::CHANGED)->integer();
+        } catch (NotInShape $unread) {
+            return NotWritten::because(sprintf(self::UNREAD, $unread->getMessage()));
+        }
+    }
+
+    /**
+     * What a request that changes the proofs held did, as the count its answer holds says it; or why it did not.
+     *
+     * @param array<string, mixed> $request
+     */
+    private function counted(string $verb, array $request, string $count, string $said): Written|NotWritten
+    {
+        $answer = $this->asked($verb, $request, Seconds::none());
+
+        try {
+            return $answer instanceof Node
+                ? Written::noting($this->socket->path(), sprintf($said, $answer->field($count)->integer()))
+                : $answer;
         } catch (NotInShape $unread) {
             return NotWritten::because(sprintf(self::UNREAD, $unread->getMessage()));
         }

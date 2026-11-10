@@ -406,7 +406,8 @@ it('takes the run\'s own result for a unit that carries its own alone, however n
             : CannotJudge::because(sprintf(<<<'SAID'
                 The ledger no longer holds a proof the plan took, so these units cannot be judged:
                 %s
-                A proof pruned, or a cache replaced, between the plan and the verdict does this. Plan the run again.
+                A proof pruned, a cache replaced or `outbreak serve` gone between the plan and the verdict does this.
+                Plan the run again.
                 SAID, $vanished)));
 })->with([
     'its own result of the code as it is' => ['held now', ''],

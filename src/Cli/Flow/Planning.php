@@ -305,7 +305,9 @@ final readonly class Planning
         $keys = $keying->keysOf($considering->considered());
         $cache = new CachedPacks($this->adapters, $this->settings);
         $cache->pulled($inventory->standing, $keying->base());
-        $proving = $ledgers->caching($cache->read($inventory->standing, $keying->base()))
+        $taken = $mode->takes($this->settings->proofs()->taken());
+        $served = ServedProofs::read($this->adapters, $taken, $ledgers, $keys);
+        $proving = $ledgers->caching($cache->read($inventory->standing, $keying->base())->serving($served))
             ->proving($considering->considered(), $keys, $keying->base(), $kind);
         $changed = $this->newCode($inventory->standing, $reached);
         $auto = AutoSampling::of(

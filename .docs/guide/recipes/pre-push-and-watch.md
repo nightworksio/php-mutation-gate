@@ -25,6 +25,11 @@ what each batch judged as it ends, before the round's verdict. `run`,
 daemon serves runs at the daemon's priority. Every key is in the
 [config](../../reference/configuration.md#every-key).
 
+While `outbreak serve` runs, `watch` hands it the proofs each round makes
+and writes the local ledger once it stops. A `pre-push` meanwhile takes
+those proofs from the daemon where its keys match them, which a quick
+round's never do (`local.quick`).
+
 On Windows, run the gate inside WSL2: the gate does not support Windows
 itself, and WSL2 runs it as Linux does, split streams included.
 

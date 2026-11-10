@@ -8,6 +8,7 @@ use Closure;
 
 use function count;
 
+use NightWorksIO\MutationGate\Adapter\Outbreak\HeldLedgers;
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\ExitCode;
@@ -21,6 +22,7 @@ use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\QuickRound;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\ServedProofs;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Looked;
@@ -31,7 +33,9 @@ use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Local\Power;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Serve\ServesState;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
@@ -67,7 +71,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  * covers each changed source file by the tests the kept map and the static
  * graph show running it, streams its mutants by their covering test files
  * with no static check, says it is no verdict, and keys its proofs apart.
- * It never writes the baseline, and it runs until it is stopped.
+ * Where `outbreak serve` keeps proofs, the rounds hold the ledgers between
+ * them, the daemon journals the proofs each round gains, and the ledgers are
+ * written once the watch ends (ADR-0133). It never writes the baseline, and
+ * it runs until it is stopped.
  *
  * @internal
  */
@@ -92,6 +99,7 @@ final readonly class WatchCommand
         private OutputInterface $output,
         private Closure $waited,
         private bool $report,
+        private HeldLedgers|NotGiven $held,
     ) {
     }
 
@@ -108,6 +116,16 @@ final readonly class WatchCommand
                 $printing = FlowOptions::printing($input, events: true);
                 $composed = $composition->composeForWatch($input);
                 $composed = $composed instanceof Composed ? self::budgeted($composed, $input) : $composed;
+                $held = $composed instanceof Composed ? self::held($composed) : NotGiven::value();
+                $composed = $composed instanceof Composed && $held instanceof HeldLedgers
+                    ? new Composed(
+                        $composed->settings,
+                        $composed->adapters->withProofs($held),
+                        $composed->setup,
+                        $composed->reporting,
+                        $composed->ruling,
+                    )
+                    : $composed;
 
                 return match (true) {
                     $printing instanceof CannotJudge => Failed::because($output, $printing),
@@ -118,6 +136,7 @@ final readonly class WatchCommand
                         $output,
                         $waited,
                         $input->getOption(self::REPORT) === true,
+                        $held,
                     )->watched(),
                 };
             });
@@ -129,6 +148,14 @@ final readonly class WatchCommand
         return CommandLine::from($input)->budget instanceof NotGiven
             ? $composed->budgeted($composed->settings->local()->watchBudget())
             : $composed;
+    }
+
+    /** The ledgers each round reads and writes held between the rounds, where `outbreak serve` keeps proofs. */
+    private static function held(Composed $composed): HeldLedgers|NotGiven
+    {
+        $state = ServedProofs::state($composed->adapters);
+
+        return $state instanceof ServesState ? new HeldLedgers($composed->adapters->proofs, $state) : $state;
     }
 
     private function watched(): int
@@ -149,7 +176,14 @@ final readonly class WatchCommand
             fn(string $said) => $this->printing->note($said, $this->output),
         );
 
-        return $this->rounds($watched, $waits);
+        $ended = $this->rounds($watched, $waits);
+        $released = $this->held instanceof HeldLedgers ? $this->held->released() : NotGiven::value();
+
+        if ($released instanceof NotWritten) {
+            $this->printing->note($released->why(), $this->output);
+        }
+
+        return $ended;
     }
 
     /**

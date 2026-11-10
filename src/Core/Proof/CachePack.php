@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_slice;
-use function base64_decode;
-use function base64_encode;
 use function explode;
 use function implode;
 use function is_string;
@@ -60,10 +58,9 @@ final readonly class CachePack
                 continue;
             }
 
-            $ledger = LedgerFile::encode(Ledger::empty()->atBase($base)->withProof($proof));
             $lines[] = Json::object(
                 Member::of('key', $proof->key()->value()),
-                Member::of('ledger', base64_encode($ledger)),
+                Member::of('ledger', ProofEntry::text($proof)),
             )->line();
         }
 
@@ -135,8 +132,7 @@ final readonly class CachePack
 
             $entry = Node::decode($line);
             $key = Digest::of($entry->field('key')->text());
-            $ledger = base64_decode($entry->field('ledger')->text(), strict: true);
-            $proof = is_string($ledger) ? LedgerFile::decode($ledger)->proofs()->proofFor($key) : null;
+            $proof = ProofEntry::read($key, $entry->field('ledger')->text());
 
             if (! $proof instanceof Proof) {
                 throw NotInShape::at($key->value(), 'a ledger holding the proof under its key');

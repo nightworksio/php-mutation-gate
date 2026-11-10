@@ -25,18 +25,22 @@ const LENGTH: usize = 4;
 pub enum Kind {
     /// A proof, by its key.
     Proof,
+    /// A proof no longer held, by its key.
+    Forgotten,
 }
 
 impl Kind {
     const fn byte(self) -> u8 {
         match self {
             Self::Proof => 1,
+            Self::Forgotten => 2,
         }
     }
 
     const fn of(byte: u8) -> Option<Self> {
         match byte {
             1 => Some(Self::Proof),
+            2 => Some(Self::Forgotten),
             _ => None,
         }
     }

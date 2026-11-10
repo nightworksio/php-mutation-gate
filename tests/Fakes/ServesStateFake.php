@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
+use function array_diff_key;
 use function array_flip;
 use function array_intersect_key;
 use function count;
@@ -54,5 +55,16 @@ final class ServesStateFake implements ServesState
         $this->proofs = [...$this->proofs, ...$proofs];
 
         return Written::noting('state', sprintf('outbreak serve kept %d proofs.', count($proofs)));
+    }
+
+    public function forgotten(string ...$keys): Written|NotWritten
+    {
+        if (! $this->running) {
+            return NotWritten::because('No outbreak serve answers.');
+        }
+
+        $this->proofs = array_diff_key($this->proofs, array_flip($keys));
+
+        return Written::noting('state', sprintf('outbreak serve forgot %d proofs.', count($keys)));
     }
 }

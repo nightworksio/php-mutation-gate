@@ -29,4 +29,7 @@ interface ServesState
      * @param array<string, string> $proofs each proof's text, by its key
      */
     public function kept(array $proofs): Written|NotWritten;
+
+    /** No proof held under any of these keys any more, and that journalled; or why it was not. */
+    public function forgotten(string ...$keys): Written|NotWritten;
 }

@@ -66,6 +66,17 @@ final readonly class ScopeRuns
         return new self($this->passed, CannotTell::because(self::NEVER_RUN), $this->judged);
     }
 
+    /**
+     * Whether these tell of the same commit that passed, last run and run
+     * judged as others do: each the same record, or none in both.
+     */
+    public function tellsAs(self $other): bool
+    {
+        return self::same($this->passed, $other->passed)
+            && self::same($this->lastRun, $other->lastRun)
+            && self::same($this->judged, $other->judged);
+    }
+
     public function passed(): Passed|CannotTell
     {
         return $this->passed;
@@ -80,5 +91,10 @@ final readonly class ScopeRuns
     public function judged(): Judged|CannotTell
     {
         return $this->judged;
+    }
+
+    private static function same(Passed|LastRun|Judged|CannotTell $one, Passed|LastRun|Judged|CannotTell $other): bool
+    {
+        return $one === $other || ($one instanceof CannotTell && $other instanceof CannotTell);
     }
 }

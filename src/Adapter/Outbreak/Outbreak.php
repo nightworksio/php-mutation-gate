@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
+use NightWorksIO\MutationGate\Core\Serve\ServesState;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Written;
@@ -305,6 +306,12 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
 
     /** The changes `outbreak serve` watches the files for, where it serves the project; none otherwise. */
     public function notices(): NoticesChanges|NotGiven
+    {
+        return $this->served;
+    }
+
+    /** The proofs `outbreak serve` keeps by key, where it serves the project; none otherwise. */
+    public function state(): ServesState|NotGiven
     {
         return $this->served;
     }

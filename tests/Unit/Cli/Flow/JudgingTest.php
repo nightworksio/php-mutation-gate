@@ -793,7 +793,8 @@ it('cannot judge where a unit the plan proved or carried has lost its proof', fu
     expect($judgement)->toEqual(CannotJudge::because(<<<'SAID'
         The ledger no longer holds a proof the plan took, so these units cannot be judged:
         src/Money.php, src/Held.php
-        A proof pruned, or a cache replaced, between the plan and the verdict does this. Plan the run again.
+        A proof pruned, a cache replaced or `outbreak serve` gone between the plan and the verdict does this.
+        Plan the run again.
         SAID))
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7))))->toEqual(Ledger::empty());
 });

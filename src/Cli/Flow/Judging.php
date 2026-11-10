@@ -115,7 +115,8 @@ final readonly class Judging
     private const string VANISHED = <<<'SAID'
         The ledger no longer holds a proof the plan took, so these units cannot be judged:
         %s
-        A proof pruned, or a cache replaced, between the plan and the verdict does this. Plan the run again.
+        A proof pruned, a cache replaced or `outbreak serve` gone between the plan and the verdict does this.
+        Plan the run again.
         SAID;
 
     public function __construct(
@@ -253,7 +254,8 @@ final readonly class Judging
         );
         $kind = $plan->briefing()->profile();
         $cached = new CachedPacks($this->adapters, $this->settings)->read(Standing::planned($plan), $plan->base());
-        $proving = $ledgers->caching($cached)
+        $served = ServedProofs::read($this->adapters, $this->settings->proofs()->taken(), $ledgers, $plan->keys());
+        $proving = $ledgers->caching($cached->serving($served))
             ->proving($plan->considered()->proved(), $plan->keys(), $plan->base(), $kind);
         $carrying = $ledgers->considering(
             $plan->considered()->carried(),

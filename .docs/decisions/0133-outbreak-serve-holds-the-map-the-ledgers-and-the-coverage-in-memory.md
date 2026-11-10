@@ -34,8 +34,8 @@ fallback.
 ## Decision
 
 1. **`outbreak serve` keeps a project's state in memory**: the coverage map
-   as an index from each site and line to its tests, the proofs of the
-   ledgers it read by key, the test inventory, the killer history, each
+   as an index from each site and line to its tests, the proofs `watch`
+   rounds kept, by key, the test inventory, the killer history, each
    file's digest and the spans of its functions, and the static graph
    (ADR-0132). The PHP gate asks it for slices of these instead of reading
    the files they come from.
@@ -61,9 +61,17 @@ fallback.
      length-prefixed and checksummed, synced to disk at most once every
      `outbreak.serve.syncEvery` (`1s` by default).
 
-   A record whose checksum fails ends the journal there. `ledger.json.gz` and
-   `coverage.json.gz`, which the PHP gate and CI read, are written by `run`,
-   `pre-push` and the daemon's exit, never by a save's round.
+   A record whose checksum fails ends the journal there. A `watch` round
+   holds the ledgers it read and hands the daemon the proofs it gained and
+   the keys of those it dropped, which the journal records, in place of
+   writing `ledger.json.gz`; `watch` writes each ledger it held as it ends,
+   over what the store holds then, and a round that changes what a ledger
+   tells of its runs, or whose proofs the daemon does not keep, writes it as
+   a round without the daemon does. A run that takes every proof
+   (`proofs.ownScope`) takes one the daemon keeps under a key no ledger it
+   read holds, after its own scope's. `coverage.json.gz`, which the PHP gate
+   and CI read, is written by `run`, `pre-push` and the daemon's exit, never
+   by a save's round.
 4. **In CI a shard holds one daemon for its life.** The shard's first
    invocation starts `outbreak serve` in the shard's workspace, with no
    socket outside `.mutation-gate`, and every later chunk's runner asks it for
@@ -132,12 +140,15 @@ fallback.
     point a fork would come, each running one mutant's run and exiting,
     with a new one booting behind it, under a Job Object that ends them with
     the daemon. WSL2 is documented as the path with split streams.
-12. **One suite holds the daemon to the gate's readers.** A snapshot and
-   journal decode to the ledger's proofs and the map's text exactly as the
-   PHP readers read them, and a state written, journalled and read back
-   writes `ledger.json.gz` and `map.json.gz` holding the text the PHP gate
-   writes (their gzip bytes may differ, as ADR-0118 allows). The snapshot's
-   and the journal's decoders are fuzzed.
+12. **One suite holds the daemon to the gate's readers.** A proof the
+   daemon keeps is the entry a pack of `outbreak cache` holds (ADR-0131), a
+   ledger of that proof alone, kept as the gate wrote it, so a state
+   written, journalled and read back answers each proof the PHP reader
+   reads as it was kept and none it forgot; a snapshot and journal decode
+   to the map's text exactly as the PHP reader reads it, and the daemon
+   writes `map.json.gz` holding the text the PHP gate writes (its gzip
+   bytes may differ, as ADR-0118 allows). The snapshot's and the journal's
+   decoders are fuzzed.
 
 ### Settings
 
@@ -153,6 +164,10 @@ fallback.
 - **The state is a cache of files the gate reads.** Every answer is checked
   against the contract suite to be what the PHP reader of the same file
   answers, and a state that does not pass its checksum is not read.
+- **A kept proof is taken as a ledger's is:** only under the key it was
+  kept by and only for a run of the kind it stands for; a proof a round
+  drops, the daemon is asked to forget, again with each later write until
+  it does.
 - **An identity change ends it,** as ADR-0078 decides: a new gate, lock or
   config, and the daemon refuses and exits.
 - **A dead daemon costs time, not a verdict.** Its clients see the socket

@@ -8,7 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Proof;
  * The proofs a run read from the packs of `outbreak cache` it trusts
  * (ADR-0131): those trusted writers wrote, which prove after the default
  * branch's ledger, and those a branch wrote, which prove after the run's own
- * scope's and count as its own scope's proofs do.
+ * scope's and count as its own scope's proofs do; and those `outbreak serve`
+ * keeps, which prove after a branch's.
  *
  * @internal
  */
@@ -29,6 +30,15 @@ final readonly class CachedProofs
         return $class === CacheClass::Trusted
             ? new self($this->trusted->before($proofs), $this->branch)
             : new self($this->trusted, $this->branch->before($proofs));
+    }
+
+    /**
+     * These, and the proofs `outbreak serve` keeps besides (ADR-0133), which
+     * prove after a branch's, as the run's own scope's do.
+     */
+    public function serving(Proofs $served): self
+    {
+        return new self($this->trusted, $this->branch->before($served));
     }
 
     /** The proofs trusted writers wrote. */

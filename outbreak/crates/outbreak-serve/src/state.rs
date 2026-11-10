@@ -1,7 +1,8 @@
 //! What the daemon holds in memory (ADR-0133, decision 1): the proofs the
-//! gate kept, by key, and what each file of the static graph declares and
-//! names, by its path and the digest of its bytes, so a file is read for its
-//! names again only where it changed (ADR-0132, decision 6).
+//! gate kept and has not forgotten, by key, and what each file of the static
+//! graph declares and names, by its path and the digest of its bytes, so a
+//! file is read for its names again only where it changed (ADR-0132,
+//! decision 6).
 
 use std::collections::BTreeMap;
 
@@ -30,11 +31,14 @@ impl State {
         state
     }
 
-    /// This state, with a record in place of any it held under its key.
+    /// This state, with a record in place of any it held under its key, or none under the key a forgetting names.
     pub fn apply(&mut self, record: Record) {
         match record.kind {
             Kind::Proof => {
                 self.proofs.insert(record.key, record.value);
+            }
+            Kind::Forgotten => {
+                self.proofs.remove(&record.key);
             }
         }
     }
@@ -84,6 +88,16 @@ mod tests {
         assert_eq!(state.proof("k"), Some(&b"new"[..]));
         assert_eq!(state.proof("other"), None);
         assert_eq!(state.records(), vec![record("new")]);
+    }
+
+    #[test]
+    fn forgets_a_proof_until_it_is_kept_again() {
+        let kept = Record { kind: Kind::Proof, key: "k".to_owned(), value: b"proof".to_vec() };
+        let forgotten = Record { kind: Kind::Forgotten, key: "k".to_owned(), value: Vec::new() };
+
+        assert_eq!(State::of([kept.clone(), forgotten.clone()]).proof("k"), None);
+        assert!(State::of([kept.clone(), forgotten.clone()]).records().is_empty());
+        assert_eq!(State::of([forgotten, kept]).proof("k"), Some(&b"proof"[..]));
     }
 
     #[test]
