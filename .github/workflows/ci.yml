@@ -851,7 +851,7 @@ jobs:
 
   mutation:
     needs: [scope, tests, checks, rules, scripts, mutation-early]
-    if: ${{ !cancelled() && (needs.mutation-early.result == 'skipped' || needs.mutation-early.outputs.waits == 'true') && needs.tests.result != 'failure' && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' && needs.scope.outputs.judged != 'true' }}
+    if: ${{ !cancelled() && (needs.mutation-early.result == 'skipped' || needs.mutation-early.outputs.waits == 'true') && needs.scope.outputs.judged != 'true' }}
     permissions:
       contents: write # used only by publish, on the default branch, which writes the badge and the trend
       actions: read # used only by verdict and deliver, to find the run's HTML report the comment links
@@ -862,10 +862,6 @@ jobs:
       coverage: ${{ needs.tests.result == 'success' && 'mutation-gate-map' || '' }}
       # The zstd extension, so the ledger's zstd is mutated through it as the tests cover it (ADR-0085).
       extensions: zstd
-      # On a pull request, main's build at the commit the change branched from judges, so a change to the runner
-      # re-runs only its own units; the runner contract and end-to-end jobs prove the change's runner. A push is
-      # judged by its own build (ADR-0140).
-      judge: ${{ github.event_name == 'pull_request' && 'merge-base' || '' }}
       runs-on: ubuntu-24.04-arm
       mode: ${{ github.event_name == 'schedule' && 'unproven' || 'auto' }}
       merged-records: true
