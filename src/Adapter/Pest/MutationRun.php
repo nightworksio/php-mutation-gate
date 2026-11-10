@@ -391,14 +391,13 @@ final readonly class MutationRun
 
     /**
      * What tells a split stream to load `outbreak.so`, and what it watches,
-     * where `outbreak.forkStates` or `outbreak.recheckTouchedKills` asks
-     * (ADR-0130); nothing otherwise.
+     * where a setting asks (ADR-0130, ADR-0147); nothing otherwise.
      *
      * @return array<string, string>
      */
     private function streamExtension(): array
     {
-        $streams = $this->extension instanceof ShippedExtension ? $this->extension->forStreams() : NotGiven::value();
+        $streams = $this->extension instanceof ShippedExtension ? $this->extension->forStreams(recording: false) : NotGiven::value();
 
         return is_array($streams)
             ? [GateVariable::StreamExtension->value => $streams[0], GateVariable::Observe->value => $streams[1]]

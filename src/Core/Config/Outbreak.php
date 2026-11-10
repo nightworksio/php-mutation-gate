@@ -19,9 +19,11 @@ use function sprintf;
  * where `outbreak cache` keeps proofs by their keys (ADR-0131), and whether
  * `outbreak.so` proves a mutant equivalent before it runs and rechecks a
  * stream's kill by a test that touched nondeterminism (ADR-0130), and where
- * its static graph acts (ADR-0132), and whether `outbreak serve` holds the
- * project's state (ADR-0133): `outbreak`, which the `Shards` part
- * holds. Only `outbreak.equivalence` and `outbreak.recheckTouchedKills`
+ * its static graph acts (ADR-0132), whether `outbreak serve` holds the
+ * project's state (ADR-0133), and whether a stream records its lines and
+ * holds a child to its parent's steps with `outbreak.so` (ADR-0147):
+ * `outbreak`, which the `Shards` part holds. Only `outbreak.equivalence`,
+ * `outbreak.recheckTouchedKills`, `outbreak.steps` and `outbreak.stepFloor`
  * change a result, so only they are in a proof's key: the binary's output is
  * the gate's own, a cached proof stands under its key as a ledger's does, and
  * the graph decides what a run reaches, as a `reach` setting does.
@@ -55,6 +57,18 @@ final readonly class Outbreak
     /** The key of `outbreak.graph`. */
     public const string GRAPH = 'graph';
 
+    /** The key of `outbreak.lines`. */
+    public const string LINES = 'lines';
+
+    /** The key of `outbreak.steps`. */
+    public const string STEPS = 'steps';
+
+    /** The key of `outbreak.stepFloor`. */
+    public const string STEP_FLOOR = 'stepFloor';
+
+    /** The least steps a child may take past its parent's share, where the config does not say. */
+    private const int STEP_FLOOR_STEPS = 10_000_000;
+
     /** The minutes one run of the binary may take, where the config does not say. */
     private const int MINUTES = 5;
 
@@ -69,6 +83,9 @@ final readonly class Outbreak
         private bool|Absent $recheckTouchedKills,
         private GraphUse|Absent $graph,
         private OutbreakServe $serve,
+        private bool|Absent $lines,
+        private bool|Absent $steps,
+        private int|Absent $stepFloor,
     ) {
     }
 
@@ -83,6 +100,9 @@ final readonly class Outbreak
         bool|Absent $recheckTouchedKills = new Absent(),
         GraphUse|Absent $graph = new Absent(),
         OutbreakServe|Absent $serve = new Absent(),
+        bool|Absent $lines = new Absent(),
+        bool|Absent $steps = new Absent(),
+        int|Absent $stepFloor = new Absent(),
     ): self {
         return new self(
             $enabled,
@@ -95,6 +115,9 @@ final readonly class Outbreak
             $recheckTouchedKills,
             $graph,
             $serve instanceof OutbreakServe ? $serve : OutbreakServe::of(),
+            $lines,
+            $steps,
+            $stepFloor,
         );
     }
 
@@ -112,6 +135,9 @@ final readonly class Outbreak
             Absent::laid($this->recheckTouchedKills, $later->recheckTouchedKills),
             Absent::laid($this->graph, $later->graph),
             $this->serve->over($later->serve),
+            Absent::laid($this->lines, $later->lines),
+            Absent::laid($this->steps, $later->steps),
+            Absent::laid($this->stepFloor, $later->stepFloor),
         );
     }
 
@@ -192,6 +218,31 @@ final readonly class Outbreak
         return $this->graph instanceof GraphUse ? $this->graph : GraphUse::Local;
     }
 
+    /**
+     * `outbreak.lines`: whether a stream records its tests' lines with
+     * `outbreak.so` where it records them, in place of pcov; true by default.
+     */
+    public function lines(): bool
+    {
+        return $this->lines instanceof Absent || $this->lines;
+    }
+
+    /**
+     * `outbreak.steps`: whether a stream holds a child to its parent's steps
+     * where `outbreak.so` counts them, in place of its parent's time; true
+     * by default.
+     */
+    public function steps(): bool
+    {
+        return $this->steps instanceof Absent || $this->steps;
+    }
+
+    /** `outbreak.stepFloor`: the least steps a child may take past its parent's share; ten million by default. */
+    public function stepFloor(): int
+    {
+        return $this->stepFloor instanceof Absent ? self::STEP_FLOOR_STEPS : $this->stepFloor;
+    }
+
     /** `outbreak.serve`: whether `outbreak serve` holds the project's state, and its clocks (ADR-0133). */
     public function serve(): OutbreakServe
     {
@@ -221,6 +272,9 @@ final readonly class Outbreak
                 Member::of(self::EQUIVALENCE, $this->equivalence()),
                 Member::of(self::FORK_STATES, $this->forkStates()),
                 Member::of(self::RECHECK_TOUCHED_KILLS, $this->recheckTouchedKills()),
+                Member::of(self::LINES, $this->lines()),
+                Member::of(self::STEPS, $this->steps()),
+                Member::of(self::STEP_FLOOR, $this->stepFloor()),
                 $this->cache->option(),
             ),
         ));
@@ -243,6 +297,9 @@ final readonly class Outbreak
                 Member::of(self::FORK_STATES, $this->forkStates),
                 Member::of(self::RECHECK_TOUCHED_KILLS, $this->recheckTouchedKills),
                 Member::of(self::GRAPH, $this->graph instanceof GraphUse ? $this->graph->value : $this->graph),
+                Member::of(self::LINES, $this->lines),
+                Member::of(self::STEPS, $this->steps),
+                Member::of(self::STEP_FLOOR, $this->stepFloor),
                 $this->serve->written(),
                 $this->cache->written(),
             ),
@@ -280,6 +337,17 @@ final readonly class Outbreak
                 default => [],
             },
             ...$this->graph instanceof GraphUse ? [$this->graph->php()] : [],
+            ...match ($this->lines) {
+                true => ['Outbreak::linesRecorded()'],
+                false => ['Outbreak::linesByPcov()'],
+                default => [],
+            },
+            ...match ($this->steps) {
+                true => ['Outbreak::stepsCounted()'],
+                false => ['Outbreak::stepsUncounted()'],
+                default => [],
+            },
+            ...$this->stepFloor instanceof Absent ? [] : [sprintf('Outbreak::stepFloor(%d)', $this->stepFloor)],
             ...$this->serve->php(),
             ...$this->cache->php(),
         ]);

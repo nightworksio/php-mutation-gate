@@ -112,6 +112,36 @@ final readonly class Outbreak implements Setting
         return new self(Json::at('outbreak.graph', 'off'));
     }
 
+    /** `outbreak.lines` on, as by default: a stream records its tests' lines with `outbreak.so` where it loads. */
+    public static function linesRecorded(): self
+    {
+        return new self(Json::at('outbreak.lines', value: true));
+    }
+
+    /** `outbreak.lines` off: a stream records its tests' lines with pcov alone. */
+    public static function linesByPcov(): self
+    {
+        return new self(Json::at('outbreak.lines', value: false));
+    }
+
+    /** `outbreak.steps` on, as by default: a stream holds a child to its parent's steps where `outbreak.so` counts them. */
+    public static function stepsCounted(): self
+    {
+        return new self(Json::at('outbreak.steps', value: true));
+    }
+
+    /** `outbreak.steps` off: a stream holds a child to its parent's time. */
+    public static function stepsUncounted(): self
+    {
+        return new self(Json::at('outbreak.steps', value: false));
+    }
+
+    /** `outbreak.stepFloor`: the least steps a child may take past its parent's share; ten million by default. */
+    public static function stepFloor(int $steps): self
+    {
+        return new self(Json::at('outbreak.stepFloor', $steps));
+    }
+
     /** `outbreak.serve.enabled`, as by default: `outbreak serve` holds the project's state where the binary is in use. */
     public static function serving(): self
     {

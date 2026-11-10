@@ -40,6 +40,9 @@ final readonly class OutbreakKeys
         $recheck = Field::optional(Outbreak::RECHECK_TOUCHED_KILLS, Flag::boolean(), Effect::AffectsResults);
         $graph = Field::optional(Outbreak::GRAPH, Enumerated::of(GraphUse::cases()), Effect::DecidesHowTheGateRuns);
         $serve = Field::section(OutbreakServe::OPTION, self::serve());
+        $lines = Field::optional(Outbreak::LINES, Flag::boolean(), Effect::DecidesHowTheGateRuns);
+        $steps = Field::optional(Outbreak::STEPS, Flag::boolean(), Effect::AffectsResults);
+        $stepFloor = Field::optional(Outbreak::STEP_FLOOR, Integer::atLeast(1), Effect::AffectsResults);
 
         return [Field::section(
             Outbreak::OPTION,
@@ -55,6 +58,9 @@ final readonly class OutbreakKeys
                     $recheck,
                     $graph,
                     $serve,
+                    $lines,
+                    $steps,
+                    $stepFloor,
                 ): Layer|Invalid {
                     $on = $enabled->read($outbreak);
                     $at = $binary->read($outbreak);
@@ -66,6 +72,9 @@ final readonly class OutbreakKeys
                     $rechecks = $recheck->read($outbreak);
                     $acts = $graph->read($outbreak);
                     $serves = $serve->read($outbreak);
+                    $records = $lines->read($outbreak);
+                    $counted = $steps->read($outbreak);
+                    $floor = $stepFloor->read($outbreak);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Shards::of(outbreak: Outbreak::of(
@@ -79,6 +88,9 @@ final readonly class OutbreakKeys
                             $rechecks->value(),
                             $acts->value(),
                             $serves->value(),
+                            $records->value(),
+                            $counted->value(),
+                            $floor->value(),
                         ))),
                         $on,
                         $at,
@@ -90,6 +102,9 @@ final readonly class OutbreakKeys
                         $rechecks,
                         $acts,
                         $serves,
+                        $records,
+                        $counted,
+                        $floor,
                     );
                 },
                 $enabled,
@@ -102,6 +117,9 @@ final readonly class OutbreakKeys
                 $recheck,
                 $graph,
                 $serve,
+                $lines,
+                $steps,
+                $stepFloor,
             ),
         )];
     }
