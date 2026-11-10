@@ -93,9 +93,10 @@ final readonly class Streams
             $processes,
             $settings->children(),
             $settings->recording(),
+            $settings->bootsOnce(),
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $settings);
-        $again = [...self::undecided($sites, $covering, $verdicts), ...$unrun];
+        $again = [...self::undecided($sites, $covering, $verdicts), ...$unrun, ...self::booted($sites, $verdicts)];
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $verdicts);
 
         foreach ($byId as $mutant => $test) {
@@ -231,6 +232,29 @@ final readonly class Streams
         }
 
         return $held;
+    }
+
+    /**
+     * The sites of the mutants whose site ran while a first-pass stream booted
+     * its application once, which no test forked from it could reach: a
+     * second pass boots the application in every test, as a run without
+     * `splitStream.bootOnce` does.
+     *
+     * @param  array<string, array{string, int, string, array<string, string>}> $sites
+     * @return array<string, array{string, int, string, array<string, string>}>
+     */
+    private static function booted(array $sites, StreamVerdicts $verdicts): array
+    {
+        $again = [];
+
+        foreach ($verdicts->booted() as $mutant) {
+            if (array_key_exists($mutant, $sites)) {
+                [$key, $id, , $variables] = $sites[$mutant];
+                $again[$mutant] = [$key, $id, '', $variables];
+            }
+        }
+
+        return $again;
     }
 
     /**

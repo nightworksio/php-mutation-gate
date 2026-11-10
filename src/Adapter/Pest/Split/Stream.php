@@ -5,16 +5,19 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_key_exists;
+use function clearstatcache;
 
 use Closure;
 
 use const FILE_APPEND;
 
 use function file_put_contents;
+use function filesize;
 use function function_exists;
 use function get_included_files;
 use function getcwd;
 use function hrtime;
+use function is_file;
 use function is_string;
 
 use const LOCK_EX;
@@ -26,7 +29,9 @@ use function outbreak_state_digest;
 use function outbreak_state_watch;
 use function outbreak_touched;
 use function outbreak_touches_start;
+use function pcntl_fork;
 use function pcntl_signal;
+use function pcntl_waitpid;
 use function posix_getpid;
 use function posix_kill;
 use function putenv;
@@ -89,6 +94,18 @@ final class Stream
     /** @var array<string, list<int>> every line pcov reported in each file the parent's tests loaded, executed or not */
     private array $reported = [];
 
+    /** Whether the stream boots the application it hands each test's own process (`splitStream.bootOnce`). */
+    private bool $booting = false;
+
+    /** @var array<string, true> the mutants whose site ran while the stream booted its application, by id */
+    private array $booted = [];
+
+    /** Whether the stream handed the current test to a process forked for it, and skips it itself. */
+    private bool $handed = false;
+
+    /** Whether this process is a test's own, forked from the stream's booted application, which ends with the test. */
+    private bool $testProcess = false;
+
     /** The mutant this process runs, in a child; none in the parent. */
     private string $mutant = '';
 
@@ -124,6 +141,10 @@ final class Stream
 
         self::$stream = new self($plan, new Children($plan), new Kills(), Descriptors::held());
 
+        if ($plan->bootOnce && $plan->recording === '') {
+            Zygote::prepared(sprintf('%s.zygote', $plan->results));
+        }
+
         foreach ($plan->unservedIn(get_included_files()) as $mutant) {
             self::$stream->write(StreamLine::unserved($mutant));
         }
@@ -145,6 +166,31 @@ final class Stream
         if (self::$stream instanceof self) {
             self::$stream->failed = true;
         }
+    }
+
+    /** The stream starts or stops booting the application it hands each test's own process. */
+    public static function booting(bool $booting): void
+    {
+        if (self::$stream instanceof self) {
+            self::$stream->booting = $booting;
+        }
+    }
+
+    /**
+     * Forks the current test from the booted application: true in the
+     * test's own process, which runs it; false in the stream's, which waits
+     * for it, reads its kills, and skips the test; null where the stream
+     * cannot fork here, and the test boots its own application.
+     */
+    public static function forkedTest(): ?bool
+    {
+        $stream = self::$stream;
+
+        return $stream instanceof self && $stream->mutant === '' && ! $stream->testProcess && $stream->forkable
+            && $stream->test !== ''
+            && Descriptors::held()->shares($stream->start) === false
+            ? $stream->handedOver()
+            : null;
     }
 
     /** The test raised an issue: it was risky, or triggered a deprecation, a notice or a warning. */
@@ -198,6 +244,7 @@ final class Stream
         $this->failed = false;
         $this->troubled = false;
         $this->own = false;
+        $this->handed = false;
         $this->forked = [];
         $this->watching = [];
         $this->forkable = ! Descriptors::held()->shares($this->start);
@@ -230,6 +277,12 @@ final class Stream
             return;
         }
 
+        if ($this->handed) {
+            $this->test = '';
+
+            return;
+        }
+
         $seconds = ((int) hrtime(as_number: true) - $this->started) / Seconds::NANOSECONDS;
 
         if ($this->mutant !== '') {
@@ -256,6 +309,50 @@ final class Stream
         $this->children->ended($this->test, $seconds);
         $this->test = '';
         $this->kills->failedIn($this->children->reaped(blocking: false));
+
+        if ($this->testProcess) {
+            while ($this->children->areRunning()) {
+                $this->children->reaped(blocking: true);
+            }
+
+            posix_kill(posix_getpid(), SIGKILL);
+        }
+    }
+
+    /**
+     * Hands the current test to a process forked for it: true in that
+     * process; false in the stream's, once that process ended, with the
+     * kills it wrote read, or a fallback written where it never ended the
+     * test; null where PHP cannot fork.
+     */
+    private function handedOver(): ?bool
+    {
+        clearstatcache(true, $this->plan->results);
+        $from = is_file($this->plan->results) ? (int) filesize($this->plan->results) : 0;
+        $pid = pcntl_fork();
+
+        if ($pid === -1) {
+            return null;
+        }
+
+        if ($pid === 0) {
+            $this->testProcess = true;
+
+            return true;
+        }
+
+        pcntl_waitpid($pid, $status);
+        $this->handed = true;
+        $ended = HandedTest::read($this->plan->results, $from, $this->test);
+        $this->kills->failedIn($ended->failed);
+
+        if ($ended->passed === null) {
+            $this->write(StreamLine::fallback($this->test));
+        } else {
+            $this->kills->ended($this->test, $ended->passed);
+        }
+
+        return false;
     }
 
     /** Whether this execution of a site runs its mutant: in a child forked here, yes; in the parent, never. */
@@ -281,11 +378,29 @@ final class Stream
     /** Whether the stream forks a site's mutant at this execution. */
     private function forks(string $file, int $id): bool
     {
+        if ($this->booting) {
+            $this->bootedAt($file, $id);
+
+            return false;
+        }
+
         $site = $this->isForkable($file, $id) ? $this->plan->sites[$file][$id] : false;
 
         return $site !== false
             && ! $this->kills->has($site[0])
+            && ! array_key_exists($site[0], $this->booted)
             && ($site[1] === '' || $site[1] === $this->test);
+    }
+
+    /** A site ran while the stream booted its application: its mutant is left to a stream that boots in every test. */
+    private function bootedAt(string $file, int $id): void
+    {
+        $mutant = $this->plan->sites[$file][$id][0] ?? '';
+
+        if ($mutant !== '' && ! array_key_exists($mutant, $this->booted)) {
+            $this->booted[$mutant] = true;
+            $this->write(StreamLine::booted($mutant));
+        }
     }
 
     /** Whether the stream may fork at a site of the plan this execution reaches, not yet forked in this test. */

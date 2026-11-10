@@ -35,6 +35,7 @@ final readonly class StreamPlan
         public int $children,
         public ChildLimit $limit,
         public string $recording = '',
+        public bool $bootOnce = false,
     ) {
     }
 

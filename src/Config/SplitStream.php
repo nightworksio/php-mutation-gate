@@ -70,6 +70,22 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.killerStreams', value: false));
     }
 
+    /**
+     * `splitStream.bootOnce`: a stream boots a framework's application once
+     * and forks each test from it; a mutant whose site runs during the boot
+     * streams again with a boot in every test.
+     */
+    public static function bootOnce(): self
+    {
+        return new self(Json::at('splitStream.bootOnce', value: true));
+    }
+
+    /** `splitStream.bootOnce` off, as by default: each test boots its application as it does without the gate. */
+    public static function bootPerTest(): self
+    {
+        return new self(Json::at('splitStream.bootOnce', value: false));
+    }
+
     /** `splitStream.sharding` `tests`, as by default: each shard streams a part of the test files, timed alike. */
     public static function shardingByTests(): self
     {

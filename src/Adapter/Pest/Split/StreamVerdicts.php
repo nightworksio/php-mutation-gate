@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 use function array_any;
 use function array_filter;
 use function array_key_exists;
+use function array_keys;
 
 use Closure;
 
@@ -48,6 +49,9 @@ final class StreamVerdicts
 
     /** @var array<string, true> the mutants a stream loaded the file of before serving its schema */
     private array $unserved = [];
+
+    /** @var array<string, true> the mutants whose site ran while a stream booted its application once */
+    private array $booted = [];
 
     /** @var array<string, array<string, ChildEnd>> how each child came out of each test, by mutant and test */
     private array $children = [];
@@ -148,6 +152,17 @@ final class StreamVerdicts
     }
 
     /**
+     * The mutants whose site ran while a stream booted its application once,
+     * which a second pass streams with a boot in every test.
+     *
+     * @return list<string>
+     */
+    public function booted(): array
+    {
+        return array_keys($this->booted);
+    }
+
+    /**
      * How many forks read their state in parent and child, and how many of
      * those found it alike (H5).
      *
@@ -219,6 +234,10 @@ final class StreamVerdicts
 
         if ($read->kind === StreamLine::UNSERVED) {
             $this->unserved[$read->mutant] = true;
+        }
+
+        if ($read->kind === StreamLine::BOOTED) {
+            $this->booted[$read->mutant] = true;
         }
 
         if ($end instanceof ChildEnd) {

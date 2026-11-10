@@ -84,6 +84,7 @@ final readonly class Streaming
         private int $processes,
         private int $children,
         private string $recording = '',
+        private bool $bootOnce = false,
     ) {
     }
 
@@ -253,6 +254,7 @@ final readonly class Streaming
             'floor' => $perTest->floor()->seconds(),
             'longest' => ($most instanceof Seconds ? $most : Triage::none()->most())->seconds(),
             'recording' => $this->recording === '' ? '' : sprintf(self::RECORDED, $this->recording, $pass, $at),
+            'bootOnce' => $this->bootOnce && $pass === 1,
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 

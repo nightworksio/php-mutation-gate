@@ -210,6 +210,7 @@ final readonly class PestOptions
         $changeCheck = $split->flag(Key::of(SplitStream::CHANGE_CHECK));
         $killersFirst = $split->flag(Key::of(SplitStream::KILLERS_FIRST));
         $killerStreams = $split->flag(Key::of(SplitStream::KILLER_STREAMS));
+        $bootOnce = $split->flag(Key::of(SplitStream::BOOT_ONCE));
         $standard = SplitStream::of();
 
         return match (true) {
@@ -218,12 +219,13 @@ final readonly class PestOptions
             $changeCheck instanceof Problem => $changeCheck,
             $killersFirst instanceof Problem => $killersFirst,
             $killerStreams instanceof Problem => $killerStreams,
+            $bootOnce instanceof Problem => $bootOnce,
             default => StreamSettings::of(
                 $enabled === true,
                 $children instanceof NotGiven ? $standard->children() : $children,
                 $changeCheck !== false,
                 $killersFirst !== false,
-            )->streamingKillers($killerStreams === true),
+            )->streamingKillers($killerStreams === true)->bootingOnce($bootOnce === true),
         };
     }
 

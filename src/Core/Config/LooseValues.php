@@ -49,6 +49,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
     private const string TOUCHED = 'a split stream\'s kill by a test that touched the clock, randomness or I/O after its'
         . ' fork counts without its own run';
 
+    private const string BOOT_ONCE = 'a split stream runs each test in a process forked from an application booted once,'
+        . ' where it no longer sees the state the tests before it left';
+
     private const string OFF = 'false';
 
     private const string TRUST = 'ci.trustMergedPullRequests';
@@ -76,6 +79,7 @@ final readonly class LooseValues implements Countable, IteratorAggregate
         }
 
         $merged = $ci->mergedTrust();
+        $split = $settings->effective()->pest()->splitStream();
         $values = [
             ...$values,
             ...$settings->effective()->pest()->narrowedKills() === NarrowedKillTrust::Trust
@@ -102,6 +106,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
                 : [LooseValue::of('outbreak.recheckTouchedKills', self::OFF, self::TOUCHED)],
             ...$settings->shards()->outbreak()->cache()->trust()->isLoose()
                 ? [LooseValue::of('outbreak.cache.trust', CacheTrust::Repository->value, self::CACHE)]
+                : [],
+            ...$split->enabled() && $split->bootOnce()
+                ? [LooseValue::of('splitStream.bootOnce', 'true', self::BOOT_ONCE)]
                 : [],
             ...$reach->lockMoves() !== LockMoveReach::Everything
                 ? [LooseValue::of('reach.lockMoves', $reach->lockMoves()->value, self::LOCK)]

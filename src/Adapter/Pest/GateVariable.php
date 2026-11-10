@@ -163,6 +163,9 @@ enum GateVariable: string
     /** Whether a first-pass stream runs only the killers of its mutants (ADR-0136). */
     case SplitKillerStreams = 'MUTATION_GATE_SPLIT_KILLER_STREAMS';
 
+    /** Whether a first-pass stream boots the application once and forks each test from it. */
+    case SplitBootOnce = 'MUTATION_GATE_SPLIT_BOOT_ONCE';
+
     /**
      * The `outbreak.so` a split stream loads, to count the forks that change
      * no state (H5) or to see a test touch nondeterminism (ADR-0130).

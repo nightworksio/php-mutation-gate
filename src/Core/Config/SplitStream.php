@@ -33,6 +33,9 @@ final readonly class SplitStream
     /** The key whose `true` has a first-pass stream run only the killers of its mutants (ADR-0136). */
     public const string KILLER_STREAMS = 'killerStreams';
 
+    /** The key whose `true` has a stream boot a framework's application once and fork each test from it. */
+    public const string BOOT_ONCE = 'bootOnce';
+
     /** The key of which full runs plan without a fresh map (ADR-0135). */
     public const string EARLY = 'early';
 
@@ -52,6 +55,7 @@ final readonly class SplitStream
         private StreamSharding|Absent $sharding,
         private bool|Absent $killerStreams,
         private SplitEarly|Absent $early = new Absent(),
+        private bool|Absent $bootOnce = new Absent(),
     ) {
     }
 
@@ -63,8 +67,9 @@ final readonly class SplitStream
         StreamSharding|Absent $sharding = new Absent(),
         bool|Absent $killerStreams = new Absent(),
         SplitEarly|Absent $early = new Absent(),
+        bool|Absent $bootOnce = new Absent(),
     ): self {
-        return new self($enabled, $children, $changeCheck, $killersFirst, $sharding, $killerStreams, $early);
+        return new self($enabled, $children, $changeCheck, $killersFirst, $sharding, $killerStreams, $early, $bootOnce);
     }
 
     /** Every key at the value it takes when every layer leaves it out. */
@@ -80,6 +85,7 @@ final readonly class SplitStream
             $none->sharding(),
             $none->killerStreams(),
             $none->early(),
+            $none->bootOnce(),
         );
     }
 
@@ -94,6 +100,7 @@ final readonly class SplitStream
             Absent::laid($this->sharding, $later->sharding),
             Absent::laid($this->killerStreams, $later->killerStreams),
             Absent::laid($this->early, $later->early),
+            Absent::laid($this->bootOnce, $later->bootOnce),
         );
     }
 
@@ -144,6 +151,18 @@ final readonly class SplitStream
     }
 
     /**
+     * `splitStream.bootOnce`: whether a stream boots the application of a
+     * framework it recognises once, and forks each test from it, its
+     * mutants' children forking from that test's own process; off by
+     * default. A mutant whose site runs while the application boots streams
+     * in a second pass that boots it in every test.
+     */
+    public function bootOnce(): bool
+    {
+        return $this->bootOnce === true;
+    }
+
+    /**
      * `splitStream.early`: which full split-stream runs plan without a fresh
      * coverage map (ADR-0135); `no-match` by default. It is in no key, and
      * not in the runner's option.
@@ -162,6 +181,7 @@ final readonly class SplitStream
             Member::of(self::CHANGE_CHECK, $this->changeCheck()),
             Member::of(self::KILLERS_FIRST, $this->killersFirst()),
             Member::of(self::KILLER_STREAMS, $this->killerStreams()),
+            Member::of(self::BOOT_ONCE, $this->bootOnce()),
         );
 
         return Member::of(self::SECTION, $option);
@@ -179,6 +199,7 @@ final readonly class SplitStream
             Member::of(self::SHARDING, $sharding),
             Member::of(self::KILLER_STREAMS, $this->killerStreams),
             Member::of(self::EARLY, $this->early instanceof SplitEarly ? $this->early->value : $this->early),
+            Member::of(self::BOOT_ONCE, $this->bootOnce),
         );
 
         return Member::unlessEmpty(self::SECTION, $written);
@@ -195,6 +216,7 @@ final readonly class SplitStream
             ...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : [],
             ...$this->switched($this->killerStreams, 'SplitStream::killerStreams()', 'SplitStream::wholeFirstPass()'),
             ...$this->early instanceof SplitEarly ? [$this->early->php()] : [],
+            ...$this->switched($this->bootOnce, 'SplitStream::bootOnce()', 'SplitStream::bootPerTest()'),
         );
     }
 

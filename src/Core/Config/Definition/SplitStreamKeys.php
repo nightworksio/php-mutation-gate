@@ -31,6 +31,7 @@ final readonly class SplitStreamKeys
         $killersFirst = Field::optional(SplitStream::KILLERS_FIRST, Flag::boolean(), $results);
         $sharding = Field::optional(SplitStream::SHARDING, Enumerated::of(StreamSharding::cases()), $results);
         $killerStreams = Field::optional(SplitStream::KILLER_STREAMS, Flag::boolean(), $results);
+        $bootOnce = Field::optional(SplitStream::BOOT_ONCE, Flag::boolean(), $results);
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -48,6 +49,7 @@ final readonly class SplitStreamKeys
                     $sharding,
                     $killerStreams,
                     $early,
+                    $bootOnce,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -56,6 +58,7 @@ final readonly class SplitStreamKeys
                     $cut = $sharding->read($split);
                     $streamed = $killerStreams->read($split);
                     $starts = $early->read($split);
+                    $booted = $bootOnce->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -66,6 +69,7 @@ final readonly class SplitStreamKeys
                             $cut->value(),
                             $streamed->value(),
                             $starts->value(),
+                            $booted->value(),
                         ))),
                         $on,
                         $most,
@@ -74,6 +78,7 @@ final readonly class SplitStreamKeys
                         $cut,
                         $streamed,
                         $starts,
+                        $booted,
                     );
                 },
                 $enabled,
@@ -83,6 +88,7 @@ final readonly class SplitStreamKeys
                 $sharding,
                 $killerStreams,
                 $early,
+                $bootOnce,
             ),
         )];
     }

@@ -44,6 +44,8 @@ final readonly class StreamLine
 
     public const string FINISHED = 'finished';
 
+    public const string BOOTED = 'booted';
+
     /** The parent ended a test: passed or not, in this many seconds. */
     public static function parent(string $test, bool $passed, float $seconds): string
     {
@@ -92,6 +94,12 @@ final readonly class StreamLine
     public static function fallback(string $test): string
     {
         return self::line([self::KIND => self::FALLBACK, 't' => $test]);
+    }
+
+    /** The mutant's site ran while the stream booted its application once, so no test forked from it reaches it. */
+    public static function booted(string $mutant): string
+    {
+        return self::line([self::KIND => self::BOOTED, 'm' => $mutant]);
     }
 
     /** The stream's process loaded the mutant's file before its schema was served, so it forks nothing of it. */

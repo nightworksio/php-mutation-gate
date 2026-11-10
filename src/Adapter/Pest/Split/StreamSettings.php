@@ -45,6 +45,7 @@ final readonly class StreamSettings
         private TestPart $part,
         private bool $killerStreams = false,
         private string $recording = '',
+        private bool $bootOnce = false,
     ) {
     }
 
@@ -84,6 +85,7 @@ final readonly class StreamSettings
             self::partIn(getenv(GateVariable::SplitPart->value)),
             getenv(GateVariable::SplitKillerStreams->value) === self::ON,
             self::recordingIn(getenv(GateVariable::SplitRecording->value)),
+            getenv(GateVariable::SplitBootOnce->value) === self::ON,
         );
     }
 
@@ -98,7 +100,33 @@ final readonly class StreamSettings
             $this->part,
             $killerStreams,
             $this->recording,
+            $this->bootOnce,
         );
+    }
+
+    /** These, a first-pass stream booting the application once and forking each test from it where this says. */
+    public function bootingOnce(bool $bootOnce): self
+    {
+        return new self(
+            $this->enabled,
+            $this->children,
+            $this->changeCheck,
+            $this->killersFirst,
+            $this->part,
+            $this->killerStreams,
+            $this->recording,
+            $bootOnce,
+        );
+    }
+
+    /**
+     * Whether a first-pass stream boots the application once and forks each
+     * test from it: never where the streams record each test's lines, which
+     * would miss what the boot executed.
+     */
+    public function bootsOnce(): bool
+    {
+        return $this->bootOnce && $this->recording === '';
     }
 
     /** Whether a first-pass stream runs only the tests the ledger names as killers of its mutants (ADR-0136). */
@@ -169,6 +197,7 @@ final readonly class StreamSettings
                 GateVariable::SplitChangeCheck->value => $this->changeCheck ? self::ON : self::OFF,
                 GateVariable::SplitKillersFirst->value => $this->killersFirst ? self::ON : self::OFF,
                 GateVariable::SplitKillerStreams->value => $this->killerStreams ? self::ON : self::OFF,
+                GateVariable::SplitBootOnce->value => $this->bootOnce ? self::ON : self::OFF,
             ]
             : [];
     }
