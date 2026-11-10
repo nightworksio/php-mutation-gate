@@ -1,10 +1,13 @@
 //! `outbreak serve` (ADR-0133): a daemon that holds a project's proofs and
 //! the names of its static graph's files in memory, keeps them as a snapshot
 //! and a journal under `.mutation-gate/outbreak`, watches the files a client
-//! names through the platform's notifications, and answers the gate's PHP on
-//! a socket there, one JSON line a request. It serves on Unix alone.
+//! names and the machine's power source through the platform's
+//! notifications, and answers the gate's PHP on a socket there, one JSON
+//! line a request. It serves on Unix alone.
 
 pub mod journal;
+#[cfg(unix)]
+mod power;
 pub mod protocol;
 #[cfg(unix)]
 pub mod server;

@@ -6,7 +6,8 @@
 //! generation after the one it saw, and waits for it at most as long as it
 //! says. Version control's own directories, the daemon's workspace and links
 //! are not followed. Where the watcher cannot arm, or stops, every later
-//! answer says why, and the client looks at the files itself.
+//! answer says why, and the client looks at the files itself. The machine's
+//! power source is watched the same way, with no debounce (decision 8).
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -31,11 +32,14 @@ pub enum Noticed {
     Unwatched(String),
 }
 
-/// The watch a daemon keeps for its clients.
+/// How a watch arms its notifications for a set of paths.
+type Arm = Box<dyn Fn(&BTreeSet<PathBuf>) -> Result<Box<dyn Notices>, String> + Send + Sync>;
+
+/// A watch a daemon keeps for its clients.
 pub struct Watching {
     root: PathBuf,
-    skipped: PathBuf,
     debounce: Duration,
+    arm: Arm,
     armed: Mutex<Armed>,
     moved: Condvar,
 }
@@ -48,8 +52,8 @@ struct Armed {
     running: Option<Arc<AtomicBool>>,
 }
 
-/// A platform's notifications of the files beneath the watched directories.
-trait Notices: Send {
+/// A platform's notifications of what a watch watches.
+pub(crate) trait Notices: Send {
     /// Whether a change arrived within this long.
     fn next(&mut self, within: Duration) -> Result<bool, String>;
 }
@@ -57,8 +61,18 @@ trait Notices: Send {
 impl Watching {
     /// A watch of directories under this root, never of `skipped`, whose changes settle for `debounce`.
     #[must_use]
-    pub fn new(root: PathBuf, skipped: PathBuf, debounce: Duration) -> Arc<Self> {
-        Arc::new(Self { root, skipped, debounce, armed: Mutex::new(Armed::default()), moved: Condvar::new() })
+    pub fn files(root: PathBuf, skipped: PathBuf, debounce: Duration) -> Arc<Self> {
+        Self::of(root, debounce, Box::new(move |paths| native(paths, &skipped)))
+    }
+
+    /// A watch of the machine's power source, asked with no paths.
+    #[must_use]
+    pub fn power() -> Arc<Self> {
+        Self::of(PathBuf::new(), Duration::ZERO, Box::new(|_| crate::power::source()))
+    }
+
+    fn of(root: PathBuf, debounce: Duration, arm: Arm) -> Arc<Self> {
+        Arc::new(Self { root, debounce, arm, armed: Mutex::new(Armed::default()), moved: Condvar::new() })
     }
 
     /// The generation once a change settled past `since`, or once `wait`
@@ -124,7 +138,7 @@ impl Watching {
             armed.generation += 1;
         }
 
-        let started = native(&wanted, &self.skipped).map(|notices| {
+        let started = (self.arm)(&wanted).map(|notices| {
             let stopped = Arc::new(AtomicBool::new(false));
             let watching = Arc::clone(self);
             let stopping = Arc::clone(&stopped);
@@ -534,7 +548,7 @@ mod tests {
     }
 
     fn watching(root: &Path) -> Arc<Watching> {
-        Watching::new(root.to_path_buf(), root.join(".mutation-gate"), Duration::from_millis(20))
+        Watching::files(root.to_path_buf(), root.join(".mutation-gate"), Duration::from_millis(20))
     }
 
     fn generation(noticed: Noticed) -> u64 {
@@ -590,5 +604,14 @@ mod tests {
         );
         assert!(matches!(watching.changed(&[String::from("/etc")], 0, Duration::ZERO), Noticed::Unwatched(_)));
         watching.stop();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn arms_a_watch_of_the_power_source_with_no_paths() {
+        let power = Watching::power();
+
+        assert_eq!(power.changed(&[], 0, Duration::ZERO), Noticed::Changed(0));
+        power.stop();
     }
 }

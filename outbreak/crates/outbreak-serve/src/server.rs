@@ -6,7 +6,8 @@
 //! once every `sync_every`, writes a snapshot again while no client is
 //! connected at most once every `snapshot_every`, and once more as it stops.
 //! It watches the directories a client waiting for a change names (decision
-//! 7), a waiting client counting as no client connected. It lives as long as
+//! 7), and the machine's power source (decision 8), a waiting client counting
+//! as no client connected. It lives as long as
 //! the child it starts, where it starts one, or until no request came for
 //! `idle`, or it is asked to stop.
 //!
@@ -73,6 +74,7 @@ struct Shared {
     asked: Mutex<Instant>,
     stopping: AtomicBool,
     watching: Arc<Watching>,
+    power: Arc<Watching>,
 }
 
 /// Starts a daemon in a process of its own group, which a terminal's
@@ -128,7 +130,8 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
         connected: AtomicUsize::new(0),
         asked: Mutex::new(now),
         stopping: AtomicBool::new(false),
-        watching: Watching::new(options.root.clone(), options.root.join(WORKSPACE), options.debounce),
+        watching: Watching::files(options.root.clone(), options.root.join(WORKSPACE), options.debounce),
+        power: Watching::power(),
     });
     let child = started(&options.child, &shared, &socket)?;
     let ticking = {
@@ -155,6 +158,7 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
 
     let _ = ticking.join();
     shared.watching.stop();
+    shared.power.stop();
 
     if let Some(mut process) = child.as_ref().and_then(|held| locked(held).take()) {
         let _ = process.kill();
@@ -378,7 +382,10 @@ fn waited(shared: &Shared, asked: Result<protocol::Waiting, String>, contract: u
         Err(why) => return protocol::refused(&why, contract),
     };
     shared.connected.fetch_sub(1, Ordering::SeqCst);
-    let noticed = shared.watching.changed(&asked.paths, asked.since, asked.wait);
+    let noticed = match &asked.watched {
+        protocol::Watched::Files(paths) => shared.watching.changed(paths, asked.since, asked.wait),
+        protocol::Watched::Power => shared.power.changed(&[], asked.since, asked.wait),
+    };
     shared.connected.fetch_add(1, Ordering::SeqCst);
 
     match noticed {

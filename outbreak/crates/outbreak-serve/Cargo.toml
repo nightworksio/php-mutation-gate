@@ -1,6 +1,6 @@
 [package]
 name = "outbreak-serve"
-description = "Outbreak's daemon (ADR-0133): a project's proofs and static graph held in memory, kept as a snapshot and a journal, served on a socket the gate's PHP asks, the files watched natively."
+description = "Outbreak's daemon (ADR-0133): a project's proofs and static graph held in memory, kept as a snapshot and a journal, served on a socket the gate's PHP asks, the files and the power source watched natively."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -16,7 +16,7 @@ sha2.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
-rustix = { workspace = true, features = ["event", "fs"] }
+rustix = { workspace = true, features = ["event", "fs", "net"] }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd", target_os = "dragonfly"))'.dependencies]
 kqueue.workspace = true

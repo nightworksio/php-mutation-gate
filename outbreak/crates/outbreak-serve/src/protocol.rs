@@ -14,6 +14,8 @@
 //!   answers `{"changed": <generation>}` once a change settled past `since`,
 //!   or once the wait passed; `{"unwatched": <why>}` where it watches nothing
 //!   (decision 7). The server answers it, outside the state's lock.
+//! - `power {"since": <generation>, "wait": <milliseconds>}` answers the same
+//!   of the machine's power source (decision 8).
 //! - `stop` answers `{"stopping": true}`, and the daemon stops.
 //!
 //! Anything else is answered `{"refused": <why>}`.
@@ -45,19 +47,31 @@ impl Answer {
     }
 }
 
+/// What a client waits for a change of.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Watched {
+    /// The files beneath these directories, each relative to the root.
+    Files(Vec<String>),
+    /// The machine's power source.
+    Power,
+}
+
 /// What a client waiting for a change asks.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Waiting {
-    /// The directories it watches, each relative to the root.
-    pub paths: Vec<String>,
+    /// What it waits for a change of.
+    pub watched: Watched,
     /// The generation of changes it saw last.
     pub since: u64,
     /// How long it waits for a change, at most.
     pub wait: Duration,
 }
 
-/// The verb a client waiting for a change asks with.
+/// The verb a client waiting for a change of the files asks with.
 const CHANGED: &str = "changed";
+
+/// The verb a client waiting for a change of the power source asks with.
+const POWER: &str = "power";
 
 /// The request a line is where it waits for a change, or why it cannot be
 /// read; none where it asks something else.
@@ -65,7 +79,11 @@ const CHANGED: &str = "changed";
 pub fn waiting(line: &str) -> Option<Result<Waiting, String>> {
     let (verb, json) = line.split_once(' ').unwrap_or((line, ""));
 
-    (verb == CHANGED).then(|| waited(json.as_bytes()))
+    match verb {
+        CHANGED => Some(waited(json.as_bytes(), true)),
+        POWER => Some(waited(json.as_bytes(), false)),
+        _ => None,
+    }
 }
 
 /// The answer to a client waiting for a change: the generation of changes now.
@@ -174,14 +192,14 @@ fn graph(
     Ok(Answer::said(line))
 }
 
-fn waited(json: &[u8]) -> Result<Waiting, String> {
+fn waited(json: &[u8], files: bool) -> Result<Waiting, String> {
     let mut cursor = Cursor::over(json).map_err(|refused| said(&refused))?;
     let mut members = cursor.object().map_err(|refused| said(&refused))?;
     let (mut paths, mut since, mut wait) = (None, None, None);
 
     while let Some(key) = members.next(&mut cursor).map_err(|refused| said(&refused))? {
         match key.text.as_str() {
-            "paths" => paths = Some(strings(&mut cursor).map_err(|refused| said(&refused))?),
+            "paths" if files => paths = Some(strings(&mut cursor).map_err(|refused| said(&refused))?),
             "since" => since = Some(whole(&mut cursor, "since")?),
             "wait" => wait = Some(Duration::from_millis(whole(&mut cursor, "wait")?)),
             other => return Err(format!("the request: expected no {other}")),
@@ -190,9 +208,15 @@ fn waited(json: &[u8]) -> Result<Waiting, String> {
 
     cursor.end().map_err(|refused| said(&refused))?;
 
-    match (paths, since, wait) {
-        (Some(paths), Some(since), Some(wait)) => Ok(Waiting { paths, since, wait }),
-        _ => Err(String::from("the request: expected paths, since and wait")),
+    let watched = match paths {
+        Some(paths) => Watched::Files(paths),
+        None if files => return Err(String::from("the request: expected paths")),
+        None => Watched::Power,
+    };
+
+    match (since, wait) {
+        (Some(since), Some(wait)) => Ok(Waiting { watched, since, wait }),
+        _ => Err(String::from("the request: expected since and wait")),
     }
 }
 
@@ -244,7 +268,7 @@ fn said(refused: &Refused) -> String {
 mod tests {
     use std::time::Duration;
 
-    use super::{Waiting, answer, changed, unwatched, waiting};
+    use super::{Waiting, Watched, answer, changed, unwatched, waiting};
     use crate::state::State;
 
     fn asked(state: &mut State, line: &str) -> String {
@@ -289,8 +313,17 @@ mod tests {
     fn reads_a_client_waiting_for_a_change_and_answers_it() {
         assert_eq!(
             waiting(r#"changed {"wait": 2000, "paths": ["src", "tests"], "since": 3}"#),
-            Some(Ok(Waiting { paths: vec![String::from("src"), String::from("tests")], since: 3, wait: Duration::from_secs(2) }))
+            Some(Ok(Waiting {
+                watched: Watched::Files(vec![String::from("src"), String::from("tests")]),
+                since: 3,
+                wait: Duration::from_secs(2)
+            }))
         );
+        assert_eq!(
+            waiting(r#"power {"since": 1, "wait": 0}"#),
+            Some(Ok(Waiting { watched: Watched::Power, since: 1, wait: Duration::ZERO }))
+        );
+        assert!(matches!(waiting(r#"power {"paths": [], "since": 1, "wait": 0}"#), Some(Err(_))));
         assert_eq!(waiting("contract"), None);
         assert_eq!(waiting(r#"proofs {"keys": []}"#), None);
 
