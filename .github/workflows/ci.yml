@@ -772,7 +772,7 @@ jobs:
 
   mutation:
     needs: [scope, tests, checks, rules, scripts, mutation-early]
-    if: ${{ !cancelled() && (needs.mutation-early.result == 'skipped' || needs.mutation-early.outputs.waits == 'true') && needs.scope.outputs.judged != 'true' }}
+    if: ${{ !cancelled() && (needs.mutation-early.result == 'skipped' || needs.mutation-early.outputs.waits == 'true') && needs.tests.result != 'failure' && needs.checks.result != 'failure' && needs.rules.result != 'failure' && needs.scripts.result != 'failure' && needs.scope.outputs.judged != 'true' }}
     permissions:
       contents: write # used only by publish, on the default branch, which writes the badge and the trend
       actions: read # used only by verdict and deliver, to find the run's HTML report the comment links
