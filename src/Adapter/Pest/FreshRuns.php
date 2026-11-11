@@ -161,7 +161,7 @@ final readonly class FreshRuns
             $judged = [...$judged, ...$run instanceof Mutant ? [$run] : []];
         }
 
-        $slots = $request->pool()->slots(strval(getmypid()));
+        $slots = WorkerSlots::inPool($request->pool(), strval(getmypid()));
         $commands = array_map(static fn(FreshRun $run): Command => $run->command(), $runs);
         $ends = $this->sideBySide($slots, $left(), $commands);
         $ended = [];

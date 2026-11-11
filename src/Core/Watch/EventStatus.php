@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * What an event of `watch` says of a mutant (ADR-0146, ADR-0133): killed,
  * survived, out of time, not judged yet, or proven equivalent.
+ *
+ * @internal
  */
 enum EventStatus: string
 {

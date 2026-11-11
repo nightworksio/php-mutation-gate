@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -288,7 +289,7 @@ it('starts its controls beside its survivors\' runs again, each in its share of 
     $map = invokedMap('src/Money.php');
     $tokens = static fn(MutationRequest $request): array => array_map(
         static fn(WorkerSlot $slot): string => (string) iterator_to_array($slot->variables(), preserve_keys: true)['TEST_TOKEN'],
-        [...$request->pool()->slots('run')],
+        [...WorkerSlots::inPool($request->pool(), 'run')],
     );
 
     new Invoking(

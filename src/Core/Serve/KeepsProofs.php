@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Written;
  * or any other, is no answer, and the gate reads the ledger itself. The
  * daemon keeps the static graph too, which the gate asks through the
  * `ReachGraph` port (ADR-0132).
+ *
+ * @internal
  */
 interface KeepsProofs
 {

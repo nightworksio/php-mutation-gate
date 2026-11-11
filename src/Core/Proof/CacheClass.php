@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Config\CacheTrust;
 /**
  * Which class of writer a pack of `outbreak cache` holds the proofs of
  * (ADR-0131): each class its own pack.
+ *
+ * @internal
  */
 enum CacheClass: string
 {

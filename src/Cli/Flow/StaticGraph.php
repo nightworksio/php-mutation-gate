@@ -19,9 +19,9 @@ use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Reach\GraphReach;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
+use NightWorksIO\MutationGate\Core\Reach\ReachGraph;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
 use NightWorksIO\MutationGate\Core\Test\Role;
-use NightWorksIO\MutationGate\Port\ReachGraph;
 
 /**
  * Outbreak's static graph of the project, as a run asks it (ADR-0132): every

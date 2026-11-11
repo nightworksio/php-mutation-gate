@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -101,9 +102,9 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         $output = $this->job->variables()->valueOf(self::OUTPUT);
 
         return match (true) {
-            count($plan->jobs()) > self::MOST_JOBS => CannotJudge::because(sprintf(
+            count(PlanJobs::of($plan)) > self::MOST_JOBS => CannotJudge::because(sprintf(
                 'The plan holds %d shards, and a GitHub matrix runs at most %d jobs. Set shards.max to %d or less.',
-                count($plan->jobs()),
+                count(PlanJobs::of($plan)),
                 self::MOST_JOBS,
                 self::MOST_JOBS,
             )),
@@ -272,7 +273,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     {
         $matrix = [];
 
-        foreach ($plan->jobs() as $job => $labels) {
+        foreach (PlanJobs::of($plan) as $job => $labels) {
             $matrix[] = ['id' => $job, 'label' => implode(Fit::COMMA, $labels)];
         }
 

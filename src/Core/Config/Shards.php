@@ -221,7 +221,7 @@ final readonly class Shards implements Part
                         'jobLimit',
                         $this->jobLimit instanceof Seconds ? $this->jobLimit->written() : $this->jobLimit,
                     ),
-                    ...$this->pulling->members(),
+                    $this->pulling->written(),
                 ),
             ),
             $this->costs->written($origin),
@@ -244,12 +244,12 @@ final readonly class Shards implements Part
             ...$this->jobLimit instanceof Seconds
                 ? [sprintf('Shards::jobLimit(%s)', PhpCalls::literal($this->jobLimit->written()))]
                 : [],
-            ...$this->pulling->php(),
         ];
 
         return PhpCalls::inWith(...$settings)
             ->and($this->costs->php($origin))
             ->and($this->planning->php())
+            ->and($this->pulling->php())
             ->and($this->outbreak->php());
     }
 }

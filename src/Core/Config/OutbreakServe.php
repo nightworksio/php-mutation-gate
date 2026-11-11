@@ -106,14 +106,10 @@ final readonly class OutbreakServe
         ));
     }
 
-    /**
-     * The builder's calls that set these as a layer sets them.
-     *
-     * @return list<string>
-     */
-    public function php(): array
+    /** The builder's calls that set these as a layer sets them. */
+    public function php(): PhpCalls
     {
-        return [
+        return PhpCalls::inWith(...[
             ...match ($this->enabled) {
                 true => ['Outbreak::serving()'],
                 false => ['Outbreak::notServing()'],
@@ -128,6 +124,6 @@ final readonly class OutbreakServe
             ...$this->debounce instanceof Seconds
                 ? [sprintf('Outbreak::debounce(%s)', PhpCalls::literal($this->debounce->written()))]
                 : [],
-        ];
+        ]);
     }
 }

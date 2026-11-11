@@ -9,6 +9,8 @@ use function sprintf;
 /**
  * A value of a setting that loosens what a run judges, in force: the key, the value as a config writes it, and
  * what it lets count or carry (ADR-0142).
+ *
+ * @internal
  */
 final readonly class LooseValue
 {

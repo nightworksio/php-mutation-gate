@@ -17,6 +17,8 @@ use function sprintf;
  * ADR-0133): its id, its site, what was judged, the test that killed it,
  * whether the round was quick, its unit and the digest of the unit it was
  * judged against.
+ *
+ * @internal
  */
 final readonly class MutantEvent
 {

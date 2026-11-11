@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\FailFastSavings;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -248,7 +249,7 @@ final readonly class Results
         Path $directory,
         Directory $project,
     ): array|CannotJudge|Path {
-        $jobs = [$item->worker()->number(), ...array_diff(array_keys($plan->jobs()), [$item->worker()->number()])];
+        $jobs = [$item->worker()->number(), ...array_diff(array_keys(PlanJobs::of($plan)), [$item->worker()->number()])];
         $read = [];
 
         foreach ($jobs as $job) {

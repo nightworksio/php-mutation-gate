@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function is_string;
-
-use NightWorksIO\MutationGate\Core\NotGiven;
-
 /**
  * Where `outbreak cache` keeps its packs of proofs by their keys (ADR-0131):
  * `outbreak.cache.store`.
@@ -25,17 +21,6 @@ enum CacheStore: string
 
     /** Each pack an OCI artifact in the repository `outbreak.cache.registry` names. */
     case Oci = 'oci';
-
-    /** The store this one is for a run that names this registry, or none, under the package's action or not. */
-    public function resolved(string|NotGiven $registry, bool $underAction): self
-    {
-        return match (true) {
-            $this !== self::Auto => $this === self::Oci && $registry instanceof NotGiven ? self::None : $this,
-            is_string($registry) => self::Oci,
-            $underAction => self::Actions,
-            default => self::None,
-        };
-    }
 
     /** The builder's call that sets it. */
     public function php(): string

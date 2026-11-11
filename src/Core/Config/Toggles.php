@@ -53,24 +53,6 @@ final readonly class Toggles implements Part
         return $this->set[$toggle->value] ?? true;
     }
 
-    /**
-     * The toggles whose values loosen what a run judges, given whether uncovered mutants are excluded (ADR-0142).
-     *
-     * @return list<Toggle>
-     */
-    public function loose(bool $uncoveredExcluded): array
-    {
-        $loose = [];
-
-        foreach (Toggle::cases() as $toggle) {
-            if ($toggle->loosens($this->on($toggle), $uncoveredExcluded)) {
-                $loose[] = $toggle;
-            }
-        }
-
-        return $loose;
-    }
-
     /** The runner a config chooses, with the toggles Pest reads beneath its options; any other runner as it is. */
     public function beneath(Choice $runner): Choice
     {

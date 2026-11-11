@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Watch;
 /**
  * Why `outbreak serve` watches no file for `watch`: its watcher could not
  * arm, as where inotify has no watch left, or it failed (ADR-0133).
+ *
+ * @internal
  */
 final readonly class Unwatched
 {

@@ -18,6 +18,8 @@ use Traversable;
  * doubts, or carries what its default runs again (ADR-0142). The reference sets each in bold.
  *
  * @implements IteratorAggregate<int, LooseValue>
+ *
+ * @internal
  */
 final readonly class LooseValues implements Countable, IteratorAggregate
 {
@@ -76,7 +78,11 @@ final readonly class LooseValues implements Countable, IteratorAggregate
         $reach = $settings->reach();
         $values = [];
 
-        foreach ($toggles->loose($excluded) as $toggle) {
+        foreach (Toggle::cases() as $toggle) {
+            if (! $toggle->loosens($toggles->on($toggle), $excluded)) {
+                continue;
+            }
+
             $values[] = LooseValue::of(
                 $toggle->value,
                 self::OFF,

@@ -17,10 +17,10 @@ use NightWorksIO\MutationGate\Core\Proof\CachedProofs;
 use NightWorksIO\MutationGate\Core\Proof\CachePack;
 use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\ProofCache;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Port\ProofCache;
 
 use function sprintf;
 
@@ -51,7 +51,7 @@ final readonly class CachedPacks
         $cache = $this->settings->shards()->outbreak()->cache();
 
         return $this->settings->shards()->outbreak()->enabled()
-            ? $cache->store()->resolved($cache->registry(), $this->adapters->environment->onGitHubActions())
+            ? $cache->storeFor($this->adapters->environment->onGitHubActions())
             : CacheStore::None;
     }
 

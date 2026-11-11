@@ -3,14 +3,17 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\Pulling;
 use NightWorksIO\MutationGate\Core\Config\ShardPull;
+use NightWorksIO\MutationGate\Core\Format\Member;
 
 it('claims under auto on a service the race test passed on, and steals elsewhere', function (): void {
-    expect(ShardPull::Auto->on('https://github.com'))->toBe(ShardPull::Claim)
-        ->and(ShardPull::Auto->on('https://ghe.example.com'))->toBe(ShardPull::Steal)
-        ->and(ShardPull::Steal->on('https://github.com'))->toBe(ShardPull::Steal)
-        ->and(ShardPull::Claim->on('https://ghe.example.com'))->toBe(ShardPull::Claim);
+    expect(ShardPull::Auto->whereRaced())->toBe(ShardPull::Claim)
+        ->and(ShardPull::Auto->whereUnraced())->toBe(ShardPull::Steal)
+        ->and(ShardPull::Steal->whereRaced())->toBe(ShardPull::Steal)
+        ->and(ShardPull::Claim->whereUnraced())->toBe(ShardPull::Claim)
+        ->and(ShardPull::Off->whereRaced())->toBe(ShardPull::Off);
 });
 
 it('pulls under every value but off', function (ShardPull $pull, bool $pulls): void {
@@ -26,7 +29,8 @@ it('pulls automatically where no layer says, and takes a later layer\'s word', f
     $none = Pulling::of();
     $laid = $none->over(Pulling::of(ShardPull::Off))->over(Pulling::of(new Absent()));
 
-    expect([$none->pull(), $none->php()])->toBe([ShardPull::Auto, []])
-        ->and([$laid->pull(), $laid->php()])
-        ->toBe([ShardPull::Off, ['Shards::owningTheirParts()']]);
+    expect([$none->pull(), $none->php()->code()])->toBe([ShardPull::Auto, ''])
+        ->and([$laid->pull(), $laid->php()->code()])
+        ->toBe([ShardPull::Off, PhpCalls::inWith('Shards::owningTheirParts()')->code()])
+        ->and($laid->written())->toEqual(Member::of('pull', 'off'));
 });

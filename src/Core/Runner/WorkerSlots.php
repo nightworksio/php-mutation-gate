@@ -42,6 +42,15 @@ final readonly class WorkerSlots implements IteratorAggregate
     }
 
     /**
+     * The places a pool's processes run side by side in, in a run named by
+     * this token, numbered after any taken beside.
+     */
+    public static function inPool(Pool $pool, string $run): self
+    {
+        return self::numberedAfter($pool->takenBeside(), $pool->processes(), $run);
+    }
+
+    /**
      * The places for this many processes, numbered after this many places a
      * run beside them holds, in a run that names itself by a token of its
      * own; as {@see of()} where none is held beside them.

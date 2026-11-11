@@ -7,7 +7,10 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function array_key_exists;
 use function is_array;
 
-/** The `json` reporter's `tests`: which tests each mutant's entry lists (ADR-0112). */
+/** The `json` reporter's `tests`: which tests each mutant's entry lists (ADR-0112).
+ *
+ * @internal
+ */
 enum ReportTests: string
 {
     /** Every list: the tests that cover it, judge it, killed it and fail unmutated. */

@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
@@ -150,6 +151,6 @@ it('runs a job a shard where its shards own their parts, and a job a list of ite
         $shard(3, 'lib')->workedBy(ShardId::of(2)),
     );
 
-    expect([$owned->pulls(), $owned->jobs()])->toBe([false, [1 => ['src'], 2 => ['lib']]])
-        ->and([$pulled->pulls(), $pulled->jobs()])->toBe([true, [1 => ['src'], 2 => ['lib']]]);
+    expect([$owned->pulls(), PlanJobs::of($owned)])->toBe([false, [1 => ['src'], 2 => ['lib']]])
+        ->and([$pulled->pulls(), PlanJobs::of($pulled)])->toBe([true, [1 => ['src'], 2 => ['lib']]]);
 });

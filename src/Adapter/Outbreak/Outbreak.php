@@ -28,10 +28,12 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
+use NightWorksIO\MutationGate\Core\Proof\ProofCache;
 use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 use NightWorksIO\MutationGate\Core\Reach\GraphAnswered;
 use NightWorksIO\MutationGate\Core\Reach\GraphAsked;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
+use NightWorksIO\MutationGate\Core\Reach\ReachGraph;
 use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
@@ -39,8 +41,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\MapEngine;
-use NightWorksIO\MutationGate\Port\ProofCache;
-use NightWorksIO\MutationGate\Port\ReachGraph;
 
 use function sprintf;
 

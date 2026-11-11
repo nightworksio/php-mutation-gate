@@ -180,10 +180,10 @@ final readonly class Pool
         );
     }
 
-    /** The places its processes run side by side in, in a run named by this token, numbered after any taken beside. */
-    public function slots(string $run): WorkerSlots
+    /** How many places a run beside it took first, which its own places are numbered after. */
+    public function takenBeside(): int
     {
-        return WorkerSlots::numberedAfter($this->after, $this->processes, $run);
+        return $this->after;
     }
 
     /** How its runner paces its work. */

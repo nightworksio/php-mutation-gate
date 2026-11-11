@@ -74,7 +74,7 @@ it('shares its places between a run and one beside it, each at least one, the pl
     $beside = $pool->besideTaking(ProcessCount::of(3));
     $tokens = static fn(Pool $pool): array => array_map(
         static fn(WorkerSlot $slot): string => (string) iterator_to_array($slot->variables(), preserve_keys: true)['TEST_TOKEN'],
-        [...$pool->slots('run')],
+        [...WorkerSlots::inPool($pool, 'run')],
     );
 
     expect([$taken->processes()->count(), $beside->processes()->count()])->toBe([3, 5])
@@ -82,5 +82,5 @@ it('shares its places between a run and one beside it, each at least one, the pl
         ->and($tokens($beside))->toBe(['4', '5', '6', '7', '8'])
         ->and($pool->besideTaking(ProcessCount::of(8))->processes()->count())->toBe(1)
         ->and($tokens($pool->besideTaking(ProcessCount::of(8))))->toBe(['8'])
-        ->and($beside->tail()->slots('run'))->toEqual($beside->slots('run'));
+        ->and(WorkerSlots::inPool($beside->tail(), 'run'))->toEqual(WorkerSlots::inPool($beside, 'run'));
 });

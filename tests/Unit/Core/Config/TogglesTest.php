@@ -71,11 +71,11 @@ it('hands Pest the toggles it reads among its options, and any other runner none
 });
 
 it('loosens with controls.kills off, and with pest.trials off only where uncovered mutants are excluded', function (): void {
-    expect(Toggles::of(Toggle::ControlsKills, false)->loose(false))->toBe([Toggle::ControlsKills])
-        ->and(Toggles::of(Toggle::PestTrials, false)->loose(false))->toBe([])
-        ->and(Toggles::of(Toggle::PestTrials, false)->loose(true))->toBe([Toggle::PestTrials])
-        ->and(Toggles::of(Toggle::ControlsMemory, false)->loose(true))->toBe([])
-        ->and(Toggles::standard()->loose(true))->toBe([]);
+    expect(Toggle::ControlsKills->loosens(on: false, uncoveredExcluded: false))->toBeTrue()
+        ->and(Toggle::PestTrials->loosens(on: false, uncoveredExcluded: false))->toBeFalse()
+        ->and(Toggle::PestTrials->loosens(on: false, uncoveredExcluded: true))->toBeTrue()
+        ->and(Toggle::ControlsMemory->loosens(on: false, uncoveredExcluded: true))->toBeFalse()
+        ->and(Toggle::ControlsKills->loosens(on: true, uncoveredExcluded: true))->toBeFalse();
 });
 
 it('keys none of the speed-ups that change no output, and every check that vouches for a result', function (): void {

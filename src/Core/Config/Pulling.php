@@ -8,8 +8,6 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
  * How shards find their work (ADR-0134): `shards.pull`, which is in no key.
- *
- * @internal
  */
 final readonly class Pulling
 {
@@ -36,15 +34,15 @@ final readonly class Pulling
         return $this->pull instanceof ShardPull ? $this->pull : ShardPull::Auto;
     }
 
-    /** @return list<Member> the keys a layer sets, as `shards` writes them */
-    public function members(): array
+    /** The key a layer sets, as `shards` writes it. */
+    public function written(): Member
     {
-        return [Member::of(self::PULL, $this->pull instanceof ShardPull ? $this->pull->value : $this->pull)];
+        return Member::of(self::PULL, $this->pull instanceof ShardPull ? $this->pull->value : $this->pull);
     }
 
-    /** @return list<string> the builder's calls for the keys a layer sets */
-    public function php(): array
+    /** The builder's calls for the keys a layer sets. */
+    public function php(): PhpCalls
     {
-        return $this->pull instanceof ShardPull ? [$this->pull->php()] : [];
+        return $this->pull instanceof ShardPull ? PhpCalls::inWith($this->pull->php()) : PhpCalls::none();
     }
 }

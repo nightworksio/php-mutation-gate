@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Port;
+namespace NightWorksIO\MutationGate\Core\Proof;
 
 use NightWorksIO\MutationGate\Core\NotWritten;
-use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Written;
 
 /**
@@ -14,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Written;
  * verdict accepted merged into their class's pack. Whatever it answers, a run
  * proves from its ledgers at least: a pack not pulled proves nothing, and a
  * pack not pushed costs a later run, never a verdict.
+ *
+ * @internal
  */
 interface ProofCache
 {

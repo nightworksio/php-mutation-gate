@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * files, once it settled for `outbreak.serve.debounce`, is one more. An
  * answer that does not come in time, or any other, is no answer, and `watch`
  * looks at the files itself.
+ *
+ * @internal
  */
 interface NoticesChanges
 {

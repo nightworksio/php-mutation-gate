@@ -60,6 +60,20 @@ final readonly class OutbreakCache
         return $this->store instanceof CacheStore ? $this->store : CacheStore::Auto;
     }
 
+    /** The store a run takes, under the package's action or not: `auto` is `oci` where a registry is named. */
+    public function storeFor(bool $underAction): CacheStore
+    {
+        $named = ! $this->registry instanceof Absent;
+        $store = $this->store();
+
+        return match (true) {
+            $store !== CacheStore::Auto => $store === CacheStore::Oci && ! $named ? CacheStore::None : $store,
+            $named => CacheStore::Oci,
+            $underAction => CacheStore::Actions,
+            default => CacheStore::None,
+        };
+    }
+
     /** `outbreak.cache.registry`: the OCI repository the packs live in under `oci`; none by default. */
     public function registry(): string|NotGiven
     {
@@ -92,19 +106,15 @@ final readonly class OutbreakCache
         ));
     }
 
-    /**
-     * The builder's calls that set these as a layer sets them.
-     *
-     * @return list<string>
-     */
-    public function php(): array
+    /** The builder's calls that set these as a layer sets them. */
+    public function php(): PhpCalls
     {
-        return [
+        return PhpCalls::inWith(...[
             ...$this->store instanceof CacheStore ? [$this->store->php()] : [],
             ...$this->registry instanceof Absent
                 ? []
                 : [sprintf('Outbreak::cacheRegistry(%s)', PhpCalls::literal($this->registry))],
             ...$this->trust instanceof CacheTrust ? [$this->trust->php()] : [],
-        ];
+        ]);
     }
 }

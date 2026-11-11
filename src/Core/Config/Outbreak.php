@@ -348,8 +348,6 @@ final readonly class Outbreak
                 default => [],
             },
             ...$this->stepFloor instanceof Absent ? [] : [sprintf('Outbreak::stepFloor(%d)', $this->stepFloor)],
-            ...$this->serve->php(),
-            ...$this->cache->php(),
-        ]);
+        ])->and($this->serve->php())->and($this->cache->php());
     }
 }
