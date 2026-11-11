@@ -82,7 +82,7 @@ it('runs a round on the workers the settings give, as the local loop, and on one
     }
 
     expect([$onPower->adapters->cores->count(), $onBattery->adapters->cores->count(), $running->adapters->cores->count()])->toBe([3, 1, 3])
-        ->and($onPower->adapters->loop)->toEqual(LocalLoop::of($work))
+        ->and($onPower->adapters->loop)->toEqual(LocalLoop::of($work)->quickly())
         ->and($onPower->adapters->equivalence)->toEqual($base->adapters->equivalence->across(ProcessCount::of(3)))
         ->and($onBattery->adapters->equivalence)->toEqual($base->adapters->equivalence->across(ProcessCount::single()))
         ->and($priorities)->toBe([Priority::Background->nice(), $own]);

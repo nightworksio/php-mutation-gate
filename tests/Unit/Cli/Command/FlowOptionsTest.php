@@ -64,7 +64,7 @@ it('offers plan\'s options: a ref to change since, a full run, a coverage map, a
         ->and($definition->getOption('coverage')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('shards')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('kill-matrix')->isValueRequired())->toBeTrue()
-        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'unproven', 'sample', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later']);
+        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'unproven', 'sample', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later', 'early-only']);
 });
 
 it('considers what changed since the last commit that passed unless asked otherwise, or run.full asks for every unit', function (array $options, bool $fullByDefault, Mode $mode, bool $full) use (

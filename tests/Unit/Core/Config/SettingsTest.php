@@ -66,7 +66,7 @@ describe('Settings', function (): void {
         expect([...$settings->extensions()])->toBe([])
             ->and([...$settings->presets()])->toBe([])
             ->and($settings->runner()->choice())
-            ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}, "outbreak": {"enabled": true, "timeout": 300.0, "equivalence": true, "forkStates": false, "recheckTouchedKills": true, "lines": true, "steps": true, "stepFloor": 10000000, "cache": {"store": "auto", "trust": "default-branch"}}, "duplicates": "judge-once", "trials": true, "valueReaders": true, "narrow": true, "shardScan": true, "longestFirst": true, "remember": true, "overlapSteps": true, "pcovOff": true, "xdebugOff": true}')))
+            ->toEqual(Choice::of('pest', Configs::options(SettingsCases::PEST_DEFAULTS)))
             ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
             ->and($floors->trees())->toEqual(Absent::setting())
             ->and($floors->newCode())->toEqual(Floor::of(100))
