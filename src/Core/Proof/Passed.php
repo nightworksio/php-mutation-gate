@@ -85,7 +85,10 @@ final readonly class Passed
         );
     }
 
-    /** This pass, these being the units whose results it took from its own scope's proofs. */
+    /**
+     * This pass, these being the units whose results it took from its own
+     * scope's proofs; none listed where it took none, as its record reads.
+     */
     public function takingOwnScope(Paths $units): self
     {
         return new self(
@@ -95,7 +98,7 @@ final readonly class Passed
             $this->ownScopeCoverage,
             $this->at,
             $this->gate,
-            $units,
+            $units->count() > 0 ? $units : NotGiven::value(),
         );
     }
 
