@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Tests\Support\LaravelTesting;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
+    LaravelTesting::left();
     Scratch::sweep();
 });
 
