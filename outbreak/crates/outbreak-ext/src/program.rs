@@ -9,7 +9,10 @@
 //! compile declared is taken out of PHP's tables again, so the next program
 //! compiles as the first did.
 
-#![allow(unsafe_code, reason = "the op arrays exist only behind the Zend engine's own pointers")]
+#![allow(
+    unsafe_code,
+    reason = "the op arrays exist only behind the Zend engine's own pointers"
+)]
 
 use std::ffi::CStr;
 use std::panic::AssertUnwindSafe;
@@ -59,7 +62,8 @@ pub fn digest(source: &[u8]) -> Option<String> {
         // SAFETY: every program compiles from the same counter, so its runtime keys are alike.
         unsafe { (*globals).rtd_key_counter = 0 };
         // SAFETY: `code` outlives the call, and NAME is a constant C string.
-        let main = unsafe { ffi::ext_php_rs_zend_compile_string(code.as_ptr().cast_mut(), NAME.as_ptr()) };
+        let main =
+            unsafe { ffi::ext_php_rs_zend_compile_string(code.as_ptr().cast_mut(), NAME.as_ptr()) };
 
         if main.is_null() {
             return None;
@@ -69,7 +73,13 @@ pub fn digest(source: &[u8]) -> Option<String> {
         // SAFETY: a compiled op array, and the tables PHP declared its functions and classes into.
         let read = unsafe {
             op_array(&mut canon, main, 0).is_some()
-                && declared(&mut canon, (*globals).function_table, functions, Kind::Function).is_some()
+                && declared(
+                    &mut canon,
+                    (*globals).function_table,
+                    functions,
+                    Kind::Function,
+                )
+                .is_some()
                 && declared(&mut canon, (*globals).class_table, classes, Kind::Class).is_some()
         };
         // SAFETY: the op array is the compile's own, freed once, as PHP frees an eval's.
@@ -98,7 +108,12 @@ enum Kind {
 }
 
 /// Each function or class the compile added to a table, after the first `from` entries, by its key.
-unsafe fn declared(canon: &mut Canon, table: *mut ffi::HashTable, from: u32, kind: Kind) -> Option<()> {
+unsafe fn declared(
+    canon: &mut Canon,
+    table: *mut ffi::HashTable,
+    from: u32,
+    kind: Kind,
+) -> Option<()> {
     canon.section(match kind {
         Kind::Function => "functions",
         Kind::Class => "classes",
@@ -169,7 +184,11 @@ unsafe fn function(canon: &mut Canon, function: *const ffi::zend_function) -> Op
 }
 
 /// An op array, with every closure and function it declares inside it.
-unsafe fn op_array(canon: &mut Canon, array: *const ffi::zend_op_array, depth: usize) -> Option<()> {
+unsafe fn op_array(
+    canon: &mut Canon,
+    array: *const ffi::zend_op_array,
+    depth: usize,
+) -> Option<()> {
     if array.is_null() || depth > value::DEPTH {
         return None;
     }
@@ -258,7 +277,12 @@ unsafe fn op(canon: &mut Canon, op: *const ffi::zend_op) -> Option<()> {
 }
 
 /// An operand: a constant by its value, found where PHP lays it, relative to its op; anything else as it is.
-unsafe fn operand(canon: &mut Canon, op: *const ffi::zend_op, node: ffi::znode_op, kind: u8) -> Option<()> {
+unsafe fn operand(
+    canon: &mut Canon,
+    op: *const ffi::zend_op,
+    node: ffi::znode_op,
+    kind: u8,
+) -> Option<()> {
     if kind != IS_CONST {
         // SAFETY: every member of the union is a `u32`.
         canon.number(u64::from(unsafe { node.num }));

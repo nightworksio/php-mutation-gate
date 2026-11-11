@@ -2,7 +2,10 @@
 //! contents: a literal of a compiled program, which may be a constant
 //! expression, or the state a call left behind, which may hold objects.
 
-#![allow(unsafe_code, reason = "values exist only behind the Zend engine's own pointers")]
+#![allow(
+    unsafe_code,
+    reason = "values exist only behind the Zend engine's own pointers"
+)]
 
 use std::collections::HashSet;
 
@@ -61,7 +64,10 @@ impl Seen {
     /// A walk that reads at most this many values.
     #[must_use]
     pub fn within(values: usize) -> Self {
-        Self { objects: HashSet::new(), left: values }
+        Self {
+            objects: HashSet::new(),
+            left: values,
+        }
     }
 
     fn spent(&mut self) -> Option<()> {
@@ -90,7 +96,12 @@ pub unsafe fn text<'a>(string: *const ffi::zend_string) -> Option<&'a [u8]> {
 /// # Safety
 ///
 /// `value` is a live `zval`.
-pub unsafe fn of(canon: &mut Canon, value: *const ffi::zval, walk: Walk, depth: usize) -> Option<()> {
+pub unsafe fn of(
+    canon: &mut Canon,
+    value: *const ffi::zval,
+    walk: Walk,
+    depth: usize,
+) -> Option<()> {
     // SAFETY: as the caller says; a literal walk meets no object.
     unsafe { walked(canon, value, walk, depth, &mut Seen::within(usize::MAX)) }
 }
@@ -110,12 +121,23 @@ pub unsafe fn state(canon: &mut Canon, value: *const ffi::zval, seen: &mut Seen)
 /// # Safety
 ///
 /// `table` is a live `HashTable` or null.
-pub unsafe fn table(canon: &mut Canon, table: *const ffi::HashTable, walk: Walk, depth: usize) -> Option<()> {
+pub unsafe fn table(
+    canon: &mut Canon,
+    table: *const ffi::HashTable,
+    walk: Walk,
+    depth: usize,
+) -> Option<()> {
     // SAFETY: as the caller says.
     unsafe { entries(canon, table, walk, depth, &mut Seen::within(usize::MAX)) }
 }
 
-unsafe fn walked(canon: &mut Canon, value: *const ffi::zval, walk: Walk, depth: usize, seen: &mut Seen) -> Option<()> {
+unsafe fn walked(
+    canon: &mut Canon,
+    value: *const ffi::zval,
+    walk: Walk,
+    depth: usize,
+    seen: &mut Seen,
+) -> Option<()> {
     if value.is_null() || depth > DEPTH {
         return None;
     }
@@ -142,9 +164,13 @@ unsafe fn walked(canon: &mut Canon, value: *const ffi::zval, walk: Walk, depth: 
                 Some(())
             }
             ARRAY => entries(canon, held.arr, walk, depth + 1, seen),
-            CONSTANT_AST if walk == Walk::Literal => ast(canon, held.ast.add(1).cast::<ffi::zend_ast>(), depth + 1),
+            CONSTANT_AST if walk == Walk::Literal => {
+                ast(canon, held.ast.add(1).cast::<ffi::zend_ast>(), depth + 1)
+            }
             OBJECT if walk == Walk::State => object(canon, held.obj, depth + 1, seen),
-            REFERENCE if walk == Walk::State => walked(canon, &raw const (*held.ref_).val, walk, depth + 1, seen),
+            REFERENCE if walk == Walk::State => {
+                walked(canon, &raw const (*held.ref_).val, walk, depth + 1, seen)
+            }
             INDIRECT if walk == Walk::State => walked(canon, held.zv, walk, depth + 1, seen),
             RESOURCE if walk == Walk::State => {
                 canon.signed(i64::from((*held.res).type_));
@@ -178,7 +204,10 @@ unsafe fn entries(
         // SAFETY: a packed table holds `nNumUsed` values, a hashed one as many buckets.
         let (key, value) = unsafe {
             if packed {
-                (None, (*table).__bindgen_anon_1.arPacked.add(at).cast_const())
+                (
+                    None,
+                    (*table).__bindgen_anon_1.arPacked.add(at).cast_const(),
+                )
             } else {
                 let bucket = (*table).__bindgen_anon_1.arData.add(at);
                 (Some(((*bucket).key, (*bucket).h)), &raw const (*bucket).val)
@@ -211,13 +240,19 @@ unsafe fn entries(
 }
 
 /// An object, by its class's name and each property it holds, once; again only by when it was first met.
-unsafe fn object(canon: &mut Canon, object: *const ffi::zend_object, depth: usize, seen: &mut Seen) -> Option<()> {
+unsafe fn object(
+    canon: &mut Canon,
+    object: *const ffi::zend_object,
+    depth: usize,
+    seen: &mut Seen,
+) -> Option<()> {
     if object.is_null() {
         return None;
     }
 
     // SAFETY: a live object.
-    let (handle, class, dynamic) = unsafe { ((*object).handle, (*object).ce, (*object).properties) };
+    let (handle, class, dynamic) =
+        unsafe { ((*object).handle, (*object).ce, (*object).properties) };
 
     if !seen.objects.insert(handle) {
         canon.section("seen");
@@ -233,7 +268,15 @@ unsafe fn object(canon: &mut Canon, object: *const ffi::zend_object, depth: usiz
 
     for at in 0..declared {
         // SAFETY: the object's table holds `default_properties_count` values.
-        unsafe { walked(canon, (*object).properties_table.as_ptr().add(at), Walk::State, depth, seen) }?;
+        unsafe {
+            walked(
+                canon,
+                (*object).properties_table.as_ptr().add(at),
+                Walk::State,
+                depth,
+                seen,
+            )
+        }?;
     }
 
     // SAFETY: the object's own table of further properties, or none; its declared ones are indirect there.
@@ -259,7 +302,14 @@ unsafe fn ast(canon: &mut Canon, node: *const ffi::zend_ast, depth: usize) -> Op
 
     if kind == AST_ZVAL || kind == AST_CONSTANT {
         // SAFETY: such a node holds a value right after its kind and attribute.
-        return unsafe { of(canon, &raw const (*node.cast::<ValueNode>()).value, Walk::Literal, depth + 1) };
+        return unsafe {
+            of(
+                canon,
+                &raw const (*node.cast::<ValueNode>()).value,
+                Walk::Literal,
+                depth + 1,
+            )
+        };
     }
 
     if kind & AST_LIST != 0 {

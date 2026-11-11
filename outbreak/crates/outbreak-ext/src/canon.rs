@@ -72,12 +72,16 @@ impl Canon {
     /// The SHA-256 of the whole text, in lowercase hex.
     #[must_use]
     pub fn digest(&self) -> String {
-        Sha256::digest(&self.bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+        Sha256::digest(&self.bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
     }
 
     fn tagged(&mut self, tag: Tag, value: &[u8]) {
         self.bytes.push(tag as u8);
-        self.bytes.extend_from_slice(&(value.len() as u64).to_le_bytes());
+        self.bytes
+            .extend_from_slice(&(value.len() as u64).to_le_bytes());
         self.bytes.extend_from_slice(value);
     }
 }

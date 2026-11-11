@@ -5,7 +5,10 @@
 //! passes the limit the parent set there, which the parent reads as a
 //! timeout. A slot no parent has limited holds no child back.
 
-#![allow(unsafe_code, reason = "opcode handlers, shared memory and signals exist only behind C interfaces")]
+#![allow(
+    unsafe_code,
+    reason = "opcode handlers, shared memory and signals exist only behind C interfaces"
+)]
 
 use std::ffi::c_int;
 use std::sync::atomic::{AtomicI64, AtomicPtr, AtomicU64, AtomicUsize, Ordering};
@@ -48,7 +51,10 @@ pub fn install() -> bool {
     JUMPS.iter().zip(&PREVIOUS).all(|(&opcode, previous)| {
         // SAFETY: called once at module startup, before any op array is compiled.
         let before = unsafe { zend_get_user_opcode_handler(opcode) };
-        previous.store(before.map_or(0, |handler| handler as usize), Ordering::Relaxed);
+        previous.store(
+            before.map_or(0, |handler| handler as usize),
+            Ordering::Relaxed,
+        );
 
         // SAFETY: as above.
         unsafe { zend_set_user_opcode_handler(opcode, Some(jumped)) == SUCCESS }
@@ -74,7 +80,10 @@ pub fn shared(count: usize) -> bool {
         return SLOT_COUNT.load(Ordering::Relaxed) >= count;
     }
 
-    let Some(length) = count.checked_mul(size_of::<AtomicI64>()).filter(|&length| length > 0) else {
+    let Some(length) = count
+        .checked_mul(size_of::<AtomicI64>())
+        .filter(|&length| length > 0)
+    else {
         return false;
     };
 
@@ -132,8 +141,9 @@ fn held(steps: u64) {
         return;
     }
 
-    let past = slot_of(bound - 1)
-        .is_some_and(|limit| i64::try_from(steps).unwrap_or(UNLIMITED) > limit.load(Ordering::Relaxed));
+    let past = slot_of(bound - 1).is_some_and(|limit| {
+        i64::try_from(steps).unwrap_or(UNLIMITED) > limit.load(Ordering::Relaxed)
+    });
 
     if past {
         stopped();
@@ -155,7 +165,11 @@ fn mapped(length: usize) -> *mut AtomicI64 {
         )
     };
 
-    if mapped == libc::MAP_FAILED { std::ptr::null_mut() } else { mapped.cast() }
+    if mapped == libc::MAP_FAILED {
+        std::ptr::null_mut()
+    } else {
+        mapped.cast()
+    }
 }
 
 /// No pages are shared where no child is forked.
@@ -167,7 +181,10 @@ fn mapped(_length: usize) -> *mut AtomicI64 {
 /// Ends this process by `SIGXCPU`, leaving no core behind.
 #[cfg(unix)]
 fn stopped() {
-    let none = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+    let none = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: 0,
+    };
 
     // SAFETY: plain system calls on this process alone.
     unsafe {

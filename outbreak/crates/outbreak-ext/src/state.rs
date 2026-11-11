@@ -7,7 +7,10 @@
 //! its properties are not read, so the count is a measurement, which no
 //! verdict reads.
 
-#![allow(unsafe_code, reason = "frames and values exist only behind the Zend engine's own pointers")]
+#![allow(
+    unsafe_code,
+    reason = "frames and values exist only behind the Zend engine's own pointers"
+)]
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -18,8 +21,8 @@ use ext_php_rs::types::Zval;
 use ext_php_rs::zend::{ExecuteData, FcallInfo, FcallObserver};
 
 use crate::canon::Canon;
-use crate::{steps, touches};
 use crate::value::{self, Seen};
+use crate::{steps, touches};
 
 /// The variable that says what a stream's process observes: `states`, `touches`, `lines` and `steps`, by commas.
 const OBSERVE: &str = "MUTATION_GATE_OBSERVE";
@@ -45,7 +48,12 @@ pub fn observing() -> &'static Observing {
         let asked = std::env::var(OBSERVE).unwrap_or_default();
         let has = |part: &str| asked.split(',').any(|item| item == part);
 
-        Observing { states: has("states"), touches: has("touches"), lines: has("lines"), steps: has("steps") }
+        Observing {
+            states: has("states"),
+            touches: has("touches"),
+            lines: has("lines"),
+            steps: has("steps"),
+        }
     })
 }
 
@@ -144,7 +152,11 @@ unsafe fn is_watchable(function: *const ffi::zend_function, skipping: &str) -> b
     }
 
     // SAFETY: a scope is a live class or none.
-    let class = if scope.is_null() { None } else { unsafe { value::text((*scope).name) } };
+    let class = if scope.is_null() {
+        None
+    } else {
+        unsafe { value::text((*scope).name) }
+    };
 
     class.is_none_or(|name| !name.starts_with(skipping.as_bytes()))
 }
@@ -154,7 +166,9 @@ fn digest(execute_data: &ExecuteData, retval: Option<&Zval>) -> Option<String> {
     let mut seen = Seen::within(VALUES);
     canon.section("return");
     // SAFETY: the value the call returned, live while its end is observed.
-    let returned = retval.map_or(Some(()), |retval| unsafe { value::state(&mut canon, retval, &mut seen) });
+    let returned = retval.map_or(Some(()), |retval| unsafe {
+        value::state(&mut canon, retval, &mut seen)
+    });
     canon.section("this");
     let this = &raw const execute_data.This;
     // SAFETY: `This` holds an object where the call ran on one.

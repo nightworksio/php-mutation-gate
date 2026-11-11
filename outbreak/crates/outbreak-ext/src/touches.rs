@@ -5,7 +5,10 @@
 //! skipped because a test touched none: the observer cannot see every
 //! source, such as randomness inside an extension's own C code.
 
-#![allow(unsafe_code, reason = "a call's function and arguments exist only behind the Zend engine's own pointers")]
+#![allow(
+    unsafe_code,
+    reason = "a call's function and arguments exist only behind the Zend engine's own pointers"
+)]
 
 use std::cell::RefCell;
 
@@ -16,19 +19,74 @@ use crate::value;
 
 /// Functions whose every call reads the clock, randomness, the environment, another process or the network.
 const ALWAYS: &[&str] = &[
-    "time", "microtime", "hrtime", "date", "gmdate", "mktime", "gmmktime", "strtotime", "getdate", "localtime",
-    "idate", "gettimeofday", "date_create", "date_create_immutable", "sleep", "usleep", "time_nanosleep",
-    "rand", "mt_rand", "random_int", "random_bytes", "uniqid", "lcg_value", "shuffle", "str_shuffle", "array_rand",
-    "getenv", "gethostname", "getmypid", "sys_getloadavg", "memory_get_usage", "memory_get_peak_usage",
-    "exec", "shell_exec", "system", "passthru", "proc_open", "popen",
-    "fsockopen", "pfsockopen", "stream_socket_client", "curl_exec", "curl_multi_exec", "gethostbyname",
-    "dns_get_record", "tmpfile",
+    "time",
+    "microtime",
+    "hrtime",
+    "date",
+    "gmdate",
+    "mktime",
+    "gmmktime",
+    "strtotime",
+    "getdate",
+    "localtime",
+    "idate",
+    "gettimeofday",
+    "date_create",
+    "date_create_immutable",
+    "sleep",
+    "usleep",
+    "time_nanosleep",
+    "rand",
+    "mt_rand",
+    "random_int",
+    "random_bytes",
+    "uniqid",
+    "lcg_value",
+    "shuffle",
+    "str_shuffle",
+    "array_rand",
+    "getenv",
+    "gethostname",
+    "getmypid",
+    "sys_getloadavg",
+    "memory_get_usage",
+    "memory_get_peak_usage",
+    "exec",
+    "shell_exec",
+    "system",
+    "passthru",
+    "proc_open",
+    "popen",
+    "fsockopen",
+    "pfsockopen",
+    "stream_socket_client",
+    "curl_exec",
+    "curl_multi_exec",
+    "gethostbyname",
+    "dns_get_record",
+    "tmpfile",
 ];
 
 /// Functions whose first argument names a file, which touch nondeterminism where it lies outside the project.
 const FILES: &[&str] = &[
-    "fopen", "file_get_contents", "file_put_contents", "file", "readfile", "opendir", "scandir", "glob",
-    "is_file", "is_dir", "file_exists", "filemtime", "stat", "unlink", "rename", "mkdir", "touch", "tempnam",
+    "fopen",
+    "file_get_contents",
+    "file_put_contents",
+    "file",
+    "readfile",
+    "opendir",
+    "scandir",
+    "glob",
+    "is_file",
+    "is_dir",
+    "file_exists",
+    "filemtime",
+    "stat",
+    "unlink",
+    "rename",
+    "mkdir",
+    "touch",
+    "tempnam",
 ];
 
 /// Classes whose construction reads the clock.
@@ -38,7 +96,8 @@ const CLOCKS: &[&str] = &["DateTime", "DateTimeImmutable"];
 const RANDOMIZER: &str = "Random\\Randomizer";
 
 /// The first argument's slot past a frame, in values: the frame's own size, rounded up.
-const FRAME: usize = std::mem::size_of::<ffi::zend_execute_data>().div_ceil(std::mem::size_of::<ffi::zval>());
+const FRAME: usize =
+    std::mem::size_of::<ffi::zend_execute_data>().div_ceil(std::mem::size_of::<ffi::zval>());
 
 #[derive(Default)]
 struct Watch {
@@ -67,7 +126,10 @@ pub fn observes(info: &FcallInfo) -> bool {
 /// Watching starts, for a project at this root: nothing is touched yet.
 pub fn start(root: &str) {
     WATCH.with(|watch| {
-        *watch.borrow_mut() = Watch { root: Some(root.as_bytes().to_vec()), touched: false };
+        *watch.borrow_mut() = Watch {
+            root: Some(root.as_bytes().to_vec()),
+            touched: false,
+        };
     });
 }
 
@@ -111,10 +173,18 @@ unsafe fn touches(execute_data: &ExecuteData, root: &[u8]) -> bool {
     }
 
     // SAFETY: the first argument follows the frame, as ZEND_CALL_ARG lays it out.
-    let first = unsafe { std::ptr::from_ref(execute_data).cast::<ffi::zval>().add(FRAME) };
+    let first = unsafe {
+        std::ptr::from_ref(execute_data)
+            .cast::<ffi::zval>()
+            .add(FRAME)
+    };
     // SAFETY: a string argument is a live string; any other kind names no file.
     let path = unsafe {
-        if (*first).u1.v.type_ == STRING { value::text((*first).value.str_) } else { None }
+        if (*first).u1.v.type_ == STRING {
+            value::text((*first).value.str_)
+        } else {
+            None
+        }
     };
 
     path.is_some_and(|path| outside(path, root))

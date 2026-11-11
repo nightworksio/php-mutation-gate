@@ -3,7 +3,10 @@
 //! the line of each op a user function executes, by file. Where another
 //! extension took the executor over after it, nothing is recorded.
 
-#![allow(unsafe_code, reason = "the executor and its frames exist only behind the Zend engine's own pointers")]
+#![allow(
+    unsafe_code,
+    reason = "the executor and its frames exist only behind the Zend engine's own pointers"
+)]
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -48,7 +51,10 @@ thread_local! {
 pub fn install() {
     // SAFETY: called once at module startup, before any user code runs.
     let previous = unsafe { zend_execute_ex };
-    PREVIOUS.store(previous.map_or(0, |execute| execute as usize), Ordering::Relaxed);
+    PREVIOUS.store(
+        previous.map_or(0, |execute| execute as usize),
+        Ordering::Relaxed,
+    );
 
     // SAFETY: as above.
     unsafe { zend_execute_ex = Some(executed) };
@@ -69,7 +75,8 @@ pub fn uninstall() {
 /// Whether this extension holds the executor.
 fn holds() -> bool {
     // SAFETY: the executor is read where no other thread runs PHP.
-    unsafe { zend_execute_ex }.is_some_and(|execute| std::ptr::fn_addr_eq(execute, executed as Execute))
+    unsafe { zend_execute_ex }
+        .is_some_and(|execute| std::ptr::fn_addr_eq(execute, executed as Execute))
 }
 
 /// Starts recording afresh; false where this extension does not hold the executor.
@@ -92,7 +99,12 @@ pub fn stop() -> HashMap<String, Vec<i64>> {
     recording
         .files
         .into_iter()
-        .map(|(name, words)| (String::from_utf8_lossy(&name).into_owned(), lines_of(&words)))
+        .map(|(name, words)| {
+            (
+                String::from_utf8_lossy(&name).into_owned(),
+                lines_of(&words),
+            )
+        })
         .collect()
 }
 
@@ -105,7 +117,12 @@ fn lines_of(words: &[u64]) -> Vec<i64> {
         while rest != 0 {
             let bit = rest.trailing_zeros();
             rest &= rest - 1;
-            lines.push(i64::try_from(index).unwrap_or(i64::MAX).saturating_mul(i64::from(WORD)) + i64::from(bit));
+            lines.push(
+                i64::try_from(index)
+                    .unwrap_or(i64::MAX)
+                    .saturating_mul(i64::from(WORD))
+                    + i64::from(bit),
+            );
         }
     }
 
@@ -140,9 +157,16 @@ unsafe fn recorded(execute_data: *const ffi::zend_execute_data) {
         let mut recording = recording.borrow_mut();
 
         // SAFETY: a live frame of user code, its function and op.
-        let (file, line) = unsafe { ((*(*execute_data).func).op_array.filename, (*(*execute_data).opline).lineno) };
+        let (file, line) = unsafe {
+            (
+                (*(*execute_data).func).op_array.filename,
+                (*(*execute_data).opline).lineno,
+            )
+        };
 
-        let index = if file as usize == recording.last { recording.current } else {
+        let index = if file as usize == recording.last {
+            recording.current
+        } else {
             // SAFETY: a user function's file name is a live string.
             let found = unsafe { value::text(file) }.map(|name| recording.indexed(name));
             recording.last = file as usize;
