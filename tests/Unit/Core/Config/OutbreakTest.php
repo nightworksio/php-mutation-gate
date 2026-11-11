@@ -36,10 +36,10 @@ it('stops a run after five minutes and splits on every core by default, and what
 it('lays its settings beneath the Pest runner\'s options, and leaves any other runner\'s as they are', function (): void {
     expect(Outbreak::of(binary: 'bin/outbreak')->beneath(Choice::of('pest', Configs::options('{"patch": true}'))))
         ->toEqual(Choice::of('pest', Configs::options(
-            '{"patch": true, "outbreak": {"enabled": true, "binary": "bin/outbreak", "timeout": 300.0}}',
+            '{"patch": true, "outbreak": {"enabled": true, "binary": "bin/outbreak", "timeout": 300.0, "equivalence": true, "forkStates": false, "recheckTouchedKills": true, "lines": true, "steps": true, "stepFloor": 10000000, "cache": {"store": "auto", "trust": "default-branch"}}}',
         )))
         ->and(Outbreak::of(enabled: false, timeout: Seconds::of(90), threads: 2)->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"outbreak": {"enabled": false, "timeout": 90.0, "threads": 2}}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"outbreak": {"enabled": false, "timeout": 90.0, "threads": 2, "equivalence": true, "forkStates": false, "recheckTouchedKills": true, "lines": true, "steps": true, "stepFloor": 10000000, "cache": {"store": "auto", "trust": "default-branch"}}}')))
         ->and(Outbreak::of(enabled: false)->beneath(Choice::of('infection', Configs::options('{"x": 1}'))))
         ->toEqual(Choice::of('infection', Configs::options('{"x": 1}')));
 });

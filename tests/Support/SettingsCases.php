@@ -49,11 +49,13 @@ final readonly class SettingsCases
             "everything": [],
             "changedTests": "narrow",
             "fixtures": [],
+            "defaultBranchSince": "judged",
             "lockMoves": "everything"
         },
         "holds": {
             "hotPath": 0.8,
-            "fewestTests": 20
+            "fewestTests": 20,
+            "coverage": "measure"
         },
         "run": {
             "full": false,
@@ -83,7 +85,8 @@ final readonly class SettingsCases
             "learnedFrom": "max",
             "setup": "1m",
             "cutAt": 2.0,
-            "jobLimit": "5h40m"
+            "jobLimit": "5h40m",
+            "pull": "auto"
         },
         "costs": {
             "secondsPerLine": {
@@ -106,6 +109,7 @@ final readonly class SettingsCases
             "check": "mutation / verdict",
             "schedule": "0 3 * * 1",
             "trustMergedPullRequests": false,
+            "mergedOwnScopeProofs": "reach",
             "gitlab": {
                 "template": ".gitlab/mutation-gate.yml"
             },
@@ -159,7 +163,8 @@ final readonly class SettingsCases
             }
         },
         "coverage": {
-            "incremental": true
+            "incremental": true,
+            "compressionLevel": 6
         },
         "timeouts": {
             "mode": "confirm",
@@ -168,6 +173,7 @@ final readonly class SettingsCases
             "most": 300,
             "multiple": 3,
             "startUp": "5s",
+            "startUpMultiple": 3,
             "tighter": {
                 "mutators": [
                     "RemoveArrayItem",
@@ -192,7 +198,8 @@ final readonly class SettingsCases
             },
             "perTest": 3,
             "testFloor": 3,
-            "heavyFill": true
+            "heavyFill": true,
+            "parts": true
         },
         "flaky": {
             "confirmSurvivors": true,
@@ -229,7 +236,8 @@ final readonly class SettingsCases
             },
             "timeouts": {
                 "cluster": 3
-            }
+            },
+            "looseValues": true
         },
         "heatmap": {
             "files": 10,
@@ -271,14 +279,31 @@ final readonly class SettingsCases
             "bootTail": false,
             "workerOpcache": true,
             "schemata": true,
-            "bootMutants": true
+            "bootMutants": true,
+            "bootChunks": false,
+            "narrowedKills": "vouch",
+            "longFilter": "files",
+            "preloaded": "fresh",
+            "trials": true,
+            "valueReaders": true,
+            "narrow": true,
+            "shardScan": true,
+            "longestFirst": true,
+            "remember": true,
+            "overlapSteps": true,
+            "pcovOff": true,
+            "xdebugOff": true
         },
         "splitStream": {
             "enabled": false,
             "children": 1,
             "changeCheck": true,
             "killersFirst": true,
-            "sharding": "tests"
+            "sharding": "tests",
+            "killerStreams": false,
+            "early": "no-match",
+            "bootOnce": false,
+            "reconnect": false
         },
         "staticCheck": {
             "tool": "auto",
@@ -287,10 +312,19 @@ final readonly class SettingsCases
             "testsTime": "learned",
             "dependents": 25,
             "preCheckAfter": 50,
+            "php": {
+                "pcov.enabled": "0",
+                "xdebug.mode": "off",
+                "opcache.enable_cli": "1",
+                "opcache.file_cache_only": "1",
+                "opcache.validate_timestamps": "0"
+            },
             "opcache": {
                 "batch": 100,
                 "limit": "1m"
-            }
+            },
+            "after": true,
+            "turbo": true
         },
         "triage": {
             "fewest": 2
@@ -305,6 +339,8 @@ final readonly class SettingsCases
             "watchPoll": "2s",
             "memoryHeadroom": 2,
             "serveRequest": "5s",
+            "quick": true,
+            "cancelByUnit": true,
             "cpu": "balanced",
             "onBattery": "reduce",
             "childWait": "1s",
@@ -312,7 +348,16 @@ final readonly class SettingsCases
             "coverageAlone": true,
             "sizedPools": true,
             "listOnce": true,
-            "streamBatches": true
+            "streamBatches": true,
+            "recordLines": true,
+            "siteHits": true
+        },
+        "controls": {
+            "kills": true,
+            "memory": true
+        },
+        "mutants": {
+            "duplicates": "judge-once"
         }
     }
     JSON;

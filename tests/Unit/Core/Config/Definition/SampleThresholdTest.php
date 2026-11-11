@@ -34,6 +34,6 @@ it('refuses anything else', function (string $written, string $got): void {
 it('writes its three choices into the schema, and has no effect of its own', function (): void {
     expect(SampleThreshold::written()->schema())->toEqual(Json::parse(
         '{"anyOf": [{"const": "off"}, {"type": "integer", "minimum": 1}, '
-        . '{"type": "string", "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"}]}',
+        . '{"type": "string", "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"}]}',
     ))->and(SampleThreshold::written()->effects())->toBe([]);
 });

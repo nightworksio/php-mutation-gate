@@ -66,7 +66,7 @@ describe('Settings', function (): void {
         expect([...$settings->extensions()])->toBe([])
             ->and([...$settings->presets()])->toBe([])
             ->and($settings->runner()->choice())
-            ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false}, "outbreak": {"enabled": true, "timeout": 300.0}}')))
+            ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}, "outbreak": {"enabled": true, "timeout": 300.0, "equivalence": true, "forkStates": false, "recheckTouchedKills": true, "lines": true, "steps": true, "stepFloor": 10000000, "cache": {"store": "auto", "trust": "default-branch"}}, "duplicates": "judge-once", "trials": true, "valueReaders": true, "narrow": true, "shardScan": true, "longestFirst": true, "remember": true, "overlapSteps": true, "pcovOff": true, "xdebugOff": true}')))
             ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
             ->and($floors->trees())->toEqual(Absent::setting())
             ->and($floors->newCode())->toEqual(Floor::of(100))
@@ -260,21 +260,24 @@ describe('Settings', function (): void {
             '{"ci":{"azure":{"definition":"azure-pipelines.yml"},"bitbucket":{"definition":"bitbucket-pipelines.yml"},'
             . '"buildkite":{"definition":".buildkite/pipeline.yml","step":{}},'
             . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
-            . '"extensions":[],"flaky":{"confirmSurvivors":true,"killControls":"order"},"mutators":{"except":[],"sets":[]},"packages":[],'
-            . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","patch":false,"schemata":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
-            . '"runner":{"memory":"1G","pathRules":"partitioned","use":"pest","withhold":[],"workers":"fork"},"splitStream":{"changeCheck":true,"children":1,"early":"no-match","enabled":false,"killerStreams":false,"killersFirst":true,"sharding":"tests"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
-            . '"timeouts":{"learned":{"least":2.0,"most":10.0,"percentile":0.99},"most":300,"multiple":3,"perTest":3,"seconds":10,"startUp":"5s","testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
+            . '"controls":{"kills":true,"memory":true},'
+            . '"extensions":[],"flaky":{"confirmSurvivors":true,"killControls":"order"},"holds":{"coverage":"measure"},"mutants":{"duplicates":"judge-once"},"mutators":{"except":[],"sets":[]},"packages":[],'
+            . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","longFilter":"files","narrow":true,"narrowedKills":"vouch","patch":false,"preloaded":"fresh","schemata":true,"trials":true,"valueReaders":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
+            . '"runner":{"memory":"1G","pathRules":"partitioned","use":"pest","withhold":[],"workers":"fork"},"splitStream":{"bootOnce":false,"changeCheck":true,"children":1,"enabled":false,"killerStreams":false,"killersFirst":true,"reconnect":false,"sharding":"tests"},"staticCheck":{"after":true,"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
+            . '"timeouts":{"learned":{"least":2.0,"most":10.0,"percentile":0.99},"most":300,"multiple":3,"parts":true,"perTest":3,"seconds":10,"startUp":"5s","startUpMultiple":3,"testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
         )->and(Configs::settings(SettingsCases::EVERYTHING)->canonical())->toBe(
             '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
             . '"buildkite":{"definition":".buildkite/mutation.yml","step":{"agents":{"queue":"mutation"}}},'
             . '"gitlab":{"template":".gitlab/gate.yml"},"jenkins":{"definition":"ci/Jenkinsfile"}},'
+            . '"controls":{"kills":true,"memory":true},'
             . '"extensions":["Acme\\\\GateSlack\\\\SlackExtension"],"flaky":{"confirmSurvivors":false,"killControls":"order"},'
+            . '"holds":{"coverage":"measure"},"mutants":{"duplicates":"judge-once"},'
             . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
-            . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","patch":true,"schemata":false,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
+            . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","longFilter":"files","narrow":true,"narrowedKills":"vouch","patch":true,"preloaded":"fresh","schemata":false,"trials":true,"valueReaders":true,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
             . '"runner":{"memory":"512M","pathRules":"partitioned","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
-            . '"splitStream":{"changeCheck":false,"children":2,"enabled":true,"killersFirst":false,"sharding":"source"},'
-            . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
-            . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"learned":{"least":3,"most":8,"percentile":0.9},"most":120,"multiple":3,"perTest":false,"seconds":30,"startUp":"9s","testFloor":2,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
+            . '"splitStream":{"bootOnce":false,"changeCheck":false,"children":2,"enabled":true,"killerStreams":false,"killersFirst":false,"reconnect":false,"sharding":"source"},'
+            . '"staticCheck":{"after":true,"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
+            . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"learned":{"least":3,"most":8,"percentile":0.9},"most":120,"multiple":3,"parts":true,"perTest":false,"seconds":30,"startUp":"9s","startUpMultiple":3,"testFloor":2,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
             . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
             . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
             . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',

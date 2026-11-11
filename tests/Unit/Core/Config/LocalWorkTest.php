@@ -38,7 +38,7 @@ it('takes half the cores at utility priority by default, and each class of that 
         ->and($work->windowsClass())->toBe(WindowsClass::BelowNormal)
         ->and($work->onBattery())->toBe(OnBattery::Reduce)
         ->and($work->childWait())->toEqual(Seconds::of(1.0))
-        ->and(array_map($work->isOn(...), LocalSwitch::cases()))->toBe([true, true, true, true, true]);
+        ->and(array_map($work->isOn(...), LocalSwitch::cases()))->toBe([true, true, true, true, true, true, true]);
 });
 
 it('takes each profile\'s workers and priority unless a key sets its own, and each class unless one is set', function (): void {
