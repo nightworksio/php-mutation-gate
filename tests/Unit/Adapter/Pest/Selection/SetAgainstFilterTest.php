@@ -27,7 +27,7 @@ const SET_POOL = [
     'Tests\Unit\RateTest::test_rounds with spaces',
 ];
 
-it('selects by a set of ids exactly the tests the covering filter is built for, each of which the filter selects too', function (): void {
+it('selects by a set of ids exactly the tests the covering filter is built for, each of them the filter can name selected by it too', function (): void {
     mt_srand(138);
     $pool = TestIds::of(...array_map(TestId::of(...), SET_POOL));
 
@@ -36,13 +36,12 @@ it('selects by a set of ids exactly the tests the covering filter is built for, 
         $covering = TestIds::of(...array_map(TestId::of(...), $chosen));
         $file = sprintf('%s/round-%d.ids', Scratch::directory(), $round);
         $written = IdsFile::written($covering, $file);
-        $byFilter = array_map(
-            static fn(TestId $test): string => $test->value(),
-            [...Selection::covering($chosen, Suite::none())->among($pool)],
-        );
+        $selection = Selection::covering($chosen, Suite::none());
+        $byFilter = array_map(static fn(TestId $test): string => $test->value(), [...$selection->among($pool)]);
+        $unnamed = array_map(static fn(TestId $test): string => $test->value(), [...$selection->unselected()]);
 
         expect($written)->toBe($file)
             ->and(explode("\n", rtrim((string) file_get_contents($file), "\n")))->toBe($chosen)
-            ->and(array_diff($chosen, $byFilter))->toBe([]);
+            ->and(array_values(array_diff($chosen, $byFilter)))->toBe($unnamed);
     }
 });
