@@ -112,6 +112,7 @@ enum VerdictSet
                 'src/Cli/Flow/Confirmed.php',
                 'src/Cli/Flow/Screened.php',
                 'src/Cli/Flow/Controlled.php',
+                'src/Cli/Flow/StepsOverlap.php',
                 'src/Cli/Flow/Equivalents.php',
                 'src/Cli/Flow/StaticEquivalence.php',
                 'src/Cli/Flow/Mutated.php',
