@@ -60,7 +60,8 @@ fn starts_a_daemon_of_its_own_that_stops_once_idle() -> Result<(), Box<dyn Error
     std::fs::create_dir_all(&root)?;
     let at = root.to_string_lossy().into_owned();
     let (code, said, _) = ran(&["serve", &at, "--detach", "--idle", "0.2"], b"")?;
-    let socket = root.join(".mutation-gate/outbreak/state.sock");
+    let euid = std::os::unix::fs::MetadataExt::uid(&std::fs::metadata(&root)?);
+    let socket = outbreak_serve::server::socket(&root, euid)?;
     let listened = (0..100).any(|_| {
         std::thread::sleep(std::time::Duration::from_millis(20));
         socket.exists()

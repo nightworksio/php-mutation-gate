@@ -83,6 +83,9 @@ impl fmt::Display for Failure {
     }
 }
 
+/// The verb that serves a project's state.
+const SERVE: &str = "serve";
+
 /// How to run it, as it says where its arguments name no command.
 const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert | outbreak cache pull | outbreak cache push | outbreak graph reach | outbreak serve <root> [--detach] [--idle <s>] [--snapshot-every <s>] [--sync-every <s>] [-- <child> ...] | outbreak lsp [--stdio] [--gate <path>] [--php <binary>] [--severity <s>] [-- <watch option> ...]";
 
@@ -115,7 +118,7 @@ pub fn run(
         ["graph", "reach"] => {
             outbreak_graph::answer(&read_all(input)?, CONTRACT).map_err(Failure::Usage)?
         }
-        ["serve", ..] => served(arguments.get(1..).unwrap_or_default())?,
+        [SERVE, ..] => served(arguments.get(1..).unwrap_or_default())?,
         _ => return Err(Failure::Usage(USAGE.to_owned())),
     };
 
@@ -146,11 +149,14 @@ fn served(arguments: &[String]) -> Result<String, Failure> {
             .iter()
             .position(|argument| argument == "--")
             .unwrap_or(arguments.len());
-        let own: Vec<String> = arguments
-            .iter()
-            .enumerate()
-            .filter(|(at, argument)| *at >= child || *argument != "--detach")
-            .map(|(_, argument)| argument.clone())
+        let own: Vec<String> = std::iter::once(SERVE.to_owned())
+            .chain(
+                arguments
+                    .iter()
+                    .enumerate()
+                    .filter(|(at, argument)| *at >= child || *argument != "--detach")
+                    .map(|(_, argument)| argument.clone()),
+            )
             .collect();
         let started = outbreak_serve::server::detached(&binary, &own).map_err(Failure::Io)?;
 

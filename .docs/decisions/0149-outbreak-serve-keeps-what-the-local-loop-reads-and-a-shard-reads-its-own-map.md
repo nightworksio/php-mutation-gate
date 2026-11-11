@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-11
-**Amends:** [0133](0133-outbreak-serve-holds-the-map-the-ledgers-and-the-coverage-in-memory.md): decision 1, what the daemon keeps; decision 4, a daemon in CI; decision 5, the interfaces the gate asks it through
+**Amends:** [0133](0133-outbreak-serve-holds-the-map-the-ledgers-and-the-coverage-in-memory.md): decision 1, what the daemon keeps; decision 2, where its socket is; decision 4, a daemon in CI; decision 5, the interfaces the gate asks it through
 **Amends:** [0134](0134-shards-pull-the-work-left-instead-of-owning-a-fixed-part.md): decision 4, which services `auto` claims on
 
 ## Context
@@ -28,6 +28,10 @@ coverage`) and the scan (`value readers`) apart (ADR-0016). On run
 scan, beside 7 s for `coverage`: the part a daemon in CI would save is the
 smallest of the three, and the scan is the cost.
 
+A Unix socket's address holds 103 bytes of path on macOS and the BSDs and
+107 on Linux. `.mutation-gate/outbreak/state.sock` under a project at a long
+path is longer, and the daemon then never listens.
+
 ADR-0134 has `shards.pull: auto` claim on github.com, the first service on
 the list of those the claim race passes on. The race has not run. Run
 43062122788 holds eight claim artifacts of one item and two of another, each
@@ -52,7 +56,13 @@ claim, so a written claim kept no later shard off the item.
    (ADR-0131) is asked through `ProofCache`, internal in the same way. The
    CLI hands the Outbreak adapter the daemon's client, `OutbreakDaemon` of
    the Serve adapter, so neither adapter names the other.
-4. **`shards.pull: auto` steals on every service.** The list of services
+4. **The daemon's socket is beside its files where that path fits a
+   socket's address, and in the user's own directory otherwise:**
+   `/tmp/mutation-gate-<uid>/<the first 16 hex digits of the root's
+   SHA-256>.sock`, the directory made `0700` and checked as the daemon's own
+   directory is (ADR-0133 decision 2). The gate's PHP chooses the same path
+   by the same rule.
+5. **`shards.pull: auto` steals on every service.** The list of services
    whose claims pass the race is empty until a service passes it; `claim`
    stays a value a project may set.
 

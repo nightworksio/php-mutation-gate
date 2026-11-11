@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Serve;
 
 use function ceil;
+use function hash;
 use function json_encode;
 
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Local\System;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
@@ -26,13 +28,17 @@ use NightWorksIO\MutationGate\Core\Written;
 
 use function round;
 use function sprintf;
+use function strlen;
+use function substr;
 
 /**
  * `outbreak serve` as the gate asks it (ADR-0133), for the proofs it holds,
  * for the static graph it keeps (ADR-0132) and for the changes it watches
  * the files and the power source for, waiting for one as long as it asks on
  * top of `outbreak.timeout`: one request a connection on
- * `.mutation-gate/outbreak/state.sock`, a verb and its JSON on one line, its
+ * `.mutation-gate/outbreak/state.sock`, or, where that path is longer than a
+ * socket's address holds, on `/tmp/mutation-gate-<uid>/<digest of the
+ * root>.sock`, as the daemon chooses it, a verb and its JSON on one line, its
  * answer one line of JSON in contract 1, once the socket, its directory and
  * the process answering are found to be the user's own. No daemon, an answer
  * that does not come within `outbreak.timeout`, a refusal or any other
@@ -64,6 +70,18 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
     /** What a message calls the daemon's answer. */
     private const string ANSWER = 'outbreak serve\'s answer';
 
+    /** The longest path a Unix socket's address holds on Linux, its closing NUL left out. */
+    private const int LINUX_ADDRESS = 107;
+
+    /** The longest path a Unix socket's address holds on macOS and the BSDs, its closing NUL left out. */
+    private const int ADDRESS = 103;
+
+    /** The socket of a root whose path under the root is too long: the user's directory, the root's digest. */
+    private const string SHORT = '/tmp/mutation-gate-%d/%s.sock';
+
+    /** How many hex digits of the root's SHA-256 name its socket in the short directory. */
+    private const int NAMED_BY = 16;
+
     public function __construct(private ServeSocket $socket, private Seconds $timeout, private string $root)
     {
     }
@@ -71,9 +89,7 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
     /** The daemon of the project at this root, as its owner asks it, waiting this long for each answer. */
     public static function of(string $root, int $owner, Seconds $timeout): self
     {
-        $socket = sprintf('%s/%s', $root, Workspace::servedState()->value());
-
-        return new self(ServeSocket::at($socket, $owner), $timeout, $root);
+        return new self(ServeSocket::at(self::socketOf($root, $owner), $owner), $timeout, $root);
     }
 
     public function proofs(string ...$keys): array|NotWritten
@@ -209,4 +225,20 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
             return NotWritten::because(sprintf(self::UNREAD, $unread->getMessage()));
         }
     }
+
+    /**
+     * The socket the daemon of this root answers on: the one beside its files
+     * where that path fits a socket's address, else the one its digest names
+     * in the user's own directory under `/tmp`.
+     */
+    private static function socketOf(string $root, int $owner): string
+    {
+        $beside = sprintf('%s/%s', $root, Workspace::servedState()->value());
+        $longest = System::here() === System::Linux ? self::LINUX_ADDRESS : self::ADDRESS;
+
+        return strlen($beside) <= $longest
+            ? $beside
+            : sprintf(self::SHORT, $owner, substr(hash('sha256', $root), 0, self::NAMED_BY));
+    }
+
 }

@@ -1,6 +1,8 @@
 //! The daemon itself (ADR-0133, decisions 2 to 4): one for a project's root,
 //! held by a lock on `.mutation-gate/outbreak/serve.lock`, answering on
-//! `.mutation-gate/outbreak/state.sock` in a directory kept to its owner. It
+//! `.mutation-gate/outbreak/state.sock` in a directory kept to its owner, or,
+//! where that path is longer than a socket's address holds, on
+//! `/tmp/mutation-gate-<uid>/<digest of the root>.sock`. It
 //! reads its state from the snapshot and the journal there, writes a fresh
 //! snapshot, journals what it is asked to keep, syncing the journal at most
 //! once every `sync_every`, writes a snapshot again while no client is
@@ -17,19 +19,23 @@
 //! user; a snapshot is written to a name no file holds yet, then renamed
 //! into place.
 
+use std::fmt::Write as _;
 use std::fs::{self, DirBuilder, File, Metadata, OpenOptions, Permissions, TryLockError};
 use std::io::{BufRead as _, BufReader, ErrorKind, Read as _, Write as _};
+use std::os::unix::ffi::OsStrExt as _;
 use std::os::unix::fs::{
     DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _,
 };
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use sha2::{Digest as _, Sha256};
 
 use crate::Options;
 use crate::journal::{self, Record};
@@ -45,6 +51,20 @@ const WORKSPACE: &str = ".mutation-gate";
 
 /// The socket the daemon answers on, in its directory.
 pub const SOCKET: &str = "state.sock";
+
+/// The longest path a Unix socket's address holds, its closing NUL left out.
+#[cfg(target_os = "linux")]
+const ADDRESS: usize = 107;
+
+/// The longest path a Unix socket's address holds, its closing NUL left out.
+#[cfg(not(target_os = "linux"))]
+const ADDRESS: usize = 103;
+
+/// The directory a socket goes in whose path under the root is too long, for each user.
+const SHORT: &str = "/tmp/mutation-gate-";
+
+/// How many bytes of the root's SHA-256, in hex, name a socket in the short directory.
+const NAMED_BY: usize = 8;
 
 const LOCK: &str = "serve.lock";
 
@@ -128,7 +148,7 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
     let state = read(&directory, euid);
     snapshotted(&directory, &state, euid)?;
     let journal = owned(&directory.join(JOURNAL), true, euid)?;
-    let socket = directory.join(SOCKET);
+    let socket = socket(&options.root, euid)?;
     let _ = fs::remove_file(&socket);
     let listener = UnixListener::bind(&socket)
         .map_err(|error| format!("cannot listen on {}: {error}", socket.display()))?;
@@ -212,6 +232,37 @@ fn owned_directory(path: &Path, euid: u32) -> Result<(), String> {
             .map_err(|error| format!("cannot make {}: {error}", path.display())),
         Err(error) => Err(format!("cannot read {}: {error}", path.display())),
     }
+}
+
+/// The socket a daemon of this root answers on: the one in its directory where
+/// its path fits a socket's address, else one named by the root's digest in
+/// the user's own directory under `/tmp`, which is made, kept to the user and
+/// checked as the daemon's own directory is.
+///
+/// # Errors
+///
+/// Says why there is none: the short directory cannot be kept to the user.
+pub fn socket(root: &Path, euid: u32) -> Result<PathBuf, String> {
+    let beside = root.join(DIRECTORY).join(SOCKET);
+
+    if beside.as_os_str().len() <= ADDRESS {
+        return Ok(beside);
+    }
+
+    let short = PathBuf::from(format!("{SHORT}{euid}"));
+    owned_directory(&short, euid)?;
+    fs::set_permissions(&short, Permissions::from_mode(0o700))
+        .map_err(|error| format!("cannot keep {} to its owner: {error}", short.display()))?;
+    let digest = Sha256::digest(root.as_os_str().as_bytes());
+    let named = digest
+        .iter()
+        .take(NAMED_BY)
+        .fold(String::new(), |mut named, byte| {
+            let _ = write!(named, "{byte:02x}");
+            named
+        });
+
+    Ok(short.join(format!("{named}.sock")))
 }
 
 /// Whether what a path holds, unfollowed, is of the kind asked and the user's own; why not, otherwise.
@@ -508,7 +559,7 @@ mod tests {
 
     use std::os::unix::fs::symlink;
 
-    use super::{DIRECTORY, Options, SOCKET, detached, own, owned_directory, serve};
+    use super::{DIRECTORY, Options, detached, own, owned_directory, serve, socket};
 
     fn options(root: PathBuf) -> Options {
         Options {
@@ -532,7 +583,9 @@ mod tests {
 
     fn connected(root: &std::path::Path) -> UnixStream {
         for _ in 0..200 {
-            if let Ok(stream) = UnixStream::connect(root.join(DIRECTORY).join(SOCKET)) {
+            if let Ok(stream) =
+                UnixStream::connect(socket(root, rustix::process::geteuid().as_raw()).unwrap())
+            {
                 return stream;
             }
             thread::sleep(Duration::from_millis(10));
@@ -760,5 +813,38 @@ mod tests {
         );
         assert_eq!(owned_directory(&root, euid), Ok(()));
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn answers_beside_its_files_where_the_path_fits_and_in_the_users_short_directory_otherwise() {
+        let euid = rustix::process::geteuid().as_raw();
+        let short = std::path::Path::new("/srv/app");
+        let long = std::path::PathBuf::from(format!("/srv/{}", "a".repeat(120)));
+        let moved = socket(&long, euid).unwrap();
+        let name = moved.file_name().unwrap().to_string_lossy().into_owned();
+
+        assert_eq!(
+            socket(short, euid).unwrap(),
+            short.join(DIRECTORY).join("state.sock")
+        );
+        assert_eq!(
+            moved.parent().unwrap(),
+            std::path::Path::new(&format!("/tmp/mutation-gate-{euid}"))
+        );
+        assert_eq!(name.len(), "0123456789abcdef.sock".len());
+        assert_eq!(moved.extension(), Some(std::ffi::OsStr::new("sock")));
+        assert_ne!(
+            socket(&long.join("b"), euid).unwrap(),
+            moved,
+            "each root has a socket of its own"
+        );
+        assert_eq!(
+            std::os::unix::fs::PermissionsExt::mode(
+                &std::fs::metadata(moved.parent().unwrap())
+                    .unwrap()
+                    .permissions()
+            ) & 0o777,
+            0o700
+        );
     }
 }
