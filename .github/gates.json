@@ -399,6 +399,13 @@
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },
+    "mutation/watch": {
+      "check": "mutation / watch",
+      "checks": "On a run that names `watch-jobs`, it watches those jobs of the calling run and, once one concluded in failure, tells every shard to start no further item (ADR-0135).",
+      "reproduce": "WATCH_JOBS=<names> GH_TOKEN=<token> JOBS=repos/<owner>/<repo>/actions/runs/<run>/attempts/<attempt>/jobs python3 resources/action/gate_action.py watch",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
     "mutation/survivors": {
       "check": "mutation / survivors ${{ matrix.share }}",
       "checks": "G3: on a pull request, one share of the last run's survivors run again beside the shards, within survivorsFirst.budget, a signal the verdict does not judge.",
@@ -473,6 +480,13 @@
       "check": "mutation-early / shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})",
       "checks": "G8: one shard of the plan, each of its mutants run against the tests that reach it.",
       "reproduce": "bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id> --results=.mutation-gate/results",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/watch": {
+      "check": "mutation-early / watch",
+      "checks": "On a run that names `watch-jobs`, it watches those jobs of the calling run and, once one concluded in failure, tells every shard to start no further item (ADR-0135).",
+      "reproduce": "WATCH_JOBS=<names> GH_TOKEN=<token> JOBS=repos/<owner>/<repo>/actions/runs/<run>/attempts/<attempt>/jobs python3 resources/action/gate_action.py watch",
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },
