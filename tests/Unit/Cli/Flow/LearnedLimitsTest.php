@@ -76,7 +76,7 @@ it('reads the default branch\'s kills where its own scope holds none, the median
     expect(LearnedLimits::of(learningSettings('median'), learnedLedgers(LimitHistory::none(), $kills->and($runs)))->lines())
         ->toBe([
             'timeouts.seconds learned: 3 times each shard\'s start-up, at least 1 s; 10 s where none is measured.',
-            'timeouts.multiple learned: 2, rounded up from what 99 in 100 of 1 kills took, in place of 3.',
+            'timeouts.multiple learned: 2, rounded up from what 99 in 100 of 1 kills took over their tests\' time, in place of 3.',
             'shards.max learned: 20, the median of the shards the last 3 runs ran at once, in place of 20.',
             'staticCheck.testsTime learned: 1.2 times their tests\' own time, the median of 1 kills.',
         ]);
@@ -114,7 +114,7 @@ it('says the learned multiple rounded up, and learns a single shard from runs th
     expect($learned->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 1))
         ->and($learned->lines())->toBe([
             'timeouts.seconds learned: 3 times each shard\'s start-up, at least 1 s; 10 s where none is measured.',
-            'timeouts.multiple learned: 5, rounded up from what 99 in 100 of 1 kills took, in place of 3.',
+            'timeouts.multiple learned: 5, rounded up from what 99 in 100 of 1 kills took over their tests\' time, in place of 3.',
             'shards.max learned: 1, the most shards the last 1 runs ran at once, in place of 20.',
             'staticCheck.testsTime learned: 4.26 times their tests\' own time, the median of 1 kills.',
         ]);

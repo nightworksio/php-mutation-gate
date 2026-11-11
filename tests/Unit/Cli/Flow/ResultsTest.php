@@ -488,7 +488,10 @@ $pulledPlan = static fn(): Plan => Planned::of(
 $pulledResult = static function (string $project, Plan $plan, int $item, int $job, MutantStatus $status): void {
     $planned = $plan->shard(ShardId::of($item));
     $mutants = Mutants::of(...array_map(
-        static fn(Mutant $mutant): Mutant => $status === MutantStatus::Survived ? $mutant : $mutant->killedBy(TestIds::of(TestId::of('MoneyTest::adds'))),
+        static fn(Mutant $mutant): Mutant => $status === MutantStatus::Survived
+            ? $mutant
+            : Mutant::of($mutant->id(), $mutant->nativeId(), $mutant->location(), $mutant->mutation(), MutantStatus::Killed, $mutant->duration())
+                ->killedBy(TestIds::of(TestId::of('MoneyTest::adds'))),
         [...Flows::mutantsOf('src/Money.php')],
     ));
     $result = ShardResult::of(

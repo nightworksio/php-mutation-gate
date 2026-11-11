@@ -632,7 +632,7 @@ it('reads everything since the base after a push of a commit no passing merge gr
 
 it('reads every commit since the base whole past plan.provingRange', function () use ($source): void {
     $over = PassedPullRequests::over($source(), answering(provedCommits(['one', 'two'])), PULL_REQUESTS_RUN, PULL_REQUESTS_CHECK, 1);
-    $proved = $over instanceof PassedPullRequests ? $over->trusting(passedLedgers(['one', 'two'])) : $over;
+    $proved = $over instanceof PassedPullRequests ? $over->trusting(passedLedgers(['one', 'two']), MergedTrust::Tree, OwnScopeTrust::Reach) : $over;
 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($source()->changesSince(Revision::ref('base')));
 });

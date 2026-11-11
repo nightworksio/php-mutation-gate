@@ -736,7 +736,10 @@ it('counts the proofs and the results of its own scope it took, and records how 
     $passed = LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed();
 
     expect($judgement instanceof Judged ? $judgement->verdict->judgement() : $judgement)->toBe(Judgement::Passed)
-        ->and($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 2)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate)));
+        ->and($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 2)
+            ->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))
+            ->judgedBy(GateRelease::of(Flows::setup()->gate))
+            ->takingOwnScope(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php'))));
 });
 
 it('uses none of its own scope where the default branch proved what it took', function () use (
@@ -826,7 +829,10 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
 
     expect($judgement instanceof Judged ? count($judgement->verdict->trees()->units()) : $judgement)->toBe(1)
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate)));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)
+            ->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))
+            ->judgedBy(GateRelease::of(Flows::setup()->gate))
+            ->takingOwnScope(Paths::of(Path::of('src/Money.php'))));
 });
 
 it('carries the last result\'s mutants of a mutator the plan pruned into the unit, and writes no proof of it', function () use ($makeTree, $makeReporting, $makeJudged): void {

@@ -22,7 +22,7 @@ $restarts = static fn(string $mode): Findings => Findings::of(Finding::of(
 ));
 
 it('finds PHPStan restarting where staticCheck.php leaves Xdebug on, its mode over the variable\'s and the setting\'s', function (array $config, RunnerPhp $php, string $mode) use ($restarts): void {
-    expect(PhpStanRestart::in(Observations::none()->withPhp($php)->withSettings(Configs::settings($config))))
+    expect(PhpStanRestart::in(Observations::none()->withPhp($php)->withSettings(Configs::settings(['runner' => 'pest', ...$config]))))
         ->toEqual($restarts($mode));
 })->with([
     'no mode named, Xdebug\'s default' => [['staticCheck' => ['php' => []]], fn(): RunnerPhp => $xdebug(), 'develop'],
@@ -31,7 +31,7 @@ it('finds PHPStan restarting where staticCheck.php leaves Xdebug on, its mode ov
 ]);
 
 it('finds nothing where PHPStan runs Xdebug off, another analyser checks, or Xdebug is not loaded', function (array $config, RunnerPhp $php): void {
-    expect(PhpStanRestart::in(Observations::none()->withPhp($php)->withSettings(Configs::settings($config))))
+    expect(PhpStanRestart::in(Observations::none()->withPhp($php)->withSettings(Configs::settings(['runner' => 'pest', ...$config]))))
         ->toEqual(Findings::none());
 })->with([
     'the default staticCheck.php' => [[], fn(): RunnerPhp => $xdebug()->seeing('XDEBUG_MODE', 'debug')],
@@ -42,5 +42,5 @@ it('finds nothing where PHPStan runs Xdebug off, another analyser checks, or Xde
 
 it('finds nothing where the PHP or the settings were not observed', function () use ($xdebug): void {
     expect(PhpStanRestart::in(Observations::none()->withPhp($xdebug())))->toEqual(Findings::none())
-        ->and(PhpStanRestart::in(Observations::none()->withSettings(Configs::settings([]))))->toEqual(Findings::none());
+        ->and(PhpStanRestart::in(Observations::none()->withSettings(Configs::settings(['runner' => 'pest']))))->toEqual(Findings::none());
 });
