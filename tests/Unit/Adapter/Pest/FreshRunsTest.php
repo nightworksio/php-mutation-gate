@@ -123,7 +123,7 @@ it('runs a preloaded mutant again in a fresh Pest process that prepends the over
         ->and($environment[Variable::Mutant->value])->toBe(sprintf('%s/src/Money.php', $at->root()))
         ->and(is_string($mutated) ? file_get_contents($mutated) : $mutated)->toContain('return 1 - 1;')
         ->and([$environment[Recorder::MUTANT], $environment[Recorder::MUTATED], $environment[GateVariable::Results->value]])->toBe([false, false, false])
-        ->and(implode(' ', $command->arguments()))->toMatch('/--filter "?MoneySpec::/')
+        ->and(implode(' ', $command->arguments()))->toContain(' --filter "MoneySpec::" ')
         ->and($shell->commands())->toHaveCount(1)
         ->and([...$judged->steps()])->toEqual([StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(0.0), 1)]);
 });
