@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\MergedHeads;
+use NightWorksIO\MutationGate\Adapter\GitHub\MergedLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\NoLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
@@ -171,6 +172,19 @@ $holds = [
 afterEach(function (): void {
     Scratch::sweep();
 });
+
+/** The toggles the wiring lays beneath the Pest runner's options where the config sets none: every step on. */
+const WIRED_PEST_TOGGLES = [
+    'trials' => true,
+    'valueReaders' => true,
+    'narrow' => true,
+    'shardScan' => true,
+    'longestFirst' => true,
+    'remember' => true,
+    'overlapSteps' => true,
+    'pcovOff' => true,
+    'xdebugOff' => true,
+];
 
 /** The tokens of every CI the gate knows, past those every run withholds. */
 function wiringEveryCi(): Withheld
@@ -502,15 +516,18 @@ it('reads changes through GitHub under GitHub Actions, by ci.check, trusting the
     $check = new ReflectionProperty(MergedHeads::class, 'check');
     $ledgers = new ReflectionProperty(MergedHeads::class, 'ledgers');
     $source = new ReflectionProperty(PassedPullRequests::class, 'source');
+    $store = new ReflectionProperty(MergedLedgers::class, 'store');
     $changed = $heads->getValue($adapters->changes);
     $standing = $heads->getValue($adapters->repository);
+    $kept = $adapters->proofs instanceof MergedLedgers ? $store->getValue($adapters->proofs) : $adapters->proofs;
 
     expect($adapters->changes)->toBeInstanceOf(PassedPullRequests::class)
         ->and($adapters->repository)->toBeInstanceOf(PassedPullRequests::class)
         ->and($changed)->toBeInstanceOf(MergedHeads::class)
         ->and($changed instanceof MergedHeads ? $check->getValue($changed) : $changed)->toBe('gate / verdict')
-        ->and($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toBe($adapters->proofs)
-        ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toBe($adapters->proofs)
+        ->and($adapters->proofs)->toBeInstanceOf(MergedLedgers::class)
+        ->and($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toBe($kept)
+        ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toBe($kept)
         ->and($source->getValue($adapters->changes))->toEqual($git);
 })->group(...$holds);
 
@@ -831,7 +848,7 @@ it('tells each runner its timeouts and the classes of the registered mutators th
     $phpunit = $wired(Runner::phpunit());
     $native = [...$default instanceof MutatorSet ? $default : [], PlusToMinus::class];
 
-    $options = Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]]));
+    $options = Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class], ...WIRED_PEST_TOGGLES]));
 
     expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
         $options,
@@ -914,15 +931,17 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
     $phpunit = $wired(Runner::phpunit());
     $infection = $wired(Runner::infection());
 
+    $pestOptions = Configs::options((string) json_encode(['timeout' => 45.0, 'tests' => $declared, ...WIRED_PEST_TOGGLES]));
+
     expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
-        Configs::options($options(...$declared)),
+        $pestOptions,
         ComposerVendor::of('.'),
         new CapDirectory(),
         new PackageDirectory(),
         firstPartyProcesses(),
         NotGiven::value(),
         PestPlugin::class,
-        Outbreak::beneath(Configs::options($options(...$declared)), (string) getcwd(), Resources::at(Shipped::Outbreak)),
+        Outbreak::beneath($pestOptions, (string) getcwd(), Resources::at(Shipped::Outbreak)),
     ))
         ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(
             Configs::options($options(...$declared)),
