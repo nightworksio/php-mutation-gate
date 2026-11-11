@@ -44,6 +44,13 @@ it('writes what the proofs\' digests share once each, in the order they first re
     ]);
 });
 
+it('holds the digest of a run\'s first five inputs beside the mutation digests', function () use ($proof, $money): void {
+    $table = InputsTable::of($proof('src/Money.php', $money()->withReads(Digest::sha256Of('reads'))));
+
+    expect($table->written()['mutation'])->toBe([Digest::sha256Of('mutation')->value(), Digest::sha256Of('reads')->value()])
+        ->and($table->mutation(Digest::sha256Of('reads')))->toBe(1);
+});
+
 it('gives each shared digest its index, and reads each index back as the digest', function () use ($makeTable, $makeCommit): void {
     $table = $makeTable();
     $commit = $makeCommit();
