@@ -165,7 +165,12 @@ unsafe fn walked(
             }
             ARRAY => entries(canon, held.arr, walk, depth + 1, seen),
             CONSTANT_AST if walk == Walk::Literal => {
-                ast(canon, held.ast.add(1).cast::<ffi::zend_ast>(), depth + 1)
+                #[expect(
+                    clippy::cast_ptr_alignment,
+                    reason = "PHP allocates a constant's tree right after its reference, aligned for the tree"
+                )]
+                let tree = held.ast.add(1).cast::<ffi::zend_ast>();
+                ast(canon, tree, depth + 1)
             }
             OBJECT if walk == Walk::State => object(canon, held.obj, depth + 1, seen),
             REFERENCE if walk == Walk::State => {

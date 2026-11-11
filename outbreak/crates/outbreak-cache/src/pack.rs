@@ -279,6 +279,8 @@ fn read_entry(line: &[u8]) -> Result<String, Refused> {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Write as _;
+
     use super::{Pack, header, parse};
     use crate::request::Limits;
 
@@ -292,8 +294,7 @@ mod tests {
         text.push('\n');
 
         for (key, ledger) in entries {
-            text.push_str(&format!(r#"{{"key":"{key}","ledger":"{ledger}"}}"#));
-            text.push('\n');
+            let _ = writeln!(text, r#"{{"key":"{key}","ledger":"{ledger}"}}"#);
         }
 
         text.into_bytes()

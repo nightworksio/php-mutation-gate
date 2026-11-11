@@ -293,7 +293,7 @@ unsafe fn operand(
     // SAFETY: a constant operand is a signed byte offset from its op to its literal (RT_CONSTANT).
     let offset = isize::try_from(unsafe { node.constant }.cast_signed()).ok()?;
     // SAFETY: the literal lies at that offset within the op array's allocation.
-    let literal = unsafe { op.cast::<u8>().offset(offset).cast::<ffi::zval>() };
+    let literal = unsafe { op.byte_offset(offset).cast::<ffi::zval>() };
 
     // SAFETY: a literal is a live value.
     unsafe { value::of(canon, literal, Walk::Literal, 0) }

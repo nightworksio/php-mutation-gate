@@ -31,6 +31,10 @@ const OBSERVE: &str = "MUTATION_GATE_OBSERVE";
 const USER_FUNCTION: u8 = 2;
 
 /// What the process observes, read once from its environment.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each is a switch of its own the environment sets"
+)]
 pub struct Observing {
     states: bool,
     touches: bool,

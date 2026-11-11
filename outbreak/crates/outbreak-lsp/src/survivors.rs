@@ -123,7 +123,7 @@ impl Event {
                         None
                     } else {
                         Some(message::string(value)?)
-                    })
+                    });
                 }
                 _ => {}
             }

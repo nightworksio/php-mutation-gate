@@ -228,7 +228,7 @@ impl<W: Write + Send + 'static> Session<W> {
         match (read.id, read.method.as_deref()) {
             (_, Some("exit")) => return Ok(Flow::Exit),
             (Some(id), Some("initialize")) if self.phase == Phase::Uninitialized => {
-                self.initialize(id, read.params)?
+                self.initialize(id, read.params)?;
             }
             (None, Some("initialized")) if self.phase == Phase::Running => self.watch(),
             (Some(id), Some(_)) if self.phase == Phase::Uninitialized => {
@@ -249,7 +249,7 @@ impl<W: Write + Send + 'static> Session<W> {
             }
             (Some(id), Some("workspace/executeCommand")) => self.execute(id, read.params)?,
             (Some(id), Some("initialize")) => {
-                self.client.send(&message::error(id, Fault::Invalid))?
+                self.client.send(&message::error(id, Fault::Invalid))?;
             }
             (Some(id), Some(_)) => self.client.send(&message::error(id, Fault::Unknown))?,
             _ => {}

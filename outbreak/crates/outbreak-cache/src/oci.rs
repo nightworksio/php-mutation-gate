@@ -5,6 +5,7 @@
 //! push merges the entries into the tagged pack and tags the merged one.
 
 use std::env;
+use std::fmt::Write as _;
 use std::time::Duration;
 
 use outbreak_map::json::Cursor;
@@ -163,7 +164,7 @@ impl Registry {
         };
         let manifest = self.get(
             &self.url(&format!("manifests/{named}")),
-            &bearer,
+            bearer.as_deref(),
             MANIFEST_MOST,
         )?;
         let Some(manifest) = manifest else {
@@ -172,7 +173,7 @@ impl Registry {
         let digest = layer_of(&manifest)?;
         let Some(bytes) = self.get(
             &self.url(&format!("blobs/{digest}")),
-            &bearer,
+            bearer.as_deref(),
             request.limits.packed + 1,
         )?
         else {
@@ -193,8 +194,8 @@ impl Registry {
     /// The pack's bytes tagged, its layer and the empty config uploaded first.
     fn tag(&self, tag: &str, bytes: &[u8]) -> Result<(), Failure> {
         let bearer = self.bearer(Access::Push)?;
-        let layer = self.upload(&bearer, bytes)?;
-        let config = self.upload(&bearer, EMPTY_BODY)?;
+        let layer = self.upload(bearer.as_deref(), bytes)?;
+        let config = self.upload(bearer.as_deref(), EMPTY_BODY)?;
         let manifest = format!(
             r#"{{"schemaVersion":2,"mediaType":"{MANIFEST}","artifactType":"{ARTIFACT}","config":{{"mediaType":"{EMPTY}","digest":"{config}","size":{}}},"layers":[{{"mediaType":"{LAYER}","digest":"{layer}","size":{}}}]}}"#,
             EMPTY_BODY.len(),
@@ -224,15 +225,15 @@ impl Registry {
     }
 
     /// A blob uploaded in one request after its upload is begun: its digest.
-    fn upload(&self, bearer: &Option<String>, bytes: &[u8]) -> Result<String, Failure> {
+    fn upload(&self, bearer: Option<&str>, bytes: &[u8]) -> Result<String, Failure> {
         let digest = sha256(bytes);
-        let mut begin = self.agent.post(&self.url("blobs/uploads/"));
+        let mut beginning = self.agent.post(&self.url("blobs/uploads/"));
 
         if let Some(bearer) = bearer {
-            begin = begin.header("Authorization", bearer);
+            beginning = beginning.header("Authorization", bearer);
         }
 
-        let begun = begin
+        let begun = beginning
             .send_empty()
             .map_err(|error| Failure::Io(format!("cannot begin an upload: {error}")))?;
         let Some(location) = begun
@@ -275,12 +276,7 @@ impl Registry {
     }
 
     /// What the registry answers at a URL, at most this many bytes; none where it holds nothing there.
-    fn get(
-        &self,
-        url: &str,
-        bearer: &Option<String>,
-        most: u64,
-    ) -> Result<Option<Vec<u8>>, Failure> {
+    fn get(&self, url: &str, bearer: Option<&str>, most: u64) -> Result<Option<Vec<u8>>, Failure> {
         let mut get = self.agent.get(url).header("Accept", MANIFEST);
 
         if let Some(bearer) = bearer {
@@ -340,7 +336,7 @@ impl Registry {
             .agent
             .get(&realm)
             .query("service", &service)
-            .query("scope", &access.scope(&self.name));
+            .query("scope", access.scope(&self.name));
 
         if let Some(token) = &self.token {
             asked = asked.header(
@@ -430,7 +426,10 @@ fn parameter(challenge: &str, name: &str) -> Option<String> {
 
 fn sha256(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
-    let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    let hex = digest.iter().fold(String::new(), |mut hex, byte| {
+        let _ = write!(hex, "{byte:02x}");
+        hex
+    });
 
     format!("sha256:{hex}")
 }

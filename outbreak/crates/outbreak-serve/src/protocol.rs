@@ -250,7 +250,7 @@ fn waited(json: &[u8], files: bool) -> Result<Waiting, String> {
     {
         match key.text.as_str() {
             "paths" if files => {
-                paths = Some(strings(&mut cursor).map_err(|refused| said(&refused))?)
+                paths = Some(strings(&mut cursor).map_err(|refused| said(&refused))?);
             }
             "since" => since = Some(whole(&mut cursor, "since")?),
             "wait" => wait = Some(Duration::from_millis(whole(&mut cursor, "wait")?)),

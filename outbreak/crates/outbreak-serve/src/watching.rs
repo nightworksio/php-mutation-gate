@@ -240,7 +240,7 @@ fn walked(
         if directory {
             match fs::read_dir(&path) {
                 Ok(entries) => {
-                    left.extend(entries.filter_map(Result::ok).map(|entry| entry.path()))
+                    left.extend(entries.filter_map(Result::ok).map(|entry| entry.path()));
                 }
                 Err(error) if error.kind() == ErrorKind::NotFound => {}
                 Err(error) => return Err(format!("cannot read {}: {error}", path.display())),

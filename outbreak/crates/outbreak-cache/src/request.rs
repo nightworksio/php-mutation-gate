@@ -149,7 +149,7 @@ pub fn is_repository(named: &str) -> bool {
         })
         && port.len() <= 5
         && port.bytes().all(|byte| byte.is_ascii_digit())
-        && (port.is_empty() == !authority.contains(':'))
+        && port.is_empty() != authority.contains(':')
         && !path.is_empty()
         && !path.starts_with('/')
         && !path.contains("..")

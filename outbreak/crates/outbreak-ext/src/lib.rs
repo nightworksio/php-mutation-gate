@@ -31,6 +31,7 @@ use ext_php_rs::prelude::*;
 /// compiles it; null where it does not compile or holds a value no digest
 /// reads.
 #[php_function]
+#[must_use]
 pub fn outbreak_op_arrays(file: &str) -> Option<String> {
     std::fs::read(file)
         .ok()
@@ -40,12 +41,14 @@ pub fn outbreak_op_arrays(file: &str) -> Option<String> {
 /// Arms a watch on the nearest calling frame whose class is outside this
 /// namespace prefix; its slot, or null where there is none.
 #[php_function]
+#[must_use]
 pub fn outbreak_state_watch(skipping: &str) -> Option<i64> {
     state::armed(skipping)
 }
 
 /// The digest of the state the watched call left behind, taken; null before it returned.
 #[php_function]
+#[must_use]
 pub fn outbreak_state_digest(slot: i64) -> Option<String> {
     state::taken(slot)
 }

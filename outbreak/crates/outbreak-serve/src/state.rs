@@ -115,10 +115,9 @@ mod tests {
             State::of([kept.clone(), forgotten.clone()]).proof("k"),
             None
         );
-        assert!(
-            State::of([kept.clone(), forgotten.clone()])
-                .records()
-                .is_empty()
+        assert_eq!(
+            State::of([kept.clone(), forgotten.clone()]).records(),
+            Vec::new()
         );
         assert_eq!(State::of([forgotten, kept]).proof("k"), Some(&b"proof"[..]));
     }

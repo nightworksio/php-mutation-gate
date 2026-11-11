@@ -169,7 +169,7 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
                 &socket,
                 lives_with_child,
                 euid,
-            )
+            );
         })
     };
 

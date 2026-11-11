@@ -2,6 +2,8 @@
 //! variable-length part led by its length, so two texts are equal only where
 //! the values written into them are, in the same order.
 
+use std::fmt::Write as _;
+
 use sha2::{Digest, Sha256};
 
 /// The kind of each value written, so no two kinds read alike.
@@ -74,8 +76,10 @@ impl Canon {
     pub fn digest(&self) -> String {
         Sha256::digest(&self.bytes)
             .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect()
+            .fold(String::new(), |mut hex, byte| {
+                let _ = write!(hex, "{byte:02x}");
+                hex
+            })
     }
 
     fn tagged(&mut self, tag: Tag, value: &[u8]) {
