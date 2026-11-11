@@ -6,14 +6,12 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function ctype_digit;
 use function dirname;
-use function escapeshellarg;
 use function fclose;
 use function file_put_contents;
+use function implode;
 use function is_array;
 use function is_resource;
-use function json_decode;
 
-use const JSON_THROW_ON_ERROR;
 use const PHP_BINARY;
 
 use function proc_close;
@@ -37,11 +35,14 @@ final readonly class FreshProcess
     /** Where the system lists the descriptors this process holds. */
     private const string HELD = '/dev/fd';
 
+    /** The shell that closes them, one that reads a descriptor of more than one digit as a descriptor. */
+    private const string SHELL = 'bash';
+
     /** The first descriptor past standard input, output and error. */
     private const int FIRST = 3;
 
-    /** What the program printed, read as JSON. */
-    public static function answer(string $program): mixed
+    /** What the program printed. */
+    public static function answer(string $program): string
     {
         $file = sprintf('%s/fresh.php', Scratch::directory());
         file_put_contents($file, sprintf(
@@ -49,16 +50,22 @@ final readonly class FreshProcess
             var_export(sprintf('%s/vendor/autoload.php', dirname(__DIR__, 2)), return: true),
             $program,
         ));
-        $command = sprintf(
-            'exec %s -d display_errors=stderr -d error_reporting=-1 %s%s',
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg($file),
-            self::closing(),
-        );
+        $command = [
+            self::SHELL,
+            '-c',
+            sprintf('exec "$@"%s', self::closing()),
+            self::SHELL,
+            PHP_BINARY,
+            '-d',
+            'display_errors=stderr',
+            '-d',
+            'error_reporting=-1',
+            $file,
+        ];
         $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
 
         if (! is_resource($process)) {
-            throw new RuntimeException(sprintf('PHP could not be started: %s', $command));
+            throw new RuntimeException(sprintf('PHP could not be started: %s', implode(' ', $command)));
         }
 
         $output = (string) stream_get_contents($pipes[1]);
@@ -68,10 +75,10 @@ final readonly class FreshProcess
         $exit = proc_close($process);
 
         if ($exit !== 0) {
-            throw new RuntimeException(sprintf("%s exited %d:\n%s%s", $command, $exit, $output, $errors));
+            throw new RuntimeException(sprintf("%s exited %d:\n%s%s", implode(' ', $command), $exit, $output, $errors));
         }
 
-        return json_decode($output, associative: true, flags: JSON_THROW_ON_ERROR);
+        return $output;
     }
 
     /** A redirection that closes each descriptor past the standard three this process holds, for the program's PHP. */

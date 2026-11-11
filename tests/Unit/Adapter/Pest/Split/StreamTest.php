@@ -6,6 +6,10 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
 use NightWorksIO\MutationGate\Tests\Support\FreshProcess;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
 /**
  * The lines a stream started from a plan wrote, each decoded, its seconds left out.
  *
@@ -67,7 +71,7 @@ it('writes how the parent came out of each test it ran', function (): void {
         }
 
         echo json_encode($started ? $lines : [['not started']]);
-        PHP, var_export(sprintf('%s/plan.json', $root), return: true), var_export($results, return: true), var_export($results, return: true))))->toBe([
+        PHP, var_export(sprintf('%s/plan.json', $root), return: true), var_export($results, return: true), var_export($results, return: true))))->json()->toBe([
         ['k' => 'parent', 't' => 'T::passes', 'p' => true],
         ['k' => 'parent', 't' => 'T::fails', 'p' => false],
     ]);
