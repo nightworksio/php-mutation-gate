@@ -34,7 +34,7 @@ use NightWorksIO\MutationGate\Core\Reach\GraphAsked;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
-use NightWorksIO\MutationGate\Core\Serve\ServesState;
+use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Written;
@@ -108,7 +108,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
         private string|NotGiven $binary,
         private string $root,
         private OutbreakSettings $settings,
-        private (NoticesChanges&ReachGraph&ServesState)|NotGiven $served = new NotGiven(),
+        private (NoticesChanges&ReachGraph&KeepsProofs)|NotGiven $served = new NotGiven(),
     ) {
     }
 
@@ -172,7 +172,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
      * The engine with the state `outbreak serve` keeps for the project, where
      * the binary speaks and `outbreak.serve.enabled` is on; as it is otherwise.
      */
-    public function servedBy(NoticesChanges&ReachGraph&ServesState $served): self
+    public function servedBy(NoticesChanges&ReachGraph&KeepsProofs $served): self
     {
         return $this->binary instanceof NotGiven || ! $this->settings->serve()->enabled()
             ? $this
@@ -317,7 +317,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
     }
 
     /** The proofs `outbreak serve` keeps by key, where it serves the project; none otherwise. */
-    public function state(): ServesState|NotGiven
+    public function state(): KeepsProofs|NotGiven
     {
         return $this->served;
     }

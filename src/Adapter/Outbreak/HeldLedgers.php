@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\ProofEntry;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
-use NightWorksIO\MutationGate\Core\Serve\ServesState;
+use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
@@ -50,7 +50,7 @@ final class HeldLedgers implements ProofStore
     /** @var list<string> the keys of dropped proofs the daemon was not made to forget */
     private array $unforgotten = [];
 
-    public function __construct(private readonly ProofStore $store, private readonly ServesState $state)
+    public function __construct(private readonly ProofStore $store, private readonly KeepsProofs $state)
     {
     }
 

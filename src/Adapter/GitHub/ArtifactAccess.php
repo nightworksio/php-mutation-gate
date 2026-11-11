@@ -29,7 +29,7 @@ use function unlink;
  *
  * @internal
  */
-final readonly class ArtifactService
+final readonly class ArtifactAccess
 {
     /** The variable that names the handoff file. */
     public const string FILE = 'MUTATION_GATE_ARTIFACT_SERVICE';

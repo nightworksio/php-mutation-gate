@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Written;
  * daemon keeps the static graph too, which the gate asks through the
  * `ReachGraph` port (ADR-0132).
  */
-interface ServesState
+interface KeepsProofs
 {
     /**
      * The proof it holds under each of these keys, by the key; or why it answers none.

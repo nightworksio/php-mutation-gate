@@ -46,7 +46,7 @@ final readonly class WatchedJob
     /** The jobs the environment names, read through the service the gate was handed; none where either is missing. */
     public static function of(
         Variables $environment,
-        ArtifactService|CannotJudge|NotGiven $service,
+        ArtifactAccess|CannotJudge|NotGiven $service,
         Exchange $exchange,
     ): self {
         $watches = false;
@@ -55,7 +55,7 @@ final readonly class WatchedJob
             $watches = $watches || trim($name) !== '';
         }
 
-        $artifacts = $watches && $service instanceof ArtifactService
+        $artifacts = $watches && $service instanceof ArtifactAccess
             ? RunArtifacts::of($service, $exchange)
             : NotGiven::value();
 

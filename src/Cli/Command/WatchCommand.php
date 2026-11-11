@@ -35,7 +35,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Serve\ServesState;
+use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
@@ -155,7 +155,7 @@ final readonly class WatchCommand
     {
         $state = ServedProofs::state($composed->adapters);
 
-        return $state instanceof ServesState ? new HeldLedgers($composed->adapters->proofs, $state) : $state;
+        return $state instanceof KeepsProofs ? new HeldLedgers($composed->adapters->proofs, $state) : $state;
     }
 
     private function watched(): int

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
 use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -15,7 +15,7 @@ $environment = static fn(string $watched): Variables => Variables::of([
     'GITHUB_RUN_ATTEMPT' => '2',
 ]);
 
-$service = static fn(): ArtifactService => ArtifactService::of(sprintf(
+$service = static fn(): ArtifactAccess => ArtifactAccess::of(sprintf(
     'header.%s.signature',
     rtrim(strtr(base64_encode(json_encode(['scp' => 'Actions.Results:run-1:job-7'], JSON_THROW_ON_ERROR)), '+/', '-_'), '='),
 ), 'https://results.example/');

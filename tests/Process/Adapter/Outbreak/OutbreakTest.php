@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
-use NightWorksIO\MutationGate\Adapter\Serve\ServedState;
+use NightWorksIO\MutationGate\Adapter\Serve\OutbreakDaemon;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Outbreak as OutbreakSettings;
@@ -170,7 +170,7 @@ it('runs the binary a config names, from the root where relative, and none where
 
 it('keeps the state outbreak serve holds only where the binary speaks and serving is on', function (): void {
     $speaking = OutbreakStandIn::answering('{"outbreak":1,"vouched":true}')->binary();
-    $served = ServedState::of('/project', 0, Seconds::of(1));
+    $served = OutbreakDaemon::of('/project', 0, Seconds::of(1));
     $off = OutbreakSettings::of(serve: OutbreakServe::of(enabled: false));
 
     expect(Outbreak::at($speaking, '/project')->servedBy($served)->state())->toBe($served)

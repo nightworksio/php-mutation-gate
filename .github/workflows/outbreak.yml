@@ -363,7 +363,7 @@ jobs:
         env:
           OUTBREAK_BINARY: ${{ github.workspace }}/outbreak/target/release/outbreak
           OUTBREAK_EXTENSION: ${{ github.workspace }}/outbreak/target/release/liboutbreak.so
-        run: vendor/bin/pest tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph tests/Contract/ServesState tests/Contract/Equivalence tests/Process/Adapter/Outbreak
+        run: vendor/bin/pest tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph tests/Contract/KeepsProofs tests/Contract/Equivalence tests/Process/Adapter/Outbreak
       - name: what failed
         if: failure()
         working-directory: .

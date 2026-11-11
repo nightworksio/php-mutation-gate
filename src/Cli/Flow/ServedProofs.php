@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\ProofEntry;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
-use NightWorksIO\MutationGate\Core\Serve\ServesState;
+use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 
 use function sprintf;
 
@@ -30,7 +30,7 @@ use function sprintf;
 final readonly class ServedProofs
 {
     /** The daemon that keeps the proofs, where `outbreak serve` may serve the project; none otherwise. */
-    public static function state(Adapters $adapters): ServesState|NotGiven
+    public static function state(Adapters $adapters): KeepsProofs|NotGiven
     {
         $engine = $adapters->maps;
 
@@ -41,7 +41,7 @@ final readonly class ServedProofs
     {
         $state = self::state($adapters);
 
-        if (! $state instanceof ServesState || $taken !== TakenProofs::Every) {
+        if (! $state instanceof KeepsProofs || $taken !== TakenProofs::Every) {
             return Proofs::none();
         }
 

@@ -67,14 +67,14 @@ final readonly class ArtifactClaims implements ItemClaims
      * service the gate was handed; or why it cannot reach them.
      */
     public static function of(
-        ArtifactService|CannotJudge|NotGiven $service,
+        ArtifactAccess|CannotJudge|NotGiven $service,
         Variables $environment,
         Exchange $exchange,
         ShardPull $pull,
         Digest $plan,
         ShardId $shard,
     ): self|CannotJudge {
-        if (! $service instanceof ArtifactService) {
+        if (! $service instanceof ArtifactAccess) {
             return $service instanceof CannotJudge ? $service : CannotJudge::because(self::UNHANDED);
         }
 

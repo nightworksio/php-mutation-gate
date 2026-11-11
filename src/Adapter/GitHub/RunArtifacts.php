@@ -69,7 +69,7 @@ final readonly class RunArtifacts
     }
 
     /** The run's artifacts, as the service the gate was handed reaches them; or why its token names no run. */
-    public static function of(ArtifactService $service, Exchange $exchange): self|CannotJudge
+    public static function of(ArtifactAccess $service, Exchange $exchange): self|CannotJudge
     {
         $ids = self::backendIds($service->token());
 

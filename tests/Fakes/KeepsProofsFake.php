@@ -10,7 +10,7 @@ use function array_intersect_key;
 use function count;
 
 use NightWorksIO\MutationGate\Core\NotWritten;
-use NightWorksIO\MutationGate\Core\Serve\ServesState;
+use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -20,7 +20,7 @@ use function sprintf;
  * the daemon: each kept proof answered by its key; or, with no daemon, no
  * answer at all.
  */
-final class ServesStateFake implements ServesState
+final class KeepsProofsFake implements KeepsProofs
 {
     /** @var array<string, string> */
     private array $proofs = [];

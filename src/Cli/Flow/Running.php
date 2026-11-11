@@ -7,8 +7,8 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function is_dir;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
-use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
 use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordedMap;
@@ -159,7 +159,7 @@ final readonly class Running
         Plan $plan,
         ShardId|Absent $named,
         Path $results,
-        ArtifactService|CannotJudge|NotGiven $service = new NotGiven(),
+        ArtifactAccess|CannotJudge|NotGiven $service = new NotGiven(),
     ): ShardLeft|ShardsLeft|CannotJudge {
         $followed = self::followed($plan, $this->adapters->repository);
         $id = $named instanceof ShardId ? $named : WhichShard::in($this->adapters->environment, $plan);
@@ -241,7 +241,7 @@ final readonly class Running
         ShardId $job,
         Path $results,
         Deadline|Unlimited $deadline,
-        ArtifactService|CannotJudge|NotGiven $service,
+        ArtifactAccess|CannotJudge|NotGiven $service,
     ): ShardsLeft|CannotJudge {
         $claims = ArtifactClaims::of(
             $service,

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
-use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\ShardPull;
@@ -21,8 +21,8 @@ $token = static fn(string $scope = 'Actions.Results:run-1:job-7'): string => spr
 
 $runtime = static fn(): array => ['GITHUB_SERVER_URL' => 'https://github.com', 'GITHUB_RUN_ATTEMPT' => '2'];
 
-$claims = static fn(Cloud $cloud, array $variables, ShardPull $pull = ShardPull::Auto, ArtifactService|CannotJudge|NotGiven|null $service = null): ArtifactClaims|CannotJudge => ArtifactClaims::of(
-    $service ?? ArtifactService::of($token(), 'https://results.example/'),
+$claims = static fn(Cloud $cloud, array $variables, ShardPull $pull = ShardPull::Auto, ArtifactAccess|CannotJudge|NotGiven|null $service = null): ArtifactClaims|CannotJudge => ArtifactClaims::of(
+    $service ?? ArtifactAccess::of($token(), 'https://results.example/'),
     Variables::of($variables),
     $cloud->exchange(),
     $pull,
@@ -67,12 +67,12 @@ it('steals on a service the race test has not passed on', function () use ($runt
     expect($taken instanceof ArtifactClaims ? $taken->pull() : $taken)->toBe(ShardPull::Steal);
 });
 
-it('cannot reach claims without a service handed in, or a token that names a run', function (ArtifactService|CannotJudge|NotGiven $service, CannotJudge $why) use ($runtime, $claims): void {
+it('cannot reach claims without a service handed in, or a token that names a run', function (ArtifactAccess|CannotJudge|NotGiven $service, CannotJudge $why) use ($runtime, $claims): void {
     expect($claims(new Cloud(), $runtime(), ShardPull::Auto, $service))->toEqual($why);
 })->with([
     'none handed' => [fn(): NotGiven => NotGiven::value(), fn(): CannotJudge => CannotJudge::because('The gate was handed no artifact service to claim items by.')],
     'a handoff that failed' => [fn(): CannotJudge => CannotJudge::because('unread'), fn(): CannotJudge => CannotJudge::because('unread')],
-    'no results scope' => [fn(): ArtifactService => ArtifactService::of('a.e30.b', 'https://results.example/'), fn(): CannotJudge => CannotJudge::because('The runtime token names no run to write artifacts to.')],
+    'no results scope' => [fn(): ArtifactAccess => ArtifactAccess::of('a.e30.b', 'https://results.example/'), fn(): CannotJudge => CannotJudge::because('The runtime token names no run to write artifacts to.')],
 ]);
 
 it('says why a claim cannot be told where the service fails', function () use ($runtime, $claims): void {

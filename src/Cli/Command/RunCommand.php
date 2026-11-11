@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use function getenv;
 use function is_array;
 
-use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Baselines;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
@@ -69,7 +69,7 @@ final readonly class RunCommand
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $planned = $input->getOption(FlowOptions::PLAN) !== null;
-                $service = $planned ? ArtifactService::handedIn(Variables::of(getenv())) : new NotGiven();
+                $service = $planned ? ArtifactAccess::handedIn(Variables::of(getenv())) : new NotGiven();
                 $composed = $planned
                     ? $composition->compose($input)
                     : PublishDir::composed(FlowOptions::narrowed($composition->compose($input), $input), $input);
@@ -91,7 +91,7 @@ final readonly class RunCommand
         Composed $composed,
         InputInterface $input,
         OutputInterface $output,
-        ArtifactService|CannotJudge|NotGiven $service,
+        ArtifactAccess|CannotJudge|NotGiven $service,
     ): int {
         $plan = VerdictCommand::planIn($composed, FlowOptions::path($input, FlowOptions::PLAN, Workspace::plan()));
         $shard = FlowOptions::shard($input);
@@ -123,7 +123,7 @@ final readonly class RunCommand
         Plan $plan,
         ShardId|Absent $shard,
         Path $results,
-        ArtifactService|CannotJudge|NotGiven $service,
+        ArtifactAccess|CannotJudge|NotGiven $service,
     ): ShardLeft|ShardsLeft|CannotJudge {
         return $following instanceof Composed
             ? Running::composed($following)->run($plan, $shard, $results, $service)

@@ -9,8 +9,8 @@ declare(strict_types=1);
  * Usage: php .github/scripts/claim_race.php <items> <job> <won-file>
  */
 
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
-use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactService;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -24,7 +24,7 @@ require __DIR__ . '/../../vendor/autoload.php';
 [, $items, $job, $wonFile] = $argv + [null, '10', '1', 'won.txt'];
 $environment = Variables::of(getenv());
 $claims = ArtifactClaims::of(
-    ArtifactService::handedIn($environment),
+    ArtifactAccess::handedIn($environment),
     $environment,
     HttpExchange::over(HttpClient::create()),
     ShardPull::Claim,

@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 use NightWorksIO\MutationGate\Core\Reach\GraphAnswered;
 use NightWorksIO\MutationGate\Core\Reach\GraphAsked;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
-use NightWorksIO\MutationGate\Core\Serve\ServesState;
+use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Watch\Unwatched;
@@ -40,7 +40,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class ServedState implements NoticesChanges, ReachGraph, ServesState
+final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, ReachGraph
 {
     private const string UNSERVED = 'No outbreak serve answers on %s.';
 

@@ -309,7 +309,7 @@
     "outbreak/boundary": {
       "check": "outbreak / boundary",
       "checks": "The map engine's, the proof cache's, the static graph's and the daemon's PHP contract suites, the equivalence contract suite against outbreak.so, and the Outbreak adapter's process tests, run against the binary and the extension this commit builds: what they answer is what the gate's PHP gives (ADR-0118, ADR-0130, ADR-0131, ADR-0132, ADR-0133).",
-      "reproduce": "cd outbreak && cargo build --release --package outbreak --package outbreak-ext && cd .. && OUTBREAK_BINARY=$PWD/outbreak/target/release/outbreak OUTBREAK_EXTENSION=$PWD/outbreak/target/release/liboutbreak.so vendor/bin/pest tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph tests/Contract/ServesState tests/Contract/Equivalence tests/Process/Adapter/Outbreak",
+      "reproduce": "cd outbreak && cargo build --release --package outbreak --package outbreak-ext && cd .. && OUTBREAK_BINARY=$PWD/outbreak/target/release/outbreak OUTBREAK_EXTENSION=$PWD/outbreak/target/release/liboutbreak.so vendor/bin/pest tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph tests/Contract/KeepsProofs tests/Contract/Equivalence tests/Process/Adapter/Outbreak",
       "evidence": "none",
       "why": "Pest's log, which the job shows, names each test that failed and the difference it found."
     },

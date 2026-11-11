@@ -27,7 +27,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStanOption;
 use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
-use NightWorksIO\MutationGate\Adapter\Serve\ServedState;
+use NightWorksIO\MutationGate\Adapter\Serve\OutbreakDaemon;
 use NightWorksIO\MutationGate\Adapter\Zstd\ZstdHere;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\ChosenPlan;
@@ -205,7 +205,7 @@ final readonly class Wiring
         $outbreak = Outbreak::configured($settings, $root, Resources::at(Shipped::Outbreak));
 
         return function_exists('posix_geteuid')
-            ? $outbreak->servedBy(ServedState::of($root, posix_geteuid(), $settings->timeout()))
+            ? $outbreak->servedBy(OutbreakDaemon::of($root, posix_geteuid(), $settings->timeout()))
             : $outbreak;
     }
 

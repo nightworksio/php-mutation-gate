@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Serve\ServedState;
+use NightWorksIO\MutationGate\Adapter\Serve\OutbreakDaemon;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
-use NightWorksIO\MutationGate\Core\Serve\ServesState;
+use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Tests\Fakes\ServesStateFake;
+use NightWorksIO\MutationGate\Tests\Fakes\KeepsProofsFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Process\Process;
 
@@ -47,9 +47,9 @@ $daemon = static function (string $root): Process|NotGiven {
 it('answers each kept proof by its key, across a restart', function () use ($daemon): void {
     $root = Scratch::directory();
     $process = $daemon($root);
-    $state = static fn(): ServesState => $process instanceof Process
-        ? ServedState::of($root, posix_geteuid(), Seconds::of(10))
-        : ServesStateFake::running();
+    $state = static fn(): KeepsProofs => $process instanceof Process
+        ? OutbreakDaemon::of($root, posix_geteuid(), Seconds::of(10))
+        : KeepsProofsFake::running();
     $served = $state();
 
     expect($served->kept(['k1' => 'one', 'k2' => 'two']))->toBeInstanceOf(Written::class)
@@ -71,9 +71,9 @@ it('answers each kept proof by its key, across a restart', function () use ($dae
 it('answers no forgotten proof, across a restart', function () use ($daemon): void {
     $root = Scratch::directory();
     $process = $daemon($root);
-    $state = static fn(): ServesState => $process instanceof Process
-        ? ServedState::of($root, posix_geteuid(), Seconds::of(10))
-        : ServesStateFake::running();
+    $state = static fn(): KeepsProofs => $process instanceof Process
+        ? OutbreakDaemon::of($root, posix_geteuid(), Seconds::of(10))
+        : KeepsProofsFake::running();
     $served = $state();
 
     expect($served->kept(['k1' => 'one', 'k2' => 'two']))->toBeInstanceOf(Written::class)
@@ -94,8 +94,8 @@ it('answers no forgotten proof, across a restart', function () use ($daemon): vo
 
 it('answers nothing where no daemon runs', function (): void {
     $none = getenv('OUTBREAK_BINARY') === false
-        ? ServesStateFake::none()
-        : ServedState::of(Scratch::directory(), posix_geteuid(), Seconds::of(1));
+        ? KeepsProofsFake::none()
+        : OutbreakDaemon::of(Scratch::directory(), posix_geteuid(), Seconds::of(1));
 
     expect($none->proofs('k'))->toBeInstanceOf(NotWritten::class)
         ->and($none->kept(['k' => 'v']))->toBeInstanceOf(NotWritten::class)
