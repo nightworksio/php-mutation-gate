@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -52,19 +53,19 @@ afterEach(function (): void {
 });
 
 /**
- * `src/Money.php`'s mutants on these lines, each killed or survived as it says.
+ * A file's mutants on these lines, `src/Money.php`'s unless it says, each killed or survived as it says.
  *
  * @param array<int, MutantStatus> $at by line
  */
-function heatingMutants(array $at): Mutants
+function heatingMutants(array $at, string $file = 'src/Money.php'): Mutants
 {
     $mutants = [];
 
     foreach ($at as $line => $status) {
         $mutants[] = Mutant::of(
-            MutantId::hash(Path::of('src/Money.php'), 'LessThan', sprintf('%d', $line), 0),
+            MutantId::hash(Path::of($file), 'LessThan', sprintf('%d', $line), 0),
             sprintf('native-%d', $line),
-            Location::of(Path::of('src/Money.php'), Line::of($line), Line::of($line)),
+            Location::of(Path::of($file), Line::of($line), Line::of($line)),
             Mutation::of('LessThan', MutatorFamily::Boundary, ''),
             $status,
             Unmeasured::duration(),
@@ -118,4 +119,20 @@ it('scores no function where functions are not scored, the base\'s proof names n
         ->and($functions([...$heated(HeatmapRows::of(), Proofs::of($unnamed), $project)][0]))->toBe([['Money::add', 10_000, null]])
         ->and([...$heated(HeatmapRows::of(), Proofs::none(), $project)][0]->heat()->base())->not->toBeInstanceOf(Score::class)
         ->and($functions([...$heated(HeatmapRows::of(), Proofs::of($named), Scratch::directory())][0]))->toBe([]);
+});
+
+it('scores each file of a carried held unit against its proof, with no function of the base', function () use ($judge, $run, $functions): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'src/Held/Money.php', Heatmaps::MONEY);
+    $unit = Unit::held(Path::of('src/Held'), Group::named('holds:src/Held'));
+    $now = UnitResults::of(UnitResult::of($unit, Origin::Run, heatingMutants([6 => MutantStatus::Killed, 12 => MutantStatus::Survived], 'src/Held/Money.php')));
+    $proof = Proof::of(Digest::sha256Of('held'), Path::of('src/Held'), heatingMutants([6 => MutantStatus::Killed, 12 => MutantStatus::Killed], 'src/Held/Money.php'), $run());
+    $heatmap = new Heating(Directory::at($project), HeatmapRows::of(files: 3))
+        ->of($judge()->trees($now), $now, $judge(), Proofs::of($proof));
+    [$money] = [...$heatmap];
+
+    expect($money->path()->value())->toBe('src/Held/Money.php')
+        ->and($money->heat()->score())->toEqual(Score::ofHundredths(5_000))
+        ->and($money->heat()->base())->toEqual(Score::ofHundredths(10_000))
+        ->and($functions($money))->toBe([['Money::sub', 0, null], ['Money::add', 10_000, null]]);
 });
