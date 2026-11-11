@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Confirmed;
 use NightWorksIO\MutationGate\Cli\Flow\Screened;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
+use NightWorksIO\MutationGate\Core\Analysis\UncheckedIds;
 use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -28,7 +29,7 @@ $screened = static function (Mutant ...$mutants): Screened {
     $checks = SurvivorChecks::none()->leaving(UncheckedSurvivor::of(Unchecked::Failed, Path::of('src/Money.php')));
 
     return Screened::of(
-        new Checked(Mutants::of(...$mutants), $checks, Mutants::of($mutants[2]), MutantIds::of($mutants[2]->id())),
+        new Checked(Mutants::of(...$mutants), $checks, Mutants::of($mutants[2]), UncheckedIds::none()->with(Unchecked::Failed, $mutants[2]->id())),
         new Confirmed(Mutants::of(...$mutants), MutantIds::of($mutants[0]->id())),
         MutantIds::of($mutants[1]->id()),
     );
@@ -50,7 +51,7 @@ it('keeps what both screenings found, and the mutants the second left', function
         ->and([...$both->flaky])->toEqual([$at(1, MutantStatus::Survived)->id(), $at(4, MutantStatus::Survived)->id()])
         ->and([...$both->equivalent])->toEqual([$at(2, MutantStatus::Survived)->id(), $at(5, MutantStatus::Survived)->id()])
         ->and([...$both->checked])->toEqual([$at(3, MutantStatus::Survived)->id(), $at(6, MutantStatus::Survived)->id()])
-        ->and([...$both->unsettled])->toEqual([$at(3, MutantStatus::Survived)->id(), $at(6, MutantStatus::Survived)->id()])
+        ->and([...$both->unchecked->for(Unchecked::Failed)])->toEqual([$at(3, MutantStatus::Survived)->id(), $at(6, MutantStatus::Survived)->id()])
         ->and(count([...$both->checks]))->toBe(2)
         ->and($first->controlled($late->mutants)->mutants)->toBe($late->mutants)
         ->and([...$first->controlled($late->mutants)->flaky])->toEqual([...$first->flaky]);

@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\RunnerPace;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
@@ -158,7 +159,7 @@ it('starts fresh the run of a mutant of a file the worker loaded, and warns of i
 
     expect(parentOf($runs[0]))->toBe(getmypid())
         ->and(parentOf($runs[1]))->toBe(getmypid())
-        ->and(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::noting(sprintf(
+        ->and(WarmDirectory::cleared($results, RunnerPace::standard()->workerWait()))->toEqual(Warnings::of(Warning::noting(sprintf(
             'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.',
             $mutated,
         ))))
@@ -173,7 +174,7 @@ it('starts fresh the first run of a mutant of a file the worker loads as it read
     $run->run();
 
     expect(parentOf($run))->toBe(getmypid())
-        ->and(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::noting(sprintf(
+        ->and(WarmDirectory::cleared($results, RunnerPace::standard()->workerWait()))->toEqual(Warnings::of(Warning::noting(sprintf(
             'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.',
             $mutated,
         ))));

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -43,9 +44,9 @@ it('says what a run saved once a ledger holds timings, and has no history before
     $cold = $verdictWith(Flows::project(), Timings::none());
 
     expect($saved->account()->savings())->toBeInstanceOf(Savings::class)
-        ->and(SavingsText::of($saved, $saved->account()->savedSince(Instant::at(new DateTimeImmutable('2020-01-01T00:00:00Z')))))
+        ->and(SavingsText::of($saved, SavingsWindow::standard()->saved($saved->account()->savedSince(Instant::at(new DateTimeImmutable('2020-01-01T00:00:00Z'))))))
         ->toContain('A full one-job run')
-        ->and(SavingsText::of($cold, $cold->account()->savedSince(Instant::at(new DateTimeImmutable('2020-01-01T00:00:00Z')))))
+        ->and(SavingsText::of($cold, SavingsWindow::standard()->saved($cold->account()->savedSince(Instant::at(new DateTimeImmutable('2020-01-01T00:00:00Z'))))))
         ->toContain('No history yet');
 });
 
