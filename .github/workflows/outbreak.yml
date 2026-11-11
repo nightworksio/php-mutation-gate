@@ -9,10 +9,11 @@
 # `outbreak contract` where it is built, and is uploaded as
 # `outbreak-<platform>` with its SHA-256 beside it. outbreak.so, the
 # extension (ADR-0130), is built beside it for each supported PHP minor, and
-# every job that builds the workspace installs PHP's headers and libclang,
-# which its bindings are generated with. Its compiling and reading of op
-# arrays and state runs only inside PHP, so the boundary's contract suite
-# holds it, not the Rust suite's coverage or mutants.
+# every job that builds the workspace installs PHP's headers and one LLVM's
+# clang and libclang (.github/scripts/libclang.sh), which its bindings are
+# generated with. Its compiling and reading of op arrays and state runs only
+# inside PHP, so the boundary's contract suite holds it, not the Rust suite's
+# coverage or mutants.
 #
 # ci.yml calls it on every run, with the gates where `what changed` lists
 # `outbreak` (the Rust tree, its workflow, or the PHP the binary talks to) and
@@ -87,7 +88,7 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
           tools: php-config, phpize
-      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+      - run: bash .github/scripts/libclang.sh
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: what failed
         if: failure()
@@ -115,7 +116,7 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
           tools: php-config, phpize
-      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+      - run: bash .github/scripts/libclang.sh
       - run: ci/install-tool.sh cargo-nextest
       - run: cargo nextest run --workspace --locked
       - name: what failed
@@ -146,7 +147,7 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
           tools: php-config, phpize
-      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+      - run: bash .github/scripts/libclang.sh
       - run: ci/install-tool.sh cargo-nextest
       - run: ci/install-tool.sh cargo-llvm-cov
       - run: >-
@@ -225,7 +226,7 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
           tools: php-config, phpize
-      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+      - run: bash .github/scripts/libclang.sh
       - run: cargo test --workspace --locked
       - name: what failed
         if: failure()
@@ -258,7 +259,7 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
           tools: php-config, phpize
-      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+      - run: bash .github/scripts/libclang.sh
       - run: ci/install-tool.sh cargo-nextest
       - run: ci/install-tool.sh cargo-mutants
       - env:
@@ -355,7 +356,7 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
           tools: php-config, phpize
-      - run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+      - run: bash .github/scripts/libclang.sh
       - run: cargo build --release --locked --package outbreak-ext
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       - working-directory: .
@@ -496,7 +497,7 @@ jobs:
           coverage: none
           tools: php-config, phpize
       - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+        run: bash .github/scripts/libclang.sh
       - env:
           TARGET: ${{ matrix.target }}
         run: rustup target add "${TARGET}"
