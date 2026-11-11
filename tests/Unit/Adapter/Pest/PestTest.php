@@ -435,7 +435,7 @@ it('mutates with a fresh results file, and reads what the plugin recorded', func
 
     expect(PestCases::untimed($result))->toEqual(MutationResult::of(Mutants::of(PestCases::mutant()), 0))
         ->and($shell->commands())
-        ->toEqual([PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at))]);
+        ->toEqual([PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF)]);
 });
 
 it('keeps every PHP process of a capped run to the cap, through an ini file beside the results it removes once done', function (): void {
@@ -453,7 +453,7 @@ it('keeps every PHP process of a capped run to the cap, through an ini file besi
 
     expect(PestCases::untimed($result))->toEqual(MutationResult::of(Mutants::of(PestCases::mutant()), 0))
         ->and($shell->commands())->toEqual([
-            PestCases::invocation($at)->mutation($capped, WholeSuite::tests(), PestCases::results($at))->with([
+            PestCases::invocation($at)->mutation($capped, WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with([
                 MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory),
             ]),
         ])
@@ -488,7 +488,7 @@ it('puts the likely killers first where the request asks, handing the plugin the
     new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Order->value => $order]),
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with([GateVariable::Order->value => $order]),
     ])->and(Plan::read($order))->toEqual($history)
         ->and(is_file(sprintf('%s/m1/test-run-history', $order)))->toBeFalse();
 });
@@ -503,7 +503,7 @@ it('hands the patched plugin the mutators the request leaves out of its unchange
     new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Pruned->value => $list]),
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with([GateVariable::Pruned->value => $list]),
     ])->and(PrunedFile::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), PestCases::RUN_PLUS))->toBeTrue();
 });
 
@@ -515,7 +515,7 @@ it('tells the plugin the part of the test files whose tests judge the request\'s
     new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::SplitPart->value => '2/3']),
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with([GateVariable::SplitPart->value => '2/3']),
     ]);
 });
 
@@ -559,7 +559,7 @@ it('mutates against a group without reading a shared map', function (): void {
     new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, $held, PestCases::results($at))->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1']),
+        PestCases::invocation($at)->mutation($request, $held, PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1']),
     ]);
 });
 
@@ -636,7 +636,7 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
         )
         ->and($shell->commands())->toEqual([
             PestCases::invocation($at)->listing(Withheld::standard(), Suites::all(), PestCases::listingFile($at)),
-            PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([
+            PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with([
                 'MUTATION_GATE_SHARED_COVERAGE' => $written,
                 'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
                 'MUTATION_GATE_CANARY' => 'mutation-canary',
@@ -684,7 +684,7 @@ it('runs a patched shard\'s canary group again alone where its opening run faile
         ->and($shell->commands())->toHaveCount(3)
         ->and($shell->commands()[2])->toEqual(
             PestCases::invocation($at)
-                ->opening($request, Group::named('mutation-canary'), sprintf('%s.events', PestCases::results($at)))
+                ->opening($request, Group::named('mutation-canary'), sprintf('%s.events', PestCases::results($at)))->with(PestCases::DRIVERS_OFF)
                 ->within(Unlimited::time()),
         );
 });
@@ -700,7 +700,7 @@ it('runs the held tests again alone where a patched run against them failed none
 
     expect($shell->commands())->toHaveCount(2)
         ->and($shell->commands()[1])->toEqual(
-            PestCases::invocation($at)->opening($request, $held, sprintf('%s.events', PestCases::results($at)))->within(Unlimited::time()),
+            PestCases::invocation($at)->opening($request, $held, sprintf('%s.events', PestCases::results($at)))->with(PestCases::DRIVERS_OFF)->within(Unlimited::time()),
         );
 });
 
@@ -766,8 +766,8 @@ it('opens a shard on its own suite unpatched, or when it collects its own map', 
     new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($reusing, WholeSuite::tests(), PestCases::results($at)),
-        PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at))
+        PestCases::invocation($at)->mutation($reusing, WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF),
+        PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF)
             ->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1']),
     ]);
 });

@@ -140,7 +140,7 @@ it('cannot root itself in a directory that installs no Pest', function (): void 
 it('is Pest in the project the gate runs in, as its options say, or the options\' problem', function (): void {
     $pest = static fn(LimitBounds $bounds): Pest => new Pest(
         Project::at('.', Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('lib/vendor')),
-        new ProcessShell(new LocalProcesses(new SystemClock()), Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root()),
+        new ProcessShell(new LocalProcesses(new SystemClock()), Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root())->longestFirst(true),
         Patching::off(),
         new CapDirectory(),
         new PackageDirectory(),
@@ -233,7 +233,7 @@ it('makes the registered mutators\' mutants through the bridges it writes for it
 
     expect(PestCases::untimed($result))->toEqual(MutationResult::of(Mutants::of(PestCases::mutant()), 0))
         ->and($shell->commands())->toEqual([
-            PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at), $bridges)
+            PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at), $bridges)->with(PestCases::DRIVERS_OFF)
                 ->with(['MUTATION_GATE_MUTATORS' => $file]),
         ])
         ->and(is_file($file) ? (string) file_get_contents($file) : '')->toContain("return 'acme/PlusToMinus';");

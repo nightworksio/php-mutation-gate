@@ -93,7 +93,7 @@ it('runs the mutants again in one run of their files with their mutators, naming
         Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())->because($notFound),
         Interpretation::unjudged($elsewhere, $notFound),
     ))->and($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
     ])
         ->and(file_get_contents(sprintf('%s.only', PestCases::results($at))))->toBe("n1\nn9\nn8")
         ->and(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->retry($invocation, Mutants::none(), Seconds::of(20.0)))
@@ -115,7 +115,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
             $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named(PestCases::RUN_PLUS))),
             WholeSuite::tests(),
             PestCases::results($at),
-        )->with([
+        )->with(PestCases::DRIVERS_OFF)->with([
             'MUTATION_GATE_SHARED_COVERAGE' => $written,
             'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
             'MUTATION_GATE_CANARY' => 'mutation-canary',
@@ -138,7 +138,7 @@ it('runs a held unit\'s mutant again by the group that holds it, withholding wha
     new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->retry($invocation, Mutants::of(PestCases::mutant()), Seconds::of(20.0));
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, $holding, PestCases::results($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
+        PestCases::invocation($at)->mutation($request, $holding, PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
     ]);
 });
 
@@ -399,7 +399,7 @@ it('bounds the run of a narrowed kill\'s files alone, and its run again, by the 
     new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of(200.0)));
 
     expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $shell->commands()))
-        ->toEqual([Seconds::of(200.0), Seconds::of(90.0), Seconds::of(60.0)]);
+        ->toEqual([Seconds::of(200.0), Seconds::of(100.0), Seconds::of(70.0)]);
 });
 
 it('names the steps a patched run\'s time went to, each timed from when the run began', function (): void {
@@ -421,12 +421,12 @@ it('names the steps a patched run\'s time went to, each timed from when the run 
     ) : $result;
 
     expect($steps)->toBe([
-        [Step::Mutation, 20.0, 10.0, 1],
-        [Step::Reading, 40.0, 10.0, 1],
-        [Step::TrialCoverage, 60.0, 10.0, 1],
-        [Step::Trials, 80.0, 10.0, 1],
-        [Step::Baselines, 100.0, 10.0, 1],
-        [Step::Confirmation, 120.0, 110.0, 1],
+        [Step::Mutation, 10.0, 10.0, 1],
+        [Step::Reading, 30.0, 10.0, 1],
+        [Step::TrialCoverage, 50.0, 10.0, 1],
+        [Step::Trials, 70.0, 10.0, 1],
+        [Step::Baselines, 90.0, 10.0, 1],
+        [Step::Confirmation, 110.0, 100.0, 1],
     ]);
 });
 

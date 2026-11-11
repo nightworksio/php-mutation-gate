@@ -71,7 +71,7 @@ it('runs mutants in the reusable workflow through the action, and in the survivo
     $patch = WorkflowFile::stepsWhere($survivors, 'run', static fn(string $run): bool => $run === '"${GATE}" pest:patch');
     $judged = WorkflowFile::stepsWhere($survivors, 'run', static fn(string $run): bool => str_ends_with($run, JUDGES));
 
-    expect(array_keys($jobs))->toBe(['fetch', 'judge', 'plan', 'deliver-plan', 'shard', 'survivors', 'survivors-report', 'deliver-survivors', 'verdict', 'deliver', 'publish'])
+    expect(array_keys($jobs))->toBe(['fetch', 'judge', 'plan', 'deliver-plan', 'shard', 'watch', 'survivors', 'survivors-report', 'deliver-survivors', 'verdict', 'deliver', 'publish'])
         ->and($mutating)->toBe([])
         ->and(array_keys(array_filter($throughTheAction)))->toBe(['shard'])
         ->and(array_keys(array_filter($rechecking)))->toBe(['survivors'])
