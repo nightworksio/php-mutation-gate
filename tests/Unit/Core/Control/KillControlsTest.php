@@ -60,12 +60,12 @@ function killersMap(): CoverageMap
         ->timed(TestId::of('LoopTest::a'), Seconds::of(2.0));
 }
 
-/** A selection as `ExactRun`'s, of a runner that replays each kill's own order itself. */
+/** A selection as `LoadingUnfiltered`'s, of a runner that replays each kill's own order itself. */
 final readonly class ReplayingRun implements RunSelection
 {
     public function of(TestIds $judging, CoverageMap $map, Paths|WholeSuite|NotGiven $unfiltered): RunTests
     {
-        return new ExactRun()->of($judging, $map, $unfiltered);
+        return new LoadingUnfiltered()->of($judging, $map, $unfiltered);
     }
 
     public function replaysKills(): bool

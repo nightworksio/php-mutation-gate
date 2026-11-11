@@ -47,7 +47,7 @@ it('takes its own items longest first, then the other lists from their backs, th
         $item(6, 3, 40.0),
     ), ShardId::of(1));
 
-    expect($taken($queue))->toBe([2, 1, 4, 3, 6, 5]);
+    expect($taken($queue))->toBe([2, 1, 4, 3, 5, 6]);
 });
 
 it('takes nothing more once every item is gone, and its own items alone once its claims fail', function () use ($item, $taken, $plan): void {

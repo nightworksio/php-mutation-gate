@@ -717,7 +717,7 @@ it('writes the job each item of a pulling plan is listed first for, and reads it
         Digest::sha256Of('base'),
         Keys::none(),
         Shards::of($item(1, 1), $item(2, 1), $item(3, 2)),
-    );
+    )->on(RunOn::detached(Scope::branch('main')));
     $read = PlanFile::decode(PlanFile::encode($plan));
 
     expect(PlanFile::encode($plan))->toContain('"worker": 2')
