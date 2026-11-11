@@ -4,25 +4,20 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
+use function array_all;
+use function array_key_exists;
+use function array_map;
 use function array_unique;
 use function array_values;
 use function count;
-use function is_array;
-use function is_bool;
-use function is_float;
-use function is_int;
-use function is_string;
-use function json_decode;
-use function json_encode;
 
-use const JSON_THROW_ON_ERROR;
-use const JSON_UNESCAPED_SLASHES;
-use const JSON_UNESCAPED_UNICODE;
-
-use JsonException;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sort;
+use function sprintf;
 
 /**
  * How the tests ran in the parents of a run's split streams, where the run
@@ -37,10 +32,18 @@ use function sort;
  */
 final readonly class StreamedSuite
 {
+    private const string COMPLETE = 'complete';
+
+    private const string SUITES = 'suites';
+
+    private const string TESTS = 'tests';
+
+    private const string REPORTED = 'reported';
+
     /**
-     * @param array<string, array{passed: bool, troubled: bool, own: bool, seconds: float}> $tests
-     * @param array<string, list<int>>                                                     $reported by path from the root
-     * @param list<string>                                                                 $suites
+     * @param array<string, TestEnded> $tests
+     * @param array<string, list<int>> $reported by path from the root
+     * @param list<string>             $suites
      */
     private function __construct(
         private bool $complete,
@@ -51,8 +54,8 @@ final readonly class StreamedSuite
     }
 
     /**
-     * @param array<string, array{passed: bool, troubled: bool, own: bool, seconds: float}> $tests
-     * @param array<string, list<int>>                                                     $reported
+     * @param array<string, TestEnded> $tests
+     * @param array<string, list<int>> $reported
      */
     public static function of(bool $complete, array $tests, array $reported): self
     {
@@ -62,7 +65,7 @@ final readonly class StreamedSuite
     /** Nothing streamed, which is complete and stands in for no suite. */
     public static function none(): self
     {
-        return new self(true, [], [], []);
+        return new self(complete: true, tests: [], reported: [], suites: []);
     }
 
     /** This and another shard's streams, as one run's. */
@@ -71,13 +74,13 @@ final readonly class StreamedSuite
         $tests = $this->tests;
 
         foreach ($other->tests as $test => $ended) {
-            $tests[$test] = isset($tests[$test]) ? self::both($tests[$test], $ended) : $ended;
+            $tests[$test] = array_key_exists($test, $tests) ? $tests[$test]->and($ended) : $ended;
         }
 
         $reported = $this->reported;
 
         foreach ($other->reported as $file => $lines) {
-            $reported[$file] = self::union($reported[$file] ?? [], $lines);
+            $reported[$file] = $this->union(array_key_exists($file, $reported) ? $reported[$file] : [], $lines);
         }
 
         return new self($this->complete && $other->complete, $tests, $reported, $this->suites);
@@ -100,14 +103,7 @@ final readonly class StreamedSuite
         if (! $this->complete || $this->tests === [] || $this->suites === []) {
             return false;
         }
-
-        foreach ($this->tests as $ended) {
-            if (! $ended['passed'] || $ended['troubled'] || $ended['own']) {
-                return false;
-            }
-        }
-
-        return true;
+        return array_all($this->tests, static fn(TestEnded $ended): bool => $ended->standsIn());
     }
 
     public function count(): int
@@ -118,16 +114,10 @@ final readonly class StreamedSuite
     /** @return array<string, float> each streamed test's seconds */
     public function secondsByTest(): array
     {
-        $seconds = [];
-
-        foreach ($this->tests as $test => $ended) {
-            $seconds[$test] = $ended['seconds'];
-        }
-
-        return $seconds;
+        return array_map(static fn(TestEnded $ended): float => $ended->seconds, $this->tests);
     }
 
-    /** @return array<string, list<int>> every line pcov reported in each file the tests loaded, by path from the root */
+    /** @return array<string, list<int>> each line pcov reported in each file the tests loaded, by path from the root */
     public function reported(): array
     {
         return $this->reported;
@@ -139,52 +129,48 @@ final readonly class StreamedSuite
         return $this->suites;
     }
 
-    /** @throws JsonException */
     public function encoded(): string
     {
-        return json_encode([
-            'complete' => $this->complete,
-            'suites' => $this->suites,
-            'tests' => $this->tests,
-            'reported' => $this->reported,
-        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return JsonText::compact([
+            self::COMPLETE => $this->complete,
+            self::SUITES => $this->suites,
+            self::TESTS => array_map(static fn(TestEnded $ended): array => $ended->record(), $this->tests),
+            self::REPORTED => $this->reported,
+        ]);
     }
 
     /** The suite a file holds; none where it is not one. */
     public static function decoded(string $text): self|NotGiven
     {
         try {
-            $value = json_decode($text, true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
+            return self::read(Node::decode($text));
+        } catch (NotInShape) {
             return NotGiven::value();
         }
-
-        if (! is_array($value) || ! is_bool($value['complete'] ?? null)) {
-            return NotGiven::value();
-        }
-
-        $tests = self::testsOf($value['tests'] ?? null);
-        $reported = self::linesOf($value['reported'] ?? null);
-        $suites = self::namesOf($value['suites'] ?? null);
-
-        return $tests instanceof NotGiven || $reported instanceof NotGiven || $suites instanceof NotGiven
-            ? NotGiven::value()
-            : new self($value['complete'], $tests, $reported, $suites);
     }
 
-    /**
-     * @param  array{passed: bool, troubled: bool, own: bool, seconds: float} $one
-     * @param  array{passed: bool, troubled: bool, own: bool, seconds: float} $other
-     * @return array{passed: bool, troubled: bool, own: bool, seconds: float}
-     */
-    private static function both(array $one, array $other): array
+    /** @throws NotInShape */
+    private static function read(Node $file): self
     {
-        return [
-            'passed' => $one['passed'] && $other['passed'],
-            'troubled' => $one['troubled'] || $other['troubled'],
-            'own' => $one['own'] || $other['own'],
-            'seconds' => $one['seconds'] + $other['seconds'],
-        ];
+        $tests = [];
+
+        foreach ($file->field(self::TESTS)->entries() as $test => $ended) {
+            $tests[sprintf('%s', $test)] = TestEnded::read($ended);
+        }
+
+        $reported = [];
+
+        foreach ($file->field(self::REPORTED)->entries() as $path => $lines) {
+            $reported[sprintf('%s', $path)] = $lines->integers();
+        }
+
+        $suites = [];
+
+        foreach ($file->field(self::SUITES)->items() as $suite) {
+            $suites[] = $suite->text();
+        }
+
+        return new self($file->field(self::COMPLETE)->boolean(), $tests, $reported, $suites);
     }
 
     /**
@@ -192,86 +178,11 @@ final readonly class StreamedSuite
      * @param  list<int> $other
      * @return list<int>
      */
-    private static function union(array $one, array $other): array
+    private function union(array $one, array $other): array
     {
         $lines = array_values(array_unique([...$one, ...$other]));
         sort($lines);
 
         return $lines;
-    }
-
-    /** @return array<string, array{passed: bool, troubled: bool, own: bool, seconds: float}>|NotGiven */
-    private static function testsOf(mixed $value): array|NotGiven
-    {
-        if (! is_array($value)) {
-            return NotGiven::value();
-        }
-
-        $tests = [];
-
-        foreach ($value as $test => $ended) {
-            if (! is_string($test) || ! is_array($ended)) {
-                return NotGiven::value();
-            }
-
-            $seconds = $ended['seconds'] ?? null;
-            [$passed, $troubled, $own] = [$ended['passed'] ?? null, $ended['troubled'] ?? null, $ended['own'] ?? null];
-
-            if (! is_bool($passed) || ! is_bool($troubled) || ! is_bool($own) || ! (is_float($seconds) || is_int($seconds))) {
-                return NotGiven::value();
-            }
-
-            $tests[$test] = ['passed' => $passed, 'troubled' => $troubled, 'own' => $own, 'seconds' => (float) $seconds];
-        }
-
-        return $tests;
-    }
-
-    /** @return array<string, list<int>>|NotGiven */
-    private static function linesOf(mixed $value): array|NotGiven
-    {
-        if (! is_array($value)) {
-            return NotGiven::value();
-        }
-
-        $files = [];
-
-        foreach ($value as $file => $lines) {
-            if (! is_string($file) || ! is_array($lines)) {
-                return NotGiven::value();
-            }
-
-            $files[$file] = [];
-
-            foreach ($lines as $line) {
-                if (! is_int($line)) {
-                    return NotGiven::value();
-                }
-
-                $files[$file][] = $line;
-            }
-        }
-
-        return $files;
-    }
-
-    /** @return list<string>|NotGiven */
-    private static function namesOf(mixed $value): array|NotGiven
-    {
-        if (! is_array($value)) {
-            return NotGiven::value();
-        }
-
-        $names = [];
-
-        foreach ($value as $name) {
-            if (! is_string($name)) {
-                return NotGiven::value();
-            }
-
-            $names[] = $name;
-        }
-
-        return $names;
     }
 }

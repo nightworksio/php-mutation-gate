@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_filter;
+use function array_values;
 use function file;
 use function glob;
-use function is_array;
-use function is_bool;
-use function is_float;
-use function is_int;
-use function is_string;
-use function json_decode;
 
 use NightWorksIO\MutationGate\Core\Coverage\StreamedSuite;
+use NightWorksIO\MutationGate\Core\Coverage\TestEnded;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
@@ -35,16 +34,17 @@ final readonly class RecordedSuite
     /** The suite recorded in a directory; none where its streams recorded nothing. */
     public static function in(string $directory, Root $root): StreamedSuite|NotGiven
     {
-        $files = glob(sprintf(self::RECORDED, $directory)) ?: [];
+        $files = glob(sprintf(self::RECORDED, $directory));
 
-        if ($files === []) {
+        if ($files === false || $files === []) {
             return NotGiven::value();
         }
 
         $suite = StreamedSuite::none();
 
         foreach ($files as $file) {
-            $suite = $suite->and(self::of(file($file) ?: [], $root));
+            $texts = file($file);
+            $suite = $suite->and(self::of($texts === false ? [] : $texts, $root));
         }
 
         return $suite;
@@ -58,57 +58,80 @@ final readonly class RecordedSuite
         $reported = [];
 
         foreach ($texts as $text) {
-            $line = json_decode($text, true);
-            $kind = is_array($line) ? ($line[StreamLine::KIND] ?? '') : '';
+            $line = Node::decode($text);
+            $kind = self::kindOf($line);
 
-            if ($kind === StreamLine::FINISHED && is_array($line)) {
+            if ($kind === StreamLine::FINISHED) {
                 $finished = true;
-                $reported = self::inside($line['l'] ?? null, $root);
+                $reported = self::inside($line->field('l'), $root);
             }
 
-            $ended = $kind === StreamLine::COVERED && is_array($line) ? self::ended($line) : NotGiven::value();
-
-            if (! $ended instanceof NotGiven && is_array($line) && is_string($line['t'] ?? null)) {
-                $tests[$line['t']] = $ended;
+            foreach ($kind === StreamLine::COVERED ? self::ended($line) : [] as $test => $ended) {
+                $tests[$test] = $ended;
             }
         }
 
         return StreamedSuite::of($finished, $tests, $reported);
     }
 
-    /**
-     * @param  array<mixed>                                                               $line
-     * @return array{passed: bool, troubled: bool, own: bool, seconds: float}|NotGiven
-     */
-    private static function ended(array $line): array|NotGiven
+    /** What a line is; nothing where it does not say. */
+    private static function kindOf(Node $line): string
     {
-        [$passed, $troubled, $own, $seconds] = [$line['p'] ?? null, $line['i'] ?? null, $line[StreamLine::OWN] ?? null, $line['s'] ?? null];
+        try {
+            return $line->field(StreamLine::KIND)->text();
+        } catch (NotInShape) {
+            return '';
+        }
+    }
 
-        return is_bool($passed) && is_bool($troubled) && is_bool($own) && (is_float($seconds) || is_int($seconds))
-            ? ['passed' => $passed, 'troubled' => $troubled, 'own' => $own, 'seconds' => (float) $seconds]
-            : NotGiven::value();
+    /** @return array<string, TestEnded> the test a covered line ended, by its name; none where it holds none */
+    private static function ended(Node $line): array
+    {
+        try {
+            return [$line->field('t')->text() => new TestEnded(
+                passed: $line->field('p')->boolean(),
+                troubled: $line->field('i')->boolean(),
+                own: $line->field(StreamLine::OWN)->boolean(),
+                seconds: $line->field('s')->number(),
+            )];
+        } catch (NotInShape) {
+            return [];
+        }
     }
 
     /** @return array<string, list<int>> each file of the project's lines, by its path from the root */
-    private static function inside(mixed $files, Root $root): array
+    private static function inside(Node $files, Root $root): array
     {
         $inside = [];
 
-        foreach (is_array($files) ? $files : [] as $file => $lines) {
-            if (! is_string($file) || ! str_starts_with($file, $root->value()) || ! is_array($lines)) {
-                continue;
-            }
+        foreach (self::entriesOf($files) as $file => $lines) {
+            $path = sprintf('%s', $file);
 
-            $relative = $root->relative($file)->value();
-            $inside[$relative] = [];
-
-            foreach ($lines as $number) {
-                if (is_int($number) && $number > 0) {
-                    $inside[$relative][] = $number;
-                }
+            if (str_starts_with($path, $root->value())) {
+                $inside[$root->relative($path)->value()] = self::numbered($lines);
             }
         }
 
         return $inside;
+    }
+
+    /** @return array<array-key, Node> each file's lines; none where the line holds no map of them */
+    private static function entriesOf(Node $files): array
+    {
+        try {
+            return $files->entries();
+        } catch (NotInShape) {
+            return [];
+        }
+    }
+
+    /** @return list<int> the numbers of the lines a file's entry holds; none where it holds anything else */
+    private static function numbered(Node $lines): array
+    {
+        try {
+            return array_values(array_filter($lines->integers(), static fn(int $number): bool => $number > 0));
+        } catch (NotInShape) {
+            return [];
+        }
     }
 }

@@ -3,13 +3,19 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Coverage\StreamedSuite;
+use NightWorksIO\MutationGate\Core\Coverage\TestEnded;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
-$passed = static fn(float $seconds): array => ['passed' => true, 'troubled' => false, 'own' => false, 'seconds' => $seconds];
+$ended = static fn(float $seconds, bool $passed = true, bool $troubled = false, bool $own = false): TestEnded => new TestEnded(
+    passed: $passed,
+    troubled: $troubled,
+    own: $own,
+    seconds: $seconds,
+);
 
-it('merges two shards: complete only where both are, a test failing or troubled in either, reported lines united', function () use ($passed): void {
-    $one = StreamedSuite::of(true, ['A::a' => $passed(1.0)], ['src/A.php' => [3, 5]]);
-    $other = StreamedSuite::of(false, ['A::a' => ['passed' => false, 'troubled' => true, 'own' => false, 'seconds' => 0.5]], ['src/A.php' => [4, 5]]);
+it('merges two shards: complete only where both are, a test failing or troubled in either, reported lines united', function () use ($ended): void {
+    $one = StreamedSuite::of(complete: true, tests: ['A::a' => $ended(1.0)], reported: ['src/A.php' => [3, 5]]);
+    $other = StreamedSuite::of(complete: false, tests: ['A::a' => $ended(0.5, passed: false, troubled: true)], reported: ['src/A.php' => [4, 5]]);
     $both = $one->and($other)->ofSuites(['Unit']);
 
     expect($both->reported())->toBe(['src/A.php' => [3, 4, 5]])
@@ -19,16 +25,18 @@ it('merges two shards: complete only where both are, a test failing or troubled 
 });
 
 it('stands in only where it is complete, ran a test and names its suites', function (Closure $suite, bool $standsIn): void {
-    expect($suite()->standsIn())->toBe($standsIn);
+    $built = $suite();
+
+    expect($built instanceof StreamedSuite && $built->standsIn())->toBe($standsIn);
 })->with([
-    'every test passed' => [static fn(): StreamedSuite => StreamedSuite::of(true, ['A::a' => ['passed' => true, 'troubled' => false, 'own' => false, 'seconds' => 1.0]], [])->ofSuites(['Unit']), true],
-    'no suite named' => [static fn(): StreamedSuite => StreamedSuite::of(true, ['A::a' => ['passed' => true, 'troubled' => false, 'own' => false, 'seconds' => 1.0]], []), false],
+    'every test passed' => [static fn(): StreamedSuite => StreamedSuite::of(complete: true, tests: ['A::a' => new TestEnded(passed: true, troubled: false, own: false, seconds: 1.0)], reported: [])->ofSuites(['Unit']), true],
+    'no suite named' => [static fn(): StreamedSuite => StreamedSuite::of(complete: true, tests: ['A::a' => new TestEnded(passed: true, troubled: false, own: false, seconds: 1.0)], reported: []), false],
     'no test ran' => [static fn(): StreamedSuite => StreamedSuite::none()->ofSuites(['Unit']), false],
-    'ran on its own' => [static fn(): StreamedSuite => StreamedSuite::of(true, ['A::a' => ['passed' => true, 'troubled' => false, 'own' => true, 'seconds' => 1.0]], [])->ofSuites(['Unit']), false],
+    'ran on its own' => [static fn(): StreamedSuite => StreamedSuite::of(complete: true, tests: ['A::a' => new TestEnded(passed: true, troubled: false, own: true, seconds: 1.0)], reported: [])->ofSuites(['Unit']), false],
 ]);
 
-it('reads back what it wrote, and nothing from text that is not a suite', function () use ($passed): void {
-    $suite = StreamedSuite::of(true, ['A::a' => $passed(2.0)], ['src/A.php' => [1]])->ofSuites(['Unit', 'Plugins']);
+it('reads back what it wrote, and nothing from text that is not a suite', function () use ($ended): void {
+    $suite = StreamedSuite::of(complete: true, tests: ['A::a' => $ended(2.0)], reported: ['src/A.php' => [1]])->ofSuites(['Unit', 'Plugins']);
 
     expect(StreamedSuite::decoded($suite->encoded()))->toEqual($suite)
         ->and(StreamedSuite::decoded('{"complete": true, "suites": [1], "tests": {}, "reported": {}}'))->toBeInstanceOf(NotGiven::class)

@@ -10,6 +10,8 @@ use const JSON_THROW_ON_ERROR;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 
+use NightWorksIO\MutationGate\Core\Coverage\TestEnded;
+
 use function sprintf;
 
 /**
@@ -60,8 +62,13 @@ final readonly class StreamLine
      * since the test began, and whether the test touched nondeterminism after
      * the fork, as `outbreak.so` saw it.
      */
-    public static function child(string $mutant, string $test, bool $failed, float $seconds, bool $touched = false): string
-    {
+    public static function child(
+        string $mutant,
+        string $test,
+        bool $failed,
+        float $seconds,
+        bool $touched = false,
+    ): string {
         return self::line([
             self::KIND => self::CHILD,
             'm' => $mutant,

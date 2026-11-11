@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
-use NightWorksIO\MutationGate\Adapter\Pest\Split\TestEnded;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\TestEnded;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -24,9 +24,12 @@ it('reads each project line every test executed in a stream\'s parent, and the t
     mkdir($recorded);
     file_put_contents(
         sprintf('%s/recorded-1-0.jsonl', $recorded),
-        StreamLine::covered('MoneyTest::adds', [sprintf('%s/src/Money.php', $project) => [11, 12], '/vendor/pest.php' => [3]], new TestEnded(true, false, false, 0.5))
-        . StreamLine::covered('MoneyTest::subtracts', [sprintf('%s/src/Money.php', $project) => [12]], new TestEnded(true, false, false, 0.25))
-        . StreamLine::finished([sprintf('%s/src/Money.php', $project) => [10, 11, 12]]),
+        sprintf(
+            '%s%s%s',
+            StreamLine::covered('MoneyTest::adds', [sprintf('%s/src/Money.php', $project) => [11, 12], '/vendor/pest.php' => [3]], new TestEnded(passed: true, troubled: false, own: false, seconds: 0.5)),
+            StreamLine::covered('MoneyTest::subtracts', [sprintf('%s/src/Money.php', $project) => [12]], new TestEnded(passed: true, troubled: false, own: false, seconds: 0.25)),
+            StreamLine::finished([sprintf('%s/src/Money.php', $project) => [10, 11, 12]]),
+        ),
     );
     $map = RecordedMap::in($recorded, Root::of($project));
 

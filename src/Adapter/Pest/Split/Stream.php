@@ -26,6 +26,7 @@ use const LOCK_EX;
 
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
+use NightWorksIO\MutationGate\Core\Coverage\TestEnded;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function outbreak_state_digest;

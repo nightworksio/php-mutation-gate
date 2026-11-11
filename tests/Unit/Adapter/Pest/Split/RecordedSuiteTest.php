@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordedSuite;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
-use NightWorksIO\MutationGate\Adapter\Pest\Split\TestEnded;
 use NightWorksIO\MutationGate\Core\Coverage\StreamedSuite;
+use NightWorksIO\MutationGate\Core\Coverage\TestEnded;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -13,6 +13,13 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 afterEach(function (): void {
     Scratch::sweep();
 });
+
+$ended = static fn(float $seconds, bool $passed = true, bool $troubled = false, bool $own = false): TestEnded => new TestEnded(
+    passed: $passed,
+    troubled: $troubled,
+    own: $own,
+    seconds: $seconds,
+);
 
 $recorded = static function (string $project, string ...$streams): string {
     $directory = sprintf('%s/recorded', $project);
@@ -25,41 +32,49 @@ $recorded = static function (string $project, string ...$streams): string {
     return $directory;
 };
 
-it('reads how each test ended and every reported project line, once every stream finished', function () use ($recorded): void {
+it('reads how each test ended and every reported project line, once every stream finished', function () use ($recorded, $ended): void {
     $project = Scratch::directory();
     $money = sprintf('%s/src/Money.php', $project);
     $directory = $recorded(
         $project,
-        StreamLine::covered('MoneyTest::adds', [$money => [11]], new TestEnded(true, false, false, 0.5))
-        . StreamLine::finished([$money => [10, 11, 12], '/elsewhere/pest.php' => [3]]),
-        StreamLine::covered('MoneyTest::subtracts', [$money => [12]], new TestEnded(true, false, false, 0.25))
-        . StreamLine::finished([$money => [12, 13]]),
+        sprintf(
+            '%s%s',
+            StreamLine::covered('MoneyTest::adds', [$money => [11]], $ended(0.5)),
+            StreamLine::finished([$money => [10, 11, 12], '/elsewhere/pest.php' => [3]]),
+        ),
+        sprintf(
+            '%s%s',
+            StreamLine::covered('MoneyTest::subtracts', [$money => [12]], $ended(0.25)),
+            StreamLine::finished([$money => [12, 13]]),
+        ),
     );
-    $suite = RecordedSuite::in($directory, Root::of($project));
+    $read = RecordedSuite::in($directory, Root::of($project));
+    $suite = $read instanceof StreamedSuite ? $read : StreamedSuite::none();
 
-    expect($suite)->toBeInstanceOf(StreamedSuite::class)
+    expect($read)->toBeInstanceOf(StreamedSuite::class)
         ->and($suite->reported())->toBe(['src/Money.php' => [10, 11, 12, 13]])
         ->and($suite->secondsByTest())->toBe(['MoneyTest::adds' => 0.5, 'MoneyTest::subtracts' => 0.25])
         ->and($suite->ofSuites(['Unit'])->standsIn())->toBeTrue();
 });
 
-it('stands in for nothing where a stream stopped short, a test failed, raised an issue or ran on its own', function (Closure $second) use ($recorded): void {
+it('stands in for nothing where a stream stopped short, a test failed, raised an issue or ran on its own', function (bool $started, bool $finished, bool $passed, bool $troubled, bool $own) use ($recorded, $ended): void {
     $project = Scratch::directory();
+    $second = $started ? StreamLine::covered('MoneyTest::subtracts', [], $ended(0.1, $passed, $troubled, $own)) : '';
     $directory = $recorded(
         $project,
-        StreamLine::covered('MoneyTest::adds', [], new TestEnded(true, false, false, 0.5)) . StreamLine::finished([]),
-        $second(),
+        sprintf('%s%s', StreamLine::covered('MoneyTest::adds', [], $ended(0.5)), StreamLine::finished([])),
+        sprintf('%s%s', $second, $finished ? StreamLine::finished([]) : ''),
     );
     $suite = RecordedSuite::in($directory, Root::of($project));
 
     expect($suite)->toBeInstanceOf(StreamedSuite::class)
-        ->and($suite->ofSuites(['Unit'])->standsIn())->toBeFalse();
+        ->and($suite instanceof StreamedSuite && $suite->ofSuites(['Unit'])->standsIn())->toBeFalse();
 })->with([
-    'stopped short' => [static fn(): string => StreamLine::covered('MoneyTest::subtracts', [], new TestEnded(true, false, false, 0.1))],
-    'never started' => [static fn(): string => ''],
-    'failed' => [static fn(): string => StreamLine::covered('MoneyTest::subtracts', [], new TestEnded(false, false, false, 0.1)) . StreamLine::finished([])],
-    'troubled' => [static fn(): string => StreamLine::covered('MoneyTest::subtracts', [], new TestEnded(true, true, false, 0.1)) . StreamLine::finished([])],
-    'own process' => [static fn(): string => StreamLine::covered('MoneyTest::subtracts', [], new TestEnded(true, false, true, 0.1)) . StreamLine::finished([])],
+    'stopped short' => [true, false, true, false, false],
+    'never started' => [false, false, true, false, false],
+    'failed' => [true, true, false, false, false],
+    'troubled' => [true, true, true, true, false],
+    'own process' => [true, true, true, false, true],
 ]);
 
 it('reads no suite where the streams recorded nothing', function (): void {
