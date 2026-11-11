@@ -42,13 +42,15 @@ const QUICKFIX: &str = "quickfix";
 const SHOW: &str = "window/showMessage";
 
 /// What the server says where the editor opened no workspace.
-const NO_ROOT: &str = "No workspace folder with a file URI is open, so mutation-gate has nothing to watch.";
+const NO_ROOT: &str =
+    "No workspace folder with a file URI is open, so mutation-gate has nothing to watch.";
 
 /// What the server says where `watch` did not start.
 const UNSTARTED: &str = "mutation-gate watch did not start: ";
 
 /// What the server says where `watch` ended without the server asking it to.
-const ENDED: &str = "mutation-gate watch ended ({status}); restart the language server to watch again.";
+const ENDED: &str =
+    "mutation-gate watch ended ({status}); restart the language server to watch again.";
 
 /// What the server says where an action's command did not start.
 const UNRUN: &str = "mutation-gate did not start: ";
@@ -87,8 +89,10 @@ pub fn options(arguments: &[String]) -> Result<Options, String> {
             "--gate" => options.gate = PathBuf::from(value(rest.next(), argument)?),
             "--php" => options.php = Some(PathBuf::from(value(rest.next(), argument)?)),
             "--severity" => {
-                options.severity = Severity::named(value(rest.next(), argument)?)
-                    .ok_or_else(|| String::from("--severity takes error, warning, information or hint"))?;
+                options.severity =
+                    Severity::named(value(rest.next(), argument)?).ok_or_else(|| {
+                        String::from("--severity takes error, warning, information or hint")
+                    })?;
             }
             "--" => {
                 options.watching = rest.cloned().collect();
@@ -103,7 +107,9 @@ pub fn options(arguments: &[String]) -> Result<Options, String> {
 
 /// The value given after an option.
 fn value<'a>(given: Option<&'a String>, option: &str) -> Result<&'a str, String> {
-    given.map(String::as_str).ok_or_else(|| format!("{option} takes a value"))
+    given
+        .map(String::as_str)
+        .ok_or_else(|| format!("{option} takes a value"))
 }
 
 /// Serves the editor on these streams until it asks the server to exit or leaves.
@@ -112,7 +118,11 @@ fn value<'a>(given: Option<&'a String>, option: &str) -> Result<&'a str, String>
 ///
 /// Fails where the editor's stream breaks, the server cannot write to it, or the editor leaves
 /// without asking the server to shut down first.
-pub fn serve<W: Write + Send + 'static>(options: &Options, mut input: impl BufRead, output: W) -> Result<(), String> {
+pub fn serve<W: Write + Send + 'static>(
+    options: &Options,
+    mut input: impl BufRead,
+    output: W,
+) -> Result<(), String> {
     let mut session = Session::new(options.clone(), output);
     let ended = loop {
         match frame::read(&mut input) {
@@ -132,7 +142,9 @@ pub fn serve<W: Write + Send + 'static>(options: &Options, mut input: impl BufRe
     if session.phase == Phase::ShuttingDown {
         Ok(())
     } else {
-        Err(String::from("the editor left without asking the server to shut down"))
+        Err(String::from(
+            "the editor left without asking the server to shut down",
+        ))
     }
 }
 
@@ -167,13 +179,16 @@ struct Client<W> {
 
 impl<W> Clone for Client<W> {
     fn clone(&self) -> Self {
-        Self { output: Arc::clone(&self.output) }
+        Self {
+            output: Arc::clone(&self.output),
+        }
     }
 }
 
 impl<W: Write> Client<W> {
     fn send(&self, content: &str) -> Result<(), String> {
-        frame::write(&mut *locked(&self.output), content).map_err(|error| format!("cannot write to the editor: {error}"))
+        frame::write(&mut *locked(&self.output), content)
+            .map_err(|error| format!("cannot write to the editor: {error}"))
     }
 
     fn show(&self, shown: Shown, text: &str) {
@@ -194,7 +209,9 @@ impl<W: Write + Send + 'static> Session<W> {
     fn new(options: Options, output: W) -> Self {
         Self {
             options,
-            client: Client { output: Arc::new(Mutex::new(output)) },
+            client: Client {
+                output: Arc::new(Mutex::new(output)),
+            },
             phase: Phase::Uninitialized,
             project: None,
             watching: Arc::new(Mutex::new(None)),
@@ -203,16 +220,20 @@ impl<W: Write + Send + 'static> Session<W> {
 
     fn handled(&mut self, content: &[u8]) -> Result<Flow, String> {
         let Some(read) = message::read(content) else {
-            self.client.send(&message::error("null", Fault::Unreadable))?;
+            self.client
+                .send(&message::error("null", Fault::Unreadable))?;
             return Ok(Flow::Next);
         };
 
         match (read.id, read.method.as_deref()) {
             (_, Some("exit")) => return Ok(Flow::Exit),
-            (Some(id), Some("initialize")) if self.phase == Phase::Uninitialized => self.initialize(id, read.params)?,
+            (Some(id), Some("initialize")) if self.phase == Phase::Uninitialized => {
+                self.initialize(id, read.params)?
+            }
             (None, Some("initialized")) if self.phase == Phase::Running => self.watch(),
             (Some(id), Some(_)) if self.phase == Phase::Uninitialized => {
-                self.client.send(&message::error(id, Fault::Uninitialized))?;
+                self.client
+                    .send(&message::error(id, Fault::Uninitialized))?;
             }
             (Some(id), Some("shutdown")) if self.phase == Phase::Running => {
                 self.phase = Phase::ShuttingDown;
@@ -223,10 +244,13 @@ impl<W: Write + Send + 'static> Session<W> {
                 self.client.send(&message::error(id, Fault::Invalid))?;
             }
             (Some(id), Some("textDocument/codeAction")) => {
-                self.client.send(&message::result(id, &actions(read.params)))?;
+                self.client
+                    .send(&message::result(id, &actions(read.params)))?;
             }
             (Some(id), Some("workspace/executeCommand")) => self.execute(id, read.params)?,
-            (Some(id), Some("initialize")) => self.client.send(&message::error(id, Fault::Invalid))?,
+            (Some(id), Some("initialize")) => {
+                self.client.send(&message::error(id, Fault::Invalid))?
+            }
             (Some(id), Some(_)) => self.client.send(&message::error(id, Fault::Unknown))?,
             _ => {}
         }
@@ -238,7 +262,12 @@ impl<W: Write + Send + 'static> Session<W> {
         self.phase = Phase::Running;
         self.project = params.and_then(root).and_then(|root| {
             let path = uri::path(&root)?;
-            let gate = Gate::of(&path, &self.options.gate, self.options.php.as_deref(), &self.options.watching);
+            let gate = Gate::of(
+                &path,
+                &self.options.gate,
+                self.options.php.as_deref(),
+                &self.options.watching,
+            );
 
             Some((root, gate))
         });
@@ -258,12 +287,18 @@ impl<W: Write + Send + 'static> Session<W> {
                 *locked(&self.watching) = Some(child);
 
                 if let Some(lines) = lines {
-                    let (client, watching, root, severity) =
-                        (self.client.clone(), Arc::clone(&self.watching), root.clone(), self.options.severity);
+                    let (client, watching, root, severity) = (
+                        self.client.clone(),
+                        Arc::clone(&self.watching),
+                        root.clone(),
+                        self.options.severity,
+                    );
                     thread::spawn(move || told(lines, &client, &watching, &root, severity));
                 }
             }
-            Err(error) => self.client.show(Shown::Error, &format!("{UNSTARTED}{error}")),
+            Err(error) => self
+                .client
+                .show(Shown::Error, &format!("{UNSTARTED}{error}")),
         }
     }
 
@@ -286,7 +321,14 @@ impl<W: Write + Send + 'static> Session<W> {
         let (client, gate, id) = (self.client.clone(), gate.clone(), id.to_owned());
         thread::spawn(move || {
             match gate.act(action, &mutant) {
-                Ok(output) => client.show(if output.status.success() { Shown::Info } else { Shown::Error }, &said(&output)),
+                Ok(output) => client.show(
+                    if output.status.success() {
+                        Shown::Info
+                    } else {
+                        Shown::Error
+                    },
+                    &said(&output),
+                ),
                 Err(error) => client.show(Shown::Error, &format!("{UNRUN}{error}")),
             }
 
@@ -307,7 +349,13 @@ impl<W: Write + Send + 'static> Session<W> {
 
 /// Reads `watch`'s lines and shows the diagnostics each event moved; once they end, ends
 /// `watch` where the server did not stop it already, and says so where the editor still reads.
-fn told<W: Write>(lines: impl Read, client: &Client<W>, watching: &Mutex<Option<Child>>, root: &str, severity: Severity) {
+fn told<W: Write>(
+    lines: impl Read,
+    client: &Client<W>,
+    watching: &Mutex<Option<Child>>,
+    root: &str,
+    severity: Severity,
+) {
     let mut survivors = Survivors::default();
     let mut heard = true;
 
@@ -324,7 +372,10 @@ fn told<W: Write>(lines: impl Read, client: &Client<W>, watching: &Mutex<Option<
             survivors.diagnostics(&unit, severity)
         );
 
-        if client.send(&message::notification(PUBLISH, &params)).is_err() {
+        if client
+            .send(&message::notification(PUBLISH, &params))
+            .is_err()
+        {
             heard = false;
             break;
         }
@@ -334,7 +385,8 @@ fn told<W: Write>(lines: impl Read, client: &Client<W>, watching: &Mutex<Option<
 
     match unstopped {
         Some(child) if heard => {
-            let status = gate::ended(child).map_or_else(|error| error.to_string(), |status| status.to_string());
+            let status = gate::ended(child)
+                .map_or_else(|error| error.to_string(), |status| status.to_string());
             client.show(Shown::Warning, &ENDED.replace("{status}", &status));
         }
         Some(child) => {
@@ -347,18 +399,23 @@ fn told<W: Write>(lines: impl Read, client: &Client<W>, watching: &Mutex<Option<
 /// The workspace's root URI the initialize request names: its `rootUri`, else its first
 /// workspace folder's.
 fn root(params: &[u8]) -> Option<String> {
-    message::member(params, "rootUri").and_then(message::string).or_else(|| {
-        message::member(params, "workspaceFolders")
-            .and_then(message::items)
-            .and_then(|folders| folders.first().copied())
-            .and_then(|folder| message::member(folder, "uri"))
-            .and_then(message::string)
-    })
+    message::member(params, "rootUri")
+        .and_then(message::string)
+        .or_else(|| {
+            message::member(params, "workspaceFolders")
+                .and_then(message::items)
+                .and_then(|folders| folders.first().copied())
+                .and_then(|folder| message::member(folder, "uri"))
+                .and_then(message::string)
+        })
 }
 
 /// What the server answers the initialize request with.
 fn capabilities() -> String {
-    let commands: Vec<String> = Action::ALL.iter().map(|action| quoted(action.command())).collect();
+    let commands: Vec<String> = Action::ALL
+        .iter()
+        .map(|action| quoted(action.command()))
+        .collect();
 
     format!(
         r#"{{"capabilities":{{"codeActionProvider":{{"codeActionKinds":[{}]}},"executeCommandProvider":{{"commands":[{}]}}}},"serverInfo":{{"name":"outbreak lsp","version":{}}}}}"#,
@@ -377,8 +434,13 @@ fn actions(params: Option<&[u8]>) -> String {
     let mut written = String::from("[");
 
     for diagnostic in diagnostics {
-        let ours = message::member(diagnostic, "source").and_then(message::string).as_deref() == Some(SOURCE);
-        let mutant = message::member(diagnostic, "code").and_then(message::string).filter(|code| is_mutant(code));
+        let ours = message::member(diagnostic, "source")
+            .and_then(message::string)
+            .as_deref()
+            == Some(SOURCE);
+        let mutant = message::member(diagnostic, "code")
+            .and_then(message::string)
+            .filter(|code| is_mutant(code));
         let (true, Some(mutant)) = (ours, mutant) else {
             continue;
         };
@@ -455,15 +517,32 @@ mod tests {
 
     fn served(messages: &[&str]) -> (Result<(), String>, Vec<String>) {
         let written = Written::default();
-        let ended = serve(&options(&[]).unwrap(), framed(messages).as_slice(), written.clone());
+        let ended = serve(
+            &options(&[]).unwrap(),
+            framed(messages).as_slice(),
+            written.clone(),
+        );
 
         (ended, answers(&written))
     }
 
     #[test]
     fn reads_its_options() {
-        let read = options(&["--stdio", "--gate", "bin/gate", "--php", "php8.4", "--severity", "error", "--", "--config=x"].map(String::from))
-            .unwrap();
+        let read = options(
+            &[
+                "--stdio",
+                "--gate",
+                "bin/gate",
+                "--php",
+                "php8.4",
+                "--severity",
+                "error",
+                "--",
+                "--config=x",
+            ]
+            .map(String::from),
+        )
+        .unwrap();
 
         assert_eq!(read.gate, PathBuf::from("bin/gate"));
         assert_eq!(read.php, Some(PathBuf::from("php8.4")));
@@ -514,17 +593,26 @@ mod tests {
         );
         let offered = actions(Some(params.as_bytes()));
 
-        assert_eq!(offered.matches(r#""kind":"quickfix""#).count(), Action::ALL.len());
+        assert_eq!(
+            offered.matches(r#""kind":"quickfix""#).count(),
+            Action::ALL.len()
+        );
         assert!(offered.contains(&format!(r#""diagnostics":[{ours}]"#)));
-        assert!(offered.contains(r#""command":"mutation-gate.stubWrite","arguments":["0123456789ab"]"#));
+        assert!(
+            offered.contains(r#""command":"mutation-gate.stubWrite","arguments":["0123456789ab"]"#)
+        );
         assert_eq!(actions(None), "[]");
     }
 
     #[test]
     fn reads_the_root_from_the_root_uri_or_the_first_folder() {
-        assert_eq!(root(br#"{"rootUri":"file:///a"}"#).as_deref(), Some("file:///a"));
         assert_eq!(
-            root(br#"{"rootUri":null,"workspaceFolders":[{"uri":"file:///b","name":"b"}]}"#).as_deref(),
+            root(br#"{"rootUri":"file:///a"}"#).as_deref(),
+            Some("file:///a")
+        );
+        assert_eq!(
+            root(br#"{"rootUri":null,"workspaceFolders":[{"uri":"file:///b","name":"b"}]}"#)
+                .as_deref(),
             Some("file:///b")
         );
         assert_eq!(root(br#"{"rootUri":null}"#), None);

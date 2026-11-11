@@ -44,11 +44,13 @@ pub fn pull(request: &Request) -> Result<usize, Failure> {
             let bytes = found.bytes(request.limits)?;
 
             if let Some(parent) = std::path::Path::new(into).parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|error| Failure::Io(format!("cannot make {}: {error}", parent.display())))?;
+                std::fs::create_dir_all(parent).map_err(|error| {
+                    Failure::Io(format!("cannot make {}: {error}", parent.display()))
+                })?;
             }
 
-            std::fs::write(into, bytes).map_err(|error| Failure::Io(format!("cannot write {into}: {error}")))?;
+            std::fs::write(into, bytes)
+                .map_err(|error| Failure::Io(format!("cannot write {into}: {error}")))?;
             pulled += 1;
         }
     }
@@ -66,11 +68,14 @@ pub fn push(request: &Request) -> Result<usize, Failure> {
     let mut pushed = 0;
 
     for (class, entries) in &request.packs {
-        let bytes = std::fs::read(entries).map_err(|error| Failure::Io(format!("cannot read {entries}: {error}")))?;
+        let bytes = std::fs::read(entries)
+            .map_err(|error| Failure::Io(format!("cannot read {entries}: {error}")))?;
         let newer = pack::read(&bytes, request.limits)?;
 
         if newer.class != *class || newer.base != request.base {
-            return Err(Failure::Refused(format!("{entries} is no {class} pack at the request's base")));
+            return Err(Failure::Refused(format!(
+                "{entries} is no {class} pack at the request's base"
+            )));
         }
 
         let older = registry
@@ -118,9 +123,13 @@ impl Registry {
         let Some(repository) = request.registry.as_deref() else {
             return Err(Failure::Refused("the request names no registry".to_owned()));
         };
-        let Some((host, name)) = repository.split_once('/').filter(|_| crate::request::is_repository(repository))
+        let Some((host, name)) = repository
+            .split_once('/')
+            .filter(|_| crate::request::is_repository(repository))
         else {
-            return Err(Failure::Refused(format!("{repository} names no repository of a registry")));
+            return Err(Failure::Refused(format!(
+                "{repository} names no repository of a registry"
+            )));
         };
         let config = Agent::config_builder()
             .http_status_as_error(false)
@@ -140,20 +149,40 @@ impl Registry {
     }
 
     /// The pack of a class at the request's base the registry holds; none where it holds none.
-    fn pack(&self, request: &Request, class: &str, access: Access) -> Result<Option<Pack>, Failure> {
+    fn pack(
+        &self,
+        request: &Request,
+        class: &str,
+        access: Access,
+    ) -> Result<Option<Pack>, Failure> {
         let bearer = self.bearer(access)?;
-        let named = if request.newest { class.to_owned() } else { tag(class, &request.base) };
-        let manifest = self.get(&self.url(&format!("manifests/{named}")), &bearer, MANIFEST_MOST)?;
+        let named = if request.newest {
+            class.to_owned()
+        } else {
+            tag(class, &request.base)
+        };
+        let manifest = self.get(
+            &self.url(&format!("manifests/{named}")),
+            &bearer,
+            MANIFEST_MOST,
+        )?;
         let Some(manifest) = manifest else {
             return Ok(None);
         };
         let digest = layer_of(&manifest)?;
-        let Some(bytes) = self.get(&self.url(&format!("blobs/{digest}")), &bearer, request.limits.packed + 1)? else {
+        let Some(bytes) = self.get(
+            &self.url(&format!("blobs/{digest}")),
+            &bearer,
+            request.limits.packed + 1,
+        )?
+        else {
             return Err(Failure::Io(format!("the registry holds no blob {digest}")));
         };
 
         if sha256(&bytes) != digest {
-            return Err(Failure::Refused(format!("the blob the registry answered is not {digest}")));
+            return Err(Failure::Refused(format!(
+                "the blob the registry answered is not {digest}"
+            )));
         }
 
         let read = pack::read(&bytes, request.limits)?;
@@ -171,7 +200,10 @@ impl Registry {
             EMPTY_BODY.len(),
             bytes.len()
         );
-        let mut put = self.agent.put(&self.url(&format!("manifests/{tag}"))).header("Content-Type", MANIFEST);
+        let mut put = self
+            .agent
+            .put(&self.url(&format!("manifests/{tag}")))
+            .header("Content-Type", MANIFEST);
 
         if let Some(bearer) = &bearer {
             put = put.header("Authorization", bearer);
@@ -184,7 +216,10 @@ impl Registry {
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(Failure::Io(format!("the registry refused the tag {tag}: {}", response.status())))
+            Err(Failure::Io(format!(
+                "the registry refused the tag {tag}: {}",
+                response.status()
+            )))
         }
     }
 
@@ -200,8 +235,15 @@ impl Registry {
         let begun = begin
             .send_empty()
             .map_err(|error| Failure::Io(format!("cannot begin an upload: {error}")))?;
-        let Some(location) = begun.headers().get("location").and_then(|value| value.to_str().ok()) else {
-            return Err(Failure::Io(format!("the registry began no upload: {}", begun.status())));
+        let Some(location) = begun
+            .headers()
+            .get("location")
+            .and_then(|value| value.to_str().ok())
+        else {
+            return Err(Failure::Io(format!(
+                "the registry began no upload: {}",
+                begun.status()
+            )));
         };
         let at = if location.starts_with('/') {
             format!("https://{}{location}", self.host)
@@ -225,26 +267,39 @@ impl Registry {
         if response.status().is_success() {
             Ok(digest)
         } else {
-            Err(Failure::Io(format!("the registry refused {digest}: {}", response.status())))
+            Err(Failure::Io(format!(
+                "the registry refused {digest}: {}",
+                response.status()
+            )))
         }
     }
 
     /// What the registry answers at a URL, at most this many bytes; none where it holds nothing there.
-    fn get(&self, url: &str, bearer: &Option<String>, most: u64) -> Result<Option<Vec<u8>>, Failure> {
+    fn get(
+        &self,
+        url: &str,
+        bearer: &Option<String>,
+        most: u64,
+    ) -> Result<Option<Vec<u8>>, Failure> {
         let mut get = self.agent.get(url).header("Accept", MANIFEST);
 
         if let Some(bearer) = bearer {
             get = get.header("Authorization", bearer);
         }
 
-        let mut response = get.call().map_err(|error| Failure::Io(format!("cannot read {url}: {error}")))?;
+        let mut response = get
+            .call()
+            .map_err(|error| Failure::Io(format!("cannot read {url}: {error}")))?;
 
         if response.status().as_u16() == 404 {
             return Ok(None);
         }
 
         if !response.status().is_success() {
-            return Err(Failure::Io(format!("the registry answered {} at {url}", response.status())));
+            return Err(Failure::Io(format!(
+                "the registry answered {} at {url}",
+                response.status()
+            )));
         }
 
         let bytes = response
@@ -269,8 +324,15 @@ impl Registry {
             return Ok(None);
         }
 
-        let Some(challenge) = response.headers().get("www-authenticate").and_then(|value| value.to_str().ok()) else {
-            return Err(Failure::Io(format!("{} asks for credentials it does not name", self.host)));
+        let Some(challenge) = response
+            .headers()
+            .get("www-authenticate")
+            .and_then(|value| value.to_str().ok())
+        else {
+            return Err(Failure::Io(format!(
+                "{} asks for credentials it does not name",
+                self.host
+            )));
         };
         let realm = parameter(challenge, "realm").unwrap_or_default();
         let service = parameter(challenge, "service").unwrap_or_default();
@@ -281,7 +343,10 @@ impl Registry {
             .query("scope", &access.scope(&self.name));
 
         if let Some(token) = &self.token {
-            asked = asked.header("Authorization", &format!("Basic {}", base64(format!("token:{token}").as_bytes())));
+            asked = asked.header(
+                "Authorization",
+                &format!("Basic {}", base64(format!("token:{token}").as_bytes())),
+            );
         }
 
         let mut answered = asked
@@ -289,7 +354,10 @@ impl Registry {
             .map_err(|error| Failure::Io(format!("cannot ask {realm} for a token: {error}")))?;
 
         if !answered.status().is_success() {
-            return Err(Failure::Io(format!("{realm} gave no token: {}", answered.status())));
+            return Err(Failure::Io(format!(
+                "{realm} gave no token: {}",
+                answered.status()
+            )));
         }
 
         let body = answered
@@ -380,7 +448,9 @@ fn base64(bytes: &[u8]) -> String {
         for at in 0..4 {
             if at <= chunk.len() {
                 let index = (joined >> (18 - 6 * at)) & 63;
-                text.push(char::from(ALPHABET.get(index as usize).copied().unwrap_or(b'=')));
+                text.push(char::from(
+                    ALPHABET.get(index as usize).copied().unwrap_or(b'='),
+                ));
             } else {
                 text.push('=');
             }
@@ -403,9 +473,13 @@ mod tests {
 
     #[test]
     fn reads_a_challenge_s_parameters() {
-        let challenge = r#"Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:o/p:pull""#;
+        let challenge =
+            r#"Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:o/p:pull""#;
 
-        assert_eq!(parameter(challenge, "realm").as_deref(), Some("https://ghcr.io/token"));
+        assert_eq!(
+            parameter(challenge, "realm").as_deref(),
+            Some("https://ghcr.io/token")
+        );
         assert_eq!(parameter(challenge, "service").as_deref(), Some("ghcr.io"));
     }
 
@@ -414,7 +488,10 @@ mod tests {
         let manifest = br#"{"schemaVersion":2,"config":{"digest":"sha256:c"},"layers":[{"mediaType":"x","digest":"sha256:l","size":1}]}"#;
 
         assert_eq!(layer_of(manifest).ok().as_deref(), Some("sha256:l"));
-        assert_eq!(token_in(br#"{"access_token":"t"}"#).ok().as_deref(), Some("t"));
+        assert_eq!(
+            token_in(br#"{"access_token":"t"}"#).ok().as_deref(),
+            Some("t")
+        );
     }
 
     #[test]

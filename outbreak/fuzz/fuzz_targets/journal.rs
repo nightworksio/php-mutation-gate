@@ -9,6 +9,9 @@ use outbreak_serve::journal;
 fuzz_target!(|bytes: &[u8]| {
     let records = journal::journal(bytes);
 
-    assert_eq!(journal::snapshot_read(&journal::snapshot(&records)), Some(records));
+    assert_eq!(
+        journal::snapshot_read(&journal::snapshot(&records)),
+        Some(records)
+    );
     drop(journal::snapshot_read(bytes));
 });

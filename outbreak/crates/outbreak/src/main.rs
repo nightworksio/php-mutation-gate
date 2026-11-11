@@ -15,7 +15,12 @@ fn main() -> ExitCode {
     let cores = thread::available_parallelism().unwrap_or(NonZero::<usize>::MIN);
     let ran = match arguments.split_first() {
         Some((command, rest)) if command == outbreak::LSP => outbreak::lsp(rest),
-        _ => outbreak::run(&arguments, &mut io::stdin().lock(), &mut io::stdout().lock(), cores),
+        _ => outbreak::run(
+            &arguments,
+            &mut io::stdin().lock(),
+            &mut io::stdout().lock(),
+            cores,
+        ),
     };
 
     match ran {

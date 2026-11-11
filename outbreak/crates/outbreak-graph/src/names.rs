@@ -49,13 +49,76 @@ const RESOLVERS: [&str; 5] = ["get", "make", "resolve", "build", "app"];
 const CONSTANT: &str = "const ";
 
 const KEYWORDS: [&str; 70] = [
-    "abstract", "and", "array", "as", "bool", "break", "callable", "case", "catch", "class", "clone", "const",
-    "continue", "declare", "default", "do", "echo", "else", "elseif", "empty", "enddeclare", "endfor",
-    "endforeach", "endif", "endswitch", "endwhile", "enum", "extends", "false", "final", "finally", "float", "fn",
-    "for", "foreach", "function", "global", "goto", "if", "implements", "instanceof", "insteadof", "int",
-    "interface", "isset", "iterable", "list", "match", "mixed", "namespace", "never", "new", "null", "object",
-    "or", "parent", "print", "private", "protected", "public", "readonly", "return", "self", "static", "string",
-    "switch", "throw", "trait", "true", "try",
+    "abstract",
+    "and",
+    "array",
+    "as",
+    "bool",
+    "break",
+    "callable",
+    "case",
+    "catch",
+    "class",
+    "clone",
+    "const",
+    "continue",
+    "declare",
+    "default",
+    "do",
+    "echo",
+    "else",
+    "elseif",
+    "empty",
+    "enddeclare",
+    "endfor",
+    "endforeach",
+    "endif",
+    "endswitch",
+    "endwhile",
+    "enum",
+    "extends",
+    "false",
+    "final",
+    "finally",
+    "float",
+    "fn",
+    "for",
+    "foreach",
+    "function",
+    "global",
+    "goto",
+    "if",
+    "implements",
+    "instanceof",
+    "insteadof",
+    "int",
+    "interface",
+    "isset",
+    "iterable",
+    "list",
+    "match",
+    "mixed",
+    "namespace",
+    "never",
+    "new",
+    "null",
+    "object",
+    "or",
+    "parent",
+    "print",
+    "private",
+    "protected",
+    "public",
+    "readonly",
+    "return",
+    "self",
+    "static",
+    "string",
+    "switch",
+    "throw",
+    "trait",
+    "true",
+    "try",
 ];
 
 const MORE_KEYWORDS: [&str; 6] = ["unset", "use", "var", "void", "while", "yield"];
@@ -153,7 +216,10 @@ impl<'a> Reader<'a> {
         let lower = name.to_ascii_lowercase();
         let next = self.at(index + 1).cloned();
 
-        if before == Some(&Token::Arrow) && next == Some(Token::Punct(b'(')) && RESOLVERS.contains(&lower.as_str()) {
+        if before == Some(&Token::Arrow)
+            && next == Some(Token::Punct(b'('))
+            && RESOLVERS.contains(&lower.as_str())
+        {
             self.resolver(index + 2);
         }
 
@@ -178,7 +244,10 @@ impl<'a> Reader<'a> {
             _ => {}
         }
 
-        if REFLECTIONS.iter().any(|reflection| self.resolved(name).ends_with(reflection)) {
+        if REFLECTIONS
+            .iter()
+            .any(|reflection| self.resolved(name).ends_with(reflection))
+        {
             self.unplace("a reflection");
         }
 
@@ -217,7 +286,10 @@ impl<'a> Reader<'a> {
         while at < bytes.len() {
             match qualified_at(bytes, at) {
                 Some(end) => {
-                    let found = text.get(at..end).unwrap_or_default().trim_start_matches('\\');
+                    let found = text
+                        .get(at..end)
+                        .unwrap_or_default()
+                        .trim_start_matches('\\');
                     self.out.names.insert(found.to_ascii_lowercase());
                     at = end;
                 }
@@ -244,14 +316,20 @@ impl<'a> Reader<'a> {
     /// The constant a `define()` declares by a quoted name, by its last segment.
     fn defined(&mut self, argument: usize) {
         if let Some(Token::Quoted(name)) = self.at(argument) {
-            let last = name.rsplit('\\').next().unwrap_or_default().to_ascii_lowercase();
+            let last = name
+                .rsplit('\\')
+                .next()
+                .unwrap_or_default()
+                .to_ascii_lowercase();
             self.out.declares.insert(format!("{CONSTANT}{last}"));
         }
     }
 
     fn new_at(&mut self, index: usize) {
         match self.at(index) {
-            Some(Token::Variable | Token::Punct(b'(')) => self.unplace("a class built from a value"),
+            Some(Token::Variable | Token::Punct(b'(')) => {
+                self.unplace("a class built from a value")
+            }
             _ => {}
         }
     }
@@ -271,7 +349,10 @@ impl<'a> Reader<'a> {
     }
 
     fn resolver(&mut self, argument: usize) {
-        if matches!(self.at(argument), Some(Token::Variable | Token::Str { literal: false })) {
+        if matches!(
+            self.at(argument),
+            Some(Token::Variable | Token::Str { literal: false })
+        ) {
             self.unplace("a container read by a key held as it runs");
         }
     }
@@ -313,10 +394,18 @@ impl<'a> Reader<'a> {
                 Token::Punct(b'{') => prefix = current.take().unwrap_or_default(),
                 Token::Punct(b'}') => self.imported(&prefix, current.take(), alias.take()),
                 Token::Name(name) if name.eq_ignore_ascii_case("as") => {}
-                Token::Name(name) if current.is_some() && self.lower_at(index - 1).as_deref() == Some("as") => {
+                Token::Name(name)
+                    if current.is_some() && self.lower_at(index - 1).as_deref() == Some("as") =>
+                {
                     alias = Some(name.to_ascii_lowercase());
                 }
-                Token::Name(name) => current = Some(name.trim_start_matches('\\').trim_end_matches('\\').to_owned()),
+                Token::Name(name) => {
+                    current = Some(
+                        name.trim_start_matches('\\')
+                            .trim_end_matches('\\')
+                            .to_owned(),
+                    )
+                }
                 Token::Punct(b'\\') => {}
                 _ => return index,
             }
@@ -330,8 +419,14 @@ impl<'a> Reader<'a> {
         let Some(name) = name else {
             return;
         };
-        let full = if prefix.is_empty() { name } else { format!("{prefix}\\{name}") }.to_ascii_lowercase();
-        let short = alias.unwrap_or_else(|| full.rsplit('\\').next().unwrap_or_default().to_owned());
+        let full = if prefix.is_empty() {
+            name
+        } else {
+            format!("{prefix}\\{name}")
+        }
+        .to_ascii_lowercase();
+        let short =
+            alias.unwrap_or_else(|| full.rsplit('\\').next().unwrap_or_default().to_owned());
         self.out.names.insert(self.qualified(&full));
         self.mention(&full);
         self.out.names.insert(full.clone());
@@ -351,13 +446,20 @@ impl<'a> Reader<'a> {
     }
 
     fn declared_function(&mut self, index: usize, keyword: &str) -> usize {
-        let index = if self.at(index) == Some(&Token::Punct(b'&')) { index + 1 } else { index };
+        let index = if self.at(index) == Some(&Token::Punct(b'&')) {
+            index + 1
+        } else {
+            index
+        };
 
         match self.at(index) {
             Some(Token::Name(name)) => {
                 let lower = name.to_ascii_lowercase();
                 self.mention(name);
-                if keyword == "function" && self.class_depth.is_some() && MAGIC.contains(&lower.as_str()) {
+                if keyword == "function"
+                    && self.class_depth.is_some()
+                    && MAGIC.contains(&lower.as_str())
+                {
                     self.unplace("a magic method that answers any name");
                 }
                 if keyword == "function" && self.class_depth.is_none() {
@@ -389,7 +491,9 @@ impl<'a> Reader<'a> {
             return self.qualified(rest);
         }
 
-        let (first, rest) = lower.split_once('\\').map_or((lower.as_str(), None), |(first, rest)| (first, Some(rest)));
+        let (first, rest) = lower
+            .split_once('\\')
+            .map_or((lower.as_str(), None), |(first, rest)| (first, Some(rest)));
 
         match (self.imports.get(first), rest) {
             (Some(full), Some(rest)) => format!("{full}\\{rest}"),
@@ -430,7 +534,10 @@ fn segment_at(bytes: &[u8], start: usize) -> Option<usize> {
 
     let mut at = start + 1;
 
-    while bytes.get(at).is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_') {
+    while bytes
+        .get(at)
+        .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+    {
         at += 1;
     }
 
@@ -449,7 +556,16 @@ mod tests {
         );
 
         assert!(found.declares.contains("app\\billing\\invoice"));
-        for name in ["app\\money\\money", "app\\money\\currency", "app\\billing\\base", "countable", "app\\billing\\totals", "app\\billing\\rate", "app\\billing\\line", "app\\helper"] {
+        for name in [
+            "app\\money\\money",
+            "app\\money\\currency",
+            "app\\billing\\base",
+            "countable",
+            "app\\billing\\totals",
+            "app\\billing\\rate",
+            "app\\billing\\line",
+            "app\\helper",
+        ] {
             assert!(found.names.contains(name), "{name} in {:?}", found.names);
         }
         assert_eq!(found.unplaced, None);
@@ -461,10 +577,22 @@ mod tests {
             ("<?php $f();", "a call by a name held in a variable"),
             ("<?php new $class;", "a class built from a value"),
             ("<?php $class::make();", "a class named by a variable"),
-            ("<?php call_user_func($f);", "a call by a name held as it runs"),
-            ("<?php require $path;", "an include of a path built as it runs"),
-            ("<?php class A { public function __get($n) {} }", "a magic method that answers any name"),
-            ("<?php $c->make($id);", "a container read by a key held as it runs"),
+            (
+                "<?php call_user_func($f);",
+                "a call by a name held as it runs",
+            ),
+            (
+                "<?php require $path;",
+                "an include of a path built as it runs",
+            ),
+            (
+                "<?php class A { public function __get($n) {} }",
+                "a magic method that answers any name",
+            ),
+            (
+                "<?php $c->make($id);",
+                "a container read by a key held as it runs",
+            ),
             ("<?php new \\ReflectionClass($x);", "a reflection"),
         ] {
             assert_eq!(read(text.as_bytes()).unplaced, Some(why), "{text}");
@@ -479,9 +607,22 @@ mod tests {
         );
 
         for name in ["const limit", "const rate", "const size", "const more"] {
-            assert!(found.declares.contains(name), "{name} in {:?}", found.declares);
+            assert!(
+                found.declares.contains(name),
+                "{name} in {:?}",
+                found.declares
+            );
         }
-        for name in ["app\\fake\\clock", "other\\thing", "y\\z", "total", "app\\total", "const max", "app\\rate", "app"] {
+        for name in [
+            "app\\fake\\clock",
+            "other\\thing",
+            "y\\z",
+            "total",
+            "app\\total",
+            "const max",
+            "app\\rate",
+            "app",
+        ] {
             assert!(found.names.contains(name), "{name} in {:?}", found.names);
         }
         assert!(!found.names.contains("single"));
@@ -489,6 +630,9 @@ mod tests {
 
     #[test]
     fn places_literal_includes_and_method_calls() {
-        assert_eq!(read(b"<?php require __DIR__ . 'x.php'; require 'y.php'; $a->b(); A::c();").unplaced, None);
+        assert_eq!(
+            read(b"<?php require __DIR__ . 'x.php'; require 'y.php'; $a->b(); A::c();").unplaced,
+            None
+        );
     }
 }

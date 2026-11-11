@@ -48,7 +48,11 @@ impl State {
     pub fn records(&self) -> Vec<Record> {
         self.proofs
             .iter()
-            .map(|(key, value)| Record { kind: Kind::Proof, key: key.clone(), value: value.clone() })
+            .map(|(key, value)| Record {
+                kind: Kind::Proof,
+                key: key.clone(),
+                value: value.clone(),
+            })
             .collect()
     }
 
@@ -82,7 +86,11 @@ mod tests {
 
     #[test]
     fn keeps_the_latest_proof_of_each_key() {
-        let record = |value: &str| Record { kind: Kind::Proof, key: "k".to_owned(), value: value.as_bytes().to_vec() };
+        let record = |value: &str| Record {
+            kind: Kind::Proof,
+            key: "k".to_owned(),
+            value: value.as_bytes().to_vec(),
+        };
         let state = State::of([record("old"), record("new")]);
 
         assert_eq!(state.proof("k"), Some(&b"new"[..]));
@@ -92,11 +100,26 @@ mod tests {
 
     #[test]
     fn forgets_a_proof_until_it_is_kept_again() {
-        let kept = Record { kind: Kind::Proof, key: "k".to_owned(), value: b"proof".to_vec() };
-        let forgotten = Record { kind: Kind::Forgotten, key: "k".to_owned(), value: Vec::new() };
+        let kept = Record {
+            kind: Kind::Proof,
+            key: "k".to_owned(),
+            value: b"proof".to_vec(),
+        };
+        let forgotten = Record {
+            kind: Kind::Forgotten,
+            key: "k".to_owned(),
+            value: Vec::new(),
+        };
 
-        assert_eq!(State::of([kept.clone(), forgotten.clone()]).proof("k"), None);
-        assert!(State::of([kept.clone(), forgotten.clone()]).records().is_empty());
+        assert_eq!(
+            State::of([kept.clone(), forgotten.clone()]).proof("k"),
+            None
+        );
+        assert!(
+            State::of([kept.clone(), forgotten.clone()])
+                .records()
+                .is_empty()
+        );
         assert_eq!(State::of([forgotten, kept]).proof("k"), Some(&b"proof"[..]));
     }
 

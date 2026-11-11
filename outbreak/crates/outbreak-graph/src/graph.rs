@@ -51,10 +51,17 @@ impl Graph {
             }
         }
 
-        let index: BTreeMap<String, usize> =
-            files.iter().enumerate().map(|(at, (path, _, _))| (path.clone(), at)).collect();
-        let tests: BTreeSet<usize> =
-            files.iter().enumerate().filter(|(_, (_, _, test))| *test).map(|(at, _)| at).collect();
+        let index: BTreeMap<String, usize> = files
+            .iter()
+            .enumerate()
+            .map(|(at, (path, _, _))| (path.clone(), at))
+            .collect();
+        let tests: BTreeSet<usize> = files
+            .iter()
+            .enumerate()
+            .filter(|(_, (_, _, test))| *test)
+            .map(|(at, _)| at)
+            .collect();
 
         for loaded in always.iter().filter_map(|path| index.get(path)) {
             for &test in &tests {
@@ -65,7 +72,16 @@ impl Graph {
         let unplaced = files.iter().map(|(_, names, _)| names.unplaced).collect();
         let paths = files.into_iter().map(|(path, _, _)| path).collect();
 
-        Self { paths, tests, unplaced, reached_by, reaches, index, wrong: BTreeSet::new(), forwards: OnceCell::new() }
+        Self {
+            paths,
+            tests,
+            unplaced,
+            reached_by,
+            reaches,
+            index,
+            wrong: BTreeSet::new(),
+            forwards: OnceCell::new(),
+        }
     }
 
     /// The graph, each test file marked wrong where the coverage map shows it
@@ -116,7 +132,12 @@ impl Graph {
             }
         }
 
-        Some(self.named(seen.into_iter().filter(|at| self.tests.contains(at) && !self.wrong.contains(at))))
+        Some(
+            self.named(
+                seen.into_iter()
+                    .filter(|at| self.tests.contains(at) && !self.wrong.contains(at)),
+            ),
+        )
     }
 
     /// Every file that is not a test file which any test file reaching a
@@ -132,7 +153,12 @@ impl Graph {
             let forward = forward.as_ref().filter(|_| !self.wrong.contains(test))?;
 
             if forward.contains(&target) {
-                joined.extend(forward.iter().copied().filter(|at| !self.tests.contains(at)));
+                joined.extend(
+                    forward
+                        .iter()
+                        .copied()
+                        .filter(|at| !self.tests.contains(at)),
+                );
             }
         }
 
@@ -166,7 +192,12 @@ impl Graph {
     /// Every file each test file reaches, itself included, by the test
     /// file; none for one that reaches a node the graph cannot place.
     fn forwards(&self) -> &BTreeMap<usize, Option<BTreeSet<usize>>> {
-        self.forwards.get_or_init(|| self.tests.iter().map(|&test| (test, self.forward(test))).collect())
+        self.forwards.get_or_init(|| {
+            self.tests
+                .iter()
+                .map(|&test| (test, self.forward(test)))
+                .collect()
+        })
     }
 
     fn forward(&self, start: usize) -> Option<BTreeSet<usize>> {
@@ -195,7 +226,12 @@ impl Graph {
     }
 }
 
-fn join(reaches: &mut [BTreeSet<usize>], reached_by: &mut [BTreeSet<usize>], from: usize, to: usize) {
+fn join(
+    reaches: &mut [BTreeSet<usize>],
+    reached_by: &mut [BTreeSet<usize>],
+    from: usize,
+    to: usize,
+) {
     if from == to {
         return;
     }
@@ -222,7 +258,10 @@ mod tests {
                 .iter()
                 .map(|(path, text, test)| ((*path).to_owned(), read(text.as_bytes()), *test))
                 .collect(),
-            &always.iter().map(|path| (*path).to_owned()).collect::<Vec<_>>(),
+            &always
+                .iter()
+                .map(|path| (*path).to_owned())
+                .collect::<Vec<_>>(),
         )
     }
 
@@ -231,17 +270,36 @@ mod tests {
     }
 
     const WALLET: [(&str, &str, bool); 4] = [
-        ("src/Money.php", "<?php namespace App; final class Money {}", false),
-        ("src/Wallet.php", "<?php namespace App; final class Wallet { public function add(Money $m) {} }", false),
-        ("tests/WalletTest.php", "<?php use App\\Wallet; it('adds', fn () => new Wallet());", true),
-        ("tests/OtherTest.php", "<?php it('is alone', fn () => true);", true),
+        (
+            "src/Money.php",
+            "<?php namespace App; final class Money {}",
+            false,
+        ),
+        (
+            "src/Wallet.php",
+            "<?php namespace App; final class Wallet { public function add(Money $m) {} }",
+            false,
+        ),
+        (
+            "tests/WalletTest.php",
+            "<?php use App\\Wallet; it('adds', fn () => new Wallet());",
+            true,
+        ),
+        (
+            "tests/OtherTest.php",
+            "<?php it('is alone', fn () => true);",
+            true,
+        ),
     ];
 
     #[test]
     fn finds_the_tests_that_reach_a_file_through_others() {
         let found = graph(&WALLET, &[]);
 
-        assert_eq!(found.reaching("src/Money.php"), Some(owned(&["tests/WalletTest.php"])));
+        assert_eq!(
+            found.reaching("src/Money.php"),
+            Some(owned(&["tests/WalletTest.php"]))
+        );
         assert_eq!(found.reaching("src/Missing.php"), None);
     }
 
@@ -249,39 +307,74 @@ mod tests {
     fn joins_a_file_to_what_the_tests_that_reach_it_reach() {
         let found = graph(&WALLET, &[]);
 
-        assert_eq!(found.joined("src/Money.php"), Some(owned(&["src/Money.php", "src/Wallet.php"])));
+        assert_eq!(
+            found.joined("src/Money.php"),
+            Some(owned(&["src/Money.php", "src/Wallet.php"]))
+        );
         assert_eq!(found.joined("tests/OtherTest.php"), Some(vec![]));
-        assert_eq!(found.names("src/Wallet.php"), Some(owned(&["src/Money.php"])));
+        assert_eq!(
+            found.names("src/Wallet.php"),
+            Some(owned(&["src/Money.php"]))
+        );
     }
 
     #[test]
     fn joins_every_test_to_what_every_test_loads() {
         let found = graph(
             &[
-                ("src/Clock.php", "<?php namespace App; final class Clock {}", false),
-                ("tests/Pest.php", "<?php use App\\Clock; uses(Clock::class);", false),
+                (
+                    "src/Clock.php",
+                    "<?php namespace App; final class Clock {}",
+                    false,
+                ),
+                (
+                    "tests/Pest.php",
+                    "<?php use App\\Clock; uses(Clock::class);",
+                    false,
+                ),
                 ("tests/ATest.php", "<?php it('runs', fn () => true);", true),
             ],
             &["tests/Pest.php"],
         );
 
-        assert_eq!(found.reaching("src/Clock.php"), Some(owned(&["tests/ATest.php"])));
+        assert_eq!(
+            found.reaching("src/Clock.php"),
+            Some(owned(&["tests/ATest.php"]))
+        );
     }
 
     #[test]
     fn gives_no_answer_through_a_node_it_cannot_place() {
         let found = graph(
             &[
-                ("src/Money.php", "<?php namespace App; final class Money {}", false),
-                ("src/Bag.php", "<?php namespace App; final class Bag { public function __get($n) { return new Money(); } }", false),
-                ("tests/BagTest.php", "<?php use App\\Bag; it('holds', fn () => new Bag());", true),
+                (
+                    "src/Money.php",
+                    "<?php namespace App; final class Money {}",
+                    false,
+                ),
+                (
+                    "src/Bag.php",
+                    "<?php namespace App; final class Bag { public function __get($n) { return new Money(); } }",
+                    false,
+                ),
+                (
+                    "tests/BagTest.php",
+                    "<?php use App\\Bag; it('holds', fn () => new Bag());",
+                    true,
+                ),
             ],
             &[],
         );
 
         assert_eq!(found.reaching("src/Money.php"), None);
         assert_eq!(found.joined("src/Money.php"), None);
-        assert_eq!(found.unplaced(), vec![("src/Bag.php".to_owned(), "a magic method that answers any name")]);
+        assert_eq!(
+            found.unplaced(),
+            vec![(
+                "src/Bag.php".to_owned(),
+                "a magic method that answers any name"
+            )]
+        );
     }
 
     #[test]
@@ -290,7 +383,10 @@ mod tests {
         let found = graph(&WALLET, &[]).checked(&map);
 
         assert_eq!(found.wrong(), owned(&["tests/OtherTest.php"]));
-        assert_eq!(found.reaching("src/Wallet.php"), Some(owned(&["tests/WalletTest.php"])));
+        assert_eq!(
+            found.reaching("src/Wallet.php"),
+            Some(owned(&["tests/WalletTest.php"]))
+        );
         assert_eq!(found.joined("src/Money.php"), None);
     }
 }

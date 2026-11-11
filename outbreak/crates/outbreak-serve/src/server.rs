@@ -19,7 +19,9 @@
 
 use std::fs::{self, DirBuilder, File, Metadata, OpenOptions, Permissions, TryLockError};
 use std::io::{BufRead as _, BufReader, ErrorKind, Read as _, Write as _};
-use std::os::unix::fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _};
+use std::os::unix::fs::{
+    DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _,
+};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt as _;
 use std::path::Path;
@@ -112,8 +114,15 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
 
     match lock.try_lock() {
         Ok(()) => {}
-        Err(TryLockError::WouldBlock) => return Err(format!("a daemon already serves {}", options.root.display())),
-        Err(TryLockError::Error(error)) => return Err(format!("cannot lock {}: {error}", directory.display())),
+        Err(TryLockError::WouldBlock) => {
+            return Err(format!(
+                "a daemon already serves {}",
+                options.root.display()
+            ));
+        }
+        Err(TryLockError::Error(error)) => {
+            return Err(format!("cannot lock {}: {error}", directory.display()));
+        }
     }
 
     let state = read(&directory, euid);
@@ -121,16 +130,28 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
     let journal = owned(&directory.join(JOURNAL), true, euid)?;
     let socket = directory.join(SOCKET);
     let _ = fs::remove_file(&socket);
-    let listener = UnixListener::bind(&socket).map_err(|error| format!("cannot listen on {}: {error}", socket.display()))?;
+    let listener = UnixListener::bind(&socket)
+        .map_err(|error| format!("cannot listen on {}: {error}", socket.display()))?;
     fs::set_permissions(&socket, Permissions::from_mode(0o600))
         .map_err(|error| format!("cannot keep {} to its owner: {error}", socket.display()))?;
     let now = Instant::now();
     let shared = Arc::new(Shared {
-        kept: Mutex::new(Kept { state, journal, unsynced: false, journalled: false, synced: now, snapshotted: now }),
+        kept: Mutex::new(Kept {
+            state,
+            journal,
+            unsynced: false,
+            journalled: false,
+            synced: now,
+            snapshotted: now,
+        }),
         connected: AtomicUsize::new(0),
         asked: Mutex::new(now),
         stopping: AtomicBool::new(false),
-        watching: Watching::files(options.root.clone(), options.root.join(WORKSPACE), options.debounce),
+        watching: Watching::files(
+            options.root.clone(),
+            options.root.join(WORKSPACE),
+            options.debounce,
+        ),
         power: Watching::power(),
     });
     let child = started(&options.child, &shared, &socket)?;
@@ -140,7 +161,16 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
         let directory = directory.clone();
         let socket = socket.clone();
         let lives_with_child = child.is_some();
-        thread::spawn(move || ticked(&shared, &options, &directory, &socket, lives_with_child, euid))
+        thread::spawn(move || {
+            ticked(
+                &shared,
+                &options,
+                &directory,
+                &socket,
+                lives_with_child,
+                euid,
+            )
+        })
     };
 
     for stream in listener.incoming() {
@@ -185,10 +215,21 @@ fn owned_directory(path: &Path, euid: u32) -> Result<(), String> {
 }
 
 /// Whether what a path holds, unfollowed, is of the kind asked and the user's own; why not, otherwise.
-fn own(path: &Path, metadata: &Metadata, euid: u32, kind: impl Fn(&Metadata) -> bool) -> Result<(), String> {
+fn own(
+    path: &Path,
+    metadata: &Metadata,
+    euid: u32,
+    kind: impl Fn(&Metadata) -> bool,
+) -> Result<(), String> {
     match () {
-        () if metadata.file_type().is_symlink() => Err(format!("{} is a link, which the daemon never follows", path.display())),
-        () if !kind(metadata) => Err(format!("{} is not what the daemon keeps there", path.display())),
+        () if metadata.file_type().is_symlink() => Err(format!(
+            "{} is a link, which the daemon never follows",
+            path.display()
+        )),
+        () if !kind(metadata) => Err(format!(
+            "{} is not what the daemon keeps there",
+            path.display()
+        )),
         () if metadata.uid() != euid => Err(format!("{} belongs to another user", path.display())),
         () => Ok(()),
     }
@@ -203,7 +244,9 @@ fn read(directory: &Path, euid: u32) -> State {
         Some(bytes)
     };
     let snapshot = bytes(SNAPSHOT).and_then(|bytes| journal::snapshot_read(&bytes));
-    let journalled = bytes(JOURNAL).map(|bytes| journal::journal(&bytes)).unwrap_or_default();
+    let journalled = bytes(JOURNAL)
+        .map(|bytes| journal::journal(&bytes))
+        .unwrap_or_default();
 
     State::of(snapshot.unwrap_or_default().into_iter().chain(journalled))
 }
@@ -211,9 +254,15 @@ fn read(directory: &Path, euid: u32) -> State {
 /// A snapshot of the state written to a name no file holds yet, renamed in
 /// place of the last one, and the journal it holds emptied.
 fn snapshotted(directory: &Path, state: &State, euid: u32) -> Result<(), String> {
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |since| since.as_nanos());
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| since.as_nanos());
     let written = directory.join(format!("{SNAPSHOT}.{}.{nanos}", std::process::id()));
-    let mut file = opened(&written, OpenOptions::new().write(true).create_new(true).mode(0o600), euid)?;
+    let mut file = opened(
+        &written,
+        OpenOptions::new().write(true).create_new(true).mode(0o600),
+        euid,
+    )?;
     file.write_all(&journal::snapshot(&state.records()))
         .and_then(|()| file.sync_all())
         .and_then(|()| fs::rename(&written, directory.join(SNAPSHOT)))
@@ -222,18 +271,29 @@ fn snapshotted(directory: &Path, state: &State, euid: u32) -> Result<(), String>
             format!("cannot write the snapshot: {error}")
         })?;
 
-    match opened(&directory.join(JOURNAL), OpenOptions::new().write(true), euid) {
-        Ok(journal) => journal.set_len(0).map_err(|error| format!("cannot empty the journal: {error}")),
+    match opened(
+        &directory.join(JOURNAL),
+        OpenOptions::new().write(true),
+        euid,
+    ) {
+        Ok(journal) => journal
+            .set_len(0)
+            .map_err(|error| format!("cannot empty the journal: {error}")),
         Err(_) => Ok(()),
     }
 }
 
 /// A file only its owner reads and writes, made where missing and opened to append, emptied where asked.
 fn owned(path: &Path, emptied: bool, euid: u32) -> Result<File, String> {
-    let file = opened(path, OpenOptions::new().create(true).append(true).mode(0o600), euid)?;
+    let file = opened(
+        path,
+        OpenOptions::new().create(true).append(true).mode(0o600),
+        euid,
+    )?;
 
     if emptied {
-        file.set_len(0).map_err(|error| format!("cannot empty {}: {error}", path.display()))?;
+        file.set_len(0)
+            .map_err(|error| format!("cannot empty {}: {error}", path.display()))?;
     }
 
     Ok(file)
@@ -245,7 +305,9 @@ fn opened(path: &Path, options: &mut OpenOptions, euid: u32) -> Result<File, Str
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
         .open(path)
         .map_err(|error| format!("cannot open {}: {error}", path.display()))?;
-    let metadata = file.metadata().map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+    let metadata = file
+        .metadata()
+        .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
     own(path, &metadata, euid, Metadata::is_file)?;
 
     Ok(file)
@@ -270,7 +332,9 @@ fn started(argv: &[String], shared: &Arc<Shared>, socket: &Path) -> Result<Optio
 
     thread::spawn(move || {
         loop {
-            let ended = locked(&watched).as_mut().is_none_or(|child| child.try_wait().ok().flatten().is_some());
+            let ended = locked(&watched)
+                .as_mut()
+                .is_none_or(|child| child.try_wait().ok().flatten().is_some());
 
             if ended || shared.stopping.load(Ordering::SeqCst) {
                 stop(&shared, &socket);
@@ -286,7 +350,14 @@ fn started(argv: &[String], shared: &Arc<Shared>, socket: &Path) -> Result<Optio
 
 /// Looks at the clocks until the daemon stops: syncs the journal, writes a
 /// snapshot while no client is connected, and stops it once idle.
-fn ticked(shared: &Shared, options: &Options, directory: &Path, socket: &Path, lives_with_child: bool, euid: u32) {
+fn ticked(
+    shared: &Shared,
+    options: &Options,
+    directory: &Path,
+    socket: &Path,
+    lives_with_child: bool,
+    euid: u32,
+) {
     while !shared.stopping.load(Ordering::SeqCst) {
         thread::sleep(TICK);
         let mut kept = locked(&shared.kept);
@@ -307,7 +378,9 @@ fn ticked(shared: &Shared, options: &Options, directory: &Path, socket: &Path, l
         }
 
         drop(kept);
-        let idle = options.idle.is_some_and(|idle| locked(&shared.asked).elapsed() >= idle);
+        let idle = options
+            .idle
+            .is_some_and(|idle| locked(&shared.asked).elapsed() >= idle);
 
         if quiet && idle && !lives_with_child {
             stop(shared, socket);
@@ -316,7 +389,12 @@ fn ticked(shared: &Shared, options: &Options, directory: &Path, socket: &Path, l
 }
 
 fn synced(kept: &mut MutexGuard<'_, Kept>) {
-    if kept.journal.flush().and_then(|()| kept.journal.sync_data()).is_ok() {
+    if kept
+        .journal
+        .flush()
+        .and_then(|()| kept.journal.sync_data())
+        .is_ok()
+    {
         kept.unsynced = false;
         kept.synced = Instant::now();
     }
@@ -355,9 +433,12 @@ fn connected(stream: UnixStream, shared: &Shared, root: &Path, socket: &Path, co
 
         let answer = {
             let mut kept = locked(&shared.kept);
-            let answer = protocol::answer(&mut kept.state, line.trim_end(), contract, |asked, path| {
-                (Path::new(asked) == root).then(|| fs::read(root.join(path)).ok()).flatten()
-            });
+            let answer =
+                protocol::answer(&mut kept.state, line.trim_end(), contract, |asked, path| {
+                    (Path::new(asked) == root)
+                        .then(|| fs::read(root.join(path)).ok())
+                        .flatten()
+                });
             journalled(&mut kept, &answer.kept);
             answer
         };
@@ -443,7 +524,9 @@ mod tests {
     fn asked(stream: &mut UnixStream, line: &str) -> String {
         writeln!(stream, "{line}").unwrap();
         let mut answer = String::new();
-        BufReader::new(stream.try_clone().unwrap()).read_line(&mut answer).unwrap();
+        BufReader::new(stream.try_clone().unwrap())
+            .read_line(&mut answer)
+            .unwrap();
         answer.trim_end().to_owned()
     }
 
@@ -462,74 +545,155 @@ mod tests {
         let root = std::env::temp_dir().join(format!("outbreak-serve-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
-        let first = { let options = options(root.clone()); thread::spawn(move || serve(&options, 1)) };
+        let first = {
+            let options = options(root.clone());
+            thread::spawn(move || serve(&options, 1))
+        };
         let mut stream = connected(&root);
 
-        assert_eq!(asked(&mut stream, r#"keep {"proofs": {"k": "v"}}"#), r#"{"outbreak":1,"kept":1}"#);
+        assert_eq!(
+            asked(&mut stream, r#"keep {"proofs": {"k": "v"}}"#),
+            r#"{"outbreak":1,"kept":1}"#
+        );
         drop(stream);
         thread::sleep(Duration::from_millis(600));
-        let journal = std::fs::metadata(root.join(DIRECTORY).join("journal.bin")).unwrap().len();
+        let journal = std::fs::metadata(root.join(DIRECTORY).join("journal.bin"))
+            .unwrap()
+            .len();
         let mut stream = connected(&root);
 
         assert_eq!(journal, 0);
-        assert!(serve(&options(root.clone()), 1).is_err_and(|why| why.starts_with("a daemon already serves")));
-        assert_eq!(asked(&mut stream, "stop"), r#"{"outbreak":1,"stopping":true}"#);
+        assert!(
+            serve(&options(root.clone()), 1)
+                .is_err_and(|why| why.starts_with("a daemon already serves"))
+        );
+        assert_eq!(
+            asked(&mut stream, "stop"),
+            r#"{"outbreak":1,"stopping":true}"#
+        );
         assert_eq!(first.join().unwrap(), Ok(()));
 
-        let second = { let options = options(root.clone()); thread::spawn(move || serve(&options, 1)) };
+        let second = {
+            let options = options(root.clone());
+            thread::spawn(move || serve(&options, 1))
+        };
         let mut stream = connected(&root);
 
-        assert_eq!(asked(&mut stream, r#"proofs {"keys": ["k"]}"#), r#"{"outbreak":1,"proofs":{"k":"v"}}"#);
-        assert_eq!(asked(&mut stream, "stop"), r#"{"outbreak":1,"stopping":true}"#);
+        assert_eq!(
+            asked(&mut stream, r#"proofs {"keys": ["k"]}"#),
+            r#"{"outbreak":1,"proofs":{"k":"v"}}"#
+        );
+        assert_eq!(
+            asked(&mut stream, "stop"),
+            r#"{"outbreak":1,"stopping":true}"#
+        );
         assert_eq!(second.join().unwrap(), Ok(()));
         std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn answers_a_client_waiting_for_a_change_of_the_files() {
-        let root = std::env::temp_dir().join(format!("outbreak-serve-watch-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("outbreak-serve-watch-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("src")).unwrap();
-        let serving = { let options = options(root.clone()); thread::spawn(move || serve(&options, 1)) };
+        let serving = {
+            let options = options(root.clone());
+            thread::spawn(move || serve(&options, 1))
+        };
         let mut stream = connected(&root);
 
-        assert_eq!(asked(&mut stream, r#"changed {"paths": ["src"], "since": 0, "wait": 0}"#), r#"{"outbreak":1,"changed":0}"#);
-        let writing = { let file = root.join("src/A.php"); thread::spawn(move || { thread::sleep(Duration::from_millis(100)); std::fs::write(file, "<?php\n") }) };
-        let after = asked(&mut stream, r#"changed {"paths": ["src"], "since": 0, "wait": 5000}"#);
+        assert_eq!(
+            asked(
+                &mut stream,
+                r#"changed {"paths": ["src"], "since": 0, "wait": 0}"#
+            ),
+            r#"{"outbreak":1,"changed":0}"#
+        );
+        let writing = {
+            let file = root.join("src/A.php");
+            thread::spawn(move || {
+                thread::sleep(Duration::from_millis(100));
+                std::fs::write(file, "<?php\n")
+            })
+        };
+        let after = asked(
+            &mut stream,
+            r#"changed {"paths": ["src"], "since": 0, "wait": 5000}"#,
+        );
         writing.join().unwrap().unwrap();
 
         assert_ne!(after, r#"{"outbreak":1,"changed":0}"#);
         assert!(after.starts_with(r#"{"outbreak":1,"changed":"#), "{after}");
-        assert!(asked(&mut stream, r#"changed {"paths": ["/"], "since": 0, "wait": 0}"#).contains(r#""unwatched":"#));
+        assert!(
+            asked(
+                &mut stream,
+                r#"changed {"paths": ["/"], "since": 0, "wait": 0}"#
+            )
+            .contains(r#""unwatched":"#)
+        );
         assert!(asked(&mut stream, r#"changed {"since": 0}"#).contains(r#""refused":"#));
-        assert_eq!(asked(&mut stream, "stop"), r#"{"outbreak":1,"stopping":true}"#);
+        assert_eq!(
+            asked(&mut stream, "stop"),
+            r#"{"outbreak":1,"stopping":true}"#
+        );
         assert_eq!(serving.join().unwrap(), Ok(()));
         std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn lives_as_long_as_its_child_or_until_idle() {
-        let root = std::env::temp_dir().join(format!("outbreak-serve-child-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("outbreak-serve-child-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
-        let with_child = Options { child: vec!["true".to_owned()], idle: None, ..options(root.clone()) };
+        let with_child = Options {
+            child: vec!["true".to_owned()],
+            idle: None,
+            ..options(root.clone())
+        };
 
         assert_eq!(serve(&with_child, 1), Ok(()));
-        assert_eq!(serve(&Options { idle: Some(Duration::from_millis(300)), ..options(root.clone()) }, 1), Ok(()));
-        assert!(serve(&Options { child: vec!["/nonexistent/child".to_owned()], ..options(root.clone()) }, 1).is_err());
+        assert_eq!(
+            serve(
+                &Options {
+                    idle: Some(Duration::from_millis(300)),
+                    ..options(root.clone())
+                },
+                1
+            ),
+            Ok(())
+        );
+        assert!(
+            serve(
+                &Options {
+                    child: vec!["/nonexistent/child".to_owned()],
+                    ..options(root.clone())
+                },
+                1
+            )
+            .is_err()
+        );
         std::fs::write(root.join("file"), "").unwrap();
-        assert!(serve(&options(root.join("file/inside")), 1).is_err_and(|why| why.starts_with("cannot")));
+        assert!(
+            serve(&options(root.join("file/inside")), 1)
+                .is_err_and(|why| why.starts_with("cannot"))
+        );
         std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn starts_a_daemon_in_a_group_of_its_own() {
         assert!(detached(std::path::Path::new("true"), &[]).is_ok());
-        assert!(detached(std::path::Path::new("/nonexistent/outbreak"), &[]).is_err_and(|why| why.starts_with("cannot start")));
+        assert!(
+            detached(std::path::Path::new("/nonexistent/outbreak"), &[])
+                .is_err_and(|why| why.starts_with("cannot start"))
+        );
     }
 
     fn fresh(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("outbreak-serve-{name}-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("outbreak-serve-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         root
@@ -541,13 +705,19 @@ mod tests {
         let elsewhere = fresh("elsewhere");
         symlink(&elsewhere, root.join(".mutation-gate")).unwrap();
 
-        assert!(serve(&options(root.clone()), 1).is_err_and(|why| why.ends_with("is a link, which the daemon never follows")));
+        assert!(
+            serve(&options(root.clone()), 1)
+                .is_err_and(|why| why.ends_with("is a link, which the daemon never follows"))
+        );
 
         std::fs::remove_file(root.join(".mutation-gate")).unwrap();
         std::fs::create_dir(root.join(".mutation-gate")).unwrap();
         symlink(&elsewhere, root.join(DIRECTORY)).unwrap();
 
-        assert!(serve(&options(root.clone()), 1).is_err_and(|why| why.ends_with("is a link, which the daemon never follows")));
+        assert!(
+            serve(&options(root.clone()), 1)
+                .is_err_and(|why| why.ends_with("is a link, which the daemon never follows"))
+        );
         assert_eq!(std::fs::read_dir(&elsewhere).unwrap().count(), 0);
         std::fs::remove_dir_all(&root).unwrap();
         std::fs::remove_dir_all(&elsewhere).unwrap();
@@ -564,7 +734,12 @@ mod tests {
 
         assert!(serve(&options(root.clone()), 1).is_err_and(|why| why.starts_with("cannot open")));
         assert_eq!(std::fs::read_to_string(&outside).unwrap(), "kept");
-        assert!(!std::fs::symlink_metadata(root.join(DIRECTORY).join("state.bin")).unwrap().file_type().is_symlink());
+        assert!(
+            !std::fs::symlink_metadata(root.join(DIRECTORY).join("state.bin"))
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
         std::fs::remove_dir_all(&root).unwrap();
         std::fs::remove_dir_all(outside.parent().unwrap()).unwrap();
     }
@@ -575,8 +750,14 @@ mod tests {
         let euid = rustix::process::geteuid().as_raw();
         let directory = std::fs::symlink_metadata(&root).unwrap();
 
-        assert!(owned_directory(&root, euid + 1).is_err_and(|why| why.ends_with("belongs to another user")));
-        assert!(own(&root, &directory, euid, std::fs::Metadata::is_file).is_err_and(|why| why.ends_with("is not what the daemon keeps there")));
+        assert!(
+            owned_directory(&root, euid + 1)
+                .is_err_and(|why| why.ends_with("belongs to another user"))
+        );
+        assert!(
+            own(&root, &directory, euid, std::fs::Metadata::is_file)
+                .is_err_and(|why| why.ends_with("is not what the daemon keeps there"))
+        );
         assert_eq!(owned_directory(&root, euid), Ok(()));
         std::fs::remove_dir_all(&root).unwrap();
     }

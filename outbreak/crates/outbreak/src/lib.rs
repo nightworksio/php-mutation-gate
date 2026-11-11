@@ -112,7 +112,9 @@ pub fn run(
         ["report", "convert"] => report::convert(&read_all(input)?)?,
         ["cache", "pull"] => cached("pulled", outbreak_cache::pull(&read_all(input)?))?,
         ["cache", "push"] => cached("pushed", outbreak_cache::push(&read_all(input)?))?,
-        ["graph", "reach"] => outbreak_graph::answer(&read_all(input)?, CONTRACT).map_err(Failure::Usage)?,
+        ["graph", "reach"] => {
+            outbreak_graph::answer(&read_all(input)?, CONTRACT).map_err(Failure::Usage)?
+        }
         ["serve", ..] => served(arguments.get(1..).unwrap_or_default())?,
         _ => return Err(Failure::Usage(USAGE.to_owned())),
     };
@@ -138,8 +140,12 @@ fn served(arguments: &[String]) -> Result<String, Failure> {
     let (options, detach) = outbreak_serve::options(arguments).map_err(Failure::Usage)?;
 
     if detach {
-        let binary = std::env::current_exe().map_err(|error| Failure::Io(format!("cannot find itself: {error}")))?;
-        let child = arguments.iter().position(|argument| argument == "--").unwrap_or(arguments.len());
+        let binary = std::env::current_exe()
+            .map_err(|error| Failure::Io(format!("cannot find itself: {error}")))?;
+        let child = arguments
+            .iter()
+            .position(|argument| argument == "--")
+            .unwrap_or(arguments.len());
         let own: Vec<String> = arguments
             .iter()
             .enumerate()
@@ -282,7 +288,11 @@ mod tests {
     #[test]
     fn answers_the_graph_on_its_input() {
         assert_eq!(
-            ran(&["graph", "reach"], r#"{"root":"/nowhere","sources":[],"tests":[],"reach":[]}"#).unwrap(),
+            ran(
+                &["graph", "reach"],
+                r#"{"root":"/nowhere","sources":[],"tests":[],"reach":[]}"#
+            )
+            .unwrap(),
             "{\"outbreak\":1,\"reaching\":{},\"joined\":{},\"named\":{},\"wrong\":[],\"unplaced\":{}}\n"
         );
         assert!(matches!(
@@ -293,7 +303,10 @@ mod tests {
 
     #[test]
     fn says_why_it_cannot_serve() {
-        assert_eq!(ran(&["serve"], "").unwrap_err(), Failure::Usage("serve takes the project's root".to_owned()));
+        assert_eq!(
+            ran(&["serve"], "").unwrap_err(),
+            Failure::Usage("serve takes the project's root".to_owned())
+        );
         assert!(matches!(
             ran(&["serve", "/nonexistent/root"], "").unwrap_err(),
             Failure::Io(why) if why.starts_with("cannot make")

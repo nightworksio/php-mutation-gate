@@ -62,17 +62,31 @@ impl Watching {
     /// A watch of directories under this root, never of `skipped`, whose changes settle for `debounce`.
     #[must_use]
     pub fn files(root: PathBuf, skipped: PathBuf, debounce: Duration) -> Arc<Self> {
-        Self::of(root, debounce, Box::new(move |paths| native(paths, &skipped)))
+        Self::of(
+            root,
+            debounce,
+            Box::new(move |paths| native(paths, &skipped)),
+        )
     }
 
     /// A watch of the machine's power source, asked with no paths.
     #[must_use]
     pub fn power() -> Arc<Self> {
-        Self::of(PathBuf::new(), Duration::ZERO, Box::new(|_| crate::power::source()))
+        Self::of(
+            PathBuf::new(),
+            Duration::ZERO,
+            Box::new(|_| crate::power::source()),
+        )
     }
 
     fn of(root: PathBuf, debounce: Duration, arm: Arm) -> Arc<Self> {
-        Arc::new(Self { root, debounce, arm, armed: Mutex::new(Armed::default()), moved: Condvar::new() })
+        Arc::new(Self {
+            root,
+            debounce,
+            arm,
+            armed: Mutex::new(Armed::default()),
+            moved: Condvar::new(),
+        })
     }
 
     /// The generation once a change settled past `since`, or once `wait`
@@ -103,7 +117,11 @@ impl Watching {
                 return Noticed::Changed(armed.generation);
             }
 
-            armed = self.moved.wait_timeout(armed, left).unwrap_or_else(PoisonError::into_inner).0;
+            armed = self
+                .moved
+                .wait_timeout(armed, left)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
         }
     }
 
@@ -118,7 +136,9 @@ impl Watching {
         paths
             .iter()
             .map(|path| {
-                let inside = Path::new(path).components().all(|part| matches!(part, Component::Normal(_) | Component::CurDir));
+                let inside = Path::new(path)
+                    .components()
+                    .all(|part| matches!(part, Component::Normal(_) | Component::CurDir));
 
                 if inside {
                     Ok(self.root.join(path))
@@ -181,7 +201,11 @@ impl Watching {
 }
 
 /// Whether a change arrived within a tick, once the changes after it have settled for the debounce.
-fn settled(notices: &mut dyn Notices, debounce: Duration, stopped: &AtomicBool) -> Result<bool, String> {
+fn settled(
+    notices: &mut dyn Notices,
+    debounce: Duration,
+    stopped: &AtomicBool,
+) -> Result<bool, String> {
     if !notices.next(TICK)? {
         return Ok(false);
     }
@@ -194,7 +218,11 @@ fn settled(notices: &mut dyn Notices, debounce: Duration, stopped: &AtomicBool) 
 /// Every directory and file beneath each of these, each once, none beneath
 /// `skipped`, a version control directory or a link; a directory gone by the
 /// time it is read holds nothing.
-fn walked(paths: &BTreeSet<PathBuf>, skipped: &Path, mut each: impl FnMut(&Path, bool) -> Result<(), String>) -> Result<(), String> {
+fn walked(
+    paths: &BTreeSet<PathBuf>,
+    skipped: &Path,
+    mut each: impl FnMut(&Path, bool) -> Result<(), String>,
+) -> Result<(), String> {
     let mut left: Vec<PathBuf> = paths.iter().cloned().collect();
 
     while let Some(path) = left.pop() {
@@ -211,7 +239,9 @@ fn walked(paths: &BTreeSet<PathBuf>, skipped: &Path, mut each: impl FnMut(&Path,
 
         if directory {
             match fs::read_dir(&path) {
-                Ok(entries) => left.extend(entries.filter_map(Result::ok).map(|entry| entry.path())),
+                Ok(entries) => {
+                    left.extend(entries.filter_map(Result::ok).map(|entry| entry.path()))
+                }
                 Err(error) if error.kind() == ErrorKind::NotFound => {}
                 Err(error) => return Err(format!("cannot read {}: {error}", path.display())),
             }
@@ -222,7 +252,10 @@ fn walked(paths: &BTreeSet<PathBuf>, skipped: &Path, mut each: impl FnMut(&Path,
 }
 
 fn watched(path: &Path, skipped: &Path) -> bool {
-    !path.starts_with(skipped) && path.file_name().is_none_or(|name| !UNWATCHED.iter().any(|unwatched| name == *unwatched))
+    !path.starts_with(skipped)
+        && path
+            .file_name()
+            .is_none_or(|name| !UNWATCHED.iter().any(|unwatched| name == *unwatched))
 }
 
 fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -256,7 +289,9 @@ fn native(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Box<dyn Notices>,
     target_os = "dragonfly"
 )))]
 fn native(_: &BTreeSet<PathBuf>, _: &Path) -> Result<Box<dyn Notices>, String> {
-    Err(String::from("this platform has no notifications the daemon watches through"))
+    Err(String::from(
+        "this platform has no notifications the daemon watches through",
+    ))
 }
 
 #[cfg(target_os = "linux")]
@@ -264,8 +299,8 @@ mod inotify {
     use std::collections::{BTreeSet, HashMap};
     use std::ffi::OsStr;
     use std::mem::MaybeUninit;
-    use std::os::unix::ffi::OsStrExt as _;
     use std::os::fd::OwnedFd;
+    use std::os::unix::ffi::OsStrExt as _;
     use std::path::{Path, PathBuf};
     use std::time::Duration;
 
@@ -339,7 +374,8 @@ mod inotify {
 
     impl Notices for Inotify {
         fn next(&mut self, within: Duration) -> Result<bool, String> {
-            let timeout = Timespec::try_from(within).map_err(|error| format!("cannot wait {within:?}: {error}"))?;
+            let timeout = Timespec::try_from(within)
+                .map_err(|error| format!("cannot wait {within:?}: {error}"))?;
             let mut fds = [PollFd::new(&self.fd, PollFlags::IN)];
 
             match poll(&mut fds, Some(&timeout)) {
@@ -366,11 +402,11 @@ mod inotify {
                     self.directories.remove(&event.wd());
                 } else if flags.contains(ReadFlags::ISDIR)
                     && flags.intersects(ReadFlags::CREATE | ReadFlags::MOVED_TO)
-                    && let (Some(directory), Some(name)) = (self.directories.get(&event.wd()), event.file_name())
+                    && let (Some(directory), Some(name)) =
+                        (self.directories.get(&event.wd()), event.file_name())
                 {
                     created.insert(directory.join(OsStr::from_bytes(name.to_bytes())));
                 }
-
             }
 
             if overflowed {
@@ -416,8 +452,13 @@ mod kqueue {
     impl Kqueue {
         pub(super) fn armed(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Self, String> {
             raised();
-            let watcher = Watcher::new().map_err(|error| format!("cannot start kqueue: {error}"))?;
-            let mut armed = Self { watcher, known: HashSet::new(), skipped: skipped.to_path_buf() };
+            let watcher =
+                Watcher::new().map_err(|error| format!("cannot start kqueue: {error}"))?;
+            let mut armed = Self {
+                watcher,
+                known: HashSet::new(),
+                skipped: skipped.to_path_buf(),
+            };
             armed.added(paths)?;
 
             Ok(armed)
@@ -450,7 +491,9 @@ mod kqueue {
             })?;
 
             if any {
-                self.watcher.watch().map_err(|error| format!("cannot arm kqueue: {error}"))?;
+                self.watcher
+                    .watch()
+                    .map_err(|error| format!("cannot arm kqueue: {error}"))?;
             }
 
             Ok(())
@@ -463,17 +506,24 @@ mod kqueue {
             let rescanned = match fs::symlink_metadata(&path) {
                 Ok(metadata) if !gone => metadata.is_dir().then_some(path),
                 _ => {
-                    let _ = self.watcher.remove_filename(&path, EventFilter::EVFILT_VNODE);
+                    let _ = self
+                        .watcher
+                        .remove_filename(&path, EventFilter::EVFILT_VNODE);
                     self.known.remove(&path);
                     path.parent().map(Path::to_path_buf)
                 }
             };
-            let Some(directory) = rescanned.filter(|directory| self.known.contains(directory)) else {
+            let Some(directory) = rescanned.filter(|directory| self.known.contains(directory))
+            else {
                 return Ok(());
             };
             let unknown = fs::read_dir(&directory)
                 .map(|entries| {
-                    entries.filter_map(Result::ok).map(|entry| entry.path()).filter(|entry| !self.known.contains(entry)).collect()
+                    entries
+                        .filter_map(Result::ok)
+                        .map(|entry| entry.path())
+                        .filter(|entry| !self.known.contains(entry))
+                        .collect()
                 })
                 .unwrap_or_default();
 
@@ -492,7 +542,10 @@ mod kqueue {
                 match (event.ident, event.data) {
                     (_, EventData::Error(error)) => return Err(format!("kqueue failed: {error}")),
                     (Ident::Filename(_, name), EventData::Vnode(vnode)) => {
-                        changed.push((PathBuf::from(name), matches!(vnode, Vnode::Delete | Vnode::Rename | Vnode::Revoke)));
+                        changed.push((
+                            PathBuf::from(name),
+                            matches!(vnode, Vnode::Delete | Vnode::Rename | Vnode::Revoke),
+                        ));
                     }
                     _ => {}
                 }
@@ -513,11 +566,25 @@ mod kqueue {
         let limit = getrlimit(Resource::Nofile);
         let most = limit.maximum;
 
-        if setrlimit(Resource::Nofile, Rlimit { current: most, maximum: most }).is_err() {
+        if setrlimit(
+            Resource::Nofile,
+            Rlimit {
+                current: most,
+                maximum: most,
+            },
+        )
+        .is_err()
+        {
             let bounded = most.map_or(OPEN_MAX, |most| most.min(OPEN_MAX));
 
             if limit.current.is_some_and(|current| current < bounded) {
-                let _ = setrlimit(Resource::Nofile, Rlimit { current: Some(bounded), maximum: most });
+                let _ = setrlimit(
+                    Resource::Nofile,
+                    Rlimit {
+                        current: Some(bounded),
+                        maximum: most,
+                    },
+                );
             }
         }
     }
@@ -537,7 +604,8 @@ mod tests {
     const QUIET: Duration = Duration::from_millis(300);
 
     fn fresh(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("outbreak-watching-{name}-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("outbreak-watching-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("src/deep")).unwrap();
         fs::create_dir_all(root.join(".mutation-gate")).unwrap();
@@ -547,7 +615,11 @@ mod tests {
     }
 
     fn watching(root: &Path) -> Arc<Watching> {
-        Watching::files(root.to_path_buf(), root.join(".mutation-gate"), Duration::from_millis(20))
+        Watching::files(
+            root.to_path_buf(),
+            root.join(".mutation-gate"),
+            Duration::from_millis(20),
+        )
     }
 
     fn generation(noticed: Noticed) -> u64 {
@@ -570,7 +642,10 @@ mod tests {
 
         fs::write(root.join(".mutation-gate/journal.bin"), "x").unwrap();
         fs::write(root.join(".git/index"), "x").unwrap();
-        assert_eq!(generation(watching.changed(&paths, written, QUIET)), written);
+        assert_eq!(
+            generation(watching.changed(&paths, written, QUIET)),
+            written
+        );
 
         fs::create_dir(root.join("src/new")).unwrap();
         let made = generation(watching.changed(&paths, written, SETTLED));
@@ -595,13 +670,24 @@ mod tests {
         let root = fresh("other");
         let watching = watching(&root);
 
-        assert_eq!(watching.changed(&[String::from("src")], 0, Duration::ZERO), Noticed::Changed(0));
-        assert_eq!(watching.changed(&[String::from("src/deep")], 0, Duration::ZERO), Noticed::Changed(1));
+        assert_eq!(
+            watching.changed(&[String::from("src")], 0, Duration::ZERO),
+            Noticed::Changed(0)
+        );
+        assert_eq!(
+            watching.changed(&[String::from("src/deep")], 0, Duration::ZERO),
+            Noticed::Changed(1)
+        );
         assert_eq!(
             watching.changed(&[String::from("../elsewhere")], 0, Duration::ZERO),
-            Noticed::Unwatched(String::from("../elsewhere is not a directory under the root"))
+            Noticed::Unwatched(String::from(
+                "../elsewhere is not a directory under the root"
+            ))
         );
-        assert!(matches!(watching.changed(&[String::from("/etc")], 0, Duration::ZERO), Noticed::Unwatched(_)));
+        assert!(matches!(
+            watching.changed(&[String::from("/etc")], 0, Duration::ZERO),
+            Noticed::Unwatched(_)
+        ));
         watching.stop();
     }
 

@@ -50,7 +50,10 @@ pub fn read(text: &[u8]) -> Result<Request, Refused> {
 
     while let Some(key) = members.next(&mut json)? {
         if !seen.insert(key.text.clone()) {
-            return Err(Refused { at: key.raw.start, expected: "each key once" });
+            return Err(Refused {
+                at: key.raw.start,
+                expected: "each key once",
+            });
         }
 
         match key.text.as_str() {
@@ -63,17 +66,27 @@ pub fn read(text: &[u8]) -> Result<Request, Refused> {
             "joined" => request.joined = paths(&mut json)?,
             "names" => request.names = paths(&mut json)?,
             "map" => request.map = mapped(&mut json)?,
-            _ => return Err(Refused { at: key.raw.start, expected: "a key of the graph's request" }),
+            _ => {
+                return Err(Refused {
+                    at: key.raw.start,
+                    expected: "a key of the graph's request",
+                });
+            }
         }
     }
 
     json.end()?;
 
-    let required = ["sources", "tests", "reach"].iter().all(|key| seen.contains(*key));
+    let required = ["sources", "tests", "reach"]
+        .iter()
+        .all(|key| seen.contains(*key));
 
     match root {
         Some(root) if required => Ok(Request { root, ..request }),
-        _ => Err(Refused { at: 0, expected: "a root, sources, tests and reach" }),
+        _ => Err(Refused {
+            at: 0,
+            expected: "a root, sources, tests and reach",
+        }),
     }
 }
 
@@ -95,7 +108,10 @@ fn path(json: &mut Cursor<'_>) -> Result<String, Refused> {
     if is_inside(&path) {
         Ok(path)
     } else {
-        Err(Refused { at, expected: "a path relative to the root that stays inside it" })
+        Err(Refused {
+            at,
+            expected: "a path relative to the root that stays inside it",
+        })
     }
 }
 
@@ -103,7 +119,10 @@ fn keyed_path(key: Key) -> Result<String, Refused> {
     if is_inside(&key.text) {
         Ok(key.text)
     } else {
-        Err(Refused { at: key.raw.start, expected: "a path relative to the root that stays inside it" })
+        Err(Refused {
+            at: key.raw.start,
+            expected: "a path relative to the root that stays inside it",
+        })
     }
 }
 
@@ -117,7 +136,10 @@ fn given(json: &mut Cursor<'_>) -> Result<BTreeMap<String, String>, Refused> {
         let text = json.string()?;
 
         if texts.insert(path, text).is_some() {
-            return Err(Refused { at, expected: "each path once" });
+            return Err(Refused {
+                at,
+                expected: "each path once",
+            });
         }
     }
 
@@ -134,7 +156,10 @@ fn mapped(json: &mut Cursor<'_>) -> Result<BTreeMap<String, Vec<String>>, Refuse
         let files = paths(json)?;
 
         if map.insert(test, files).is_some() {
-            return Err(Refused { at, expected: "each path once" });
+            return Err(Refused {
+                at,
+                expected: "each path once",
+            });
         }
     }
 
@@ -159,7 +184,10 @@ mod tests {
     fn reads_a_request() {
         let request = read(br#"{"root": "/p", "sources": ["src/A.php"], "tests": ["tests/ATest.php"], "reach": ["src/A.php"]}"#);
 
-        assert_eq!(request.map(|request| request.sources), Ok(vec!["src/A.php".to_owned()]));
+        assert_eq!(
+            request.map(|request| request.sources),
+            Ok(vec!["src/A.php".to_owned()])
+        );
     }
 
     #[test]
@@ -171,8 +199,20 @@ mod tests {
         );
 
         assert_eq!(
-            request.map(|request| (request.always, request.given.len(), request.joined, request.names, request.map.len())),
-            Ok((vec!["tests/Pest.php".to_owned()], 1, vec!["tests/ATest.php".to_owned()], vec!["src/A.php".to_owned()], 1)),
+            request.map(|request| (
+                request.always,
+                request.given.len(),
+                request.joined,
+                request.names,
+                request.map.len()
+            )),
+            Ok((
+                vec!["tests/Pest.php".to_owned()],
+                1,
+                vec!["tests/ATest.php".to_owned()],
+                vec!["src/A.php".to_owned()],
+                1
+            )),
         );
     }
 

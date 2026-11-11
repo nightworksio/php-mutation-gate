@@ -125,7 +125,9 @@ impl Pack {
             }
 
             if most == 0 {
-                return Err(Failure::Refused("the pack's header alone is past the packed limit".to_owned()));
+                return Err(Failure::Refused(
+                    "the pack's header alone is past the packed limit".to_owned(),
+                ));
             }
 
             most /= 2;
@@ -156,7 +158,9 @@ fn escaped(text: &str) -> String {
 /// Refuses bytes past a limit, that are no whole gzip stream, or that hold no pack.
 pub fn read(bytes: &[u8], limits: Limits) -> Result<Pack, Failure> {
     if bytes.len() as u64 > limits.packed {
-        return Err(Failure::Refused("the pack is past the packed limit".to_owned()));
+        return Err(Failure::Refused(
+            "the pack is past the packed limit".to_owned(),
+        ));
     }
 
     let mut text = Vec::new();
@@ -166,11 +170,16 @@ pub fn read(bytes: &[u8], limits: Limits) -> Result<Pack, Failure> {
         .map_err(|error| Failure::Refused(format!("the pack is no whole gzip stream: {error}")))?;
 
     if text.len() as u64 > limits.unpacked {
-        return Err(Failure::Refused("the pack is past the unpacked limit".to_owned()));
+        return Err(Failure::Refused(
+            "the pack is past the unpacked limit".to_owned(),
+        ));
     }
 
     parse(&text).map_err(|refused| {
-        Failure::Refused(format!("the pack: expected {} at byte {}", refused.expected, refused.at))
+        Failure::Refused(format!(
+            "the pack: expected {} at byte {}",
+            refused.expected, refused.at
+        ))
     })
 }
 
@@ -317,9 +326,17 @@ mod tests {
     fn writes_what_it_reads() {
         let read = parse(&pack(&[("a", "x")]));
         let again = read
-            .and_then(|pack| pack.bytes(LIMITS).map_err(|_| outbreak_map::json::Refused { at: 0, expected: "bytes" }))
+            .and_then(|pack| {
+                pack.bytes(LIMITS).map_err(|_| outbreak_map::json::Refused {
+                    at: 0,
+                    expected: "bytes",
+                })
+            })
             .and_then(|bytes| {
-                super::read(&bytes, LIMITS).map_err(|_| outbreak_map::json::Refused { at: 0, expected: "a pack" })
+                super::read(&bytes, LIMITS).map_err(|_| outbreak_map::json::Refused {
+                    at: 0,
+                    expected: "a pack",
+                })
             });
 
         assert!(matches!(again, Ok(ref pack) if pack.len() == 1 && pack.base == "base1"));

@@ -54,7 +54,11 @@ impl Fault {
 pub fn read(content: &[u8]) -> Option<Message<'_>> {
     let mut cursor = Cursor::over(content).ok()?;
     let mut members = cursor.object().ok()?;
-    let mut message = Message { id: None, method: None, params: None };
+    let mut message = Message {
+        id: None,
+        method: None,
+        params: None,
+    };
 
     while let Some(key) = members.next(&mut cursor).ok()? {
         match key.text.as_str() {
@@ -91,7 +95,8 @@ pub fn member<'a>(json: &'a [u8], name: &str) -> Option<&'a [u8]> {
 /// The value at a path of members, as [`member`] reads each.
 #[must_use]
 pub fn at<'a>(json: &'a [u8], path: &[&str]) -> Option<&'a [u8]> {
-    path.iter().try_fold(json, |value, name| member(value, name))
+    path.iter()
+        .try_fold(json, |value, name| member(value, name))
 }
 
 /// The string the JSON is; none where it is anything else.
@@ -149,7 +154,10 @@ pub fn error(id: &str, fault: Fault) -> String {
 /// A notification the server sends: its method and its parameters, written as JSON.
 #[must_use]
 pub fn notification(method: &str, params: &str) -> String {
-    format!(r#"{{{VERSION},"method":{},"params":{params}}}"#, quoted(method))
+    format!(
+        r#"{{{VERSION},"method":{},"params":{params}}}"#,
+        quoted(method)
+    )
 }
 
 fn raw<'a>(cursor: &mut Cursor<'a>) -> Option<&'a [u8]> {
@@ -164,7 +172,9 @@ mod tests {
 
     #[test]
     fn reads_a_request_a_notification_and_an_answer() {
-        let request = read(br#"{"jsonrpc":"2.0","id":7,"method":"initialize","params":{"rootUri":null}}"#).unwrap();
+        let request =
+            read(br#"{"jsonrpc":"2.0","id":7,"method":"initialize","params":{"rootUri":null}}"#)
+                .unwrap();
 
         assert_eq!(request.id, Some("7"));
         assert_eq!(request.method.as_deref(), Some("initialize"));
@@ -172,8 +182,14 @@ mod tests {
 
         let notification = read(br#"{"jsonrpc":"2.0","method":"exit"}"#).unwrap();
 
-        assert_eq!((notification.id, notification.method.as_deref()), (None, Some("exit")));
-        assert_eq!(read(br#"{"id":"a","result":null}"#).unwrap().id, Some(r#""a""#));
+        assert_eq!(
+            (notification.id, notification.method.as_deref()),
+            (None, Some("exit"))
+        );
+        assert_eq!(
+            read(br#"{"id":"a","result":null}"#).unwrap().id,
+            Some(r#""a""#)
+        );
     }
 
     #[test]
@@ -190,7 +206,14 @@ mod tests {
         assert_eq!(at(json, &["a", "b"]).and_then(items).unwrap().len(), 2);
         assert_eq!(at(json, &["a", "n"]).and_then(boolean), None);
         assert_eq!(at(br#"{"q":true}"#, &["q"]).and_then(boolean), Some(true));
-        assert_eq!(at(json, &["a", "b"]).and_then(items).and_then(|read| read.first().copied()).and_then(string).as_deref(), Some("x"));
+        assert_eq!(
+            at(json, &["a", "b"])
+                .and_then(items)
+                .and_then(|read| read.first().copied())
+                .and_then(string)
+                .as_deref(),
+            Some("x")
+        );
         assert_eq!(at(json, &["a", "z"]), None);
         assert_eq!(at(br#""text""#, &["a"]), None);
         assert_eq!(string(b"null"), None);
@@ -198,11 +221,17 @@ mod tests {
 
     #[test]
     fn writes_results_errors_and_notifications() {
-        assert_eq!(result("1", "null"), r#"{"jsonrpc":"2.0","id":1,"result":null}"#);
+        assert_eq!(
+            result("1", "null"),
+            r#"{"jsonrpc":"2.0","id":1,"result":null}"#
+        );
         assert_eq!(
             error(r#""x""#, Fault::Unknown),
             r#"{"jsonrpc":"2.0","id":"x","error":{"code":-32601,"message":"the server answers no such method"}}"#
         );
-        assert_eq!(notification("exit", "{}"), r#"{"jsonrpc":"2.0","method":"exit","params":{}}"#);
+        assert_eq!(
+            notification("exit", "{}"),
+            r#"{"jsonrpc":"2.0","method":"exit","params":{}}"#
+        );
     }
 }

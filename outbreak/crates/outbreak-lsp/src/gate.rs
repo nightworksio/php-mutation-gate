@@ -54,7 +54,9 @@ impl Action {
     /// The action an editor's command names.
     #[must_use]
     pub fn named(command: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|action| action.command() == command)
+        Self::ALL
+            .into_iter()
+            .find(|action| action.command() == command)
     }
 
     fn words(self, mutant: &str) -> Vec<&str> {
@@ -86,7 +88,12 @@ impl Gate {
             None => (gate, None),
         };
 
-        Self { root: root.to_path_buf(), program, script, watching: watching.to_vec() }
+        Self {
+            root: root.to_path_buf(),
+            program,
+            script,
+            watching: watching.to_vec(),
+        }
     }
 
     /// `watch --output=events` started, its lines on a pipe and its errors on the server's.
@@ -109,12 +116,17 @@ impl Gate {
     ///
     /// Fails where it cannot start.
     pub fn act(&self, action: Action, mutant: &str) -> io::Result<Output> {
-        self.command(&action.words(mutant)).stdin(Stdio::null()).output()
+        self.command(&action.words(mutant))
+            .stdin(Stdio::null())
+            .output()
     }
 
     fn command(&self, words: &[&str]) -> Command {
         let mut command = Command::new(&self.program);
-        command.args(&self.script).args(words).current_dir(&self.root);
+        command
+            .args(&self.script)
+            .args(words)
+            .current_dir(&self.root);
 
         command
     }
@@ -178,21 +190,38 @@ mod tests {
         }
 
         assert_eq!(Action::named("mutation-gate.run"), None);
-        assert_eq!(Action::StubWrite.words("0123456789ab"), ["stub", "0123456789ab", "--write"]);
+        assert_eq!(
+            Action::StubWrite.words("0123456789ab"),
+            ["stub", "0123456789ab", "--write"]
+        );
     }
 
     #[test]
     fn runs_the_gate_from_the_root_through_the_php_named() {
         let root = Path::new("/project");
-        let through = Gate::of(root, Path::new("vendor/bin/mutation-gate"), Some(Path::new("php")), &["--config=x".to_owned()]);
+        let through = Gate::of(
+            root,
+            Path::new("vendor/bin/mutation-gate"),
+            Some(Path::new("php")),
+            &["--config=x".to_owned()],
+        );
         let command = through.command(&WATCH);
 
         assert_eq!(command.get_program(), "php");
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),
-            [root.join("vendor/bin/mutation-gate").as_os_str(), "watch".as_ref(), "--output=events".as_ref()]
+            [
+                root.join("vendor/bin/mutation-gate").as_os_str(),
+                "watch".as_ref(),
+                "--output=events".as_ref()
+            ]
         );
         assert_eq!(command.get_current_dir(), Some(root));
-        assert_eq!(Gate::of(root, Path::new("/bin/gate"), None, &[]).command(&[]).get_program(), "/bin/gate");
+        assert_eq!(
+            Gate::of(root, Path::new("/bin/gate"), None, &[])
+                .command(&[])
+                .get_program(),
+            "/bin/gate"
+        );
     }
 }

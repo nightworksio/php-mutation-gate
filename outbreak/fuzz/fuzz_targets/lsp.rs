@@ -19,7 +19,9 @@ fuzz_target!(|bytes: &[u8]| {
         let unit = event.unit.clone();
         survivors.take(event);
 
-        assert!(message::items(survivors.diagnostics(&unit, Severity::Warning).as_bytes()).is_some());
+        assert!(
+            message::items(survivors.diagnostics(&unit, Severity::Warning).as_bytes()).is_some()
+        );
     }
 
     drop(uri::path(&String::from_utf8_lossy(bytes)));

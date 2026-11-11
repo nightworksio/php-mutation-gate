@@ -32,7 +32,11 @@ pub enum Token {
 /// The tokens of a PHP file's text.
 #[must_use]
 pub fn tokens(text: &[u8]) -> Vec<Token> {
-    let mut lexer = Lexer { text, at: 0, out: Vec::new() };
+    let mut lexer = Lexer {
+        text,
+        at: 0,
+        out: Vec::new(),
+    };
     lexer.html();
 
     while lexer.at < text.len() {
@@ -101,7 +105,10 @@ impl Lexer<'_> {
             b'\'' | b'"' | b'`' => {
                 let start = self.at + 1;
                 let literal = self.quoted(byte);
-                let text = self.text.get(start..self.at.saturating_sub(1)).unwrap_or_default();
+                let text = self
+                    .text
+                    .get(start..self.at.saturating_sub(1))
+                    .unwrap_or_default();
 
                 self.out.push(if literal {
                     Token::Quoted(String::from_utf8_lossy(text).into_owned())
@@ -128,7 +135,10 @@ impl Lexer<'_> {
                 self.out.push(Token::Arrow);
             }
             b'0'..=b'9' => {
-                while self.peek(0).is_ascii_alphanumeric() || self.peek(0) == b'_' || self.peek(0) == b'.' {
+                while self.peek(0).is_ascii_alphanumeric()
+                    || self.peek(0) == b'_'
+                    || self.peek(0) == b'.'
+                {
                     self.at += 1;
                 }
                 self.out.push(Token::Number);
@@ -163,7 +173,8 @@ impl Lexer<'_> {
             }
         }
 
-        let text = String::from_utf8_lossy(self.text.get(start..self.at).unwrap_or_default()).into_owned();
+        let text =
+            String::from_utf8_lossy(self.text.get(start..self.at).unwrap_or_default()).into_owned();
         self.out.push(Token::Name(text));
     }
 
@@ -194,7 +205,10 @@ impl Lexer<'_> {
         while self.at < self.text.len() && self.peek(0) != quote {
             if self.peek(0) == b'\\' {
                 self.at += 1;
-            } else if quote != b'\'' && self.peek(0) == b'$' && (is_name_start(self.peek(1)) || self.peek(1) == b'{') {
+            } else if quote != b'\''
+                && self.peek(0) == b'$'
+                && (is_name_start(self.peek(1)) || self.peek(1) == b'{')
+            {
                 literal = false;
             } else if quote != b'\'' && self.peek(0) == b'{' && self.peek(1) == b'$' {
                 literal = false;
@@ -238,7 +252,8 @@ impl Lexer<'_> {
                     self.at += 1;
                 }
 
-                if !label.is_empty() && self.starts(&label) && !is_name_byte(self.peek(label.len())) {
+                if !label.is_empty() && self.starts(&label) && !is_name_byte(self.peek(label.len()))
+                {
                     self.at += label.len();
                     break;
                 }

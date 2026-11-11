@@ -18,7 +18,9 @@ pub(crate) fn source() -> Result<Box<dyn Notices>, String> {
 
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub(crate) fn source() -> Result<Box<dyn Notices>, String> {
-    Err(String::from("this platform tells the daemon of no change of the power source"))
+    Err(String::from(
+        "this platform tells the daemon of no change of the power source",
+    ))
 }
 
 #[cfg(target_os = "macos")]
@@ -35,7 +37,10 @@ mod notifyd {
     const NOTIFYUTIL: &str = "/usr/bin/notifyutil";
 
     /// The keys notifyd posts as the power source changes and as Low Power Mode turns on or off.
-    const KEYS: [&str; 2] = ["com.apple.system.powersources.source", "com.apple.system.lowpowermode"];
+    const KEYS: [&str; 2] = [
+        "com.apple.system.powersources.source",
+        "com.apple.system.lowpowermode",
+    ];
 
     /// notifyd's notifications of the power source, as `notifyutil` reports them.
     pub(super) struct Notifyd {
@@ -52,7 +57,10 @@ mod notifyd {
                 .stderr(Stdio::null())
                 .spawn()
                 .map_err(|error| format!("cannot start {NOTIFYUTIL}: {error}"))?;
-            let output = child.stdout.take().ok_or_else(|| format!("{NOTIFYUTIL} has no output"))?;
+            let output = child
+                .stdout
+                .take()
+                .ok_or_else(|| format!("{NOTIFYUTIL} has no output"))?;
             let (told, lines) = mpsc::channel();
 
             thread::spawn(move || {
@@ -97,7 +105,9 @@ mod uevents {
 
     use rustix::event::{PollFd, PollFlags, Timespec, poll};
     use rustix::io::Errno;
-    use rustix::net::{AddressFamily, RecvFlags, SocketFlags, SocketType, bind, netlink, recv, socket_with};
+    use rustix::net::{
+        AddressFamily, RecvFlags, SocketFlags, SocketType, bind, netlink, recv, socket_with,
+    };
 
     use crate::watching::Notices;
 
@@ -137,21 +147,34 @@ mod uevents {
                 drained(file);
             }
 
-            Ok(Self { socket, profile, buffer: vec![0; BUFFER] })
+            Ok(Self {
+                socket,
+                profile,
+                buffer: vec![0; BUFFER],
+            })
         }
     }
 
     impl Notices for Uevents {
         fn next(&mut self, within: Duration) -> Result<bool, String> {
-            let timeout = Timespec::try_from(within).map_err(|error| format!("cannot wait {within:?}: {error}"))?;
+            let timeout = Timespec::try_from(within)
+                .map_err(|error| format!("cannot wait {within:?}: {error}"))?;
             let (events, profiled) = {
                 let mut fds = vec![PollFd::new(&self.socket, PollFlags::IN)];
-                fds.extend(self.profile.as_ref().map(|file| PollFd::new(file, PollFlags::PRI | PollFlags::ERR)));
+                fds.extend(
+                    self.profile
+                        .as_ref()
+                        .map(|file| PollFd::new(file, PollFlags::PRI | PollFlags::ERR)),
+                );
 
                 match poll(&mut fds, Some(&timeout)) {
                     Ok(0) | Err(Errno::INTR) => return Ok(false),
                     Ok(_) => {}
-                    Err(error) => return Err(format!("cannot wait for the kernel's device events: {error}")),
+                    Err(error) => {
+                        return Err(format!(
+                            "cannot wait for the kernel's device events: {error}"
+                        ));
+                    }
                 }
 
                 let ready = |at: usize| fds.get(at).is_some_and(|fd| !fd.revents().is_empty());
@@ -164,11 +187,15 @@ mod uevents {
                     match recv(&self.socket, &mut self.buffer[..], RecvFlags::empty()) {
                         Ok((read, _)) => {
                             changed |= self.buffer.get(..read).is_some_and(|event| {
-                                event.windows(POWER_SUPPLY.len()).any(|part| part == POWER_SUPPLY)
+                                event
+                                    .windows(POWER_SUPPLY.len())
+                                    .any(|part| part == POWER_SUPPLY)
                             });
                         }
                         Err(Errno::AGAIN | Errno::INTR) => break,
-                        Err(error) => return Err(format!("cannot read the kernel's device events: {error}")),
+                        Err(error) => {
+                            return Err(format!("cannot read the kernel's device events: {error}"));
+                        }
                     }
                 }
             }
@@ -185,6 +212,8 @@ mod uevents {
     /// The profile read from its start, as the kernel asks before it notifies the next change.
     fn drained(file: &mut File) {
         let mut text = String::new();
-        let _ = file.seek(SeekFrom::Start(0)).and_then(|_| file.read_to_string(&mut text));
+        let _ = file
+            .seek(SeekFrom::Start(0))
+            .and_then(|_| file.read_to_string(&mut text));
     }
 }

@@ -28,16 +28,28 @@ use graph::Graph;
 /// Says why where the request cannot be read; a file that cannot be read is
 /// a file with no names, which holds a node the graph cannot place.
 pub fn answer(text: &[u8], contract: u32) -> Result<String, String> {
-    let request = request::read(text)
-        .map_err(|refused| format!("the graph's request: expected {} at byte {}", refused.expected, refused.at))?;
+    let request = request::read(text).map_err(|refused| {
+        format!(
+            "the graph's request: expected {} at byte {}",
+            refused.expected, refused.at
+        )
+    })?;
     let root = Path::new(&request.root);
 
-    Ok(answered(&request, |path| names_of(root, path, request.given.get(path)), contract))
+    Ok(answered(
+        &request,
+        |path| names_of(root, path, request.given.get(path)),
+        contract,
+    ))
 }
 
 /// The answer to a request, each file of the graph read by what it declares and names.
 #[must_use]
-pub fn answered(request: &request::Request, mut read: impl FnMut(&str) -> names::FileNames, contract: u32) -> String {
+pub fn answered(
+    request: &request::Request,
+    mut read: impl FnMut(&str) -> names::FileNames,
+    contract: u32,
+) -> String {
     let files = request
         .sources
         .iter()
@@ -73,7 +85,10 @@ pub fn names_of(root: &Path, path: &str, given: Option<&String>) -> names::FileN
     given.map_or_else(
         || {
             fs::read(root.join(path)).map_or_else(
-                |_| names::FileNames { unplaced: Some("a file that cannot be read"), ..names::FileNames::default() },
+                |_| names::FileNames {
+                    unplaced: Some("a file that cannot be read"),
+                    ..names::FileNames::default()
+                },
                 |bytes| names::read(&bytes),
             )
         },
@@ -148,7 +163,9 @@ mod tests {
 
     #[test]
     fn says_why_a_request_cannot_be_read_and_answers_null_where_the_graph_cannot() {
-        assert!(answer(b"{}", 1).is_err_and(|why| why.starts_with("the graph's request: expected")));
+        assert!(
+            answer(b"{}", 1).is_err_and(|why| why.starts_with("the graph's request: expected"))
+        );
         assert_eq!(
             answer(br#"{"root": "/nowhere", "sources": [], "tests": [], "reach": ["a.php", "b.php"]}"#, 1),
             Ok(r#"{"outbreak":1,"reaching":{"a.php":null,"b.php":null},"joined":{},"named":{},"wrong":[],"unplaced":{}}"#.to_owned()),

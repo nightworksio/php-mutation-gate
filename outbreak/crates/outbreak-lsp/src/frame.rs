@@ -27,7 +27,11 @@ pub fn read(input: &mut impl BufRead) -> io::Result<Option<Vec<u8>>> {
         line.clear();
 
         if input.by_ref().take(MOST_HEADER).read_line(&mut line)? == 0 {
-            return if began { Err(refused("the stream ended inside a frame's headers")) } else { Ok(None) };
+            return if began {
+                Err(refused("the stream ended inside a frame's headers"))
+            } else {
+                Ok(None)
+            };
         }
 
         began = true;
@@ -42,7 +46,12 @@ pub fn read(input: &mut impl BufRead) -> io::Result<Option<Vec<u8>>> {
         }
 
         if let Some(value) = valued(header) {
-            length = Some(value.trim().parse::<usize>().map_err(|_| refused("Content-Length is not a length"))?);
+            length = Some(
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .map_err(|_| refused("Content-Length is not a length"))?,
+            );
         }
     }
 
@@ -72,7 +81,11 @@ pub fn write(output: &mut impl Write, content: &str) -> io::Result<()> {
 fn valued(header: &str) -> Option<&str> {
     let name = header.get(..LENGTH.len())?;
 
-    if name.eq_ignore_ascii_case(LENGTH) { header.get(LENGTH.len()..) } else { None }
+    if name.eq_ignore_ascii_case(LENGTH) {
+        header.get(LENGTH.len()..)
+    } else {
+        None
+    }
 }
 
 fn refused(why: &str) -> io::Error {
@@ -99,7 +112,8 @@ mod tests {
 
     #[test]
     fn reads_each_frame_and_ends_where_the_stream_does() {
-        let read = frames(b"Content-Length: 2\r\n\r\n{}content-length:4\r\nContent-Type: x\r\n\r\nnull");
+        let read =
+            frames(b"Content-Length: 2\r\n\r\n{}content-length:4\r\nContent-Type: x\r\n\r\nnull");
 
         assert_eq!(read.len(), 3);
         assert_eq!(read[0].as_ref().unwrap().as_deref(), Some(&b"{}"[..]));
@@ -116,7 +130,11 @@ mod tests {
             b"Content-Length: 4\r\n\r\n{}",
             b"Content-Length: 2\r\n",
         ] {
-            assert!(frames(bytes)[0].is_err(), "{}", String::from_utf8_lossy(bytes));
+            assert!(
+                frames(bytes)[0].is_err(),
+                "{}",
+                String::from_utf8_lossy(bytes)
+            );
         }
 
         let long = format!("X-Long: {}\r\n\r\n", "x".repeat(2048));
@@ -130,6 +148,9 @@ mod tests {
         write(&mut written, r#"{"id":1}"#).unwrap();
 
         assert_eq!(written, b"Content-Length: 8\r\n\r\n{\"id\":1}");
-        assert_eq!(frames(&written)[0].as_ref().unwrap().as_deref(), Some(&b"{\"id\":1}"[..]));
+        assert_eq!(
+            frames(&written)[0].as_ref().unwrap().as_deref(),
+            Some(&b"{\"id\":1}"[..])
+        );
     }
 }

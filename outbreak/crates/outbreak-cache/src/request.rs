@@ -98,7 +98,12 @@ fn read_json(text: &[u8]) -> Result<Request, Refused> {
 
     json.end()?;
 
-    match (store, base.or_else(|| newest.then(String::new)), limits, packs) {
+    match (
+        store,
+        base.or_else(|| newest.then(String::new)),
+        limits,
+        packs,
+    ) {
         (Some(store), Some(base), Some(limits), Some(packs)) => Ok(Request {
             store,
             registry,
@@ -139,16 +144,20 @@ pub fn is_repository(named: &str) -> bool {
     let (host, port) = authority.split_once(':').unwrap_or((authority, ""));
 
     !host.is_empty()
-        && host.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-'))
+        && host.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')
+        })
         && port.len() <= 5
         && port.bytes().all(|byte| byte.is_ascii_digit())
         && (port.is_empty() == !authority.contains(':'))
         && !path.is_empty()
         && !path.starts_with('/')
         && !path.contains("..")
-        && path
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'_' | b'-' | b'/'))
+        && path.bytes().all(|byte| {
+            byte.is_ascii_lowercase()
+                || byte.is_ascii_digit()
+                || matches!(byte, b'.' | b'_' | b'-' | b'/')
+        })
 }
 
 fn store_of(json: &mut Cursor<'_>) -> Result<Store, Refused> {
@@ -231,7 +240,9 @@ mod tests {
             br#"{"store":"actions","base":"ab","limits":{"packed":10,"unpacked":20},"packs":{"trusted":"/a/t.pack"},"restored":{"trusted":"/a/r"}}"#,
         );
 
-        assert!(matches!(request, Ok(ref read) if read.store == Store::Actions && read.limits.unpacked == 20));
+        assert!(
+            matches!(request, Ok(ref read) if read.store == Store::Actions && read.limits.unpacked == 20)
+        );
     }
 
     #[test]

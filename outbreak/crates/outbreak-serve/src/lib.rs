@@ -48,7 +48,10 @@ pub struct Options {
 /// Says which argument it cannot read.
 pub fn options(arguments: &[String]) -> Result<(Options, bool), String> {
     let (own, child) = match arguments.iter().position(|argument| argument == "--") {
-        Some(at) => (arguments.get(..at).unwrap_or_default(), arguments.get(at + 1..).unwrap_or_default()),
+        Some(at) => (
+            arguments.get(..at).unwrap_or_default(),
+            arguments.get(at + 1..).unwrap_or_default(),
+        ),
         None => (arguments, &[][..]),
     };
     let mut words = own.iter();
@@ -106,14 +109,26 @@ mod tests {
         assert_eq!(read.sync_every, Duration::ZERO);
         assert_eq!(read.debounce, Duration::from_millis(20));
         assert_eq!(read.child, words("php gate serve"));
-        assert_eq!(options(&words("/p")).map(|(read, _)| (read.child.len(), read.debounce)), Ok((0, Duration::from_millis(50))));
+        assert_eq!(
+            options(&words("/p")).map(|(read, _)| (read.child.len(), read.debounce)),
+            Ok((0, Duration::from_millis(50)))
+        );
     }
 
     #[test]
     fn says_which_argument_it_cannot_read() {
         assert_eq!(options(&[]).unwrap_err(), "serve takes the project's root");
-        assert_eq!(options(&words("/p --idle")).unwrap_err(), "--idle takes a number of seconds");
-        assert_eq!(options(&words("/p --sync-every -1")).unwrap_err(), "--sync-every takes a number of seconds");
-        assert_eq!(options(&words("/p --other")).unwrap_err(), "serve takes no --other");
+        assert_eq!(
+            options(&words("/p --idle")).unwrap_err(),
+            "--idle takes a number of seconds"
+        );
+        assert_eq!(
+            options(&words("/p --sync-every -1")).unwrap_err(),
+            "--sync-every takes a number of seconds"
+        );
+        assert_eq!(
+            options(&words("/p --other")).unwrap_err(),
+            "serve takes no --other"
+        );
     }
 }

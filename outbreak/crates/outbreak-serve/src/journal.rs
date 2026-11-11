@@ -130,7 +130,9 @@ pub fn snapshot_read(bytes: &[u8]) -> Option<Vec<Record>> {
 
 fn record_at(bytes: &[u8], at: usize) -> Option<(Record, usize)> {
     let length = u32::from_le_bytes(bytes.get(at..at + LENGTH)?.try_into().ok()?);
-    let length = usize::try_from(length).ok().filter(|length| *length <= LONGEST)?;
+    let length = usize::try_from(length)
+        .ok()
+        .filter(|length| *length <= LONGEST)?;
     let sum = bytes.get(at + LENGTH..at + LENGTH + CHECK)?;
     let start = at + LENGTH + CHECK;
     let payload = bytes.get(start..start.checked_add(length)?)?;
@@ -159,12 +161,20 @@ mod tests {
     use super::{Kind, Record, check, journal, snapshot, snapshot_read, written};
 
     fn proof(key: &str, value: &str) -> Record {
-        Record { kind: Kind::Proof, key: key.to_owned(), value: value.as_bytes().to_vec() }
+        Record {
+            kind: Kind::Proof,
+            key: key.to_owned(),
+            value: value.as_bytes().to_vec(),
+        }
     }
 
     #[test]
     fn reads_a_journal_up_to_its_first_broken_record() {
-        let mut bytes: Vec<u8> = [proof("a", "1"), proof("b", "2")].iter().filter_map(written).flatten().collect();
+        let mut bytes: Vec<u8> = [proof("a", "1"), proof("b", "2")]
+            .iter()
+            .filter_map(written)
+            .flatten()
+            .collect();
         let whole = journal(&bytes);
         let last = bytes.len() - 1;
         bytes[last] ^= 1;
@@ -192,7 +202,11 @@ mod tests {
 
     #[test]
     fn refuses_a_record_of_an_unknown_kind_or_a_key_it_cannot_read() {
-        for payload in [vec![9, 0, 0, 0, 0], vec![1, 1, 0, 0, 0, 0xff], vec![1, 9, 0, 0, 0]] {
+        for payload in [
+            vec![9, 0, 0, 0, 0],
+            vec![1, 1, 0, 0, 0, 0xff],
+            vec![1, 9, 0, 0, 0],
+        ] {
             let mut bytes = u32::try_from(payload.len()).unwrap().to_le_bytes().to_vec();
             bytes.extend_from_slice(&check(&payload));
             bytes.extend_from_slice(&payload);

@@ -106,7 +106,8 @@ impl Event {
     pub fn read(line: &[u8]) -> Option<Self> {
         let mut cursor = Cursor::over(line).ok()?;
         let mut members = cursor.object().ok()?;
-        let (mut mutant, mut site, mut status, mut quick, mut unit, mut digest) = (None, None, None, None, None, None);
+        let (mut mutant, mut site, mut status, mut quick, mut unit, mut digest) =
+            (None, None, None, None, None, None);
 
         while let Some(key) = members.next(&mut cursor).ok()? {
             let value = cursor.spanned().ok().map(|span| cursor.bytes(span))?;
@@ -117,23 +118,42 @@ impl Event {
                 "status" => status = message::string(value).as_deref().and_then(Status::of),
                 "quick" => quick = message::boolean(value),
                 "unit" => unit = message::string(value),
-                "digest" => digest = Some(if value == NULL { None } else { Some(message::string(value)?) }),
+                "digest" => {
+                    digest = Some(if value == NULL {
+                        None
+                    } else {
+                        Some(message::string(value)?)
+                    })
+                }
                 _ => {}
             }
         }
 
         cursor.end().ok()?;
 
-        let line = site?.rsplit_once(':').and_then(|(_, line)| line.parse::<u64>().ok()).filter(|line| *line > 0)?;
+        let line = site?
+            .rsplit_once(':')
+            .and_then(|(_, line)| line.parse::<u64>().ok())
+            .filter(|line| *line > 0)?;
 
-        Some(Self { mutant: mutant?, line, status: status?, quick: quick?, unit: unit?, digest: digest? })
+        Some(Self {
+            mutant: mutant?,
+            line,
+            status: status?,
+            quick: quick?,
+            unit: unit?,
+            digest: digest?,
+        })
     }
 }
 
 /// Whether a text is a mutant's id as the gate writes it in full.
 #[must_use]
 pub fn is_mutant(text: &str) -> bool {
-    text.len() == ID_LENGTH && text.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+    text.len() == ID_LENGTH
+        && text
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 /// The survivors of every unit an event told of.
@@ -172,7 +192,11 @@ impl Survivors {
 
         match event.status {
             Status::Survived => {
-                let survivor = Survivor { line: event.line, quick: event.quick, digest: event.digest };
+                let survivor = Survivor {
+                    line: event.line,
+                    quick: event.quick,
+                    digest: event.digest,
+                };
                 moved |= unit.mutants.insert(event.mutant, survivor.clone()) != Some(survivor);
             }
             Status::Killed | Status::Timeout | Status::Equivalent => {
@@ -192,7 +216,9 @@ impl Survivors {
 
         if let Some(unit) = self.units.get(unit) {
             for (at, (mutant, survivor)) in unit.mutants.iter().enumerate() {
-                let earlier = survivor.digest.is_some() && unit.digest.is_some() && survivor.digest != unit.digest;
+                let earlier = survivor.digest.is_some()
+                    && unit.digest.is_some()
+                    && survivor.digest != unit.digest;
                 let said = format!(
                     "{}{}{}",
                     SURVIVED.replace("{id}", mutant),
@@ -259,11 +285,31 @@ mod tests {
     fn holds_a_survivor_until_a_later_event_judges_it_otherwise() {
         let mut survivors = Survivors::default();
 
-        assert_eq!(survivors.take(event("0123456789ab", "survived", 3, "d1")).as_deref(), Some("src/A.php"));
-        assert_eq!(survivors.take(event("0123456789ab", "survived", 3, "d1")), None);
-        assert_eq!(survivors.take(event("0123456789ab", "pending", 3, "d1")), None);
-        assert!(survivors.diagnostics("src/A.php", Severity::Warning).contains(r#""line":2,"character":0"#));
-        assert_eq!(survivors.take(event("0123456789ab", "killed", 3, "d1")).as_deref(), Some("src/A.php"));
+        assert_eq!(
+            survivors
+                .take(event("0123456789ab", "survived", 3, "d1"))
+                .as_deref(),
+            Some("src/A.php")
+        );
+        assert_eq!(
+            survivors.take(event("0123456789ab", "survived", 3, "d1")),
+            None
+        );
+        assert_eq!(
+            survivors.take(event("0123456789ab", "pending", 3, "d1")),
+            None
+        );
+        assert!(
+            survivors
+                .diagnostics("src/A.php", Severity::Warning)
+                .contains(r#""line":2,"character":0"#)
+        );
+        assert_eq!(
+            survivors
+                .take(event("0123456789ab", "killed", 3, "d1"))
+                .as_deref(),
+            Some("src/A.php")
+        );
         assert_eq!(survivors.diagnostics("src/A.php", Severity::Warning), "[]");
         assert_eq!(survivors.diagnostics("src/B.php", Severity::Warning), "[]");
     }
@@ -273,8 +319,17 @@ mod tests {
         let mut survivors = Survivors::default();
         survivors.take(event("0123456789ab", "survived", 3, "d1"));
 
-        assert!(!survivors.diagnostics("src/A.php", Severity::Hint).contains(EARLIER.trim()));
-        assert_eq!(survivors.take(event("ba9876543210", "killed", 9, "d2")).as_deref(), Some("src/A.php"));
+        assert!(
+            !survivors
+                .diagnostics("src/A.php", Severity::Hint)
+                .contains(EARLIER.trim())
+        );
+        assert_eq!(
+            survivors
+                .take(event("ba9876543210", "killed", 9, "d2"))
+                .as_deref(),
+            Some("src/A.php")
+        );
 
         let shown = survivors.diagnostics("src/A.php", Severity::Hint);
 
