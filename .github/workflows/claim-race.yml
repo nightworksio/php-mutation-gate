@@ -1,9 +1,7 @@
 # The claim race (ADR-0134): every night, twenty jobs of one run claim the
 # same items at once with the gate's own artifact claims, and the run passes
-# only where each item was won by exactly one job. `shards.pull: auto`
-# claims on the services this race passes on, `ShardPull::RACED`, and
-# steals elsewhere; a failure here takes the service off that list in the
-# next release.
+# only where each item was won by exactly one job. `shards.pull: claim`
+# relies on it, and `auto` steals until a service passes it.
 name: claim race
 
 on:

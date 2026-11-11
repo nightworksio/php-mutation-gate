@@ -19,7 +19,7 @@ $token = static fn(string $scope = 'Actions.Results:run-1:job-7'): string => spr
     rtrim(strtr(base64_encode(json_encode(['scp' => sprintf('Actions.GenericRead %s', $scope)], JSON_THROW_ON_ERROR)), '+/', '-_'), '='),
 );
 
-$runtime = static fn(): array => ['GITHUB_SERVER_URL' => 'https://github.com', 'GITHUB_RUN_ATTEMPT' => '2'];
+$runtime = static fn(): array => ['GITHUB_RUN_ATTEMPT' => '2'];
 
 $claims = static fn(Cloud $cloud, array $variables, ShardPull $pull = ShardPull::Auto, ArtifactAccess|CannotJudge|NotGiven|null $service = null): ArtifactClaims|CannotJudge => ArtifactClaims::of(
     $service ?? ArtifactAccess::of($token(), 'https://results.example/'),
@@ -34,7 +34,7 @@ it('claims an item by creating, filling and finalizing an artifact of its name f
     $cloud = new Cloud()
         ->answering(CLAIMS_SERVICE . 'CreateArtifact', 200, '{"ok": true, "signed_upload_url": "https://blob.example/upload"}')
         ->answering(CLAIMS_SERVICE . 'FinalizeArtifact', 200, '{"ok": true, "artifact_id": "9"}');
-    $taken = $claims($cloud, $runtime());
+    $taken = $claims($cloud, $runtime(), ShardPull::Claim);
 
     expect($taken instanceof ArtifactClaims ? [$taken->pull(), $taken->take(ShardId::of(5)), $taken->finish(ShardId::of(5))] : $taken)
         ->toEqual([ShardPull::Claim, true, ShardId::of(5)])
@@ -44,7 +44,7 @@ it('claims an item by creating, filling and finalizing an artifact of its name f
 
 it('leaves an item another job claimed', function () use ($runtime, $claims): void {
     $cloud = new Cloud()->answering(CLAIMS_SERVICE . 'CreateArtifact', 409, '{"code": "already_exists"}');
-    $taken = $claims($cloud, $runtime());
+    $taken = $claims($cloud, $runtime(), ShardPull::Claim);
 
     expect($taken instanceof ArtifactClaims ? $taken->take(ShardId::of(5)) : $taken)->toBeFalse();
 });
@@ -61,8 +61,8 @@ it('steals an item no job marked done, leaves one a job did, and marks what it f
         ->and(array_column($cloud->requests, 'body'))->toContain('{"workflow_run_backend_id":"run-1","workflow_job_run_backend_id":"job-7","name":"mutation-gate-done-abc-2-6-3","version":4}');
 });
 
-it('steals on a service the race test has not passed on', function () use ($runtime, $claims): void {
-    $taken = $claims(new Cloud(), [...$runtime(), 'GITHUB_SERVER_URL' => 'https://ghe.example.com']);
+it('steals under auto, since no service\'s claims pass the race test', function () use ($runtime, $claims): void {
+    $taken = $claims(new Cloud(), $runtime());
 
     expect($taken instanceof ArtifactClaims ? $taken->pull() : $taken)->toBe(ShardPull::Steal);
 });
@@ -76,7 +76,7 @@ it('cannot reach claims without a service handed in, or a token that names a run
 ]);
 
 it('says why a claim cannot be told where the service fails', function () use ($runtime, $claims): void {
-    $taken = $claims(new Cloud(failing: 500), $runtime());
+    $taken = $claims(new Cloud(failing: 500), $runtime(), ShardPull::Claim);
 
     expect($taken instanceof ArtifactClaims ? $taken->take(ShardId::of(5)) : $taken)
         ->toEqual(CannotJudge::because('The artifact service answered CreateArtifact with 500.'));

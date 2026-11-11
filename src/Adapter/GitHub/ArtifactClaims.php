@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function hash;
-use function in_array;
 use function is_array;
 use function is_string;
 
@@ -34,14 +33,6 @@ use function strlen;
  */
 final readonly class ArtifactClaims implements ItemClaims
 {
-    private const string SERVER = 'GITHUB_SERVER_URL';
-
-    /**
-     * The services, by the server URL a run reports, on which the gate's own
-     * CI's race test shows an artifact name won by exactly one job.
-     */
-    private const array RACED = ['https://github.com'];
-
     private const string CLAIM = 'mutation-gate-claim-%s-%d-%d';
 
     private const string DONE = 'mutation-gate-done-%s-%d-%d-%d';
@@ -89,7 +80,7 @@ final readonly class ArtifactClaims implements ItemClaims
 
         return $artifacts instanceof CannotJudge ? $artifacts : new self(
             $artifacts,
-            self::resolved($pull, $environment),
+            $pull->resolved(),
             $plan->value(),
             RunArtifacts::attempt($environment),
             $shard,
@@ -120,14 +111,6 @@ final readonly class ArtifactClaims implements ItemClaims
         ));
 
         return $marked instanceof CannotJudge ? $marked : $item;
-    }
-
-    /** How a shard pulls on the service this run reports: `auto` claims where the race test passed there. */
-    private static function resolved(ShardPull $pull, Variables $environment): ShardPull
-    {
-        return in_array($environment->valueOf(self::SERVER), self::RACED, true)
-            ? $pull->whereRaced()
-            : $pull->whereUnraced();
     }
 
     /** Whether no job marked the item done in this attempt. */

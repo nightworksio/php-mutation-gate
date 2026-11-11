@@ -116,7 +116,7 @@ final readonly class Shards implements Setting
         return new self(Json::object(Member::of('costs', Json::object(Member::of('savingsWindow', $duration)))));
     }
 
-    /** `shards.pull` `auto`, as by default: shards claim where the claims passed the race test, else steal. */
+    /** `shards.pull` `auto`, as by default: shards steal, since no service's claims pass the race test. */
     public static function pullingAuto(): self
     {
         return new self(Json::at('shards.pull', 'auto'));

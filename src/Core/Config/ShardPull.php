@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 /** `shards.pull`: how a shard finds its work (ADR-0134). */
 enum ShardPull: string
 {
-    /** Claims on a service whose claims passed the gate's race test, steals elsewhere. */
+    /** Steals: no service's claims pass the gate's race test. */
     case Auto = 'auto';
 
     /** Each item is claimed by an artifact of its own name before a shard runs it. */
@@ -36,14 +36,8 @@ enum ShardPull: string
         return $this !== self::Off;
     }
 
-    /** How a shard pulls on a service whose race test shows each artifact name won by one job: `auto` claims. */
-    public function whereRaced(): self
-    {
-        return $this === self::Auto ? self::Claim : $this;
-    }
-
-    /** How a shard pulls on a service no race test vouches for: `auto` steals. */
-    public function whereUnraced(): self
+    /** How a shard pulls: `auto` steals. */
+    public function resolved(): self
     {
         return $this === self::Auto ? self::Steal : $this;
     }

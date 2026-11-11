@@ -8,12 +8,11 @@ use NightWorksIO\MutationGate\Core\Config\Pulling;
 use NightWorksIO\MutationGate\Core\Config\ShardPull;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
-it('claims under auto on a service the race test passed on, and steals elsewhere', function (): void {
-    expect(ShardPull::Auto->whereRaced())->toBe(ShardPull::Claim)
-        ->and(ShardPull::Auto->whereUnraced())->toBe(ShardPull::Steal)
-        ->and(ShardPull::Steal->whereRaced())->toBe(ShardPull::Steal)
-        ->and(ShardPull::Claim->whereUnraced())->toBe(ShardPull::Claim)
-        ->and(ShardPull::Off->whereRaced())->toBe(ShardPull::Off);
+it('steals under auto, and keeps every other way as it is', function (): void {
+    expect(ShardPull::Auto->resolved())->toBe(ShardPull::Steal)
+        ->and(ShardPull::Steal->resolved())->toBe(ShardPull::Steal)
+        ->and(ShardPull::Claim->resolved())->toBe(ShardPull::Claim)
+        ->and(ShardPull::Off->resolved())->toBe(ShardPull::Off);
 });
 
 it('pulls under every value but off', function (ShardPull $pull, bool $pulls): void {
