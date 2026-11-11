@@ -13,6 +13,7 @@ request: what a round reads, a later round reads again.
 
 Measured on the quick-start fixture (one source file, 12 mutants) on an
 8-core laptop, 2026-11-09:
+
 - a round's plan takes 3.8 to 4.3 CPU-s, starting Pest three times, a PHP
   probe and about eight `git` calls;
 - each round rewrites the ledger, the maps and `plan.json`, 4.8 to 7.8 MB on

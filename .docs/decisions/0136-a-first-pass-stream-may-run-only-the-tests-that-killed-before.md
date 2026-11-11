@@ -17,6 +17,7 @@ cap on how many mutants keep theirs (`proofs.keep.killers`, `all` by default;
 `src/Core/Proof/LedgerRetention.php:43-44`), and each killed mutant's proof
 names its killers (ADR-0007). On the map and shard results of run
 42494457581:
+
 - the map holds 14,155 tests, 662.0 s of test time;
 - the union of every mutant's killers is 7,502 tests, 409.3 s (61.8%);
 - one killer per mutant is 6,758 tests, 296.8 s (44.8%).

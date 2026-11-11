@@ -114,6 +114,7 @@ them is not documented.
 Today only the upload step, after the project's code has run, holds the
 runtime token. With claims, the gate's step holds it while it runs the
 project's tests, so the project's code can read it.
+
 - On a pull request, that code could already forge its own shard's result,
   since it runs on the machine that uploads it. With the token it can also
   claim items it never runs, which leaves them without a result and fails the

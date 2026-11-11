@@ -83,6 +83,7 @@ tested by its own tests, but it does not run the mutants of its own verdict.
 A bug in it that would change verdicts shows on the default branch's run of
 the merged commit, which its own build judges, not on the pull request. The
 guards are:
+
 - the required runner contract and end-to-end jobs, which run the pull
   request's runner code on every runner and fixture;
 - the default branch's run after the merge;

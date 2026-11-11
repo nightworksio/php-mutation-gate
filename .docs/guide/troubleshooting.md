@@ -300,6 +300,7 @@ findings are the same either way.
 
 Leave `xdebug.mode` at `off` in `staticCheck.php`, as by default; the gate
 then sets `XDEBUG_MODE=off` for PHPStan too.
+
 ## kill-controls-alone
 
 `doctor` found `flaky.killControls: alone`. A kill's control then runs its

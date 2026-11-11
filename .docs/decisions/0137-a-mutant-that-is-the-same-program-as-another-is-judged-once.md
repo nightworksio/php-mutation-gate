@@ -15,6 +15,7 @@ every report and counts in the score as its first does. Nothing turns it off.
 
 Two mutants can be one program without being one text. On the 45,345 mutants
 of run 42494457581:
+
 - 49 groups of mutants share their mutated text at one site, 49 mutants
   beyond the first of each (0.11%), which decision 13 judges once already;
 - 418 sites hold `if (!E)` mutated both by `RemoveNot`, to `if (E)`, and by

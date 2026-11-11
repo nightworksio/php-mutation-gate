@@ -111,7 +111,7 @@ mod tests {
             path("FILE://localhost/srv/x"),
             Some(PathBuf::from("/srv/x"))
         );
-        assert_eq!(path("file:///caf%C3%A9"), Some(PathBuf::from("/café")));
+        assert_eq!(path("file:///na%C3%AFve"), Some(PathBuf::from("/naïve")));
     }
 
     #[test]

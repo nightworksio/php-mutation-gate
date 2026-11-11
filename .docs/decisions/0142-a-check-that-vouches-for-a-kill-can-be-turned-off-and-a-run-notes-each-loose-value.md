@@ -8,6 +8,7 @@
 
 Four steps of a shard prove that a kill or an uncovered mutant is what it
 seems, and none has a setting:
+
 - **Kill controls.** Every kill a test is named for runs its killers again on
   the unmutated file (ADR-0014, ADR-0033;
   `src/Core/Control/KillControls.php:23-38`, called at

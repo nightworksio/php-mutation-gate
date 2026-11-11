@@ -326,7 +326,7 @@ mod tests {
         );
         assert_eq!(
             survivors
-                .take(event("ba9876543210", "killed", 9, "d2"))
+                .take(event("fe9876543210", "killed", 9, "d2"))
                 .as_deref(),
             Some("src/A.php")
         );

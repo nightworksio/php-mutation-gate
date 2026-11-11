@@ -27,6 +27,7 @@ therefore takes effect in no setup the package ships.
 
 What the push re-judges, measured over a window of the gate's own CI and
 the companion's:
+
 - the gate: 58 of 144 pushes had their pull request head's exact tree, and
   spent 15,708 shard-minutes, about 7,450 a week;
 - the companion: 41 of 51 pushes had the exact tree, 3,435 shard-minutes.
@@ -112,6 +113,7 @@ ADR-0005 rule 5 already says. Anyone who can open a pull request whose run
 writes the record can make the default branch skip re-checking its tree once
 it is merged. The artifact moves that record where a push can read it; it
 does not widen whose record is read, nor what it must say.
+
 - The check-run is still a hint: the record must also name the head and its
   tree, and come from a `pull_request` run of the workflow that runs the gate.
 - The guards are the nightly `unproven` run, which takes no proof

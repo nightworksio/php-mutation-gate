@@ -107,6 +107,7 @@ many runs this costs is not measured.
 A fixture repository whose default branch passes at one commit, then changes
 a test file that moves a held unit's key and fails at the next on another
 unit's survivor. A pull request at the second commit that changes neither:
+
 - under `passed`, the held unit is reached and runs;
 - under `judged`, it carries the failed run's proof, and the survivor's unit
   carries its survivor;
