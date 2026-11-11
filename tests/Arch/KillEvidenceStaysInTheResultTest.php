@@ -21,6 +21,8 @@ const EVIDENCE_HOLDERS = [
     'src/Adapter/Infection/Results.php',
     'src/Adapter/Pest/Ending.php',
     'src/Adapter/Pest/FoundAgain.php',
+    'src/Adapter/Pest/FreshRuns.php',
+    'src/Adapter/Pest/FreshVerdict.php',
     'src/Adapter/Pest/Interpretation.php',
     'src/Adapter/Pest/MutationRun.php',
     'src/Adapter/Pest/OwnRun.php',
