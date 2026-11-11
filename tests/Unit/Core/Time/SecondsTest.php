@@ -19,7 +19,7 @@ it('holds no time at all', function (): void {
     expect(Seconds::none()->seconds())->toBe(0.0);
 });
 
-it('reads a duration written in days, hours, minutes and seconds', function (string $written, float $seconds): void {
+it('reads a duration written in days, hours, minutes, seconds and milliseconds', function (string $written, float $seconds): void {
     expect(Seconds::parse($written))->toEqual(Seconds::of($seconds));
 })->with([
     'seconds' => ['90s', 90.0],
@@ -30,11 +30,13 @@ it('reads a duration written in days, hours, minutes and seconds', function (str
     'days' => ['7d', 604_800.0],
     'all four' => ['1d2h3m4s', 93_784.0],
     'nothing at all' => ['0s', 0.0],
+    'milliseconds' => ['50ms', 0.05],
+    'seconds and milliseconds' => ['1s500ms', 1.5],
 ]);
 
 it('refuses what is not a duration, and says how to write one', function (string $written): void {
-    expect(Seconds::parse($written))->toEqual(CannotJudge::because(sprintf('"%s" is not a duration. Write it as 90s, 15m, 1h30m or 7d.', $written)));
-})->with(['', '90', '1m30h', 'x90s', "90s\n", '1.5h', '1h2d']);
+    expect(Seconds::parse($written))->toEqual(CannotJudge::because(sprintf('"%s" is not a duration. Write it as 50ms, 90s, 15m, 1h30m or 7d.', $written)));
+})->with(['', '90', '1m30h', 'x90s', "90s\n", '1.5h', '1h2d', '5ms1s']);
 
 it('says a duration to the nearest unit it shows', function (float $seconds, string $text): void {
     expect(Seconds::of($seconds)->text())->toBe($text);
@@ -88,7 +90,14 @@ it('writes a duration back in the largest units it holds, days among them', func
     'seconds' => [90.0, '1m30s'],
     'a week' => [604_800.0, '7d'],
     'a day and more' => [93_784.0, '1d2h3m4s'],
+    'half a second' => [0.5, '500ms'],
+    'minutes, seconds and milliseconds' => [90.25, '1m30s250ms'],
 ]);
+
+it('writes a duration to the nearest millisecond', function (): void {
+    expect(Seconds::of(0.9996)->written())->toBe('1s')
+        ->and(Seconds::of(0.0004)->written())->toBe('0s');
+});
 
 it('outlasts a run only until the run reaches it', function (): void {
     $limit = Seconds::of(1.5);

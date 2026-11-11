@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\DefaultBranchSince;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
@@ -107,7 +108,7 @@ $lastRun = static fn(string $check = 'check'): ScopeRuns
 
 it('reads a pull request\'s change from its own last run of the same kind and check, falling back to the default branch it fetched', function () use ($lastRun): void {
     [$ledgers, $standing] = modeStanding(Scope::pullRequest(7), $lastRun());
-    $base = Mode::since(Mode::LAST_RUN)->changeBase($ledgers, $standing, RunProfile::standard(), 'check');
+    $base = Mode::since(Mode::LAST_RUN)->changeBase($ledgers, $standing, RunProfile::standard(), 'check', DefaultBranchSince::Passed);
 
     expect($base instanceof ChangeBase ? [$base->lastRunCommit(), $base->ref()] : $base)
         ->toEqual([JudgedCommits::of('last-run'), $standing->fetchedDefaultBranch()]);
@@ -115,7 +116,7 @@ it('reads a pull request\'s change from its own last run of the same kind and ch
 
 it('reads a change since the ref alone where its scope\'s last run cannot stand for this one', function (Scope $scope, ScopeRuns $runs, RunProfile $kind, string $since): void {
     [$ledgers, $standing] = modeStanding($scope, $runs);
-    $base = Mode::since(Mode::LAST_RUN)->changeBase($ledgers, $standing, $kind, 'check');
+    $base = Mode::since(Mode::LAST_RUN)->changeBase($ledgers, $standing, $kind, 'check', DefaultBranchSince::Passed);
     expect($base instanceof ChangeBase ? [$base->lastRunCommit(), $base->ref()->name()] : $base)
         ->toEqual([NotGiven::value(), $since === '' ? $standing->fetchedDefaultBranch()->name() : $since]);
 })->with([
@@ -155,9 +156,9 @@ it('samples the reached units too only when it samples of its own accord, keepin
 it('reads, off the default branch, its change also since the commit the default branch\'s ledger last passed at, and on it not', function () use ($lastRun): void {
     [$pullRequest, $standing] = modeStanding(Scope::pullRequest(7), $lastRun());
     [$onMain, $mainStanding] = modeStanding(Scope::branch('main'), ScopeRuns::none()->passing(Passed::of(Revision::ref('main-passed'), 'check', 0)));
-    $since = Mode::since('base')->changeBase($pullRequest, $standing, RunProfile::standard(), 'check');
-    $lastRunBase = Mode::since(Mode::LAST_RUN)->changeBase($pullRequest, $standing, RunProfile::standard(), 'check');
-    $main = Mode::since(Mode::LAST_PASSED)->changeBase($onMain, $mainStanding, RunProfile::standard(), 'check');
+    $since = Mode::since('base')->changeBase($pullRequest, $standing, RunProfile::standard(), 'check', DefaultBranchSince::Passed);
+    $lastRunBase = Mode::since(Mode::LAST_RUN)->changeBase($pullRequest, $standing, RunProfile::standard(), 'check', DefaultBranchSince::Passed);
+    $main = Mode::since(Mode::LAST_PASSED)->changeBase($onMain, $mainStanding, RunProfile::standard(), 'check', DefaultBranchSince::Passed);
 
     expect($since instanceof ChangeBase ? $since->ledgerAt() : $since)->toEqual(Revision::ref('main-passed'))
         ->and($lastRunBase instanceof ChangeBase ? $lastRunBase->ledgerAt() : $lastRunBase)->toEqual(Revision::ref('main-passed'))
@@ -180,7 +181,7 @@ function modeStandingUnrun(): array
 
 it('reads no change since the default branch\'s ledger where that ledger records no commit that passed', function (): void {
     [$ledgers, $standing] = modeStandingUnrun();
-    $base = Mode::since('base')->changeBase($ledgers, $standing, RunProfile::standard(), 'check');
+    $base = Mode::since('base')->changeBase($ledgers, $standing, RunProfile::standard(), 'check', DefaultBranchSince::Passed);
 
     expect($base instanceof ChangeBase ? $base->ledgerAt() : $base)->toEqual(NotGiven::value());
 });
