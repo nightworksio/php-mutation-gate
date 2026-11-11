@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\NativeTesto;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -274,7 +275,7 @@ it('names the PHP report a run this job started left, with nothing recorded besi
     $report = $phpunit->report(CoverageRan::in(Path::of('build/suite')));
 
     expect($report instanceof RanReport ? [$report->file(), $report->format(), $report->recorded()] : $report)
-        ->toEqual([sprintf('%s/build/suite/coverage.php', $project->root()), 4, RecordedBeside::nothing()])
+        ->toEqual([sprintf('%s/build/suite/coverage.php', $project->root()), Serializer::SERIALIZATION_FORMAT, RecordedBeside::nothing()])
         ->and($report instanceof RanReport ? $report->relative(sprintf('%s/src/Money.php', $project->root())) : $report)
         ->toEqual(Path::of('src/Money.php'))
         ->and(testoCoverage($project, $shell)->report(CoverageRan::in(Path::of('build/suite'))))->toEqual(NotGiven::value())

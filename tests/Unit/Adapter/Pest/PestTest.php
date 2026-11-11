@@ -93,6 +93,7 @@ use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
+use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -285,7 +286,7 @@ it('names the report a coverage run this job started left in a directory, in the
         ->report(CoverageRan::in(Path::of('build/suite')));
 
     expect($report->file())->toBe(sprintf('%s/build/suite/coverage.php', $at->root()))
-        ->and($report->format())->toBe(4)
+        ->and($report->format())->toBe(Serializer::SERIALIZATION_FORMAT)
         ->and($report->recorded()->timed())->toEqual([TimedTest::of('P\Tests\MoneyTest::adds', 0.5)])
         ->and($report->relative(sprintf('%s/src/Money.php', $at->root())))->toEqual(Path::of('src/Money.php'));
 });

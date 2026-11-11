@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use ReflectionClassConstant;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 use function sort;
@@ -49,8 +50,17 @@ final readonly class CoverageReports
     /** The root every report's base path is under. */
     public const string ROOT = '/project';
 
+    /** The php-code-coverage serialization format every report of the corpus is written in. */
+    public const int FORMAT = 4;
+
     /** The commit every report's map is measured at. */
     private const string COMMIT = '0123456789abcdef0123456789abcdef01234567';
+
+    /** Whether the installed php-code-coverage reads the corpus's format, which its lowest release does not. */
+    public static function areReadable(): bool
+    {
+        return new ReflectionClassConstant(Serializer::class, 'SERIALIZATION_FORMAT')->getValue() === self::FORMAT;
+    }
 
     /** @return array<string, string> each report's directory, by its name */
     public static function all(): array
@@ -99,7 +109,7 @@ final readonly class CoverageReports
     {
         return RanReport::at(
             sprintf('%s/coverage.php', $directory),
-            Serializer::SERIALIZATION_FORMAT,
+            self::FORMAT,
             TimedTests::beside(sprintf('%s/timed-tests.jsonl', $directory)),
             self::project()->relative(...),
         );

@@ -25,4 +25,4 @@ it('reads each report into the map it read before', function (): void {
         expect(MapText::of($map instanceof CoverageMap ? $map : CoverageMap::of())->written(Unplaced::map(), NotGiven::value()))
             ->toBe(CoverageReports::text($directory, 'native.json'), $name);
     }
-});
+})->skip(fn(): bool => ! CoverageReports::areReadable(), 'the installed php-code-coverage reads another serialization format than the corpus');
