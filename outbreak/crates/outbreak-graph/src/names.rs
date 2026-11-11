@@ -430,7 +430,9 @@ impl<'a> Reader<'a> {
     }
 
     fn declared_class(&mut self, index: usize) -> usize {
-        if let Some(Token::Name(name)) = self.at(index) {
+        if let Some(Token::Name(name)) = self.at(index)
+            && !name.contains('\\')
+        {
             let declared = self.qualified(&name.to_ascii_lowercase());
             self.mention(name);
             self.out.declares.insert(declared);
@@ -449,7 +451,7 @@ impl<'a> Reader<'a> {
         };
 
         match self.at(index) {
-            Some(Token::Name(name)) => {
+            Some(Token::Name(name)) if !name.contains('\\') => {
                 let lower = name.to_ascii_lowercase();
                 self.mention(name);
                 if keyword == "function"
@@ -630,5 +632,16 @@ mod tests {
             read(b"<?php require __DIR__ . 'x.php'; require 'y.php'; $a->b(); A::c();").unplaced,
             None
         );
+    }
+
+    #[test]
+    fn declares_no_qualified_name() {
+        for text in [
+            &b"<?php class \\Foo {}"[..],
+            b"<?php function \\foo() {}",
+            b"<?class \\\xfe<?\\\xfe\xff\xff\xff",
+        ] {
+            assert!(read(text).declares.is_empty());
+        }
     }
 }
