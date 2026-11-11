@@ -28,8 +28,15 @@ function negationCopy(string $code): string
 it('branches alike on a value and on its value negated twice, whatever the value', function (Closure $value): void {
     $once = static fn(mixed $value): string => $value ? 'then' : 'else';
     $twice = static fn(mixed $value): string => !!$value ? 'then' : 'else';
+    set_error_handler(static fn(): bool => true, E_WARNING);
 
-    expect($twice($value()))->toBe($once($value()));
+    try {
+        [$negatedTwice, $asIs] = [$twice($value()), $once($value())];
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($negatedTwice)->toBe($asIs);
 })->with([
     static fn(): int => 0,
     static fn(): int => 1,

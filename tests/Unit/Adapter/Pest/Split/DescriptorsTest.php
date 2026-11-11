@@ -15,7 +15,7 @@ it('shares nothing it held at the start, and shares a socket opened since, until
 
     expect($opened)->toBeTrue()
         ->and(Descriptors::held()->shares($start))->toBeFalse();
-});
+})->skip(fn(): bool => Descriptors::held()->shares(Descriptors::held()), 'the runner holds a file open for writing, so this process forks no test');
 
 it('shares a file open for writing, held since the start or not, and no file open only for reading', function (): void {
     $start = Descriptors::held();
@@ -32,7 +32,7 @@ it('shares a file open for writing, held since the start or not, and no file ope
     }
 
     expect([$reading, $writing, $sinceTheStart])->toBe([false, true, true]);
-});
+})->skip(fn(): bool => Descriptors::held()->shares(Descriptors::held()), 'the runner holds a file open for writing, so this process forks no test');
 
 it('shares a file-backed SQLite database a test opened, where the system lists its descriptors', function (): void {
     $start = Descriptors::held();

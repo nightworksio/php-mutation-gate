@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Descriptors;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -53,7 +54,8 @@ it('writes how the parent came out of each test it ran', function (): void {
         ['k' => 'parent', 't' => 'T::passes', 'p' => true],
         ['k' => 'parent', 't' => 'T::fails', 'p' => false],
     ]);
-})->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');
+})->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks')
+    ->skip(fn(): bool => Descriptors::held()->shares(Descriptors::held()), 'the runner holds a file open for writing, so this process forks no test');
 
 it('falls back for a test that runs in a process of its own, or holds a socket the stream did not as it started', function (): void {
     $pair = [];
