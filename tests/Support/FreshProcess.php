@@ -35,7 +35,6 @@ final readonly class FreshProcess
     /** The first descriptor past standard input, output and error. */
     private const int FIRST = 3;
 
-
     /** What the program printed, read as JSON. */
     public static function answer(string $program): mixed
     {
@@ -45,7 +44,7 @@ final readonly class FreshProcess
             var_export(sprintf('%s/vendor/autoload.php', dirname(__DIR__, 2)), return: true),
             $program,
         ));
-        $process = Process::fromShellCommandline(sprintf('exec %s %s%s', escapeshellarg(PHP_BINARY), escapeshellarg($file), self::closing()));
+        $process = Process::fromShellCommandline(sprintf('exec %s -d display_errors=stderr -d error_reporting=-1 %s%s', escapeshellarg(PHP_BINARY), escapeshellarg($file), self::closing()));
         $process->mustRun();
 
         return json_decode($process->getOutput(), associative: true, flags: JSON_THROW_ON_ERROR);
