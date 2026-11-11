@@ -249,7 +249,7 @@ final readonly class Patch
 
     private const string FILTER_BECOMES = <<<'PHP'
                 {MARK} a run selects exactly its covering tests, each row alone; a filter too long to pass is left out,
-                {MARK} or its tests named by their ids in a file where the gate selects them so (ADR-0138).
+                // or its tests named by their ids in a file where the gate selects them so (ADR-0138).
                 $filter = class_exists(\%1$s::class)
                     ? \%1$s::covering($covering, \%4$s::suite())->argument()
                     : '--filter="'.implode('|', $filters).'"';
