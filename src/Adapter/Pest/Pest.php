@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_values;
 
+use Closure;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -31,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Native\MutantPlacement;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
@@ -133,9 +135,11 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
      * the engine that vouches for each map handed over, where one does
      * (ADR-0118). Under the gate's PHAR, every PHP process of a run loads the
      * archive first, and its plugin, this class, in the place of a copy of the
-     * gate's the project's Pest lists (ADR-0140).
+     * gate's the project's Pest lists (ADR-0140). A preloaded mutant is
+     * served in a fresh run where this places it in the project (ADR-0148).
      *
-     * @param class-string $plugin
+     * @param class-string                                               $plugin
+     * @param Closure(string, Paths, Path, Path): MutantPlacement|NotGiven $placing
      */
     public static function fromOptions(
         Options $options,
@@ -147,6 +151,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
         string $plugin,
         MapEngine|NotGiven $maps = new NotGiven(),
         RunExtension|NotGiven $extension = new NotGiven(),
+        Closure|NotGiven $placing = new NotGiven(),
     ): self|Invalid {
         $read = PestOptions::read($options);
 
@@ -154,7 +159,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
             return $read;
         }
 
-        $project = Project::at(self::ROOT, $read->tests(), Workspace::root(), $vendor);
+        $project = Project::at(self::ROOT, $read->tests(), Workspace::root(), $vendor, $placing);
         $loading = $archive instanceof OwnArchive
             ? ArchiveLoading::writtenFor($project, $archive, GatePlugins::listedIn($project, $packages), $plugin)
             : NotGiven::value();

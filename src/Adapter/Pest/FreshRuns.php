@@ -14,10 +14,6 @@ use Closure;
 use function count;
 use function getmypid;
 
-use NightWorksIO\MutationGate\Adapter\Native\Invocation as NativeInvocation;
-use NightWorksIO\MutationGate\Adapter\Native\MutantFiles;
-use NightWorksIO\MutationGate\Adapter\Native\Override;
-use NightWorksIO\MutationGate\Adapter\Native\Project as NativeProject;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
@@ -33,6 +29,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Native\MutantPlacement;
+use NightWorksIO\MutationGate\Core\Native\PlacedMutant;
 use NightWorksIO\MutationGate\Core\Native\Selection as NativeSelection;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -52,7 +50,6 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 
 use function sprintf;
 use function strval;
@@ -64,7 +61,7 @@ use function strval;
  * own run selected them, by their filter where it fits and every test of
  * the tests that judge the request otherwise, run in a fresh `pest` process
  * whose PHP has opcache off and prepends the gate's override (see
- * Native\Override), so the mutant, as Pest prints it, is served before
+ * MutantPlacement), so the mutant, as Pest prints it, is served before
  * Composer's autoloader loads anything. Each run is allowed the standard
  * limit of its covering tests' own time under the request's memory cap, and
  * none of the gate's plugin's variables reaches it. The runs go side by side
@@ -97,18 +94,15 @@ final readonly class FreshRuns
     /** The project's test files, by the classes Pest declares for them. */
     private TestFiles $tests;
 
-    /** The project as the gate's wrapper serves a mutant in it. */
-    private NativeProject $native;
-
     public function __construct(
         private Project $project,
+        private MutantPlacement $placement,
         private Shell $shell,
         private CapFiles $files,
         private Patching $patching,
         private LimitBounds $bounds,
     ) {
         $this->tests = new TestFiles($project);
-        $this->native = $project->native();
     }
 
     /**
@@ -133,7 +127,7 @@ final readonly class FreshRuns
             return $result;
         }
 
-        $override = Override::writtenFor($this->native, OwnArchive::running());
+        $override = $this->placement->override(OwnArchive::running());
         $beside = $override instanceof CannotJudge ? $override : $this->project->fresh(self::BESIDE);
         $scan = $beside instanceof CannotJudge
             ? $beside
@@ -261,17 +255,17 @@ final readonly class FreshRuns
         );
         $selection = $this->patching->selecting($covering, $suite);
         $printed = Printed::checkable($this->project, $mutant);
-        $files = $printed instanceof CannotJudge ? $printed : MutantFiles::selecting(
-            $this->native,
-            MadeMutant::of($mutant->id(), $location, $mutant->mutation(), $printed->mutant()),
+        $files = $printed instanceof CannotJudge ? $printed : $this->placement->placed(
+            $mutant,
+            $printed->mutant(),
             self::listing($covering, $selection->fits()),
         );
         $id = $mutant->id()->value();
-        $log = $files instanceof CannotJudge ? $files : $this->native->fresh(sprintf(self::LOG, $id));
+        $log = $files instanceof CannotJudge ? $files : $this->placement->fresh(sprintf(self::LOG, $id));
         $copy = $printed instanceof CannotJudge || $files instanceof CannotJudge || $log instanceof CannotJudge
             ? $log
             : $this->unmutated($printed, $files, $id);
-        $guard = $copy instanceof CannotJudge ? $copy : $this->native->fresh(sprintf(self::CONTROL_GUARD, $id));
+        $guard = $copy instanceof CannotJudge ? $copy : $this->placement->fresh(sprintf(self::CONTROL_GUARD, $id));
 
         if ($files instanceof CannotJudge || $copy instanceof CannotJudge || $guard instanceof CannotJudge) {
             return Interpretation::unjudged($mutant, Reason::that(match (true) {
@@ -288,7 +282,7 @@ final readonly class FreshRuns
         $serving = fn(string $served, string $guarded, string ...$logging): Command => $scan->onto(
             Invocation::of($this->project)
                 ->judging($tests, $judgedBy, $request->withheld(), ...$suites, ...$logging)
-                ->startingPhpWith(...NativeInvocation::overriding($override))
+                ->startingPhpWith(...$this->placement->startingPhp($override))
                 ->with([
                     Variable::Mutant->value => $files->original(),
                     Variable::Mutated->value => $served,
@@ -313,12 +307,12 @@ final readonly class FreshRuns
      * mutant's own directory: the file as Pest prints it, or the file itself
      * where Pest's print of it is not known.
      */
-    private function unmutated(Checkable $printed, MutantFiles $files, string $id): string|CannotJudge
+    private function unmutated(Checkable $printed, PlacedMutant $files, string $id): string|CannotJudge
     {
         $original = $printed->original();
 
         return $original instanceof Contents
-            ? $this->native->written(sprintf(self::UNMUTATED, $id), $original->text())
+            ? $this->placement->written(sprintf(self::UNMUTATED, $id), $original->text())
             : $files->original();
     }
 

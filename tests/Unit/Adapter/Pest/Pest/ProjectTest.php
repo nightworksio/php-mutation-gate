@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
+use NightWorksIO\MutationGate\Adapter\Native\Placement;
 use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\EveryRow;
@@ -62,6 +63,23 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
+
+it('places a mutant where it was given placing, from its own root and directories, in itself and in a directory of it', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    $asked = [];
+    $placing = static function (string $at, Paths $tests, Path $vendor, Path $workspace) use (&$asked): Placement {
+        $asked[] = [$at, $tests, $vendor, $workspace];
+
+        return Placement::inPestRunner($at, $tests, $vendor, $workspace);
+    };
+    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.gate'), Path::of('vendor'), $placing);
+
+    expect(Project::at($root, Paths::none(), Path::of('.gate'), Path::of('vendor'))->placement())->toEqual(NotGiven::value())
+        ->and($project->placement())->toBeInstanceOf(Placement::class)
+        ->and($project->in(Path::of('sub'), Paths::none())->placement())->toBeInstanceOf(Placement::class)
+        ->and($asked[0])->toEqual([$root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.gate')])
+        ->and($asked[1][0])->toBe(sprintf('%s/sub', $root));
+});
 it('names each test as the plugin names it in a run that lists the tests, withholding what it is told to', function (): void {
     $at = PestCases::project();
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::named($command, $at));

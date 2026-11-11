@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Native\MutantPlacement;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -226,8 +227,10 @@ final readonly class MutationRun
         $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started, $laps);
         $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($opened->steps());
 
+        $placement = $this->project->placement();
         $coverage = $result instanceof MutationResult
             && ! $shared instanceof CannotJudge
+            && $placement instanceof MutantPlacement
             && $this->patching->preloaded() === Preloaded::Fresh
             && FreshRuns::findAny($result->mutants())
             ? $this->coveringOf($shared, $results)
@@ -241,7 +244,14 @@ final readonly class MutationRun
         };
 
         return $vouched instanceof MutationResult && $coverage instanceof Covering
-            ? new FreshRuns($this->project, $this->driven(), $this->files, $this->patching, $this->bounds)->judged(
+            ? new FreshRuns(
+                $this->project,
+                $placement,
+                $this->driven(),
+                $this->files,
+                $this->patching,
+                $this->bounds,
+            )->judged(
                 $vouched,
                 $request,
                 $coverage,

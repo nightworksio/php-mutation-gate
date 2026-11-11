@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Native\Placement;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\FreshRuns;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
@@ -82,7 +83,10 @@ function freshRunsOf(Project $at, ShellFake $shell, MutationResult $result, Seco
     $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(2), freshRunsTest());
     $laps = Laps::since(static fn(): Seconds => Seconds::of(0.0), Seconds::of(0.0));
 
-    return new FreshRuns($at, $shell, new CapDirectory(), Patching::on(Group::named('canary')), LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0)))
+    $placement = Placement::inPestRunner($at->root(), Paths::none(), Path::of('vendor'), Path::of('.gate'));
+    $bounds = LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0));
+
+    return new FreshRuns($at, $placement, $shell, new CapDirectory(), Patching::on(Group::named('canary')), $bounds)
         ->judged(
             $result,
             MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()),

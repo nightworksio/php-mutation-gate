@@ -7,8 +7,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function file_get_contents;
 use function is_file;
 
-use NightWorksIO\MutationGate\Adapter\Native\MutantFiles;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Native\PlacedMutant;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -26,7 +26,7 @@ final readonly class FreshRun
     private function __construct(
         private Mutant $mutant,
         private TestIds $covering,
-        private MutantFiles $files,
+        private PlacedMutant $files,
         private Command $command,
         private Command $control,
         private string $log,
@@ -38,7 +38,7 @@ final readonly class FreshRun
     public static function of(
         Mutant $mutant,
         TestIds $covering,
-        MutantFiles $files,
+        PlacedMutant $files,
         Command $command,
         Command $control,
         string $log,
@@ -58,7 +58,7 @@ final readonly class FreshRun
         return $this->covering;
     }
 
-    public function files(): MutantFiles
+    public function files(): PlacedMutant
     {
         return $this->files;
     }

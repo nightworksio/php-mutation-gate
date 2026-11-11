@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use Closure;
+
 use function dirname;
 use function file_exists;
 use function file_put_contents;
@@ -15,17 +17,17 @@ use function is_link;
 use function is_string;
 use function mkdir;
 
-use NightWorksIO\MutationGate\Adapter\Native\Project as NativeProject;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Native\MutantPlacement;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
 
@@ -57,18 +59,31 @@ final readonly class Project
     /** Why a run's orders cannot be told from an earlier run's. */
     private const string STALE_ORDER = 'An earlier run left orders in %s, and the gate cannot remove them.';
 
+    /** @param Closure(string, Paths, Path, Path): MutantPlacement|NotGiven $placing */
     private function __construct(
         private Root $root,
         private Paths $tests,
         private Path $workspace,
         private Path $vendor,
+        private Closure|NotGiven $placing,
     ) {
     }
 
-    /** The project at a root, as the runner spells it (owner: flows), held as its real path. */
-    public static function at(string $root, Paths $tests, Path $workspace, Path $vendor): self
-    {
-        return new self(Root::of(self::real($root)), $tests, $workspace, $vendor);
+    /**
+     * The project at a root, as the runner spells it (owner: flows), held as
+     * its real path, serving a mutant where this places it from its root,
+     * tests, vendor and gate's directories.
+     *
+     * @param Closure(string, Paths, Path, Path): MutantPlacement|NotGiven $placing
+     */
+    public static function at(
+        string $root,
+        Paths $tests,
+        Path $workspace,
+        Path $vendor,
+        Closure|NotGiven $placing = new NotGiven(),
+    ): self {
+        return new self(Root::of(self::real($root)), $tests, $workspace, $vendor, $placing);
     }
 
     /** The gate's directory, where the adapter keeps what it writes. */
@@ -83,17 +98,19 @@ final readonly class Project
      */
     public function in(Path $directory, Paths $tests): self
     {
-        return self::at($this->absolute($directory), $tests, $this->workspace, $this->vendor);
+        return self::at($this->absolute($directory), $tests, $this->workspace, $this->vendor, $this->placing);
     }
 
     /**
-     * The same project as the native runner's classes write a mutant's files
-     * in it, the override among them, inside the Pest runner's own directory
-     * of the gate's (ADR-0148).
+     * Where the gate's wrapper serves a mutant in the project, the override
+     * among its files, inside the Pest runner's own directory of the gate's
+     * (ADR-0148); none where the project was given no placing.
      */
-    public function native(): NativeProject
+    public function placement(): MutantPlacement|NotGiven
     {
-        return NativeProject::at($this->root(), $this->tests, $this->vendor, $this->workspace, BuiltinRunner::Pest);
+        return $this->placing instanceof NotGiven
+            ? $this->placing
+            : ($this->placing)($this->root(), $this->tests, $this->vendor, $this->workspace);
     }
 
     /** The root's real path, as Pest's coverage and the processes it starts take it. */
