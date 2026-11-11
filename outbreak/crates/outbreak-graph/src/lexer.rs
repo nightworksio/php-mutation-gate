@@ -206,11 +206,9 @@ impl Lexer<'_> {
             if self.peek(0) == b'\\' {
                 self.at += 1;
             } else if quote != b'\''
-                && self.peek(0) == b'$'
-                && (is_name_start(self.peek(1)) || self.peek(1) == b'{')
+                && ((self.peek(0) == b'$' && (is_name_start(self.peek(1)) || self.peek(1) == b'{'))
+                    || (self.peek(0) == b'{' && self.peek(1) == b'$'))
             {
-                literal = false;
-            } else if quote != b'\'' && self.peek(0) == b'{' && self.peek(1) == b'$' {
                 literal = false;
             }
             self.at += 1;

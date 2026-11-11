@@ -326,11 +326,8 @@ impl<'a> Reader<'a> {
     }
 
     fn new_at(&mut self, index: usize) {
-        match self.at(index) {
-            Some(Token::Variable | Token::Punct(b'(')) => {
-                self.unplace("a class built from a value")
-            }
-            _ => {}
+        if let Some(Token::Variable | Token::Punct(b'(')) = self.at(index) {
+            self.unplace("a class built from a value");
         }
     }
 
@@ -390,9 +387,8 @@ impl<'a> Reader<'a> {
                     self.imported(&prefix, current.take(), alias.take());
                     return index + 1;
                 }
-                Token::Punct(b',') => self.imported(&prefix, current.take(), alias.take()),
+                Token::Punct(b',' | b'}') => self.imported(&prefix, current.take(), alias.take()),
                 Token::Punct(b'{') => prefix = current.take().unwrap_or_default(),
-                Token::Punct(b'}') => self.imported(&prefix, current.take(), alias.take()),
                 Token::Name(name) if name.eq_ignore_ascii_case("as") => {}
                 Token::Name(name)
                     if current.is_some() && self.lower_at(index - 1).as_deref() == Some("as") =>
@@ -404,7 +400,7 @@ impl<'a> Reader<'a> {
                         name.trim_start_matches('\\')
                             .trim_end_matches('\\')
                             .to_owned(),
-                    )
+                    );
                 }
                 Token::Punct(b'\\') => {}
                 _ => return index,
