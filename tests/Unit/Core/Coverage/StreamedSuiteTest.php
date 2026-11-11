@@ -18,13 +18,13 @@ it('merges two shards: complete only where both are, a test failing or troubled 
         ->and($one->and($one)->ofSuites(['Unit'])->standsIn())->toBeTrue();
 });
 
-it('stands in only where it is complete, ran a test and names its suites', function (StreamedSuite $suite, bool $standsIn): void {
-    expect($suite->standsIn())->toBe($standsIn);
+it('stands in only where it is complete, ran a test and names its suites', function (Closure $suite, bool $standsIn): void {
+    expect($suite()->standsIn())->toBe($standsIn);
 })->with([
-    'every test passed' => [StreamedSuite::of(true, ['A::a' => ['passed' => true, 'troubled' => false, 'own' => false, 'seconds' => 1.0]], [])->ofSuites(['Unit']), true],
-    'no suite named' => [StreamedSuite::of(true, ['A::a' => ['passed' => true, 'troubled' => false, 'own' => false, 'seconds' => 1.0]], []), false],
-    'no test ran' => [StreamedSuite::none()->ofSuites(['Unit']), false],
-    'ran on its own' => [StreamedSuite::of(true, ['A::a' => ['passed' => true, 'troubled' => false, 'own' => true, 'seconds' => 1.0]], [])->ofSuites(['Unit']), false],
+    'every test passed' => [static fn(): StreamedSuite => StreamedSuite::of(true, ['A::a' => ['passed' => true, 'troubled' => false, 'own' => false, 'seconds' => 1.0]], [])->ofSuites(['Unit']), true],
+    'no suite named' => [static fn(): StreamedSuite => StreamedSuite::of(true, ['A::a' => ['passed' => true, 'troubled' => false, 'own' => false, 'seconds' => 1.0]], []), false],
+    'no test ran' => [static fn(): StreamedSuite => StreamedSuite::none()->ofSuites(['Unit']), false],
+    'ran on its own' => [static fn(): StreamedSuite => StreamedSuite::of(true, ['A::a' => ['passed' => true, 'troubled' => false, 'own' => true, 'seconds' => 1.0]], [])->ofSuites(['Unit']), false],
 ]);
 
 it('reads back what it wrote, and nothing from text that is not a suite', function () use ($passed): void {

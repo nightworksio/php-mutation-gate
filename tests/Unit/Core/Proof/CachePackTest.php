@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
-$base = Digest::of(str_repeat('b', 64));
+$makeBase = static fn(): Digest => Digest::of(str_repeat('b', 64));
 $cached = static fn(string $key, string $unit, Digest $at): Proof => Proof::of(
     Digest::of($key),
     Path::of($unit),
@@ -25,7 +25,8 @@ $cached = static fn(string $key, string $unit, Digest $at): Proof => Proof::of(
     Run::of('github:7/1', Instant::at(new DateTimeImmutable('2026-11-09T20:00:00Z')), $at),
 );
 
-it('reads back each proof it packs under its key, leaving out a proof of another base', function () use ($base, $cached): void {
+it('reads back each proof it packs under its key, leaving out a proof of another base', function () use ($makeBase, $cached): void {
+    $base = $makeBase();
     $here = $cached(str_repeat('1', 64), 'src/A.php', $base);
     $elsewhere = $cached(str_repeat('2', 64), 'src/B.php', Digest::of(str_repeat('c', 64)));
     $bytes = CachePack::bytes(CacheClass::Trusted, $base, Proofs::of($here, $elsewhere));
@@ -38,7 +39,8 @@ it('reads back each proof it packs under its key, leaving out a proof of another
         ->and($read instanceof Proofs ? $read->proofFor($here->key())->unit()->value() : '')->toBe('src/A.php');
 });
 
-it('takes nothing from a pack of another class or base, or past its limits', function () use ($base, $cached): void {
+it('takes nothing from a pack of another class or base, or past its limits', function () use ($makeBase, $cached): void {
+    $base = $makeBase();
     $bytes = CachePack::bytes(CacheClass::Branch, $base, Proofs::of($cached(str_repeat('1', 64), 'src/A.php', $base)));
 
     expect(CachePack::read($bytes, CacheClass::Trusted, $base, LedgerLimits::standard()))->toBeInstanceOf(CannotJudge::class)
@@ -57,7 +59,8 @@ it('reads a branch\'s packs on a pull request, and the default branch\'s alone o
         ->and(CacheClass::Trusted->isOwnScope())->toBeFalse();
 });
 
-it('keeps a proof read first under its key, and holds each class apart', function () use ($base, $cached): void {
+it('keeps a proof read first under its key, and holds each class apart', function () use ($makeBase, $cached): void {
+    $base = $makeBase();
     $first = $cached(str_repeat('1', 64), 'src/First.php', $base);
     $later = $cached(str_repeat('1', 64), 'src/Later.php', $base);
     $held = CachedProofs::none()

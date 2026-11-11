@@ -29,7 +29,7 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$base = Digest::of(str_repeat('b', 64));
+$makeBase = static fn(): Digest => Digest::of(str_repeat('b', 64));
 $proofAt = static fn(string $key, string $unit, string $run) => Proof::of(
     Digest::of($key),
     Path::of($unit),
@@ -37,7 +37,8 @@ $proofAt = static fn(string $key, string $unit, string $run) => Proof::of(
     Run::of($run, Instant::at(new DateTimeImmutable('2026-11-09T20:00:00Z')), Digest::of(str_repeat('b', 64))),
 );
 
-it('merges a verdict\'s entries into the restored pack, and pulls back each proof as the gate reads it', function () use ($base, $proofAt): void {
+it('merges a verdict\'s entries into the restored pack, and pulls back each proof as the gate reads it', function () use ($makeBase, $proofAt): void {
+    $base = $makeBase();
     $root = Scratch::directory();
     $binary = getenv('OUTBREAK_BINARY');
     $cache = is_string($binary) ? Outbreak::at($binary, $root) : Outbreak::none($root);

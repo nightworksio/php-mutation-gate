@@ -25,12 +25,30 @@ function negationCopy(string $code): string
     return $path;
 }
 
-it('branches alike on a value and on its value negated twice, whatever the value', function (mixed $value): void {
+it('branches alike on a value and on its value negated twice, whatever the value', function (Closure $value): void {
     $once = static fn(mixed $value): string => $value ? 'then' : 'else';
     $twice = static fn(mixed $value): string => !!$value ? 'then' : 'else';
 
-    expect($twice($value))->toBe($once($value));
-})->with([0, 1, -1, 0.0, 0.5, '', '0', '00', 'a', [], [0], null, true, false, new stdClass(), PHP_INT_MAX, NAN]);
+    expect($twice($value()))->toBe($once($value()));
+})->with([
+    static fn(): int => 0,
+    static fn(): int => 1,
+    static fn(): int => -1,
+    static fn(): float => 0.0,
+    static fn(): float => 0.5,
+    static fn(): string => '',
+    static fn(): string => '0',
+    static fn(): string => '00',
+    static fn(): string => 'a',
+    static fn(): array => [],
+    static fn(): array => [0],
+    static fn(): null => null,
+    static fn(): bool => true,
+    static fn(): bool => false,
+    static fn(): stdClass => new stdClass(),
+    static fn(): int => PHP_INT_MAX,
+    static fn(): float => NAN,
+]);
 
 it('pairs a removed negation with the same condition negated again, in either order', function (string $negating): void {
     $removed = negationCopy("<?php\nif (\$ready) {\n    go();\n}\n");
