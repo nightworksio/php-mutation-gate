@@ -11,7 +11,10 @@
 //! (ADR-0147).
 
 #![cfg_attr(windows, feature(abi_vectorcall))]
-#![allow(missing_docs, reason = "php_module and php_function generate items the extension's own docs describe")]
+#![allow(
+    missing_docs,
+    reason = "php_module and php_function generate items the extension's own docs describe"
+)]
 
 pub mod canon;
 mod descriptors;
@@ -29,7 +32,9 @@ use ext_php_rs::prelude::*;
 /// reads.
 #[php_function]
 pub fn outbreak_op_arrays(file: &str) -> Option<String> {
-    std::fs::read(file).ok().and_then(|source| program::digest(&source))
+    std::fs::read(file)
+        .ok()
+        .and_then(|source| program::digest(&source))
 }
 
 /// Arms a watch on the nearest calling frame whose class is outside this
@@ -46,11 +51,12 @@ pub fn outbreak_state_digest(slot: i64) -> Option<String> {
 }
 
 /// The descriptors this process holds that a forked child would share with
-/// it: regular files and pipes open for writing, then sockets, as counts.
+/// it: regular files and pipes open for writing, then sockets, as counts,
+/// leaving out each regular file whose device and inode are given.
 #[php_function]
 #[must_use]
-pub fn outbreak_descriptors() -> Vec<i64> {
-    let held = descriptors::held();
+pub fn outbreak_descriptors(ignored: Option<Vec<Vec<i64>>>) -> Vec<i64> {
+    let held = descriptors::held(&descriptors::Ignored::of(&ignored.unwrap_or_default()));
 
     vec![held.files, held.pipes, held.sockets]
 }
@@ -154,7 +160,11 @@ fn started(_kind: i32, _module: i32) -> i32 {
         lines::install();
     }
 
-    if state::observing().steps && !steps::install() { FAILED } else { STARTED }
+    if state::observing().steps && !steps::install() {
+        FAILED
+    } else {
+        STARTED
+    }
 }
 
 /// Hands PHP's executor back.

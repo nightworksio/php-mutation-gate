@@ -72,7 +72,11 @@ switch (ADR-0091), so the stream's program holds every site.
    that runs in a separate process. `outbreak.so` counts the descriptors
    where it is loaded; on Linux the process's own list and its flags do,
    which also see a database client's; elsewhere PHP's streams do. A file
-   open only for reading forks. A mutant whose covering tests
+   open only for reading forks, and so do the files the process's own
+   command line names, known by device and inode: the test runner's
+   output, such as paratest's status, progress and unexpected-output files
+   or a JUnit log, which a child, killed as its test ends, never writes
+   into what the parent reads. A mutant whose covering tests
    include such a test, and that no stream killed, runs its own run as
    before, narrowed to its covering tests, with its verification. Without
    `pcntl` and `posix` every mutant runs its own run, and the run warns.

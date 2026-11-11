@@ -21,6 +21,7 @@ use function preg_match;
 use function readlink;
 use function scandir;
 use function sprintf;
+use function stat;
 use function str_contains;
 use function str_starts_with;
 use function stream_get_meta_data;
@@ -35,9 +36,12 @@ use function stream_get_meta_data;
  * Linux, the process's descriptors and their flags say; elsewhere, PHP's own
  * streams do, which see no client's.
  *
- * A stream forks no test while it holds a regular file open for writing, nor
- * one that holds more pipes or sockets than the stream held before its first
- * test: those are its runner's, the pipes it talks over among them.
+ * A stream forks no test while it holds a regular file open for writing,
+ * nor one that holds more pipes or sockets than the stream held before its
+ * first test: those are its runner's, the pipes it talks over among them.
+ * The files its own command line names are its runner's output, which a
+ * child, killed as its test ends, never writes into what the parent reads
+ * (see RunnerFiles); they are not counted.
  *
  * @internal
  */
@@ -75,13 +79,14 @@ final readonly class Descriptors
     /** What this process holds now. */
     public static function held(): self
     {
-        $counted = function_exists('outbreak_descriptors') ? outbreak_descriptors() : [];
+        $runner = RunnerFiles::ofThisProcess();
+        $counted = function_exists('outbreak_descriptors') ? outbreak_descriptors($runner->identities()) : [];
 
         if (count($counted) === 3) {
             return new self((int) $counted[0], (int) $counted[1], (int) $counted[2]);
         }
 
-        return is_dir(self::DESCRIPTORS) ? self::listed() : self::streams();
+        return is_dir(self::DESCRIPTORS) ? self::listed($runner) : self::streams($runner);
     }
 
     /** Whether a child forked now would share a descriptor with this process that it did not hold at the start. */
@@ -90,7 +95,7 @@ final readonly class Descriptors
         return $this->files > 0 || $this->pipes > $start->pipes || $this->sockets > $start->sockets;
     }
 
-    private static function listed(): self
+    private static function listed(RunnerFiles $runner): self
     {
         $files = 0;
         $pipes = 0;
@@ -108,7 +113,7 @@ final readonly class Descriptors
             $writes = self::writes($descriptor);
             $sockets += str_starts_with($target, self::SOCKET) ? 1 : 0;
             $pipes += $writes && str_starts_with($target, self::PIPE) ? 1 : 0;
-            $files += $writes && self::isFile($target) ? 1 : 0;
+            $files += $writes && self::isFile($target) && ! $runner->hold(stat($path)) ? 1 : 0;
         }
 
         return new self($files, $pipes, $sockets);
@@ -141,7 +146,7 @@ final readonly class Descriptors
     }
 
     /** What PHP's own streams say, where the system lists no descriptors. */
-    private static function streams(): self
+    private static function streams(RunnerFiles $runner): self
     {
         $streams = get_resources(SocketStreams::STREAM);
         $files = 0;
@@ -149,7 +154,7 @@ final readonly class Descriptors
         foreach ($streams as $stream) {
             $meta = stream_get_meta_data($stream);
             $plain = ($meta['wrapper_type'] ?? '') === 'plainfile';
-            $files += $plain && self::modeWrites($meta['mode']) ? 1 : 0;
+            $files += $plain && self::modeWrites($meta['mode']) && ! $runner->holdStream($stream) ? 1 : 0;
         }
 
         return new self($files, 0, SocketStreams::among($streams));
