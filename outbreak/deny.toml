@@ -5,6 +5,15 @@
 # libclang in the build of outbreak.so.
 [graph]
 all-features = true
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-unknown-linux-musl",
+  "aarch64-unknown-linux-musl",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+]
 
 [advisories]
 version = 2
@@ -14,6 +23,16 @@ yanked = "deny"
 multiple-versions = "deny"
 wildcards = "deny"
 allow-wildcard-paths = true
+# Second versions only the build of outbreak.so or ring hold: ext-php-rs's
+# build script takes thiserror 1 and syn 2 through skeptic and, on Windows,
+# openssl-macros; ring, the TLS of ureq, takes getrandom 0.2 where cc's
+# jobserver takes 0.4.
+skip = [
+  { crate = "getrandom@0.2.17", reason = "ring's, the TLS of ureq; cc's jobserver takes 0.4" },
+  { crate = "syn@2.0.119", reason = "ext-php-rs's build script, through skeptic and openssl-macros" },
+  { crate = "thiserror@1.0.69", reason = "ext-php-rs's build script, through skeptic" },
+  { crate = "thiserror-impl@1.0.69", reason = "ext-php-rs's build script, through skeptic" },
+]
 deny = [
   { crate = "amplitude", reason = "reports on the person running it" },
   { crate = "aptabase", reason = "reports on the person running it" },
@@ -70,9 +89,13 @@ allow = [
 ]
 confidence-threshold = 0.9
 unused-allowed-license = "allow"
-# LLVM's libFuzzer, which the fuzz targets alone link; no build of outbreak ships it.
+# LLVM's libFuzzer, which the fuzz targets alone link; no build of outbreak
+# ships it. zip's bzip2 and PPMd, which ext-php-rs's build script links on
+# Windows alone, where outbreak.so is not built.
 exceptions = [
   { crate = "libfuzzer-sys", allow = ["NCSA"] },
+  { crate = "libbz2-rs-sys", allow = ["bzip2-1.0.6"] },
+  { crate = "ppmd-rust", allow = ["MIT-0"] },
 ]
 
 [sources]
