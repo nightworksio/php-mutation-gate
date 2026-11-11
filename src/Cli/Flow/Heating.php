@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_key_exists;
+
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -24,8 +26,9 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
  * same units judged over the default branch's newest proof of each, each
  * of their mutants with the function its proof names for its line. A unit
  * the default branch never proved has no change against the base, and a
- * proof that names no function gives its functions none. It lists as many
- * files as the config's `heatmap` keys say.
+ * proof that names no function gives its functions none, as does a held
+ * unit's proof for each file of its directory. It lists as many files as
+ * the config's `heatmap` keys say.
  *
  * @internal
  */
@@ -54,7 +57,9 @@ final readonly class Heating
 
         $base = Heatmap::of(
             $judge->trees(UnitResults::of(...$results)),
-            static fn(Path $file): FunctionSpans => $spans[$file->value()],
+            static fn(Path $file): FunctionSpans => array_key_exists($file->value(), $spans)
+                ? $spans[$file->value()]
+                : FunctionSpans::none(),
         );
 
         return Heatmap::of($verdicts, $this->onDisk(...))
