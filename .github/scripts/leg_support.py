@@ -10,6 +10,40 @@ directory, the filter and the contracts its Contract run selects, how it
 reaches its lowest releases, the packages its install shows, and the test
 support its tests use. scope.py runs a leg where that support changed.
 
+Each fixture is installed at the highest releases its committed lock holds and
+at the lowest its manifest allows; `lowest` says how it reaches the lowest:
+`coverage` pins the package's own php-code-coverage, `own` keeps the fixture's,
+and `analysers` raises every package but the analysers again.
+- pest: the library holds the Pest plugin of this package, and runs the whole
+  Contract suite, so every contract that needs it runs against each
+  resolution. Its lock holds the php-code-coverage this package is locked at,
+  or one that writes the same serialization format, which the Contract suite
+  checks: the adapter reads the maps the library's Pest writes, which in a
+  user's project is one vendor directory and here is two.
+- infection-13 and infection-12: Infection's library, installed with
+  Infection 0.35 and PHPUnit 13 by its own manifest, and with PHPUnit 12 by
+  the manifest in phpunit-12/, which installs into the same vendor directory.
+  Each carries the package's PHPUnit conflict, so the lowest PHPUnit 12 is the
+  lowest the package allows. Its runs read only the PHPUnit XML coverage and
+  JUnit log its own PHPUnit writes, so it keeps its own php-code-coverage.
+- phpunit: the PHPUnit runner's fixture, at the lowest PHPUnit the runner
+  supports, the one `PhpUnitOption::IDS_SINCE` names (ADR-0023). It holds the
+  quirks of a project's tests and, in library/, the code every runner's
+  contract mutates. In a user's project the gate and PHPUnit share one vendor
+  directory, so one php-code-coverage writes and reads each map; here there
+  are two, and a map one release writes can be one another refuses.
+- phpspec and codeception: the PhpSpec and Codeception runners' fixtures,
+  whose library/ specifies or tests the code every runner's contract mutates,
+  Codeception's with unit tests and a Cest, at the lowest the runner supports
+  (ADR-0027), pinned as the PHPUnit fixture is, for the same reason.
+- testo: the Testo runner's fixture, at the lowest of the minor range the
+  runner drives (ADR-0047). Testo measures with its own XML coverage, so the
+  leg needs no php-code-coverage of the package's.
+- analysers: Mago, PHPStan and Psalm, each at its lowest with every other
+  package raised again to the highest that allows them, as a project requiring
+  that analyser installs it: Psalm 6.14.0's lowest dependencies predate
+  PHP 8.5.
+
 `check` runs in each leg, so a list that no longer holds what the leg's tests
 use fails the leg that reads it. It asks Pest which tests the leg's run
 selects (`--list-tests`, under the leg's filter and contracts), and reads the
