@@ -59,6 +59,20 @@ function waitsChanging(ChangingCheckout $checkout, int $waits): Closure
     };
 }
 
+/**
+ * A project of the flows whose config holds these members, each round
+ * judging by the config as it stands, ending with its whole report and
+ * stopped whole by a change, unless the members set `local.quick`,
+ * `local.streamBatches` or `local.cancelByUnit` themselves.
+ */
+function watchedProject(string $config = ''): string
+{
+    $members = (array) json_decode(sprintf('{%s}', $config), true);
+    $members['local'] = ['quick' => false, 'streamBatches' => false, 'cancelByUnit' => false, ...(array) ($members['local'] ?? [])];
+
+    return FlowCommands::project(mb_substr((string) json_encode($members), 1, -1));
+}
+
 /** `watch` as the command line holds it, beside the global `--budget`, waiting as this says. */
 function watchBesideBudget(Composition $composition, Closure $waited): Command
 {
@@ -93,7 +107,7 @@ $kinds = static fn(CoverageAsked $runner): array => array_values(array_filter(ar
 
 it('runs a round from what is on disk, and stops when the wait says so', function () use ($changing, $kinds): void {
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
-    $composition = FlowCommands::watching(FlowCommands::project('"local": {"streamBatches": false}'), $runner, new ProofStoreFake(), $changing());
+    $composition = FlowCommands::watching(watchedProject('"local": {"streamBatches": false}'), $runner, new ProofStoreFake(), $changing());
 
     $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false));
 
@@ -110,7 +124,7 @@ it('judges a round on the new code changed since HEAD, and holds no tree to its 
         Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(16), Line::of(21)))),
         [Revision::workingTree()->name() => Flows::FILES, Revision::HEAD => Flows::FILES, Flows::MAIN => Flows::FILES],
     );
-    $composition = FlowCommands::watching(FlowCommands::project(), ScriptedRunner::fixture(), new ProofStoreFake(), $changed);
+    $composition = FlowCommands::watching(watchedProject(), ScriptedRunner::fixture(), new ProofStoreFake(), $changed);
 
     $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false));
 
@@ -125,7 +139,7 @@ it('runs a round after each change, measuring again only the test files whose en
     array $coverage,
 ) use ($kinds): void {
     $files = [...Flows::FILES, 'tests/HeldTest.php' => "<?php\n\nit('doubles', fn () => expect(2)->toBe(2));\n"];
-    $project = FlowCommands::project();
+    $project = watchedProject();
     Scratch::write($project, 'tests/HeldTest.php', $files['tests/HeldTest.php']);
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     $checkout = ChangingCheckout::holding($files, ChangingCheckout::with($path, "<?php\n\n// changed\n", $files));
@@ -161,7 +175,7 @@ it('builds the map again after a round that could not plan, and says why each ro
 ): void {
     $runner = new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('1 test failed.'));
     $checkout = $changing();
-    $composition = FlowCommands::watching(FlowCommands::project(), $runner, new ProofStoreFake(), $checkout);
+    $composition = FlowCommands::watching(watchedProject(), $runner, new ProofStoreFake(), $checkout);
 
     $ran = FlowCommands::run(WatchCommand::command($composition, waitsChanging($checkout, 1)));
 
@@ -206,7 +220,7 @@ it('measures a round after the first against the map the last round left, which 
 ): void {
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
 
-    $dirtyRounds(FlowCommands::project(), $runner, 2);
+    $dirtyRounds(watchedProject(), $runner, 2);
 
     expect($kinds($runner))->toBe([CoverageRun::class, sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class]);
 });
@@ -215,7 +229,7 @@ it('measures its first round, and each after a round that could not plan, withou
     $dirtyRounds,
     $kinds,
 ): void {
-    $project = FlowCommands::project();
+    $project = watchedProject();
     $dirtyRounds($project, new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), 1);
     $failing = new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('1 test failed.'));
 
@@ -227,7 +241,7 @@ it('measures its first round, and each after a round that could not plan, withou
 it('waits on through a change outside the trees and the tests', function () use ($changing, $kinds): void {
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     $checkout = $changing('README.md');
-    $composition = FlowCommands::watching(FlowCommands::project(), $runner, new ProofStoreFake(), $checkout);
+    $composition = FlowCommands::watching(watchedProject(), $runner, new ProofStoreFake(), $checkout);
 
     $ran = FlowCommands::run(WatchCommand::command($composition, waitsChanging($checkout, 3)));
 
@@ -238,7 +252,7 @@ it('waits on through a change outside the trees and the tests', function () use 
 
 it('stops a round a change arrives in, prints none of it, and judges again at once', function (): void {
     $checkout = ChangingCheckout::becomingAt(3, ChangingCheckout::with('src/Money.php', "<?php\n\n// changed\n"));
-    $composition = FlowCommands::watching(FlowCommands::project('"local": {"watchPoll": "0s", "streamBatches": false}'), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
+    $composition = FlowCommands::watching(watchedProject('"local": {"watchPoll": "0s", "streamBatches": false}'), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
 
     $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false));
 
@@ -250,7 +264,7 @@ it('stops a round a change arrives in, prints none of it, and judges again at on
 
 it('looks for a change while a round runs only once a wait has passed, and judges what one finds after it', function (): void {
     $checkout = ChangingCheckout::becomingAt(3, ChangingCheckout::with('src/Money.php', "<?php\n\n// changed\n"));
-    $composition = FlowCommands::watching(FlowCommands::project(), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
+    $composition = FlowCommands::watching(watchedProject(), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
 
     $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false));
 
@@ -259,24 +273,24 @@ it('looks for a change while a round runs only once a wait has passed, and judge
         ->and(substr_count($ran->output, 'mutation-gate: '))->toBe(2);
 });
 
-it('prints what each batch judged as it ends, before the round\'s verdict, unless local.streamBatches is off', function (string $config, string $printed) use ($changing): void {
-    $composition = FlowCommands::watching(FlowCommands::project($config), ScriptedRunner::fixture(), new ProofStoreFake(), $changing());
+it('prints what each batch judged as it ends, before the round\'s verdict --report asks for, unless local.streamBatches is off', function (string $config, string $printed) use ($changing): void {
+    $composition = FlowCommands::watching(watchedProject($config), ScriptedRunner::fixture(), new ProofStoreFake(), $changing());
 
-    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false));
+    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false), '--report');
 
     expect($ran->code)->toBe(0)
         ->and($ran->output)->toStartWith(sprintf("%s%sWrote memory:refs/heads/main.\n", WATCHING, $printed));
 })->with([
     'streamed' => [
-        '',
-        "Judged 1 mutant: 1 survived.\n  survived: src/Held.php:11 Plus\nJudged 4 mutants: 1 killed, 1 survived, 1 timed-out, 1 uncovered.\n  survived: src/Money.php:16 GreaterThan\n",
+        '"local": {"streamBatches": true}',
+        "src/Held.php: judged 1 mutant: 1 survived.\n  survived: src/Held.php:11 Plus\nsrc/Money.php: judged 4 mutants: 1 killed, 1 survived, 1 timed-out, 1 uncovered.\n  survived: src/Money.php:16 GreaterThan\n",
     ],
     'off' => ['"local": {"streamBatches": false}', ''],
 ]);
 
 it('hashes every file each look where local.watchStatus is off', function (): void {
     $checkout = ChangingCheckout::becoming(ChangingCheckout::with('src/Money.php', "<?php\n\n// changed\n"));
-    $composition = FlowCommands::watching(FlowCommands::project('"local": {"watchStatus": false}'), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
+    $composition = FlowCommands::watching(watchedProject('"local": {"watchStatus": false}'), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
 
     $ran = FlowCommands::run(WatchCommand::command($composition, waitsChanging($checkout, 1)));
 
@@ -290,7 +304,7 @@ it('runs each round under local.watchBudget, over the config\'s budget, unless -
     bool $unjudged,
 ) use ($changing): void {
     $composition = FlowCommands::watching(
-        FlowCommands::project($config),
+        watchedProject($config),
         ScriptedRunner::fixture(),
         new ProofStoreFake(),
         $changing(),
@@ -311,7 +325,7 @@ it('prints each round as problems for an editor, framed for a background matcher
     $changing,
 ): void {
     $checkout = $changing();
-    $composition = FlowCommands::watching(FlowCommands::project(), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
+    $composition = FlowCommands::watching(watchedProject(), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
 
     $ran = FlowCommands::run(WatchCommand::command($composition, waitsChanging($checkout, 1)), '--output=problems');
 
@@ -328,7 +342,7 @@ it('cannot watch files it cannot list, then or later, an output it cannot print,
     string $why,
 ): void {
     $checkout = ChangingCheckout::becomingAt($unlistedFrom, CannotTell::because('git is gone.'));
-    $composition = FlowCommands::watching(FlowCommands::project($config), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
+    $composition = FlowCommands::watching(watchedProject($config), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
 
     $ran = FlowCommands::run(WatchCommand::command($composition, waitsChanging($checkout, 1)), $options);
 
@@ -337,13 +351,13 @@ it('cannot watch files it cannot list, then or later, an output it cannot print,
 })->with([
     'at the start' => ['', '', 1, 'git is gone.'],
     'after a round' => ['', '', PHP_INT_MAX, 'git is gone.'],
-    'an output' => ['', '--output=nowhere', PHP_INT_MAX, '--output is console or problems, not "nowhere".'],
+    'an output' => ['', '--output=nowhere', PHP_INT_MAX, '--output is console, problems or events, not "nowhere".'],
     'a config' => ['"floors": 5', '', PHP_INT_MAX, 'floors'],
 ]);
 
 it('takes the options that print for an editor', function () use ($changing): void {
     $definition = WatchCommand::command(
-        FlowCommands::watching(FlowCommands::project(), ScriptedRunner::fixture(), new ProofStoreFake(), $changing()),
+        FlowCommands::watching(watchedProject(), ScriptedRunner::fixture(), new ProofStoreFake(), $changing()),
         static fn(): bool => false,
     )->getDefinition();
 
@@ -354,7 +368,7 @@ it('takes the options that print for an editor', function () use ($changing): vo
 
 it('waits local.watchPoll between two looks', function () use ($changing): void {
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
-    $composition = FlowCommands::watching(FlowCommands::project('"local": {"watchPoll": "7s"}'), $runner, new ProofStoreFake(), $changing());
+    $composition = FlowCommands::watching(watchedProject('"local": {"watchPoll": "7s"}'), $runner, new ProofStoreFake(), $changing());
     $waited = [];
 
     FlowCommands::run(WatchCommand::command($composition, static function (Seconds $interval) use (&$waited): bool {
