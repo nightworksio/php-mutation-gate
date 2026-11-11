@@ -34,23 +34,26 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-// The action's script is Python, so it cannot read the gate's constants; each
-// value it shares with the gate is held here to the gate's own.
+// The action's scripts are Python, so they cannot read the gate's constants;
+// each value they share with the gate is held here to the gate's own.
 
-/** The text of the action's script. */
+/** The text of the action's scripts, each Python file beside gate_action.py. */
 function actionScript(): string
 {
-    return (string) file_get_contents(Tree::at('resources/action/gate_action.py'));
+    $scripts = glob(Tree::at('resources/action/*.py')) ?: [];
+    sort($scripts);
+
+    return implode("\n", array_map(static fn(string $script): string => (string) file_get_contents($script), $scripts));
 }
 
-/** A string constant of the script, empty where it has none of that name. */
+/** A string constant of the scripts, empty where it has none of that name. */
 function scriptText(string $name): string
 {
     return preg_match(sprintf('/^%s = "(?<value>[^"]*)"$/mu', $name), actionScript(), $found) === 1 ? $found['value'] : '';
 }
 
 /**
- * A frozenset constant of the script, sorted, empty where it has none of that name.
+ * A frozenset constant of the scripts, sorted, empty where it has none of that name.
  *
  * @return list<string>
  */

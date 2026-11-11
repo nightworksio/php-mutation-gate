@@ -10,7 +10,7 @@ privately, as [SECURITY.md](SECURITY.md) says, and everyone here keeps the
 - **PHP 8.4 or later, with pcov.** The coverage gate runs under pcov.
 - **`composer install`.** It sets `core.hooksPath` to `.githooks` and runs
   `bin/mutation-gate pest:patch`.
-- **Python 3** runs the scripts under `.github/scripts`, the action's script under
+- **Python 3** runs the scripts under `.github/scripts`, the action's scripts under
   `resources/action`, and their tests.
 - **Node** runs markdownlint, locked in `.github/bot/markdownlint`, and builds
   the docs site, locked in `.site` (ADR-0038).

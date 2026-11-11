@@ -1,8 +1,8 @@
-"""Where the action's script is, and the import path that reaches it.
+"""Where the action's script is, and the import path that reaches it and the modules beside it.
 
-The script lives under resources/, because GitHub serves the action as the
+The scripts live under resources/, because GitHub serves the action as the
 archive git makes of it, which leaves out .github. Import this module before
-`import gate_action`.
+`import gate_action`, `import installs` or `import run_jobs`.
 """
 import os
 import sys

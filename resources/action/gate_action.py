@@ -57,8 +57,10 @@ $GITHUB_OUTPUT, or refuses with exit code 2 and says why; `stale` writes no
 output, nor does `ended`.
 
 Two halves: the functions below `main` read the environment and files, and
-the ones above decide from what they read. The deciding half is what
-.github/scripts/test_gate_action.py tests.
+the ones above decide from what they read, with installs.py, which decides how
+the gate is installed, and run_jobs.py, which decides from the run's jobs. The
+deciding half is what .github/scripts/test_gate_action.py, test_installs.py and
+test_run_jobs.py test.
 """
 from datetime import datetime, timezone
 import hashlib
@@ -73,8 +75,51 @@ import tempfile
 import time
 import zipfile
 
-# Each value below that the gate also holds is tied to the gate's own by
-# tests/Arch/TheActionScriptAgreesWithTheGateTest.php.
+from installs import (
+    COMPOSER,
+    GATE,
+    INSTALLED,
+    JUDGE_BUILD,
+    JUDGE_INSTALL,
+    JUDGE_OWN_HISTORY,
+    JUDGE_PHAR,
+    JUDGE_RELEASE,
+    JUDGE_SIGNATURE,
+    PHAR,
+    PHAR_INSTALL,
+    RELEASE_FINGERPRINT,
+    RELEASE_KEY_FILE,
+    RELEASE_WORKFLOW,
+    RELEASES,
+    SIGNATURE,
+    TAGS,
+    action_ref,
+    binary,
+    install,
+    installed_version,
+    release_tag,
+    remote_tags,
+    signed_by,
+    version_refusal,
+)
+from refused import Refused
+from run_jobs import (
+    ATTEMPT,
+    ENDED,
+    WATCH_EVERY_SECONDS,
+    WATCH_UNLISTED_SECONDS,
+    endings,
+    run_times,
+    shard_attempts,
+    stale,
+    stale_text,
+    watch_settled,
+    watched_failure,
+    watched_names,
+)
+
+# Each value of the action's scripts that the gate also holds is tied to the
+# gate's own by tests/Arch/TheActionScriptAgreesWithTheGateTest.php.
 
 # The events that run the default branch's workflow with a token or a cache
 # that can write, over content a pull request supplies (ADR-0019). The gate
@@ -109,8 +154,6 @@ TOGETHER = "together"
 # and its kept coverage map, by the names the directory store reads.
 KEPT = frozenset({"ledger.json.gz", "coverage.json.gz"})
 
-GATE = "nightworksio/mutation-gate"
-
 # The word the config names the Pest runner by, under `runner.use`; its
 # options sit under the same word.
 PEST = "pest"
@@ -118,73 +161,11 @@ PEST = "pest"
 # The word the config names the Infection runner by, under `runner.use`.
 INFECTION = "infection"
 
-# What Composer installed into a project, where the gate reads its own version.
-INSTALLED = "vendor/composer/installed.json"
-
 # The action's own release line, which the installed gate must share: its
 # major, or its major and minor while the major is 0, as Composer's caret
 # reads a version. The release pull request of a new line moves it
 # (release.py).
 LINE = "0.1"
-
-# How the action may install the gate (ADR-0051): `auto` takes the project's
-# Composer copy where it requires the gate, and the release's PHAR where not.
-COMPOSER = "composer"
-PHAR_INSTALL = "phar"
-INSTALLS = frozenset({"auto", COMPOSER, PHAR_INSTALL})
-
-# The repository each release is published from, whose release workflow signs
-# and attests its PHAR (ADR-0022), and that workflow.
-RELEASES = "nightworksio/php-mutation-gate"
-RELEASE_WORKFLOW = f"{RELEASES}/.github/workflows/release.yml"
-
-# The fingerprint of the key that signs each release's PHAR, as README.md and
-# SECURITY.md name it, and the key itself, beside this script.
-RELEASE_FINGERPRINT = "5EAA6082E57FF4C542A2EA66B757A4B1136116D2"
-RELEASE_KEY_FILE = "release-key.asc"
-
-# A release's PHAR and its detached signature, as the release names them.
-PHAR = "mutation-gate.phar"
-SIGNATURE = "mutation-gate.phar.asc"
-
-# A release's judge PHAR and its detached signature (ADR-0140).
-JUDGE_PHAR = "mutation-gate-judge.phar"
-JUDGE_SIGNATURE = "mutation-gate-judge.phar.asc"
-
-# What the reusable workflow's `judge` names besides a commit or tag of the gate's repository: the build at
-# the commit the change branched from, or the newest release where none builds; or the newest release.
-JUDGE_MERGE_BASE = "merge-base"
-JUDGE_RELEASE = "release"
-
-# The modes that build the gate from its own history, which only its repository holds.
-JUDGE_OWN_HISTORY = (JUDGE_MERGE_BASE,)
-
-# The script a commit of the gate holds where it builds a judge.
-# What a job's conclusion and status are once it failed and once it ended.
-FAILURE = "failure"
-COMPLETED = "completed"
-
-# What an artifact's name may not hold, which a failed job's name is written without.
-ARTIFACT_UNSAFE = re.compile(r'[":<>|*?\\/\r\n]')
-
-# How often `watch` reads the run's jobs, and how long it waits for a watched job the run does not list.
-WATCH_EVERY_SECONDS = 15
-WATCH_UNLISTED_SECONDS = 300
-
-JUDGE_BUILD = "scripts/judge/scope.py"
-
-# How the resolve step names a judge's PHAR as the gate that runs.
-JUDGE_INSTALL = "judge"
-
-# A release's tag, a release line's tag, and a commit, as a ref may name them.
-RELEASE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
-LINE_TAG = re.compile(r"^v\d+(?:\.\d+)?$")
-COMMIT = re.compile(r"^[0-9a-f]{40}$")
-
-# How `git ls-remote --tags` names a tag, and the commit an annotated one
-# points at.
-TAGS = "refs/tags/"
-PEELED = "^{}"
 
 EXIT_CODES = {0: "passed", 1: "failed", 2: "cannot-judge"}
 
@@ -211,43 +192,6 @@ PROVING_RANGE = 20
 MOST_PASSED_BYTES = 11000000
 # A merge queue's branch, which names the pull request a merge group was built for.
 QUEUE_BRANCH = re.compile(r"^gh-readonly-queue/.+/pr-(\d+)-[0-9a-f]+$")
-
-# A shard job's name as GitHub lists it, which holds the shard's number: the
-# reusable workflow names it `shard <number> (<label>)`, after the calling
-# job's name.
-SHARD_JOB = re.compile(r"(?:^| / )shard (\d+) \(")
-
-# The file beside a shard's result that holds the attempt whose job wrote it.
-ATTEMPT = ".attempt"
-
-# The file in a shard's result's place, where its job left none, that says how
-# the job ended: the gate names it in the verdict (see `ended`).
-ENDED = ".ended.json"
-
-# How a shard job that left no result ended, as that file names it: its runner
-# received a shutdown signal, lost contact with GitHub, the matrix or the run
-# cancelled it, it ran past its time limit, or it failed.
-SHUTDOWN = "shutdown"
-LOST = "lost"
-CANCELLED = "cancelled"
-TIMED_OUT = "timed-out"
-FAILED = "failed"
-
-# The fields of that file: how the job ended, the job's address, and the shard
-# whose failure the matrix cancelled it after.
-HOW = "how"
-JOB = "job"
-AFTER = "after"
-
-# What a job's log says, in a line GitHub marks as an error, where its runner
-# received a shutdown signal and where the job ran past its time limit.
-SHUTDOWN_SAID = "The runner has received a shutdown signal"
-TIMED_OUT_SAID = "has exceeded the maximum execution time"
-
-
-class Refused(Exception):
-    """Why the gate must not run, said to the person reading the job's log."""
-
 
 def refusal(event: str) -> str | None:
     """Why the gate refuses to run under an event, or nothing where it may."""
@@ -399,127 +343,6 @@ def kept_key(prefix: str, kept: dict[str, bytes]) -> str:
     return prefix + digest.hexdigest()
 
 
-def binary(root_manifest: dict) -> str:
-    """The gate the project runs: its own `bin/` for the package itself, its vendor's otherwise."""
-    return "bin/mutation-gate" if root_manifest.get("name") == GATE else "vendor/bin/mutation-gate"
-
-
-def line_of(version: str) -> str:
-    """A version's release line: its major, or its major and minor while the major is 0."""
-    parts = version.lstrip("v").split(".")
-    return parts[0] if parts[0] != "0" else ".".join(parts[:2])
-
-
-def installed_version(installed: dict) -> str:
-    """The gate's version as Composer installed it, from installed.json; nothing where it is not installed."""
-    packages = installed.get("packages")
-    for package in packages if isinstance(packages, list) else []:
-        if isinstance(package, dict) and package.get("name") == GATE and isinstance(package.get("version"), str):
-            return package["version"]
-    return ""
-
-
-def version_refusal(installed: str, line: str) -> str | None:
-    """Why the installed gate is not of the action's release line, or nothing where it is."""
-    if not installed:
-        return f"The project does not install {GATE}: require {GATE} ^{line}."
-    if installed.startswith("dev-") or installed.endswith("-dev"):
-        return None
-    if line_of(installed) != line:
-        return (
-            f"This action is mutation-gate {line}.x, and the project installs {installed}. "
-            f"Pin the action to the tag of the installed version's line, or require {GATE} ^{line}."
-        )
-    return None
-
-
-def requires_gate(manifest: dict) -> bool:
-    """Whether a project's composer.json requires the gate, or is the gate."""
-    required = {**(manifest.get("require") or {}), **(manifest.get("require-dev") or {})}
-    return manifest.get("name") == GATE or GATE in required
-
-
-def install(asked: str, manifest: dict) -> str:
-    """How the gate is installed: `composer` or `phar`, as asked, or by whether the project requires it."""
-    if asked not in INSTALLS:
-        raise Refused(f"install is auto, composer or phar, not {asked}.")
-    if asked != "auto":
-        return asked
-    return COMPOSER if requires_gate(manifest) else PHAR_INSTALL
-
-
-def action_ref(ref: str, path: str) -> str:
-    """The ref the action is pinned to: GitHub's, or the last part of the path GitHub fetched the action into."""
-    return ref or path.rstrip("/").rsplit("/", 1)[-1]
-
-
-def remote_tags(listed: str) -> dict[str, str]:
-    """Each tag `git ls-remote --tags` lists, with the commit it points at."""
-    tags = {}
-    for line in listed.splitlines():
-        commit, _, name = line.partition("\t")
-        if name.startswith(TAGS):
-            tag = name[len(TAGS):]
-            peeled = tag.endswith(PEELED)
-            tag = tag.removesuffix(PEELED)
-            tags[tag] = commit if peeled or tag not in tags else tags[tag]
-    return tags
-
-
-def release_tag(ref: str, tags: dict[str, str]) -> str:
-    """The release whose PHAR the action runs: the one its ref names, a release tag, a line's tag or a commit."""
-    commit = ref if COMMIT.match(ref) else tags.get(ref) if RELEASE_TAG.match(ref) or LINE_TAG.match(ref) else None
-    releases = [tag for tag, at in tags.items() if RELEASE_TAG.match(tag) and at == commit]
-    if commit is None or not releases:
-        raise Refused(
-            f"The action runs the gate's PHAR from the release it is pinned to, and {ref or 'its ref'} is no release's "
-            f"tag or commit. Pin it to a release, as {RELEASES}@<commit> # v{LINE}.<patch>, "
-            f"or require {GATE} with Composer, and the action runs that copy."
-        )
-    return max(releases, key=lambda tag: tuple(int(part) for part in RELEASE_TAG.match(tag).groups()))
-
-
-def signed_by(status: str, fingerprint: str) -> bool:
-    """Whether gpg's status lines say a good signature, by the key with this fingerprint, that has not expired."""
-    lines = [line.split() for line in status.splitlines()]
-    good = any(fields[:2] == ["[GNUPG:]", "GOODSIG"] for fields in lines)
-    return good and any(
-        fields[:2] == ["[GNUPG:]", "VALIDSIG"] and fingerprint in fields[2:3] + fields[11:12] for fields in lines
-    )
-
-
-def run_times(jobs: list[dict], now: datetime) -> dict | None:
-    """The wall and runner seconds of a run's jobs, a job still running counted up to now, and when the plan's job
-    began and what it took; none of a run with no job that started. Runner seconds are each job's own, not what
-    GitHub bills, which rounds each up to a minute."""
-    spans = []
-    plan = {}
-    for job in jobs:
-        started = _instant(job.get("started_at"))
-        if started is None:
-            continue
-        end = _instant(job.get("completed_at")) or now
-        spans.append((started, end))
-        if job.get("name") == "plan" or str(job.get("name", "")).endswith(" / plan"):
-            at = started.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            plan = {"plan": {"at": at, "seconds": (end - started).total_seconds()}}
-    if not spans:
-        return None
-    wall = max(end for _, end in spans) - min(start for start, _ in spans)
-    runner = sum(((end - start).total_seconds() for start, end in spans), 0.0)
-    return {"wallSeconds": wall.total_seconds(), "runnerSeconds": runner, **plan}
-
-
-def _instant(text: object) -> datetime | None:
-    """The instant an API timestamp names; none where it names none."""
-    if not isinstance(text, str) or text == "":
-        return None
-    try:
-        return datetime.fromisoformat(text)
-    except ValueError:
-        return None
-
-
 def judge_candidates(judge: str, event: str, payload: dict, repository: str, default_branch: str) -> tuple[list[list[str]], bool]:
     """The commits a run's judge may be built from, the first that can build one taken, each as the revisions
     it is: one, or two whose merge base it is; and whether the newest release's judge is taken where none
@@ -591,27 +414,6 @@ def fail_fast(config: dict) -> str:
     return (config.get("run") or {}).get("failFast") or MARK
 
 
-def watched_names(text: str) -> list[str]:
-    """The jobs `watch-jobs` names, one per line, blank lines left out."""
-    return [line.strip() for line in text.splitlines() if line.strip()]
-
-
-def watched_failure(jobs: list[dict], names: list[str]) -> str:
-    """The first watched job that concluded in failure, in what an artifact's name may hold; none where none did."""
-    failed = next(
-        (job.get("name", "") for job in jobs if job.get("name") in names and job.get("conclusion") == FAILURE), ""
-    )
-    return ARTIFACT_UNSAFE.sub("-", failed)
-
-
-def watch_settled(jobs: list[dict], names: list[str], unlisted_waited: bool) -> bool:
-    """Whether no watched job can still fail: each one listed completed, and each is listed or the wait for it
-    is over."""
-    listed = [job for job in jobs if job.get("name") in names]
-    every = {job.get("name") for job in listed} >= set(names)
-    return all(job.get("status") == COMPLETED for job in listed) and (every or unlisted_waited)
-
-
 def cache_store(config: dict) -> str:
     """Where `outbreak cache` keeps its packs under the action: `outbreak.cache.store`, `auto` being `oci` where a
     registry is named and `actions` otherwise, and `none` where Outbreak is off (ADR-0131)."""
@@ -638,94 +440,6 @@ def infection_patched(code: int, said: str) -> str | None:
     if code == UNSUPPORTED_RELEASE:
         return f"Infection runs unpatched, with its own limit for each mutant: {said}"
     raise Refused(said or f"infection:patch exited {code}.")
-
-
-def shard_attempts(jobs: list) -> dict[str, int]:
-    """The attempt of each shard job's latest run, by the shard's number, from the run's jobs as GitHub lists them.
-
-    A re-run lists the jobs it kept under its own attempt, each created anew and started when its earlier
-    attempt started, so a job that started before it was created ran in an earlier attempt and counts for none.
-    """
-    latest: dict[str, int] = {}
-    for job in jobs:
-        named = SHARD_JOB.search(str(job.get("name", ""))) if isinstance(job, dict) and not kept(job) else None
-        attempt = job.get("run_attempt") if named else None
-        if named and isinstance(attempt, int):
-            latest[named.group(1)] = max(attempt, latest.get(named.group(1), 0))
-    return latest
-
-
-def kept(job: dict) -> bool:
-    """Whether a re-run listed this job as kept from an earlier attempt: it started before it was created."""
-    started, created = job.get("started_at"), job.get("created_at")
-    return isinstance(started, str) and isinstance(created, str) and started < created
-
-
-def stale(written: dict[str, int], latest: dict[str, int]) -> list[str]:
-    """The shards whose result an earlier attempt wrote than their job's latest run: that run wrote none."""
-    return sorted((shard for shard, attempt in written.items() if attempt < latest.get(shard, 0)), key=int)
-
-
-def endings(jobs: list, errors: dict[int, str]) -> dict[str, dict]:
-    """How each shard job's latest run ended, by the shard's number, where it did not pass or skip.
-
-    `errors` holds the lines a job's log marks as errors, by the job's id. A job GitHub cancelled is named
-    beside the first shard job of its attempt that failed before it ended, which the matrix's fail-fast
-    cancels the others for; a failed job whose steps never all ended lost its runner.
-    """
-    latest = shard_attempts(jobs)
-    runs = {
-        number: job
-        for job in jobs
-        if isinstance(job, dict) and not kept(job)
-        for number in [_shard_number(job)]
-        if number is not None and job.get("run_attempt") == latest.get(number)
-    }
-    failed = sorted(
-        (str(job.get("completed_at", "")), number)
-        for number, job in runs.items()
-        if job.get("conclusion") == FAILURE
-    )
-    ended = {}
-    for number, job in runs.items():
-        how = ending(job, errors.get(job.get("id"), "") if isinstance(job.get("id"), int) else "")
-        if how is None:
-            continue
-        ended[number] = {HOW: how} | ({JOB: job["html_url"]} if isinstance(job.get("html_url"), str) else {})
-        if how == CANCELLED:
-            before = [shard for at, shard in failed if shard != number and at <= str(job.get("completed_at", ""))]
-            ended[number] |= {AFTER: int(before[0])} if before else {}
-    return ended
-
-
-def ending(job: dict, errors: str) -> str | None:
-    """How a shard job ended, by its conclusion, its steps and its log's error lines; none where it passed or skipped."""
-    conclusion = job.get("conclusion")
-    steps = job.get("steps") if isinstance(job.get("steps"), list) else []
-    if conclusion in (None, "success", "skipped", "neutral"):
-        return None
-    if SHUTDOWN_SAID in errors:
-        return SHUTDOWN
-    if TIMED_OUT_SAID in errors or conclusion == "timed_out":
-        return TIMED_OUT
-    if conclusion == "cancelled":
-        return CANCELLED
-    if any(isinstance(step, dict) and step.get("conclusion") is None for step in steps):
-        return LOST
-    return FAILED
-
-
-def _shard_number(job: dict) -> str | None:
-    named = SHARD_JOB.search(str(job.get("name", "")))
-    return named.group(1) if named else None
-
-
-def stale_text(shard: str, written: int, latest: int) -> str:
-    """Why a shard's result is not judged."""
-    return (
-        f"Shard {shard} ran again in attempt {latest} and wrote no result, so the result attempt {written} "
-        "wrote is not judged, and the verdict finds none for it."
-    )
 
 
 def command_text(text: str) -> str:
@@ -843,7 +557,7 @@ def _install() -> dict[str, str]:
     listed = _ran(
         ["git", "ls-remote", "--tags", f"https://github.com/{RELEASES}"], f"The tags of {RELEASES} could not be listed"
     )
-    return {"install": PHAR_INSTALL, "tag": release_tag(ref, remote_tags(listed))}
+    return {"install": PHAR_INSTALL, "tag": release_tag(ref, remote_tags(listed), LINE)}
 
 
 def _phar() -> dict[str, str]:

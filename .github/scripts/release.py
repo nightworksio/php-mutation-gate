@@ -38,6 +38,7 @@ import tomllib
 
 import action_script
 import gate_action
+import installs
 
 VERSION = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
 
@@ -199,7 +200,7 @@ def first_notes(readme: str, cliff: str, version: str, date: str) -> str:
 
 def line(version: str) -> str:
     """A version's release line, whose tag (`v0.1`) each release of the line moves."""
-    return gate_action.line_of("{}.{}.{}".format(*parse(version)))
+    return installs.line_of("{}.{}.{}".format(*parse(version)))
 
 
 def version_of(tag: str) -> str:
@@ -298,17 +299,17 @@ def _check_tag() -> None:
 
 def signature_refusal(status: str) -> str | None:
     """Why gpg's status lines are no good signature by the key the action pins, or nothing where they are."""
-    if gate_action.signed_by(status, gate_action.RELEASE_FINGERPRINT):
+    if installs.signed_by(status, installs.RELEASE_FINGERPRINT):
         return None
     return (
-        f"The PHAR is not signed by the release key {gate_action.RELEASE_FINGERPRINT} that the action pins, "
+        f"The PHAR is not signed by the release key {installs.RELEASE_FINGERPRINT} that the action pins, "
         "so every consumer that runs the PHAR would refuse it. RELEASE_GPG_KEY holds another key."
     )
 
 
 def _verify_signature() -> None:
     phar = os.environ["PHAR"]
-    key = os.path.join(os.path.dirname(action_script.PATH), gate_action.RELEASE_KEY_FILE)
+    key = os.path.join(os.path.dirname(action_script.PATH), installs.RELEASE_KEY_FILE)
     with tempfile.TemporaryDirectory() as home:
         subprocess.run(["gpg", "--homedir", home, "--batch", "--quiet", "--import", key], check=True)
         verified = subprocess.run(
