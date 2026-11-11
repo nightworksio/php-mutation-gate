@@ -81,7 +81,7 @@ it('starts a test process that sees neither the runtime token, the artifact serv
     $seen = 'echo json_encode([getenv("ACTIONS_RUNTIME_TOKEN"), getenv("ACTIONS_RESULTS_URL"), getenv("MUTATION_GATE_ARTIFACT_SERVICE"), getenv("PATH") !== false]);';
     $ran = new LocalProcesses(new SystemClock())->run(
         ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', $seen)
-            ->with(EnvironmentRead::of(Withholding::of(Withheld::standard(), $inherited))),
+            ->with(EnvironmentRead::of(Withholding::of(Withheld::standard()->and(Withheld::otherRuns()), $inherited))),
     );
 
     foreach (array_keys($handed) as $name) {

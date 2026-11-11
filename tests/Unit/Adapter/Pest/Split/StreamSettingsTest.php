@@ -24,12 +24,16 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '0',
         'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '1',
         'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '0',
+        'MUTATION_GATE_SPLIT_BOOT_ONCE' => '0',
+        'MUTATION_GATE_SPLIT_RECONNECT' => '0',
     ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false)->variables())->toBe([
         'MUTATION_GATE_SPLIT' => '1',
         'MUTATION_GATE_SPLIT_CHILDREN' => '1',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
         'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '0',
         'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '0',
+        'MUTATION_GATE_SPLIT_BOOT_ONCE' => '0',
+        'MUTATION_GATE_SPLIT_RECONNECT' => '0',
     ]);
 });
 

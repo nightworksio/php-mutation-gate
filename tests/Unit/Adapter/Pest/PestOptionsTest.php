@@ -106,6 +106,8 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '0',
         'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '1',
         'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '0',
+        'MUTATION_GATE_SPLIT_BOOT_ONCE' => '0',
+        'MUTATION_GATE_SPLIT_RECONNECT' => '0',
     ], true])
         ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true}}'))->toBe([[
             'MUTATION_GATE_SCHEMATA' => '1',
@@ -114,6 +116,8 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
             'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
             'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '0',
             'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '1',
+            'MUTATION_GATE_SPLIT_BOOT_ONCE' => '0',
+            'MUTATION_GATE_SPLIT_RECONNECT' => '0',
         ], true])
         ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
         ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
