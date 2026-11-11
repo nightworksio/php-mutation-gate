@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
+use NightWorksIO\MutationGate\Tests\Support\FreshProcess;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 /**
@@ -42,14 +43,31 @@ function streamedLines(array $plan, Closure $run): array
 }
 
 it('writes how the parent came out of each test it ran', function (): void {
-    expect(streamedLines(['sites' => []], static function (): void {
+    $root = Scratch::directory();
+    $results = sprintf('%s/results.jsonl', $root);
+    Scratch::write($root, 'plan.json', (string) json_encode(['results' => $results, 'sites' => []]));
+
+    expect(FreshProcess::answer(sprintf(<<<'PHP'
+        use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
+
+        $started = Stream::from(%s);
         Stream::began('T::passes');
         Stream::ended();
         Stream::began('T::fails');
         Stream::failed();
         Stream::ended();
         Stream::ended();
-    }))->toBe([
+        Stream::finished();
+        $lines = [];
+
+        foreach (is_file(%s) ? file(%s, FILE_IGNORE_NEW_LINES) : [] as $line) {
+            $read = json_decode($line, associative: true);
+            unset($read['s']);
+            $lines[] = $read;
+        }
+
+        echo json_encode($started ? $lines : [['not started']]);
+        PHP, var_export(sprintf('%s/plan.json', $root), return: true), var_export($results, return: true), var_export($results, return: true))))->toBe([
         ['k' => 'parent', 't' => 'T::passes', 'p' => true],
         ['k' => 'parent', 't' => 'T::fails', 'p' => false],
     ]);

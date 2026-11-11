@@ -3,35 +3,37 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Descriptors;
+use NightWorksIO\MutationGate\Tests\Support\FreshProcess;
 
 it('shares nothing it held at the start, and shares a socket opened since, until it closes', function (): void {
-    $start = Descriptors::held();
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    $opened = Descriptors::held()->shares($start);
+    expect(FreshProcess::answer(<<<'PHP'
+        use NightWorksIO\MutationGate\Adapter\Pest\Split\Descriptors;
 
-    foreach (is_array($pair) ? $pair : [] as $socket) {
-        fclose($socket);
-    }
+        $start = Descriptors::held();
+        $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        $opened = Descriptors::held()->shares($start);
 
-    expect($opened)->toBeTrue()
-        ->and(Descriptors::held()->shares($start))->toBeFalse();
+        foreach (is_array($pair) ? $pair : [] as $socket) {
+            fclose($socket);
+        }
+
+        echo json_encode([$opened, Descriptors::held()->shares($start)]);
+        PHP))->toBe([true, false]);
 });
 
 it('shares a file open for writing, held since the start or not, and no file open only for reading', function (): void {
-    $start = Descriptors::held();
-    $read = fopen(__FILE__, 'r');
-    $reading = Descriptors::held()->shares($start);
-    $written = tmpfile();
-    $writing = Descriptors::held()->shares($start);
-    $sinceTheStart = Descriptors::held()->shares(Descriptors::held());
+    expect(FreshProcess::answer(<<<'PHP'
+        use NightWorksIO\MutationGate\Adapter\Pest\Split\Descriptors;
 
-    foreach ([$read, $written] as $file) {
-        if (is_resource($file)) {
-            fclose($file);
-        }
-    }
+        $start = Descriptors::held();
+        $read = fopen(__FILE__, 'r');
+        $reading = Descriptors::held()->shares($start);
+        $written = tmpfile();
+        $writing = Descriptors::held()->shares($start);
+        $sinceTheStart = Descriptors::held()->shares(Descriptors::held());
 
-    expect([$reading, $writing, $sinceTheStart])->toBe([false, true, true]);
+        echo json_encode([$reading, $writing, $sinceTheStart]);
+        PHP))->toBe([false, true, true]);
 });
 
 it('shares a file-backed SQLite database a test opened, where the system lists its descriptors', function (): void {
