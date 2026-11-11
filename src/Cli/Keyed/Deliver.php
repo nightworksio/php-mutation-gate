@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Keyed;
 
 use function getenv;
+use function is_file;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -156,20 +157,22 @@ final readonly class Deliver
     /**
      * The entries of the proof cache the delivery holds pushed into their
      * pack by the binary the gate ships (ADR-0131), with the token the job
-     * hands it; or why they were not.
+     * hands it; or why they were not; nothing where the delivery holds none.
      */
     private function cachePushed(string $from): Written|NotWritten|NotGiven
     {
         $binary = Bundled::in(Resources::at(Shipped::Outbreak));
         $trusted = TrustedRun::scopeIn(Variables::of($this->environment)) instanceof Scope;
 
-        return is_string($binary)
-            ? CacheDelivery::pushed(
+        return match (true) {
+            ! is_file(sprintf('%s/%s', $from, CacheDelivery::REQUEST)) => NotGiven::value(),
+            is_string($binary) => CacheDelivery::pushed(
                 Outbreak::at($binary, $from),
                 $from,
                 $trusted,
                 Variables::of($this->environment),
-            )
-            : NotWritten::because('No Outbreak binary ships for this machine, so deliver pushes no proof pack.');
+            ),
+            default => NotWritten::because('No Outbreak binary ships for this machine, so deliver pushes no proof pack.'),
+        };
     }
 }
