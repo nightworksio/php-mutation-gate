@@ -114,7 +114,7 @@ it('judges whatever the plan did, so a plan that cannot judge never leaves the p
     $verdict = WorkflowFile::at(REUSABLE)->field('jobs')->field('verdict');
     $first = jobSteps($verdict)[0];
 
-    expect(Lenient::text($verdict->field('if')))->toBe('${{ !cancelled() && needs.plan.result != \'skipped\' }}')
+    expect(Lenient::text($verdict->field('if')))->toBe('${{ !cancelled() && needs.plan.result != \'skipped\' && needs.plan.outputs.waits != \'true\' }}')
         ->and(Lenient::text($first->field('if')))->toBe("needs.plan.result != 'success'")
         ->and(Lenient::text($first->field('run')))->toContain('echo "verdict=cannot-judge" >> "${GITHUB_OUTPUT}"')
         ->and(Lenient::text($first->field('run')))->toEndWith("exit 2\n")
@@ -237,20 +237,24 @@ it('downloads each artifact within two minutes, and once more with the same arti
             $results = str_starts_with(Lenient::text($download->field('with')->field('pattern')), 'mutation-gate-result-');
             $retried[] = sprintf('%s/%s', $id, Lenient::text($download->field('id')));
 
-            expect(Lenient::integer($download->field('timeout-minutes')))->toBe(2)
+            expect(Lenient::text($download->field('timeout-minutes')))->toBe('${{ inputs.download-timeout }}')
                 ->and(Lenient::boolean($download->field('continue-on-error'), otherwise: false))->toBeTrue()
                 ->and(Lenient::text($retry->field('name')))->toStartWith(RETRY)
                 ->and(Lenient::text($retry->field('if')))
                 ->toBe(sprintf("steps.%s.outcome == 'failure'", Lenient::text($download->field('id'))))
                 ->and(Lenient::text($retry->field('uses')))->toBe(Lenient::text($download->field('uses')))
-                ->and(Lenient::integer($retry->field('timeout-minutes')))->toBe(2)
+                ->and(Lenient::text($retry->field('timeout-minutes')))->toBe('${{ inputs.download-timeout }}')
                 ->and(Lenient::boolean($retry->field('continue-on-error'), otherwise: false))->toBe($results)
                 ->and(texts($retry->field('with')))->toBe(texts($download->field('with')));
         }
     }
 
+    $trigger = (string) file_get_contents(Tree::at('scripts/workflows/mutation-gate/trigger.yml'));
+    $pattern = '/^      download-timeout:\n(?:        \S.*\n)*?        default: (?<minutes>\d+)$/mu';
+
     expect($retried)->toContain('plan/download-map')
-        ->and(array_unique($retried))->toBe($retried);
+        ->and(array_unique($retried))->toBe($retried)
+        ->and(preg_match($pattern, $trigger, $found) === 1 ? (int) $found['minutes'] : 0)->toBe(2);
 });
 
 it('spends nothing on a plan that runs no unit: no shard, no survivors, and a verdict that reads no result and, where one stands, no map', function (): void {
@@ -382,7 +386,7 @@ it('stops a shard by shards.jobLimit before its job is cancelled', function (): 
     $pattern = '/^      shard-timeout:\n(?:        \S.*\n)*?        default: (?<minutes>\d+)$/mu';
     $minutes = preg_match($pattern, $trigger, $found) === 1 ? (int) $found['minutes'] : 0;
 
-    expect($shards)->toContain("  shard:\n    name: shard \${{ matrix.shard.id }} (\${{ matrix.shard.label }})\n    needs: plan\n")
+    expect($shards)->toContain("  shard:\n    name: shard \${{ matrix.shard.id }} (\${{ matrix.shard.label }})\n    needs: [fetch, plan, judge]\n")
         ->and($shards)->toContain('    timeout-minutes: ${{ inputs.shard-timeout }}')
         ->and(Shards::standard()->jobLimit()->seconds())->toBeLessThan($minutes * 60.0);
 });
