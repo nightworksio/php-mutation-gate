@@ -24,12 +24,12 @@ multiple-versions = "deny"
 wildcards = "deny"
 allow-wildcard-paths = true
 # Second versions only the build of outbreak.so or ring hold: ext-php-rs's
-# build script takes thiserror 1 and syn 2 through skeptic and, on Windows,
-# openssl-macros; ring, the TLS of ureq, takes getrandom 0.2 where cc's
-# jobserver takes 0.4.
+# build script takes thiserror 1 through skeptic, and syn 2 through skeptic,
+# openssl-macros and zip's zeroize; ring, the TLS of ureq, takes getrandom
+# 0.2 where cc's jobserver takes 0.4.
 skip = [
   { crate = "getrandom@0.2.17", reason = "ring's, the TLS of ureq; cc's jobserver takes 0.4" },
-  { crate = "syn@2.0.119", reason = "ext-php-rs's build script, through skeptic and openssl-macros" },
+  { crate = "syn@2.0.119", reason = "ext-php-rs's build script, through skeptic, openssl-macros and zip" },
   { crate = "thiserror@1.0.69", reason = "ext-php-rs's build script, through skeptic" },
   { crate = "thiserror-impl@1.0.69", reason = "ext-php-rs's build script, through skeptic" },
 ]
@@ -90,8 +90,8 @@ allow = [
 confidence-threshold = 0.9
 unused-allowed-license = "allow"
 # LLVM's libFuzzer, which the fuzz targets alone link; no build of outbreak
-# ships it. zip's bzip2 and PPMd, which ext-php-rs's build script links on
-# Windows alone, where outbreak.so is not built.
+# ships it. zip's bzip2 and PPMd, which ext-php-rs's build script links only
+# where it runs on a Windows host, and no build of outbreak.so runs there.
 exceptions = [
   { crate = "libfuzzer-sys", allow = ["NCSA"] },
   { crate = "libbz2-rs-sys", allow = ["bzip2-1.0.6"] },
