@@ -13,8 +13,9 @@ use function is_string;
 use Nette\Neon\Neon;
 
 use function sprintf;
+use function str_starts_with;
 
-/** The lists phpstan.neon hands one of this repository's own rules, read from the file as it is. */
+/** The lists phpstan.neon and the files of this repository it includes hand one of this repository's own rules, read as they are. */
 final readonly class PhpstanNeon
 {
     /**
@@ -48,15 +49,29 @@ final readonly class PhpstanNeon
     /** @return array<mixed> what a rule's argument lists, as the file writes it */
     private static function argumentOf(string $rule, string $argument): array
     {
-        $configuration = Neon::decodeFile(Tree::at('phpstan.neon'));
-
-        $services = is_array($configuration) && is_array($configuration['services']) ? $configuration['services'] : [];
         $service = array_find(
-            $services,
+            self::services(),
             static fn(mixed $service): bool => is_array($service) && ($service['class'] ?? '') === $rule,
         );
         $arguments = is_array($service) ? $service['arguments'] ?? [] : [];
 
         return is_array($arguments) && is_array($arguments[$argument] ?? '') ? $arguments[$argument] : [];
+    }
+
+    /** @return list<mixed> the services phpstan.neon declares, and each file of this repository it includes */
+    private static function services(): array
+    {
+        $configuration = Neon::decodeFile(Tree::at('phpstan.neon'));
+        $configuration = is_array($configuration) ? $configuration : [];
+        $includes = is_array($configuration['includes'] ?? null) ? $configuration['includes'] : [];
+        $services = [];
+
+        foreach (['phpstan.neon', ...array_filter($includes, is_string(...))] as $file) {
+            $decoded = str_starts_with($file, 'vendor/') ? [] : Neon::decodeFile(Tree::at($file));
+            $declared = is_array($decoded) && is_array($decoded['services'] ?? null) ? $decoded['services'] : [];
+            $services = [...$services, ...array_values($declared)];
+        }
+
+        return $services;
     }
 }
