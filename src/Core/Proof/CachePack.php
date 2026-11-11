@@ -40,6 +40,9 @@ final readonly class CachePack
     /** What the first line calls a pack of proofs. */
     public const string PROOFS = 'proofs';
 
+    /** The file a delivery holds the entries pushed in. */
+    public const string DELIVERED = 'cache.pack';
+
     private const string LINE = "\n";
 
     private const string NAMED = 'The proof cache\'s pack';

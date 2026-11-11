@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\CacheClass;
+use NightWorksIO\MutationGate\Core\Proof\CachePack;
 use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Written;
@@ -42,10 +43,6 @@ use function sprintf;
  */
 final readonly class CacheDelivery
 {
-    public const string ENTRIES = 'cache.pack';
-
-    public const string REQUEST = 'cache.json';
-
     /** The variable the workflow names the registry in, from its own trusted settings. */
     public const string REGISTRY = 'MUTATION_GATE_REGISTRY';
 
@@ -139,7 +136,7 @@ final readonly class CacheDelivery
         bool $trusted,
         Variables $environment,
     ): Written|NotWritten|NotGiven {
-        $file = sprintf('%s/%s', $from, self::REQUEST);
+        $file = sprintf('%s/%s', $from, CacheRequest::DELIVERED);
         $request = is_file($file) ? file_get_contents($file) : false;
 
         if (! is_string($request)) {
@@ -170,7 +167,7 @@ final readonly class CacheDelivery
                 => NotWritten::because(self::NO_TOKEN),
             default => $binary->pushed(
                 CacheRequest::to(CacheStore::Oci, $registry, Digest::of($base), LedgerLimits::standard())
-                    ->for($class, Path::of(self::ENTRIES), Path::of('.')),
+                    ->for($class, Path::of(CachePack::DELIVERED), Path::of('.')),
             ),
         };
     }

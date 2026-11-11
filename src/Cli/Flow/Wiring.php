@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function count;
+use function function_exists;
 use function ini_get;
 
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
@@ -26,6 +27,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStanOption;
 use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
+use NightWorksIO\MutationGate\Adapter\Serve\ServedState;
 use NightWorksIO\MutationGate\Adapter\Zstd\ZstdHere;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\ChosenPlan;
@@ -50,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\Outbreak as OutbreakSettings;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
@@ -77,6 +80,8 @@ use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
 use const PHP_BINARY;
+
+use function posix_geteuid;
 
 /**
  * The adapters the settings choose, built from the registry: the runner, the
@@ -180,11 +185,7 @@ final readonly class Wiring
                     $settings->staticCheck()->opcacheLimit()->seconds(),
                 ),
                 ConfigReads::none(),
-                Outbreak::configured(
-                    $settings->shards()->outbreak(),
-                    $project->root()->value(),
-                    Resources::at(Shipped::Outbreak),
-                ),
+                $this->outbreak($settings->shards()->outbreak(), $project->root()->value()),
             )->judgedAmong($settings->triage()->suites()),
         };
     }
@@ -195,6 +196,19 @@ final readonly class Wiring
      * that of its config file where it cannot (ADR-0020). A referenced file
      * under the root that version control ignores is none of them.
      */
+    /**
+     * The engine the settings ask for, with the state `outbreak serve` keeps
+     * where this process can name its owner to the daemon's socket.
+     */
+    private function outbreak(OutbreakSettings $settings, string $root): Outbreak
+    {
+        $outbreak = Outbreak::configured($settings, $root, Resources::at(Shipped::Outbreak));
+
+        return function_exists('posix_geteuid')
+            ? $outbreak->servedBy(ServedState::of($root, posix_geteuid(), $settings->timeout()))
+            : $outbreak;
+    }
+
     private function identified(
         StaticChecker $checker,
         Withheld $withheld,

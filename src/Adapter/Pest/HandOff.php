@@ -13,9 +13,6 @@ use function count;
 use function file_get_contents;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Opcache\Declarations;
-use NightWorksIO\MutationGate\Adapter\Opcache\Uncompiled;
-use NightWorksIO\MutationGate\Adapter\Outbreak\ProvenBeforeRun;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -32,6 +29,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\PrintsDeclarations;
+use NightWorksIO\MutationGate\Core\Mutant\ProvesBeforeRun;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
@@ -84,7 +83,7 @@ final class HandOff implements ProcessWatch
         private readonly Closure $covering,
         private readonly Bridges $bridges,
         private readonly Subsumption|NotGiven $held = new NotGiven(),
-        private readonly ProvenBeforeRun|NotGiven $equivalence = new NotGiven(),
+        private readonly ProvesBeforeRun|NotGiven $equivalence = new NotGiven(),
         private readonly bool $duplicatesOnce = true,
     ) {
     }
@@ -96,9 +95,11 @@ final class HandOff implements ProcessWatch
     public static function isWanted(
         PreChecker $checker,
         Subsumption|NotGiven $held,
-        ProvenBeforeRun|NotGiven $equivalence = new NotGiven(),
+        ProvesBeforeRun|NotGiven $equivalence = new NotGiven(),
     ): bool {
-        return ! $checker instanceof NoPreCheck || $held instanceof Subsumption || $equivalence instanceof ProvenBeforeRun;
+        return ! $checker instanceof NoPreCheck
+            || $held instanceof Subsumption
+            || $equivalence instanceof ProvesBeforeRun;
     }
 
     public function look(): void
@@ -172,7 +173,7 @@ final class HandOff implements ProcessWatch
      */
     private function proven(Records $records): void
     {
-        if (! $this->equivalence instanceof ProvenBeforeRun) {
+        if (! $this->equivalence instanceof ProvesBeforeRun) {
             return;
         }
 
@@ -200,7 +201,9 @@ final class HandOff implements ProcessWatch
 
         $proofs = $this->equivalence->proven($pairs);
         $this->equivalent = $proofs->proofs;
-        $this->duplicates = $this->duplicatesOnce ? $this->duplicatesAmong($sites, $proofs->programs, $copies) : [];
+        $this->duplicates = $this->duplicatesOnce
+            ? $this->duplicatesAmong($this->equivalence, $sites, $proofs->programs, $copies)
+            : [];
     }
 
     /**
@@ -214,7 +217,7 @@ final class HandOff implements ProcessWatch
      * @param  array<string, Contents> $copies   each mutant's copy as Pest serves it, by its copy
      * @return array<string, string>
      */
-    private function duplicatesAmong(array $sites, array $programs, array $copies): array
+    private function duplicatesAmong(PrintsDeclarations $printer, array $sites, array $programs, array $copies): array
     {
         $firsts = [];
         $duplicates = [];
@@ -225,7 +228,7 @@ final class HandOff implements ProcessWatch
             }
 
             $program = sprintf('%s %s', $site, $programs[$copy]);
-            $same = $this->declaringAlike($copies[$copy], $firsts[$program] ?? [], $copies);
+            $same = $this->declaringAlike($printer, $copies[$copy], $firsts[$program] ?? [], $copies);
 
             if ($same === '') {
                 $firsts[$program][] = $copy;
@@ -244,14 +247,16 @@ final class HandOff implements ProcessWatch
      * @param list<string>            $candidates
      * @param array<string, Contents> $copies
      */
-    private function declaringAlike(Contents $copy, array $candidates, array $copies): string
-    {
-        $declared = $candidates === [] ? Uncompiled::Failed : Declarations::of($copy);
+    private function declaringAlike(
+        PrintsDeclarations $printer,
+        Contents $copy,
+        array $candidates,
+        array $copies,
+    ): string {
+        $declared = $candidates === [] ? NotGiven::value() : $printer->declarations($copy);
 
         foreach ($candidates as $candidate) {
-            $theirs = Declarations::of($copies[$candidate]);
-
-            if ($declared instanceof Declarations && $theirs instanceof Declarations && $declared->same($theirs)) {
+            if (is_string($declared) && $declared === $printer->declarations($copies[$candidate])) {
                 return $candidate;
             }
         }

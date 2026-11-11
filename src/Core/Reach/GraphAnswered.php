@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Outbreak;
+namespace NightWorksIO\MutationGate\Core\Reach;
 
 use function array_map;
 
@@ -13,7 +13,6 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
-use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 
 use function sprintf;
 

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\PendingListings;
+use NightWorksIO\MutationGate\Core\Runner\RunExtension;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
@@ -34,7 +34,7 @@ final readonly class PestRuns
         private LimitBounds $bounds,
         private Clock $clock,
         private Bridges $bridges,
-        private ShippedExtension|NotGiven $extension = new NotGiven(),
+        private RunExtension|NotGiven $extension = new NotGiven(),
     ) {
     }
 

@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\CacheClass;
+use NightWorksIO\MutationGate\Core\Proof\CachePack;
+use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -20,10 +22,10 @@ function cacheDelivered(string $registry, CacheClass $class): string
 {
     $from = Scratch::directory();
     file_put_contents(
-        sprintf('%s/%s', $from, CacheDelivery::REQUEST),
+        sprintf('%s/%s', $from, CacheRequest::DELIVERED),
         CacheDelivery::request($registry, Digest::of(str_repeat('b', 64)), $class)->text(),
     );
-    file_put_contents(sprintf('%s/%s', $from, CacheDelivery::ENTRIES), 'entries');
+    file_put_contents(sprintf('%s/%s', $from, CachePack::DELIVERED), 'entries');
 
     return $from;
 }

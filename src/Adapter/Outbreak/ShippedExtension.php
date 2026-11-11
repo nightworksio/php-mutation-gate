@@ -12,7 +12,10 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Outbreak as OutbreakSettings;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Mutant\PrintsDeclarations;
+use NightWorksIO\MutationGate\Core\Mutant\ProvesBeforeRun;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\RunExtension;
 
 use function sprintf;
 
@@ -28,7 +31,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class ShippedExtension
+final readonly class ShippedExtension implements RunExtension
 {
     /** Where a run's prover writes the programs it compiles, beside its results. */
     private const string PROGRAMS = '%s/outbreak-programs';
@@ -45,6 +48,7 @@ final readonly class ShippedExtension
     private function __construct(
         private string $path,
         private OutbreakSettings $settings,
+        private PrintsDeclarations $printer,
     ) {
     }
 
@@ -54,7 +58,7 @@ final readonly class ShippedExtension
      * `outbreak.enabled` is off, no setting asks for it, or none ships for
      * this PHP.
      */
-    public static function beneath(Options $options, string $shipped): self|NotGiven
+    public static function beneath(Options $options, string $shipped, PrintsDeclarations $printer): self|NotGiven
     {
         $beneath = $options->object(Key::of(OutbreakSettings::OPTION));
         $read = $beneath instanceof Options ? $beneath : Options::none();
@@ -75,45 +79,26 @@ final readonly class ShippedExtension
         $wanted = $settings->enabled() && $asked;
         $path = $wanted ? Bundled::extensionIn($shipped) : NotGiven::value();
 
-        return $path instanceof NotGiven ? $path : new self($path, $settings);
+        return $path instanceof NotGiven ? $path : new self($path, $settings, $printer);
     }
 
-    /** Whether a stream that records its tests' lines records them with this extension. */
     public function recordsLines(): bool
     {
         return $this->settings->lines();
     }
 
-    /** The least steps a child may take past its parent's share, where a stream counts steps; none where it does not. */
     public function stepFloor(): int|NotGiven
     {
         return $this->settings->steps() ? $this->settings->stepFloor() : NotGiven::value();
     }
 
-    /**
-     * The prover of a run whose results are in this directory, where
-     * `outbreak.equivalence` asks for one; none where it does not.
-     */
-    public function prover(string $directory): ProvenBeforeRun|NotGiven
+    public function prover(string $directory): ProvesBeforeRun|NotGiven
     {
         return $this->settings->equivalence()
-            ? new ProvenBeforeRun(new OpArrays(
-                PHP_BINARY,
-                $this->path,
-                sprintf(self::PROGRAMS, $directory),
-                $this->settings->timeout()->seconds(),
-            ))
+            ? new ProvenBeforeRun($this->compiler($directory), $this->printer)
             : NotGiven::value();
     }
 
-    /**
-     * The extension's path, which a stream loads where it counts fork
-     * states, rechecks touched kills, records lines or counts steps, and
-     * what it watches there; none where it does none. It records lines only
-     * where the stream records them.
-     *
-     * @return array{string, string}|NotGiven
-     */
     public function forStreams(bool $recording): array|NotGiven
     {
         $watched = [
@@ -124,6 +109,14 @@ final readonly class ShippedExtension
         ];
 
         return $watched === [] ? NotGiven::value() : [$this->path, implode(',', $watched)];
+    }
+
+    /** The compiler of a run whose results are in this directory, writing its programs beside them. */
+    private function compiler(string $directory): OpArrays
+    {
+        $programs = sprintf(self::PROGRAMS, $directory);
+
+        return new OpArrays(PHP_BINARY, $this->path, $programs, $this->settings->timeout()->seconds());
     }
 
     /** The step floor beneath a runner's options, where it holds one. */

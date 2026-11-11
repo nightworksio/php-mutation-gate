@@ -14,7 +14,6 @@ use function dirname;
 use function is_array;
 use function is_int;
 
-use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
@@ -43,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\RunExtension;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -96,7 +96,7 @@ final readonly class MutationRun
         private bool $whole = false,
         private Bridges $bridges = new Bridges(),
         private PreChecker $preChecker = new NoPreCheck(),
-        private ShippedExtension|NotGiven $extension = new NotGiven(),
+        private RunExtension|NotGiven $extension = new NotGiven(),
     ) {
     }
 
@@ -422,11 +422,11 @@ final readonly class MutationRun
     private function streamExtension(LineRecording $recording): array
     {
         $forMap = $recording->records() && ! $recording->standsIn();
-        $streams = $this->extension instanceof ShippedExtension
+        $streams = $this->extension instanceof RunExtension
             ? $this->extension->forStreams($forMap)
             : NotGiven::value();
 
-        $floor = $this->extension instanceof ShippedExtension ? $this->extension->stepFloor() : NotGiven::value();
+        $floor = $this->extension instanceof RunExtension ? $this->extension->stepFloor() : NotGiven::value();
 
         return is_array($streams)
             ? [
@@ -444,7 +444,7 @@ final readonly class MutationRun
      */
     private function recordsWithPcov(LineRecording $recording): bool
     {
-        $byOutbreak = $this->extension instanceof ShippedExtension && $this->extension->recordsLines();
+        $byOutbreak = $this->extension instanceof RunExtension && $this->extension->recordsLines();
 
         return $recording->standsIn() || ($recording->records() && ! $byOutbreak);
     }
@@ -460,7 +460,9 @@ final readonly class MutationRun
     {
         $held = $request->search()->held();
 
-        $prover = $this->extension instanceof ShippedExtension ? $this->extension->prover(dirname($results)) : NotGiven::value();
+        $prover = $this->extension instanceof RunExtension
+            ? $this->extension->prover(dirname($results))
+            : NotGiven::value();
 
         return $this->patching->isOn() && HandOff::isWanted($this->preChecker, $held, $prover)
             ? new HandOff(

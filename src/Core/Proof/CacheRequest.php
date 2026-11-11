@@ -19,6 +19,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  */
 final readonly class CacheRequest
 {
+    /** The file a delivery holds the request in. */
+    public const string DELIVERED = 'cache.json';
+
     /**
      * @param array<string, Path> $packs    by class: where its pack is pulled into, or the entries pushed are
      * @param array<string, Path> $restored by class: where the Actions cache restored its packs

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
 use function array_map;
-use function function_exists;
 use function is_float;
 use function is_int;
 use function is_string;
@@ -30,6 +29,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
+use NightWorksIO\MutationGate\Core\Reach\GraphAnswered;
+use NightWorksIO\MutationGate\Core\Reach\GraphAsked;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
@@ -41,7 +42,6 @@ use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\ProofCache;
 use NightWorksIO\MutationGate\Port\ReachGraph;
 
-use function posix_geteuid;
 use function sprintf;
 
 /**
@@ -108,7 +108,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
         private string|NotGiven $binary,
         private string $root,
         private OutbreakSettings $settings,
-        private ServedState|NotGiven $served = new NotGiven(),
+        private (NoticesChanges&ReachGraph&ServesState)|NotGiven $served = new NotGiven(),
     ) {
     }
 
@@ -165,12 +165,18 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
         $settled = $settings instanceof OutbreakSettings ? $settings : OutbreakSettings::of();
         $said = BinaryRun::ran($binary, Command::Contract->words(), '', $settled->timeout());
 
-        $speaks = $said instanceof Node;
-        $served = $speaks && $settled->serve()->enabled() && function_exists('posix_geteuid')
-            ? ServedState::of($root, posix_geteuid(), $settled->timeout())
-            : NotGiven::value();
+        return new self($said instanceof Node ? $binary : NotGiven::value(), $root, $settled);
+    }
 
-        return new self($speaks ? $binary : NotGiven::value(), $root, $settled, $served);
+    /**
+     * The engine with the state `outbreak serve` keeps for the project, where
+     * the binary speaks and `outbreak.serve.enabled` is on; as it is otherwise.
+     */
+    public function servedBy(NoticesChanges&ReachGraph&ServesState $served): self
+    {
+        return $this->binary instanceof NotGiven || ! $this->settings->serve()->enabled()
+            ? $this
+            : new self($this->binary, $this->root, $this->settings, $served);
     }
 
     /** No binary, in a project at this root: every answer declines. */
@@ -327,7 +333,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             return NotWritten::because(self::NO_BINARY);
         }
 
-        $served = $this->served instanceof ServedState ? $this->served->answered($question) : NotGiven::value();
+        $served = $this->served instanceof NotGiven ? $this->served : $this->served->answered($question);
 
         if ($served instanceof GraphAnswer) {
             return $served;
@@ -348,7 +354,8 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             return NotWritten::because(self::NO_BINARY);
         }
 
-        $said = BinaryRun::ran($this->binary, $command->words(), $this->cacheAsked($request), $this->settings->timeout());
+        $asked = $this->cacheAsked($request);
+        $said = BinaryRun::ran($this->binary, $command->words(), $asked, $this->settings->timeout());
 
         try {
             return $said instanceof Node

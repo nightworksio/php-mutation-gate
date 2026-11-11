@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
+use NightWorksIO\MutationGate\Adapter\Serve\ServedState;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Outbreak as OutbreakSettings;
+use NightWorksIO\MutationGate\Core\Config\OutbreakServe;
 use NightWorksIO\MutationGate\Core\Coverage\Admission;
 use NightWorksIO\MutationGate\Core\Coverage\Conversion;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
@@ -164,6 +166,18 @@ it('runs the binary a config names, from the root where relative, and none where
         ->and(Outbreak::configured(OutbreakSettings::of(enabled: false, binary: 'outbreak'), $root, $shipped)->isInUse())
         ->toBeFalse()
         ->and(Outbreak::configured(OutbreakSettings::of(), $root, $shipped)->isInUse())->toBeFalse();
+})->group(...$holds);
+
+it('keeps the state outbreak serve holds only where the binary speaks and serving is on', function (): void {
+    $speaking = OutbreakStandIn::answering('{"outbreak":1,"vouched":true}')->binary();
+    $served = ServedState::of('/project', 0, Seconds::of(1));
+    $off = OutbreakSettings::of(serve: OutbreakServe::of(enabled: false));
+
+    expect(Outbreak::at($speaking, '/project')->servedBy($served)->state())->toBe($served)
+        ->and(Outbreak::at($speaking, '/project')->servedBy($served)->notices())->toBe($served)
+        ->and(Outbreak::at($speaking, '/project', $off)->servedBy($served)->state())->toEqual(NotGiven::value())
+        ->and(Outbreak::none('/project')->servedBy($served)->state())->toEqual(NotGiven::value())
+        ->and(Outbreak::at($speaking, '/project')->state())->toEqual(NotGiven::value());
 })->group(...$holds);
 
 it('reads the settings beneath a runner\'s options, and the defaults where they hold none', function (): void {

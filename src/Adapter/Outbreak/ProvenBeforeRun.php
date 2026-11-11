@@ -6,9 +6,12 @@ namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
 use function array_key_exists;
 use function hash;
+use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Opcache\Declarations;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Mutant\BeforeRunProofs;
+use NightWorksIO\MutationGate\Core\Mutant\PrintsDeclarations;
+use NightWorksIO\MutationGate\Core\Mutant\ProvesBeforeRun;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
@@ -25,7 +28,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class ProvenBeforeRun
+final readonly class ProvenBeforeRun implements ProvesBeforeRun
 {
     private const string ORIGINAL = 'original:%s';
 
@@ -34,16 +37,10 @@ final readonly class ProvenBeforeRun
     private const string PROOF = 'outbreak.so %s compiled it to its original\'s op arrays before any test ran, and it '
         . 'declares what its original declares, so no test can fail on it (ADR-0130).';
 
-    public function __construct(private OpArrays $compiler)
+    public function __construct(private OpArrays $compiler, private PrintsDeclarations $printer)
     {
     }
 
-    /**
-     * The proof of each of these mutants proven equivalent, and the digest of
-     * each mutant's op arrays, by its key.
-     *
-     * @param list<array{string, Contents, Contents}> $pairs each mutant's key, its original and the mutant
-     */
     public function proven(array $pairs): BeforeRunProofs
     {
         $programs = [];
@@ -74,15 +71,19 @@ final readonly class ProvenBeforeRun
                 continue;
             }
 
-            $declared[$before] ??= Declarations::of($original);
+            $declared[$before] ??= $this->printer->declarations($original);
             $theirs = $declared[$before];
-            $its = Declarations::of($mutant);
-            $proven = $theirs instanceof Declarations && $its instanceof Declarations && $theirs->same($its)
+            $proven = is_string($theirs) && $theirs === $this->printer->declarations($mutant)
                 ? [...$proven, $key => $proof]
                 : $proven;
         }
 
         return new BeforeRunProofs($proven, $programs);
+    }
+
+    public function declarations(Contents $program): string|NotGiven
+    {
+        return $this->printer->declarations($program);
     }
 
     /** An original's name among the programs, one for every mutant of the same text. */

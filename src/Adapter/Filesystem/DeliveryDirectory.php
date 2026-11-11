@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 use function array_map;
 
 use Closure;
-use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
@@ -19,6 +18,8 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\CachePack;
+use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\EncodedLedger;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -144,9 +145,9 @@ final readonly class DeliveryDirectory
      */
     public function cache(Contents $request, Contents $entries): Written|CannotJudge
     {
-        $pack = $this->directory->write(Path::of(CacheDelivery::ENTRIES), $entries);
+        $pack = $this->directory->write(Path::of(CachePack::DELIVERED), $entries);
 
-        return $pack instanceof CannotJudge ? $pack : $this->directory->write(Path::of(CacheDelivery::REQUEST), $request);
+        return $pack instanceof CannotJudge ? $pack : $this->directory->write(Path::of(CacheRequest::DELIVERED), $request);
     }
 
     private function written(Delivery $delivery): Written|CannotJudge

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Outbreak;
+namespace NightWorksIO\MutationGate\Core\Reach;
 
 use function array_map;
 use function json_encode;
@@ -13,7 +13,6 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
-use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use stdClass;
 
 /**

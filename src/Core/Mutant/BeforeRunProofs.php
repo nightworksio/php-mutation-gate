@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Outbreak;
-
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
+namespace NightWorksIO\MutationGate\Core\Mutant;
 
 /**
  * What `outbreak.so` found of a run's mutants before any test ran (ADR-0130):

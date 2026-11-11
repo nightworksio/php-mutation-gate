@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Outbreak\ServedState;
+use NightWorksIO\MutationGate\Adapter\Serve\ServedState;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Serve\ServesState;

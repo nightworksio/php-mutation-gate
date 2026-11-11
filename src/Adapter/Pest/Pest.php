@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_values;
 
-use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -52,6 +51,7 @@ use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
+use NightWorksIO\MutationGate\Core\Runner\RunExtension;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -106,7 +106,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
         private Clock $clock = new WallClock(),
         private Bridges $bridges = new Bridges(),
         MapEngine|NotGiven $maps = new NotGiven(),
-        ShippedExtension|NotGiven $extension = new NotGiven(),
+        RunExtension|NotGiven $extension = new NotGiven(),
     ) {
         $this->tests = new TestFiles($project);
         $this->remembered = new Remembered($maps, $patching->toggled(Toggle::PestRemember));
@@ -146,7 +146,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
         OwnArchive|NotGiven $archive,
         string $plugin,
         MapEngine|NotGiven $maps = new NotGiven(),
-        ShippedExtension|NotGiven $extension = new NotGiven(),
+        RunExtension|NotGiven $extension = new NotGiven(),
     ): self|Invalid {
         $read = PestOptions::read($options);
 

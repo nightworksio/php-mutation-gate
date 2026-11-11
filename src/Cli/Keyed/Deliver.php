@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -165,7 +166,7 @@ final readonly class Deliver
         $trusted = TrustedRun::scopeIn(Variables::of($this->environment)) instanceof Scope;
 
         return match (true) {
-            ! is_file(sprintf('%s/%s', $from, CacheDelivery::REQUEST)) => NotGiven::value(),
+            ! is_file(sprintf('%s/%s', $from, CacheRequest::DELIVERED)) => NotGiven::value(),
             is_string($binary) => CacheDelivery::pushed(
                 Outbreak::at($binary, $from),
                 $from,

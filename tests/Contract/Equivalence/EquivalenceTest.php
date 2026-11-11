@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Opcache\PrintedDeclarations;
 use NightWorksIO\MutationGate\Adapter\Outbreak\OpArrays;
 use NightWorksIO\MutationGate\Adapter\Outbreak\ProvenBeforeRun;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -23,7 +24,7 @@ $prover = static function (): ProvenBeforeRun {
         is_string($extension) ? $extension : '/nonexistent/outbreak.so',
         Scratch::directory(),
         60.0,
-    ));
+    ), new PrintedDeclarations());
 };
 
 $expected = static fn(array $keys): array => is_string(getenv('OUTBREAK_EXTENSION')) ? $keys : [];
