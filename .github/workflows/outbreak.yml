@@ -89,6 +89,7 @@ jobs:
           coverage: none
           tools: php-config, phpize
       - run: bash .github/scripts/libclang.sh
+        working-directory: .
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: what failed
         if: failure()
@@ -117,6 +118,7 @@ jobs:
           coverage: none
           tools: php-config, phpize
       - run: bash .github/scripts/libclang.sh
+        working-directory: .
       - run: ci/install-tool.sh cargo-nextest
       - run: cargo nextest run --workspace --locked
       - name: what failed
@@ -148,6 +150,7 @@ jobs:
           coverage: none
           tools: php-config, phpize
       - run: bash .github/scripts/libclang.sh
+        working-directory: .
       - run: ci/install-tool.sh cargo-nextest
       - run: ci/install-tool.sh cargo-llvm-cov
       - run: >-
@@ -227,6 +230,7 @@ jobs:
           coverage: none
           tools: php-config, phpize
       - run: bash .github/scripts/libclang.sh
+        working-directory: .
       - run: cargo test --workspace --locked
       - name: what failed
         if: failure()
@@ -260,6 +264,7 @@ jobs:
           coverage: none
           tools: php-config, phpize
       - run: bash .github/scripts/libclang.sh
+        working-directory: .
       - run: ci/install-tool.sh cargo-nextest
       - run: ci/install-tool.sh cargo-mutants
       - env:
@@ -357,6 +362,7 @@ jobs:
           coverage: none
           tools: php-config, phpize
       - run: bash .github/scripts/libclang.sh
+        working-directory: .
       - run: cargo build --release --locked --package outbreak-ext
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       - working-directory: .
