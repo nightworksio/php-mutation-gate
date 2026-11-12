@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_values;
 
-use Closure;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -32,7 +31,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
-use NightWorksIO\MutationGate\Core\Native\MutantPlacement;
+use NightWorksIO\MutationGate\Core\Native\PlacesMutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
@@ -139,7 +138,6 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
      * served in a fresh run where this places it in the project (ADR-0148).
      *
      * @param class-string                                               $plugin
-     * @param Closure(string, Paths, Path, Path): MutantPlacement|NotGiven $placing
      */
     public static function fromOptions(
         Options $options,
@@ -151,7 +149,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
         string $plugin,
         MapEngine|NotGiven $maps = new NotGiven(),
         RunExtension|NotGiven $extension = new NotGiven(),
-        Closure|NotGiven $placing = new NotGiven(),
+        PlacesMutants|NotGiven $placing = new NotGiven(),
     ): self|Invalid {
         $read = PestOptions::read($options);
 

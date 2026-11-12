@@ -44,8 +44,11 @@ use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
+use NightWorksIO\MutationGate\Adapter\Native\PestPlacements;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
+use NightWorksIO\MutationGate\Adapter\Opcache\PrintedDeclarations;
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
+use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
@@ -215,7 +218,21 @@ it('registers Pest as a runner, in the vendor directory Composer installed the p
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('pest'), Options::none()))
-        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.'))), NotGiven::value(), PestPlugin::class, Outbreak::beneath(Options::none(), (string) getcwd(), Resources::at(Shipped::Outbreak))));
+        ->toEqual(Pest::fromOptions(
+            Options::none(),
+            ComposerVendor::of('.'),
+            new CapDirectory(),
+            new PackageDirectory(),
+            new LocalProcesses(
+                new SystemClock(),
+                Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.')),
+            ),
+            NotGiven::value(),
+            PestPlugin::class,
+            Outbreak::beneath(Options::none(), (string) getcwd(), Resources::at(Shipped::Outbreak)),
+            ShippedExtension::beneath(Options::none(), Resources::at(Shipped::Outbreak), new PrintedDeclarations()),
+            new PestPlacements(),
+        ));
 });
 
 it('registers the PHPUnit runner, in the vendor directory Composer installed the project into, from the options the flows write', function () use (

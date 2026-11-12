@@ -25,7 +25,10 @@ use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
+use NightWorksIO\MutationGate\Adapter\Native\PestPlacements;
+use NightWorksIO\MutationGate\Adapter\Opcache\PrintedDeclarations;
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
+use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest as PestRunner;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
@@ -859,6 +862,8 @@ it('tells each runner its timeouts and the classes of the registered mutators th
         NotGiven::value(),
         PestPlugin::class,
         Outbreak::beneath($options, (string) getcwd(), Resources::at(Shipped::Outbreak)),
+        ShippedExtension::beneath($options, Resources::at(Shipped::Outbreak), new PrintedDeclarations()),
+        new PestPlacements(),
     ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
             Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
@@ -942,6 +947,8 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
         NotGiven::value(),
         PestPlugin::class,
         Outbreak::beneath($pestOptions, (string) getcwd(), Resources::at(Shipped::Outbreak)),
+        ShippedExtension::beneath($pestOptions, Resources::at(Shipped::Outbreak), new PrintedDeclarations()),
+        new PestPlacements(),
     ))
         ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(
             Configs::options($options(...$declared)),

@@ -60,7 +60,7 @@ use NightWorksIO\MutationGate\Adapter\Jenkins\JenkinsPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
-use NightWorksIO\MutationGate\Adapter\Native\Placement;
+use NightWorksIO\MutationGate\Adapter\Native\PestPlacements;
 use NightWorksIO\MutationGate\Adapter\Opcache\PrintedDeclarations;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
@@ -216,7 +216,7 @@ final readonly class FirstParty implements Extension
                     PestPlugin::class,
                     Outbreak::beneath($options, self::root(), Resources::at(Shipped::Outbreak)),
                     ShippedExtension::beneath($options, Resources::at(Shipped::Outbreak), new PrintedDeclarations()),
-                    Placement::inPestRunner(...),
+                    new PestPlacements(),
                 ),
             )
             ->withReporter(BuiltinReporter::Console->named(), ConsoleReport::fromOptions(...))

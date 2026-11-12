@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use Closure;
-
 use function dirname;
 use function file_exists;
 use function file_put_contents;
@@ -27,6 +25,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Native\MutantPlacement;
+use NightWorksIO\MutationGate\Core\Native\PlacesMutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
@@ -59,13 +58,12 @@ final readonly class Project
     /** Why a run's orders cannot be told from an earlier run's. */
     private const string STALE_ORDER = 'An earlier run left orders in %s, and the gate cannot remove them.';
 
-    /** @param Closure(string, Paths, Path, Path): MutantPlacement|NotGiven $placing */
     private function __construct(
         private Root $root,
         private Paths $tests,
         private Path $workspace,
         private Path $vendor,
-        private Closure|NotGiven $placing,
+        private PlacesMutants|NotGiven $placing,
     ) {
     }
 
@@ -73,15 +71,13 @@ final readonly class Project
      * The project at a root, as the runner spells it (owner: flows), held as
      * its real path, serving a mutant where this places it from its root,
      * tests, vendor and gate's directories.
-     *
-     * @param Closure(string, Paths, Path, Path): MutantPlacement|NotGiven $placing
      */
     public static function at(
         string $root,
         Paths $tests,
         Path $workspace,
         Path $vendor,
-        Closure|NotGiven $placing = new NotGiven(),
+        PlacesMutants|NotGiven $placing = new NotGiven(),
     ): self {
         return new self(Root::of(self::real($root)), $tests, $workspace, $vendor, $placing);
     }
@@ -110,7 +106,7 @@ final readonly class Project
     {
         return $this->placing instanceof NotGiven
             ? $this->placing
-            : ($this->placing)($this->root(), $this->tests, $this->vendor, $this->workspace);
+            : $this->placing->placementIn($this->root(), $this->tests, $this->vendor, $this->workspace);
     }
 
     /** The root's real path, as Pest's coverage and the processes it starts take it. */
