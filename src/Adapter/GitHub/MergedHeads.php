@@ -321,12 +321,12 @@ final readonly class MergedHeads
             OwnScopeTrust::Refuse => $passed->usedOwnScope() ? NotGiven::value() : $ledger->proofs(),
             OwnScopeTrust::Reach => $passed->measuredOnOwnScope() || ! $own instanceof Paths
                 ? NotGiven::value()
-                : self::without($ledger->proofs(), $own),
+                : $this->without($ledger->proofs(), $own),
         };
     }
 
     /** These results, but those of these units. */
-    private static function without(Proofs $proofs, Paths $units): Proofs
+    private function without(Proofs $proofs, Paths $units): Proofs
     {
         return Proofs::of(
             ...array_filter([...$proofs], static fn(Proof $proof): bool => ! $units->has($proof->unit())),

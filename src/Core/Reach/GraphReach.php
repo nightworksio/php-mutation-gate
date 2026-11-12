@@ -82,7 +82,7 @@ final readonly class GraphReach
             return $reach;
         }
 
-        $files = $coverage instanceof Judges ? self::runBy($tests, $coverage) : $answer->joined($source);
+        $files = $coverage instanceof Judges ? $this->runBy($tests, $coverage) : $answer->joined($source);
 
         return $files instanceof Paths && count($files) > 0
             ? $reach->files(
@@ -107,7 +107,7 @@ final readonly class GraphReach
             : $reach;
     }
 
-    private static function runBy(Paths $tests, Judges $coverage): Paths
+    private function runBy(Paths $tests, Judges $coverage): Paths
     {
         $files = Paths::none();
 

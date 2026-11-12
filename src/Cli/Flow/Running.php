@@ -329,7 +329,7 @@ final readonly class Running
      * without a fresh map (ADR-0135) or a quick round that records lines
      * (ADR-0147).
      */
-    private static function recordingOf(Shard $shard): string
+    private function recordingOf(Shard $shard): string
     {
         $directory = Root::here()->at(Workspace::recording($shard->id()))->value();
 
@@ -696,8 +696,8 @@ final readonly class Running
         $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
         $narrowing = $request->narrowing()->pruning($pruned)->inTestPart($shard->testPart());
         $narrowing = match (true) {
-            $early => $narrowing->recordingInto(LineRecording::standingIn(self::recordingOf($shard))),
-            $this->recordsLines() => $narrowing->recordingInto(LineRecording::forTheMap(self::recordingOf($shard))),
+            $early => $narrowing->recordingInto(LineRecording::standingIn($this->recordingOf($shard))),
+            $this->recordsLines() => $narrowing->recordingInto(LineRecording::forTheMap($this->recordingOf($shard))),
             default => $narrowing,
         };
 

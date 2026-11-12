@@ -8,6 +8,11 @@ use function file_get_contents;
 use function in_array;
 use function is_file;
 use function is_string;
+
+use Pest\Mutate\Mutators\ControlStructures\IfNegated;
+use Pest\Mutate\Mutators\ControlStructures\TernaryNegated;
+use Pest\Mutate\Mutators\Logical\RemoveNot;
+
 use function strlen;
 use function substr;
 
@@ -23,11 +28,11 @@ use function substr;
  */
 final readonly class NegationTwins
 {
-    private const string REMOVE_NOT = 'Pest\\Mutate\\Mutators\\Logical\\RemoveNot';
+    private const string REMOVE_NOT = RemoveNot::class;
 
     private const array NEGATING = [
-        'Pest\\Mutate\\Mutators\\ControlStructures\\IfNegated',
-        'Pest\\Mutate\\Mutators\\ControlStructures\\TernaryNegated',
+        IfNegated::class,
+        TernaryNegated::class,
     ];
 
     private const string DOUBLED = '!!';

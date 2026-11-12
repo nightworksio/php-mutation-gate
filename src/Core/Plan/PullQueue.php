@@ -74,14 +74,14 @@ final readonly class PullQueue
         $others = [];
 
         foreach ($this->others as $number => $items) {
-            $left = self::except($items, $item);
+            $left = $this->except($items, $item);
 
             if ($left !== []) {
                 $others[$number] = $left;
             }
         }
 
-        return new self(self::except($this->own, $item), $others);
+        return new self($this->except($this->own, $item), $others);
     }
 
     /** The queue of its own items alone, as a job runs once its claims fail. */
@@ -94,7 +94,7 @@ final readonly class PullQueue
      * @param  list<Shard> $items
      * @return list<Shard>
      */
-    private static function except(array $items, ShardId $item): array
+    private function except(array $items, ShardId $item): array
     {
         return array_values(array_filter(
             $items,

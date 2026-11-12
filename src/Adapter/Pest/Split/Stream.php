@@ -453,7 +453,7 @@ final class Stream
 
         [$mutant, , $variables] = $this->plan->sites[$file][$id];
         $this->forked[sprintf('%s:%d', $file, $id)] = true;
-        $watch = self::watched();
+        $watch = $this->watched();
         $pid = $this->children->forked($mutant, $this->test, $copies);
         $this->deciding = false;
 
@@ -498,7 +498,7 @@ final class Stream
      * A watch on the call that reached the site being forked, the nearest
      * outside the gate, where `outbreak.so` is loaded; none otherwise.
      */
-    private static function watched(): int
+    private function watched(): int
     {
         $gate = substr(self::class, 0, -strlen(self::OWN));
 
