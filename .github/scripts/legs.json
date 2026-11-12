@@ -8,9 +8,11 @@
     "packages": "pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage",
     "support": [
       "tests/Support/Bucket.php",
+      "tests/Support/Checkout.php",
       "tests/Support/Cloud.php",
       "tests/Support/Clustered.php",
       "tests/Support/Configs.php",
+      "tests/Support/CoverageReports.php",
       "tests/Support/Ended.php",
       "tests/Support/Environment.php",
       "tests/Support/FixedTokens.php",
