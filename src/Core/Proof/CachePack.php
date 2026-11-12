@@ -47,7 +47,8 @@ final readonly class CachePack
 
     private const string NAMED = 'The proof cache\'s pack';
 
-    private const string OTHER = 'The proof cache\'s pack is of another class, base or format, so the run takes none of it.';
+    private const string OTHER
+        = 'The proof cache\'s pack is of another class, base or format, so the run takes none of it.';
 
     private const string UNREAD = 'The proof cache\'s pack holds an entry this gate does not read: %s';
 
@@ -71,8 +72,12 @@ final readonly class CachePack
     }
 
     /** The proofs a pack of this class at this base holds, within the ledger's limits; or why it holds none. */
-    public static function read(string $bytes, CacheClass $class, Digest $base, LedgerLimits $limits): Proofs|CannotJudge
-    {
+    public static function read(
+        string $bytes,
+        CacheClass $class,
+        Digest $base,
+        LedgerLimits $limits,
+    ): Proofs|CannotJudge {
         $text = $limits->admitsPacked(Bytes::length($bytes))
             ? Gzip::unpackAtMost($bytes, self::NAMED, $limits->unpacked())
             : TooLarge::because($limits->pastPacked());

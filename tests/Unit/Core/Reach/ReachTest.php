@@ -276,7 +276,7 @@ it('reaches those of the units a judged run left open that a change since the la
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
         ->and($reach->reaches(Unit::file(Path::of('src/Tax.php'))))->toBeFalse()
         ->and($reach->reaches(Unit::file(Path::of('src/Held.php'))))->toBeFalse()
-        ->and($said($reach))->toBe(['On the default branch since its last pass, at passed, a change reaches 1 of the units its last judged run left open.'])
+        ->and($said($reach))->toBe(["On the default branch since its last pass, at passed,\na change reaches 1 of the units its last judged run left open."])
         ->and($nothing()->andOpenSince($nothing(), $open, Revision::ref('passed')))->toEqual($nothing());
 });
 

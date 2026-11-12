@@ -47,8 +47,10 @@ final readonly class NegationTwins
         $otherNegating = in_array($otherMutator, self::NEGATING, strict: true);
 
         return match (true) {
-            $mutator === self::REMOVE_NOT && $otherNegating => self::doubledIn(self::read($copy), self::read($otherCopy)),
-            $negating && $otherMutator === self::REMOVE_NOT => self::doubledIn(self::read($otherCopy), self::read($copy)),
+            $mutator === self::REMOVE_NOT && $otherNegating
+                => self::doubledIn(self::read($copy), self::read($otherCopy)),
+            $negating && $otherMutator === self::REMOVE_NOT
+                => self::doubledIn(self::read($otherCopy), self::read($copy)),
             default => false,
         };
     }

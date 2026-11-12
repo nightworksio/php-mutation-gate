@@ -109,7 +109,9 @@ final readonly class TailShell implements Shell, StartsCommands
         return $ends;
     }
 
-    /** The same commands, started now where the shell starts them, their workers ended once they are awaited or stopped. */
+    /**
+     * The same commands, started now where the shell starts them, their workers ended once they are awaited or stopped.
+     */
     public function started(
         WorkerSlots $slots,
         Seconds|Unlimited $startingWithin,
@@ -162,7 +164,13 @@ final readonly class TailShell implements Shell, StartsCommands
     private function forking(WorkerSlots $slots, Command ...$commands): array
     {
         $booted = $slots->atMost($this->pool->slotsFor(ProcessCount::atLeastOne(count($commands))));
-        $sets = new TailWorkers($booted, $this->beside, $this->booting, $this->uncached, $this->pool->pace()->workerWait());
+        $sets = new TailWorkers(
+            $booted,
+            $this->beside,
+            $this->booting,
+            $this->uncached,
+            $this->pool->pace()->workerWait(),
+        );
         $forked = [];
 
         foreach ($commands as $command) {

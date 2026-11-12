@@ -159,7 +159,9 @@ final readonly class UnmutatedRuns
         };
     }
 
-    /** The places the controls run side by side in: the request's pool's, numbered after any a run beside them holds. */
+    /**
+     * The places the controls run side by side in: the request's pool's, numbered after any a run beside them holds.
+     */
     private function slotsOf(MutationRequest $request): WorkerSlots
     {
         return WorkerSlots::inPool($request->pool(), strval(getmypid()));

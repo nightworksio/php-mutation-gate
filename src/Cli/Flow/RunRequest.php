@@ -38,7 +38,8 @@ final readonly class RunRequest
             ->withholding($adapters->withheld)
             ->cappedAt($settings->runner()->memory())
             ->across(
-                Pool::of(ProcessCount::single(), $settings->runner()->workers())->pacedBy($settings->runner()->pace($settings->triage()->bounds()->unmeasuredStartUp())),
+                Pool::of(ProcessCount::single(), $settings->runner()->workers())
+                    ->pacedBy($settings->runner()->pace($settings->triage()->bounds()->unmeasuredStartUp())),
             );
     }
 }

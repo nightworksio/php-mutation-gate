@@ -102,7 +102,7 @@ final class Stream
     /** Whether the current test runs in a process of its own, where the parent collects none of its lines. */
     private bool $own = false;
 
-    /** @var array<string, list<int>> every line pcov reported in each file the parent's tests loaded, executed or not */
+    /** @var array<string, list<int>> each line pcov reported in each file the parent's tests loaded, executed or not */
     private array $reported = [];
 
     /** Whether the stream boots the application it hands each test's own process (`splitStream.bootOnce`). */
@@ -271,7 +271,11 @@ final class Stream
         $this->own = true;
 
         if ($this->recording !== false) {
-            $own = StreamLine::covered($this->test, [], new TestEnded(passed: false, troubled: false, own: true, seconds: 0.0));
+            $own = StreamLine::covered(
+                $this->test,
+                [],
+                new TestEnded(passed: false, troubled: false, own: true, seconds: 0.0),
+            );
             file_put_contents($this->plan->recording, $own, FILE_APPEND | LOCK_EX);
         }
 
@@ -308,7 +312,11 @@ final class Stream
             [$executed, $reported] = Recorded::stop($this->recording, $this->reported);
             $this->reported += $reported;
             $ended = new TestEnded(! $this->failed, $this->troubled, $this->own, $seconds);
-            file_put_contents($this->plan->recording, StreamLine::covered($this->test, $executed, $ended), FILE_APPEND | LOCK_EX);
+            file_put_contents(
+                $this->plan->recording,
+                StreamLine::covered($this->test, $executed, $ended),
+                FILE_APPEND | LOCK_EX,
+            );
         }
 
         foreach ($this->watching as $mutant => $watch) {

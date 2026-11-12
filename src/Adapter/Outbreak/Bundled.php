@@ -87,9 +87,15 @@ final readonly class Bundled
             );
     }
 
-    /** The extension for a PHP of this minor on a machine of this OS family and architecture, as for `extensionIn()`. */
-    public static function extensionFor(string $directory, string $family, string $machine, string $minor): string|NotGiven
-    {
+    /**
+     * The extension for a PHP of this minor on a machine of this OS family and architecture, as for `extensionIn()`.
+     */
+    public static function extensionFor(
+        string $directory,
+        string $family,
+        string $machine,
+        string $minor,
+    ): string|NotGiven {
         $platform = Platform::of($family, $machine);
 
         if (! $platform instanceof Platform || $platform->isWindows()) {

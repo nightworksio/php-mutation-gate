@@ -45,7 +45,13 @@ final readonly class RunnerPacing
     {
         $pace = RunnerPace::standard();
 
-        return new self($pace->recycleAfter(), $pace->warmSlack(), Polling::INTERVAL, Absent::setting(), Absent::setting());
+        return new self(
+            $pace->recycleAfter(),
+            $pace->warmSlack(),
+            Polling::INTERVAL,
+            Absent::setting(),
+            Absent::setting(),
+        );
     }
 
     public function over(self $later): self

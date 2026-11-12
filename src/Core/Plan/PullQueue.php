@@ -50,7 +50,9 @@ final readonly class PullQueue
         return new self(self::longestFirst($own), $others);
     }
 
-    /** The next item to take: the first of its own, else the last of the longest other list; none where none is left. */
+    /**
+     * The next item to take: the first of its own, else the last of the longest other list; none where none is left.
+     */
     public function next(): Shard|NotGiven
     {
         if ($this->own !== []) {

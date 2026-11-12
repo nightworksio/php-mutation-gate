@@ -120,7 +120,9 @@ final readonly class Ci implements Setting
         return new self(Json::at('ci.mergedOwnScopeProofs', OwnScopeTrust::Reach->value));
     }
 
-    /** `ci.mergedOwnScopeProofs`: `refuse`: a merged pull request's pass that took any own-scope proof spares nothing. */
+    /**
+     * `ci.mergedOwnScopeProofs`: `refuse`: a merged pull request's pass that took any own-scope proof spares nothing.
+     */
     public static function refusingMergedOwnScopeProofs(): self
     {
         return new self(Json::at('ci.mergedOwnScopeProofs', OwnScopeTrust::Refuse->value));

@@ -67,7 +67,10 @@ final readonly class Outbreak implements Setting
         return new self(Json::at('outbreak.forkStates', value: false));
     }
 
-    /** `outbreak.recheckTouchedKills` on, as by default: a stream's kill by a test that touched nondeterminism is judged again. */
+    /**
+     * `outbreak.recheckTouchedKills` on, as by default: a stream's kill by a test that touched nondeterminism is judged
+     * again.
+     */
     public static function touchedKillsRechecked(): self
     {
         return new self(Json::at('outbreak.recheckTouchedKills', value: true));
@@ -124,7 +127,9 @@ final readonly class Outbreak implements Setting
         return new self(Json::at('outbreak.lines', value: false));
     }
 
-    /** `outbreak.steps` on, as by default: a stream holds a child to its parent's steps where `outbreak.so` counts them. */
+    /**
+     * `outbreak.steps` on, as by default: a stream holds a child to its parent's steps where `outbreak.so` counts them.
+     */
     public static function stepsCounted(): self
     {
         return new self(Json::at('outbreak.steps', value: true));
@@ -142,7 +147,9 @@ final readonly class Outbreak implements Setting
         return new self(Json::at('outbreak.stepFloor', $steps));
     }
 
-    /** `outbreak.serve.enabled`, as by default: `outbreak serve` holds the project's state where the binary is in use. */
+    /**
+     * `outbreak.serve.enabled`, as by default: `outbreak serve` holds the project's state where the binary is in use.
+     */
     public static function serving(): self
     {
         return new self(Json::at('outbreak.serve.enabled', value: true));
@@ -166,13 +173,17 @@ final readonly class Outbreak implements Setting
         return new self(Json::at('outbreak.serve.syncEvery', $duration));
     }
 
-    /** `outbreak.serve.debounce`: how long the changes the daemon watches settle before a round starts, such as `50ms`. */
+    /**
+     * `outbreak.serve.debounce`: how long the changes the daemon watches settle before a round starts, such as `50ms`.
+     */
     public static function debounce(string $duration): self
     {
         return new self(Json::at('outbreak.serve.debounce', $duration));
     }
 
-    /** `outbreak.cache.store`, `auto`, as by default: a registry where one is named, the Actions cache under the action. */
+    /**
+     * `outbreak.cache.store`, `auto`, as by default: a registry where one is named, the Actions cache under the action.
+     */
     public static function cacheStoredAuto(): self
     {
         return new self(Json::at('outbreak.cache.store', 'auto'));

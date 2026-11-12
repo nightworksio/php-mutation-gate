@@ -38,8 +38,10 @@ use function sprintf;
  */
 final readonly class LearnedLimits
 {
-    private const string MULTIPLE
-        = 'timeouts.multiple learned: %s, rounded up from what %s in 100 of %d kills took over their tests\' time, in place of %d.';
+    private const string MULTIPLE = <<<'SAID'
+        timeouts.multiple learned: %s,
+        rounded up from what %s in 100 of %d kills took over their tests' time, in place of %d.
+        SAID;
 
     private const string MULTIPLE_COLD = 'timeouts.multiple learned: %d, the fixed one: the ledger holds no kill yet.';
 

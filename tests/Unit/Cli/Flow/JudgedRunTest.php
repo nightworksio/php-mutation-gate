@@ -25,8 +25,8 @@ it('leaves out a reach.everything glob whose files are all the gate\'s own, wher
 
     expect(array_map($judged->leavesOut(...), $globs))->toBe([true, true, false, false])
         ->and($judged->lines($globs))->toBe([
-            'reach.everything `src/Adapter/Pest/Warm/**` reaches nothing by itself: its files are the gate\'s own, which the judge runs in their place (ADR-0140).',
-            'reach.everything `bin/mutation-gate-pest-client` reaches nothing by itself: its files are the gate\'s own, which the judge runs in their place (ADR-0140).',
+            "reach.everything `src/Adapter/Pest/Warm/**` reaches nothing by itself:\nits files are the gate's own, which the judge runs in their place (ADR-0140).",
+            "reach.everything `bin/mutation-gate-pest-client` reaches nothing by itself:\nits files are the gate's own, which the judge runs in their place (ADR-0140).",
         ]);
 });
 

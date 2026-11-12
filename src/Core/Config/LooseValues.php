@@ -27,38 +27,47 @@ final readonly class LooseValues implements Countable, IteratorAggregate
 
     private const string NARROWED = 'a kill in a narrowed run counts without its replay, alone run or run again';
 
-    private const string HELD = 'a held unit\'s lines are read from the map, and a line its holding tests reach only'
-        . ' after another test\'s state leaves its mutants out of the score';
+    private const string HELD = <<<'SAID'
+        a held unit's lines are read from the map,
+        and a line its holding tests reach only after another test's state leaves its mutants out of the score
+        SAID;
 
     private const string TRIALS = 'a mutant left uncovered on a line that is not executable is left out of the score';
 
     private const string MERGED = 'a pushed tree a merged pull request\'s verdict passed on is not judged again';
 
-    private const string DELTA = 'a merged pull request whose landed tree differs carries what the change from its'
-        . ' judged head does not reach';
+    private const string DELTA
+        = 'a merged pull request whose landed tree differs carries what the change from its judged head does not reach';
 
-    private const string OWN_SCOPE = 'a merged pull request\'s results that an earlier commit of it wrote carry onto'
-        . ' the default branch';
+    private const string OWN_SCOPE
+        = 'a merged pull request\'s results that an earlier commit of it wrote carry onto the default branch';
 
     private const string LOCK = 'a moved package reaches less than every unit';
 
-    private const string ALONE = 'a kill\'s control runs its killers alone, so a test that fails only after the tests'
-        . ' before it counts as a kill';
+    private const string ALONE = <<<'SAID'
+        a kill's control runs its killers alone, so a test that fails only after the tests before it counts as a kill
+        SAID;
 
-    private const string CACHE = 'the default branch takes a proof another branch of the repository computed, from the'
-        . ' shared cache';
+    private const string CACHE
+        = 'the default branch takes a proof another branch of the repository computed, from the shared cache';
 
-    private const string TOUCHED = 'a split stream\'s kill by a test that touched the clock, randomness or I/O after its'
-        . ' fork counts without its own run';
+    private const string TOUCHED = <<<'SAID'
+        a split stream's kill by a test that touched the clock,
+        randomness or I/O after its fork counts without its own run
+        SAID;
 
-    private const string BOOT_ONCE = 'a split stream runs each test in a process forked from an application booted once,'
-        . ' where it no longer sees the state the tests before it left';
+    private const string BOOT_ONCE = <<<'SAID'
+        a split stream runs each test in a process forked from an application booted once,
+        where it no longer sees the state the tests before it left
+        SAID;
 
-    private const string RECONNECT = 'a split stream\'s child runs on a copy of each database its test holds open, which'
-        . ' lacks what the server keeps per session and no check of its dialect reads';
+    private const string RECONNECT = <<<'SAID'
+        a split stream's child runs on a copy of each database its test holds open,
+        which lacks what the server keeps per session and no check of its dialect reads
+        SAID;
 
-    private const string GRAPH = 'a change the coverage map cannot place reaches what the static graph joins to it,'
-        . ' not its whole package';
+    private const string GRAPH
+        = 'a change the coverage map cannot place reaches what the static graph joins to it, not its whole package';
 
     private const string OFF = 'false';
 

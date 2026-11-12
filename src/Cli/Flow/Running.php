@@ -130,13 +130,29 @@ final readonly class Running
     /** The same, stopping before its next batch once this says so, as at its deadline. */
     public function interrupted(Interruption $interruption): self
     {
-        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling, $this->ends, $this->log);
+        return new self(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            $interruption,
+            $this->ruling,
+            $this->ends,
+            $this->log,
+        );
     }
 
     /** The same, telling these what each batch judged as it ends (ADR-0120). */
     public function telling(BatchEnds $ends): self
     {
-        return new self($this->adapters, $this->settings, $this->setup, $this->interruption, $this->ruling, $ends, $this->log);
+        return new self(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            $this->interruption,
+            $this->ruling,
+            $ends,
+            $this->log,
+        );
     }
 
     /** The plan, where the checkout is the commit it was made on, as every shard and the verdict need. */
@@ -351,7 +367,11 @@ final readonly class Running
     /** The tests a quick round's streams' parents ran whole, taken into the kept map with the lines they recorded. */
     private function recordedKept(ShardId $id): void
     {
-        $recorded = RecordedMap::in(Root::here()->at(Workspace::recording($id))->value(), Root::here(), wholeOnly: true);
+        $recorded = RecordedMap::in(
+            Root::here()->at(Workspace::recording($id))->value(),
+            Root::here(),
+            wholeOnly: true,
+        );
 
         if ($recorded instanceof CoverageMap) {
             new KeptCoverage($this->adapters, $this->settings, $this->setup)->recorded($recorded);

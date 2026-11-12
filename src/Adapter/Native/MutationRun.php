@@ -79,7 +79,15 @@ final readonly class MutationRun
     /** This run, making only the mutants with these ids, as a run again does. */
     public function makingOnly(MutantIds $ids): self
     {
-        return new self($this->project, $this->engine, $this->run, $this->workforce, $this->laps, $ids, $this->duplicates);
+        return new self(
+            $this->project,
+            $this->engine,
+            $this->run,
+            $this->workforce,
+            $this->laps,
+            $ids,
+            $this->duplicates,
+        );
     }
 
     /**

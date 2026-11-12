@@ -64,8 +64,10 @@ use function sprintf;
  */
 final readonly class Planning
 {
-    private const string WAITS = 'The run cannot start without a fresh coverage map, and the plan was asked to plan'
-        . ' early alone, so it plans nothing: the caller that hands a fresh map runs it (ADR-0135).';
+    private const string WAITS = <<<'SAID'
+        The run cannot start without a fresh coverage map, and the plan was asked to plan early alone,
+        so it plans nothing: the caller that hands a fresh map runs it (ADR-0135).
+        SAID;
 
     private const string NO_NEW_CODE = <<<'SAID'
         A pull request's or merge group's new code is judged against %s, and git cannot tell what changed since it,

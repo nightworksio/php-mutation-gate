@@ -40,7 +40,9 @@ final readonly class BoundsOptions
     /** The option that holds what a run gets to start in where nothing measured it, `timeouts.startUp`. */
     public const string START_UP = 'startUp';
 
-    /** The option that holds how many times its measured start-up a run gets to start in, `timeouts.startUpMultiple`. */
+    /**
+     * The option that holds how many times its measured start-up a run gets to start in, `timeouts.startUpMultiple`.
+     */
     public const string START_UP_MULTIPLE = 'startUpMultiple';
 
     /** What each mutant's limit is kept between, as the options hold it; or why not. */

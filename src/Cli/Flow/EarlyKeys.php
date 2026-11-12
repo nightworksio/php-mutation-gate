@@ -31,11 +31,13 @@ use function sprintf;
  */
 final readonly class EarlyKeys
 {
-    private const string UNRECORDED = 'The run was planned without a fresh map, and shard %d left no map of what its'
-        . ' streams executed at %s, so its held units and keys cannot be judged.';
+    private const string UNRECORDED = <<<'SAID'
+        The run was planned without a fresh map, and shard %d left no map of what its streams executed at %s,
+        so its held units and keys cannot be judged.
+        SAID;
 
-    private const string UNREAD = 'The run was planned without a fresh map, and the map shard %d recorded cannot be'
-        . ' judged by: %s';
+    private const string UNREAD
+        = 'The run was planned without a fresh map, and the map shard %d recorded cannot be judged by: %s';
 
     /**
      * Every shard's recorded map merged, where the plan was planned early;

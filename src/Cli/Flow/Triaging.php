@@ -126,7 +126,9 @@ final readonly class Triaging
         return RunRequest::of($this->adapters, $this->settings, Paths::of($unit->path()), $unit->judgedBy())
             ->across(
                 Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
-                    ->pacedBy($this->settings->runner()->pace($this->settings->triage()->bounds()->unmeasuredStartUp())),
+                    ->pacedBy(
+                        $this->settings->runner()->pace($this->settings->triage()->bounds()->unmeasuredStartUp()),
+                    ),
             )
             ->searching(KillSearch::of(Ordering::of($order, $history), MatrixKind::FirstKiller));
     }

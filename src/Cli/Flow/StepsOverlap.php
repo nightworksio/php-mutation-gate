@@ -37,7 +37,9 @@ final readonly class StepsOverlap
         return new self($request, NotGiven::value(), NotGiven::value(), 0);
     }
 
-    /** These controls, this many, started at this time, the survivors running again in this request's pool beside them. */
+    /**
+     * These controls, this many, started at this time, the survivors running again in this request's pool beside them.
+     */
     public static function started(
         PendingControls $pending,
         DateTimeImmutable $from,

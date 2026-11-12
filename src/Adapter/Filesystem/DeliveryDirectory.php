@@ -147,7 +147,9 @@ final readonly class DeliveryDirectory
     {
         $pack = $this->directory->write(Path::of(CachePack::DELIVERED), $entries);
 
-        return $pack instanceof CannotJudge ? $pack : $this->directory->write(Path::of(CacheRequest::DELIVERED), $request);
+        return $pack instanceof CannotJudge
+            ? $pack
+            : $this->directory->write(Path::of(CacheRequest::DELIVERED), $request);
     }
 
     private function written(Delivery $delivery): Written|CannotJudge

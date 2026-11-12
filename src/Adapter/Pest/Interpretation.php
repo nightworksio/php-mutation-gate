@@ -66,8 +66,10 @@ final readonly class Interpretation
     private const string RAN_NO_TEST = 'its own run ran no test';
 
     /** What a run that counts its forks' states says of them (H5). */
-    private const string FORK_STATES = 'Split streams read the state %d forks left in parent and child; %d of them '
-        . 'found it alike, so the fork changed nothing the call returned or held (outbreak.forkStates).';
+    private const string FORK_STATES = <<<'SAID'
+        Split streams read the state %d forks left in parent and child;
+        %d of them found it alike, so the fork changed nothing the call returned or held (outbreak.forkStates).
+        SAID;
 
     public function __construct(
         private Project $project,

@@ -65,7 +65,9 @@ final readonly class WatchedJob
         );
     }
 
-    /** Why the shard stops: a watched job concluded in failure; none where none did, or the artifacts cannot be read. */
+    /**
+     * Why the shard stops: a watched job concluded in failure; none where none did, or the artifacts cannot be read.
+     */
     public function stopped(): string
     {
         $names = $this->artifacts instanceof RunArtifacts ? $this->artifacts->names() : [];

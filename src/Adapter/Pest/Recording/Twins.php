@@ -16,14 +16,15 @@ use Pest\Mutate\Mutation;
 use function sprintf;
 
 /**
- * The mutants Pest made that leave their file as one it made before them
- * does (ADR-0025), or that the negation rule makes one program with one made
+ * The mutants Pest made that leave their file as one it made before them does
+ * (ADR-0025), or that the negation rule makes one program with one made
  * before them (see NegationTwins, ADR-0137). Pest names each mutated copy by
  * a digest of its whole source, so two mutants of one file with the same copy
  * are one program. A rule's twin is recorded served as the copy of the mutant
- * that judges it. Under `mutants.duplicates: judge-each` none is a twin. Where the gate records the run, the patched generation loop keeps
- * each such mutant out of Pest's run, and the plugin records it beside those
- * Pest planned, so the adapter judges it as the first: by its copy's run.
+ * that judges it. Under `mutants.duplicates: judge-each` none is a twin.
+ * Where the gate records the run, the patched generation loop keeps each such
+ * mutant out of Pest's run, and the plugin records it beside those Pest
+ * planned, so the adapter judges it as the first: by its copy's run.
  *
  * @internal
  */

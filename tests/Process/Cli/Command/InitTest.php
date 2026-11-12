@@ -419,7 +419,7 @@ const INIT_NEXT = <<<'SAID'
 const INIT_CI_UNPINNED
     = 'Composer did not install the gate here, so the definition names <the commit of a release>: pin the commit of a release.';
 
-const INIT_CI_ARM = 'Where the repository is public, pass `runs-on: ubuntu-24.04-arm`: GitHub\'s arm runners are free for it and spend fewer minutes, where every extension the tests need builds on arm (`doctor --online` checks).';
+const INIT_CI_ARM = "Where the repository is public, pass `runs-on: ubuntu-24.04-arm`: GitHub's arm runners are free for it and spend\nfewer minutes, where every extension the tests need builds on arm (`doctor --online` checks).";
 
 it('writes the GitHub one-step action --single asks for, and says which check to require', function (): void {
     [$project, $ran] = InitRuns::inLaravel(['--ci' => 'github', '--single' => true]);

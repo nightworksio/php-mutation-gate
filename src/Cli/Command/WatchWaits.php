@@ -35,7 +35,8 @@ final class WatchWaits
 
     private const string UNANSWERED = 'outbreak serve stopped answering (%s), so watch looks at the files every %s.';
 
-    private const string UNTOLD = 'outbreak serve did not tell of a change a look found, so watch looks at the files every %s.';
+    private const string UNTOLD
+        = 'outbreak serve did not tell of a change a look found, so watch looks at the files every %s.';
 
     private int $seen = 0;
 

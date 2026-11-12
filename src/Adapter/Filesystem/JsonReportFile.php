@@ -64,7 +64,9 @@ final readonly class JsonReportFile implements Configurable, Reporter, ReportsTh
     public function reportFrom(Verdict $verdict, EncodedReport $report): Written|NotWritten
     {
         return $this->path->write(
-            $this->tests === ReportTests::All ? $report->text() : JsonText::encode($this->tests->trimmed($report->data())),
+            $this->tests === ReportTests::All
+                ? $report->text()
+                : JsonText::encode($this->tests->trimmed($report->data())),
         );
     }
 }

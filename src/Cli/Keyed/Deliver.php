@@ -100,7 +100,10 @@ final readonly class Deliver
         $pushed = is_string($from) ? $this->cachePushed($from) : NotGiven::value();
 
         if (! $pushed instanceof NotGiven) {
-            $output->writeln($pushed instanceof Written ? $pushed->said() : $pushed->why(), OutputInterface::OUTPUT_RAW);
+            $output->writeln(
+                $pushed instanceof Written ? $pushed->said() : $pushed->why(),
+                OutputInterface::OUTPUT_RAW,
+            );
         }
 
         return $sent->exit()->value;
@@ -173,7 +176,9 @@ final readonly class Deliver
                 $trusted,
                 Variables::of($this->environment),
             ),
-            default => NotWritten::because('No Outbreak binary ships for this machine, so deliver pushes no proof pack.'),
+            default => NotWritten::because(
+                'No Outbreak binary ships for this machine, so deliver pushes no proof pack.',
+            ),
         };
     }
 }

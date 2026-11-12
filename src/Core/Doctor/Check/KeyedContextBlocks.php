@@ -29,8 +29,10 @@ final readonly class KeyedContextBlocks
 {
     private const string FOUND = 'A pull request and the default branch resolve %s differently.';
 
-    private const string WHY = 'Each is in a proof\'s key, so a pull request takes none of the default branch\'s'
-        . ' proofs of the units it reaches, and runs them.';
+    private const string WHY = <<<'SAID'
+        Each is in a proof's key, so a pull request takes none of the
+        default branch's proofs of the units it reaches, and runs them.
+        SAID;
 
     private const string FIX = 'Set them alike for pr and main, or outside both blocks.';
 

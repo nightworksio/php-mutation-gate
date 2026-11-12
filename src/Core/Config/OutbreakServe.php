@@ -71,7 +71,9 @@ final readonly class OutbreakServe
         );
     }
 
-    /** `outbreak.serve.enabled`: whether `outbreak serve` holds the state where the binary is in use; true by default. */
+    /**
+     * `outbreak.serve.enabled`: whether `outbreak serve` holds the state where the binary is in use; true by default.
+     */
     public function enabled(): bool
     {
         return $this->enabled instanceof Absent || $this->enabled;
@@ -80,7 +82,9 @@ final readonly class OutbreakServe
     /** `outbreak.serve.snapshotEvery`: how often, at most, the daemon writes its snapshot; ten minutes by default. */
     public function snapshotEvery(): Seconds
     {
-        return $this->snapshotEvery instanceof Seconds ? $this->snapshotEvery : Seconds::minutes(self::SNAPSHOT_MINUTES);
+        return $this->snapshotEvery instanceof Seconds
+            ? $this->snapshotEvery
+            : Seconds::minutes(self::SNAPSHOT_MINUTES);
     }
 
     /** `outbreak.serve.syncEvery`: how often, at most, the daemon syncs its journal to disk; a second by default. */
@@ -89,10 +93,14 @@ final readonly class OutbreakServe
         return $this->syncEvery instanceof Seconds ? $this->syncEvery : Seconds::of(self::SYNC_SECONDS);
     }
 
-    /** `outbreak.serve.debounce`: how long the changes the daemon watches settle before a round starts; 50ms by default. */
+    /**
+     * `outbreak.serve.debounce`: how long the changes the daemon watches settle before a round starts; 50ms by default.
+     */
     public function debounce(): Seconds
     {
-        return $this->debounce instanceof Seconds ? $this->debounce : Seconds::milliseconds(self::DEBOUNCE_MILLISECONDS);
+        return $this->debounce instanceof Seconds
+            ? $this->debounce
+            : Seconds::milliseconds(self::DEBOUNCE_MILLISECONDS);
     }
 
     /** These settings as a layer writes them, only those it sets. */

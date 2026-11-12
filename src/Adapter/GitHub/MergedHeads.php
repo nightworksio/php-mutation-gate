@@ -168,7 +168,9 @@ final readonly class MergedHeads
             : MergedRange::unproved();
     }
 
-    /** What a merge group's head is proved by: the pass of the pull request it was built for, into the default branch. */
+    /**
+     * What a merge group's head is proved by: the pass of the pull request it was built for, into the default branch.
+     */
     private function groupProved(PullRequestNumber $pullRequest, ProofStore $ledgers): MergedRange
     {
         $pull = $this->api->get(sprintf('/repos/%s/pulls/%d', $this->repository, $pullRequest->value()));
@@ -326,6 +328,8 @@ final readonly class MergedHeads
     /** These results, but those of these units. */
     private static function without(Proofs $proofs, Paths $units): Proofs
     {
-        return Proofs::of(...array_filter([...$proofs], static fn(Proof $proof): bool => ! $units->has($proof->unit())));
+        return Proofs::of(
+            ...array_filter([...$proofs], static fn(Proof $proof): bool => ! $units->has($proof->unit())),
+        );
     }
 }

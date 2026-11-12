@@ -238,7 +238,9 @@ final readonly class WatchCommand
     {
         $now = $looks->after();
 
-        return $now instanceof Watched && count($now->changesSince($seen)) === 0 ? $this->nextChange($now, $waits) : $now;
+        return $now instanceof Watched && count($now->changesSince($seen)) === 0
+            ? $this->nextChange($now, $waits)
+            : $now;
     }
 
     /**

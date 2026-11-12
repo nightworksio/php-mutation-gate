@@ -249,7 +249,8 @@ final readonly class Results
         Path $directory,
         Directory $project,
     ): array|CannotJudge|Path {
-        $jobs = [$item->worker()->number(), ...array_diff(array_keys(PlanJobs::of($plan)), [$item->worker()->number()])];
+        $own = $item->worker()->number();
+        $jobs = [$own, ...array_diff(array_keys(PlanJobs::of($plan)), [$own])];
         $read = [];
 
         foreach ($jobs as $job) {

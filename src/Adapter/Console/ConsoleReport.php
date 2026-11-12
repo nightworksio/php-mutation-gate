@@ -59,8 +59,10 @@ final readonly class ConsoleReport implements Configurable, Reporter
 
     private const string JUDGED = 'mutation-gate: %s';
 
-    private const string QUICK = 'mutation-gate: quick, not a verdict: covering tests only, no static check.'
-        . ' `mutation-gate pre-push` gives the verdict.';
+    private const string QUICK = <<<'SAID'
+        mutation-gate: quick, not a verdict: covering tests only, no static check.
+        `mutation-gate pre-push` gives the verdict.
+        SAID;
 
     private function __construct(private OutputInterface $output, private bool $quick = false)
     {

@@ -109,7 +109,9 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.startUp', $duration));
     }
 
-    /** `timeouts.startUpMultiple`: how many times a run of no test's measured start-up a mutant's run allows to start. */
+    /**
+     * `timeouts.startUpMultiple`: how many times a run of no test's measured start-up a mutant's run allows to start.
+     */
     public static function startUpMultiple(int|float $times): self
     {
         return new self(Json::at('timeouts.startUpMultiple', $times));
@@ -136,7 +138,10 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.tighter', $tighter));
     }
 
-    /** `timeouts.parts`, `true`: a mutant whose tests cannot fit `timeouts.most` in one run is judged in parts, as by default. */
+    /**
+     * `timeouts.parts`, `true`: a mutant whose tests cannot fit `timeouts.most` in one run is judged in parts, as by
+     * default.
+     */
     public static function inParts(): self
     {
         return new self(Json::at('timeouts.parts', value: true));

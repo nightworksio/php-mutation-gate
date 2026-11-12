@@ -63,9 +63,10 @@ final readonly class CiDefinition
         = 'Composer did not install the gate here, so the definition names %s: pin the commit of a release.';
 
     /** The arm runner `init` suggests to a public repository, which keeps `ubuntu-latest` otherwise. */
-    private const string ARM = 'Where the repository is public, pass `runs-on: %s`: GitHub\'s arm runners are free '
-        . 'for it and spend fewer minutes, where every extension the tests need builds on arm (`doctor --online` '
-        . 'checks).';
+    private const string ARM = <<<'SAID'
+        Where the repository is public, pass `runs-on: %s`: GitHub's arm runners are free for it and spend
+        fewer minutes, where every extension the tests need builds on arm (`doctor --online` checks).
+        SAID;
 
     private const string MISSING = 'The template %s is missing from the package. Reinstall it.';
 

@@ -26,8 +26,10 @@ use function sprintf;
  */
 final readonly class JudgedRun
 {
-    private const string LEFT_OUT
-        = 'reach.everything `%s` reaches nothing by itself: its files are the gate\'s own, which the judge runs in their place (ADR-0140).';
+    private const string LEFT_OUT = <<<'SAID'
+        reach.everything `%s` reaches nothing by itself:
+        its files are the gate's own, which the judge runs in their place (ADR-0140).
+        SAID;
 
     /** @param Paths $package the directories and files of the gate's own package, none where nothing judges the run */
     private function __construct(private Paths $package)

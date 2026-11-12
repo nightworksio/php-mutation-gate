@@ -52,13 +52,17 @@ use function sprintf;
  */
 final readonly class KeptCoverage
 {
-    private const string EARLY = 'The run is full and splits its streams, and no proof could spare a unit, so it'
-        . ' plans without a fresh map: its streams record what their tests execute (ADR-0135).';
+    private const string EARLY = <<<'SAID'
+        The run is full and splits its streams, and no proof could spare a unit, so it plans without a fresh map:
+        its streams record what their tests execute (ADR-0135).
+        SAID;
 
     private const string MEASURED = 'Coverage: measured %d of %d test files again; kept the rest from %s.';
 
-    private const string QUICK = 'Coverage, quick: measured %d of %d test files again; kept the rest from %s, and'
-        . ' covered %d changed source files by the tests that map and the static graph show running them.';
+    private const string QUICK = <<<'SAID'
+        Coverage, quick: measured %d of %d test files again; kept the rest from %s,
+        and covered %d changed source files by the tests that map and the static graph show running them.
+        SAID;
 
     private const string NONE_KEPT = 'Coverage: there is no kept map, so every test was measured.';
 

@@ -59,14 +59,19 @@ final readonly class LspCommand
 
     private const string STDIO_OPTION = self::LONG . self::STDIO;
 
-    private const string NO_BINARY = 'mutation-gate lsp needs the Outbreak binary, and none is in use: `outbreak.enabled` is off, or none is built for this machine.';
+    private const string NO_BINARY = <<<'SAID'
+        mutation-gate lsp needs the Outbreak binary, and none is in use:
+        `outbreak.enabled` is off, or none is built for this machine.
+        SAID;
 
     private const string UNSTARTED = 'mutation-gate lsp could not start the Outbreak binary.';
 
     public static function command(Composition $composition, string $script): Command
     {
         return new Command(self::NAME)
-            ->setDescription('Serve an editor the survivors watch finds, as a language server on standard input and output')
+            ->setDescription(
+                'Serve an editor the survivors watch finds, as a language server on standard input and output',
+            )
             ->addOption(
                 self::SEVERITY,
                 mode: InputOption::VALUE_REQUIRED,
@@ -83,25 +88,38 @@ final readonly class LspCommand
                 InputArgument::IS_ARRAY,
                 'The options watch runs with, after --',
             )
-            ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition, $script): int {
-                $composed = $composition->compose($input);
+            ->setCode(static fn(InputInterface $input, OutputInterface $output): int => self::run(
+                $composition,
+                $script,
+                $input,
+                $output,
+            ));
+    }
 
-                if (! $composed instanceof Composed) {
-                    return Failed::because($output, $composed);
-                }
+    /** What the command does: serves the editor the language server the Outbreak binary speaks. */
+    private static function run(
+        Composition $composition,
+        string $script,
+        InputInterface $input,
+        OutputInterface $output,
+    ): int {
+        $composed = $composition->compose($input);
 
-                $engine = $composed->adapters->maps;
-                $line = $engine instanceof Outbreak ? $engine->editing(
-                    $script,
-                    PHP_BINARY,
-                    CommandText::option($input, self::SEVERITY),
-                    self::watching($input),
-                ) : NotGiven::value();
+        if (! $composed instanceof Composed) {
+            return Failed::because($output, $composed);
+        }
 
-                return $line instanceof NotGiven
-                    ? Failed::because($output, CannotJudge::because(self::NO_BINARY))
-                    : self::served($line, $output);
-            });
+        $engine = $composed->adapters->maps;
+        $line = $engine instanceof Outbreak ? $engine->editing(
+            $script,
+            PHP_BINARY,
+            CommandText::option($input, self::SEVERITY),
+            self::watching($input),
+        ) : NotGiven::value();
+
+        return $line instanceof NotGiven
+            ? Failed::because($output, CannotJudge::because(self::NO_BINARY))
+            : self::served($line, $output);
     }
 
     /**

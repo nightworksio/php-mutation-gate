@@ -28,6 +28,9 @@ interface NoticesChanges
      */
     public function changed(array $directories, int $since, Seconds $wait): int|Unwatched|NotWritten;
 
-    /** The generation of the power source's changes once one came past `$since`, or once `$wait` passed; why it watches none; or why it answers none. */
+    /**
+     * The generation of the power source's changes once one came past `$since`, or once `$wait` passed; why it watches
+     * none; or why it answers none.
+     */
     public function powered(int $since, Seconds $wait): int|Unwatched|NotWritten;
 }

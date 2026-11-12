@@ -11,11 +11,12 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 
 /**
  * The newest commit of a scope whose verdict passed: the check-run the verdict
- * reported under, how many proofs of the scope's own ledger it used, whether
- * its coverage map was measured against the map the scope keeps, when the
- * verdict passed and the release of the gate that judged it, and the units whose
- * results it took from its own scope's proofs, where the record says so. A passing run of another scope is trusted only where it used neither, which
- * its own code could have written (ADR-0007).
+ * reported under, how many proofs of the scope's own ledger it used, whether its
+ * coverage map was measured against the map the scope keeps, when the verdict
+ * passed and the release of the gate that judged it, and the units whose results
+ * it took from its own scope's proofs, where the record says so. A passing run
+ * of another scope is trusted only where it used neither, which its own code
+ * could have written (ADR-0007).
  */
 final readonly class Passed
 {

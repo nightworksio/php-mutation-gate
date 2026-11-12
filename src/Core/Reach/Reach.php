@@ -32,8 +32,10 @@ final readonly class Reach
 
     private const string SINCE_JUDGED = 'On the default branch since its last judged run, at %s: %s';
 
-    private const string OPEN = 'On the default branch since its last pass, at %s, a change reaches %d of the units'
-        . ' its last judged run left open.';
+    private const string OPEN = <<<'SAID'
+        On the default branch since its last pass, at %s,
+        a change reaches %d of the units its last judged run left open.
+        SAID;
 
     /**
      * @param ByPath<Lines> $lines the changed lines of each source file

@@ -235,7 +235,9 @@ final readonly class Triage implements Part
         return $this->limit instanceof Learned ? $bounds->learningFloor() : $bounds;
     }
 
-    /** `timeouts.startUpMultiple`: how many times a run of no test's measured start-up a mutant's run allows to start. */
+    /**
+     * `timeouts.startUpMultiple`: how many times a run of no test's measured start-up a mutant's run allows to start.
+     */
     public function startUpMultiple(): float
     {
         return $this->startUpMultiple instanceof Absent ? (float) MutantLimit::FACTOR : (float) $this->startUpMultiple;

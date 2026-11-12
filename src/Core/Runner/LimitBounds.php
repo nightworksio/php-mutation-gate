@@ -190,7 +190,9 @@ final readonly class LimitBounds
         return Seconds::of($this->unmeasuredStartUp);
     }
 
-    /** `timeouts.startUpMultiple`: how many times a run of no test's measured start-up a mutant's run allows to start. */
+    /**
+     * `timeouts.startUpMultiple`: how many times a run of no test's measured start-up a mutant's run allows to start.
+     */
     public function startUpMultiple(): float
     {
         return $this->startUpMultiple;

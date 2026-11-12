@@ -39,13 +39,14 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * that head, the branch was up to date and its run judged exactly the tree
  * that landed, so those commits reach nothing and only what is uncommitted
  * counts; and so where a commit is a merge group's whose verdict passed on
- * it. Under `delta`, a landed tree that differs reaches what changed from
- * the head the pull request's verdict judged (ADR-0139). On a merge group, `GITHUB_REF` names the pull request it was built
- * for, and the group reaches nothing where its tree is that pull request's
- * head, whose verdict passed there (ADR-0022, ADR-0049). A range of more
- * commits than the proving range holds, or one commit it cannot prove, is
- * read from the other source whole. Where the checkout stands, and what
- * changed from a commit itself, the other source says.
+ * it. Under `delta`, a landed tree that differs reaches what changed from the
+ * head the pull request's verdict judged (ADR-0139). On a merge group,
+ * `GITHUB_REF` names the pull request it was built for, and the group reaches
+ * nothing where its tree is that pull request's head, whose verdict passed
+ * there (ADR-0022, ADR-0049). A range of more commits than the proving range
+ * holds, or one commit it cannot prove, is read from the other source whole.
+ * Where the checkout stands, and what changed from a commit itself, the other
+ * source says.
  *
  * @internal
  */

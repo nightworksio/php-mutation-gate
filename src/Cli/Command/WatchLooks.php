@@ -36,7 +36,8 @@ final class WatchLooks
 
     /**
      * @param Closure(Watched): (Watched|CannotJudge) $look
-     * @param Closure(): (bool|NotGiven)              $told whether the daemon told of a change since it was last asked; none where it watches nothing
+     * @param Closure(): (bool|NotGiven)              $told whether the daemon told of a change since it was last asked;
+     *                                                      none where it watches nothing
      */
     public function __construct(
         private readonly Closure $look,

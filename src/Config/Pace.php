@@ -11,10 +11,10 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 /**
  * How a runner paces its work: `runner.recycleAfter`, how many runs a batch holds for each place, 16;
  * `runner.warmSlack`, how long a warm worker may run past the end and the longest run's limit, such as `1m`; and
- * `runner.poll`, how many seconds the gate waits between looks at a process it waits on, 0.01; and
- * `runner.processes`, how many mutants it runs at once, one per core; and `runner.workerWait`, how long the gate waits
- * for a warm worker to start or to end, `timeouts.startUp` where no layer sets it. `Runner::paced()` takes it for the runner it
- * chooses, and `Gate::with()` for a layer that chooses none.
+ * `runner.poll`, how many seconds the gate waits between looks at a process it waits on, 0.01; and `runner.processes`,
+ * how many mutants it runs at once, one per core; and `runner.workerWait`, how long the gate waits for a warm worker
+ * to start or to end, `timeouts.startUp` where no layer sets it. `Runner::paced()` takes it for the runner it chooses,
+ * and `Gate::with()` for a layer that chooses none.
  */
 final readonly class Pace implements Setting
 {

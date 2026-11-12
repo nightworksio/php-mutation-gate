@@ -46,8 +46,10 @@ final readonly class ConfigSuggest
     public const string OFF = "Suggestions are off: suggest.enabled is false, so nothing is proposed.\n";
 
     /** What it warns of where the `pr` and `main` blocks resolve a keyed setting differently. */
-    private const string KEYED = 'Warning: a pull request and the default branch resolve %s differently, so a pull'
-        . ' request takes none of the default branch\'s proofs of what it reaches. Set them alike for pr and main.';
+    private const string KEYED = <<<'SAID'
+        Warning: a pull request and the default branch resolve %s differently,
+        so a pull request takes none of the default branch's proofs of what it reaches. Set them alike for pr and main.
+        SAID;
 
     public static function command(
         Composition $composition,

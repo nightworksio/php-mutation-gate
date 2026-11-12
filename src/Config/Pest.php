@@ -97,7 +97,10 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.trials', value: false));
     }
 
-    /** `pest.valueReaders`, `true`: a declared value's lines are covered by the tests that read it (ADR-0037), as by default. */
+    /**
+     * `pest.valueReaders`, `true`: a declared value's lines are covered by the tests that read it (ADR-0037), as by
+     * default.
+     */
     public static function readingValues(): self
     {
         return new self(Json::at('pest.valueReaders', value: true));
@@ -109,19 +112,27 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.valueReaders', value: false));
     }
 
-    /** `pest.narrow`, `true`: a patched mutant's own run loads only the test files its covering tests need, as by default. */
+    /**
+     * `pest.narrow`, `true`: a patched mutant's own run loads only the test files its covering tests need, as by
+     * default.
+     */
     public static function narrowing(): self
     {
         return new self(Json::at('pest.narrow', value: true));
     }
 
-    /** `pest.narrow`, `false`: every mutant's own run loads every test file, and no narrowed kill needs vouching for. */
+    /**
+     * `pest.narrow`, `false`: every mutant's own run loads every test file, and no narrowed kill needs vouching for.
+     */
     public static function unnarrowed(): self
     {
         return new self(Json::at('pest.narrow', value: false));
     }
 
-    /** `pest.narrowedKills`, `vouch`: a narrowed kill counts once its replay, alone run or run again vouches for it, as by default. */
+    /**
+     * `pest.narrowedKills`, `vouch`: a narrowed kill counts once its replay, alone run or run again vouches for it, as
+     * by default.
+     */
     public static function vouchingForNarrowedKills(): self
     {
         return new self(Json::at('pest.narrowedKills', NarrowedKillTrust::Vouch->value));
@@ -151,7 +162,9 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.longFilter', LongFilter::UntilKiller->value));
     }
 
-    /** `pest.preloaded`, `fresh`: a mutant whose file its own run loaded first is judged in a fresh run, as by default. */
+    /**
+     * `pest.preloaded`, `fresh`: a mutant whose file its own run loaded first is judged in a fresh run, as by default.
+     */
     public static function preloadedFresh(): self
     {
         return new self(Json::at('pest.preloaded', Preloaded::Fresh->value));
@@ -211,7 +224,10 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.overlapSteps', value: false));
     }
 
-    /** `pest.pcovOff`, `true`: a mutation run starts with pcov off unless its streams record lines with it, as by default. */
+    /**
+     * `pest.pcovOff`, `true`: a mutation run starts with pcov off unless its streams record lines with it, as by
+     * default.
+     */
     public static function pcovOff(): self
     {
         return new self(Json::at('pest.pcovOff', value: true));

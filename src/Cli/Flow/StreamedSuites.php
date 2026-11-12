@@ -34,8 +34,12 @@ final readonly class StreamedSuites
     private const string SUITE = '%s/suite.json';
 
     /** The suite left beside the map the streams recorded; nothing where any shard left none that can be read. */
-    public static function left(Composed $composed, Plan $plan, Path $results, CoverageMap $map): Written|CannotJudge|NotGiven
-    {
+    public static function left(
+        Composed $composed,
+        Plan $plan,
+        Path $results,
+        CoverageMap $map,
+    ): Written|CannotJudge|NotGiven {
         $suite = StreamedSuite::none();
 
         foreach ($plan as $shard) {

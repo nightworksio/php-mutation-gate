@@ -31,7 +31,9 @@ final readonly class CoverageDrivers
     public static function of(Patching $patching, bool $recordsWithPcov): array
     {
         return [
-            ...$patching->toggled(Toggle::PestPcovOff) && ! $recordsWithPcov ? [Recorded::ENABLED => self::PCOV_OFF] : [],
+            ...$patching->toggled(Toggle::PestPcovOff) && ! $recordsWithPcov
+                ? [Recorded::ENABLED => self::PCOV_OFF]
+                : [],
             ...$patching->toggled(Toggle::PestXdebugOff) ? [Xdebug::MODE_VARIABLE => self::XDEBUG_OFF] : [],
         ];
     }

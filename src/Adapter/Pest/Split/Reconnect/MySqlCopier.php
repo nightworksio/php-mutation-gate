@@ -39,8 +39,10 @@ use function strtolower;
 final readonly class MySqlCopier implements Copier
 {
     /** Holds where the Performance Schema is on and instruments this session. */
-    private const string WATCHED = "@@performance_schema AND (SELECT INSTRUMENTED FROM performance_schema.threads"
-        . " WHERE THREAD_ID = PS_CURRENT_THREAD_ID()) = 'YES'";
+    private const string WATCHED = <<<'SAID'
+        @@performance_schema AND (SELECT INSTRUMENTED FROM
+        performance_schema.threads WHERE THREAD_ID = PS_CURRENT_THREAD_ID()) = 'YES'
+        SAID;
 
     private const array STATE = [
         [
@@ -88,18 +90,23 @@ final readonly class MySqlCopier implements Copier
             + (SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA = DATABASE())
         SQL;
 
-    private const string TABLES = "SELECT TABLE_NAME FROM information_schema.TABLES"
-        . " WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'";
+    private const string TABLES = <<<'SAID'
+        SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'
+        SAID;
 
-    private const string COLUMNS = "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()"
-        . " AND TABLE_NAME = %s AND EXTRA NOT LIKE '%%GENERATED%%' ORDER BY ORDINAL_POSITION";
+    private const string COLUMNS = <<<'SAID'
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = %s AND EXTRA NOT LIKE '%%GENERATED%%' ORDER BY ORDINAL_POSITION
+        SAID;
 
     /** Rows copy as they stand: a zero in a counter stays zero, and no key or uniqueness is checked again. */
-    private const string AS_THEY_STAND = "SET SESSION sql_mode = 'NO_AUTO_VALUE_ON_ZERO', foreign_key_checks = 0,"
-        . ' unique_checks = 0';
+    private const string AS_THEY_STAND
+        = 'SET SESSION sql_mode = \'NO_AUTO_VALUE_ON_ZERO\', foreign_key_checks = 0, unique_checks = 0';
 
-    private const string CURRENT = 'SELECT DATABASE(), DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME'
-        . ' FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE()';
+    private const string CURRENT = <<<'SAID'
+        SELECT DATABASE(), DEFAULT_CHARACTER_SET_NAME,
+        DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE()
+        SAID;
 
     private const string CREATE = 'CREATE DATABASE %s CHARACTER SET %s COLLATE %s';
 

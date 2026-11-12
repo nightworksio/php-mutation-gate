@@ -55,11 +55,13 @@ final readonly class CacheDelivery
     /** A repository of a registry as a plain `host[:port]/path`, with no scheme, user, query or `..`. */
     private const string REPOSITORY = '~^[a-z0-9.-]+(?::[0-9]{1,5})?/(?!/)(?!.*\.\.)[a-z0-9._/-]+$~D';
 
-    private const string NO_REGISTRY = 'The workflow names no registry in MUTATION_GATE_REGISTRY, so no proof pack moves.';
+    private const string NO_REGISTRY
+        = 'The workflow names no registry in MUTATION_GATE_REGISTRY, so no proof pack moves.';
 
     private const string UNSAFE = 'MUTATION_GATE_REGISTRY is no plain host[:port]/path, so no proof pack moves.';
 
-    private const string ELSEWHERE = 'The proof cache\'s request names another registry than the workflow\'s, so deliver pushes nothing.';
+    private const string ELSEWHERE
+        = 'The proof cache\'s request names another registry than the workflow\'s, so deliver pushes nothing.';
 
     private const string UNTRUSTED = 'This run writes no default branch ledger, so deliver pushes no trusted pack.';
 
@@ -111,7 +113,8 @@ final readonly class CacheDelivery
             return $registry;
         }
 
-        $request = CacheRequest::to(CacheStore::Oci, $registry, Digest::ofNothing(), LedgerLimits::standard())->newest();
+        $request = CacheRequest::to(CacheStore::Oci, $registry, Digest::ofNothing(), LedgerLimits::standard())
+            ->newest();
 
         foreach (CacheClass::cases() as $class) {
             $request = $request->for(

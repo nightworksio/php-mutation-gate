@@ -40,8 +40,8 @@ final readonly class ArmRunners
         a full one.
         WHY;
 
-    private const string FIX = 'Pass `runs-on: %s` to the reusable workflow, where every extension the tests need '
-        . 'builds on arm.';
+    private const string FIX
+        = 'Pass `runs-on: %s` to the reusable workflow, where every extension the tests need builds on arm.';
 
     public static function in(Observations $observed): Findings
     {

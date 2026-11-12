@@ -93,7 +93,10 @@ final readonly class Fetch
 
         if (is_string($to) && $this->environment->valueOf(CacheDelivery::REGISTRY) !== '') {
             $pulled = $this->packsPulled($to);
-            $output->writeln($pulled instanceof Written ? $pulled->said() : $pulled->why(), OutputInterface::OUTPUT_RAW);
+            $output->writeln(
+                $pulled instanceof Written ? $pulled->said() : $pulled->why(),
+                OutputInterface::OUTPUT_RAW,
+            );
         }
 
         return ExitCode::Passed->value;

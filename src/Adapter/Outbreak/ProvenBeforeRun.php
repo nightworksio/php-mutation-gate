@@ -34,8 +34,10 @@ final readonly class ProvenBeforeRun implements ProvesBeforeRun
 
     private const string MUTANT = 'mutant:%s';
 
-    private const string PROOF = 'outbreak.so %s compiled it to its original\'s op arrays before any test ran, and it '
-        . 'declares what its original declares, so no test can fail on it (ADR-0130).';
+    private const string PROOF = <<<'SAID'
+        outbreak.so %s compiled it to its original's op arrays before any test ran,
+        and it declares what its original declares, so no test can fail on it (ADR-0130).
+        SAID;
 
     public function __construct(private OpArrays $compiler, private PrintsDeclarations $printer)
     {

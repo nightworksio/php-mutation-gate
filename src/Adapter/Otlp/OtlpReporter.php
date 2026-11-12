@@ -109,7 +109,13 @@ final readonly class OtlpReporter implements Deferring, Reporter
         string $endpoint,
         Seconds|NotGiven $timeout = new NotGiven(),
     ): self {
-        return new self($client, $clock, $environment, $endpoint, $timeout instanceof Seconds ? $timeout : Seconds::of(self::TIMEOUT));
+        return new self(
+            $client,
+            $clock,
+            $environment,
+            $endpoint,
+            $timeout instanceof Seconds ? $timeout : Seconds::of(self::TIMEOUT),
+        );
     }
 
     /** The reporter in this process's environment, posting over the network. */

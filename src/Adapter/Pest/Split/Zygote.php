@@ -52,7 +52,8 @@ final class Zygote
 
     private const string SHIM = "<?php\n\nreturn \\%s::application(%s);\n";
 
-    private const string HANDED = 'The split stream ran this test in a process forked from its application, booted once.';
+    private const string HANDED
+        = 'The split stream ran this test in a process forked from its application, booted once.';
 
     private static ?object $booted = null;
 

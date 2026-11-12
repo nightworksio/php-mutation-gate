@@ -144,13 +144,19 @@ final readonly class Reach implements Setting
         return new self(Json::at('holds.coverage', HeldCoverageMode::Map->value));
     }
 
-    /** `reach.defaultBranchSince`, `judged`: the default branch's changes are read since its last judged run, as by default. */
+    /**
+     * `reach.defaultBranchSince`, `judged`: the default branch's changes are read since its last judged run, as by
+     * default.
+     */
     public static function sinceJudged(): self
     {
         return new self(Json::at('reach.defaultBranchSince', DefaultBranchSince::Judged->value));
     }
 
-    /** `reach.defaultBranchSince`, `judged-off-branch`: so off the default branch; a push to it reads since its last pass. */
+    /**
+     * `reach.defaultBranchSince`, `judged-off-branch`: so off the default branch; a push to it reads since its last
+     * pass.
+     */
     public static function sinceJudgedOffBranch(): self
     {
         return new self(Json::at('reach.defaultBranchSince', DefaultBranchSince::JudgedOffBranch->value));

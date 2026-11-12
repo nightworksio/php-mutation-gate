@@ -33,11 +33,15 @@ final readonly class GraphReach
     private const string NARROWED
         = '`%s` reaches the %d files the tests that reach it reach, by the static graph (`outbreak.graph`: narrow).';
 
-    private const string WIDENED = '`%s` changed, and the static graph joins %d test files to it, so the %d files'
-        . ' they run are reached too (`outbreak.graph`: widen).';
+    private const string WIDENED = <<<'SAID'
+        `%s` changed, and the static graph joins %d test files to it,
+        so the %d files they run are reached too (`outbreak.graph`: widen).
+        SAID;
 
-    private const string WRONG = 'The coverage map shows %d test files running files the static graph does not join'
-        . ' to them, so the graph answers nothing from them: %s.';
+    private const string WRONG = <<<'SAID'
+        The coverage map shows %d test files running files the static graph does not join to them,
+        so the graph answers nothing from them: %s.
+        SAID;
 
     public function __construct(
         private GraphUse $use = GraphUse::Off,

@@ -41,8 +41,8 @@ final readonly class PhpStanRestart
 
     private const string FOUND = 'PHPStan restarts itself without Xdebug for every check in %s.';
 
-    private const string WHY = 'Xdebug is loaded in the mode %s for it, so each check boots PHP twice before it'
-        . ' analyses anything.';
+    private const string WHY
+        = 'Xdebug is loaded in the mode %s for it, so each check boots PHP twice before it analyses anything.';
 
     private const string FIX = 'Leave xdebug.mode at off in staticCheck.php, as by default.';
 

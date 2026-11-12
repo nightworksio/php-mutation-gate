@@ -54,13 +54,18 @@ final class PowerReads
         return $this->last;
     }
 
-    /** Whether the daemon waited for a change of the power source, as long as a wait at most; it does not where none tells of one. */
+    /**
+     * Whether the daemon waited for a change of the power source, as long as a wait at most; it does not where none
+     * tells of one.
+     */
     public function waited(): bool
     {
         return ! $this->asked($this->every) instanceof NotGiven;
     }
 
-    /** Whether the daemon told of a change past the last one, waiting this long for one; none where none tells of one. */
+    /**
+     * Whether the daemon told of a change past the last one, waiting this long for one; none where none tells of one.
+     */
     private function asked(Seconds $wait): bool|NotGiven
     {
         $now = $this->notices instanceof NoticesChanges ? $this->notices->powered($this->seen, $wait) : $this->notices;
