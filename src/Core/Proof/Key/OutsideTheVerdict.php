@@ -222,13 +222,11 @@ final readonly class OutsideTheVerdict
             'src/Adapter/Zstd/**',
             'src/Adapter/Gcs/**',
             'src/Port/ProofStore.php',
-            'src/Port/ProofCache.php',
         ],
         'Reach, sampling and recheck: which units a run considers, and the order of a verdict\'s work.' => [
             'src/Core/Subsumption/**',
             'src/Cli/Flow/Inferring.php',
             'src/Core/Reach/**',
-            'src/Port/ReachGraph.php',
             'src/Core/Sample/**',
             'src/Core/Recheck/**',
             'src/Core/Tree/**',
