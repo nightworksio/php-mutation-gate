@@ -389,4 +389,36 @@ mod tests {
         );
         assert_eq!(found.joined("src/Money.php"), None);
     }
+
+    #[test]
+    fn checks_only_the_tests_it_can_follow() {
+        let map = BTreeMap::from([
+            ("tests/Gone.php".to_owned(), owned(&["src/Money.php"])),
+            ("src/Wallet.php".to_owned(), owned(&["src/Money.php"])),
+        ]);
+
+        assert_eq!(graph(&WALLET, &[]).checked(&map).wrong(), owned(&[]));
+
+        let unfollowed = graph(
+            &[
+                (
+                    "src/Bag.php",
+                    "<?php namespace App; final class Bag { public function __get($n) {} }",
+                    false,
+                ),
+                (
+                    "tests/BagTest.php",
+                    "<?php use App\\Bag; it('holds', fn () => new Bag());",
+                    true,
+                ),
+            ],
+            &[],
+        )
+        .checked(&BTreeMap::from([(
+            "tests/BagTest.php".to_owned(),
+            owned(&["src/Bag.php"]),
+        )]));
+
+        assert_eq!(unfollowed.wrong(), owned(&[]));
+    }
 }

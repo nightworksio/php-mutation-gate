@@ -234,4 +234,12 @@ mod tests {
 
         assert!(is_inside("src/a..b.php"));
     }
+
+    #[test]
+    fn refuses_a_test_the_map_names_twice() {
+        assert!(
+            read(br#"{"root": "/p", "sources": [], "tests": [], "reach": [], "map": {"t.php": [], "t.php": []}}"#)
+                .is_err_and(|refused| refused.expected == "each path once")
+        );
+    }
 }

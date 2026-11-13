@@ -656,4 +656,33 @@ mod tests {
             assert!(read(text).declares.is_empty());
         }
     }
+
+    #[test]
+    fn reads_the_rarer_ways_php_names_a_name() {
+        let found = read(
+            b"<?php namespace { function top() {} function &byref() {} }\n\
+              namespace App; use App\\Models as M; use ; new M\\User(); namespace\\Clock::now(); app('cache'); define($name, 1);",
+        );
+
+        for name in ["top", "byref"] {
+            assert!(
+                found.declares.contains(name),
+                "{name} in {:?}",
+                found.declares
+            );
+        }
+        for name in ["app\\models\\user", "app\\clock"] {
+            assert!(found.names.contains(name), "{name} in {:?}", found.names);
+        }
+        assert_eq!(found.unplaced, None);
+        assert!(read(b"<?php use App\\Money").names.is_empty());
+        assert_eq!(
+            read(b"<?php Foo::$bar();").unplaced,
+            Some("a call by a name held in a variable")
+        );
+        assert_eq!(
+            read(b"<?php app($key);").unplaced,
+            Some("a container read by a key held as it runs")
+        );
+    }
 }

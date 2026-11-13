@@ -323,4 +323,11 @@ mod tests {
         assert!(found.contains(&Token::Arrow));
         assert!(found.contains(&Token::DoubleColon));
     }
+
+    #[test]
+    fn reads_short_echo_tags_closing_comments_and_indented_heredocs() {
+        assert_eq!(names("<?= $a ?>Gone<?php Foo;"), ["Foo"]);
+        assert_eq!(names("<?php // Gone ?>Gone<?php Bar;"), ["Bar"]);
+        assert_eq!(names("<?php <<< 'N'\n  Gone\n  N;\nBaz;"), ["Baz"]);
+    }
 }

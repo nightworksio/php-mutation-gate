@@ -139,7 +139,7 @@ pub fn quoted(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{answer, quoted};
+    use super::{answer, names_of, quoted};
 
     #[test]
     fn answers_each_question_from_the_given_texts_and_the_disk() {
@@ -171,5 +171,16 @@ mod tests {
             Ok(r#"{"outbreak":1,"reaching":{"a.php":null,"b.php":null},"joined":{},"named":{},"wrong":[],"unplaced":{}}"#.to_owned()),
         );
         assert_eq!(quoted("a\"b\\c\u{1}"), r#""a\"b\\c\u0001""#);
+    }
+
+    #[test]
+    fn reads_a_file_the_request_gives_no_text_of_from_the_disk() {
+        let root = std::env::temp_dir().join(format!("outbreak-graph-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.php"), "<?php final class Disk {}").unwrap();
+
+        assert!(names_of(&root, "a.php", None).declares.contains("disk"));
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
