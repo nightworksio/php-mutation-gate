@@ -17,7 +17,7 @@ use function sprintf;
  *
  * @internal
  */
-final class BeforeRunPrograms
+final readonly class BeforeRunPrograms
 {
     /** The setting that shows no error among a child's answers. */
     public const string QUIET = 'display_errors=0';
