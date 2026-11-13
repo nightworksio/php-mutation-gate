@@ -22,16 +22,16 @@ $said = static fn(Reach $reach): array => array_map(
     iterator_to_array($reach->reasons(), preserve_keys: false),
 );
 
-$answer = static fn(Paths ...$wrong): GraphAnswer => GraphAnswer::of(
+$answer = static fn(Paths $wrong): GraphAnswer => GraphAnswer::of(
     ['src/Money.php' => Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/LedgerTest.php')), 'src/Clock.php' => NotGiven::value()],
     ['src/Money.php' => Paths::of(Path::of('src/Rate.php')), 'src/Lone.php' => Paths::none()],
     [],
-    $wrong === [] ? Paths::none() : $wrong[0],
+    $wrong,
     [],
 );
 
 it('narrows a change the map cannot place to the files the graph joins to it and those the map gives it', function () use ($nothing, $said, $answer): void {
-    $narrowed = new GraphReach(GraphUse::Narrow, $answer())->narrowed($nothing(), Path::of('src/Money.php'), Paths::of(Path::of('src/Mapped.php')));
+    $narrowed = new GraphReach(GraphUse::Narrow, $answer(Paths::none()))->narrowed($nothing(), Path::of('src/Money.php'), Paths::of(Path::of('src/Mapped.php')));
     $reaches = static fn(string $file): bool => $narrowed instanceof Reach && $narrowed->reachesAt(Path::of($file));
 
     expect($reaches('src/Rate.php'))->toBeTrue()
@@ -43,16 +43,16 @@ it('narrows a change the map cannot place to the files the graph joins to it and
 it('leaves a change to the reach rules where the graph does not narrow or gives no answer', function () use ($nothing, $answer): void {
     $money = Path::of('src/Money.php');
 
-    expect(new GraphReach(GraphUse::Widen, $answer())->narrowed($nothing(), $money, Paths::none()))->toBeInstanceOf(NotGiven::class)
+    expect(new GraphReach(GraphUse::Widen, $answer(Paths::none()))->narrowed($nothing(), $money, Paths::none()))->toBeInstanceOf(NotGiven::class)
         ->and(new GraphReach(GraphUse::Narrow)->narrowed($nothing(), $money, Paths::none()))->toBeInstanceOf(NotGiven::class)
-        ->and(new GraphReach(GraphUse::Narrow, $answer())->narrowed($nothing(), Path::of('src/Clock.php'), Paths::none()))->toBeInstanceOf(NotGiven::class);
+        ->and(new GraphReach(GraphUse::Narrow, $answer(Paths::none()))->narrowed($nothing(), Path::of('src/Clock.php'), Paths::none()))->toBeInstanceOf(NotGiven::class);
 });
 
 it('widens a changed source file to the files the map shows the test files the graph joins to it running', function () use ($nothing, $said, $answer): void {
     $judges = Judges::none()
         ->judging(Path::of('src/Ledger.php'), Paths::of(Path::of('tests/LedgerTest.php')))
         ->judging(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneyTest.php')));
-    $widened = new GraphReach(GraphUse::Widen, $answer())->widened($nothing(), Path::of('src/Money.php'), $judges);
+    $widened = new GraphReach(GraphUse::Widen, $answer(Paths::none()))->widened($nothing(), Path::of('src/Money.php'), $judges);
 
     expect($widened->reachesAt(Path::of('src/Ledger.php')))->toBeTrue()
         ->and($widened->reachesAt(Path::of('src/Money.php')))->toBeTrue()
@@ -64,7 +64,7 @@ it('widens a changed source file to the files the map shows the test files the g
 });
 
 it('widens a changed source file to the files the graph joins to it where there is no map', function () use ($nothing, $answer): void {
-    $widened = new GraphReach(GraphUse::Widen, $answer())->widened($nothing(), Path::of('src/Money.php'), NoMap::toRead());
+    $widened = new GraphReach(GraphUse::Widen, $answer(Paths::none()))->widened($nothing(), Path::of('src/Money.php'), NoMap::toRead());
 
     expect($widened->reachesAt(Path::of('src/Rate.php')))->toBeTrue();
 });
@@ -73,10 +73,10 @@ it('leaves the reach as it is where the graph does not widen, gives no answer or
     $reach = $nothing();
     $judges = Judges::none()->judging(Path::of('src/Money.php'), Paths::of(Path::of('tests/OtherTest.php')));
 
-    expect(new GraphReach(GraphUse::Narrow, $answer())->widened($reach, Path::of('src/Money.php'), NoMap::toRead()))->toBe($reach)
+    expect(new GraphReach(GraphUse::Narrow, $answer(Paths::none()))->widened($reach, Path::of('src/Money.php'), NoMap::toRead()))->toBe($reach)
         ->and(new GraphReach(GraphUse::Widen)->widened($reach, Path::of('src/Money.php'), NoMap::toRead()))->toBe($reach)
-        ->and(new GraphReach(GraphUse::Widen, $answer())->widened($reach, Path::of('src/Clock.php'), NoMap::toRead()))->toBe($reach)
-        ->and(new GraphReach(GraphUse::Widen, $answer())->widened($reach, Path::of('src/Money.php'), $judges))->toBe($reach);
+        ->and(new GraphReach(GraphUse::Widen, $answer(Paths::none()))->widened($reach, Path::of('src/Clock.php'), NoMap::toRead()))->toBe($reach)
+        ->and(new GraphReach(GraphUse::Widen, $answer(Paths::none()))->widened($reach, Path::of('src/Money.php'), $judges))->toBe($reach);
 });
 
 it('notes which test files the map shows the graph wrong of, and nothing where it is right of all', function () use ($nothing, $said, $answer): void {
@@ -87,6 +87,6 @@ it('notes which test files the map shows the graph wrong of, and nothing where i
         The coverage map shows 2 test files running files the static graph does not join to them,
         so the graph answers nothing from them: `tests/MoneyTest.php`, `tests/ClockTest.php`.
         SAID])
-        ->and(new GraphReach(GraphUse::Widen, $answer())->noted($reach))->toBe($reach)
+        ->and(new GraphReach(GraphUse::Widen, $answer(Paths::none()))->noted($reach))->toBe($reach)
         ->and(new GraphReach()->noted($reach))->toBe($reach);
 });
