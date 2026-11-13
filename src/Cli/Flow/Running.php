@@ -4,73 +4,35 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function is_dir;
-use function mkdir;
-
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
-use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
 use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
-use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordedMap;
-use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordedSuite;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
-use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
-use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
-use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
-use NightWorksIO\MutationGate\Core\Analysis\PreCheck;
-use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Config\Toggle;
-use NightWorksIO\MutationGate\Core\Cost\FirstRun;
-use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
-use NightWorksIO\MutationGate\Core\Coverage\Handed;
-use NightWorksIO\MutationGate\Core\Coverage\StreamedSuite;
-use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\FileMode;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\File\Root;
-use NightWorksIO\MutationGate\Core\Format\Secrets;
-use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
-use NightWorksIO\MutationGate\Core\Local\LocalLoop;
-use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
-use NightWorksIO\MutationGate\Core\Plan\Batching;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Plan\PullQueue;
-use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
-use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
-use NightWorksIO\MutationGate\Core\Proof\Writing;
-use NightWorksIO\MutationGate\Core\Pruning\Pruned;
-use NightWorksIO\MutationGate\Core\Runner\LineRecording;
-use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
-use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\NoProcessLog;
-use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Verdict\Doom;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
@@ -184,7 +146,13 @@ final readonly class Running
         if ($followed instanceof Plan && $id instanceof ShardId && $followed->pulls()) {
             $deadline = ShardDeadline::of($this->settings, $this->setup->clock->now());
 
-            return $this->pulled($followed, $id, $results, $deadline, $service);
+            return new PulledRuns($this->adapters, $this->settings)->left(
+                $followed,
+                $id,
+                $results,
+                $service,
+                fn(ShardId $item): ShardResult|CannotJudge => $this->resultLeft($followed, $item, $results, $deadline),
+            );
         }
 
         $stopped = WatchedJob::of(
@@ -201,7 +169,7 @@ final readonly class Running
         };
 
         if ($followed instanceof Plan && $id instanceof ShardId) {
-            $this->recordedLeft($followed, $id, $results);
+            $this->recording()->left($followed, $id, $results);
         }
 
         return ShardLeft::after($result, $this->written($result, $results));
@@ -222,9 +190,8 @@ final readonly class Running
     public function runAllBy(Plan $plan, Path $results, Deadline|Unlimited $deadline): Written|CannotJudge
     {
         foreach ($plan as $shard) {
-            $result = $this->resultOf($plan, $shard->id(), $deadline);
+            $result = $this->resultLeft($plan, $shard->id(), $results, $deadline);
             $ran = $this->written($result, $results);
-            $this->recordedLeft($plan, $shard->id(), $results);
 
             if ($ran instanceof CannotJudge) {
                 return $ran;
@@ -246,161 +213,23 @@ final readonly class Running
         return $budget instanceof Seconds ? Deadline::after($this->setup->clock->now(), $budget) : $budget;
     }
 
-    /**
-     * The items a job of a plan whose shards pull their work takes, each
-     * run as its shard would be and left where the verdict reads it, until
-     * none is left, one leaves the run no way to pass, or the job the run
-     * watches failed (ADR-0135). Where the claims
-     * cannot be reached, or fail, it runs its own items alone, and says so.
-     */
-    private function pulled(
+    /** What one shard of a plan came to, with what its streams recorded left where the run reads it. */
+    private function resultLeft(
         Plan $plan,
-        ShardId $job,
+        ShardId $id,
         Path $results,
         Deadline|Unlimited $deadline,
-        ArtifactAccess|CannotJudge|NotGiven $service,
-    ): ShardsLeft|CannotJudge {
-        $claims = ArtifactClaims::of(
-            $service,
-            $this->adapters->environment,
-            HttpExchange::over(HttpClient::create()),
-            $this->settings->shards()->pulling()->pull(),
-            $plan->digest(),
-            $job,
-        );
-        $queue = PullQueue::of($plan, $job);
-        $left = ShardsLeft::none($job);
-        $watched = WatchedJob::of($this->adapters->environment, $service, HttpExchange::over(HttpClient::create()));
+    ): ShardResult|CannotJudge {
+        $result = $this->resultOf($plan, $id, $deadline);
+        $this->recording()->left($plan, $id, $results);
 
-        if ($claims instanceof CannotJudge) {
-            [$queue, $left] = [$queue->ownAlone(), $left->alone($claims)];
-        }
-
-        while (($item = $queue->next()) instanceof Shard) {
-            $stopped = $watched->stopped();
-
-            if ($stopped !== '') {
-                return $left->stopped($stopped);
-            }
-
-            $queue = $queue->without($item->id());
-            $claim = $claims instanceof ArtifactClaims ? $claims->take($item->id()) : true;
-
-            if ($claim instanceof CannotJudge) {
-                [$claims, $queue, $left] = [$claim, $queue->ownAlone(), $left->alone($claim)];
-            }
-
-            $taken = $claim instanceof CannotJudge ? $item->worker()->number() === $job->number() : $claim;
-
-            if (! $taken) {
-                continue;
-            }
-
-            $result = $this->resultOf($plan, $item->id(), $deadline);
-            $this->recordedLeft($plan, $item->id(), $results);
-            $written = ShardLeft::after(
-                $result,
-                $result instanceof CannotJudge ? $result : $this->adapters->project->write(
-                    Workspace::pulled($results, $item->id(), $job),
-                    Contents::of(ShardResultFile::encode($result)),
-                ),
-            );
-
-            if ($written instanceof CannotJudge) {
-                return $written;
-            }
-
-            $left = $left->with($written);
-            $finished = $claims instanceof ArtifactClaims ? $claims->finish($item->id()) : $item->id();
-
-            if ($finished instanceof CannotJudge) {
-                [$claims, $queue, $left] = [$finished, $queue->ownAlone(), $left->alone($finished)];
-            }
-
-            if ($result instanceof ShardResult && $result->doomed()->stopped()) {
-                break;
-            }
-        }
-
-        return $left;
+        return $result;
     }
 
-    /**
-     * The directory a shard's streams record each test's lines in, made
-     * ready and holding nothing an earlier run recorded, in a run planned
-     * without a fresh map (ADR-0135) or a quick round that records lines
-     * (ADR-0147).
-     */
-    private function recordingOf(Shard $shard): string
+    /** What the shard's streams record of each test's lines. */
+    private function recording(): ShardRecording
     {
-        $directory = Root::here()->at(Workspace::recording($shard->id()))->value();
-
-        if (! is_dir($directory)) {
-            mkdir($directory, FileMode::OWNER_ONLY, recursive: true);
-        }
-
-        RecordedMap::cleared($directory);
-
-        return $directory;
-    }
-
-    /** Whether the run is a quick round whose streams record their tests' lines into the kept map (ADR-0147). */
-    private function recordsLines(): bool
-    {
-        return $this->adapters->loop instanceof LocalLoop && $this->adapters->loop->recordsLines();
-    }
-
-    /**
-     * The map a shard's streams recorded, and how its tests ran in them,
-     * left beside its result where the verdict reads them, in a run planned
-     * without a fresh map (ADR-0135); in a quick round that records lines,
-     * the tests its streams' parents ran whole taken into the kept map
-     * (ADR-0147); nothing in any other run.
-     */
-    private function recordedLeft(Plan $plan, ShardId $id, Path $results): void
-    {
-        if ($plan->briefing()->isEarly()) {
-            $this->standInLeft($id, $results);
-
-            return;
-        }
-
-        if ($this->recordsLines()) {
-            $this->recordedKept($id);
-        }
-    }
-
-    /** The tests a quick round's streams' parents ran whole, taken into the kept map with the lines they recorded. */
-    private function recordedKept(ShardId $id): void
-    {
-        $recorded = RecordedMap::in(
-            Root::here()->at(Workspace::recording($id))->value(),
-            Root::here(),
-            wholeOnly: true,
-        );
-
-        if ($recorded instanceof CoverageMap) {
-            new KeptCoverage($this->adapters, $this->settings, $this->setup)->recorded($recorded);
-        }
-    }
-
-    /** The map and the suite a shard's streams recorded, left beside its result for the verdict. */
-    private function standInLeft(ShardId $id, Path $results): void
-    {
-        $directory = Root::here()->at(Workspace::recording($id))->value();
-        $map = RecordedMap::in($directory, Root::here());
-        $suite = RecordedSuite::in($directory, Root::here());
-
-        if ($map instanceof CoverageMap) {
-            $this->adapters->project->write(
-                Workspace::recorded($results, $id),
-                Contents::of(CoverageMapFile::encode($map, Unplaced::map())),
-            );
-        }
-
-        if ($suite instanceof StreamedSuite) {
-            $this->adapters->project->write(Workspace::streamedSuite($results, $id), Contents::of($suite->encoded()));
-        }
+        return new ShardRecording($this->adapters, $this->settings, $this->setup);
     }
 
     /** A shard's result, left where the verdict reads it; or why it has none. */
@@ -440,7 +269,16 @@ final readonly class Running
             ->controllingKills($this->settings->triage()->flaky()->killControls());
         $search = $held instanceof Subsumption ? $search->holdingBack($held) : $search;
         $outcome = $map instanceof CoverageMap
-            ? $this->mutated($plan, $shard, $map, $search, $deadline, $stopwatch)
+            ? new Mutating(
+                $this->adapters,
+                $this->settings,
+                $this->setup,
+                $this->interruption,
+                $this->ruling,
+                $this->ends,
+                $this->log,
+                $this->recording(),
+            )->mutated($plan, $shard, $map, $search, $deadline, $stopwatch)
             : $map;
         $ended = $this->setup->clock->now();
         $spent = Seconds::between($started, $ended);
@@ -471,245 +309,5 @@ final readonly class Running
             ->withChecks($outcome->checks)
             ->withWarnings($outcome->result->warnings())
             ->withDoomed($outcome->doomed);
-    }
-
-    /**
-     * Every invocation's mutants, each limit laid on the start-up the shard
-     * times once before its first mutant (see StartUpTiming), each timeout,
-     * kill and mutant out of memory
-     * judged by its unmutated control (see Invoking), with the survivors a second run killed, of each
-     * unit but the held ones whose holding tests miss lines of them; or the
-     * first cannot judge. A shard handed no map cannot judge at all. Under a
-     * budget the units run in batches that fit the time left, and those the
-     * time ran out before are unjudged; a shard's job limit starts every unit
-     * and stops the runner (ADR-0114). A shard that stops once its run
-     * cannot pass runs in chunks, and the units after the chunk that doomed
-     * it are unjudged too, and static analysis checks each chunk's survivors
-     * before its doom is judged. Each kill with no evidence is unjudged
-     * (ADR-0014). Static analysis then checks the survivors no
-     * chunk's check took up, in the time left, the analyser warmed up once
-     * for the shard. Where `paths` entries match some of the shard's units,
-     * each group of them runs on its own, as PartitionedRuns says (ADR-0074).
-     */
-    private function mutated(
-        Plan $plan,
-        Shard $shard,
-        CoverageMap $map,
-        KillSearch $search,
-        Deadline|Unlimited $deadline,
-        Stopwatch $stopwatch,
-    ): Mutated|CannotJudge {
-        $from = $stopwatch->now();
-        $held = new HeldCoverage($this->adapters, $this->settings->reach()->heldCoverage())
-            ->checked($shard, $map, $plan->briefing()->isEarly());
-        $stopwatch->handled(Step::HeldCoverage, $from, $shard->units()->held());
-
-        if ($held instanceof CannotJudge) {
-            return $held;
-        }
-
-        $kept = HeldCoverage::kept($shard, $held->misses());
-        $groups = PathGroups::of($kept, $this->settings->effective()->setup()->paths());
-
-        return $groups->isWhole()
-            ? $this->mutatedKept($plan, $kept, $map, $held, $search, $deadline, $stopwatch)
-            : new PartitionedRuns($this->adapters, $this->settings, $this->ruling, $this->setup->clock->now())->mutated(
-                $groups,
-                fn(Adapters $adapters, Settings $settings, Shard $part): Mutated|CannotJudge => new self(
-                    $adapters,
-                    $settings,
-                    $this->setup,
-                    $this->interruption,
-                    $this->ruling,
-                    $this->ends,
-                    $this->log,
-                )->mutatedKept($plan, $part, $map, $held, $search, $deadline, $stopwatch),
-            );
-    }
-
-    /** The runs of a shard's units whose held coverage was checked, each with this run's adapters and settings. */
-    private function mutatedKept(
-        Plan $plan,
-        Shard $kept,
-        CoverageMap $map,
-        HeldChecks $held,
-        KillSearch $search,
-        Deadline|Unlimited $deadline,
-        Stopwatch $stopwatch,
-    ): Mutated|CannotJudge {
-        $samples = $this->settings->shards()->planning()->startUpSamples();
-        $startUp = new StartUpTiming($this->adapters, $samples)->of($map, $kept->units());
-        $pool = $this->adapters->pooled($this->settings->runner()->workers())
-            ->pacedBy($this->settings->runner()->pace($this->settings->triage()->bounds()->unmeasuredStartUp()))
-            ->startingIn($startUp)
-            ->learning($plan->briefing()->learned()->multiple());
-        $warmUp = new AnalyserWarmUp($this->settings->staticCheck()->dependents());
-        $analyser = $this->adapters->analyser;
-        $preChecking = $this->settings->staticCheck()->before() && $analyser instanceof AnalyserIdentity
-            ? new PreChecking(
-                $this->adapters,
-                $this->setup->clock,
-                $deadline,
-                $this->settings->staticCheck()->seconds(),
-                $this->known($plan, $analyser),
-                $warmUp,
-                $stopwatch,
-                PreCheck::briefed($plan->briefing())->after($this->settings->staticCheck()->preCheckAfter()),
-            )
-            : new NoPreCheck();
-        $checking = new SurvivorChecking(
-            $this->adapters,
-            $this->setup->clock,
-            $deadline,
-            $this->settings->staticCheck()->seconds(),
-            $stopwatch,
-            $warmUp,
-            $this->settings->toggles()->on(Toggle::StaticCheckAfter),
-        );
-        $invoking = new Invoking(
-            $this->adapters,
-            $this->settings,
-            $this->setup->clock,
-            $deadline,
-            $stopwatch,
-            $map,
-            $held->covered(),
-            $checking,
-            new PartedRuns($this->adapters, $this->settings, $map, $held->covered(), $this->log),
-            $preChecking,
-        );
-        $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);
-        $stops = $this->settings->reach()->failingFast()->mode()->stops();
-        $batched = new Batched(
-            $invoking,
-            $this->setup->clock,
-            $deadline,
-            ShardDeadline::fittedTo($this->settings, $deadline),
-            $this->interruption,
-            $doom,
-            $stops,
-            $this->ends->digested($plan->digests()),
-        );
-        $batching = Batching::opening($map->suiteDuration());
-        $pruned = $plan->considered()->pruned();
-        $requestFor = fn(Units $units): MutationRequest => $this->requestFor(
-            $units,
-            $kept,
-            $search,
-            $pool,
-            $pruned,
-            $plan->briefing()->isEarly(),
-        );
-        $spent = match (true) {
-            $doom instanceof Doom && $stops => $batched->spent(
-                $this->weighed($kept, $plan),
-                $batching->inChunksOf($this->settings->shards()->planning()->chunk()),
-                $requestFor,
-            ),
-            $this->settings->triage()->budget() instanceof Seconds
-                => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),
-            default => new Unbatched($invoking, $this->setup->clock, $doom, $deadline)->spent($kept, $requestFor),
-        };
-
-        if ($spent instanceof CannotJudge) {
-            return $spent;
-        }
-
-        $secrets = Secrets::withheldIn($this->adapters->environment, $this->adapters->withheld);
-        $evidence = Hidden::in($spent->evidence, $spent->mutants, $secrets);
-        $mutants = Unevidenced::judged($spent->mutants, $evidence);
-
-        return new Mutated(
-            MutationResult::of($mutants, $spent->skipped)
-                ->withWarnings($spent->warnings)
-                ->withEvidence($evidence),
-            $spent->flaky,
-            $held,
-            $spent->unjudged,
-            $spent->checks->plus(
-                $preChecking instanceof PreChecking ? $preChecking->checks() : SurvivorChecks::none(),
-            ),
-            $spent->doomed,
-        );
-    }
-
-    /**
-     * What the ledgers the plan reads learned of the shard's analyser: its
-     * own scope's first, then the default branch's (ADR-0020).
-     */
-    private function known(Plan $plan, AnalyserIdentity $identity): AnalyserHistory
-    {
-        $ledgers = Ledgers::read(
-            $this->adapters->proofs,
-            Standing::planned($plan),
-            Writing::Never,
-            $this->settings->proofs()->taken(),
-        );
-
-        return $ledgers->own()->learned()->analysers()->of($identity)
-            ->and($ledgers->defaultBranch()->learned()->analysers()->of($identity));
-    }
-
-    /**
-     * The shard's units in order, each weighed by what the cost model expects
-     * of it, with what the ledgers the plan reads learned, at its share of the
-     * shard's part of the test files; a shard measures no first run of its own.
-     *
-     * @return list<Weighed>
-     */
-    private function weighed(Shard $shard, Plan $plan): array
-    {
-        $ledgers = Ledgers::read(
-            $this->adapters->proofs,
-            Standing::planned($plan),
-            Writing::Never,
-            $this->settings->proofs()->taken(),
-        );
-        $weighed = [];
-
-        foreach ($shard->units() as $unit) {
-            $estimated = $ledgers->estimated($this->adapters->costs, $unit, FirstRun::unmeasured(), $this->setup->gate);
-            $weighed[] = Weighed::of($unit, $shard->package(), $estimated)->sharedAmong($shard->testPart());
-        }
-
-        return $weighed;
-    }
-
-    /**
-     * One invocation: a held unit alone by the tests that hold it, or files
-     * by the whole suite, reading the maps the plan handed the shard, each
-     * mutant's killers looked for as asked, leaving the mutators the plan
-     * prunes out of the files it prunes them in, its mutants judged by the
-     * shard's part of the test files (ADR-0117); in a run planned without a
-     * fresh map, its streams recording each test's lines (ADR-0135).
-     */
-    private function requestFor(
-        Units $units,
-        Shard $shard,
-        KillSearch $search,
-        Pool $pool,
-        Pruned $pruned,
-        bool $early,
-    ): MutationRequest {
-        $files = Paths::none();
-        $judgedBy = WholeSuite::tests();
-
-        foreach ($units as $unit) {
-            $files = $files->with($unit->path());
-            $judgedBy = $unit->judgedBy();
-        }
-
-        $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
-        $narrowing = $request->narrowing()->pruning($pruned)->inTestPart($shard->testPart());
-        $narrowing = match (true) {
-            $early => $narrowing->recordingInto(LineRecording::standingIn($this->recordingOf($shard))),
-            $this->recordsLines() => $narrowing->recordingInto(LineRecording::forTheMap($this->recordingOf($shard))),
-            default => $narrowing,
-        };
-
-        return $request->narrowedTo($files, $narrowing)
-            ->across($pool)
-            ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard->id()), Workspace::coverage()))
-            ->searching($search);
     }
 }

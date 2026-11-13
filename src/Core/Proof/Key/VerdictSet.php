@@ -95,6 +95,10 @@ enum VerdictSet
             ],
             self::Running => [
                 'src/Cli/Flow/Running.php',
+                'src/Cli/Flow/Mutating.php',
+                'src/Cli/Flow/PulledRuns.php',
+                'src/Cli/Flow/PulledItems.php',
+                'src/Cli/Flow/ShardRecording.php',
                 'src/Cli/Flow/ShardDeadline.php',
                 'src/Cli/Flow/PartitionedRuns.php',
                 'src/Cli/Flow/PathGroup.php',
