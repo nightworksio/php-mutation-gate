@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Connection;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use PDOException;
 
 /**
@@ -26,20 +27,18 @@ interface Copier
      * fresh session of the same config holds alike where nothing set one;
      * none where the database cannot tell.
      *
-     * @return list<list<string>>|null
+     * @return list<list<string>>|NotGiven
      */
-    public function settings(Session $session): ?array;
+    public function settings(Session $session): array|NotGiven;
 
     /**
-     * A copy of the database this config names, as its committed state
+     * A copy of the database a connection reaches, as its committed state
      * stands, named by this token; none where it holds what no copy
      * carries. Nothing of a copy that failed is left.
      *
-     * @param array<mixed> $config the connection's config, as Laravel holds it
-     *
      * @throws PDOException
      */
-    public function copied(Connection $original, array $config, string $token, string $directory): ?Copy;
+    public function copied(Connection $original, Reach $reach, string $token, string $directory): Copy|NotGiven;
 
     /** @throws PDOException */
     public function drop(Connection $admin, string $copy): void;

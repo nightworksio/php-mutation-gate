@@ -12,14 +12,10 @@ use function is_link;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\File\FileMode;
-
-use function random_bytes;
-
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
 use function rmdir;
-use function sodium_bin2hex;
 
 use SplFileInfo;
 
@@ -44,8 +40,6 @@ final readonly class StreamDirectory
     /** How many random bytes name it. */
     private const int RANDOM = 16;
 
-    /** Only its owner may read, write or enter it. */
-
     /**
      * A fresh directory of this user's own.
      *
@@ -53,7 +47,7 @@ final readonly class StreamDirectory
      */
     public static function made(): string
     {
-        return self::at(sprintf(self::NAME, sys_get_temp_dir(), sodium_bin2hex(random_bytes(self::RANDOM))));
+        return self::at(sprintf(self::NAME, sys_get_temp_dir(), Unguessable::text(self::RANDOM)));
     }
 
     /**

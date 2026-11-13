@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect;
 
+use function array_any;
 use function array_fill_keys;
 use function array_flip;
 use function array_intersect_key;
+use function array_key_exists;
+
+use Closure;
+
 use function in_array;
 use function is_array;
 use function is_int;
@@ -14,10 +19,15 @@ use function is_object;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\ByName;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Connection;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Driver;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Laravel;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\LaravelConfig;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use PDO;
 use PDOException;
+
+use function serialize;
 
 /**
  * What a stream reads of the application's databases, and tells them, by
@@ -39,15 +49,21 @@ final readonly class LaravelDatabases
 
     private const string CONNECTIONS = 'database.connections';
 
+    /** The key of the driver a connection's config names. */
+    private const string DRIVER = 'driver';
+
+    /** The keys of a config that read and write apart. */
+    private const array APART = ['read', 'write'];
+
     /** The keys of a config that say which database it reaches. */
-    private const array REACHES = ['driver', 'host', 'port', 'unix_socket', LaravelConfig::DATABASE];
+    private const array REACHES = [self::DRIVER, 'host', 'port', 'unix_socket', LaravelConfig::DATABASE];
 
     private function __construct(private object $application, private object $manager)
     {
     }
 
     /** The current application's databases; none where there is no application, or it binds no database manager. */
-    public static function current(): ?self
+    public static function current(): self|NotGiven
     {
         $application = ByName::called(Laravel::CONTAINER, 'getInstance');
         $bound = ByName::called($application, 'bound', self::MANAGER) === true
@@ -55,7 +71,7 @@ final readonly class LaravelDatabases
             && ByName::called($application, 'bound', self::CONFIG) === true;
         $manager = $bound ? ByName::called($application, 'make', self::MANAGER) : null;
 
-        return is_object($application) && is_object($manager) ? new self($application, $manager) : null;
+        return is_object($application) && is_object($manager) ? new self($application, $manager) : NotGiven::value();
     }
 
     /** @return array<string, object> each connection the manager holds, by its name */
@@ -73,20 +89,32 @@ final readonly class LaravelDatabases
         return $connections;
     }
 
-    /** @return array<mixed> */
-    public function config(object $connection): array
+    /** Where the connection reaches, as its config says. */
+    public function reach(object $connection): Reach
     {
-        $config = ByName::called($connection, 'getConfig');
+        $config = $this->config($connection);
+        $driver = Driver::tryFrom(array_key_exists(self::DRIVER, $config) && is_string($config[self::DRIVER])
+            ? $config[self::DRIVER]
+            : '');
 
-        return is_array($config) ? $config : [];
+        return new Reach(
+            $driver ?? NotGiven::value(),
+            LaravelConfig::connection($config),
+            LaravelConfig::database($config),
+            array_any(self::APART, static fn(string $key): bool => array_key_exists($key, $config)),
+            $this->where($config),
+            static fn(string $database): Connection|NotGiven => LaravelConfig::connection(
+                [...$config, LaravelConfig::DATABASE => $database],
+            ),
+        );
     }
 
     /** The connection's PDO, where it is connected; none where it would connect as it is next used. */
-    public function pdo(object $connection): ?PDO
+    public function pdo(object $connection): PDO|NotGiven
     {
         $pdo = ByName::called($connection, 'getRawPdo');
 
-        return $pdo instanceof PDO ? $pdo : null;
+        return $pdo instanceof PDO ? $pdo : NotGiven::value();
     }
 
     /** Whether the connection is inside a transaction, by Laravel's count or by PDO's own. */
@@ -98,25 +126,24 @@ final readonly class LaravelDatabases
     }
 
     /**
-     * What this reads of a fresh connection of this config, made as the
-     * manager makes one, closed once read; none where none is made or it
-     * cannot connect.
+     * What this reads of a fresh connection of this connection's config, made
+     * as the manager makes one, closed once read; none where none is made or
+     * it cannot connect.
      *
-     * @param  array<mixed>                             $config
-     * @param  callable(PDO): (list<list<string>>|null) $read
-     * @return list<list<string>>|null
+     * @param  Closure(PDO): (list<list<string>>|NotGiven) $read
+     * @return list<list<string>>|NotGiven
      */
-    public function freshly(string $name, array $config, callable $read): ?array
+    public function freshly(string $name, object $connection, Closure $read): array|NotGiven
     {
         $factory = ByName::called($this->application, 'make', self::FACTORY);
-        $fresh = ByName::called($factory, 'make', $config, $name);
+        $fresh = ByName::called($factory, 'make', $this->config($connection), $name);
 
         try {
             $pdo = ByName::called($fresh, 'getPdo');
 
-            return $pdo instanceof PDO ? $read($pdo) : null;
+            return $pdo instanceof PDO ? $read($pdo) : NotGiven::value();
         } catch (PDOException) {
-            return null;
+            return NotGiven::value();
         } finally {
             ByName::called($fresh, 'disconnect');
         }
@@ -129,13 +156,11 @@ final readonly class LaravelDatabases
     }
 
     /**
-     * Each connection whose config reaches the database this config does
+     * Each connection whose config reaches the database this reach does
      * pointed at its copy: in the application's config, and each the
      * manager holds closed, to connect to the copy as it is next used.
-     *
-     * @param array<mixed> $config
      */
-    public function redirected(array $config, string $copy): void
+    public function redirected(Reach $reach, string $copy): void
     {
         $settings = ByName::called($this->application, 'make', self::CONFIG);
         $all = ByName::called($settings, 'get', self::CONNECTIONS);
@@ -143,8 +168,9 @@ final readonly class LaravelDatabases
         $names = [];
 
         foreach ($all as $name => $each) {
-            if (is_array($each) && $this->reachesAlike($each, $config)) {
-                $all[$name][LaravelConfig::DATABASE] = $copy;
+            if (is_array($each) && $this->where($each) === $reach->where) {
+                $each[LaravelConfig::DATABASE] = $copy;
+                $all[$name] = $each;
                 $names[] = $name;
             }
         }
@@ -159,21 +185,24 @@ final readonly class LaravelDatabases
         }
     }
 
-    /**
-     * @param array<mixed> $one
-     * @param array<mixed> $other
-     */
-    private function reachesAlike(array $one, array $other): bool
+    /** @return array<mixed> */
+    private function config(object $connection): array
     {
-        return $this->reached($one) === $this->reached($other);
+        $config = ByName::called($connection, 'getConfig');
+
+        return is_array($config) ? $config : [];
     }
 
     /**
-     * @param  array<mixed> $config
-     * @return array<mixed> each key that says where a connection reaches, in order, none where it holds none
+     * Each key that says where a connection reaches, in order, none where it holds none, as one text.
+     *
+     * @param array<mixed> $config
      */
-    private function reached(array $config): array
+    private function where(array $config): string
     {
-        return [...array_fill_keys(self::REACHES, null), ...array_intersect_key($config, array_flip(self::REACHES))];
+        return serialize([
+            ...array_fill_keys(self::REACHES, null),
+            ...array_intersect_key($config, array_flip(self::REACHES)),
+        ]);
     }
 }

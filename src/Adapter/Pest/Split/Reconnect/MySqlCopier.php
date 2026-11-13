@@ -8,11 +8,11 @@ use function array_filter;
 use function array_map;
 use function array_values;
 use function implode;
-use function in_array;
 use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Connection;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Statements;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use PDOException;
 
 use function sprintf;
@@ -63,17 +63,6 @@ final readonly class MySqlCopier implements Copier
     private const array SETTINGS = [
         'SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.session_variables',
         'SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.SESSION_VARIABLES',
-    ];
-
-    /** The session variables that name the session, the time, the last statement and what it generated. */
-    private const array OWN = [
-        'pseudo_thread_id',
-        'timestamp',
-        'error_count',
-        'warning_count',
-        'last_insert_id',
-        'identity',
-        'last_gtid',
     ];
 
     private const string UNCOPIED = <<<'SQL'
@@ -127,31 +116,36 @@ final readonly class MySqlCopier implements Copier
         ]);
     }
 
-    /** @return list<list<string>>|null */
-    public function settings(Session $session): ?array
+    /** @return list<list<string>>|NotGiven */
+    public function settings(Session $session): array|NotGiven
     {
         $rows = $session->first(self::SETTINGS);
 
-        return $rows === null ? null : array_values(array_filter(
+        return $rows instanceof NotGiven ? $rows : array_values(array_filter(
             $rows,
-            static fn(array $row): bool => ! in_array(mb_strtolower($row[0] ?? ''), self::OWN, strict: true),
+            static fn(array $row): bool => OwnVariable::tryFrom(mb_strtolower(Cell::in($row, 0))) === null,
         ));
     }
 
-    /** @param array<mixed> $config */
-    public function copied(Connection $original, array $config, string $token, string $directory): ?Copy
+    public function copied(Connection $original, Reach $reach, string $token, string $directory): Copy|NotGiven
     {
         $database = $original->opened();
-        [$current, $characters, $collation] = ($database->rows(self::CURRENT)[0] ?? []) + ['', '', ''];
+        $named = $database->rows(self::CURRENT);
+        $current = Cell::of($named, 0, 0);
 
-        if ($current === '' || ($database->rows(self::UNCOPIED)[0][0] ?? '') !== '0') {
-            return null;
+        if ($current === '' || Cell::of($database->rows(self::UNCOPIED), 0, 0) !== Session::NONE) {
+            return NotGiven::value();
         }
 
         $from = self::quoted($current);
         $name = CopyName::of($current, $token);
         $tables = array_map(static fn(array $row): string => $row[0], $database->rows(self::TABLES));
-        $database->run(sprintf(self::CREATE, self::quoted($name), self::quoted($characters), self::quoted($collation)));
+        $database->run(sprintf(
+            self::CREATE,
+            self::quoted($name),
+            self::quoted(Cell::of($named, 0, 1)),
+            self::quoted(Cell::of($named, 0, 2)),
+        ));
         $copy = new Copy($name, $original, $this);
 
         try {
@@ -183,11 +177,9 @@ final readonly class MySqlCopier implements Copier
 
         foreach ($tables as $table) {
             $quoted = self::quoted($table);
-            $creates[] = $database->rows(sprintf(self::SHOW, $from, $quoted))[0][1] ?? '';
-            $listed = implode(', ', array_map(
-                static fn(array $row): string => self::quoted($row[0]),
-                $database->rows(sprintf(self::COLUMNS, $database->quoted($table))),
-            ));
+            $creates[] = Cell::of($database->rows(sprintf(self::SHOW, $from, $quoted)), 0, 1);
+            $columns = $database->rows(sprintf(self::COLUMNS, $database->quoted($table)));
+            $listed = implode(', ', array_map(static fn(array $row): string => self::quoted($row[0]), $columns));
             $inserts = $listed === ''
                 ? $inserts
                 : [...$inserts, sprintf(self::INSERT, $to, $quoted, $listed, $listed, $from, $quoted)];

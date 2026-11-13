@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect;
 
+use function array_any;
 use function array_map;
 use function array_values;
 use function is_array;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\PdoStatements;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use PDO;
 use PDOException;
 
@@ -23,15 +25,15 @@ use PDOException;
 final readonly class Session
 {
     /** What a count reads as where nothing is counted. */
-    private const string NONE = '0';
+    public const string NONE = '0';
 
     private function __construct(private PDO $pdo)
     {
     }
 
-    public static function of(PDO $pdo): ?self
+    public static function of(PDO $pdo): self|NotGiven
     {
-        return $pdo->getAttribute(PDO::ATTR_ERRMODE) === PDO::ERRMODE_EXCEPTION ? new self($pdo) : null;
+        return $pdo->getAttribute(PDO::ATTR_ERRMODE) === PDO::ERRMODE_EXCEPTION ? new self($pdo) : NotGiven::value();
     }
 
     /**
@@ -41,13 +43,7 @@ final readonly class Session
      */
     public function countsAny(array $checks): bool
     {
-        foreach ($checks as $counts) {
-            if ($this->counts($counts)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($checks, fn(array $counts): bool => $this->counts($counts));
     }
 
     /**
@@ -60,7 +56,7 @@ final readonly class Session
     {
         $rows = $this->first($counts);
 
-        return $rows === null || ($rows[0][0] ?? null) !== self::NONE;
+        return $rows instanceof NotGiven || Cell::of($rows, 0, 0) !== self::NONE;
     }
 
     /**
@@ -68,28 +64,30 @@ final readonly class Session
      * any; none where it answers none of them so.
      *
      * @param  list<string>             $queries
-     * @return list<list<string>>|null
+     * @return list<list<string>>|NotGiven
      */
-    public function first(array $queries): ?array
+    public function first(array $queries): array|NotGiven
     {
         foreach ($queries as $query) {
             $rows = $this->rows($query);
 
-            if ($rows !== null && $rows !== []) {
+            if (! $rows instanceof NotGiven && $rows !== []) {
                 return $rows;
             }
         }
 
-        return null;
+        return NotGiven::value();
     }
 
-    /** @return list<list<string>>|null each row, a value that is none read as empty text; none where the query fails */
-    private function rows(string $query): ?array
+    /**
+     * @return list<list<string>>|NotGiven each row, a value that is none read as empty text; none where the query fails
+     */
+    private function rows(string $query): array|NotGiven
     {
         try {
             $statement = $this->pdo->query($query, PDO::FETCH_NUM);
         } catch (PDOException) {
-            return null;
+            return NotGiven::value();
         }
 
         $rows = [];

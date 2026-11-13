@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect;
 use function file_exists;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Connection;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use PDOException;
 
 use function sprintf;
@@ -57,16 +58,16 @@ final readonly class SqliteCopier implements Copier
         return $session->countsAny(self::STATE);
     }
 
-    /** @return list<list<string>>|null */
-    public function settings(Session $session): ?array
+    /** @return list<list<string>>|NotGiven */
+    public function settings(Session $session): array|NotGiven
     {
         $settings = [];
 
         foreach (self::PRAGMAS as $pragma) {
             $rows = $session->first([sprintf(self::PRAGMA, $pragma)]);
 
-            if ($rows === null) {
-                return null;
+            if ($rows instanceof NotGiven) {
+                return $rows;
             }
 
             $settings = [...$settings, ...$rows];
@@ -75,8 +76,7 @@ final readonly class SqliteCopier implements Copier
         return $settings;
     }
 
-    /** @param array<mixed> $config */
-    public function copied(Connection $original, array $config, string $token, string $directory): Copy
+    public function copied(Connection $original, Reach $reach, string $token, string $directory): Copy
     {
         $path = sprintf(self::PATH, $directory, $token);
         $copy = new Copy($path, $original, $this);

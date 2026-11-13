@@ -229,6 +229,7 @@ services:
                 - src/Adapter/Codeception/Told.php # Codeception hands an extension its settings untyped
                 - src/Adapter/Testo/GateConfig.php # a project's testo.php returns whatever its code returns
                 - src/Adapter/Pest/Warm/Database/Laravel.php # Laravel's container hands its services untyped
+                - src/Adapter/Pest/Split/Reconnect/LaravelDatabases.php # Laravel's container hands its services untyped
                 - src/Adapter/Pest/ByName.php # a framework the gate does not require answers its calls untyped
                 - src/Adapter/Pest/Warm/Database/LaravelConfig.php # Laravel holds a connection's config untyped
                 - src/Adapter/Pest/Warm/Database/PdoStatements.php # PDO hands a row's values untyped

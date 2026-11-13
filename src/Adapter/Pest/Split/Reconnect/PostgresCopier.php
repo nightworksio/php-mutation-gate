@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Connection;
-use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\LaravelConfig;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
 
@@ -43,20 +43,19 @@ final readonly class PostgresCopier implements Copier
         return $session->countsAny(self::STATE);
     }
 
-    /** @return list<list<string>>|null */
-    public function settings(Session $session): ?array
+    /** @return list<list<string>>|NotGiven */
+    public function settings(Session $session): array|NotGiven
     {
         return $session->first(self::SETTINGS);
     }
 
-    /** @param array<mixed> $config */
-    public function copied(Connection $original, array $config, string $token, string $directory): ?Copy
+    public function copied(Connection $original, Reach $reach, string $token, string $directory): Copy|NotGiven
     {
-        $admin = LaravelConfig::connection([...$config, LaravelConfig::DATABASE => self::MAINTENANCE]);
-        $database = LaravelConfig::database($config);
+        $admin = $reach->elsewhere(self::MAINTENANCE);
+        $database = $reach->database;
 
         if (! $admin instanceof Connection || $database === '') {
-            return null;
+            return NotGiven::value();
         }
 
         $name = CopyName::of($database, $token);
