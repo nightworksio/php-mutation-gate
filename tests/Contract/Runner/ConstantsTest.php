@@ -35,7 +35,7 @@ it('kills the items of a constant array a test reads through its class, running 
         copy(Tree::at(sprintf('tests/Contract/Runner/constants/%s', $file)), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
     }
 
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
     $runner = Library::pest(Patching::on(Library::canary()))->runner();
     $codes = Paths::of(Path::of('src/Codes.php'));
 

@@ -84,7 +84,7 @@ function overrideJudgedBy(Runner $runner, string $spec, string $file, Mutators $
     $test = Tree::at(sprintf('%s/tests/%s', Library::DIRECTORY, $spec));
     copy(Tree::at(sprintf('tests/Contract/Runner/override/%s', $mutated)), $source);
     copy(Tree::at(sprintf('tests/Contract/Runner/override/tests/%s', $spec)), $test);
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
 
     try {
         $result = $runner->mutate(

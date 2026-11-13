@@ -38,7 +38,7 @@ function heldBackId(string $id): MutantId
 }
 
 it('runs a mutant the gate holds back after the others, and reports every mutant as it would unheld', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
     $library = Library::pest(Patching::on(Library::canary()));
     [$addsRecord, $largeRecord] = $library->expected('adds', 'large');
     $adds = heldBackId($addsRecord[0]);

@@ -49,7 +49,7 @@ it('stops a mutant whose loop never ends, saying nothing or printing, by its lim
         copy(Tree::at(sprintf('tests/Contract/Runner/hang/%s', $file)), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
     }
 
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
     $library = Library::pestWithin(Patching::on(Library::canary()), $bounds, sprintf('pest patched, hanging %s', $reason));
     $hang = Paths::of(Path::of('src/Hang.php'));
     $started = hrtime(as_number: true);

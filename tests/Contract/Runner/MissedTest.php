@@ -76,7 +76,7 @@ function missedMutants(string $file, string $mutator): array|string
         copy(Tree::at(sprintf('tests/Contract/Runner/reach/%s', $each)), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $each)));
     }
 
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
     $runner = Library::pest(Patching::on(Library::canary()))->runner();
     $mutated = Paths::of(Path::of($file));
     $directory = Path::of('.mutation-gate/missed');

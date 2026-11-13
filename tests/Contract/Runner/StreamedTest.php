@@ -31,7 +31,7 @@ it('kills in its stream a mutant a test tells apart, stops at its limit one that
     $test = Tree::at(sprintf('%s/tests/StreamedSpec.php', Library::DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/streamed/src/Streamed.php'), $source);
     copy(Tree::at('tests/Contract/Runner/streamed/tests/StreamedSpec.php'), $test);
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
 
     try {
         $result = Library::pest(Patching::on(Library::canary())->splitting(

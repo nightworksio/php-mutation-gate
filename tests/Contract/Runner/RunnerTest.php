@@ -168,7 +168,7 @@ it('warns of the four mutants only where its runner runs unpatched', function (L
 
 it('makes no mutant of a mutator a request prunes in a file, and every other, where its runner is patched to leave them out', function (Library $library): void {
     if ($library->runner() instanceof Pest) {
-        Patch::applyIn(Library::vendor(), new PackageDirectory());
+        expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
     }
 
     $mutators = $library->mutators('adds', 'large', 'unused', 'drains');
