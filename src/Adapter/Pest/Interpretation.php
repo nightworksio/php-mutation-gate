@@ -140,12 +140,12 @@ final readonly class Interpretation
 
             $judged = $this->rejected($this->mutant($ids[$at], $mutant, $records, $selection), $mutant);
             $mutants[] = $judged;
-            $given = $records->isMarked($mutant, RecordEvent::Streamed)
+            $given = $records->runOf($mutant)->isMarked(RecordEvent::Streamed)
                 ? Evidence::none()->streamed()
                 : $this->unfiltered($this->evidenceOf($judged, $mutant, $records), $mutant, $records);
             $share = TestShare::of(
-                owned: $records->isMarked($mutant, RecordEvent::OwnedPart),
-                otherOwned: $records->isMarked($mutant, RecordEvent::OtherPart),
+                owned: $records->runOf($mutant)->isMarked(RecordEvent::OwnedPart),
+                otherOwned: $records->runOf($mutant)->isMarked(RecordEvent::OtherPart),
             );
             $evidence = $evidence->with($judged->id(), $given->sharing($share));
         }
@@ -204,7 +204,7 @@ final readonly class Interpretation
      */
     private function statusOf(PlannedMutant $planned, Records $records): MutantStatus
     {
-        if ($records->isMarked($planned, RecordEvent::Unreached)) {
+        if ($records->runOf($planned)->isMarked(RecordEvent::Unreached)) {
             return MutantStatus::NotReached;
         }
 

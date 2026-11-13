@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_filter;
 use function array_key_exists;
 use function array_map;
 use function array_sum;
@@ -95,7 +96,10 @@ final class OwnRuns
             $this->endingOf($mutated),
         )->startedWith($this->argumentsOf($mutated));
 
-        return $this->isMarked($mutated, RecordEvent::Unfiltered) ? $run->unfiltered() : $run;
+        return $run->marked(...array_filter(
+            RecordEvent::cases(),
+            fn(RecordEvent $event): bool => $this->isMarked($mutated, $event),
+        ));
     }
 
     /** The seconds a patched run allowed the own runs on this mutated copy, where it recorded them. */

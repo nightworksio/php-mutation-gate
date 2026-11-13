@@ -54,7 +54,7 @@ final readonly class RecordedKills
                 $records->limitOf($planned),
             ];
 
-            $streamed = $records->isMarked($planned, RecordEvent::Streamed);
+            $streamed = $records->runOf($planned)->isMarked(RecordEvent::Streamed);
 
             if ($records->statusOf($planned) === PestStatus::Uncovered || $streamed) {
                 $judgedElsewhere[$planned->id()] = true;

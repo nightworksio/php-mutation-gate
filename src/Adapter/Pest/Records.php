@@ -161,16 +161,6 @@ final class Records
         };
     }
 
-    /**
-     * Whether the plugin marked this mutant with this event alone: a split
-     * stream judged it, or the run's part of the test files left it to
-     * another or judged it by its own covering tests (ADR-0117).
-     */
-    public function isMarked(PlannedMutant $mutant, RecordEvent $event): bool
-    {
-        return $this->runs->isMarked($mutant->mutated()->value(), $event);
-    }
-
     /** What the plugin recorded of a mutant's own process. */
     public function runOf(PlannedMutant $mutant): OwnRun
     {
