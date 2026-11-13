@@ -161,6 +161,14 @@ jobs:
       - run: >-
           cargo llvm-cov nextest --workspace --locked --fail-under-lines 100 --show-missing-lines
           --ignore-filename-regex 'crates/outbreak-ext/src/(engine|lib|program|state|value)\.rs'
+      # Every line some function's instantiation leaves unrun, which the
+      # total counts and --show-missing-lines may not name.
+      - name: the lines left unrun
+        if: failure()
+        run: >-
+          cargo llvm-cov report --text --show-instantiations
+          --ignore-filename-regex 'crates/outbreak-ext/src/(engine|lib|program|state|value)\.rs'
+          | awk '/^\/.*\.rs:$/ { file = $0 } /^ *[0-9]+\| *0\|/ { print file " " $0 }'
       - name: what failed
         if: failure()
         working-directory: .
