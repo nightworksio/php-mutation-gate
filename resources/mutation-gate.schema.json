@@ -4439,6 +4439,14 @@
                     "type": "boolean",
                     "default": true
                 },
+                "rounds": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "fromMap": {
+                    "type": "string",
+                    "minLength": 1
+                },
                 "cpu": {
                     "enum": [
                         "balanced",
@@ -8890,6 +8898,14 @@
                         },
                         "cancelByUnit": {
                             "type": "boolean"
+                        },
+                        "rounds": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "fromMap": {
+                            "type": "string",
+                            "minLength": 1
                         },
                         "cpu": {
                             "enum": [

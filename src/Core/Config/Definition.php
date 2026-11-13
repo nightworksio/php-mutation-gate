@@ -174,7 +174,7 @@ final readonly class Definition
             ...PruningKeys::fields(),
             ...SamplingKeys::fields(),
             ...MutatorsKeys::fields(),
-            ...LocalKeys::fields(),
+            ...LocalKeys::fields($origin),
             ...OutbreakKeys::fields(),
             ...CoverageKeys::fields(),
             ...PathsKeys::fields($origin),

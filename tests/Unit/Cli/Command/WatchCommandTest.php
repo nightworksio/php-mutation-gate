@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Cli\Command\WatchCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -10,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -73,6 +76,20 @@ function watchedProject(string $config = ''): string
     $members['local'] = ['quick' => false, 'streamBatches' => false, 'cancelByUnit' => false, ...$local];
 
     return FlowCommands::project(mb_substr((string) json_encode($members), 1, -1));
+}
+
+/**
+ * The flows' files with a test of `src/Held.php`, which the fixture's map
+ * holds, written into this project too.
+ *
+ * @return array<string, string>
+ */
+function withHeldTest(string $project): array
+{
+    $files = [...Flows::FILES, 'tests/HeldTest.php' => "<?php\n\nit('doubles', fn () => expect(2)->toBe(2));\n"];
+    Scratch::write($project, 'tests/HeldTest.php', $files['tests/HeldTest.php']);
+
+    return $files;
 }
 
 /** `watch` as the command line holds it, beside the global `--budget`, waiting as this says. */
@@ -192,8 +209,7 @@ it('builds the map again after a round that could not plan, and says why each ro
  * src/Money.php.
  */
 $dirtyRounds = static function (string $project, CoverageAsked $runner, int $rounds): void {
-    $files = [...Flows::FILES, 'tests/HeldTest.php' => "<?php\n\nit('doubles', fn () => expect(2)->toBe(2));\n"];
-    Scratch::write($project, 'tests/HeldTest.php', $files['tests/HeldTest.php']);
+    $files = withHeldTest($project);
     $checkout = ChangingCheckout::holding($files, ChangingCheckout::with('src/Money.php', "<?php\n\n// changed\n", $files));
     $composition = FlowCommands::reading(
         Flows::trees(),
@@ -381,3 +397,88 @@ it('waits local.watchPoll between two looks', function () use ($changing): void 
 
     expect($waited)->toEqual([Seconds::of(7.0)]);
 });
+
+/** A map `coverage --into` wrote of the fixture's suite at the flows' head, in a working tree as clean or dirty as this says. */
+function carriedMap(string $project, bool $dirty): void
+{
+    Scratch::write(
+        $project,
+        '.mutation-gate/carried/map.json.gz',
+        CoverageMapFile::encode(Flows::map(), MeasuredAt::of(Revision::ref(Flows::HEAD), $dirty)),
+    );
+}
+
+it('ends after the rounds --rounds counts though the wait goes on, passed where the last round judged', function () use (
+    $changing,
+    $kinds,
+): void {
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+    $composition = FlowCommands::watching(watchedProject(), $runner, new ProofStoreFake(), $changing());
+
+    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => true), '--rounds=1');
+
+    expect([$ran->code, $ran->errors])->toBe([0, ''])
+        ->and(substr_count($ran->output, 'mutation-gate: '))->toBe(1)
+        ->and($kinds($runner))->toBe([CoverageRun::class]);
+});
+
+it('fails where the last round --rounds counts could not judge, saying why', function () use ($changing): void {
+    $failing = new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('1 test failed.'));
+    $composition = FlowCommands::watching(watchedProject(), $failing, new ProofStoreFake(), $changing());
+
+    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => true), '--rounds=1');
+
+    expect($ran->code)->not->toBe(0)
+        ->and(sprintf('%s%s', $ran->output, $ran->errors))->toContain('1 test failed.');
+});
+
+it('starts its first round from the map coverage --into carried, measuring again only what changed from its commit', function () use (
+    $kinds,
+): void {
+    $project = watchedProject('"local": {"quick": true}');
+    $files = withHeldTest($project);
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+    $changes = new ChangeSourceFake(
+        Revision::head(),
+        Changes::of(),
+        [Revision::workingTree()->name() => $files, Revision::HEAD => $files, Flows::MAIN => $files],
+    )->changedFrom(
+        Revision::ref(Flows::HEAD),
+        Changes::of(Change::modified(Path::of('tests/MoneyTest.php'), Lines::of(Line::of(3)))),
+    );
+    $composition = FlowCommands::watching($project, $runner, new ProofStoreFake(), $changes);
+    $carried = FlowCommands::run(CoverageCommand::command($composition), '--into=.mutation-gate/carried');
+
+    $ran = FlowCommands::run(
+        WatchCommand::command($composition, static fn(): bool => false),
+        '--rounds=1 --from-map=.mutation-gate/carried',
+    );
+
+    expect([$carried->code, $ran->code, $ran->errors])->toBe([0, 0, ''])
+        ->and($ran->output)->not->toContain('cannot be carried')
+        ->and($kinds($runner))->toBe([CoverageRun::class, sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class]);
+});
+
+it('measures every test in its first round where the carried map was measured in a dirty tree, or is not there, and says why', function (
+    bool $written,
+    string $said,
+) use ($changing, $kinds): void {
+    $project = watchedProject('"local": {"quick": true, "fromMap": ".mutation-gate/carried"}');
+
+    if ($written) {
+        carriedMap($project, dirty: true);
+    }
+
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+    $composition = FlowCommands::watching($project, $runner, new ProofStoreFake(), $changing());
+
+    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false), '--rounds=1');
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain('The map at .mutation-gate/carried cannot be carried into the first round: ')
+        ->and($ran->output)->toContain($said)
+        ->and($kinds($runner))->toBe([CoverageRun::class]);
+})->with([
+    'measured in a dirty tree' => [true, 'was measured in a dirty working tree'],
+    'not there' => [false, 'map.json.gz'],
+]);

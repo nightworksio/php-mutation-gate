@@ -36,7 +36,10 @@ use Symfony\Component\Console\Input\InputInterface;
  */
 final readonly class CommandLine
 {
-    /** @param list<string> $reports each as `--report` writes it, `<name>:<path>` */
+    /**
+     * @param list<string> $reports  each as `--report` writes it, `<name>:<path>`
+     * @param list<Member> $watching the keys of `local` `--rounds` and `--from-map` set
+     */
     private function __construct(
         public string|NotGiven $config,
         public string|NotGiven $runner,
@@ -46,6 +49,7 @@ final readonly class CommandLine
         public bool $firstPartyOnly,
         public string|NotGiven $context,
         public bool $quick = false,
+        public array $watching = [],
     ) {
     }
 
@@ -60,6 +64,7 @@ final readonly class CommandLine
             self::text(self::option($input, 'ci')),
             $input->hasParameterOption('--no-extensions', onlyParams: true),
             self::text(self::option($input, 'context')),
+            watching: RoundOptions::laid($input),
         );
     }
 
@@ -83,6 +88,7 @@ final readonly class CommandLine
             $this->firstPartyOnly,
             $this->context,
             $this->quick,
+            watching: $this->watching,
         );
     }
 
@@ -98,6 +104,7 @@ final readonly class CommandLine
             $this->firstPartyOnly,
             $this->context,
             $this->quick,
+            watching: $this->watching,
         );
     }
 
@@ -113,6 +120,7 @@ final readonly class CommandLine
             $this->firstPartyOnly,
             $this->context,
             $this->quick,
+            watching: $this->watching,
         );
     }
 
@@ -128,6 +136,7 @@ final readonly class CommandLine
             $this->firstPartyOnly,
             $this->context,
             $this->quick,
+            watching: $this->watching,
         );
     }
 
@@ -143,6 +152,7 @@ final readonly class CommandLine
             $this->firstPartyOnly,
             $this->context,
             $this->quick,
+            watching: $this->watching,
         );
     }
 
@@ -158,6 +168,7 @@ final readonly class CommandLine
             firstPartyOnly: true,
             context: $this->context,
             quick: $this->quick,
+            watching: $this->watching,
         );
     }
 
@@ -173,6 +184,7 @@ final readonly class CommandLine
             $this->firstPartyOnly,
             $this->context,
             $this->quick,
+            watching: $this->watching,
         );
     }
 
@@ -189,6 +201,7 @@ final readonly class CommandLine
                 $this->firstPartyOnly,
                 $context->value,
                 $this->quick,
+                $this->watching,
             )
             : $this;
     }
@@ -209,6 +222,7 @@ final readonly class CommandLine
             $this->firstPartyOnly,
             $this->context,
             quick: true,
+            watching: $this->watching,
         );
     }
 
@@ -248,6 +262,7 @@ final readonly class CommandLine
             : $layer->with(Member::of('reports', Json::items(...array_map($this->report(...), $this->reports))));
         $layer = $this->budget instanceof NotGiven ? $layer : $layer->with(Member::of('budget', $this->budget));
         $layer = $this->quick ? $layer->with(...QuickLayer::members()) : $layer;
+        $layer = $this->watching === [] ? $layer : $layer->with(Member::of('local', Json::object(...$this->watching)));
 
         return $this->ci instanceof NotGiven
             ? $layer

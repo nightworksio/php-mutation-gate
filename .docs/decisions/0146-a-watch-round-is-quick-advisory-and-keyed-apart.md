@@ -84,6 +84,16 @@ what a source file declares, without running anything.
    and ends a round with the whole report only with `watch --report`, or
    where `local.streamBatches` is off; `--output=problems` still ends every
    round with its problems.
+9. **The first round can start from a carried map, and `watch` can end
+   after a count of rounds.** `local.fromMap` (`watch --from-map`) names
+   the directory of a map `coverage --into` wrote. Where that map says the
+   commit it was measured at and that its working tree was clean, the
+   first round is quick against it as a later round is against the round
+   before, over every file changed from that commit to the working tree; a
+   map that cannot be read, says no commit or was measured in a dirty tree
+   is named, and the first round measures every test. `local.rounds`
+   (`watch --rounds`) ends `watch` after that many rounds: passed where the
+   last round judged, failed where it could not judge.
 
 ### Settings
 
@@ -91,6 +101,8 @@ what a source file declares, without running anything.
 |---|---|---|---|
 | `local.quick` | `true`, `false` | `true` | judges or reports only; a quick round's proofs are keyed apart |
 | `local.cancelByUnit` | `true`, `false` | `true` | judges or reports only |
+| `local.fromMap` | a directory inside the project | none | judges or reports only; the first round is quick |
+| `local.rounds` | an integer, at least 1 | none: until stopped | judges or reports only |
 
 ### Why no verdict moves
 
@@ -105,6 +117,9 @@ what a source file declares, without running anything.
 - **A cancel judges nothing.** A stopped process can read to its runner as
   a timeout, so nothing a halted batch came to is read; its units and the
   dropped ones are left as units no batch took: unjudged, never killed.
+- **A carried map lags no more than the round before's.** It is taken only
+  where it was measured clean at a commit, and every file changed from
+  that commit is a change of the first round, as a save is of a later one.
 - **Order moves no result.** It decides only which unit a budget reaches
   first.
 

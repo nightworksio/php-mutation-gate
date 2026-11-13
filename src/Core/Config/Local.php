@@ -37,6 +37,7 @@ final readonly class Local implements Part
         private LocalWork $work,
         private bool|Absent $quick,
         private bool|Absent $cancelByUnit,
+        private LocalRounds $rounds,
     ) {
     }
 
@@ -54,6 +55,7 @@ final readonly class Local implements Part
         LocalWork|Absent $work = new Absent(),
         bool|Absent $quick = new Absent(),
         bool|Absent $cancelByUnit = new Absent(),
+        LocalRounds|Absent $rounds = new Absent(),
     ): self {
         return new self(
             $watchBudget,
@@ -66,6 +68,7 @@ final readonly class Local implements Part
             $work instanceof LocalWork ? $work : LocalWork::of(),
             $quick,
             $cancelByUnit,
+            $rounds instanceof LocalRounds ? $rounds : LocalRounds::of(),
         );
     }
 
@@ -110,6 +113,7 @@ final readonly class Local implements Part
                 $this->work->over($later->work),
                 Absent::laid($this->quick, $later->quick),
                 Absent::laid($this->cancelByUnit, $later->cancelByUnit),
+                $this->rounds->over($later->rounds),
             )
             : $this;
     }
@@ -167,6 +171,12 @@ final readonly class Local implements Part
         return $this->cancelByUnit instanceof Absent || $this->cancelByUnit;
     }
 
+    /** How many rounds `watch` runs, and the map its first round measures against (ADR-0146). */
+    public function rounds(): LocalRounds
+    {
+        return $this->rounds;
+    }
+
     /** How `watch` and `serve` use the machine, and the speed-ups they take (ADR-0120). */
     public function work(): LocalWork
     {
@@ -206,7 +216,7 @@ final readonly class Local implements Part
                     Member::of('memoryHeadroom', $this->memoryHeadroom),
                     Member::of('quick', $this->quick),
                     Member::of('cancelByUnit', $this->cancelByUnit),
-                )),
+                )->merged($this->rounds->written())),
             ),
         );
     }
@@ -220,6 +230,7 @@ final readonly class Local implements Part
             ->and(PhpCalls::duration('Local::watchPoll', $this->watchPoll))
             ->and(PhpCalls::flag($this->quick, 'Local::quickRounds()', 'Local::fullRounds()'))
             ->and(PhpCalls::flag($this->cancelByUnit, 'Local::cancellingByUnit()', 'Local::cancellingByRound()'))
+            ->and($this->rounds->php())
             ->and(PhpCalls::inWith(
                 ...$this->memoryHeadroom instanceof Absent
                     ? []

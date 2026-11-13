@@ -77,6 +77,18 @@ final readonly class Local implements Setting
         return new self(Json::at('local.serveRequest', $duration));
     }
 
+    /** `local.rounds`: how many rounds `watch` runs before it ends (ADR-0146). */
+    public static function rounds(int $rounds): self
+    {
+        return new self(Json::at('local.rounds', $rounds));
+    }
+
+    /** `local.fromMap`: the directory of a map `coverage --into` wrote, the first round of `watch` measures against. */
+    public static function fromMap(string $directory): self
+    {
+        return new self(Json::at('local.fromMap', $directory));
+    }
+
     /** `local.quick`, as by default: each round of `watch` is quick, advisory and keyed apart (ADR-0146). */
     public static function quickRounds(): self
     {

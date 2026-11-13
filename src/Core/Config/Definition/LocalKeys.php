@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Local;
+use NightWorksIO\MutationGate\Core\Config\LocalRounds;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Serve\ServeStart;
 
@@ -20,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Serve\ServeStart;
 final readonly class LocalKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(): array
+    public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
         $watch = Field::optional('watchBudget', Duration::written(), $judges);
@@ -34,6 +36,8 @@ final readonly class LocalKeys
         $request = Field::optional('serveRequest', Duration::written(), $judges);
         $quick = Field::optional('quick', Flag::boolean(), $judges);
         $cancel = Field::optional('cancelByUnit', Flag::boolean(), $judges);
+        $rounds = Field::optional('rounds', Integer::atLeast(1), $judges);
+        $fromMap = Field::optional('fromMap', Location::path($origin), $judges);
 
         return [Field::section(
             'triage',
@@ -56,6 +60,8 @@ final readonly class LocalKeys
                     $request,
                     $quick,
                     $cancel,
+                    $rounds,
+                    $fromMap,
                 ): Layer|Invalid {
                     $working = LocalWorkKeys::read($local);
                     $watching = $watch->read($local);
@@ -69,6 +75,8 @@ final readonly class LocalKeys
                     $requesting = $request->read($local);
                     $quickly = $quick->read($local);
                     $cancelling = $cancel->read($local);
+                    $counting = $rounds->read($local);
+                    $carrying = $fromMap->read($local);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Local::of(
@@ -84,6 +92,7 @@ final readonly class LocalKeys
                             work: $working->value(),
                             quick: $quickly->value(),
                             cancelByUnit: $cancelling->value(),
+                            rounds: LocalRounds::of($counting->value(), $carrying->value()),
                         )),
                         $watching,
                         $pushing,
@@ -97,6 +106,8 @@ final readonly class LocalKeys
                         $working,
                         $quickly,
                         $cancelling,
+                        $counting,
+                        $carrying,
                     );
                 },
                 $watch,
@@ -110,6 +121,8 @@ final readonly class LocalKeys
                 $request,
                 $quick,
                 $cancel,
+                $rounds,
+                $fromMap,
                 ...LocalWorkKeys::fields(),
             ),
         )];

@@ -8,6 +8,7 @@ use Closure;
 use NightWorksIO\MutationGate\Adapter\Outbreak\HeldLedgers;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\BatchEnds;
+use NightWorksIO\MutationGate\Cli\Flow\CarriedMap;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Interruption;
@@ -19,6 +20,7 @@ use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\QuickRound;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\RoundOptions;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -97,7 +99,7 @@ final readonly class WatchCommand
     /** @param Closure(Seconds): bool $waited waits once between looks, and says whether to go on watching */
     public static function command(Composition $composition, Closure $waited): Command
     {
-        return FlowOptions::editing(new Command(self::NAME))
+        return RoundOptions::on(FlowOptions::editing(new Command(self::NAME)))
             ->setDescription('Re-judge what each save reaches')
             ->addOption(self::REPORT, mode: InputOption::VALUE_NONE, description: self::REPORT_SAID)
             ->setCode(static function (InputInterface $input, OutputInterface $output) use (
@@ -152,16 +154,22 @@ final readonly class WatchCommand
 
     /**
      * A round from what is on disk, then one after each change, until the
-     * wait says to stop. Each round after the first measures again only the
-     * test files whose entries moved against the map the last one left, and
-     * measures every test where the last round planned nothing and so left
-     * none.
+     * wait says to stop or `local.rounds` rounds ran. Each round after the
+     * first measures again only the test files whose entries moved against
+     * the map the last one left, and measures every test where the last
+     * round planned nothing and so left none; the first measures so against
+     * the map `local.fromMap` carries, where it names one.
      */
     private function rounds(Watched $seen, WatchWaits $waits): int
     {
-        $ownMap = false;
-        $before = $seen;
         $local = $this->composed->settings->local();
+        $carried = new CarriedMap($this->composed->adapters, $this->composed->settings)->first(
+            $local->rounds()->fromMap(),
+            fn(string $said) => $this->printing->note($said, $this->output),
+        );
+        $ownMap = $carried instanceof QuickRound;
+        $ran = 0;
+        $before = $seen;
         $load = WatchLoad::of($local->work(), $this->changes()->notices(), $local->watchPoll());
 
         while (true) {
@@ -181,15 +189,21 @@ final readonly class WatchCommand
                 $local->watchPoll(),
                 $seen,
             );
-            $quick = $this->quick($ownMap, $seen, $before);
-            $planned = $this->round($load->fitted($this->composed, $power, $seen), $ownMap, $quick, $looks);
+            $quick = $this->quick($ran, $carried, $ownMap, $seen, $before);
+            $ended = $this->round($load->fitted($this->composed, $power, $seen), $ownMap, $quick, $looks);
+            ++$ran;
+
+            if ($ran === $local->rounds()->rounds()) {
+                return $ended->exitCode($this->output);
+            }
+
             $now = $this->changes()->after($seen, $looks, $waits);
 
             if (! $now instanceof Watched) {
                 return $this->exited($now);
             }
 
-            $ownMap = $planned;
+            $ownMap = $ended->planned();
             $before = $seen;
             $seen = $now;
         }
@@ -201,7 +215,7 @@ final readonly class WatchCommand
      * otherwise; its verdict is printed unless a change arrived.
      * Whether it planned, and so left a coverage map for the next round.
      */
-    private function round(Composed $composed, bool $ownMap, QuickRound|NotGiven $quick, WatchLooks $looks): bool
+    private function round(Composed $composed, bool $ownMap, QuickRound|NotGiven $quick, WatchLooks $looks): RoundEnd
     {
         $local = $composed->settings->local();
         $arrived = $local->cancelsByUnit()
@@ -225,7 +239,7 @@ final readonly class WatchCommand
 
         $this->ended($looks->arrived(), $local, $judged, $composed);
 
-        return $plan instanceof Plan;
+        return new RoundEnd($plan instanceof Plan, $judged);
     }
 
     /**
@@ -260,12 +274,24 @@ final readonly class WatchCommand
             );
     }
 
-    /** What the next round takes as quick, where it is quick and the last round left a map: the changes since. */
-    private function quick(bool $ownMap, Watched $seen, Watched $before): QuickRound|NotGiven
-    {
-        return $ownMap && $this->composed->settings->local()->quick()
-            ? QuickRound::after($seen->changesSince($before))
-            : NotGiven::value();
+    /**
+     * What a round takes as quick, where rounds are quick: the first, what
+     * the carried map gives it; a later one, where the last round left a map,
+     * the changes since.
+     */
+    private function quick(
+        int $ran,
+        QuickRound|NotGiven $carried,
+        bool $ownMap,
+        Watched $seen,
+        Watched $before,
+    ): QuickRound|NotGiven {
+        return match (true) {
+            ! $this->composed->settings->local()->quick() => NotGiven::value(),
+            $ran === 0 => $carried,
+            $ownMap => QuickRound::after($seen->changesSince($before)),
+            default => NotGiven::value(),
+        };
     }
 
     /** What the watch exits with once no change is left to look for: failed where the files cannot be looked at. */

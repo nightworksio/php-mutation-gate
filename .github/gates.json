@@ -348,6 +348,27 @@
       "evidence": "none",
       "why": "It reads only the results of the jobs it needs and names each that did not pass; their own logs say why."
     },
+    "local-mode": {
+      "check": "local mode",
+      "checks": "A whole run of the gate on lcobucci/jwt, prepared as bench/jwt.sh prepares it, at half the machine's cores, ends within ten minutes (ADR-0120); the gate's own run on what the change touched follows it, and only says what it found.",
+      "reproduce": "bench/prepare.sh jwt <dir>, then in <dir>: timeout 600 vendor/bin/mutation-gate run --config=<bench-phpunit.json with runner.processes at half the cores>",
+      "evidence": "none",
+      "why": "Its only measure is the time the run took, which the step summary and the job's log hold."
+    },
+    "local-loop": {
+      "check": "local loop",
+      "checks": "A round of watch on lcobucci/jwt that starts from a map coverage --into carried, after one source line changed, ends within ten minutes under local.cpu balanced (ADR-0146).",
+      "reproduce": "bench/prepare.sh jwt <dir>, then in <dir>: vendor/bin/mutation-gate coverage --into=.mutation-gate/carried, change a line of src, timeout 600 vendor/bin/mutation-gate watch --rounds=1 --from-map=.mutation-gate/carried",
+      "evidence": "none",
+      "why": "Its only measure is the time the round took, which the step summary and the job's log hold."
+    },
+    "local-evidence": {
+      "check": "local evidence",
+      "checks": "It gathers the local jobs' evidence into the one artifact the bot reads.",
+      "reproduce": "Nothing to reproduce",
+      "evidence": "none",
+      "why": "It holds the local jobs' evidence and checks nothing itself."
+    },
     "runner-canary": {
       "check": "runner canary",
       "checks": "Every day, ADR-0004's Runner contract suite and ADR-0020's StaticChecker contract suite against the newest releases of Pest, Infection, PHPUnit, PhpSpec, Codeception, Testo, Mago, PHPStan and Psalm, the pinned pest-plugin-mutate, Infection and Testo freed from the package's pin; then that composer.json takes each pinned release that passed, and that doctor counts it as tested (ADR-0017, ADR-0041). It is not required: a new release reds it alone.",
