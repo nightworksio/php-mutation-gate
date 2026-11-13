@@ -368,7 +368,7 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
 
 /** A shard's result of a plan, written where the verdict reads it: its units, the units it left, and its doom. */
 $left = static function (string $project, Plan $plan, int $shard, Units $left, Doomed|Undoomed $doomed): void {
-    $planned = $plan->shard(ShardId::of($shard));
+    $planned = $plan->shards()->numbered(ShardId::of($shard));
     $result = ShardResult::of(
         $plan->digest(),
         ShardId::of($shard),
@@ -486,7 +486,7 @@ $pulledPlan = static fn(): Plan => Planned::of(
 
 /** An item's result as a job wrote it: every mutant killed, or each as the fixture runner judges it. */
 $pulledResult = static function (string $project, Plan $plan, int $item, int $job, MutantStatus $status): void {
-    $planned = $plan->shard(ShardId::of($item));
+    $planned = $plan->shards()->numbered(ShardId::of($item));
     $mutants = Mutants::of(...array_map(
         static fn(Mutant $mutant): Mutant => $status === MutantStatus::Survived
             ? $mutant

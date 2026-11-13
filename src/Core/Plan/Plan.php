@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
-use function array_any;
-use function array_key_exists;
 use function array_values;
-
-use ArrayIterator;
-
 use function count;
 
 use Countable;
@@ -23,9 +18,6 @@ use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
-
-use function sprintf;
-
 use Traversable;
 
 /**
@@ -40,18 +32,12 @@ final readonly class Plan implements Countable, IteratorAggregate
 {
     private const string UNNAMED = 'The plan names no test.';
 
-    private const string ANOTHER_COMMIT = <<<'SAID'
-        The plan was made on %s, and this checkout is %s.
-        Run each shard and the verdict on the commit its plan was made on.
-        SAID;
-
-    /** @param array<int, Shard> $shards by number, in the order they were added */
     private function __construct(
         private Revision $commit,
         private Digest $base,
         private RunOn $runOn,
         private Keys $keys,
-        private array $shards,
+        private Shards $shards,
         private Considered $considered,
         private TestNames|CannotJudge $names,
         private Digests|Undigested $digests,
@@ -73,7 +59,7 @@ final readonly class Plan implements Countable, IteratorAggregate
             $base,
             RunOn::detached(CannotTell::because('The plan was made without asking what it runs on.')),
             $keys,
-            $numbered,
+            Shards::of(...array_values($numbered)),
             Considered::everything(),
             CannotJudge::because(self::UNNAMED),
             Undigested::proof(),
@@ -239,30 +225,10 @@ final readonly class Plan implements Countable, IteratorAggregate
         return PlanFile::digestOf($this);
     }
 
-    public function shard(ShardId $id): Shard|CannotJudge
+    /** The plan's shards, each by its own number. */
+    public function shards(): Shards
     {
-        return array_key_exists($id->number(), $this->shards)
-            ? $this->shards[$id->number()]
-            : CannotJudge::because(sprintf(
-                'The plan has no shard %d. It holds %d shards, so this job was not planned from it.',
-                $id->number(),
-                count($this->shards),
-            ));
-    }
-
-    /**
-     * This plan, where the checkout is the commit it was made on. No shard and
-     * no verdict follows another commit's plan.
-     */
-    public function forCheckout(Revision $head): self|CannotJudge
-    {
-        return $head->name() === $this->commit->name()
-            ? $this
-            : CannotJudge::because(sprintf(
-                self::ANOTHER_COMMIT,
-                $this->commit->name(),
-                $head->name(),
-            ));
+        return $this->shards;
     }
 
     public function count(): int
@@ -270,15 +236,9 @@ final readonly class Plan implements Countable, IteratorAggregate
         return count($this->shards);
     }
 
-    /** Whether its shards pull their work, each an item listed first for one job (ADR-0134). */
-    public function pulls(): bool
-    {
-        return array_any($this->shards, static fn(Shard $shard): bool => $shard->isPulled());
-    }
-
     /** @return Traversable<int, Shard> */
     public function getIterator(): Traversable
     {
-        return new ArrayIterator(array_values($this->shards));
+        return $this->shards->getIterator();
     }
 }

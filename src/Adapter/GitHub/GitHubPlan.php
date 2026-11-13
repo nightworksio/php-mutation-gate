@@ -159,7 +159,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
             $this->matrixOf($plan),
             PlanListing::inline($plan),
             $plan->briefing()->unchanged() instanceof Unchanged ? 'true' : 'false',
-            $plan->pulls() ? 'true' : 'false',
+            $plan->shards()->pulls() ? 'true' : 'false',
             $plan->briefing()->waits() ? 'true' : 'false',
             $plan->briefing()->isEarly() ? 'true' : 'false',
         );

@@ -723,6 +723,6 @@ it('writes the job each item of a pulling plan is listed first for, and reads it
 
     expect(PlanFile::encode($plan))->toContain('"worker": 2')
         ->and($read)->toEqual($plan)
-        ->and($read instanceof Plan ? [$read->pulls(), PlanJobs::of($read)] : $read)->toBe([true, [1 => ['src'], 2 => ['src']]])
+        ->and($read instanceof Plan ? [$read->shards()->pulls(), PlanJobs::of($read)] : $read)->toBe([true, [1 => ['src'], 2 => ['src']]])
         ->and(PlanFile::encode(planFileEmpty()))->not->toContain('worker');
 });

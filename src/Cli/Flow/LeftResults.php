@@ -69,7 +69,7 @@ final readonly class LeftResults
      */
     public static function of(Plan $plan, Shard $shard, Path $directory, Directory $project): array|CannotJudge|Path
     {
-        return $plan->pulls()
+        return $plan->shards()->pulls()
             ? self::pulledOf($plan, $shard, $directory, $project)
             : self::readOf($plan, $shard, Workspace::result($directory, $shard->id()), $project);
     }

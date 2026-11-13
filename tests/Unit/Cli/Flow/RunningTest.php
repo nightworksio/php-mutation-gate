@@ -146,7 +146,7 @@ it('refuses a shard the environment names that the plan does not hold', function
     $ran = new Running(Flows::adapters($project, ['SHARD' => '3']), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::twoShards()), Absent::setting(), Workspace::results());
 
-    expect($ran)->toEqual(Planned::twoShards()->shard(ShardId::of(3)));
+    expect($ran)->toEqual(Planned::twoShards()->shards()->numbered(ShardId::of(3)));
 });
 
 it('refuses a named shard the plan does not hold', function (): void {
@@ -167,8 +167,17 @@ it('refuses to run a plan made on another commit', function (): void {
     $ran = new Running(Flows::adapters($project, [], $elsewhere), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::twoShards()), ShardId::of(1), Workspace::results());
 
-    expect($ran)->toEqual(Planned::twoShards()->forCheckout(Revision::ref('other')))
+    expect($ran)->toEqual(CannotJudge::because(sprintf(
+        "The plan was made on %s, and this checkout is other.\nRun each shard and the verdict on the commit its plan was made on.",
+        Planned::twoShards()->commit()->name(),
+    )))
         ->and(is_dir(sprintf('%s/.mutation-gate/results', $project)))->toBeFalse();
+});
+
+it('follows a plan on the commit it was made on', function (): void {
+    $plan = Planned::twoShards();
+
+    expect(Running::followed($plan, RepositoryFake::onMain($plan->commit())))->toBe($plan);
 });
 
 it('refuses to run where the commit HEAD is at cannot be read', function (): void {

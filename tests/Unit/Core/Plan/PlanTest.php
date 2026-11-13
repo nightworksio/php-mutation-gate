@@ -55,17 +55,17 @@ it('keeps its shards in the order they came, one per number, numbered from nough
 
     expect($numbers($plan))->toBe([2, 1])
         ->and($plan)->toHaveCount(2)
-        ->and($plan->shard(ShardId::of(2)))->toBe($later);
+        ->and($plan->shards()->numbered(ShardId::of(2)))->toBe($later);
 });
 
 it('answers the shard a job names', function () use ($shard, $planOf): void {
     $second = $shard(2);
 
-    expect($planOf($shard(1), $second)->shard(ShardId::of(2)))->toBe($second);
+    expect($planOf($shard(1), $second)->shards()->numbered(ShardId::of(2)))->toBe($second);
 });
 
 it('cannot judge a shard it does not hold', function () use ($shard, $planOf): void {
-    expect($planOf($shard(1), $shard(2))->shard(ShardId::of(3)))
+    expect($planOf($shard(1), $shard(2))->shards()->numbered(ShardId::of(3)))
         ->toEqual(CannotJudge::because(
             'The plan has no shard 3. It holds 2 shards, so this job was not planned from it.',
         ));
@@ -131,18 +131,6 @@ it('is named by the digest of what its file holds', function () use ($shard, $pl
     expect($plan->digest())->toEqual(PlanFile::digestOf($plan));
 });
 
-it('is followed on the commit it was made on', function () use ($planOf): void {
-    $plan = $planOf();
-
-    expect($plan->forCheckout(Revision::ref('5eeca8f')))->toBe($plan);
-});
-
-it('cannot judge a checkout of another commit', function () use ($planOf): void {
-    expect($planOf()->forCheckout(Revision::ref('206b4e0')))->toEqual(CannotJudge::because(
-        "The plan was made on 5eeca8f, and this checkout is 206b4e0.\nRun each shard and the verdict on the commit its plan was made on.",
-    ));
-});
-
 it('runs a job a shard where its shards own their parts, and a job a list of items where they pull', function () use ($shard, $planOf): void {
     $owned = $planOf($shard(1, 'src'), $shard(2, 'lib'));
     $pulled = $planOf(
@@ -151,6 +139,6 @@ it('runs a job a shard where its shards own their parts, and a job a list of ite
         $shard(3, 'lib')->workedBy(ShardId::of(2)),
     );
 
-    expect([$owned->pulls(), PlanJobs::of($owned)])->toBe([false, [1 => ['src'], 2 => ['lib']]])
-        ->and([$pulled->pulls(), PlanJobs::of($pulled)])->toBe([true, [1 => ['src'], 2 => ['lib']]]);
+    expect([$owned->shards()->pulls(), PlanJobs::of($owned)])->toBe([false, [1 => ['src'], 2 => ['lib']]])
+        ->and([$pulled->shards()->pulls(), PlanJobs::of($pulled)])->toBe([true, [1 => ['src'], 2 => ['lib']]]);
 });

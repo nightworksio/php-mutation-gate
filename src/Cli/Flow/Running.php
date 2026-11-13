@@ -63,6 +63,11 @@ use Symfony\Component\HttpClient\HttpClient;
  */
 final readonly class Running
 {
+    private const string ANOTHER_COMMIT = <<<'SAID'
+        The plan was made on %s, and this checkout is %s.
+        Run each shard and the verdict on the commit its plan was made on.
+        SAID;
+
     private const string NO_HEAD = 'The commit HEAD is at cannot be read, so the plan cannot be checked against it. %s';
 
     private const string UNREAD_HISTORY = 'Shard %d ran its tests without the kill history the plan handed it. %s';
@@ -118,14 +123,20 @@ final readonly class Running
         );
     }
 
-    /** The plan, where the checkout is the commit it was made on, as every shard and the verdict need. */
+    /**
+     * The plan, where the checkout is the commit it was made on, as every
+     * shard and the verdict need: no shard and no verdict follows another
+     * commit's plan.
+     */
     public static function followed(Plan $plan, Repository $repository): Plan|CannotJudge
     {
         $head = $repository->head();
 
-        return $head instanceof CannotTell
-            ? CannotJudge::because(sprintf(self::NO_HEAD, $head->why()))
-            : $plan->forCheckout($head);
+        return match (true) {
+            $head instanceof CannotTell => CannotJudge::because(sprintf(self::NO_HEAD, $head->why())),
+            $head->name() === $plan->commit()->name() => $plan,
+            default => CannotJudge::because(sprintf(self::ANOTHER_COMMIT, $plan->commit()->name(), $head->name())),
+        };
     }
 
     /**
@@ -143,7 +154,7 @@ final readonly class Running
         $followed = self::followed($plan, $this->adapters->repository);
         $id = $named instanceof ShardId ? $named : WhichShard::in($this->adapters->environment, $plan);
 
-        if ($followed instanceof Plan && $id instanceof ShardId && $followed->pulls()) {
+        if ($followed instanceof Plan && $id instanceof ShardId && $followed->shards()->pulls()) {
             $deadline = ShardDeadline::of($this->settings, $this->setup->clock->now());
 
             return new PulledRuns($this->adapters, $this->settings)->left(
@@ -244,7 +255,7 @@ final readonly class Running
     /** What one shard of a plan came to, or why it has no result. */
     private function resultOf(Plan $plan, ShardId $id, Deadline|Unlimited $deadline): ShardResult|CannotJudge
     {
-        $shard = $plan->shard($id);
+        $shard = $plan->shards()->numbered($id);
 
         if ($shard instanceof CannotJudge) {
             return $shard;

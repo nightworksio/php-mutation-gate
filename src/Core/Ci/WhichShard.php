@@ -99,7 +99,7 @@ final readonly class WhichShard
 
     private static function shardOf(int $number, Plan $plan): ShardId|CannotJudge
     {
-        $shard = $plan->shard(ShardId::of($number));
+        $shard = $plan->shards()->numbered(ShardId::of($number));
 
         return $shard instanceof CannotJudge ? $shard : $shard->id();
     }
