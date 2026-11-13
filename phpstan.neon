@@ -312,7 +312,6 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\PhpCalls':
                     - duration # vocabulary: the builder's calls a layer is written back as
                     - flag # vocabulary: the builder's calls a layer is written back as
-                    - globs # vocabulary: the builder's calls a layer is written back as
                 'NightWorksIO\MutationGate\Core\Config\Problem':
                     - at # keys and prose: a setting's path, and what is wrong with it
                     - mismatch # prose: what a setting should hold

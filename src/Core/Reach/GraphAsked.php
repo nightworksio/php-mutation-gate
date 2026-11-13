@@ -49,9 +49,13 @@ final readonly class GraphAsked
     }
 
     /**
-     * @param array<string, mixed> $members
+     * A map as JSON writes it: an object, `{}` where it holds nothing.
      *
-     * @return array<string, mixed>|stdClass
+     * @template T of string|list<string>
+     *
+     * @param array<string, T> $members
+     *
+     * @return array<string, T>|stdClass
      */
     private static function object(array $members): array|stdClass
     {
