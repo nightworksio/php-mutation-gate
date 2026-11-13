@@ -178,9 +178,9 @@ it('keeps each path of the tree source\'s fallback once, as the effective config
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['./app/', 'app', 'lib']]],
     ]);
 
-    expect($settings->treeSource()->options()->written()->line())->toBe('{"fallback":["app","lib"]}')
-        ->and(Configs::settings(Configs::effective($settings))->treeSource())
-        ->toEqual($settings->treeSource());
+    expect($settings->setup()->treeSource()->options()->written()->line())->toBe('{"fallback":["app","lib"]}')
+        ->and(Configs::settings(Configs::effective($settings))->setup()->treeSource())
+        ->toEqual($settings->setup()->treeSource());
 });
 
 it('refuses a floor of 0 without the reason it needs', function (): void {

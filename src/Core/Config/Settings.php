@@ -24,6 +24,12 @@ final readonly class Settings
     {
     }
 
+    /** `extensions`, `preset`, `runner`, `treeSource`, `paths` and `mutators`: what the gate is set up with. */
+    public function setup(): Setup
+    {
+        return $this->layer->setup();
+    }
+
     /** The settings every layer laid over another makes, or every problem that remains once they are laid. */
     public static function settled(Layer $layer, DateTimeImmutable $now): self|Invalid
     {
@@ -61,12 +67,6 @@ final readonly class Settings
             : Invalid::because(...$problems);
     }
 
-    /** @return Listed<string> the extension classes the config loads, beside those Composer names */
-    public function extensions(): Listed
-    {
-        return $this->layer->setup()->extensions();
-    }
-
     /** @return Listed<string> the presets applied, in order */
     public function presets(): Listed
     {
@@ -79,11 +79,6 @@ final readonly class Settings
     public function runner(): ChosenRunner
     {
         return $this->runner;
-    }
-
-    public function treeSource(): Choice
-    {
-        return $this->layer->setup()->treeSource();
     }
 
     public function floors(): Floors
@@ -137,12 +132,6 @@ final readonly class Settings
     public function staticCheck(): StaticCheck
     {
         return $this->layer->staticCheck();
-    }
-
-    /** The registered mutators a run makes mutants with besides its runner's own (ADR-0021). */
-    public function mutators(): Mutators
-    {
-        return $this->layer->setup()->mutators();
     }
 
     /** Which steps of a run are on or off (ADR-0112, ADR-0142). */

@@ -63,11 +63,11 @@ describe('Settings', function (): void {
         $settings = Configs::settings(['runner' => 'pest']);
         $floors = $settings->floors();
 
-        expect([...$settings->extensions()])->toBe([])
+        expect([...$settings->setup()->extensions()])->toBe([])
             ->and([...$settings->presets()])->toBe([])
             ->and($settings->runner()->choice())
             ->toEqual(Choice::of('pest', Configs::options(SettingsCases::PEST_DEFAULTS)))
-            ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
+            ->and($settings->setup()->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
             ->and($floors->trees())->toEqual(Absent::setting())
             ->and($floors->newCode())->toEqual(Floor::of(100))
             ->and($floors->security())->toEqual(Undeclared::floor())
@@ -122,15 +122,15 @@ describe('Settings', function (): void {
         $proofs = $settings->proofs();
         $triage = $settings->triage();
 
-        expect([...$settings->extensions()])->toBe(['Acme\\GateSlack\\SlackExtension'])
+        expect([...$settings->setup()->extensions()])->toBe(['Acme\\GateSlack\\SlackExtension'])
             ->and([...$settings->presets()])->toBe(['laravel', 'acme'])
             ->and($settings->runner()->choice())->toEqual(Choice::of('infection', Configs::options('{}')))
             ->and($settings->runner()->withhold())->toEqual(Withheld::of('DEPLOY_*', 'COMPOSER_AUTH'))
             ->and($settings->runner()->memory())->toEqual(MemoryCap::of(512, MemoryUnit::Megabytes))
             ->and($settings->runner()->workers())->toBe(Workers::Fresh)
-            ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":["app","lib"]}')))
-            ->and([...$settings->mutators()->sets()])->toEqual([Name::of('acme'), Name::of('acme-auth')])
-            ->and([...$settings->mutators()->except()])->toBe(['acme/RemoveAudit'])
+            ->and($settings->setup()->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":["app","lib"]}')))
+            ->and([...$settings->setup()->mutators()->sets()])->toEqual([Name::of('acme'), Name::of('acme-auth')])
+            ->and([...$settings->setup()->mutators()->except()])->toBe(['acme/RemoveAudit'])
             ->and(array_map(
                 static fn(DeclaredTree $tree): array => [$tree->path()->value(), $tree->declared()],
                 $trees instanceof Absent ? [] : [...$trees],

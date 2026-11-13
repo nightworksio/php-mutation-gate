@@ -73,13 +73,13 @@ it('runs each group of a shard\'s units paths entries match with the runner its 
         ->and($files($global))->toBe(['src/Held.php'])
         ->and(array_map(static fn(array $group): array => [
             $group[0]->triage()->limits()->limit()->seconds(),
-            [...$group[0]->mutators()->except()],
+            [...$group[0]->setup()->mutators()->except()],
             $files($group[1]),
         ], $ruled))->toBe([
             [60.0, ['default/Plus'], ['src/Money.php']],
             [90.0, [], ['src/Extra.php']],
         ])
-        ->and([$settings->triage()->limits()->limit()->seconds(), [...$settings->mutators()->except()]])
+        ->and([$settings->triage()->limits()->limit()->seconds(), [...$settings->setup()->mutators()->except()]])
         ->toBe([Flows::settings()->triage()->limits()->limit()->seconds(), []]);
 });
 

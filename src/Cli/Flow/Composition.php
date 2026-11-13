@@ -106,7 +106,7 @@ final readonly class Composition
             return $settings;
         }
 
-        $registry = new Chosen($this->extensions)->given($given, $settings->extensions());
+        $registry = new Chosen($this->extensions)->given($given, $settings->setup()->extensions());
         $configFile = ConfigLocation::in($this->project, $given->config);
 
         return match (true) {

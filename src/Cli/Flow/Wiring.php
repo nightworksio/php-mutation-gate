@@ -91,7 +91,7 @@ final readonly class Wiring
         ToldChildren::by($settings);
         $lookup = Lookup::in($this->extensions);
         $runner = BuiltinRunner::tryFrom($settings->runner()->choice()->use()->value());
-        $mutators = EnabledMutators::in($lookup, $settings->mutators(), $runner ?? NotGiven::value());
+        $mutators = EnabledMutators::in($lookup, $settings->setup()->mutators(), $runner ?? NotGiven::value());
 
         return $mutators instanceof EnabledMutators ? $this->built($settings, $project, $mutators) : $mutators;
     }
@@ -107,7 +107,7 @@ final readonly class Wiring
         $runner = $suite instanceof TestSuite
             ? $chosen->runner(ToldRunner::of($settings, $checker, $mutators, $suite))
             : $suite;
-        $found = $chosen->treeSource($settings->treeSource());
+        $found = $chosen->treeSource($settings->setup()->treeSource());
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
         $costs = $chosen->costModel($settings->shards()->costs()->model());
         $ci = $chosen->ciPlan(ChosenPlan::of($settings, $this->extensions, $this->environment));

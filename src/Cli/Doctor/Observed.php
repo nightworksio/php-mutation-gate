@@ -158,7 +158,7 @@ final readonly class Observed
 
     private function trees(Settings $settings): Trees|Invalid|CannotJudge
     {
-        $source = new Chosen($this->extensions)->treeSource($settings->treeSource());
+        $source = new Chosen($this->extensions)->treeSource($settings->setup()->treeSource());
 
         return $source instanceof Invalid || $source instanceof CannotJudge
             ? $source

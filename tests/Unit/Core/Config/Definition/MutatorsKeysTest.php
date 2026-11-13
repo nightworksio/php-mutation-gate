@@ -11,9 +11,9 @@ it('reads the sets turned on and the mutators turned off, each once', function (
         'mutators' => ['sets' => ['laravel', 'acme-auth', 'laravel'], 'except' => ['laravel/RemoveAbort']],
     ]);
 
-    expect(array_map(static fn(object $name): string => $name->value(), [...$settings->mutators()->sets()]))
+    expect(array_map(static fn(object $name): string => $name->value(), [...$settings->setup()->mutators()->sets()]))
         ->toBe(['laravel', 'acme-auth'])
-        ->and([...$settings->mutators()->except()])->toBe(['laravel/RemoveAbort']);
+        ->and([...$settings->setup()->mutators()->except()])->toBe(['laravel/RemoveAbort']);
 });
 
 it('refuses a set or a mutator not written as its name is', function (array $mutators, string $problem): void {

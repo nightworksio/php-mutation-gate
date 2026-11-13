@@ -31,7 +31,7 @@ final readonly class LineCountEstimate
     /** The estimate for the trees the settings' tree source finds, or why there is none. */
     public static function of(Extensions $extensions, string $project, Settings $settings): Seconds|CannotJudge
     {
-        $source = new Chosen($extensions)->treeSource($settings->treeSource());
+        $source = new Chosen($extensions)->treeSource($settings->setup()->treeSource());
         $trees = match (true) {
             $source instanceof Invalid => CannotJudge::because(self::NO_SOURCE),
             $source instanceof CannotJudge => $source,

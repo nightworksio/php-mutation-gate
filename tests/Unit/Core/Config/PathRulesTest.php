@@ -73,8 +73,8 @@ it('makes a file\'s settings by laying its entries over the settings, and lays n
     expect(Configs::decoded($paths->for(Path::of('src/Money.php'))->layer()))->toBe([])
         ->and($legacy instanceof Settings ? [$legacy->triage()->limits()->limit()->seconds(), $legacy->triage()->limits()->most()->seconds()] : $legacy)
         ->toBe([60.0, 100.0])
-        ->and($legacy instanceof Settings ? [...$legacy->mutators()->except()] : $legacy)->toBe(['default/Plus'])
-        ->and([...$settings->mutators()->except()])->toBe([]);
+        ->and($legacy instanceof Settings ? [...$legacy->setup()->mutators()->except()] : $legacy)->toBe(['default/Plus'])
+        ->and([...$settings->setup()->mutators()->except()])->toBe([]);
 });
 
 it('follows an earlier layer\'s entries with a later one\'s, dropping one equal to an earlier entry', function () use ($rules): void {

@@ -72,7 +72,7 @@ $shown = static fn(Settings|Invalid|CannotJudge $settings): array => $settings i
 
 it('keeps a preset\'s mutator sets offered, so a run skips one nothing registers', function () use ($effective, $nothing): void {
     $settings = $effective(Tree::at('tests/Fixtures/Projects/Laravel'))->settings($nothing());
-    $offered = $settings instanceof Settings ? $settings->mutators()->offering(Name::of('laravel')) : $settings;
+    $offered = $settings instanceof Settings ? $settings->setup()->mutators()->offering(Name::of('laravel')) : $settings;
 
     expect($offered)->toBeInstanceOf(PresetSet::class)
         ->and($offered instanceof PresetSet ? [$offered->preset()->value(), $offered->package()] : $offered)
