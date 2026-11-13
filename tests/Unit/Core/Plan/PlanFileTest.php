@@ -543,7 +543,7 @@ it('writes the matrix of a run that records every killer within its digest, and 
     $read = PlanFile::decode($written);
 
     expect($read)->toEqual($plan)
-        ->and($read instanceof Plan ? $read->briefing()->matrix() : $read)->toBe(MatrixKind::Full)
+        ->and($read instanceof Plan ? $read->briefing()->profile()->matrix() : $read)->toBe(MatrixKind::Full)
         ->and($written)->toContain('"matrix": "full"')
         ->and($plan->digest())->not->toEqual($plan->briefed(Briefing::standard())->digest());
 });
@@ -553,7 +553,7 @@ it('reads a plan that holds no matrix as one that records first killers', functi
     $read = PlanFile::decode(PlanFile::encode($plan));
 
     expect(PlanFile::encode($plan))->not->toContain('"matrix"')
-        ->and($read instanceof Plan ? $read->briefing()->matrix() : $read)->toBe(MatrixKind::FirstKiller);
+        ->and($read instanceof Plan ? $read->briefing()->profile()->matrix() : $read)->toBe(MatrixKind::FirstKiller);
 });
 
 it('refuses a plan whose matrix was dropped after it was made, or is not full', function (): void {
@@ -575,7 +575,7 @@ it('writes a run of the security mutators alone within its digest, and reads it 
     $read = PlanFile::decode($written);
 
     expect($read)->toEqual($plan)
-        ->and($read instanceof Plan ? $read->briefing()->isSecurityOnly() : $read)->toBeTrue()
+        ->and($read instanceof Plan ? $read->briefing()->profile()->isSecurityOnly() : $read)->toBeTrue()
         ->and($written)->toContain('"security": true')
         ->and($plan->digest())->not->toEqual(planFileEmpty()->digest())
         ->and(PlanFile::encode(planFileEmpty()))->not->toContain('"security"');
@@ -584,7 +584,7 @@ it('writes a run of the security mutators alone within its digest, and reads it 
 it('reads a plan that holds no security field as one that makes mutants with every mutator', function (): void {
     $read = PlanFile::decode(PlanFile::encode(planFileEmpty()));
 
-    expect($read instanceof Plan ? $read->briefing()->isSecurityOnly() : $read)->toBeFalse();
+    expect($read instanceof Plan ? $read->briefing()->profile()->isSecurityOnly() : $read)->toBeFalse();
 });
 
 it('refuses a plan whose security field is anything but true', function (string $value, string $refusal): void {
@@ -664,7 +664,7 @@ it('writes a run of one suite\'s tests alone within its digest, and reads it bac
     $read = PlanFile::decode($written);
 
     expect($read)->toEqual($plan)
-        ->and($read instanceof Plan ? $read->briefing()->suite() : $read)->toEqual(SuiteName::of('unit'))
+        ->and($read instanceof Plan ? $read->briefing()->profile()->suite() : $read)->toEqual(SuiteName::of('unit'))
         ->and($written)->toContain('"suite": "unit"')
         ->and($plan->digest())->not->toEqual(planFileEmpty()->briefed(Briefing::standard()->securityOnly())->digest())
         ->and(PlanFile::encode(planFileEmpty()))->not->toContain('"suite"');
@@ -673,7 +673,7 @@ it('writes a run of one suite\'s tests alone within its digest, and reads it bac
 it('reads a plan that holds no suite field as one that every test judges', function (): void {
     $read = PlanFile::decode(PlanFile::encode(planFileEmpty()));
 
-    expect($read instanceof Plan ? $read->briefing()->suite() : $read)->toEqual(NotGiven::value());
+    expect($read instanceof Plan ? $read->briefing()->profile()->suite() : $read)->toEqual(NotGiven::value());
 });
 
 it('refuses a plan whose suite field is no suite\'s name', function (string $value, string $refusal): void {

@@ -182,7 +182,7 @@ it('writes into the plan the kill matrix the run records', function (string $inp
     $written = PlanFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)));
 
     expect($planned->code)->toBe(0)
-        ->and($written instanceof Plan ? $written->briefing()->matrix() : $written)->toBe($matrix);
+        ->and($written instanceof Plan ? $written->briefing()->profile()->matrix() : $written)->toBe($matrix);
 })->with([
     'every killer' => ['--kill-matrix=full', MatrixKind::Full],
     'first killers, as asked' => ['--kill-matrix=first', MatrixKind::FirstKiller],

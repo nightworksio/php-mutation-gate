@@ -237,12 +237,6 @@ final readonly class Briefing
         return $this->ownScopeCoverage;
     }
 
-    /** The suite whose tests alone judge the run's mutants; none where every test judges them. */
-    public function suite(): SuiteName|NotGiven
-    {
-        return $this->kind->suite();
-    }
-
     /** The kind of run the plan is for. */
     public function profile(): RunProfile
     {
@@ -253,17 +247,5 @@ final readonly class Briefing
     public function peak(): MemoryCap|NotGiven
     {
         return $this->peak;
-    }
-
-    /** How much of the kill matrix the run records. */
-    public function matrix(): MatrixKind
-    {
-        return $this->kind->matrix();
-    }
-
-    /** Whether the run makes mutants with the security mutators alone, and holds only the security sets. */
-    public function isSecurityOnly(): bool
-    {
-        return $this->kind->isSecurityOnly();
     }
 }

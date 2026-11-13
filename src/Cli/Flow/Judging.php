@@ -559,7 +559,8 @@ final readonly class Judging
     private function matrixOf(Plan $plan, CoverageMap|CannotJudge $map): KillMatrix
     {
         $names = $plan->names();
-        $matrix = KillMatrix::of($plan->briefing()->matrix(), $map instanceof CoverageMap ? $map : CoverageMap::of())
+        $kind = $plan->briefing()->profile()->matrix();
+        $matrix = KillMatrix::of($kind, $map instanceof CoverageMap ? $map : CoverageMap::of())
             ->cannotBeFull($this->adapters->runner->behaviour()->whyNotFull())
             ->grouping($this->adapters->suite->suites());
 

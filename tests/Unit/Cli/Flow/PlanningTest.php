@@ -283,8 +283,8 @@ it('briefs every shard and the verdict that a run narrowed to the security mutat
     $secured = $plan(Flows::project(), Mode::full(), Cut::exactly(2), Narrowing::none()->toMutators(Mutators::named('security/HashEqualsToTrue')));
     $whole = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
 
-    expect($secured instanceof Plan ? $secured->briefing()->isSecurityOnly() : $secured)->toBeTrue()
-        ->and($whole instanceof Plan ? $whole->briefing()->isSecurityOnly() : $whole)->toBeFalse()
+    expect($secured instanceof Plan ? $secured->briefing()->profile()->isSecurityOnly() : $secured)->toBeTrue()
+        ->and($whole instanceof Plan ? $whole->briefing()->profile()->isSecurityOnly() : $whole)->toBeFalse()
         ->and($secured instanceof Plan && $whole instanceof Plan ? $secured->base() : $secured)
         ->not->toEqual($whole instanceof Plan ? $whole->base() : $whole);
 });
@@ -296,7 +296,7 @@ it('briefs every shard and the verdict that a run narrowed to one suite runs its
     $suited = $plan(Flows::project(), Mode::full(), Cut::exactly(2), $runner, Narrowing::none()->toSuite(SuiteName::of('unit')));
     $whole = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
 
-    expect($suited instanceof Plan ? $suited->briefing()->suite() : $suited)->toEqual(SuiteName::of('unit'))
+    expect($suited instanceof Plan ? $suited->briefing()->profile()->suite() : $suited)->toEqual(SuiteName::of('unit'))
         ->and($runner->ran()[0]->suites())->toEqual(Suites::named(SuiteName::of('unit')))
         ->and($runner->ran()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
         ->and($suited instanceof Plan && $whole instanceof Plan ? $suited->base() : $suited)
@@ -655,11 +655,11 @@ it('proves and carries a run that records every killer only from proofs whose ru
     expect($shards($fromFirst))->toEqual([1 => [$money, $held]])
         ->and($fromFirst instanceof Plan ? $fromFirst->considered()->proved() : $fromFirst)->toEqual(Units::none())
         ->and($fromFirst instanceof Plan ? $fromFirst->considered()->carried() : $fromFirst)->toEqual(Units::none())
-        ->and($fromFirst instanceof Plan ? $fromFirst->briefing()->matrix() : $fromFirst)->toBe(MatrixKind::Full)
+        ->and($fromFirst instanceof Plan ? $fromFirst->briefing()->profile()->matrix() : $fromFirst)->toBe(MatrixKind::Full)
         ->and($fromFull instanceof Plan ? $fromFull->considered()->proved() : $fromFull)->toEqual(Units::of($money))
         ->and($fromFull instanceof Plan ? $fromFull->considered()->carried() : $fromFull)->toEqual(Units::of($held))
         ->and($firstFromFull instanceof Plan ? $firstFromFull->considered()->proved() : $firstFromFull)->toEqual(Units::of($money))
-        ->and($firstFromFull instanceof Plan ? $firstFromFull->briefing()->matrix() : $firstFromFull)->toBe(MatrixKind::FirstKiller);
+        ->and($firstFromFull instanceof Plan ? $firstFromFull->briefing()->profile()->matrix() : $firstFromFull)->toBe(MatrixKind::FirstKiller);
 });
 
 it('refuses a run that records every killer under a runner that cannot, and plans one that records first killers', function () use (

@@ -109,8 +109,8 @@ final readonly class Composed
     public function following(Plan $plan): self|CannotJudge
     {
         $briefing = $plan->briefing();
-        $suite = $briefing->suite();
-        $secured = $briefing->isSecurityOnly() ? $this->securityOnly() : $this;
+        $suite = $briefing->profile()->suite();
+        $secured = $briefing->profile()->isSecurityOnly() ? $this->securityOnly() : $this;
 
         return $secured instanceof self && $suite instanceof SuiteName ? $secured->inSuite($suite) : $secured;
     }

@@ -265,7 +265,7 @@ final readonly class Running
             $history instanceof KillHistory ? $history : KillHistory::none(),
         );
         $held = $handoff->subsumption($id);
-        $search = KillSearch::of($ordering, $plan->briefing()->matrix())
+        $search = KillSearch::of($ordering, $plan->briefing()->profile()->matrix())
             ->controllingKills($this->settings->triage()->flaky()->killControls());
         $search = $held instanceof Subsumption ? $search->holdingBack($held) : $search;
         $outcome = $map instanceof CoverageMap

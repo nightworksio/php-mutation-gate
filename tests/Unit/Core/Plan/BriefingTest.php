@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
 it('measures no peak and records first killers, by default', function (): void {
     expect(Briefing::standard()->peak())->toEqual(NotGiven::value())
-        ->and(Briefing::standard()->matrix())->toBe(MatrixKind::FirstKiller);
+        ->and(Briefing::standard()->profile()->matrix())->toBe(MatrixKind::FirstKiller);
 });
 
 it('takes each of what it tells on its own, leaving the other as it was', function (): void {
@@ -24,8 +24,8 @@ it('takes each of what it tells on its own, leaving the other as it was', functi
     $recording = Briefing::standard()->recording(MatrixKind::Full);
 
     expect($weighed->peak())->toBe($peak)
-        ->and($weighed->matrix())->toBe(MatrixKind::FirstKiller)
-        ->and($recording->matrix())->toBe(MatrixKind::Full)
+        ->and($weighed->profile()->matrix())->toBe(MatrixKind::FirstKiller)
+        ->and($recording->profile()->matrix())->toBe(MatrixKind::Full)
         ->and($recording->peak())->toEqual(NotGiven::value())
         ->and($weighed->recording(MatrixKind::Full)->peak())->toBe($peak);
 });
@@ -33,10 +33,10 @@ it('takes each of what it tells on its own, leaving the other as it was', functi
 it('has every test judge the mutants by default, and one suite\'s tests alone where it is told', function (): void {
     $suite = Briefing::standard()->recording(MatrixKind::Full)->inSuite(SuiteName::of('unit'));
 
-    expect(Briefing::standard()->suite())->toEqual(NotGiven::value())
-        ->and($suite->suite())->toEqual(SuiteName::of('unit'))
-        ->and($suite->matrix())->toBe(MatrixKind::Full)
-        ->and($suite->isSecurityOnly())->toBeFalse();
+    expect(Briefing::standard()->profile()->suite())->toEqual(NotGiven::value())
+        ->and($suite->profile()->suite())->toEqual(SuiteName::of('unit'))
+        ->and($suite->profile()->matrix())->toBe(MatrixKind::Full)
+        ->and($suite->profile()->isSecurityOnly())->toBeFalse();
 });
 
 it('tells every shard the multiple and the pace the plan learned, which its file holds, and neither by default', function (KillsLearned $kills, array $written): void {

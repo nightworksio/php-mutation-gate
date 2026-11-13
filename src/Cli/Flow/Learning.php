@@ -80,7 +80,7 @@ final readonly class Learning
      */
     private function subsumed(Ledger $ledger, UnitResults $fresh, Plan $plan): Ledger
     {
-        return $plan->briefing()->matrix() === MatrixKind::Full
+        return $plan->briefing()->profile()->matrix() === MatrixKind::Full
             ? $ledger->withLearned($ledger->learned()->subsumption()->afterRun($fresh))
             : $ledger;
     }
