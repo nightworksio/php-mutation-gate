@@ -4,32 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
-use function array_filter;
-use function array_keys;
 use function array_map;
 use function count;
-use function in_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Change\Change;
-use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\File\Line;
-use NightWorksIO\MutationGate\Core\File\Lines;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
-use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\DigestsRecord;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
-use NightWorksIO\MutationGate\Core\Reach\Reason;
-use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\TestNamesRecord;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
@@ -68,7 +55,7 @@ use stdClass;
  * @phpstan-import-type RunWritten from DigestsRecord as RunDigests
  * @phpstan-import-type Written from BriefingRecord as BriefingWritten
  *
- * @phpstan-type ShardWritten array<string, int|string|float|list<UnitWritten>>
+ * @phpstan-import-type Written from ShardRecord as ShardWritten
  * @phpstan-import-type Written from PrunedRecord as PrunedWritten
  * @phpstan-import-type Written from SampleRecord as SampleWritten
  *
@@ -76,12 +63,6 @@ use stdClass;
  *     proved?: list<UnitWritten>,
  *     carried?: list<UnitWritten>,
  *     carriedOwn?: list<UnitWritten>,
- * }
- * @phpstan-type ChangeWritten array{
- *     changed?: array<string, list<int>>,
- *     untested?: array<string, list<int>>,
- *     reach?: list<string>,
- *     widening?: list<int>,
  * }
  * @phpstan-type Body array{
  *     format: int,
@@ -113,23 +94,11 @@ final readonly class PlanFile
 
     private const string BASE = 'base';
 
-    /** The job that lists an item of a run whose shards pull their work first (ADR-0134). */
-    private const string WORKER = 'worker';
-
     private const string PROVED = 'proved';
 
     private const string CARRIED = 'carried';
 
     private const string CARRIED_OWN = 'carriedOwn';
-
-    private const string CHANGED = 'changed';
-
-    private const string UNTESTED = 'untested';
-
-    private const string REACH = 'reach';
-
-    /** The places in `reach` of the reasons that reach every unit of a package. */
-    private const string WIDENING = 'widening';
 
     private const string NAMES = 'names';
 
@@ -177,11 +146,11 @@ final readonly class PlanFile
             self::BASE => $plan->base()->value(),
             ...RunOnRecord::of($plan->runOn()),
             'keys' => KeysRecord::of($plan->keys()),
-            'shards' => array_map(self::shard(...), [...$plan]),
+            'shards' => array_map(ShardRecord::of(...), [...$plan]),
             ...self::considered($plan->considered()),
             ...PrunedRecord::field($plan->considered()->pruned()),
             ...SampleRecord::field($plan->considered()->sample()),
-            ...self::change($plan->considered()),
+            ...ChangeRecord::field($plan->considered()),
             ...DigestsRecord::field($plan->digests()),
             ...BriefingRecord::of($plan->briefing()),
         ];
@@ -210,53 +179,6 @@ final readonly class PlanFile
         return count($units) > 0 ? [$field => UnitRecord::all($units)] : [];
     }
 
-    /**
-     * @return ChangeWritten the lines a change added or modified, by file, those no test runs, and why it reached
-     *                       what it did
-     */
-    private static function change(Considered $considered): array
-    {
-        $changed = self::linesOf($considered->changed());
-        $untested = self::linesOf($considered->untested());
-
-        return $changed === [] && count($considered->reach()) === 0 ? [] : [
-            self::CHANGED => $changed,
-            ...$untested === [] ? [] : [self::UNTESTED => $untested],
-            self::REACH => array_map(static fn(Reason $reason): string => $reason->text(), [...$considered->reach()]),
-            ...self::widening($considered->reach()),
-        ];
-    }
-
-    /** @return array<string, list<int>> the lines of each file these changes name, by path */
-    private static function linesOf(Changes $changes): array
-    {
-        $lines = [];
-
-        foreach ($changes as $change) {
-            $lines[$change->path()->value()] = array_map(
-                static fn(Line $line): int => $line->number(),
-                [...$change->lines()],
-            );
-        }
-
-        return $lines;
-    }
-
-    /** @return ShardWritten */
-    private static function shard(Shard $shard): array
-    {
-        return [
-            'id' => $shard->id()->number(),
-            'label' => $shard->label(),
-            'seconds' => $shard->cost()->seconds(),
-            ...EstimateRecord::of($shard->estimate()),
-            'package' => $shard->package()->path()->value(),
-            'units' => UnitRecord::all($shard->units()),
-            ...TestPartRecord::of($shard->testPart()),
-            ...$shard->isPulled() ? [self::WORKER => $shard->worker()->number()] : [],
-        ];
-    }
-
     /** @throws NotInShape */
     private static function planIn(Node $file): Plan|CannotJudge
     {
@@ -267,7 +189,7 @@ final readonly class PlanFile
         $shards = [];
 
         foreach ($file->field('shards')->items() as $shard) {
-            $shards[] = self::shardIn($shard);
+            $shards[] = ShardRecord::read($shard);
         }
 
         $commit = Commit::parse($file->field('commit')->text());
@@ -281,9 +203,7 @@ final readonly class PlanFile
         )
             ->on(RunOnRecord::read($file))
             ->considering(
-                Considered::everything()
-                    ->reaching(self::changesIn($file->field(self::CHANGED)), self::reachIn($file))
-                    ->untesting(self::changesIn($file->field(self::UNTESTED)))
+                ChangeRecord::onto(Considered::everything(), $file)
                     ->proving(self::unitsIn($file->field(self::PROVED)))
                     ->carrying(self::unitsIn($file->field(self::CARRIED)))
                     ->carryingOwn(self::unitsIn($file->field(self::CARRIED_OWN)))
@@ -324,83 +244,5 @@ final readonly class PlanFile
     private static function unitsIn(Node $units): Units
     {
         return $units->isPresent() ? UnitRecord::readAll($units) : Units::none();
-    }
-
-    /** @throws NotInShape */
-    private static function changesIn(Node $changed): Changes
-    {
-        $changes = Changes::none();
-
-        foreach ($changed->isPresent() ? $changed->entries() : [] as $path => $numbers) {
-            $lines = Lines::none();
-
-            foreach ($numbers->items() as $number) {
-                $lines = $lines->with(self::lineIn($number));
-            }
-
-            $changes = $changes->with(Change::modified(Path::of(sprintf('%s', $path)), $lines));
-        }
-
-        return $changes;
-    }
-
-    /**
-     * The places in a plan's reasons of those that reach every unit of a package, none where there are none.
-     *
-     * @return array{widening?: list<int>}
-     */
-    private static function widening(Reasons $reasons): array
-    {
-        $places = array_keys(array_filter([...$reasons], static fn(Reason $reason): bool => $reason->widens()));
-
-        return $places === [] ? [] : [self::WIDENING => $places];
-    }
-
-    /** @throws NotInShape */
-    private static function reachIn(Node $file): Reasons
-    {
-        $reasons = Reasons::of();
-        $reach = $file->field(self::REACH);
-        $widening = $file->field(self::WIDENING);
-        $places = $widening->isPresent() ? $widening->integers() : [];
-
-        foreach ($reach->isPresent() ? $reach->items() : [] as $at => $reason) {
-            $read = Reason::that($reason->text());
-            $reasons = $reasons->with(in_array($at, $places, strict: true) ? $read->widening() : $read);
-        }
-
-        return $reasons;
-    }
-
-    /** @throws NotInShape */
-    private static function lineIn(Node $line): Line
-    {
-        $number = $line->integer();
-
-        return $number > 0 ? Line::of($number) : throw NotInShape::at($line->at(), 'a line');
-    }
-
-
-    /** @throws NotInShape */
-    private static function shardIn(Node $shard): Shard
-    {
-        $id = $shard->field('id')->integer();
-
-        $read = Shard::of(
-            $id > 0 ? ShardId::of($id) : throw NotInShape::at($shard->field('id')->at(), 'a shard number'),
-            Package::at(Path::of($shard->field('package')->text())),
-            UnitRecord::readAll($shard->field('units')),
-            Seconds::of($shard->field('seconds')->number()),
-            $shard->field('label')->text(),
-        );
-
-        $worker = $shard->field(self::WORKER);
-        $read = $read->estimated(EstimateRecord::read($shard, $read->cost()))->inPart(TestPartRecord::read($shard));
-
-        return match (true) {
-            ! $worker->isPresent() => $read,
-            $worker->integer() > 0 => $read->workedBy(ShardId::of($worker->integer())),
-            default => throw NotInShape::at($worker->at(), 'a shard number'),
-        };
     }
 }

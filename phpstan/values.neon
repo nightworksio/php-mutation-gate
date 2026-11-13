@@ -511,13 +511,14 @@ services:
                 'NightWorksIO\MutationGate\Core\Ci\DefaultBranch':
                     - FALLBACK # the project's default branch when none is configured or detected
                 'NightWorksIO\MutationGate\Core\Plan\PlanFile':
-                    - REACH # a key of the plan file, not an own-scope trust's value
                     - BASE # a field of the plan
                     - PROVED # a field of the plan
                     - CARRIED # a field of the plan
+                    - DIGEST # a field of the plan, not the digest command
+                'NightWorksIO\MutationGate\Core\Plan\ChangeRecord':
+                    - REACH # a key of the plan file, not an own-scope trust's value
                     - CHANGED # a field of the plan
                     - UNTESTED # a field of the plan, not Pest's status of the same name
-                    - DIGEST # a field of the plan, not the digest command
                 'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
                     - NOTES # a shard result's section, not the comment's
                     - FLAKY # a field of a shard result
