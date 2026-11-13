@@ -47,28 +47,22 @@ final readonly class GraphAnswer
         return new self($reaching, $joined, $named, $wrong, $unplaced);
     }
 
-    /** No answer to anything. */
-    public static function none(): self
-    {
-        return new self([], [], [], Paths::none(), []);
-    }
-
     /** The test files that reach a file; none where the graph gives no answer. */
     public function reaching(Path $file): Paths|NotGiven
     {
-        return self::in($this->reaching, $file);
+        return $this->in($this->reaching, $file);
     }
 
     /** Every file the test files that reach a file reach; none where the graph gives no answer. */
     public function joined(Path $file): Paths|NotGiven
     {
-        return self::in($this->joined, $file);
+        return $this->in($this->joined, $file);
     }
 
     /** The files a file names; none where the graph gives no answer. */
     public function named(Path $file): Paths|NotGiven
     {
-        return self::in($this->named, $file);
+        return $this->in($this->named, $file);
     }
 
     /** The test files the coverage map shows the graph wrong of. */
@@ -88,7 +82,7 @@ final readonly class GraphAnswer
     }
 
     /** @param array<string, Paths|NotGiven> $answers */
-    private static function in(array $answers, Path $file): Paths|NotGiven
+    private function in(array $answers, Path $file): Paths|NotGiven
     {
         return array_key_exists($file->value(), $answers) ? $answers[$file->value()] : NotGiven::value();
     }

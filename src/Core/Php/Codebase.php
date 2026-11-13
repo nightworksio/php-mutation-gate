@@ -50,12 +50,6 @@ final readonly class Codebase
         return $sources === [] ? $this : self::of(...$this->sources, ...$sources);
     }
 
-    /** @return list<Source> every source it holds, in the order it read them */
-    public function sources(): array
-    {
-        return $this->sources;
-    }
-
     /** The file at a path, if the codebase holds it. */
     public function has(Path $file): bool
     {

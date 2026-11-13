@@ -35,12 +35,6 @@ final readonly class LooseValue
         return $this->value;
     }
 
-    /** What it lets count or carry. */
-    public function lets(): string
-    {
-        return $this->lets;
-    }
-
     /** The note a run makes of it. */
     public function noted(): string
     {

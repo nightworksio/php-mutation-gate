@@ -145,7 +145,6 @@ final readonly class Proofs implements Countable, IteratorAggregate
         return count($this->proofs);
     }
 
-    /** @return Traversable<int, Proof> */
     /**
      * Whether any of these proofs may have been established at a base whose
      * first five inputs digest to this: one that records the same digest, or
@@ -166,6 +165,7 @@ final readonly class Proofs implements Countable, IteratorAggregate
         return false;
     }
 
+    /** @return Traversable<int, Proof> */
     public function getIterator(): Traversable
     {
         return new ArrayIterator(array_values($this->proofs));

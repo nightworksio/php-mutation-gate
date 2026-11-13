@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -141,4 +142,26 @@ it('runs a job a shard where its shards own their parts, and a job a list of ite
 
     expect([$owned->shards()->pulls(), PlanJobs::of($owned)])->toBe([false, [1 => ['src'], 2 => ['lib']]])
         ->and([$pulled->shards()->pulls(), PlanJobs::of($pulled)])->toBe([true, [1 => ['src'], 2 => ['lib']]]);
+});
+
+it('is keyed anew on the base, keys and digests its run built after it ran, keeping everything else', function () use (
+    $shard,
+    $planOf,
+): void {
+    $considered = Considered::everything()->proving(Units::of(Unit::file(Path::of('src/A.php'))));
+    $names = TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'));
+    $plan = $planOf($shard(1))->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')))->considering($considered)->naming($names);
+    $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('9c1e'));
+    $digests = Digests::of(Digest::sha256Of('mutation'));
+    $keyed = $plan->keyedBy(Digest::sha256Of('recorded'), $keys, $digests);
+
+    expect($keyed->base())->toEqual(Digest::sha256Of('recorded'))
+        ->and($keyed->keys())->toBe($keys)
+        ->and($keyed->digests())->toBe($digests)
+        ->and($keyed->commit())->toBe($plan->commit())
+        ->and($keyed->runOn())->toBe($plan->runOn())
+        ->and($keyed->shards())->toBe($plan->shards())
+        ->and($keyed->considered())->toBe($considered)
+        ->and($keyed->names())->toBe($names)
+        ->and($keyed->briefing())->toBe($plan->briefing());
 });

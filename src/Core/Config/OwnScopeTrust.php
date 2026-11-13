@@ -28,10 +28,4 @@ enum OwnScopeTrust: string
             self::Trust => 'Ci::trustingMergedOwnScopeProofs()',
         };
     }
-
-    /** Whether it loosens what the default branch judges (ADR-0142). */
-    public function isLoose(): bool
-    {
-        return $this === self::Trust;
-    }
 }

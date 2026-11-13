@@ -56,3 +56,17 @@ it('tells every shard the multiple and the pace the plan learned, which its file
         ['learnedMultiple' => 4.5, 'learnedPace' => 0.25],
     ],
 ]);
+
+it('waits for a fresh map only once told to, keeping the rest of what it tells', function (): void {
+    $peak = MemoryCap::of(300, MemoryUnit::Megabytes);
+    $planned = Briefing::standard()->weighing($peak)->recording(MatrixKind::Full)->onOwnScopeCoverage()->plannedEarly();
+    $waiting = $planned->waitingForAMap();
+
+    expect(Briefing::standard()->waits())->toBeFalse()
+        ->and($planned->waits())->toBeFalse()
+        ->and($waiting->waits())->toBeTrue()
+        ->and($waiting->isEarly())->toBeTrue()
+        ->and($waiting->peak())->toBe($peak)
+        ->and($waiting->profile()->matrix())->toBe(MatrixKind::Full)
+        ->and($waiting->isOnOwnScopeCoverage())->toBeTrue();
+});

@@ -51,3 +51,8 @@ it('says what each lets count or carry', function (): void {
 
     expect($loose[0]->noted())->toBe('controls.kills is false, a loose value: a kill counts without its control on the unmutated code');
 });
+
+it('counts the loose values in force', function (): void {
+    expect(LooseValues::in(Configs::settings(['runner' => 'pest', 'controls' => ['kills' => false], 'reach' => ['lockMoves' => 'loaded']])))
+        ->toHaveCount(2);
+});

@@ -158,3 +158,24 @@ it('leaves a mutant whose tests fail without it with no result, naming the tests
         ->and($mutant->killers())->toEqual($failing)
         ->and($mutant->reason())->toEqual(Reason::that('Its tests fail.'));
 });
+
+it('is equivalent once proven before it ran: unmeasured, killed by no test, for the proof, keeping the rest of its record', function (): void {
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0),
+        '12',
+        Location::of(Path::of('src/Money.php'), Line::of(4), Line::of(4)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-"),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    )->killedBy(TestIds::of(TestId::of('MoneyTest::adds')))->withLimit(Seconds::of(5.0));
+    $proof = Reason::that('the opcodes of the mutant and the original are the same');
+    $proven = $mutant->provenEquivalent($proof);
+
+    expect($proven->status())->toBe(MutantStatus::Equivalent)
+        ->and($proven->reason())->toBe($proof)
+        ->and($proven->duration())->toEqual(Unmeasured::duration())
+        ->and($proven->killers())->toEqual(TestIds::none())
+        ->and($proven->stop()->limit())->toEqual(Seconds::of(5.0))
+        ->and([$proven->id(), $proven->nativeId(), $proven->location(), $proven->mutation()])
+        ->toBe([$mutant->id(), '12', $mutant->location(), $mutant->mutation()]);
+});

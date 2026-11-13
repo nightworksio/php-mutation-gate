@@ -26,10 +26,6 @@ final readonly class BeforeRunPrograms
 
     private const string MUTANT = 'mutant:%s';
 
-    private function __construct()
-    {
-    }
-
     /** An original's name among the programs, one for every mutant of the same text. */
     public static function original(Contents $original): string
     {

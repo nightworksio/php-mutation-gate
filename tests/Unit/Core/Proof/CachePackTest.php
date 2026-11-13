@@ -75,3 +75,18 @@ it('keeps a proof read first under its key, and holds each class apart', functio
         ->and($unitOf($held->branch()->proofFor($first->key())))->toBe('src/Later.php')
         ->and($held->count())->toBe(2);
 });
+
+it('takes nothing from a pack whose entry holds no proof under its key, saying which', function () use ($makeBase): void {
+    $base = $makeBase();
+    $header = explode("\n", (string) gzdecode(CachePack::bytes(CacheClass::Trusted, $base, Proofs::none())))[0];
+    $key = str_repeat('1', 64);
+    $read = static fn(string $ledger): Proofs|CannotJudge => CachePack::read(
+        Gzip::packAt(sprintf("%s\n{\"key\":\"%s\",\"ledger\":\"%s\"}\n", $header, $key, $ledger), 9),
+        CacheClass::Trusted,
+        $base,
+        LedgerLimits::standard(),
+    );
+
+    expect($read('not base64!'))->toEqual(CannotJudge::because(sprintf('The proof cache\'s pack holds an entry this gate does not read: %s is not a ledger holding the proof under its key.', $key)))
+        ->and($read('bm8gbGVkZ2Vy'))->toBeInstanceOf(CannotJudge::class);
+});

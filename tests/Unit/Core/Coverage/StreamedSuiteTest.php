@@ -45,3 +45,11 @@ it('reads back what it wrote, and nothing from text that is not a suite', functi
         ->and(StreamedSuite::decoded('not json'))->toBeInstanceOf(NotGiven::class)
         ->and(StreamedSuite::decoded('{"suites": []}'))->toBeInstanceOf(NotGiven::class);
 });
+
+it('counts the tests the streams ran and names the suites they ran', function () use ($ended): void {
+    $suite = StreamedSuite::of(complete: true, tests: ['A::a' => $ended(1.0), 'A::b' => $ended(2.0)], reported: [])->ofSuites(['Unit', 'Plugins']);
+
+    expect($suite->count())->toBe(2)
+        ->and($suite->suites())->toBe(['Unit', 'Plugins'])
+        ->and(StreamedSuite::none()->count())->toBe(0);
+});

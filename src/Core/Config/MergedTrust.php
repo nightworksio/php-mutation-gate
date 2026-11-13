@@ -41,10 +41,4 @@ enum MergedTrust: string
     {
         return $this !== self::Off;
     }
-
-    /** Whether it loosens what the default branch judges (ADR-0142). */
-    public function isLoose(): bool
-    {
-        return $this !== self::Off;
-    }
 }

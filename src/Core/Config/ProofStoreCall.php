@@ -19,10 +19,6 @@ use function sprintf;
  */
 final readonly class ProofStoreCall
 {
-    private function __construct()
-    {
-    }
-
     /** The proof store, by `Proofs::directory()`, `::s3()`, `::gcs()` or `::azure()` for the built-in ones. */
     public static function of(Choice $store): string
     {
