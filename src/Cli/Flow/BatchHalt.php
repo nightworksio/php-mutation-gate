@@ -62,10 +62,25 @@ final class BatchHalt
     /** The batch of these units watched for a save every so often; nothing where this PHP has no alarm. */
     public static function armed(Directory $project, Units $batch, Seconds $every): self|NotGiven
     {
-        if (! Halting::signals() || ! function_exists('pcntl_alarm')) {
-            return NotGiven::value();
-        }
+        return Halting::signals() && function_exists('pcntl_alarm')
+            ? self::arming($project, $batch, $every)
+            : NotGiven::value();
+    }
 
+    /** Whether the batch was halted, its alarm and its signal handled as they were before it began. */
+    public function disarmed(): bool
+    {
+        pcntl_alarm(0);
+        pcntl_signal(SIGALRM, $this->before);
+        $halted = $this->halting->heard();
+        $this->halting->letGo();
+
+        return $halted;
+    }
+
+    /** The batch of these units watched for a save every so often, its alarm set. */
+    private static function arming(Directory $project, Units $batch, Seconds $every): self
+    {
         $digests = [];
 
         foreach ($batch as $unit) {
@@ -79,17 +94,6 @@ final class BatchHalt
         pcntl_alarm($halt->every);
 
         return $halt;
-    }
-
-    /** Whether the batch was halted, its alarm and its signal handled as they were before it began. */
-    public function disarmed(): bool
-    {
-        pcntl_alarm(0);
-        pcntl_signal(SIGALRM, $this->before);
-        $halted = $this->halting->heard();
-        $this->halting->letGo();
-
-        return $halted;
     }
 
     private static function digestOf(Directory $project, Path $file): string

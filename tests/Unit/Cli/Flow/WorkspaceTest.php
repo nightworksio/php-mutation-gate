@@ -29,3 +29,8 @@ it('keeps the whole suite\'s map of a run of one unit apart from the map it admi
     expect(Workspace::suiteCoverage())->toEqual(Path::of('.mutation-gate/coverage/suite'))
         ->and(Workspace::admittedCoverage())->toEqual(Path::of('.mutation-gate/coverage/admitted'));
 });
+
+it('leaves how a shard\'s tests ran in its streams beside its result, and the suite the verdict leaves under .mutation-gate', function (): void {
+    expect(Workspace::streamedSuite(Path::of('build/results'), ShardId::of(4)))->toEqual(Path::of('build/results/4.suite.json'))
+        ->and(Workspace::suite())->toEqual(Path::of('.mutation-gate/suite'));
+});

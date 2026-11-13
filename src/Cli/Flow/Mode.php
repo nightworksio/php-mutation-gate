@@ -101,7 +101,6 @@ final readonly class Mode
         return $this->unproven ? TakenProofs::None : $configured;
     }
 
-    /** Whether every unit is considered, as `--full` asks. */
     /** This mode, taking no proof, as a run planned without a fresh map takes none (ADR-0135). */
     public function takingNone(): self
     {
@@ -114,6 +113,7 @@ final readonly class Mode
         return $this->unproven;
     }
 
+    /** Whether every unit is considered, as `--full` asks. */
     public function isFull(): bool
     {
         return $this->since === '';

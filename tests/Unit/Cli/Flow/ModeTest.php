@@ -11,8 +11,11 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\DefaultBranchSince;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Judged;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -26,6 +29,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -184,4 +188,52 @@ it('reads no change since the default branch\'s ledger where that ledger records
     $base = Mode::since('base')->changeBase($ledgers, $standing, RunProfile::standard(), 'check', DefaultBranchSince::Passed);
 
     expect($base instanceof ChangeBase ? $base->ledgerAt() : $base)->toEqual(NotGiven::value());
+});
+
+/**
+ * A run's ledgers and where it stands, on this scope, the default branch's ledger holding a pass and a judged run
+ * of the same check after it that left src/Open.php open.
+ *
+ * @return array{Ledgers, Standing}
+ */
+function modeStandingJudged(Scope $scope): array
+{
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withRuns(ScopeRuns::none()
+        ->passing(Passed::of(Revision::ref('main-passed'), 'check', 0)->passedAt(Moment::at('2026-11-09T10:00:00Z')))
+        ->judging(Judged::of(Revision::ref('main-judged'), 'check', Moment::at('2026-11-09T12:00:00Z'), Paths::of(Path::of('src/Open.php'))))));
+    $standing = Standing::of(new CiPlanFake(RunOn::at($scope, Scope::branch('main'))), RepositoryFake::onMain(Revision::ref('head')), Absent::setting());
+
+    return $standing instanceof Standing
+        ? [Ledgers::read($store, $standing, Writing::Auto, TakenProofs::Every), $standing]
+        : throw new RuntimeException($standing->why());
+}
+
+it('reads the default branch\'s change since its newest judged run, the units it left open since its last pass, where it reads since judged runs', function (): void {
+    [$ledgers, $standing] = modeStandingJudged(Scope::branch('main'));
+    $judged = Mode::since(Mode::LAST_PASSED)->changeBase($ledgers, $standing, RunProfile::standard(), 'check', DefaultBranchSince::Judged);
+    $passed = Mode::since(Mode::LAST_PASSED)->changeBase($ledgers, $standing, RunProfile::standard(), 'check', DefaultBranchSince::Passed);
+
+    expect($judged instanceof ChangeBase ? [$judged->ref(), $judged->openSince(), $judged->open()] : $judged)
+        ->toEqual([Revision::ref('main-judged'), Revision::ref('main-passed'), Paths::of(Path::of('src/Open.php'))])
+        ->and($passed instanceof ChangeBase ? [$passed->ref(), $passed->openSince(), $passed->open()] : $passed)
+        ->toEqual([Revision::ref('main-passed'), NotGiven::value(), Paths::none()]);
+});
+
+it('reads, off the default branch, its change also since the default branch\'s newest judged run, the units it left open since its last pass', function (): void {
+    [$ledgers, $standing] = modeStandingJudged(Scope::pullRequest(7));
+    $base = Mode::since('base')->changeBase($ledgers, $standing, RunProfile::standard(), 'check', DefaultBranchSince::JudgedOffBranch);
+
+    expect($base instanceof ChangeBase ? [$base->ref(), $base->ledgerAt(), $base->openSince(), $base->open()] : $base)
+        ->toEqual([Revision::ref('base'), Revision::ref('main-judged'), Revision::ref('main-passed'), Paths::of(Path::of('src/Open.php'))]);
+});
+
+it('takes no proof once a run is planned without a fresh map, keeping what it reads its change since', function (): void {
+    $none = Mode::since('base')->takingNone();
+
+    expect(Mode::since('base')->isUnproven())->toBeFalse()
+        ->and($none->isUnproven())->toBeTrue()
+        ->and($none->takes(TakenProofs::Every))->toBe(TakenProofs::None)
+        ->and($none->isFull())->toBeFalse()
+        ->and(Mode::since(Mode::LAST_PASSED)->takingNone()->isSinceLastPassed())->toBeTrue();
 });

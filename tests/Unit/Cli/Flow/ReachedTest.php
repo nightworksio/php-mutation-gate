@@ -614,3 +614,26 @@ it('reads its change from the tree a gone last run\'s merge makes again, where t
     'the tree it held' => [true, true],
     'another tree' => [false, false],
 ]);
+
+it('reaches a unit a judged run left open by what changed since the last pass, and one it did not leave open only by what changed since the run', function () use ($makeMoney, $makeHeld): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+    $sinceJudged = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
+    $sincePassed = Changes::of(
+        Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))),
+        Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(2))),
+    );
+    $checkout = new ChangeSourceFake(Revision::ref('main-judged'), $sinceJudged, [
+        Revision::workingTree()->name() => Flows::FILES,
+        'main-judged' => Flows::FILES,
+        'main-passed' => Flows::FILES,
+    ])->changedFrom(Revision::ref('main-passed'), $sincePassed);
+
+    $open = reachedFrom($checkout, ChangeBase::since(Revision::ref('main-judged'))->withOpenSince(Revision::ref('main-passed'), Paths::of(Path::of('src/Held.php'))));
+    $closed = reachedFrom($checkout, ChangeBase::since(Revision::ref('main-judged'))->withOpenSince(Revision::ref('main-passed'), Paths::none()));
+
+    expect($open->reach()->reaches($money))->toBeTrue()
+        ->and($open->reach()->reaches($held))->toBeTrue()
+        ->and($closed->reach()->reaches($held))->toBeFalse()
+        ->and($open->changed())->toEqual($sinceJudged);
+});
