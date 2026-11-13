@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -39,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -539,4 +542,14 @@ it('takes an item\'s own job\'s result first, and counts each mutant another job
     expect($otherwise)->not->toBe([])
         ->and($first instanceof ShardResult ? count($first->flaky()) : $first)->toBe(count($otherwise))
         ->and($results instanceof Results ? count($results->shards()[1][1]->flaky()) : $results)->toBe(0);
+});
+
+it('holds the held units its shards\' holding tests miss, and those the verdict found missed beside them', function () use ($ran): void {
+    $results = $ran(Flows::project(), ScriptedRunner::fixture());
+    $kernel = NotCovered::because(Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')), 'Missed 48.');
+    $http = NotCovered::because(Unit::held(Path::of('src/Http'), Group::named('holds:src/Http')), 'Missed all.');
+    $missing = $results instanceof Results ? $results->missing(HeldMisses::of($kernel))->missing(HeldMisses::of($http))->misses() : HeldMisses::none();
+
+    expect($results instanceof Results ? count($results->misses()) : -1)->toBe(0)
+        ->and([...$missing])->toEqual([$kernel, $http]);
 });
