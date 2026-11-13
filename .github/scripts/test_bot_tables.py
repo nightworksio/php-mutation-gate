@@ -58,7 +58,7 @@ class Main(unittest.TestCase):
         says, link = self.tables.explanation("checks", "phpstan", "mutationGate.broadCatch")
         self.assertEqual((says, link), (self.tables.package[architecture][0], f"ARCHITECTURE.md#L{self.tables.package[architecture][1]}"))
 
-        says, link = self.tables.explanation("tests", "coverage", "uncovered")
+        says, link = self.tables.explanation("coverage", "coverage", "uncovered")
         self.assertEqual(link, ".docs/guide/troubleshooting.md#no-coverage-driver")
 
         says, link = self.tables.explanation("checks", "composer-audit", "advisory")
