@@ -150,6 +150,22 @@ final class Children
         return $failed;
     }
 
+    /**
+     * Waits for every child, each held to its limit.
+     *
+     * @return list<array{string, string}> each that failed or ended in its test: its mutant, and the test
+     */
+    public function reapedAll(): array
+    {
+        $failed = [];
+
+        while ($this->areRunning()) {
+            $failed = [...$failed, ...$this->reaped(blocking: true)];
+        }
+
+        return $failed;
+    }
+
     /** Whether any child still runs. */
     public function areRunning(): bool
     {

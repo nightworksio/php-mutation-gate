@@ -26,7 +26,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 final readonly class HandedTest
 {
     /** @param list<array{string, string}> $failed each mutant a child failed or ended in, and the test */
-    private function __construct(public bool|NotGiven $passed, public array $failed)
+    private function __construct(public bool|NotGiven $passed, public array $failed, private string $test)
     {
     }
 
@@ -47,7 +47,21 @@ final readonly class HandedTest
             $failed = self::ends($read) ? [...$failed, [$read->mutant, $test]] : $failed;
         }
 
-        return new self($passed, $failed);
+        return new self($passed, $failed, $test);
+    }
+
+    /**
+     * The kills read into these, and how the test ended: a fallback written
+     * to the stream's results where its process never ended it.
+     */
+    public function into(Kills $kills, StreamPlan $plan): void
+    {
+        $kills->failedIn($this->failed);
+
+        match (true) {
+            $this->passed instanceof NotGiven => $plan->recorded(StreamLine::fallback($this->test)),
+            default => $kills->ended($this->test, $this->passed),
+        };
     }
 
     /**

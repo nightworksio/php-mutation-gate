@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_key_exists;
+
+use const FILE_APPEND;
+
+use function file_put_contents;
 use function in_array;
+
+use const LOCK_EX;
 
 /**
  * What a split stream is told to do (ADR-0117), read from the plan Pest's own
@@ -38,6 +44,12 @@ final readonly class StreamPlan
         public bool $bootOnce = false,
         public bool $reconnect = false,
     ) {
+    }
+
+    /** A line appended to the stream's results. */
+    public function recorded(string $line): void
+    {
+        file_put_contents($this->results, $line, FILE_APPEND | LOCK_EX);
     }
 
     /**

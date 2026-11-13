@@ -212,7 +212,7 @@ services:
                 - src/Adapter/Serve/Listener.php # PHP's sockets are resources, which have no native type
                 - src/Adapter/Zstd/ZstdProgram.php # proc_open answers a process resource, which has no native type
                 - src/Adapter/Pest/SchemaSwitch.php # a schema's value site carries whatever its expression evaluates to
-                - src/Adapter/Pest/Split/Stream.php # a schema's value site carries whatever its expression evaluates to
+                - src/Adapter/Pest/Split/StreamRun.php # a schema's value site carries whatever its expression evaluates to
                 - src/Adapter/Pest/Split/Unchanged.php # a schema's value site carries whatever its expression evaluates to
             decoders:
                 - src/Core/Format/Node.php

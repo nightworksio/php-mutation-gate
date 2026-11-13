@@ -13,11 +13,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\Unguessable;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Connection;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Driver;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use PDO;
 use PDOException;
 
 use function serialize;
-use function sort;
 
 /**
  * The databases a stream's parent copied for one child (ADR-0147). A test
@@ -57,7 +55,7 @@ final readonly class Copies
     public static function taken(Descriptors $start, string $directory): self|NotGiven
     {
         $databases = LaravelDatabases::current();
-        $held = $databases instanceof LaravelDatabases ? self::held($databases) : NotGiven::value();
+        $held = $databases instanceof LaravelDatabases ? HeldConnections::of($databases) : NotGiven::value();
 
         if (! $databases instanceof LaravelDatabases || $held instanceof NotGiven || $held === []) {
             return NotGiven::value();
@@ -68,6 +66,20 @@ final readonly class Copies
         }
 
         return Descriptors::held()->shares($start) ? NotGiven::value() : self::copied($databases, $held, $directory);
+    }
+
+    /**
+     * The databases copied for a child forked now: none where the process
+     * holds no descriptor a child would share; NotGiven where it does and
+     * the stream does not reconnect, or they cannot be taken.
+     */
+    public static function atFork(Descriptors $start, bool $reconnect, string $directory): self|NotGiven
+    {
+        return match (true) {
+            ! Descriptors::held()->shares($start) => self::none(),
+            $reconnect => self::taken($start, $directory),
+            default => NotGiven::value(),
+        };
     }
 
     /** Each connection to a copied database pointed at its copy, in the child, before its mutant runs. */
@@ -90,97 +102,6 @@ final readonly class Copies
         foreach ($this->copies as [, $copy]) {
             $copy->dropped();
         }
-    }
-
-    /**
-     * Each connection the application holds connected, by its name, with
-     * where it reaches, its driver and how to reach its database again; none
-     * where one cannot fork with a copy.
-     *
-     * @return array<string, array{Reach, Driver, Connection}>|NotGiven
-     */
-    private static function held(LaravelDatabases $databases): array|NotGiven
-    {
-        $held = [];
-
-        foreach ($databases->open() as $name => $connection) {
-            $pdo = $databases->pdo($connection);
-            $reach = $databases->reach($connection);
-
-            if (! $pdo instanceof PDO || $reach->inMemory()) {
-                continue;
-            }
-
-            $forking = self::forking($databases, $name, $connection, $reach, $pdo);
-
-            if ($forking instanceof NotGiven) {
-                return $forking;
-            }
-
-            $held[$name] = $forking;
-        }
-
-        return $held;
-    }
-
-    /**
-     * A held connection's reach, driver and how to reach its database again;
-     * none where it cannot fork with a copy.
-     *
-     * @return array{Reach, Driver, Connection}|NotGiven
-     */
-    private static function forking(
-        LaravelDatabases $databases,
-        string $name,
-        object $connection,
-        Reach $reach,
-        PDO $pdo,
-    ): array|NotGiven {
-        $driver = $reach->driver;
-        $reached = $reach->connection;
-
-        if (! $driver instanceof Driver || ! $reached instanceof Connection || $reach->apart) {
-            return NotGiven::value();
-        }
-
-        $kept = $databases->inTransaction($connection, $pdo)
-            || self::keeps($databases, $name, $connection, $driver, $pdo);
-
-        return $kept
-            ? NotGiven::value()
-            : [$reach, $driver, $reached];
-    }
-
-    /**
-     * Whether a session keeps what a copy would lack: state of its own, or a
-     * setting a fresh connection of its config does not hold alike.
-     */
-    private static function keeps(
-        LaravelDatabases $databases,
-        string $name,
-        object $connection,
-        Driver $driver,
-        PDO $pdo,
-    ): bool {
-        $session = Session::of($pdo);
-        $copier = self::copier($driver);
-
-        if (! $session instanceof Session) {
-            return true;
-        }
-
-        $settings = $copier->settings($session);
-        $read = static fn(PDO $fresh): array|NotGiven => self::settings($copier, $fresh);
-        $fresh = $databases->freshly($name, $connection, $read);
-
-        if ($settings instanceof NotGiven || $fresh instanceof NotGiven) {
-            return true;
-        }
-
-        sort($settings);
-        sort($fresh);
-
-        return $settings !== $fresh || $copier->holdsState($session);
     }
 
     /**
@@ -218,31 +139,12 @@ final readonly class Copies
         Reach $reach,
         string $directory,
     ): Copy|NotGiven {
+        $copier = HeldConnections::copier($driver);
+
         try {
-            return self::copier($driver)->copied($reached, $reach, Unguessable::text(self::TOKEN), $directory);
+            return $copier->copied($reached, $reach, Unguessable::text(self::TOKEN), $directory);
         } catch (PDOException) {
             return NotGiven::value();
         }
-    }
-
-    /**
-     * Each setting a session of this connection holds; none where the database cannot tell.
-     *
-     * @return list<list<string>>|NotGiven
-     */
-    private static function settings(Copier $copier, PDO $pdo): array|NotGiven
-    {
-        $session = Session::of($pdo);
-
-        return $session instanceof Session ? $copier->settings($session) : $session;
-    }
-
-    private static function copier(Driver $driver): Copier
-    {
-        return match ($driver) {
-            Driver::MySql, Driver::MariaDb => new MySqlCopier(),
-            Driver::Postgres => new PostgresCopier(),
-            Driver::Sqlite => new SqliteCopier(),
-        };
     }
 }
