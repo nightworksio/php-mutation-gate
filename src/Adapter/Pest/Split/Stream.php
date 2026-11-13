@@ -188,10 +188,10 @@ final class Stream
     /**
      * Forks the current test from the booted application: true in the
      * test's own process, which runs it; false in the stream's, which waits
-     * for it, reads its kills, and skips the test; null where the stream
+     * for it, reads its kills, and skips the test; none where the stream
      * cannot fork here, and the test boots its own application.
      */
-    public static function forkedTest(): ?bool
+    public static function forkedTest(): bool|NotGiven
     {
         $stream = self::$stream;
 
@@ -199,7 +199,7 @@ final class Stream
             && $stream->test !== ''
             && Descriptors::held()->shares($stream->start) === false
             ? $stream->handedOver()
-            : null;
+            : NotGiven::value();
     }
 
     /** The test raised an issue: it was risky, or triggered a deprecation, a notice or a warning. */
@@ -340,16 +340,16 @@ final class Stream
      * Hands the current test to a process forked for it: true in that
      * process; false in the stream's, once that process ended, with the
      * kills it wrote read, or a fallback written where it never ended the
-     * test; null where PHP cannot fork.
+     * test; none where PHP cannot fork.
      */
-    private function handedOver(): ?bool
+    private function handedOver(): bool|NotGiven
     {
         clearstatcache(clear_realpath_cache: true, filename: $this->plan->results);
         $from = is_file($this->plan->results) ? (int) filesize($this->plan->results) : 0;
         $pid = pcntl_fork();
 
         if ($pid === -1) {
-            return null;
+            return NotGiven::value();
         }
 
         if ($pid === 0) {

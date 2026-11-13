@@ -423,6 +423,9 @@ parameters:
                 # A split stream reads the command line its runner's process was started with, which Pest's
                 # worker processes hold in `$_SERVER['argv']` alone (ADR-0117).
                 - src/Adapter/Pest/Split/RunnerFiles.php
+                # Laravel reads its base path from `$_ENV` or `$_SERVER`, where a split stream points it at the
+                # bootstrap that hands a test the application booted once (ADR-0117).
+                - src/Adapter/Pest/Split/Zygote.php
 
     disallowedConstants:
         # --- B3: the standard streams are files ----------------------------------

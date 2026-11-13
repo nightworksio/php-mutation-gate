@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_key_exists;
 use function dirname;
 use function file_put_contents;
 use function getcwd;
@@ -14,7 +15,9 @@ use function is_string;
 use function method_exists;
 use function mkdir;
 
-use PHPUnit\Framework\SkippedWithMessageException;
+use NightWorksIO\MutationGate\Core\File\FileMode;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use PHPUnit\Framework\Assert;
 
 use function putenv;
 use function sprintf;
@@ -66,7 +69,11 @@ final class Zygote
      */
     public static function prepared(string $directory): bool
     {
-        $base = $_ENV[self::BASE] ?? $_SERVER[self::BASE] ?? getcwd();
+        $base = match (true) {
+            array_key_exists(self::BASE, $_ENV) => $_ENV[self::BASE],
+            array_key_exists(self::BASE, $_SERVER) => $_SERVER[self::BASE],
+            default => getcwd(),
+        };
         $real = sprintf(self::BOOTSTRAP, is_string($base) ? $base : '');
         $shim = sprintf(self::BOOTSTRAP, $directory);
 
@@ -75,7 +82,7 @@ final class Zygote
         }
 
         if (! is_dir(dirname($shim))) {
-            mkdir(dirname($shim), 0o700, recursive: true);
+            mkdir(dirname($shim), FileMode::OWNER_ONLY, recursive: true);
         }
 
         file_put_contents($shim, sprintf(self::SHIM, self::class, var_export($real, return: true)));
@@ -94,23 +101,25 @@ final class Zygote
      */
     public static function application(string $bootstrap): mixed
     {
-        $booted = self::$failed ? null : (self::$booted ?? self::boot($bootstrap));
+        if (! self::$failed && self::$booted === null) {
+            self::boot($bootstrap);
+        }
 
-        return $booted === null ? require $bootstrap : self::handed($booted, $bootstrap);
+        return self::$failed || self::$booted === null ? require $bootstrap : self::handed(self::$booted, $bootstrap);
     }
 
     private static function handed(object $booted, string $bootstrap): mixed
     {
         $forked = Stream::forkedTest();
 
-        return match ($forked) {
-            null => require $bootstrap,
-            true => $booted,
-            false => throw new SkippedWithMessageException(self::HANDED),
+        return match (true) {
+            $forked instanceof NotGiven => require $bootstrap,
+            $forked => $booted,
+            default => Assert::markTestSkipped(self::HANDED),
         };
     }
 
-    private static function boot(string $bootstrap): ?object
+    private static function boot(string $bootstrap): void
     {
         Stream::booting(booting: true);
 
@@ -132,7 +141,5 @@ final class Zygote
         }
 
         self::$failed = self::$failed || self::$booted === null;
-
-        return self::$booted;
     }
 }
