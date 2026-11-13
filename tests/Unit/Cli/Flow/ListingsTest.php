@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 /** Pest over a fixture project, through a shell that answers each listing so. */
 function listingPest(ShellFake $shell, Project $at): Pest
 {
-    return new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    return new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 }
 
 it('lists the judging and the holding suites side by side as a runner that lists one after the other does', function (): void {

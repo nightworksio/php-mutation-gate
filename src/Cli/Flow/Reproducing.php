@@ -64,7 +64,7 @@ final readonly class Reproducing
             return $request;
         }
 
-        $now = $this->adapters->runner->reproduce($mutant, $request, $this->settings->triage()->most());
+        $now = $this->adapters->runner->reproduce($mutant, $request, $this->settings->triage()->limits()->most());
 
         return $now instanceof CannotJudge ? $now : new Reproduced($recorded, $judgedBy, $now);
     }

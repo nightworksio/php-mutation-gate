@@ -85,7 +85,7 @@ it('names each test as the plugin names it in a run that lists the tests, withho
         TestId::of('LegacySpec::decrements#3'),
         TestId::of('P\\Tests\\GoneSpec::__pest_evaluable_it_goes'),
     );
-    $names = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->names($asked, Withheld::of('CI_JOB_TOKEN'));
+    $names = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->names($asked, Withheld::of('CI_JOB_TOKEN'));
     $adds = TestName::in(Path::of('tests/MoneySpec.php'), 'it adds');
 
     expect($names)->toEqual(TestNames::none()
@@ -102,15 +102,15 @@ it('cannot name the tests where the listing run fails, names nothing, or cannot 
     $asked = TestIds::of(TestId::of(PestCases::RUN_ADDS));
     $unnamed = "Pest did not name the suite's tests. Pest said:\n%s";
 
-    expect(new Pest($at, $failed, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->names($asked, Withheld::standard()))
+    expect(new Pest($at, $failed, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->names($asked, Withheld::standard()))
         ->toEqual(CannotJudge::because(sprintf($unnamed, 'Fatal error')))
-        ->and(new Pest($at, $silent, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->names($asked, Withheld::standard()))
+        ->and(new Pest($at, $silent, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->names($asked, Withheld::standard()))
         ->toEqual(CannotJudge::because(sprintf($unnamed, '   INFO  Available tests:')));
 
     mkdir(PestCases::names($at), recursive: true);
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->names($asked, Withheld::standard()))->toEqual(CannotJudge::because(
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->names($asked, Withheld::standard()))->toEqual(CannotJudge::because(
         sprintf('An earlier run left %s, and the gate cannot remove it.', PestCases::names($at)),
     ))->and($shell->commands())->toBe([]);
 });
@@ -119,7 +119,7 @@ it('roots itself in a package that installs Pest, running there with the package
     $at = PestCases::project();
     Scratch::write($at->root(), 'packages/billing/vendor/pestphp/pest/bin/pest', '<?php');
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::named($command, $at));
-    $rooted = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->rootedAt(Path::of('packages/billing'), Paths::of(Path::of('tests')));
+    $rooted = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->rootedAt(Path::of('packages/billing'), Paths::of(Path::of('tests')));
     $package = sprintf('%s/packages/billing', $at->root());
     $names = $rooted instanceof Pest ? $rooted->names(TestIds::of(), Withheld::standard()) : $rooted;
 
@@ -146,7 +146,7 @@ it('cannot root itself in a directory that installs no Pest', function (): void 
     $at = PestCases::project('lib/vendor');
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->rootedAt(Path::of('packages/billing'), Paths::of(Path::of('tests'))))->toEqual(CannotJudge::because(
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->rootedAt(Path::of('packages/billing'), Paths::of(Path::of('tests'))))->toEqual(CannotJudge::because(
         'packages/billing holds no project Pest can run: Pest is not installed in its lib/vendor.',
     ))->and($shell->directories())->toBe([]);
 });
@@ -198,7 +198,7 @@ it('runs under the gate\'s PHAR where the project\'s Pest lists a plugin of a co
 });
 
 it('is defined by tests/Pest.php and the PHPUnit config in the project\'s root, by any of its names', function (): void {
-    $definitions = new Pest(PestCases::project(), ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->definitions();
+    $definitions = new Pest(PestCases::project(), ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->definitions();
 
     expect(array_map(static fn(Path $path): string => $path->value(), [...$definitions]))
         ->toBe(['tests/Pest.php', 'phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist']);
@@ -207,8 +207,8 @@ it('is defined by tests/Pest.php and the PHPUnit config in the project\'s root, 
 it('reads holds as it loads them, and patched, raises a limit, has every key read its canary and runs exactly the covering rows; unpatched, raises none and runs every row', function (): void {
     $canary = Group::named('mutation-canary');
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
-    $patched = new Pest(PestCases::project(), $shell, Patching::on($canary), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
-    $unpatched = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $patched = new Pest(PestCases::project(), $shell, Patching::on($canary), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $unpatched = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
     $pest = RunnerBehaviour::standard()
         ->holdingAsLoaded()
         ->runningPerCore()
@@ -231,7 +231,7 @@ it('gives a mutant as an analyser checks it: its diff put onto the file as Pest 
         MutantStatus::Survived,
         Seconds::of(0.1),
     );
-    $checkable = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->checkable($mutant);
+    $checkable = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->checkable($mutant);
 
     expect($checkable instanceof Checkable ? $checkable->mutant()->text() : '')
         ->toBe("<?php\n\nfunction add()\n{\n    return 1 - 1;\n}");
@@ -243,7 +243,7 @@ it('makes the registered mutators\' mutants through the bridges it writes for it
     $bridges = Bridges::to(Enabled::of(MutatorSet::of(AcmePlusToMinus::class)));
     $file = sprintf('%s/.mutation-gate/mutators/pest/bridges.php', $at->root());
 
-    $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), bridges: $bridges)->mutate(PestCases::money());
+    $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), bridges: $bridges)->mutate(PestCases::money());
 
     expect(PestCases::untimed($result))->toEqual(MutationResult::of(Mutants::of(PestCases::mutant()), 0))
         ->and($shell->commands())->toEqual([
@@ -257,7 +257,7 @@ it('cannot judge a run whose options name a class that is not a mutator, and sta
     $shell = new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: ''));
     $why = CannotJudge::because('The pest runner cannot make mutants with stdClass, which is not a mutator.');
 
-    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), bridges: Bridges::refusing($why))->mutate(PestCases::money()))
+    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), bridges: Bridges::refusing($why))->mutate(PestCases::money()))
         ->toBe($why)
         ->and($shell->commands())->toBe([]);
 });

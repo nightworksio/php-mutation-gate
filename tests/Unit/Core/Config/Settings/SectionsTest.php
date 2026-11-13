@@ -490,12 +490,12 @@ describe('Settings sections', function (): void {
     });
 
     it('reads timeouts.tighter, each key the standard where it is left out, and refuses a name no runner gives a mutator', function (): void {
-        $floor = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['floor' => 5]]])->triage()->bounds()->tighter();
-        $mutators = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['mutators' => ['Foreach_']]]])->triage()->bounds()->tighter();
+        $floor = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['floor' => 5]]])->triage()->limits()->bounds()->tighter();
+        $mutators = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['mutators' => ['Foreach_']]]])->triage()->limits()->bounds()->tighter();
 
         expect([$floor->floor(), [...$floor]])->toEqual([Seconds::of(5.0), TighterSilence::MUTATORS])
             ->and([$mutators->floor(), [...$mutators]])->toEqual([Seconds::of(7.0), ['Foreach_']])
-            ->and(Configs::settings(['runner' => 'pest'])->triage()->bounds()->tighter())->toEqual(TighterSilence::standard())
+            ->and(Configs::settings(['runner' => 'pest'])->triage()->limits()->bounds()->tighter())->toEqual(TighterSilence::standard())
             ->and(Configs::problems(Configs::validated(['timeouts' => ['tighter' => ['mutators' => ['default/RemoveArrayItem'], 'floor' => 0]]])))
             ->toHaveCount(2);
     });

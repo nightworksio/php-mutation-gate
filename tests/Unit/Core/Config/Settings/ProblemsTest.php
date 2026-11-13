@@ -84,7 +84,7 @@ it('refuses a timeouts.most under timeouts.seconds, however the layers lay them'
 it('takes a timeouts.most equal to timeouts.seconds', function (): void {
     $settings = Configs::settings(['runner' => 'pest', 'timeouts' => ['seconds' => 30, 'most' => 30]]);
 
-    expect($settings->triage()->bounds())
+    expect($settings->triage()->limits()->bounds())
         ->toEqual(
             LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))
                 ->tighterFor(TighterSilence::standard())
@@ -435,9 +435,9 @@ it('refuses a Buildkite step whose command is not text, or a list of text, at th
 });
 
 it('reads each test\'s own limit from the config, off where it says false', function (): void {
-    expect(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => 5, 'testFloor' => 2]])->triage()->bounds()->perTest())
+    expect(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => 5, 'testFloor' => 2]])->triage()->limits()->bounds()->perTest())
         ->toEqual(PerTestLimit::of(5, Seconds::of(2.0)))
-        ->and(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => false]])->triage()->bounds()->perTest())
+        ->and(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => false]])->triage()->limits()->bounds()->perTest())
         ->toEqual(PerTestLimit::off());
 });
 

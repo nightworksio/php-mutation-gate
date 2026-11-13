@@ -264,7 +264,7 @@ services:
                     - TITLE # characters Discord shows of a title
                 'NightWorksIO\MutationGate\Core\Config\Shards':
                     - MOST # shards
-                'NightWorksIO\MutationGate\Core\Config\Triage':
+                'NightWorksIO\MutationGate\Core\Config\TimeoutLimits':
                     - TIMEOUT # seconds a mutant may run
                     - MOST # seconds a mutant may run
                 'NightWorksIO\MutationGate\Core\Config\Canonical':

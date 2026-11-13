@@ -104,7 +104,7 @@ final readonly class Streaming
             $tests = [...$tests, ...$this->covering[$mutant]];
         }
 
-        return $this->streamed($pass, array_values(array_unique($tests)), self::plannedOf($sites), [], $verdicts);
+        return $this->streamed($pass, array_values(array_unique($tests)), $this->plannedOf($sites), [], $verdicts);
     }
 
     /**
@@ -119,7 +119,7 @@ final readonly class Streaming
      */
     public function over(int $pass, array $sites, array $units, StreamVerdicts $verdicts): StreamVerdicts
     {
-        return $this->streamedUnits($pass, $units, self::plannedOf($sites), [], $verdicts);
+        return $this->streamedUnits($pass, $units, $this->plannedOf($sites), [], $verdicts);
     }
 
     /**
@@ -145,7 +145,7 @@ final readonly class Streaming
             : $this->streamed(
                 $pass,
                 $killers,
-                self::plannedOf($sites),
+                $this->plannedOf($sites),
                 [PhpUnitOption::TestIdFilterFile->value, $file],
                 $verdicts,
             );
@@ -263,7 +263,7 @@ final readonly class Streaming
             'children' => $this->children,
             'multiple' => $perTest->isOn() ? $perTest->multiple() : 0,
             'floor' => $perTest->floor()->seconds(),
-            'longest' => ($most instanceof Seconds ? $most : Triage::none()->most())->seconds(),
+            'longest' => ($most instanceof Seconds ? $most : Triage::none()->limits()->most())->seconds(),
             'stepFloor' => (int) getenv(GateVariable::StepFloor->value),
             'recording' => $this->recording === '' || $this->bootsOnceIn($pass)
                 ? ''
@@ -277,7 +277,7 @@ final readonly class Streaming
             file_put_contents($fields['recording'], '');
         }
         $process = new Process(
-            [PHP_BINARY, ...self::counting(), ...$this->runArguments($this->arguments), ...$files],
+            [PHP_BINARY, ...$this->counting(), ...$this->runArguments($this->arguments), ...$files],
             env: [
                 GateVariable::SplitPlan->value => $plan,
                 Mutate::ENV_MUTATION_TESTING => false,
@@ -297,7 +297,7 @@ final readonly class Streaming
      *
      * @return list<string>
      */
-    private static function counting(): array
+    private function counting(): array
     {
         $extension = getenv(GateVariable::StreamExtension->value);
 
@@ -327,7 +327,7 @@ final readonly class Streaming
      * @param  array<string, array{string, int, string, array<string, string>}>        $sites
      * @return array<string, array<int, array{string, string, array<string, string>}>>
      */
-    private static function plannedOf(array $sites): array
+    private function plannedOf(array $sites): array
     {
         $planned = [];
 

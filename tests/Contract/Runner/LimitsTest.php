@@ -257,7 +257,7 @@ it('judges a mutant whose covering class takes longer than timeouts.seconds, ski
 })->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
 it('allows a mutant patched Infection times out the floor its quick tests fall under, and warns of nothing', function (): void {
-    $library = Library::infectionWithin(Triage::standard()->bounds());
+    $library = Library::infectionWithin(Triage::standard()->limits()->bounds());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains')));
     $result = RunnerContracts::withPatchedInfection(static fn(): MutationResult|CannotJudge => $library->runner()->mutate($request));
@@ -331,7 +331,7 @@ it('stats a dangling link through patched Infection\'s interceptor as PHP does, 
         copy(Tree::at(sprintf('tests/Contract/Runner/%s', $from)), Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, $into)));
     }
 
-    $library = Library::infectionWithin(Triage::standard()->bounds());
+    $library = Library::infectionWithin(Triage::standard()->limits()->bounds());
     $request = MutationRequest::of(Paths::of(Path::of('src/Linked.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Linked.php')), Narrowing::none()->toMutators(Mutators::named('LessThan', 'LessThanNegotiation')));
 

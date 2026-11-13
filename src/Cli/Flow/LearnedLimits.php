@@ -70,14 +70,14 @@ final readonly class LearnedLimits
 
     public static function of(Settings $settings, Ledgers $ledgers): self
     {
-        $bounds = $settings->triage()->bounds();
+        $bounds = $settings->triage()->limits()->bounds();
         $kills = $ledgers->own()->learned()->limits()->and($ledgers->defaultBranch()->learned()->limits());
         $runs = $ledgers->defaultBranch()->learned()->limits();
         $statistic = $settings->shards()->learnedFrom();
         $read = $settings->triage()->learned();
         $multiple = $bounds->learnsMultiple() ? self::multipleOf($kills, $read) : NotGiven::value();
         $shards = $statistic instanceof LearnedStatistic ? self::shardsOf($runs, $statistic) : NotGiven::value();
-        $floor = $settings->triage()->limit()->seconds();
+        $floor = $settings->triage()->limits()->limit()->seconds();
         $check = $settings->staticCheck();
         $pacing = $check->before()
             && $check->tool()->use()->value() !== StaticCheck::NONE

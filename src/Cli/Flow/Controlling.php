@@ -135,7 +135,7 @@ final readonly class Controlling
     {
         $run = $this->adapters->runner->behaviour()->selection();
         $unfiltered = $this->unfilteredIn($mutants, $evidence);
-        $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
+        $bounds = $request->pool()->bounding($this->settings->triage()->limits()->bounds());
         $controllable = $this->unstreamed($mutants, $evidence);
         $toggles = $this->settings->toggles();
         $timed = $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $controllable;
@@ -150,7 +150,7 @@ final readonly class Controlling
             $run,
             $bounds->perTest(),
         );
-        $controls = $bounds->upToInstead($this->settings->triage()->controlMost());
+        $controls = $bounds->upToInstead($this->settings->triage()->limits()->controlMost());
         $kills = KillControls::of(
             $killed,
             $evidence,

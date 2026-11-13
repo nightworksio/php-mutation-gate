@@ -119,7 +119,9 @@ final readonly class RecheckRuns
             ->across(
                 Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
                     ->pacedBy(
-                        $this->settings->runner()->pace($this->settings->triage()->bounds()->startUp()->unmeasured()),
+                        $this->settings->runner()->pace(
+                            $this->settings->triage()->limits()->bounds()->startUp()->unmeasured(),
+                        ),
                     ),
             )
             ->reusingCoverage(Handed::maps(Workspace::verdictCoverage(), Workspace::coverage()));

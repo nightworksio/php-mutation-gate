@@ -196,7 +196,7 @@ it('cannot find the units where a test file cannot be read', function () use ($l
 /** Pest over a fixture project, through a shell that answers each listing as Pest lists it. */
 function inventoryPest(ShellFake $shell): Pest
 {
-    return new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    return new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 }
 
 it('stops the listings it started where a test file cannot be read, and takes them where every one can', function (): void {

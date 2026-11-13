@@ -163,7 +163,7 @@ it('kills a mutant pinned by source by the test that reads its file, which the w
         Patching::on(Library::canary()),
         new CapDirectory(),
         new PackageDirectory(),
-        Triage::standard()->bounds(),
+        Triage::standard()->limits()->bounds(),
         bridges: PestBridges::to(Enabled::of(MutatorSet::of(PinnedIdentical::class))),
     );
 

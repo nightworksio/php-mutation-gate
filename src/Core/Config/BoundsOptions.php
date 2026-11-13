@@ -80,20 +80,20 @@ final readonly class BoundsOptions
      */
     public static function of(Triage $triage): array
     {
-        $bounds = $triage->bounds();
+        $bounds = $triage->limits()->bounds();
 
         return [
-            Member::of(self::TIMEOUT, $triage->limit()->seconds()),
-            Member::of(self::MOST, $triage->most()->seconds()),
+            Member::of(self::TIMEOUT, $triage->limits()->limit()->seconds()),
+            Member::of(self::MOST, $triage->limits()->most()->seconds()),
             Member::of(self::START_UP, $bounds->startUp()->unmeasured()->seconds()),
             Member::of(self::START_UP_MULTIPLE, $bounds->startUp()->multiple()),
             $bounds->learnsMultiple()
                 ? Member::of(self::LEARNS_MULTIPLE, value: true)
                 : Member::of(self::MULTIPLE, $bounds->multiple()->times()),
             ...$bounds->learnsFloor() ? [Member::of(self::LEARNS_FLOOR, value: true)] : [],
-            TighterOptions::floor($triage->bounds()->tighter()),
-            TighterOptions::mutators($triage->bounds()->tighter()),
-            ...PerTestOptions::of($triage->bounds()->perTest()),
+            TighterOptions::floor($triage->limits()->bounds()->tighter()),
+            TighterOptions::mutators($triage->limits()->bounds()->tighter()),
+            ...PerTestOptions::of($triage->limits()->bounds()->perTest()),
         ];
     }
 
@@ -112,8 +112,8 @@ final readonly class BoundsOptions
             $startUp instanceof Problem => $startUp,
             $startUpMultiple instanceof Problem => $startUpMultiple,
             default => LimitBounds::between(
-                self::seconds($timeout, $standard->limit()),
-                self::seconds($most, $standard->most()),
+                self::seconds($timeout, $standard->limits()->limit()),
+                self::seconds($most, $standard->limits()->most()),
                 self::number($startUp, MutantLimit::START_UP),
                 self::number($startUpMultiple, MutantLimit::FACTOR),
             ),

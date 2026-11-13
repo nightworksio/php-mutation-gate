@@ -71,7 +71,7 @@ it('makes a file\'s settings by laying its entries over the settings, and lays n
     $legacy = Settings::settled($settings->effective()->over($paths->for(Path::of('src/Legacy/Old.php'))->layer()), $now);
 
     expect(Configs::decoded($paths->for(Path::of('src/Money.php'))->layer()))->toBe([])
-        ->and($legacy instanceof Settings ? [$legacy->triage()->limit()->seconds(), $legacy->triage()->most()->seconds()] : $legacy)
+        ->and($legacy instanceof Settings ? [$legacy->triage()->limits()->limit()->seconds(), $legacy->triage()->limits()->most()->seconds()] : $legacy)
         ->toBe([60.0, 100.0])
         ->and($legacy instanceof Settings ? [...$legacy->mutators()->except()] : $legacy)->toBe(['default/Plus'])
         ->and([...$settings->mutators()->except()])->toBe([]);

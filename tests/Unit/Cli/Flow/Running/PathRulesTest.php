@@ -72,15 +72,15 @@ it('runs each group of a shard\'s units paths entries match with the runner its 
         ->and($result)->toBeInstanceOf(ShardResult::class)
         ->and($files($global))->toBe(['src/Held.php'])
         ->and(array_map(static fn(array $group): array => [
-            $group[0]->triage()->limit()->seconds(),
+            $group[0]->triage()->limits()->limit()->seconds(),
             [...$group[0]->mutators()->except()],
             $files($group[1]),
         ], $ruled))->toBe([
             [60.0, ['default/Plus'], ['src/Money.php']],
             [90.0, [], ['src/Extra.php']],
         ])
-        ->and([$settings->triage()->limit()->seconds(), [...$settings->mutators()->except()]])
-        ->toBe([Flows::settings()->triage()->limit()->seconds(), []]);
+        ->and([$settings->triage()->limits()->limit()->seconds(), [...$settings->mutators()->except()]])
+        ->toBe([Flows::settings()->triage()->limits()->limit()->seconds(), []]);
 });
 
 it('leaves a shard cannot judge where its paths entries match a unit and the run was composed without the wiring', function () use ($shard): void {

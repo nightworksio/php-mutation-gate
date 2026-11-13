@@ -46,7 +46,7 @@ it('reads learned limits into bounds that learn them, and writes them back as th
         'timeouts' => ['seconds' => 'learned', 'multiple' => 'learned'],
         'shards' => ['max' => 'learned'],
     ]);
-    $bounds = $settings->triage()->bounds();
+    $bounds = $settings->triage()->limits()->bounds();
 
     expect([$bounds->learnsFloor(), $bounds->learnsMultiple(), $bounds->floor(), $bounds->multiple()])
         ->toEqual([true, true, Seconds::of(10.0), Multiple::standard()])
@@ -70,7 +70,7 @@ it('writes back the statistic a learned most is read by as the builder calls it'
 
 it('learns no limit a config writes a number for, and takes no statistic for a written most', function (): void {
     $settings = Configs::settings(['runner' => 'pest', 'timeouts' => ['seconds' => 7, 'multiple' => 4], 'shards' => ['max' => 8]]);
-    $bounds = $settings->triage()->bounds();
+    $bounds = $settings->triage()->limits()->bounds();
 
     expect([$bounds->learnsFloor(), $bounds->learnsMultiple(), $bounds->floor(), $bounds->multiple()])
         ->toEqual([false, false, Seconds::of(7.0), Multiple::of(4.0)])

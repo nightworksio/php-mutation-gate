@@ -254,7 +254,7 @@ final readonly class Invoking
             static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Survived
                 && ! $equivalent->has($mutant->id()),
         );
-        $fitting = $this->timeLeft()->fitting(count($survivors), $this->settings->triage()->limit());
+        $fitting = $this->timeLeft()->fitting(count($survivors), $this->settings->triage()->limits()->limit());
         $left = $this->unjudged(array_slice($survivors, $fitting), OutOfTime::BeforeConfirming);
         $again = $this->again(
             Step::Survivors,
@@ -262,7 +262,7 @@ final readonly class Invoking
             fn(): Mutants|CannotJudge => $this->adapters->runner->retry(
                 $this->timeLeft()->retimed($request)->across($request->pool()->tail()),
                 Mutants::of(...array_slice($survivors, 0, $fitting)),
-                $this->settings->triage()->most(),
+                $this->settings->triage()->limits()->most(),
             ),
         );
 

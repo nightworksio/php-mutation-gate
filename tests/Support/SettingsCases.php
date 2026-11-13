@@ -194,13 +194,13 @@ final readonly class SettingsCases
                 ],
                 "floor": 7
             },
+            "perTest": 3,
+            "testFloor": 3,
             "learned": {
                 "percentile": 0.99,
                 "least": 2.0,
                 "most": 10.0
             },
-            "perTest": 3,
-            "testFloor": 3,
             "heavyFill": true,
             "parts": true
         },
