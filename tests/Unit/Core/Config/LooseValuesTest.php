@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 /**
  * The keys and values of the loose values a config holds in force.
  *
- * @param  array<string, mixed> $config
+ * @param  array<mixed> $config
  * @return list<string>
  */
 function looseIn(array $config): array

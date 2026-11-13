@@ -504,11 +504,11 @@ $pulledResult = static function (string $project, Plan $plan, int $item, int $jo
     Scratch::write($project, sprintf('.mutation-gate/results/%d.by-%d.json', $item, $job), ShardResultFile::encode($result));
 };
 
-it('reads one result for every item of a pulling plan, whichever job left it, or cannot judge an item none left', function (array $written, bool $judged) use ($pulledPlan, $pulledResult): void {
+it('reads one result for every item of a pulling plan, whichever job left it, or cannot judge an item none left', function (bool $judged, int ...$written) use ($pulledPlan, $pulledResult): void {
     $project = Flows::project();
     $plan = $pulledPlan();
 
-    foreach ($written as [$item, $job]) {
+    foreach (array_chunk($written, 2) as [$item, $job]) {
         $pulledResult($project, $plan, $item, $job, MutantStatus::Killed);
     }
 
@@ -517,12 +517,12 @@ it('reads one result for every item of a pulling plan, whichever job left it, or
     expect($results instanceof Results ? array_map(static fn(array $read): int => $read[1]->shard()->number(), $results->shards()) : $judged)
         ->toBe($judged ? [1, 2] : false);
 })->with([
-    'each by its own job' => [[[1, 1], [2, 2]], true],
-    'each by the other job' => [[[1, 2], [2, 1]], true],
-    'one item by both jobs' => [[[1, 1], [1, 2], [2, 2]], true],
-    'every item by every job' => [[[1, 1], [1, 2], [2, 1], [2, 2]], true],
-    'an item by no job' => [[[1, 1], [1, 2]], false],
-    'nothing' => [[], false],
+    'each by its own job' => [true, 1, 1, 2, 2],
+    'each by the other job' => [true, 1, 2, 2, 1],
+    'one item by both jobs' => [true, 1, 1, 1, 2, 2, 2],
+    'every item by every job' => [true, 1, 1, 1, 2, 2, 1, 2, 2],
+    'an item by no job' => [false, 1, 1, 1, 2],
+    'nothing' => [false],
 ]);
 
 it('takes an item\'s own job\'s result first, and counts each mutant another job judged otherwise as flaky', function () use ($pulledPlan, $pulledResult): void {

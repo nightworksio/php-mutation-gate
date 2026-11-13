@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Config\Controls as ControlsBuilder;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Pest as PestBuilder;
+use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\StaticCheck as StaticCheckBuilder;
 use NightWorksIO\MutationGate\Config\Suggest as SuggestBuilder;
 use NightWorksIO\MutationGate\Config\Timeouts as TimeoutsBuilder;
@@ -18,21 +19,21 @@ use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 $toggles = [
-    'controls.kills' => [Toggle::ControlsKills, static fn(): ControlsBuilder => ControlsBuilder::killsUncontrolled(), static fn(): ControlsBuilder => ControlsBuilder::killsControlled()],
-    'controls.memory' => [Toggle::ControlsMemory, static fn(): ControlsBuilder => ControlsBuilder::memoryUncontrolled(), static fn(): ControlsBuilder => ControlsBuilder::memoryControlled()],
-    'pest.trials' => [Toggle::PestTrials, static fn(): PestBuilder => PestBuilder::withoutTrials(), static fn(): PestBuilder => PestBuilder::trying()],
-    'pest.valueReaders' => [Toggle::PestValueReaders, static fn(): PestBuilder => PestBuilder::withoutValueReaders(), static fn(): PestBuilder => PestBuilder::readingValues()],
-    'pest.narrow' => [Toggle::PestNarrow, static fn(): PestBuilder => PestBuilder::unnarrowed(), static fn(): PestBuilder => PestBuilder::narrowing()],
-    'staticCheck.after' => [Toggle::StaticCheckAfter, static fn(): StaticCheckBuilder => StaticCheckBuilder::survivorsUnchecked(), static fn(): StaticCheckBuilder => StaticCheckBuilder::checkingSurvivors()],
-    'timeouts.parts' => [Toggle::TimeoutsParts, static fn(): TimeoutsBuilder => TimeoutsBuilder::neverInParts(), static fn(): TimeoutsBuilder => TimeoutsBuilder::inParts()],
-    'suggest.looseValues' => [Toggle::SuggestLooseValues, static fn(): SuggestBuilder => SuggestBuilder::looseValuesSilent(), static fn(): SuggestBuilder => SuggestBuilder::looseValuesNoted()],
-    'pest.shardScan' => [Toggle::PestShardScan, static fn(): PestBuilder => PestBuilder::scanningEachChunk(), static fn(): PestBuilder => PestBuilder::scanningOnceAShard()],
-    'pest.longestFirst' => [Toggle::PestLongestFirst, static fn(): PestBuilder => PestBuilder::inTheirOrder(), static fn(): PestBuilder => PestBuilder::longestFirst()],
-    'pest.remember' => [Toggle::PestRemember, static fn(): PestBuilder => PestBuilder::forgetting(), static fn(): PestBuilder => PestBuilder::remembering()],
-    'pest.overlapSteps' => [Toggle::PestOverlapSteps, static fn(): PestBuilder => PestBuilder::stepByStep(), static fn(): PestBuilder => PestBuilder::overlappingSteps()],
-    'pest.pcovOff' => [Toggle::PestPcovOff, static fn(): PestBuilder => PestBuilder::pcovOn(), static fn(): PestBuilder => PestBuilder::pcovOff()],
-    'pest.xdebugOff' => [Toggle::PestXdebugOff, static fn(): PestBuilder => PestBuilder::xdebugAsConfigured(), static fn(): PestBuilder => PestBuilder::xdebugOff()],
-    'staticCheck.turbo' => [Toggle::StaticCheckTurbo, static fn(): StaticCheckBuilder => StaticCheckBuilder::withoutTurbo(), static fn(): StaticCheckBuilder => StaticCheckBuilder::turbo()],
+    'controls.kills' => [Toggle::ControlsKills, ControlsBuilder::killsUncontrolled(), ControlsBuilder::killsControlled()],
+    'controls.memory' => [Toggle::ControlsMemory, ControlsBuilder::memoryUncontrolled(), ControlsBuilder::memoryControlled()],
+    'pest.trials' => [Toggle::PestTrials, PestBuilder::withoutTrials(), PestBuilder::trying()],
+    'pest.valueReaders' => [Toggle::PestValueReaders, PestBuilder::withoutValueReaders(), PestBuilder::readingValues()],
+    'pest.narrow' => [Toggle::PestNarrow, PestBuilder::unnarrowed(), PestBuilder::narrowing()],
+    'staticCheck.after' => [Toggle::StaticCheckAfter, StaticCheckBuilder::survivorsUnchecked(), StaticCheckBuilder::checkingSurvivors()],
+    'timeouts.parts' => [Toggle::TimeoutsParts, TimeoutsBuilder::neverInParts(), TimeoutsBuilder::inParts()],
+    'suggest.looseValues' => [Toggle::SuggestLooseValues, SuggestBuilder::looseValuesSilent(), SuggestBuilder::looseValuesNoted()],
+    'pest.shardScan' => [Toggle::PestShardScan, PestBuilder::scanningEachChunk(), PestBuilder::scanningOnceAShard()],
+    'pest.longestFirst' => [Toggle::PestLongestFirst, PestBuilder::inTheirOrder(), PestBuilder::longestFirst()],
+    'pest.remember' => [Toggle::PestRemember, PestBuilder::forgetting(), PestBuilder::remembering()],
+    'pest.overlapSteps' => [Toggle::PestOverlapSteps, PestBuilder::stepByStep(), PestBuilder::overlappingSteps()],
+    'pest.pcovOff' => [Toggle::PestPcovOff, PestBuilder::pcovOn(), PestBuilder::pcovOff()],
+    'pest.xdebugOff' => [Toggle::PestXdebugOff, PestBuilder::xdebugAsConfigured(), PestBuilder::xdebugOff()],
+    'staticCheck.turbo' => [Toggle::StaticCheckTurbo, StaticCheckBuilder::withoutTurbo(), StaticCheckBuilder::turbo()],
 ];
 
 it('turns every step on by default, and a step off where its key says, a later layer\'s over an earlier one\'s', function (): void {
@@ -51,15 +52,15 @@ it('turns every step on by default, and a step off where its key says, a later l
     }
 });
 
-it('writes a toggle where a layer sets it, and the builder calls for it, as the builder writes it', function (Toggle $toggle, Closure $off, Closure $on): void {
+it('writes a toggle where a layer sets it, and the builder calls for it, as the builder writes it', function (Toggle $toggle, Setting $off, Setting $on): void {
     [$section, $key] = explode('.', $toggle->value);
     $layer = Layer::of(Toggles::of($toggle, on: false));
 
     expect($layer->written(ProjectRoot::origin())->line())->toBe(sprintf('{"%s":{"%s":false}}', $section, $key))
         ->and($layer->php(ProjectRoot::origin())->code())->toContain($toggle->php(on: false))
         ->and(Layer::of(Toggles::of($toggle, on: true))->php(ProjectRoot::origin())->code())->toContain($toggle->php(on: true))
-        ->and(Configs::written(Gate::configure()->with($off())))->toBe([$section => [$key => false]])
-        ->and(Configs::written(Gate::configure()->with($on())))->toBe([$section => [$key => true]]);
+        ->and(Configs::written(Gate::configure()->with($off)))->toBe([$section => [$key => false]])
+        ->and(Configs::written(Gate::configure()->with($on)))->toBe([$section => [$key => true]]);
 })->with($toggles);
 
 it('hands Pest the toggles it reads among its options, and any other runner none', function (): void {

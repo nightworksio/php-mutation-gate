@@ -459,7 +459,8 @@ final readonly class RunnerFake implements Runner
             MutantStatus::Skipped,
             MutantStatus::OutOfMemory,
             MutantStatus::NotReached,
-            MutantStatus::FailsUnmutated => $mutant,
+            MutantStatus::FailsUnmutated,
+            MutantStatus::Equivalent => $mutant,
         };
     }
 

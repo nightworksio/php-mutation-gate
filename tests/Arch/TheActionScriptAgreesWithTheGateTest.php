@@ -40,7 +40,8 @@ afterEach(function (): void {
 /** The text of the action's scripts, each Python file beside gate_action.py. */
 function actionScript(): string
 {
-    $scripts = glob(Tree::at('resources/action/*.py')) ?: [];
+    $found = glob(Tree::at('resources/action/*.py'));
+    $scripts = $found === false ? [] : $found;
     sort($scripts);
 
     return implode("\n", array_map(static fn(string $script): string => (string) file_get_contents($script), $scripts));

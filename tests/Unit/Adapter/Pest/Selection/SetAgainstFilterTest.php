@@ -32,7 +32,8 @@ it('selects by a set of ids exactly the tests the covering filter is built for, 
     $pool = TestIds::of(...array_map(TestId::of(...), SET_POOL));
 
     for ($round = 0; $round < 200; $round++) {
-        $chosen = array_values(array_filter(SET_POOL, static fn(): bool => mt_rand(0, 1) === 1)) ?: [SET_POOL[0]];
+        $drawn = array_values(array_filter(SET_POOL, static fn(): bool => mt_rand(0, 1) === 1));
+        $chosen = $drawn === [] ? [SET_POOL[0]] : $drawn;
         $covering = TestIds::of(...array_map(TestId::of(...), $chosen));
         $file = sprintf('%s/round-%d.ids', Scratch::directory(), $round);
         $written = IdsFile::written($covering, $file);

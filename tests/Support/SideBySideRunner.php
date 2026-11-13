@@ -96,7 +96,7 @@ final class SideBySideRunner implements ControlsSideBySide, Runner
         return $this->scripted->coverage($request);
     }
 
-    public function testsIn(Paths $files, CoverageMap $map): TestIds|CannotJudge
+    public function testsIn(Paths $files, CoverageMap $map): TestIds
     {
         return $this->scripted->testsIn($files, $map);
     }
@@ -150,7 +150,7 @@ final class SideBySideRunner implements ControlsSideBySide, Runner
         return $this->scripted->definitions();
     }
 
-    public function names(TestIds $tests, Withheld $withheld): TestNames|CannotJudge
+    public function names(TestIds $tests, Withheld $withheld): TestNames
     {
         return $this->scripted->names($tests, $withheld);
     }

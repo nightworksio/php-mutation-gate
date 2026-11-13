@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 // The static graph's reader held to the gate's own name graph (ADR-0132,
 // decision 7): on the gate's sources and on each fixture project, every other
@@ -25,22 +26,14 @@ $projects = [
 ];
 
 it('joins every file to each PHP file the gate\'s name graph says it names', function (string ...$directories): void {
-    $root = dirname(__DIR__, 3);
+    $root = Tree::root();
     $binary = getenv('OUTBREAK_BINARY');
     $graph = is_string($binary) ? Outbreak::at($binary, $root) : Outbreak::none($root);
     $read = [];
 
     foreach ($directories as $directory) {
-        $found = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
-            sprintf('%s/%s', $root, $directory),
-            FilesystemIterator::SKIP_DOTS,
-        ));
-
-        foreach ($found as $file) {
-            if ($file instanceof SplFileInfo && $file->getExtension() === 'php' && ! str_contains($file->getPathname(), '/vendor/')) {
-                $path = substr($file->getPathname(), strlen($root) + 1);
-                $read[$path] = PhpFile::read(Contents::of((string) file_get_contents($file->getPathname())));
-            }
+        foreach (Tree::filesUnder($directory) as $path) {
+            $read[$path] = PhpFile::read(Contents::of((string) file_get_contents(Tree::at($path))));
         }
     }
 

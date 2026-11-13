@@ -4,34 +4,39 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\NegationTwins;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Pest\Mutate\Mutators\ControlStructures\IfNegated;
+use Pest\Mutate\Mutators\ControlStructures\TernaryNegated;
+use Pest\Mutate\Mutators\Logical\RemoveNot;
+use Pest\Mutate\Mutators\Logical\TrueToFalse;
 
 afterEach(function (): void {
     Scratch::sweep();
 });
 
-const REMOVE_NOT = 'Pest\\Mutate\\Mutators\\Logical\\RemoveNot';
+const REMOVE_NOT = RemoveNot::class;
 
-const IF_NEGATED = 'Pest\\Mutate\\Mutators\\ControlStructures\\IfNegated';
+const IF_NEGATED = IfNegated::class;
 
-const TERNARY_NEGATED = 'Pest\\Mutate\\Mutators\\ControlStructures\\TernaryNegated';
+const TERNARY_NEGATED = TernaryNegated::class;
 
 /** A mutated copy holding this code, in a directory of its own. */
 function negationCopy(string $code): string
 {
     $directory = Scratch::directory();
-    $path = sprintf('%s/%s.php', $directory, md5($code));
+    $path = sprintf('%s/%s.php', $directory, hash('sha256', $code));
     file_put_contents($path, $code);
 
     return $path;
 }
 
 it('branches alike on a value and on its value negated twice, whatever the value', function (Closure $value): void {
-    $once = static fn(mixed $value): string => $value ? 'then' : 'else';
-    $twice = static fn(mixed $value): string => !!$value ? 'then' : 'else';
+    $once = require negationCopy("<?php\nreturn static fn(mixed \$value): string => \$value ? 'then' : 'else';\n");
+    $twice = require negationCopy("<?php\nreturn static fn(mixed \$value): string => !!\$value ? 'then' : 'else';\n");
     set_error_handler(static fn(): bool => true, E_WARNING);
 
     try {
-        [$negatedTwice, $asIs] = [$twice($value()), $once($value())];
+        $negatedTwice = $twice instanceof Closure ? $twice($value()) : 'unread';
+        $asIs = $once instanceof Closure ? $once($value()) : 'unread';
     } finally {
         restore_error_handler();
     }
@@ -74,5 +79,5 @@ it('pairs nothing that differs anywhere else, nor any other mutators', function 
         ->and(NegationTwins::alike(REMOVE_NOT, $removed, IF_NEGATED, $wrapped))->toBeFalse()
         ->and(NegationTwins::alike(REMOVE_NOT, $removed, REMOVE_NOT, $removed))->toBeFalse()
         ->and(NegationTwins::alike(IF_NEGATED, $removed, TERNARY_NEGATED, $removed))->toBeFalse()
-        ->and(NegationTwins::names('Pest\\Mutate\\Mutators\\Logical\\TrueToFalse'))->toBeFalse();
+        ->and(NegationTwins::names(TrueToFalse::class))->toBeFalse();
 });

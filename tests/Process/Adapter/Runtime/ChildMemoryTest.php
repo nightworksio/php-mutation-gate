@@ -42,6 +42,11 @@ it('counts none in a process that has waited for none', function (): void {
 function childMemoryOwnUsage(): array
 {
     $usage = getrusage();
+    $counted = [];
 
-    return is_array($usage) ? $usage : [];
+    foreach (is_array($usage) ? $usage : [] as $name => $count) {
+        $counted = is_string($name) && is_int($count) ? [...$counted, $name => $count] : $counted;
+    }
+
+    return $counted;
 }
