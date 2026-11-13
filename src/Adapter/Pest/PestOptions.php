@@ -10,6 +10,7 @@ use function is_bool;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -28,12 +29,20 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Toggles;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Native\PlacesMutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\RunExtension;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Port\MapEngine;
+use NightWorksIO\MutationGate\Port\Processes;
 
 use function sprintf;
 
@@ -68,6 +77,9 @@ final readonly class PestOptions
 
     /** The option that holds the directories the tests are in, which the flows write from the PHPUnit config. */
     public const string TESTS = 'tests';
+
+    /** Where the gate runs Pest: the project's root, which the gate runs in. */
+    private const string ROOT = '.';
 
     private const string PATCH = 'patch';
 
@@ -140,6 +152,56 @@ final readonly class PestOptions
                 $bounds,
             ),
         };
+    }
+
+    /**
+     * Pest in the project the gate runs in, installed in this vendor
+     * directory, as the `pest` runner's options configure it, writing its
+     * memory cap with these files, reading whether pest:patch is applied
+     * through these package files and running through these processes, with
+     * the engine that vouches for each map handed over, where one does
+     * (ADR-0118). Under the gate's PHAR, every PHP process of a run loads the
+     * archive first, and its plugin, this class, in the place of a copy of the
+     * gate's the project's Pest lists (ADR-0140). A preloaded mutant is
+     * served in a fresh run where this places it in the project (ADR-0148).
+     *
+     * @param class-string $plugin
+     */
+    public static function runner(
+        Options $options,
+        Path $vendor,
+        CapFiles $files,
+        PackageFiles $packages,
+        Processes $processes,
+        OwnArchive|NotGiven $archive,
+        string $plugin,
+        MapEngine|NotGiven $maps = new NotGiven(),
+        RunExtension|NotGiven $extension = new NotGiven(),
+        PlacesMutants|NotGiven $placing = new NotGiven(),
+    ): Pest|Invalid {
+        $read = self::read($options);
+
+        if ($read instanceof Invalid) {
+            return $read;
+        }
+
+        $project = Project::at(self::ROOT, $read->tests, Workspace::root(), $vendor, $placing);
+        $loading = $archive instanceof OwnArchive
+            ? ArchiveLoading::writtenFor($project, $archive, GatePlugins::listedIn($project, $packages), $plugin)
+            : NotGiven::value();
+
+        return $loading instanceof CannotJudge ? Invalid::because(Problem::at('', $loading->why())) : new Pest(
+            $project,
+            new ProcessShell($processes, $project->root(), $loading)
+                ->longestFirst($read->patching->steps()->on(Toggle::PestLongestFirst)),
+            $read->patching,
+            $files,
+            $packages,
+            $read->bounds,
+            bridges: $read->bridges(),
+            maps: $maps,
+            extension: $extension,
+        );
     }
 
     public function patching(): Patching

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\ExactRows;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
@@ -161,9 +162,9 @@ it('is Pest in the project the gate runs in, as its options say, or the options\
         $bounds->tighterFor(TighterSilence::standard())->watchingEachTest(PerTestLimit::standard()),
     );
 
-    expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value(), PestPlugin::class))->toEqual($pest(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))))
-        ->and(Pest::fromOptions(Configs::options('{"timeout": 30, "most": 60}'), Path::of('lib/vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value(), PestPlugin::class))->toEqual($pest(LimitBounds::between(Seconds::of(30.0), Seconds::of(60.0))))
-        ->and(Pest::fromOptions(Configs::options('{"patch": 1}'), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value(), PestPlugin::class))->toEqual(Invalid::because(
+    expect(PestOptions::runner(Options::none(), Path::of('lib/vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value(), PestPlugin::class))->toEqual($pest(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))))
+        ->and(PestOptions::runner(Configs::options('{"timeout": 30, "most": 60}'), Path::of('lib/vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value(), PestPlugin::class))->toEqual($pest(LimitBounds::between(Seconds::of(30.0), Seconds::of(60.0))))
+        ->and(PestOptions::runner(Configs::options('{"patch": 1}'), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value(), PestPlugin::class))->toEqual(Invalid::because(
             Problem::at('patch', 'expected true or false, got 1'),
         ));
 });
@@ -182,9 +183,9 @@ it('runs under the gate\'s PHAR where the project\'s Pest lists a plugin of a co
 
     try {
         $listing(PestPlugin::class);
-        $runs = Pest::fromOptions(Options::none(), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), OwnArchive::at('/opt/mutation-gate-judge.phar'), PestPlugin::class);
+        $runs = PestOptions::runner(Options::none(), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), OwnArchive::at('/opt/mutation-gate-judge.phar'), PestPlugin::class);
         $listing('Acme\\Plugin');
-        $refused = Pest::fromOptions(Options::none(), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), OwnArchive::at('/opt/mutation-gate-judge.phar'), PestPlugin::class);
+        $refused = PestOptions::runner(Options::none(), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), OwnArchive::at('/opt/mutation-gate-judge.phar'), PestPlugin::class);
     } finally {
         chdir($before);
     }

@@ -66,6 +66,7 @@ use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Installation as PhpSpecInstallation;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\PhpSpecFramework;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
@@ -206,7 +207,7 @@ final readonly class FirstParty implements Extension
             )
             ->withRunner(
                 BuiltinRunner::Pest->named(),
-                static fn(Options $options): Pest|Invalid => Pest::fromOptions(
+                static fn(Options $options): Pest|Invalid => PestOptions::runner(
                     $options,
                     ComposerVendor::of(self::HERE),
                     new CapDirectory(),

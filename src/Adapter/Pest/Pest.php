@@ -15,25 +15,19 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
-use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
-use NightWorksIO\MutationGate\Core\Config\Options;
-use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
-use NightWorksIO\MutationGate\Core\Native\PlacesMutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\ControlsSideBySide;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
@@ -62,7 +56,6 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\MapEngine;
-use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\Runner;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
@@ -77,9 +70,6 @@ use function sprintf;
  */
 final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsSideBySide, Runner
 {
-    /** Where the gate runs Pest: the project's root, which the gate runs in. */
-    private const string ROOT = '.';
-
     /** The file Pest loads before any test, in the test directory it runs with, which the gate leaves at `tests`. */
     private const string BOOT_FILE = 'tests/Pest.php';
 
@@ -123,56 +113,6 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
             $clock,
             $bridges,
             $extension,
-        );
-    }
-
-    /**
-     * Pest in the project the gate runs in, installed in this vendor
-     * directory, as the `pest` runner's options configure it, writing its
-     * memory cap with these files, reading whether pest:patch is applied
-     * through these package files and running through these processes, with
-     * the engine that vouches for each map handed over, where one does
-     * (ADR-0118). Under the gate's PHAR, every PHP process of a run loads the
-     * archive first, and its plugin, this class, in the place of a copy of the
-     * gate's the project's Pest lists (ADR-0140). A preloaded mutant is
-     * served in a fresh run where this places it in the project (ADR-0148).
-     *
-     * @param class-string                                               $plugin
-     */
-    public static function fromOptions(
-        Options $options,
-        Path $vendor,
-        CapFiles $files,
-        PackageFiles $packages,
-        Processes $processes,
-        OwnArchive|NotGiven $archive,
-        string $plugin,
-        MapEngine|NotGiven $maps = new NotGiven(),
-        RunExtension|NotGiven $extension = new NotGiven(),
-        PlacesMutants|NotGiven $placing = new NotGiven(),
-    ): self|Invalid {
-        $read = PestOptions::read($options);
-
-        if ($read instanceof Invalid) {
-            return $read;
-        }
-
-        $project = Project::at(self::ROOT, $read->tests(), Workspace::root(), $vendor, $placing);
-        $loading = $archive instanceof OwnArchive
-            ? ArchiveLoading::writtenFor($project, $archive, GatePlugins::listedIn($project, $packages), $plugin)
-            : NotGiven::value();
-
-        return $loading instanceof CannotJudge ? Invalid::because(Problem::at('', $loading->why())) : new self(
-            $project,
-            new ProcessShell($processes, $project->root(), $loading)
-                ->longestFirst($read->patching()->steps()->on(Toggle::PestLongestFirst)),
-            $read->patching(),
-            $files,
-            $packages,
-            $read->bounds(),
-            bridges: $read->bridges(),
-            maps: $maps,
-            extension: $extension,
         );
     }
 

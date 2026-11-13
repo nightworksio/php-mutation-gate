@@ -29,7 +29,7 @@ use NightWorksIO\MutationGate\Adapter\Native\PestPlacements;
 use NightWorksIO\MutationGate\Adapter\Opcache\PrintedDeclarations;
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
-use NightWorksIO\MutationGate\Adapter\Pest\Pest as PestRunner;
+use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
@@ -853,7 +853,7 @@ it('tells each runner its timeouts and the classes of the registered mutators th
 
     $options = Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class], ...WIRED_PEST_TOGGLES]));
 
-    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
+    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestOptions::runner(
         $options,
         ComposerVendor::of('.'),
         new CapDirectory(),
@@ -938,7 +938,7 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
 
     $pestOptions = Configs::options((string) json_encode(['timeout' => 45.0, 'tests' => $declared, ...WIRED_PEST_TOGGLES]));
 
-    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
+    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestOptions::runner(
         $pestOptions,
         ComposerVendor::of('.'),
         new CapDirectory(),
