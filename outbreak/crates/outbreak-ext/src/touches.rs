@@ -5,17 +5,9 @@
 //! skipped because a test touched none: the observer cannot see every
 //! source, such as randomness inside an extension's own C code.
 
-#![allow(
-    unsafe_code,
-    reason = "a call's function and arguments exist only behind the Zend engine's own pointers"
-)]
-
 use std::cell::RefCell;
 
-use ext_php_rs::ffi;
-use ext_php_rs::zend::{ExecuteData, FcallInfo};
-
-use crate::value;
+use ext_php_rs::zend::FcallInfo;
 
 /// Functions whose every call reads the clock, randomness, the environment, another process or the network.
 const ALWAYS: &[&str] = &[
@@ -95,10 +87,6 @@ const CLOCKS: &[&str] = &["DateTime", "DateTimeImmutable"];
 /// The class every one of whose methods draws randomness.
 const RANDOMIZER: &str = "Random\\Randomizer";
 
-/// The first argument's slot past a frame, in values: the frame's own size, rounded up.
-const FRAME: usize =
-    std::mem::size_of::<ffi::zend_execute_data>().div_ceil(std::mem::size_of::<ffi::zval>());
-
 #[derive(Default)]
 struct Watch {
     root: Option<Vec<u8>>,
@@ -139,55 +127,34 @@ pub fn touched() -> bool {
     WATCH.with(|watch| watch.borrow().touched)
 }
 
-/// A watched function was called.
-pub fn called(execute_data: &ExecuteData) {
-    let root = WATCH.with(|watch| watch.borrow().root.clone());
-
-    let Some(root) = root else {
-        return;
-    };
-
-    // SAFETY: a live frame of an internal function the observer chose.
-    if unsafe { touches(execute_data, &root) } {
-        WATCH.with(|watch| watch.borrow_mut().touched = true);
-    }
+/// A call of a watched function, as its frame names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Call<'a> {
+    /// The function's name.
+    pub name: &'a [u8],
+    /// Whether the function is a method of a class.
+    pub scoped: bool,
+    /// The first argument, where it is a string.
+    pub first: Option<&'a [u8]>,
 }
 
-unsafe fn touches(execute_data: &ExecuteData, root: &[u8]) -> bool {
-    // SAFETY: a frame's function is live while it runs.
-    let function = unsafe { &*execute_data.func };
-    // SAFETY: the members common to every function.
-    let (name, scope) = unsafe { (function.common.function_name, function.common.scope) };
-    // SAFETY: a function's name is a live string.
-    let name = unsafe { value::text(name) }.unwrap_or_default();
+/// A watched function was called; its call is read only while watching.
+pub fn called<'a>(call: impl FnOnce() -> Call<'a>) {
+    WATCH.with(|watch| {
+        let mut watch = watch.borrow_mut();
+        let touched = watch
+            .root
+            .as_deref()
+            .is_some_and(|root| touches(&call(), root));
+        watch.touched |= touched;
+    });
+}
 
-    if !scope.is_null() || !FILES.iter().any(|file| file.as_bytes() == name) {
-        return true;
-    }
-
-    // SAFETY: a frame counts its arguments in `This`'s second word.
-    let count = unsafe { execute_data.This.u2.num_args };
-
-    if count == 0 {
-        return false;
-    }
-
-    // SAFETY: the first argument follows the frame, as ZEND_CALL_ARG lays it out.
-    let first = unsafe {
-        std::ptr::from_ref(execute_data)
-            .cast::<ffi::zval>()
-            .add(FRAME)
-    };
-    // SAFETY: a string argument is a live string; any other kind names no file.
-    let path = unsafe {
-        if (*first).u1.v.type_ == STRING {
-            value::text((*first).value.str_)
-        } else {
-            None
-        }
-    };
-
-    path.is_some_and(|path| outside(path, root))
+/// Whether a call touches nondeterminism: every one does but a call naming a file inside the project.
+fn touches(call: &Call<'_>, root: &[u8]) -> bool {
+    call.scoped
+        || !FILES.iter().any(|file| file.as_bytes() == call.name)
+        || call.first.is_some_and(|path| outside(path, root))
 }
 
 /// Whether a path lies outside the project: a stream's URL, or an absolute path not under the root.
@@ -198,5 +165,76 @@ fn outside(path: &[u8], root: &[u8]) -> bool {
     url || (absolute && !path.starts_with(root))
 }
 
-/// PHP's type of a string.
-const STRING: u8 = 6;
+#[cfg(test)]
+mod tests {
+    use ext_php_rs::zend::FcallInfo;
+
+    use super::{Call, called, observes, start, touched};
+
+    fn info<'a>(class: Option<&'a str>, function: Option<&'a str>) -> FcallInfo<'a> {
+        FcallInfo {
+            function_name: function,
+            class_name: class,
+            filename: None,
+            lineno: 0,
+            is_internal: true,
+        }
+    }
+
+    fn call<'a>(name: &'a str, first: Option<&'a str>) -> Call<'a> {
+        Call {
+            name: name.as_bytes(),
+            scoped: false,
+            first: first.map(str::as_bytes),
+        }
+    }
+
+    fn made<'a>(call: Call<'a>) -> impl FnOnce() -> Call<'a> {
+        move || call
+    }
+
+    fn touches(call: Call<'_>) -> bool {
+        start("/project");
+        called(made(call));
+
+        touched()
+    }
+
+    #[test]
+    fn observes_the_functions_that_can_touch_nondeterminism() {
+        assert!(observes(&info(None, Some("time"))));
+        assert!(observes(&info(None, Some("fopen"))));
+        assert!(!observes(&info(None, Some("strlen"))));
+        assert!(!observes(&info(None, None)));
+        assert!(observes(&info(Some("Random\\Randomizer"), Some("getInt"))));
+        assert!(observes(&info(Some("DateTime"), Some("__construct"))));
+        assert!(!observes(&info(Some("DateTime"), Some("format"))));
+        assert!(!observes(&info(Some("ArrayObject"), Some("__construct"))));
+    }
+
+    #[test]
+    fn touches_by_every_call_but_one_naming_a_file_in_the_project() {
+        assert!(touches(call("time", None)));
+        assert!(touches(Call {
+            scoped: true,
+            ..call("fopen", Some("/project/a"))
+        }));
+        assert!(!touches(call("fopen", Some("/project/a"))));
+        assert!(!touches(call("fopen", Some("relative/a"))));
+        assert!(!touches(call("fopen", None)));
+        assert!(touches(call("fopen", Some("/etc/hosts"))));
+        assert!(touches(call("file_get_contents", Some("php://stdin"))));
+    }
+
+    #[test]
+    fn touches_nothing_before_watching_starts_and_afresh_once_it_does() {
+        called(made(call("rand", None)));
+
+        assert!(!touched());
+        assert!(touches(call("rand", None)));
+
+        start("/project");
+
+        assert!(!touched());
+    }
+}

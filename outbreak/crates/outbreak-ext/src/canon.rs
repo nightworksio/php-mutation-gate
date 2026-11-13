@@ -89,3 +89,66 @@ impl Canon {
         self.bytes.extend_from_slice(value);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Canon;
+
+    fn written(write: impl FnOnce(&mut Canon)) -> Vec<u8> {
+        let mut canon = Canon::new();
+        write(&mut canon);
+
+        canon.bytes
+    }
+
+    #[test]
+    fn tags_each_value_and_leads_each_variable_part_by_its_length() {
+        assert_eq!(
+            written(|canon| canon.section("ab")),
+            [1, 2, 0, 0, 0, 0, 0, 0, 0, b'a', b'b']
+        );
+        assert_eq!(
+            written(|canon| canon.number(258)),
+            [2, 2, 1, 0, 0, 0, 0, 0, 0]
+        );
+        assert_eq!(
+            written(|canon| canon.signed(-1)),
+            [3, 255, 255, 255, 255, 255, 255, 255, 255]
+        );
+        assert_eq!(
+            written(|canon| canon.float(-0.0)),
+            [4, 0, 0, 0, 0, 0, 0, 0, 128]
+        );
+        assert_eq!(
+            written(|canon| canon.bytes(b"\0")),
+            [5, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+        assert_eq!(written(|canon| canon.end(3)), [6, 3, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn reads_no_two_kinds_alike() {
+        assert_ne!(
+            written(|canon| canon.section("a")),
+            written(|canon| canon.bytes(b"a"))
+        );
+        assert_ne!(
+            written(|canon| canon.float(0.0)),
+            written(|canon| canon.float(-0.0))
+        );
+    }
+
+    #[test]
+    fn digests_the_whole_text_as_sha256_in_lowercase_hex() {
+        assert_eq!(
+            Canon::new().digest(),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+
+        let mut canon = Canon::new();
+        canon.section("return");
+
+        assert_eq!(canon.digest().len(), 64);
+        assert_ne!(canon.digest(), Canon::new().digest());
+    }
+}

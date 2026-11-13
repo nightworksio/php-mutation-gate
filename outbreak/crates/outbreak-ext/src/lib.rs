@@ -18,6 +18,7 @@
 
 pub mod canon;
 mod descriptors;
+mod engine;
 mod lines;
 mod program;
 mod state;
@@ -85,7 +86,7 @@ pub fn outbreak_touched() -> bool {
 #[php_function]
 #[must_use]
 pub fn outbreak_lines_start() -> bool {
-    state::observing().lines && lines::start()
+    state::observing().lines && lines::start(engine::holds_executor())
 }
 
 /// Stops recording: the lines executed since recording started, by file.
@@ -99,28 +100,28 @@ pub fn outbreak_lines_stop() -> std::collections::HashMap<String, Vec<i64>> {
 #[php_function]
 #[must_use]
 pub fn outbreak_steps() -> Option<i64> {
-    state::observing().steps.then(steps::taken)
+    state::observing().steps.then(|| steps::STEPS.taken())
 }
 
 /// Shares this many step limits with the children this process forks; false where they cannot be shared.
 #[php_function]
 #[must_use]
 pub fn outbreak_steps_share(slots: i64) -> bool {
-    state::observing().steps && usize::try_from(slots).is_ok_and(steps::shared)
+    state::observing().steps && usize::try_from(slots).is_ok_and(|slots| steps::STEPS.shared(slots))
 }
 
 /// Sets the most steps a child bound to this slot may count before it stops itself by `SIGXCPU`.
 #[php_function]
 #[must_use]
 pub fn outbreak_steps_limit(slot: i64, most: i64) -> bool {
-    usize::try_from(slot).is_ok_and(|slot| steps::limited(slot, most))
+    usize::try_from(slot).is_ok_and(|slot| steps::STEPS.limited(slot, most))
 }
 
 /// Binds this process, a forked child, to a slot's limit.
 #[php_function]
 #[must_use]
 pub fn outbreak_steps_bind(slot: i64) -> bool {
-    usize::try_from(slot).is_ok_and(steps::bound)
+    usize::try_from(slot).is_ok_and(|slot| steps::STEPS.bound(slot))
 }
 
 /// The extension's version, which a proof's evidence names.
@@ -160,10 +161,10 @@ const FAILED: i32 = 1;
 /// Takes PHP's executor over and counts jumps, as what the process observes asks.
 fn started(_kind: i32, _module: i32) -> i32 {
     if state::observing().lines {
-        lines::install();
+        engine::install_executor();
     }
 
-    if state::observing().steps && !steps::install() {
+    if state::observing().steps && !engine::install_jumps() {
         FAILED
     } else {
         STARTED
@@ -172,7 +173,7 @@ fn started(_kind: i32, _module: i32) -> i32 {
 
 /// Hands PHP's executor back.
 extern "C" fn stopped(_kind: i32, _module: i32) -> i32 {
-    lines::uninstall();
+    engine::uninstall_executor();
 
     STARTED
 }

@@ -61,56 +61,56 @@ impl Ignored {
 /// What the process holds now; nothing where the system lists no descriptors.
 #[must_use]
 pub fn held(ignored: &Ignored) -> Held {
-    let mut held = Held::default();
-    let Ok(listed) = fs::read_dir(LISTED) else {
-        return held;
-    };
-
-    for entry in listed.flatten() {
-        let Some(descriptor) = entry
-            .file_name()
-            .to_str()
-            .and_then(|name| name.parse::<i32>().ok())
-        else {
-            continue;
-        };
-
-        if descriptor >= FIRST {
-            count(&mut held, descriptor, ignored);
-        }
-    }
-
-    held
+    fs::read_dir(LISTED)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| entry.file_name().to_str()?.parse::<i32>().ok())
+        .filter(|&descriptor| descriptor >= FIRST)
+        .filter_map(status)
+        .fold(Held::default(), |held, status| held.with(status, ignored))
 }
 
-fn count(held: &mut Held, descriptor: i32, ignored: &Ignored) {
+impl Held {
+    /// These counts, with a descriptor of this status counted where a child would share it.
+    fn with(mut self, status: Status, ignored: &Ignored) -> Self {
+        match status.kind {
+            libc::S_IFSOCK => self.sockets += 1,
+            libc::S_IFREG if status.writable && !ignored.holds(status.device, status.inode) => {
+                self.files += 1;
+            }
+            libc::S_IFIFO if status.writable => self.pipes += 1,
+            _ => {}
+        }
+
+        self
+    }
+}
+
+/// A descriptor's access, kind and identity, as fcntl and fstat read them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Status {
+    writable: bool,
+    kind: libc::mode_t,
+    device: i64,
+    inode: i64,
+}
+
+/// An open descriptor's status; none where it is closed.
+fn status(descriptor: i32) -> Option<Status> {
     // SAFETY: F_GETFL reads a descriptor's flags; a closed one answers -1.
     let flags = unsafe { libc::fcntl(descriptor, libc::F_GETFL) };
-
-    if flags < 0 {
-        return;
-    }
-
     // SAFETY: an all-zero stat is a valid value for fstat to fill.
     let mut status: libc::stat = unsafe { std::mem::zeroed() };
+    // SAFETY: the descriptor is open where its flags were read, and `status` is ours to fill.
+    let read = flags >= 0 && unsafe { libc::fstat(descriptor, &raw mut status) } == 0;
 
-    // SAFETY: the descriptor is open, and `status` is ours to fill.
-    if unsafe { libc::fstat(descriptor, &raw mut status) } != 0 {
-        return;
-    }
-
-    let writable = flags & libc::O_ACCMODE != libc::O_RDONLY;
-
-    match status.st_mode & libc::S_IFMT {
-        libc::S_IFSOCK => held.sockets += 1,
-        libc::S_IFREG
-            if writable && !ignored.holds(identity(status.st_dev), identity(status.st_ino)) =>
-        {
-            held.files += 1;
-        }
-        libc::S_IFIFO if writable => held.pipes += 1,
-        _ => {}
-    }
+    read.then(|| Status {
+        writable: flags & libc::O_ACCMODE != libc::O_RDONLY,
+        kind: status.st_mode & libc::S_IFMT,
+        device: identity(status.st_dev),
+        inode: identity(status.st_ino),
+    })
 }
 
 fn identity<T: TryInto<i64>>(number: T) -> i64 {
@@ -119,7 +119,10 @@ fn identity<T: TryInto<i64>>(number: T) -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use super::Ignored;
+    use std::os::unix::fs::MetadataExt as _;
+    use std::os::unix::net::UnixStream;
+
+    use super::{FIRST, Held, Ignored, Status, held, identity, status};
 
     #[test]
     fn holds_each_pair_given_and_skips_the_malformed() {
@@ -128,5 +131,70 @@ mod tests {
         assert!(ignored.holds(1, 2));
         assert!(!ignored.holds(2, 1));
         assert!(!ignored.holds(4, 5));
+    }
+
+    fn of(kind: libc::mode_t, writable: bool) -> Status {
+        Status {
+            writable,
+            kind,
+            device: 1,
+            inode: 2,
+        }
+    }
+
+    #[test]
+    fn counts_what_a_child_would_share() {
+        let none = Ignored::default();
+        let counted = [
+            of(libc::S_IFSOCK, false),
+            of(libc::S_IFREG, true),
+            of(libc::S_IFREG, false),
+            of(libc::S_IFIFO, true),
+            of(libc::S_IFIFO, false),
+            of(libc::S_IFDIR, true),
+        ]
+        .into_iter()
+        .fold(Held::default(), |held, status| held.with(status, &none));
+
+        assert_eq!(
+            counted,
+            Held {
+                files: 1,
+                pipes: 1,
+                sockets: 1,
+            }
+        );
+        assert_eq!(
+            Held::default().with(of(libc::S_IFREG, true), &Ignored::of(&[vec![1, 2]])),
+            Held::default()
+        );
+    }
+
+    #[test]
+    fn reads_no_status_of_a_closed_descriptor() {
+        assert_eq!(status(-1), None);
+        assert_eq!(identity(u64::MAX), i64::MAX);
+        assert!(status(FIRST - 1).is_some());
+    }
+
+    #[test]
+    fn counts_the_descriptors_the_process_holds() {
+        let path =
+            std::env::temp_dir().join(format!("outbreak-descriptors-{}", std::process::id()));
+        let before = held(&Ignored::default());
+        let file = std::fs::File::create(&path).unwrap();
+        let (reader, writer) = std::io::pipe().unwrap();
+        let sockets = UnixStream::pair().unwrap();
+        let after = held(&Ignored::default());
+        let metadata = file.metadata().unwrap();
+        let ignored = Ignored::of(&[vec![identity(metadata.dev()), identity(metadata.ino())]]);
+
+        assert_eq!(after.files - before.files, 1);
+        assert_eq!(after.pipes - before.pipes, 1);
+        assert_eq!(after.sockets - before.sockets, 2);
+        assert_eq!(held(&ignored).files, before.files);
+
+        drop((file, reader, writer, sockets));
+        std::fs::remove_file(path).unwrap();
     }
 }

@@ -22,7 +22,7 @@ use ext_php_rs::zend::{ExecuteData, FcallInfo, FcallObserver};
 
 use crate::canon::Canon;
 use crate::value::{self, Seen};
-use crate::{steps, touches};
+use crate::{engine, touches};
 
 /// The variable that says what a stream's process observes: `states`, `touches`, `lines` and `steps`, by commas.
 const OBSERVE: &str = "MUTATION_GATE_OBSERVE";
@@ -93,9 +93,9 @@ impl FcallObserver for Watch {
     fn begin(&self, execute_data: &ExecuteData) {
         // SAFETY: a frame's function is live while it runs.
         if unsafe { (*execute_data.func).type_ } == USER_FUNCTION {
-            steps::stepped();
+            engine::stepped();
         } else {
-            touches::called(execute_data);
+            engine::called(execute_data);
         }
     }
 

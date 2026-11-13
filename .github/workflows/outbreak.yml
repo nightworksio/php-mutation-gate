@@ -11,9 +11,9 @@
 # extension (ADR-0130), is built beside it for each supported PHP minor, and
 # every job that builds the workspace installs PHP's headers and one LLVM's
 # clang and libclang (.github/scripts/libclang.sh), which its bindings are
-# generated with. Its compiling and reading of op arrays and state runs only
-# inside PHP, so the boundary's contract suite holds it, not the Rust suite's
-# coverage or mutants.
+# generated with. Its compiling and reading of op arrays and state, and its
+# hooks into the engine, run only inside PHP, so the boundary's contract suite
+# holds them, not the Rust suite's coverage or mutants.
 #
 # ci.yml calls it on every run, with the gates where `what changed` lists
 # `outbreak` (the Rust tree, its workflow, or the PHP the binary talks to) and
@@ -155,7 +155,7 @@ jobs:
       - run: ci/install-tool.sh cargo-llvm-cov
       - run: >-
           cargo llvm-cov nextest --workspace --locked --fail-under-lines 100 --show-missing-lines
-          --ignore-filename-regex 'crates/outbreak-ext/src/(lib|program|state|value)\.rs'
+          --ignore-filename-regex 'crates/outbreak-ext/src/(engine|lib|program|state|value)\.rs'
       - name: what failed
         if: failure()
         working-directory: .
@@ -280,7 +280,7 @@ jobs:
             scope=(--in-diff "${RUNNER_TEMP}/change.diff")
           fi
           cargo mutants --workspace --no-shuffle --shard "${SHARD}/${SHARDS}" "${scope[@]}" \
-            --exclude 'crates/outbreak-ext/src/{lib,program,state,value}.rs'
+            --exclude 'crates/outbreak-ext/src/{engine,lib,program,state,value}.rs'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
