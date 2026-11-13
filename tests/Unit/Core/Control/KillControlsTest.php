@@ -355,6 +355,23 @@ it('replays all a kill\'s run selected where the runner recorded no order, and o
         ->toBe([]);
 });
 
+it('replays a kill\'s killers where the map places no test on its lines, as on a changed signature', function (): void {
+    $map = CoverageMap::of()->covered(Path::of('src/Loop.php'), Line::of(5), TestId::of('LoopTest::a'));
+    $controls = KillControls::of(
+        Mutants::of(killedBy('src/Loop.php', '1', MutantStatus::Killed, 'LoopTest::b')),
+        Evidences::none(),
+        $map,
+        HeldCovered::none(),
+        new ExactRun(),
+        killBounds(),
+    );
+
+    expect(array_map(static fn(Control $control): array => array_map(
+        static fn(TestId $test): string => $test->value(),
+        [...$control->tests()],
+    ), [...$controls->asked()]))->toBe([['LoopTest::b']]);
+});
+
 it('runs the killers alone under flaky.killControls alone, one control of a file vouching for them all', function (): void {
     $mutants = Mutants::of(
         killedBy('src/Loop.php', '1', MutantStatus::Killed, 'LoopTest::b'),

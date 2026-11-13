@@ -215,7 +215,11 @@ final readonly class KillControls implements ControlJudge
         return $controls;
     }
 
-    /** What replays a kill's run: the tests it started up to its last killer, or all it selected. */
+    /**
+     * What replays a kill's run: the tests it started up to its last killer,
+     * or all it selected and its killers, which the map may not place on the
+     * mutant's lines, as on a signature a visibility mutant changes.
+     */
     private static function testsOf(
         Mutant $mutant,
         Evidence $found,
@@ -225,9 +229,11 @@ final readonly class KillControls implements ControlJudge
     ): TestIds|RunTests {
         $order = $found->order();
 
-        return $order instanceof TestIds
-            ? $order
-            : Control::judging($mutant, $map, $held, $run, $found->unfiltered());
+        return $order instanceof TestIds ? $order : $run->of(
+            Control::covering($mutant, $map, $held)->and($mutant->killers()),
+            $map,
+            $found->unfiltered(),
+        );
     }
 
     /** A kill's own control: its killers, or as its run selected them where that run left its filter out. */
