@@ -16,14 +16,15 @@
 # holds them, not the Rust suite's coverage or mutants.
 #
 # ci.yml calls it on every run, with the gates where `what changed` lists
-# `outbreak` (the Rust tree, its workflow, or the PHP the binary talks to) and
-# the builds where it says `builds` (the Rust tree or its workflow), so
-# `passed` reports on every pull request and main can require it. release.yml
-# calls it for the builds alone, and its draft lays every binary under
-# resources/outbreak with the SHA256SUMS the gate checks each one against. A
-# pull request mutates what its diff touches and fuzzes each target for a
-# minute; main and the night mutate the whole workspace and the night fuzzes
-# for half an hour.
+# `outbreak` (the Rust tree, its workflow, or the PHP the binary talks to),
+# the boundary wherever `tests` runs, since `coverage` merges the boundary's
+# coverage into G7, and the builds where it says `builds` (the Rust tree or
+# its workflow), so `passed` reports on every pull request and main can
+# require it. release.yml calls it for the builds alone, and its draft lays
+# every binary under resources/outbreak with the SHA256SUMS the gate checks
+# each one against. A pull request mutates what its diff touches and fuzzes
+# each target for a minute; main and the night mutate the whole workspace and
+# the night fuzzes for half an hour.
 name: outbreak
 
 on:
@@ -37,6 +38,10 @@ on:
         description: Whether the binary is built for every platform.
         type: boolean
         default: true
+      boundary:
+        description: Whether the boundary runs without the Rust gates, for the coverage ci.yml's `coverage` merges.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -341,7 +346,7 @@ jobs:
   # the gate's PHP gives.
   boundary:
     name: boundary
-    if: inputs.gates
+    if: inputs.gates || inputs.boundary
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -359,17 +364,29 @@ jobs:
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ env.PHP_VERSION }}
-          coverage: none
+          coverage: pcov
           tools: php-config, phpize
       - run: bash .github/scripts/libclang.sh
         working-directory: .
       - run: cargo build --release --locked --package outbreak-ext
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # The suites run under coverage, which ci.yml's `coverage` merges into
+      # G7 (covered.sh).
       - working-directory: .
         env:
           OUTBREAK_BINARY: ${{ github.workspace }}/outbreak/target/release/outbreak
           OUTBREAK_EXTENSION: ${{ github.workspace }}/outbreak/target/release/liboutbreak.so
-        run: vendor/bin/pest tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph tests/Contract/KeepsProofs tests/Contract/Equivalence tests/Process/Adapter/Outbreak
+          COVERED: ${{ github.workspace }}/.coverage/boundary
+        run: >-
+          .github/scripts/covered.sh "${COVERED}" tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph
+          tests/Contract/KeepsProofs tests/Contract/Equivalence tests/Process/Adapter/Outbreak
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-of-boundary
+          path: .coverage/boundary/collected.php
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
       - name: what failed
         if: failure()
         working-directory: .
@@ -554,7 +571,7 @@ jobs:
   passed:
     name: passed
     needs: [fmt, clippy, test, coverage, deny, audit, msrv, mutants, fuzz, boundary, build, extension]
-    if: ${{ !cancelled() && (inputs.gates || inputs.builds) }}
+    if: ${{ !cancelled() && (inputs.gates || inputs.builds || inputs.boundary) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     defaults:
@@ -570,9 +587,10 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           GATES: ${{ inputs.gates }}
           BUILDS: ${{ inputs.builds }}
+          BOUNDARY: ${{ inputs.boundary }}
         run: |
-          failed="$(jq -r --argjson gates "${GATES}" --argjson builds "${BUILDS}" \
-            'to_entries[] | select((if .key == "build" or .key == "extension" then $builds else $gates end) and .value.result != "success")
+          failed="$(jq -r --argjson gates "${GATES}" --argjson builds "${BUILDS}" --argjson boundary "${BOUNDARY}" \
+            'to_entries[] | select((if .key == "build" or .key == "extension" then $builds elif .key == "boundary" then $gates or $boundary else $gates end) and .value.result != "success")
               | "\(.key) ended \(.value.result)"' <<< "${NEEDS}")"
           if [ -n "${failed}" ]; then
             echo "::error title=outbreak::${failed//$'\n'/; }. Each job's own log says why."

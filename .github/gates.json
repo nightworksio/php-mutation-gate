@@ -131,19 +131,33 @@
     },
     "tests": {
       "check": "tests and coverage",
-      "checks": "The suite, with every line of src covered (G7).",
+      "checks": "The suite under coverage, collected for `coverage`, and its network group.",
       "reproduce": "composer test:coverage && composer test:network",
       "troubleshooting": "no-coverage-driver",
       "evidence": [
         {"step": "suite", "tool": "pest", "raw": "coverage/junit.xml"},
-        {"step": "suite", "tool": "coverage", "raw": "coverage/clover.xml"},
         {"step": "network", "tool": "pest", "raw": "evidence/raw/tests-network.xml"}
       ],
       "rules": {
         "pest": "The suite did not run to the end, so it wrote no log of its tests.",
         "failure": "A test's expectation failed.",
+        "error": "A test threw before it could finish."
+      }
+    },
+    "coverage": {
+      "check": "coverage",
+      "checks": "Every line of src run (G7): the suite's coverage with the lines of the processes its tests start, Pest's highest runner contract leg's and Outbreak's boundary's, merged, with nothing exempt.",
+      "reproduce": "composer test:report, which holds the suite's own coverage to the floor; the runner contract's and the boundary's join it in CI alone",
+      "troubleshooting": "no-coverage-driver",
+      "evidence": [
+        {"step": "runner", "tool": "pest", "raw": "evidence/raw/pest-highest.xml"},
+        {"step": "merge", "tool": "coverage", "raw": "coverage/clover.xml"}
+      ],
+      "rules": {
+        "pest": "The runner contract's Pest leg did not run to the end, so it wrote no log of its tests.",
+        "failure": "A test's expectation failed.",
         "error": "A test threw before it could finish.",
-        "coverage": "The suite did not run to the end, so it wrote no coverage report.",
+        "coverage": "A run whose coverage is merged did not leave it, so no merged report was written.",
         "uncovered": "No test runs this line. Every line of src is covered: add the test that runs it, or remove the line."
       }
     },

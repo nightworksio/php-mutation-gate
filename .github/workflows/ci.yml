@@ -12,12 +12,10 @@ on:
 permissions:
   contents: read
 
-# A pull request pushed again cancels the run on its old head, which nobody will
-# read. A push to main never cancels the run before it (ADR-0059): only a
-# verdict writes the ledger, so a cancelled run's shards would be run again by
-# the next. The newer push waits, and a newer one still takes its place. A
-# scheduled run is grouped by its own run, so it is never cancelled and never
-# cancels.
+# A pull request pushed again cancels the run on its old head. A push to main
+# never cancels the run before it (ADR-0059): only a verdict writes the
+# ledger, so the newer push waits, and a newer one still takes its place. A
+# scheduled run is grouped by its own run: never cancelled, it never cancels.
 concurrency:
   group: ${{ github.workflow }}-${{ contains(fromJSON('["pull_request","push"]'), github.event_name) && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -279,11 +277,10 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      # PHPStan's cache tracks what each file depends on. Pint's needs nothing
-      # more: each fixer reads one file, and the cache keeps each passing
-      # file's hash under the config and Pint release it passed with. Rector's
-      # does not: a file it cached stays clean when a class declared elsewhere
-      # changes what a rule does to it, so Rector runs uncached.
+      # PHPStan's cache tracks what each file depends on, and Pint's keeps each
+      # passing file's hash under its config and release, since each fixer
+      # reads one file. Rector runs uncached: a file it cached stays clean when
+      # a class declared elsewhere changes what a rule does to it.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .phpstan-cache
@@ -363,14 +360,10 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py checks
 
-  # G7 — every line of src covered, by scripts/coverage.sh. The clover and
-  # JUnit reports it writes are what `sonar` hands SonarCloud, and the PHP
-  # report is what the mutation plan's map is read from, so the suite runs once
-  # for all three. It runs on pushes to main as well, because `sonar` analyses
-  # main from its report.
-  # Where a full early run's streams ran the judging suites (ADR-0135
-  # decision 8), it takes those suites from them and runs only the rest; in
-  # any other run, or where the streams cannot stand in, the whole suite.
+  # The suite under pcov, by scripts/coverage.sh: the mutation plan's map is
+  # read from its PHP report, and `coverage` holds its coverage to G7. It runs
+  # on pushes to main as well, for `sonar`. Where a full early run's streams
+  # ran the judging suites (ADR-0135 decision 8), it runs only the rest.
   tests:
     name: tests and coverage
     needs: [scope, mutation-early]
@@ -399,6 +392,7 @@ jobs:
       - id: suite
         env:
           STREAMED: ${{ needs.mutation-early.outputs.suite == 'true' && '.mutation-gate/streamed' || '' }}
+          COVERAGE_ELSEWHERE: coverage/tests.php
         run: |
           set -euo pipefail
           report=$(php -r 'require "vendor/autoload.php"; echo \Pest\Support\Coverage::getPath();')
@@ -424,9 +418,9 @@ jobs:
           junit: evidence/raw/tests-network.xml
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: coverage-report
+          name: coverage-of-tests
           path: |
-            coverage/clover.xml
+            coverage/tests.php
             coverage/junit.xml
           if-no-files-found: error
           retention-days: 1
@@ -446,6 +440,61 @@ jobs:
       - name: what failed
         if: failure()
         run: python3 .github/scripts/gate_summary.py tests
+
+  # G7 — every line of src is run: the suite's coverage with the lines of the
+  # processes its tests start, Pest's highest runner contract leg's, and
+  # Outbreak's boundary's, merged, with nothing exempt.
+  coverage:
+    needs: [tests, outbreak]
+    if: ${{ !cancelled() && needs.tests.result == 'success' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: runner
+        env:
+          COVERAGE_INTO: ${{ github.workspace }}/.coverage/runner
+        run: .github/scripts/leg.sh pest highest
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-of-*
+          path: .coverage
+      - id: merge
+        run: |
+          mkdir -p coverage
+          cp .coverage/coverage-of-tests/junit.xml coverage/junit.xml
+          php scripts/process-coverage.php merge .coverage/merged.php coverage/clover.xml \
+            .coverage/coverage-of-tests/tests.php .coverage/runner/collected.php .coverage/coverage-of-boundary/collected.php
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-report
+          path: |
+            coverage/clover.xml
+            coverage/junit.xml
+          if-no-files-found: error
+          retention-days: 1
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py coverage
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-coverage
+          path: evidence/coverage*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py coverage
 
   # The suite against the oldest release of every dependency the constraints in
   # composer.json admit, so a lower bound that no longer works is found here
@@ -496,10 +545,8 @@ jobs:
 
   # The gate's PHAR (ADR-0022), built as a release builds it, and its smoke
   # suite run against it: its version, its config schema, an Infection
-  # project's verdict and its refusal of the Pest runner. The suite runs on
-  # the PHP the PHAR is built with, and again on the lowest PHP the package
-  # supports (ADR-0042), which is where a consumer may run it. It publishes
-  # nothing.
+  # project's verdict and its refusal of the Pest runner, on the PHP it is
+  # built with and on the lowest the package supports (ADR-0042).
   phar:
     name: phar
     needs: scope
@@ -563,17 +610,13 @@ jobs:
     if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule') && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'image')) }}
     uses: ./.github/workflows/image.yml # zizmor: ignore[self-repository]
 
-  # ADR-0004's Runner contract suite against the real runners, and ADR-0020's
-  # StaticChecker contract suite against the real analysers, at both ends of
-  # the range the package supports: one job per runner, whose two legs each
-  # have their own install, suite and outcome, one after the other. Each fixture
-  # is a project of its own, installed at the highest releases its committed
-  # lock holds, which Dependabot moves, and at the lowest its manifest allows,
-  # which no new release changes. So a leg reds only for a change in this
-  # repository; the runner canary runs the newest releases (ADR-0017). The
-  # suite runs serially: a Pest started under paratest would take itself for
-  # one of its workers. `runner contracts`, the check main requires, reads
-  # every leg's log.
+  # ADR-0004's Runner and ADR-0020's StaticChecker contract suites against the
+  # real runners and analysers: one job per runner, its two legs each with its
+  # own install, suite and outcome. Each fixture is installed at the highest
+  # releases its lock holds, which Dependabot moves, and at the lowest its
+  # manifest allows, so a leg reds only for a change here; the runner canary
+  # runs the newest (ADR-0017). The suite runs serially: a Pest under paratest
+  # takes itself for a worker. `runner contracts` reads every leg's log.
   runner-contract:
     name: runner contract
     needs: scope
@@ -597,12 +640,9 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      # Each runner's fixture, the packages its install shows, the contracts it
-      # runs, and how it reaches its lowest releases are legs.json's, which
-      # leg_support.py describes.
-      # What a leg downloads is cached by the fixtures' manifests and locks,
-      # and the root lock, whose php-code-coverage the lowest Pest and PHPUnit
-      # resolutions pin.
+      # Each leg is legs.json's (leg_support.py). Its downloads are cached by
+      # the fixtures' manifests and locks, and the root lock, whose
+      # php-code-coverage the lowest Pest and PHPUnit resolutions pin.
       - name: find Composer's download cache
         id: composer-files
         run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
@@ -720,30 +760,21 @@ jobs:
     with:
       gates: ${{ needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'outbreak') }}
       builds: ${{ needs.scope.result != 'success' || needs.scope.outputs.builds == 'true' }}
+      boundary: ${{ needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'tests') }}
 
   # G8 — every mutant of src is killed, or its tree holds the floor
-  # mutation-gate.baseline.json records, which only rises (G11). The package
-  # holds its own code there through its own gate: the reusable workflow and
-  # the action in this repository, run from the same commit, with
-  # mutation-gate.json. Its
-  # jobs are the shipped workflow's, which leaves the gate's own reports as its
-  # evidence (.github/gates.json). The permissions are what its jobs ask for,
-  # and a called job gets only what it asks for itself: `contents: write` goes
-  # only to the default-branch publish job, and `id-token: write` only to
-  # fetch and deliver. The store's keys are passed by name, and their values
-  # come from the environments fetch and deliver enter (ADR-0029). The plan
-  # reads the map `tests` wrote, so the suite runs under coverage once, and a
-  # run whose suite or fast gates fail spends no mutation. It runs on every pull
-  # request, the documentation-only ones included, because a required check from a called
-  # workflow reports only when its caller runs; where `tests` was skipped, the
-  # plan measures its own map if it needs one. Its jobs run on Arm, where three
-  # of its shards gave the same verdicts in 29% less time (ADR-0035).
-  # ADR-0135: a full split-stream run that takes no proof plans without the
-  # map `tests` writes. Where the config lets one start early (`streams`),
-  # this caller runs at once, beside the fast gates, and its shards stop
-  # between items once one of them failed; where a run cannot start so, it
-  # plans nothing and `mutation` runs it with the fresh map. Where the config
-  # lets none start early it is skipped, and `tests` waits for nothing.
+  # mutation-gate.baseline.json records, which only rises (G11), judged by the
+  # reusable workflow and action of this commit with mutation-gate.json, whose
+  # reports are its evidence (.github/gates.json). A called job gets only the
+  # permissions it asks for: `contents: write` only the default-branch publish
+  # job, `id-token: write` only fetch and deliver, whose environments hold the
+  # store's keys (ADR-0029). The plan reads the map `tests` wrote, or measures
+  # its own where `tests` was skipped, and a run whose suite or fast gates fail
+  # spends no mutation. It runs on every pull request, since a called
+  # workflow's required check reports only when its caller runs, on Arm
+  # (ADR-0035). ADR-0135: where the config lets a full split-stream run start
+  # early (`streams`), this caller runs beside the fast gates and its shards
+  # stop once one failed; where it cannot, `mutation` runs with the fresh map.
   mutation-early:
     needs: [scope]
     if: ${{ !cancelled() && needs.scope.outputs.streams == 'true' && needs.scope.outputs.judged != 'true' }}
@@ -822,12 +853,10 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py mutation-verdict
 
-  # The newest merged pull requests, each planned again by this checkout's
-  # gate with the map `tests` wrote and main's ledger from the cache, read
-  # only (replay.py). It fails where a plan widens for no path the pull
-  # request changed, or documentation reaches a unit. A push to main runs
-  # none: the night runs it, and so does a pull request that changes how the
-  # gate reaches or plans.
+  # The newest merged pull requests, each planned again by this checkout's gate
+  # with the map `tests` wrote and main's cached ledger (replay.py): it fails
+  # where a plan widens for no changed path, or documentation reaches a unit.
+  # The night runs it, and so does a pull request that changes reach or plans.
   replay:
     name: replay
     needs: [scope, tests]
@@ -883,8 +912,8 @@ jobs:
   # SONAR_TOKEN, so there is nothing to scan with and the job is skipped.
   sonar:
     name: sonarcloud
-    needs: tests
-    if: ${{ !cancelled() && needs.tests.result == 'success' && (github.event_name == 'push' || github.event_name == 'schedule' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
+    needs: coverage
+    if: ${{ !cancelled() && needs.coverage.result == 'success' && (github.event_name == 'push' || github.event_name == 'schedule' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -909,13 +938,10 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py sonar
 
-  # Zero issues, which SonarCloud's free quality gate cannot express: a green
-  # quality gate is not a clean project. This asks for both numbers — the issues
-  # this pull request brings, and the issues open against main — and refuses
-  # either above zero.
-  #
-  # `!cancelled()` rather than `needs` alone, which would make this job vanish
-  # when the scan fails. It runs, says why there is nothing to read, and fails.
+  # Zero issues, which SonarCloud's free quality gate cannot express: the
+  # issues this pull request brings and those open against main, each refused
+  # above zero. `!cancelled()`, so a failed scan leaves this job running to
+  # say there is nothing to read, and fail.
   gate:
     name: gate
     needs: [tests, sonar]
@@ -954,12 +980,11 @@ jobs:
         run: python3 .github/scripts/gate_summary.py gate
 
   # Every job's evidence, gathered into the one artifact `evidence` the bot
-  # reads when the run is over (ADR-0019). A job that did not run
-  # left none; in an attempt run again, a job not run again keeps what an
-  # earlier attempt gathered.
+  # reads when the run is over (ADR-0019). A job that did not run left none;
+  # in an attempt run again, a job not run again keeps an earlier one's.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, outbreak, mutation-early, mutation, mutation-verdict, replay, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, site, rules, guards, checks, tests, coverage, lowest, phar, image, runner-contract, runner-contracts, end-to-end, outbreak, mutation-early, mutation, mutation-verdict, replay, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

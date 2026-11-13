@@ -12,10 +12,13 @@ declare(strict_types=1);
 //     have every PHP process that scans <dir>/ini, outside the root, record
 //     its lines into <dir>/lines.
 //
-//   process-coverage.php merge <into> <clover> <report|lines dir>...
+//   process-coverage.php collect <into> <report|lines dir>...
 //     Merges each PHP report and each directory of recorded lines into the
-//     report <into> and its Clover report <clover>, names each file of src
-//     with a line left uncovered, and exits 1 where one is.
+//     report <into>, for a job that holds no floor itself.
+//
+//   process-coverage.php merge <into> <clover> <report|lines dir>...
+//     Merges as collect does, writes its Clover report <clover>, names each
+//     file of src with a line left uncovered, and exits 1 where one is.
 
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
@@ -119,7 +122,7 @@ function recorded(string $directory, Filter $filter): ProcessedCodeCoverageData
 }
 
 /** @param list<string> $parts */
-function merge(string $into, string $clover, array $parts): void
+function collected(array $parts): CodeCoverage
 {
     $filter = new Filter();
     $filter->includeFiles(sources());
@@ -131,16 +134,44 @@ function merge(string $into, string $clover, array $parts): void
     }
 
     $coverage->setData($data);
-    $merged = [
+
+    return $coverage;
+}
+
+/** @return array<string, mixed> the report as PHPUnit's PHP report serializes it */
+function serialized(CodeCoverage $coverage): array
+{
+    $data = $coverage->getData(raw: true);
+
+    return [
         'buildInformation' => [],
         'basePath' => new PathReducer()->reduce($data),
         'codeCoverage' => $data,
         'testResults' => [],
     ];
+}
+
+/** @param array<string, mixed> $report */
+function written(string $into, array $report): void
+{
+    is_dir(dirname($into)) || mkdir(dirname($into), 0o755, true) || fail(dirname($into) . ' cannot be made.');
     file_put_contents($into, "<?php\nreturn \\unserialize(<<<'END_OF_COVERAGE_SERIALIZATION'\n"
-        . serialize($merged) . "\nEND_OF_COVERAGE_SERIALIZATION\n);") ?: fail("{$into} cannot be written.");
-    $facade = Facade::fromSerializedData($merged);
-    $facade->renderClover($clover);
+        . serialize($report) . "\nEND_OF_COVERAGE_SERIALIZATION\n);") ?: fail("{$into} cannot be written.");
+}
+
+/** @param list<string> $parts */
+function collect(string $into, array $parts): void
+{
+    written($into, serialized(collected($parts)));
+}
+
+/** @param list<string> $parts */
+function merge(string $into, string $clover, array $parts): void
+{
+    $coverage = collected($parts);
+    $report = serialized($coverage);
+    written($into, $report);
+    Facade::fromSerializedData($report)->renderClover($clover);
     $uncovered = [];
 
     foreach ($coverage->getReport() as $node) {
@@ -160,10 +191,14 @@ function merge(string $into, string $clover, array $parts): void
 
 match ($argv[1] ?? '') {
     'ini' => ini($argv[2] ?? fail('Name the directory.')),
+    'collect' => collect(
+        $argv[2] ?? fail('Name the collected report.'),
+        array_slice($argv, 3) ?: fail('Name a report or a directory of recorded lines.'),
+    ),
     'merge' => merge(
         $argv[2] ?? fail('Name the merged report.'),
         $argv[3] ?? fail('Name the Clover report.'),
         array_slice($argv, 4) ?: fail('Name a report or a directory of recorded lines.'),
     ),
-    default => fail('Usage: process-coverage.php ini <dir> | merge <into> <clover> <report|lines dir>...'),
+    default => fail('Usage: process-coverage.php ini <dir> | collect <into> <report|lines dir>... | merge <into> <clover> <report|lines dir>...'),
 };

@@ -145,6 +145,7 @@ OUTBREAK_BOUNDARY = (
     "tests/Fixtures/CoverageReports/",
     "tests/Fixtures/DeclinedReports/",
     "tests/Support/CoverageReports.php",
+    ".github/scripts/covered.sh",
 )
 
 # The suites, which no project the gate is installed into loads.
@@ -189,7 +190,7 @@ RUNTIME = (
 
 # How every leg runs the Contract suite, beside RUNTIME and the test support
 # its own tests use.
-CONTRACT_RUN = ("phpunit.xml", ".github/scripts/legs.json", ".github/scripts/leg.sh")
+CONTRACT_RUN = ("phpunit.xml", ".github/scripts/legs.json", ".github/scripts/leg.sh", ".github/scripts/covered.sh")
 
 INFECTION = ("src/Adapter/Infection/", "src/Core/Coverage/PhpUnitXml.php", "tests/Contract/Runner/infection-fixture/")
 

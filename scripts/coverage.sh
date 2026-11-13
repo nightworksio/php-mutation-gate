@@ -40,9 +40,10 @@ fi
 
 # Each PHP process a test starts records the lines it runs, a split stream's
 # forks among them (scripts/process-coverage.php), and they are merged into
-# the suite's own report. Where COVERAGE_ELSEWHERE is set, CI merges both with
-# the runner contracts' and the boundary's in a job of its own, which holds the
-# floor; otherwise this run holds it.
+# the suite's own report. Where COVERAGE_ELSEWHERE names a file, both are
+# collected into it, and CI merges it with the runner contract's and the
+# boundary's in a job of its own, which holds the floor; otherwise this run
+# holds it.
 if [ -n "$(find src -name '*.php' -print -quit)" ]; then
 	processes="${PWD}/.mutation-gate/processes"
 	report=.mutation-gate/ran/coverage.php
@@ -60,7 +61,7 @@ if [ -n "$(find src -name '*.php' -print -quit)" ]; then
 		--passthru-php="'-d' 'pcov.directory=.' '-d' 'pcov.exclude=~/(vendor|tests)/~'" \
 		--exclude-testsuite=Guards --coverage-php="${report}" "$@"
 	if [ -n "${COVERAGE_ELSEWHERE:-}" ]; then
-		exit 0
+		exec php scripts/process-coverage.php collect "${COVERAGE_ELSEWHERE}" "${report}" "${processes}/lines"
 	fi
 	exec php scripts/process-coverage.php merge .mutation-gate/ran/merged.php "${clover}" "${report}" "${processes}/lines"
 fi
