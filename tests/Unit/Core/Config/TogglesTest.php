@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Config\Controls as ControlsBuilder;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Pest as PestBuilder;
+use NightWorksIO\MutationGate\Config\PestSpeedUps;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\StaticCheck as StaticCheckBuilder;
 use NightWorksIO\MutationGate\Config\Suggest as SuggestBuilder;
@@ -27,12 +28,12 @@ $toggles = [
     'staticCheck.after' => [Toggle::StaticCheckAfter, static fn(): Setting => StaticCheckBuilder::survivorsUnchecked(), static fn(): Setting => StaticCheckBuilder::checkingSurvivors()],
     'timeouts.parts' => [Toggle::TimeoutsParts, static fn(): Setting => TimeoutsBuilder::neverInParts(), static fn(): Setting => TimeoutsBuilder::inParts()],
     'suggest.looseValues' => [Toggle::SuggestLooseValues, static fn(): Setting => SuggestBuilder::looseValuesSilent(), static fn(): Setting => SuggestBuilder::looseValuesNoted()],
-    'pest.shardScan' => [Toggle::PestShardScan, static fn(): Setting => PestBuilder::scanningEachChunk(), static fn(): Setting => PestBuilder::scanningOnceAShard()],
-    'pest.longestFirst' => [Toggle::PestLongestFirst, static fn(): Setting => PestBuilder::inTheirOrder(), static fn(): Setting => PestBuilder::longestFirst()],
-    'pest.remember' => [Toggle::PestRemember, static fn(): Setting => PestBuilder::forgetting(), static fn(): Setting => PestBuilder::remembering()],
-    'pest.overlapSteps' => [Toggle::PestOverlapSteps, static fn(): Setting => PestBuilder::stepByStep(), static fn(): Setting => PestBuilder::overlappingSteps()],
-    'pest.pcovOff' => [Toggle::PestPcovOff, static fn(): Setting => PestBuilder::pcovOn(), static fn(): Setting => PestBuilder::pcovOff()],
-    'pest.xdebugOff' => [Toggle::PestXdebugOff, static fn(): Setting => PestBuilder::xdebugAsConfigured(), static fn(): Setting => PestBuilder::xdebugOff()],
+    'pest.shardScan' => [Toggle::PestShardScan, static fn(): Setting => PestSpeedUps::scanningEachChunk(), static fn(): Setting => PestSpeedUps::scanningOnceAShard()],
+    'pest.longestFirst' => [Toggle::PestLongestFirst, static fn(): Setting => PestSpeedUps::inTheirOrder(), static fn(): Setting => PestSpeedUps::longestFirst()],
+    'pest.remember' => [Toggle::PestRemember, static fn(): Setting => PestSpeedUps::forgetting(), static fn(): Setting => PestSpeedUps::remembering()],
+    'pest.overlapSteps' => [Toggle::PestOverlapSteps, static fn(): Setting => PestSpeedUps::stepByStep(), static fn(): Setting => PestSpeedUps::overlappingSteps()],
+    'pest.pcovOff' => [Toggle::PestPcovOff, static fn(): Setting => PestSpeedUps::pcovOn(), static fn(): Setting => PestSpeedUps::pcovOff()],
+    'pest.xdebugOff' => [Toggle::PestXdebugOff, static fn(): Setting => PestSpeedUps::xdebugAsConfigured(), static fn(): Setting => PestSpeedUps::xdebugOff()],
     'staticCheck.turbo' => [Toggle::StaticCheckTurbo, static fn(): Setting => StaticCheckBuilder::withoutTurbo(), static fn(): Setting => StaticCheckBuilder::turbo()],
 ];
 

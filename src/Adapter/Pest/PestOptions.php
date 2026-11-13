@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Config\Mutants;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
@@ -85,11 +86,11 @@ final readonly class PestOptions
     {
         $patch = $options->flag(Key::of(self::PATCH));
         $canary = $options->text(Key::of(self::CANARY));
-        $bootTail = $options->flag(Key::of(ConfigPest::BOOT_TAIL));
-        $opcache = $options->flag(Key::of(ConfigPest::WORKER_OPCACHE));
-        $schemata = $options->flag(Key::of(ConfigPest::SCHEMATA));
-        $bootMutants = $options->flag(Key::of(ConfigPest::BOOT_MUTANTS));
-        $bootChunks = $options->flag(Key::of(ConfigPest::BOOT_CHUNKS));
+        $bootTail = $options->flag(Key::of(PestWorkers::BOOT_TAIL));
+        $opcache = $options->flag(Key::of(PestWorkers::WORKER_OPCACHE));
+        $schemata = $options->flag(Key::of(PestWorkers::SCHEMATA));
+        $bootMutants = $options->flag(Key::of(PestWorkers::BOOT_MUTANTS));
+        $bootChunks = $options->flag(Key::of(PestWorkers::BOOT_CHUNKS));
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $bounds = BoundsOptions::read($options);

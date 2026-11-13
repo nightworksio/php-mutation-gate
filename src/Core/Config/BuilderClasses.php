@@ -53,6 +53,8 @@ final readonly class BuilderClasses
         'Pace' => self::BUILDER,
         'PathRule' => self::BUILDER,
         'Pest' => self::BUILDER,
+        'PestSpeedUps' => self::BUILDER,
+        'PestWorkers' => self::BUILDER,
         'Pipeline' => self::BUILDER,
         'Plan' => self::BUILDER,
         'Preset' => self::BUILDER,

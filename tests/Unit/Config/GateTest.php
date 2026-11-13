@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Owner;
 use NightWorksIO\MutationGate\Config\Pest;
+use NightWorksIO\MutationGate\Config\PestWorkers;
 use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Preset;
 use NightWorksIO\MutationGate\Config\Proofs;
@@ -188,10 +189,10 @@ it('writes every setting of the configuration reference', function (): void {
                 Dashboard::repositories('api', 'web'),
                 Pest::patched(),
                 Pest::canary('canary'),
-                Pest::bootingTail(),
-                Pest::cachingInWorkers(),
-                Pest::compilingSchemata(),
-                Pest::bootingMutants(),
+                PestWorkers::bootingTail(),
+                PestWorkers::cachingInWorkers(),
+                PestWorkers::compilingSchemata(),
+                PestWorkers::bootingMutants(),
                 StaticCheck::phpstan(),
                 StaticCheck::config('phpstan.dist.neon'),
                 StaticCheck::seconds(45),
@@ -340,10 +341,10 @@ it('writes each other way to choose an adapter or a word', function (): void {
                 Flaky::confirmingSurvivors(),
                 Ignores::refusingNativeMarkers(),
                 Pest::unpatched(),
-                Pest::tailUnbooted(),
-                Pest::uncachedInWorkers(),
-                Pest::withoutSchemata(),
-                Pest::mutantsUnbooted(),
+                PestWorkers::tailUnbooted(),
+                PestWorkers::uncachedInWorkers(),
+                PestWorkers::withoutSchemata(),
+                PestWorkers::mutantsUnbooted(),
             ),
     ))->toBe([
         'preset' => ['symfony', 'laravel', 'acme'],

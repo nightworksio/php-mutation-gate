@@ -165,12 +165,12 @@ enum Toggle: string
             self::TimeoutsParts => 'Timeouts::inParts()',
             self::SuggestLooseValues => 'Suggest::looseValuesNoted()',
             self::StaticCheckTurbo => 'StaticCheck::turbo()',
-            self::PestShardScan => 'Pest::scanningOnceAShard()',
-            self::PestLongestFirst => 'Pest::longestFirst()',
-            self::PestRemember => 'Pest::remembering()',
-            self::PestOverlapSteps => 'Pest::overlappingSteps()',
-            self::PestPcovOff => 'Pest::pcovOff()',
-            self::PestXdebugOff => 'Pest::xdebugOff()',
+            self::PestShardScan => 'PestSpeedUps::scanningOnceAShard()',
+            self::PestLongestFirst => 'PestSpeedUps::longestFirst()',
+            self::PestRemember => 'PestSpeedUps::remembering()',
+            self::PestOverlapSteps => 'PestSpeedUps::overlappingSteps()',
+            self::PestPcovOff => 'PestSpeedUps::pcovOff()',
+            self::PestXdebugOff => 'PestSpeedUps::xdebugOff()',
         };
     }
 
@@ -187,12 +187,12 @@ enum Toggle: string
             self::TimeoutsParts => 'Timeouts::neverInParts()',
             self::SuggestLooseValues => 'Suggest::looseValuesSilent()',
             self::StaticCheckTurbo => 'StaticCheck::withoutTurbo()',
-            self::PestShardScan => 'Pest::scanningEachChunk()',
-            self::PestLongestFirst => 'Pest::inTheirOrder()',
-            self::PestRemember => 'Pest::forgetting()',
-            self::PestOverlapSteps => 'Pest::stepByStep()',
-            self::PestPcovOff => 'Pest::pcovOn()',
-            self::PestXdebugOff => 'Pest::xdebugAsConfigured()',
+            self::PestShardScan => 'PestSpeedUps::scanningEachChunk()',
+            self::PestLongestFirst => 'PestSpeedUps::inTheirOrder()',
+            self::PestRemember => 'PestSpeedUps::forgetting()',
+            self::PestOverlapSteps => 'PestSpeedUps::stepByStep()',
+            self::PestPcovOff => 'PestSpeedUps::pcovOn()',
+            self::PestXdebugOff => 'PestSpeedUps::xdebugAsConfigured()',
         };
     }
 }

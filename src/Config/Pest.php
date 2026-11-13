@@ -9,7 +9,11 @@ use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
-/** The Pest runner's own settings (ADR-0004): `pest`. */
+/**
+ * The Pest runner's own settings (ADR-0004): its patches, the group that shows
+ * they work, and how a kill is judged: `pest`. How its workers boot and the
+ * speed-ups it takes have builders of their own: PestWorkers and PestSpeedUps.
+ */
 final readonly class Pest implements Setting
 {
     private function __construct(private Json $json)
@@ -26,57 +30,6 @@ final readonly class Pest implements Setting
     public static function unpatched(): self
     {
         return new self(Json::at('pest.patch', value: false));
-    }
-
-    /** `pest.bootTail`: the verification tail's workers boot the project before they fork (ADR-0075). */
-    public static function bootingTail(): self
-    {
-        return new self(Json::at('pest.bootTail', value: true));
-    }
-
-    /** `pest.workerOpcache`, as by default: Pest's warm workers compile through opcache (ADR-0088). */
-    public static function cachingInWorkers(): self
-    {
-        return new self(Json::at('pest.workerOpcache', value: true));
-    }
-
-    /** `pest.workerOpcache` off: Pest's warm workers run with opcache off, every run compiling afresh. */
-    public static function uncachedInWorkers(): self
-    {
-        return new self(Json::at('pest.workerOpcache', value: false));
-    }
-
-    /** `pest.schemata`, as by default: each file's mutants are compiled into one schema (ADR-0091). */
-    public static function compilingSchemata(): self
-    {
-        return new self(Json::at('pest.schemata', value: true));
-    }
-
-    /** `pest.schemata` off: each mutant's own run is served a mutated copy of its own. */
-    public static function withoutSchemata(): self
-    {
-        return new self(Json::at('pest.schemata', value: false));
-    }
-
-    /**
-     * `pest.bootMutants`, as by default: the workers of mutants' own runs boot
-     * the project, no test file loaded, before they fork (ADR-0091).
-     */
-    public static function bootingMutants(): self
-    {
-        return new self(Json::at('pest.bootMutants', value: true));
-    }
-
-    /** `pest.bootMutants` off: each child of a mutants' worker boots the project as a fresh run does. */
-    public static function mutantsUnbooted(): self
-    {
-        return new self(Json::at('pest.bootMutants', value: false));
-    }
-
-    /** `pest.bootTail`: the verification tail's workers boot nothing of the project. */
-    public static function tailUnbooted(): self
-    {
-        return new self(Json::at('pest.bootTail', value: false));
     }
 
     /** `pest.canary`: the group of tests that shows the patches work. */
@@ -174,93 +127,6 @@ final readonly class Pest implements Setting
     public static function preloadedUnjudged(): self
     {
         return new self(Json::at('pest.preloaded', Preloaded::Unjudged->value));
-    }
-
-    /** `pest.shardScan`, `true`: a shard scans the codebase for a value's readers once, not once a chunk. */
-    public static function scanningOnceAShard(): self
-    {
-        return new self(Json::at('pest.shardScan', value: true));
-    }
-
-    /** `pest.shardScan`, `false`: each chunk scans the codebase afresh. */
-    public static function scanningEachChunk(): self
-    {
-        return new self(Json::at('pest.shardScan', value: false));
-    }
-
-    /** `pest.longestFirst`, `true`: commands run side by side start the longest-limited first, as by default. */
-    public static function longestFirst(): self
-    {
-        return new self(Json::at('pest.longestFirst', value: true));
-    }
-
-    /** `pest.longestFirst`, `false`: they start in the order the run gives them. */
-    public static function inTheirOrder(): self
-    {
-        return new self(Json::at('pest.longestFirst', value: false));
-    }
-
-    /** `pest.remember`, `true`: a shard keeps what it read, listed and ran unmutated for its later runs. */
-    public static function remembering(): self
-    {
-        return new self(Json::at('pest.remember', value: true));
-    }
-
-    /** `pest.remember`, `false`: each run of a shard reads, lists and runs afresh. */
-    public static function forgetting(): self
-    {
-        return new self(Json::at('pest.remember', value: false));
-    }
-
-    /** `pest.overlapSteps`, `true`: an invocation's controls run beside its survivors' runs again, as by default. */
-    public static function overlappingSteps(): self
-    {
-        return new self(Json::at('pest.overlapSteps', value: true));
-    }
-
-    /** `pest.overlapSteps`, `false`: the survivors' runs again end before the controls start. */
-    public static function stepByStep(): self
-    {
-        return new self(Json::at('pest.overlapSteps', value: false));
-    }
-
-    /**
-     * `pest.pcovOff`, `true`: a mutation run starts with pcov off unless its streams record lines with it, as by
-     * default.
-     */
-    public static function pcovOff(): self
-    {
-        return new self(Json::at('pest.pcovOff', value: true));
-    }
-
-    /** `pest.pcovOff`, `false`: a mutation run starts with pcov as PHP is configured. */
-    public static function pcovOn(): self
-    {
-        return new self(Json::at('pest.pcovOff', value: false));
-    }
-
-    /** `pest.xdebugOff`, `true`: a mutation run starts with Xdebug's mode off, as by default. */
-    public static function xdebugOff(): self
-    {
-        return new self(Json::at('pest.xdebugOff', value: true));
-    }
-
-    /** `pest.xdebugOff`, `false`: a mutation run starts with Xdebug as PHP is configured. */
-    public static function xdebugAsConfigured(): self
-    {
-        return new self(Json::at('pest.xdebugOff', value: false));
-    }
-
-    /** `pest.bootChunks`: a shard's chunks keep their mutants' workers, where those boot and cache nothing. */
-    public static function bootingChunks(): self
-    {
-        return new self(Json::at('pest.bootChunks', value: true));
-    }
-
-    /** `pest.bootChunks` off, as by default: each chunk starts its mutants' workers afresh. */
-    public static function chunksUnbooted(): self
-    {
-        return new self(Json::at('pest.bootChunks', value: false));
     }
 
     public function written(): Json

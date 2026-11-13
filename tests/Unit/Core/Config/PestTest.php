@@ -33,7 +33,7 @@ it('leaves any other runner\'s options as they are', function (): void {
 it('boots the tail\'s workers only where pest.bootTail says so, a later layer winning, and writes what it was given', function (): void {
     $booting = Pest::of(patch: true, bootTail: true);
 
-    expect([Pest::none()->bootTail(), $booting->bootTail(), $booting->over(Pest::of(bootTail: false))->bootTail(), $booting->over(Pest::of())->bootTail()])
+    expect([Pest::none()->workers()->bootTail(), $booting->workers()->bootTail(), $booting->over(Pest::of(bootTail: false))->workers()->bootTail(), $booting->over(Pest::of())->workers()->bootTail()])
         ->toBe([false, true, false, true])
         ->and($booting->beneath(Choice::of('pest', Configs::options('{}'))))
         ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": true, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')));
@@ -45,8 +45,8 @@ it('writes pest.bootTail as the PHP config calls it, and nothing where it is not
         Pest::of(bootTail: false)->php(ProjectRoot::origin()),
         Pest::of(patch: true)->php(ProjectRoot::origin()),
     ])->toEqual([
-        PhpCalls::inWith('Pest::bootingTail()'),
-        PhpCalls::inWith('Pest::tailUnbooted()'),
+        PhpCalls::inWith('PestWorkers::bootingTail()'),
+        PhpCalls::inWith('PestWorkers::tailUnbooted()'),
         PhpCalls::inWith('Pest::patched()'),
     ]);
 });
@@ -54,7 +54,7 @@ it('writes pest.bootTail as the PHP config calls it, and nothing where it is not
 it('caches in the warm workers unless pest.workerOpcache turns it off, a later layer winning', function (): void {
     $off = Pest::of(workerOpcache: false);
 
-    expect([Pest::none()->workerOpcache(), $off->workerOpcache(), $off->over(Pest::of(workerOpcache: true))->workerOpcache(), $off->over(Pest::of())->workerOpcache()])
+    expect([Pest::none()->workers()->workerOpcache(), $off->workers()->workerOpcache(), $off->over(Pest::of(workerOpcache: true))->workers()->workerOpcache(), $off->over(Pest::of())->workers()->workerOpcache()])
         ->toBe([true, false, true, false])
         ->and($off->beneath(Choice::of('pest', Configs::options('{}'))))
         ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": false, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')));
@@ -67,9 +67,9 @@ it('writes pest.workerOpcache as the PHP config calls it, and nothing where it i
         Pest::of(patch: false, bootTail: true, workerOpcache: false)->php(ProjectRoot::origin()),
         Pest::none()->php(ProjectRoot::origin()),
     ])->toEqual([
-        PhpCalls::inWith('Pest::cachingInWorkers()'),
-        PhpCalls::inWith('Pest::uncachedInWorkers()'),
-        PhpCalls::inWith('Pest::unpatched()', 'Pest::bootingTail()', 'Pest::uncachedInWorkers()'),
+        PhpCalls::inWith('PestWorkers::cachingInWorkers()'),
+        PhpCalls::inWith('PestWorkers::uncachedInWorkers()'),
+        PhpCalls::inWith('Pest::unpatched()', 'PestWorkers::bootingTail()', 'PestWorkers::uncachedInWorkers()'),
         PhpCalls::inWith(),
     ]);
 });
@@ -77,23 +77,23 @@ it('writes pest.workerOpcache as the PHP config calls it, and nothing where it i
 it('compiles schemata unless pest.schemata turns them off, a later layer winning, and writes it as the PHP config calls it', function (): void {
     $off = Pest::of(schemata: false);
 
-    expect([Pest::none()->schemata(), $off->schemata(), $off->over(Pest::of(schemata: true))->schemata(), $off->over(Pest::of())->schemata()])
+    expect([Pest::none()->workers()->schemata(), $off->workers()->schemata(), $off->over(Pest::of(schemata: true))->workers()->schemata(), $off->over(Pest::of())->workers()->schemata()])
         ->toBe([true, false, true, false])
         ->and($off->beneath(Choice::of('pest', Configs::options('{}'))))
         ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": false, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')))
         ->and([Pest::of(schemata: true)->php(ProjectRoot::origin()), $off->php(ProjectRoot::origin())])
-        ->toEqual([PhpCalls::inWith('Pest::compilingSchemata()'), PhpCalls::inWith('Pest::withoutSchemata()')]);
+        ->toEqual([PhpCalls::inWith('PestWorkers::compilingSchemata()'), PhpCalls::inWith('PestWorkers::withoutSchemata()')]);
 });
 
 it('boots mutants\' workers unless pest.bootMutants turns it off, a later layer winning, and writes it as the PHP config calls it', function (): void {
     $off = Pest::of(bootMutants: false);
 
-    expect([Pest::none()->bootMutants(), $off->bootMutants(), $off->over(Pest::of(bootMutants: true))->bootMutants(), $off->over(Pest::of())->bootMutants()])
+    expect([Pest::none()->workers()->bootMutants(), $off->workers()->bootMutants(), $off->over(Pest::of(bootMutants: true))->workers()->bootMutants(), $off->over(Pest::of())->workers()->bootMutants()])
         ->toBe([true, false, true, false])
         ->and($off->beneath(Choice::of('pest', Configs::options('{}'))))
         ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": false, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": false}}')))
         ->and([Pest::of(bootMutants: true)->php(ProjectRoot::origin()), $off->php(ProjectRoot::origin())])
-        ->toEqual([PhpCalls::inWith('Pest::bootingMutants()'), PhpCalls::inWith('Pest::mutantsUnbooted()')]);
+        ->toEqual([PhpCalls::inWith('PestWorkers::bootingMutants()'), PhpCalls::inWith('PestWorkers::mutantsUnbooted()')]);
 });
 
 it('splits its streams under the patched Pest runner compiling schemata where asked, and cuts the test files across shards unless sharding by source', function (): void {

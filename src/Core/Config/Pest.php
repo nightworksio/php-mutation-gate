@@ -20,21 +20,6 @@ use function sprintf;
  */
 final readonly class Pest implements Part
 {
-    /** The key, and the Pest runner's option, that says whether the tail's workers boot the project. */
-    public const string BOOT_TAIL = 'bootTail';
-
-    /** The key, and the Pest runner's option, that says whether Pest's warm workers compile through opcache. */
-    public const string WORKER_OPCACHE = 'workerOpcache';
-
-    /** The key, and the Pest runner's option, that says whether each file's mutants are compiled into a schema. */
-    public const string SCHEMATA = 'schemata';
-
-    /** The key, and the Pest runner's option, that says whether mutants' workers boot the project. */
-    public const string BOOT_MUTANTS = 'bootMutants';
-
-    /** The key, and the Pest runner's option, that says whether a shard's chunks keep their mutants' workers. */
-    public const string BOOT_CHUNKS = 'bootChunks';
-
     /** The key and option that say what a kill in a narrowed run needs (ADR-0142). */
     public const string NARROWED_KILLS = 'narrowedKills';
 
@@ -49,14 +34,10 @@ final readonly class Pest implements Part
     private function __construct(
         private bool|Absent $patch,
         private Group|Absent $canary,
-        private bool|Absent $bootTail,
-        private bool|Absent $workerOpcache,
-        private bool|Absent $schemata,
-        private bool|Absent $bootMutants,
+        private PestWorkers $workers,
         private SplitStream $splitStream,
         private NarrowedKillTrust|Absent $narrowedKills,
         private LongFilter|Absent $longFilter,
-        private bool|Absent $bootChunks,
         private Preloaded|Absent $preloaded,
     ) {
     }
@@ -76,14 +57,10 @@ final readonly class Pest implements Part
         return new self(
             $patch,
             $canary,
-            $bootTail,
-            $workerOpcache,
-            $schemata,
-            $bootMutants,
+            PestWorkers::of($bootTail, $workerOpcache, $schemata, $bootMutants, $bootChunks),
             SplitStream::of(),
             $narrowedKills,
             $longFilter,
-            $bootChunks,
             $preloaded,
         );
     }
@@ -93,7 +70,7 @@ final readonly class Pest implements Part
     {
         $none = new Absent();
 
-        return new self($none, $none, $none, $none, $none, $none, $splitStream, $none, $none, $none, $none);
+        return new self($none, $none, PestWorkers::of(), $splitStream, $none, $none, $none);
     }
 
     public static function none(): self
@@ -104,17 +81,18 @@ final readonly class Pest implements Part
     public static function standard(): self
     {
         $none = self::none();
+        $workers = $none->workers();
 
         return self::of(
             $none->patch(),
             $none->canary(),
-            $none->bootTail(),
-            $none->workerOpcache(),
-            $none->schemata(),
-            $none->bootMutants(),
+            $workers->bootTail(),
+            $workers->workerOpcache(),
+            $workers->schemata(),
+            $workers->bootMutants(),
             $none->narrowedKills(),
             $none->longFilter(),
-            $none->bootChunks(),
+            $workers->bootChunks(),
             $none->preloaded(),
         )->over(self::splitting(SplitStream::standard()));
     }
@@ -125,14 +103,10 @@ final readonly class Pest implements Part
             ? new self(
                 Absent::laid($this->patch, $later->patch),
                 Absent::laid($this->canary, $later->canary),
-                Absent::laid($this->bootTail, $later->bootTail),
-                Absent::laid($this->workerOpcache, $later->workerOpcache),
-                Absent::laid($this->schemata, $later->schemata),
-                Absent::laid($this->bootMutants, $later->bootMutants),
+                $this->workers->over($later->workers),
                 $this->splitStream->over($later->splitStream),
                 Absent::laid($this->narrowedKills, $later->narrowedKills),
                 Absent::laid($this->longFilter, $later->longFilter),
-                Absent::laid($this->bootChunks, $later->bootChunks),
                 Absent::laid($this->preloaded, $later->preloaded),
             )
             : $this;
@@ -168,56 +142,10 @@ final readonly class Pest implements Part
         return ! $this->patch instanceof Absent && $this->patch;
     }
 
-    /**
-     * Whether the verification tail's Pest workers boot the project, every
-     * test file loaded, before they fork its runs that load every test file
-     * (ADR-0075); false by default.
-     */
-    public function bootTail(): bool
+    /** How Pest's warm workers boot, compile and serve each run. */
+    public function workers(): PestWorkers
     {
-        return ! $this->bootTail instanceof Absent && $this->bootTail;
-    }
-
-    /**
-     * Whether Pest's warm workers compile through opcache, shared by every
-     * run they fork, with each file the run mutates and each copy it serves
-     * kept out of it (ADR-0088); true by default.
-     */
-    public function workerOpcache(): bool
-    {
-        return $this->workerOpcache instanceof Absent || $this->workerOpcache;
-    }
-
-    /**
-     * Whether each file's mutants are compiled into one schema, every mutant
-     * a switch on the original's line, which a mutant's own run serves in its
-     * file's place (ADR-0091); true by default.
-     */
-    public function schemata(): bool
-    {
-        return $this->schemata instanceof Absent || $this->schemata;
-    }
-
-    /**
-     * Whether the workers of mutants' own runs boot the project, no test file
-     * loaded and each file's schema served, before they fork, each child
-     * booting Pest's plugins and loading its own test files (ADR-0091); true
-     * by default.
-     */
-    public function bootMutants(): bool
-    {
-        return $this->bootMutants instanceof Absent || $this->bootMutants;
-    }
-
-    /**
-     * Whether a shard's chunks keep the warm workers of their mutants' own
-     * runs for the next chunk, where those workers boot nothing of the
-     * project and compile without opcache, so every chunk forks from an equal
-     * state (ADR-0023); false by default.
-     */
-    public function bootChunks(): bool
-    {
-        return ! $this->bootChunks instanceof Absent && $this->bootChunks;
+        return $this->workers;
     }
 
     /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117). */
@@ -235,7 +163,7 @@ final readonly class Pest implements Part
     {
         return $runner->use()->value() === BuiltinRunner::Pest->value
             && $this->patch()
-            && $this->schemata()
+            && $this->workers->schemata()
             && $this->splitStream->enabled();
     }
 
@@ -262,19 +190,14 @@ final readonly class Pest implements Part
      */
     public function beneath(Choice $runner): Choice
     {
-        $options = Json::object(
-            Member::of('patch', $this->patch()),
-            Member::of('canary', $this->canary()->name()),
-            Member::of(self::BOOT_TAIL, $this->bootTail()),
-            Member::of(self::WORKER_OPCACHE, $this->workerOpcache()),
-            Member::of(self::SCHEMATA, $this->schemata()),
-            Member::of(self::BOOT_MUTANTS, $this->bootMutants()),
-            Member::of(self::BOOT_CHUNKS, $this->bootChunks()),
-            Member::of(self::NARROWED_KILLS, $this->narrowedKills()->value),
-            Member::of(self::LONG_FILTER, $this->longFilter()->value),
-            Member::of(self::PRELOADED, $this->preloaded()->value),
-            $this->splitStream->option(),
-        );
+        $options = Json::object(Member::of('patch', $this->patch()), Member::of('canary', $this->canary()->name()))
+            ->merged($this->workers->options())
+            ->with(
+                Member::of(self::NARROWED_KILLS, $this->narrowedKills()->value),
+                Member::of(self::LONG_FILTER, $this->longFilter()->value),
+                Member::of(self::PRELOADED, $this->preloaded()->value),
+                $this->splitStream->option(),
+            );
 
         return $runner->use()->value() === BuiltinRunner::Pest->value
             ? Choice::of($runner->use()->value(), $runner->options()->over($options))
@@ -289,11 +212,7 @@ final readonly class Pest implements Part
                 Json::object(
                     Member::of('patch', $this->patch),
                     Member::of('canary', $this->canary instanceof Group ? $this->canary->name() : $this->canary),
-                    Member::of(self::BOOT_TAIL, $this->bootTail),
-                    Member::of(self::WORKER_OPCACHE, $this->workerOpcache),
-                    Member::of(self::SCHEMATA, $this->schemata),
-                    Member::of(self::BOOT_MUTANTS, $this->bootMutants),
-                    Member::of(self::BOOT_CHUNKS, $this->bootChunks),
+                )->merged($this->workers->written())->with(
                     Member::of(
                         self::NARROWED_KILLS,
                         $this->narrowedKills instanceof NarrowedKillTrust
@@ -316,35 +235,16 @@ final readonly class Pest implements Part
 
     public function php(PathOrigin $origin): PhpCalls
     {
-        $pest = PhpCalls::inWith(...[
-            ...$this->switched($this->patch, 'Pest::patched()', 'Pest::unpatched()'),
-            ...$this->canary instanceof Group
+        return PhpCalls::flag($this->patch, 'Pest::patched()', 'Pest::unpatched()')
+            ->and(PhpCalls::inWith(...$this->canary instanceof Group
                 ? [sprintf('Pest::canary(%s)', PhpCalls::literal($this->canary->name()))]
-                : [],
-            ...$this->switched($this->bootTail, 'Pest::bootingTail()', 'Pest::tailUnbooted()'),
-            ...$this->switched($this->workerOpcache, 'Pest::cachingInWorkers()', 'Pest::uncachedInWorkers()'),
-            ...$this->switched($this->schemata, 'Pest::compilingSchemata()', 'Pest::withoutSchemata()'),
-            ...$this->switched($this->bootMutants, 'Pest::bootingMutants()', 'Pest::mutantsUnbooted()'),
-            ...$this->switched($this->bootChunks, 'Pest::bootingChunks()', 'Pest::chunksUnbooted()'),
-            ...$this->narrowedKills instanceof NarrowedKillTrust ? [$this->narrowedKills->php()] : [],
-            ...$this->longFilter instanceof LongFilter ? [$this->longFilter->php()] : [],
-            ...$this->preloaded instanceof Preloaded ? [$this->preloaded->php()] : [],
-        ]);
-
-        return $pest->and($this->splitStream->php());
-    }
-
-    /**
-     * The call that sets a switch as a layer sets it, on or off; none where the layer leaves it.
-     *
-     * @return list<string>
-     */
-    private function switched(bool|Absent $value, string $on, string $off): array
-    {
-        return match ($value) {
-            true => [$on],
-            false => [$off],
-            default => [],
-        };
+                : []))
+            ->and($this->workers->php())
+            ->and(PhpCalls::inWith(...[
+                ...$this->narrowedKills instanceof NarrowedKillTrust ? [$this->narrowedKills->php()] : [],
+                ...$this->longFilter instanceof LongFilter ? [$this->longFilter->php()] : [],
+                ...$this->preloaded instanceof Preloaded ? [$this->preloaded->php()] : [],
+            ]))
+            ->and($this->splitStream->php());
     }
 }
