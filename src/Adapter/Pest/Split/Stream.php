@@ -37,8 +37,6 @@ use function outbreak_touches_start;
 use function pcntl_fork;
 use function pcntl_signal;
 use function pcntl_waitpid;
-use function posix_getpid;
-use function posix_kill;
 use function putenv;
 
 use const SIG_DFL;
@@ -304,7 +302,7 @@ final class Stream
             $touched = function_exists('outbreak_touched') && outbreak_touched();
             $this->write(StreamLine::child($this->mutant, $this->test, $this->failed, $seconds, $touched));
             pcntl_signal(SIGUSR1, SIG_DFL);
-            posix_kill(posix_getpid(), $this->failed ? SIGUSR1 : SIGKILL);
+            OwnEnd::by($this->failed ? SIGUSR1 : SIGKILL);
         }
 
         if ($this->recording !== false) {
@@ -333,7 +331,7 @@ final class Stream
                 $this->children->reaped(blocking: true);
             }
 
-            posix_kill(posix_getpid(), SIGKILL);
+            OwnEnd::by(SIGKILL);
         }
     }
 
