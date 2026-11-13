@@ -86,7 +86,25 @@ final readonly class LiteralArguments implements Collector
      */
     private function called(CallLike $call, Scope $scope): array
     {
-        $reached = match (true) {
+        $own = [];
+
+        foreach ($this->reached($call, $scope) as $method) {
+            if ($method instanceof ExtendedMethodReflection && OwnSource::holds((string) $method->getDeclaringClass()->getFileName())) {
+                $own[] = $method;
+            }
+        }
+
+        return $own;
+    }
+
+    /**
+     * The method a call reaches, as the analyser types its receiver, where it knows one.
+     *
+     * @return list<ExtendedMethodReflection|null>
+     */
+    private function reached(CallLike $call, Scope $scope): array
+    {
+        return match (true) {
             ($call instanceof MethodCall || $call instanceof NullsafeMethodCall) && $call->name instanceof Identifier
                 => [$scope->getMethodReflection($scope->getType($call->var), $call->name->toString())],
             $call instanceof StaticCall && $call->class instanceof Name && $call->name instanceof Identifier
@@ -95,16 +113,6 @@ final readonly class LiteralArguments implements Collector
                 => [$scope->getMethodReflection($scope->getType($call), '__construct')],
             default => [],
         };
-
-        $own = [];
-
-        foreach ($reached as $method) {
-            if ($method instanceof ExtendedMethodReflection && OwnSource::holds((string) $method->getDeclaringClass()->getFileName())) {
-                $own[] = $method;
-            }
-        }
-
-        return $own;
     }
 
     /**

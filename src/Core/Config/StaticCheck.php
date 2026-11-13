@@ -255,13 +255,21 @@ final readonly class StaticCheck implements Part
             ...$this->php instanceof Json
                 ? [sprintf('StaticCheck::php(%s)', implode(', ', PhpOptions::of($this->php)))]
                 : [],
+            ...$this->opcachePhp(),
+        ]);
+    }
+
+    /** @return list<string> the builder's calls for `staticCheck.opcacheBatch` and `staticCheck.opcacheLimit` */
+    private function opcachePhp(): array
+    {
+        return [
             ...$this->opcacheBatch instanceof Absent
                 ? []
                 : [sprintf('StaticCheck::opcacheBatch(%d)', $this->opcacheBatch)],
             ...$this->opcacheLimit instanceof Seconds
                 ? [sprintf('StaticCheck::opcacheLimit(%s)', PhpCalls::literal($this->opcacheLimit->written()))]
                 : [],
-        ]);
+        ];
     }
 
     /** @return list<string> the builder's calls for `staticCheck.dependents` and `staticCheck.preCheckAfter` */

@@ -254,39 +254,17 @@ final readonly class Local implements Part
     public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->watchBudget instanceof Seconds
-                ? [sprintf('Local::watchBudget(%s)', PhpCalls::literal($this->watchBudget->written()))]
-                : [],
-            ...$this->prePushBudget instanceof Seconds
-                ? [sprintf('Local::prePushBudget(%s)', PhpCalls::literal($this->prePushBudget->written()))]
-                : [],
-            ...$this->serveIdle instanceof Seconds
-                ? [sprintf('Local::serveIdle(%s)', PhpCalls::literal($this->serveIdle->written()))]
-                : [],
+            ...PhpCalls::duration('Local::watchBudget', $this->watchBudget),
+            ...PhpCalls::duration('Local::prePushBudget', $this->prePushBudget),
+            ...PhpCalls::duration('Local::serveIdle', $this->serveIdle),
             ...$this->serveStart instanceof ServeStart
                 ? [sprintf('Local::serveStarting(ServeStart::%s)', $this->serveStart->name)]
                 : [],
-            ...$this->serveStartWait instanceof Seconds
-                ? [sprintf('Local::serveStartWait(%s)', PhpCalls::literal($this->serveStartWait->written()))]
-                : [],
-            ...match ($this->inferSubsumed) {
-                true => ['Local::inferringSubsumed()'],
-                false => ['Local::runningSubsumed()'],
-                default => [],
-            },
-            ...$this->watchPoll instanceof Seconds
-                ? [sprintf('Local::watchPoll(%s)', PhpCalls::literal($this->watchPoll->written()))]
-                : [],
-            ...match ($this->quick) {
-                true => ['Local::quickRounds()'],
-                false => ['Local::fullRounds()'],
-                default => [],
-            },
-            ...match ($this->cancelByUnit) {
-                true => ['Local::cancellingByUnit()'],
-                false => ['Local::cancellingByRound()'],
-                default => [],
-            },
+            ...PhpCalls::duration('Local::serveStartWait', $this->serveStartWait),
+            ...PhpCalls::flag($this->inferSubsumed, 'Local::inferringSubsumed()', 'Local::runningSubsumed()'),
+            ...PhpCalls::duration('Local::watchPoll', $this->watchPoll),
+            ...PhpCalls::flag($this->quick, 'Local::quickRounds()', 'Local::fullRounds()'),
+            ...PhpCalls::flag($this->cancelByUnit, 'Local::cancellingByUnit()', 'Local::cancellingByRound()'),
             ...$this->roomPhp(),
             ...$this->triageFewest instanceof Absent
                 ? []
@@ -301,9 +279,7 @@ final readonly class Local implements Part
             ...$this->memoryHeadroom instanceof Absent
                 ? []
                 : [sprintf('Local::memoryHeadroom(%d)', $this->memoryHeadroom)],
-            ...$this->serveRequest instanceof Seconds
-                ? [sprintf('Local::serveRequest(%s)', PhpCalls::literal($this->serveRequest->written()))]
-                : [],
+            ...PhpCalls::duration('Local::serveRequest', $this->serveRequest),
         ];
     }
 }

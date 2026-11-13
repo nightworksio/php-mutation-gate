@@ -325,30 +325,15 @@ final readonly class Reach implements Part
 
     public function php(PathOrigin $origin): PhpCalls
     {
-        $packages = $this->packages instanceof Listed
-            ? [sprintf('Reach::packages(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->packages)))]
-            : [];
-        $everything = $this->everything instanceof Listed
-            ? [sprintf(
-                'Reach::everything(%s)',
-                PhpCalls::literals(...WrittenPaths::globs($origin, $this->everything)),
-            )]
-            : [];
+        $packages = PhpCalls::globs('Reach::packages', $this->packages, $origin);
+        $everything = PhpCalls::globs('Reach::everything', $this->everything, $origin);
         $changedTests = $this->changedTests instanceof ChangedTests ? [$this->changedTests->php()] : [];
-        $fixtures = $this->fixtures instanceof Listed
-            ? [sprintf('Reach::fixtures(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->fixtures)))]
-            : [];
+        $fixtures = PhpCalls::globs('Reach::fixtures', $this->fixtures, $origin);
         $hotPath = $this->hotPath instanceof Absent
             ? []
             : [sprintf('Reach::hotPath(%s)', PhpCalls::literal($this->hotPath))];
 
-        $full = match ($this->full) {
-            true => ['Reach::fullByDefault()'],
-            false => ['Reach::changedByDefault()'],
-            default => [],
-        };
-
-
+        $full = PhpCalls::flag($this->full, 'Reach::fullByDefault()', 'Reach::changedByDefault()');
         $lock = $this->lock->php();
         $calls = PhpCalls::inWith(
             ...$packages,

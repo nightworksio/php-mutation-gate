@@ -10,6 +10,10 @@ use function array_map;
 use function array_values;
 use function count;
 use function implode;
+
+use NightWorksIO\MutationGate\Core\File\Glob;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+
 use function sprintf;
 use function str_replace;
 use function var_export;
@@ -53,6 +57,45 @@ final readonly class PhpCalls
     public static function literal(string|int|float|bool $value): string
     {
         return var_export($value, return: true);
+    }
+
+    /**
+     * The builder's call that sets a duration, such as `Local::watchBudget('30s')`, where one is set; none
+     * otherwise.
+     *
+     * @return list<string>
+     */
+    public static function duration(string $method, Seconds|Absent $value): array
+    {
+        return $value instanceof Seconds ? [sprintf('%s(%s)', $method, self::literal($value->written()))] : [];
+    }
+
+    /**
+     * The builder's call for a setting turned on or off, where it is set; none otherwise.
+     *
+     * @return list<string>
+     */
+    public static function flag(bool|Absent $value, string $on, string $off): array
+    {
+        return match ($value) {
+            true => [$on],
+            false => [$off],
+            default => [],
+        };
+    }
+
+    /**
+     * The builder's call that lists globs, such as `Reach::packages('src/*')`, spelt from the origin, where any are
+     * listed; none otherwise.
+     *
+     * @param  Listed<Glob>|Absent $globs
+     * @return list<string>
+     */
+    public static function globs(string $method, Listed|Absent $globs, PathOrigin $origin): array
+    {
+        return $globs instanceof Listed
+            ? [sprintf('%s(%s)', $method, self::literals(...WrittenPaths::globs($origin, $globs)))]
+            : [];
     }
 
     /** Values as PHP writes them, as the arguments of one call. */

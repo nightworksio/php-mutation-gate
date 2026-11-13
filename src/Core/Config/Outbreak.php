@@ -309,44 +309,22 @@ final readonly class Outbreak
     public function php(): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...match ($this->enabled) {
-                true => ['Outbreak::on()'],
-                false => ['Outbreak::off()'],
-                default => [],
-            },
+            ...PhpCalls::flag($this->enabled, 'Outbreak::on()', 'Outbreak::off()'),
             ...$this->binary instanceof Absent
                 ? []
                 : [sprintf('Outbreak::binary(%s)', PhpCalls::literal($this->binary))],
-            ...$this->timeout instanceof Seconds
-                ? [sprintf('Outbreak::timeout(%s)', PhpCalls::literal($this->timeout->written()))]
-                : [],
+            ...PhpCalls::duration('Outbreak::timeout', $this->timeout),
             ...$this->threads instanceof Absent ? [] : [sprintf('Outbreak::threads(%d)', $this->threads)],
-            ...match ($this->equivalence) {
-                true => ['Outbreak::equivalenceOn()'],
-                false => ['Outbreak::equivalenceOff()'],
-                default => [],
-            },
-            ...match ($this->forkStates) {
-                true => ['Outbreak::forkStatesCounted()'],
-                false => ['Outbreak::forkStatesUncounted()'],
-                default => [],
-            },
-            ...match ($this->recheckTouchedKills) {
-                true => ['Outbreak::touchedKillsRechecked()'],
-                false => ['Outbreak::touchedKillsTrusted()'],
-                default => [],
-            },
+            ...PhpCalls::flag($this->equivalence, 'Outbreak::equivalenceOn()', 'Outbreak::equivalenceOff()'),
+            ...PhpCalls::flag($this->forkStates, 'Outbreak::forkStatesCounted()', 'Outbreak::forkStatesUncounted()'),
+            ...PhpCalls::flag(
+                $this->recheckTouchedKills,
+                'Outbreak::touchedKillsRechecked()',
+                'Outbreak::touchedKillsTrusted()',
+            ),
             ...$this->graph instanceof GraphUse ? [$this->graph->php()] : [],
-            ...match ($this->lines) {
-                true => ['Outbreak::linesRecorded()'],
-                false => ['Outbreak::linesByPcov()'],
-                default => [],
-            },
-            ...match ($this->steps) {
-                true => ['Outbreak::stepsCounted()'],
-                false => ['Outbreak::stepsUncounted()'],
-                default => [],
-            },
+            ...PhpCalls::flag($this->lines, 'Outbreak::linesRecorded()', 'Outbreak::linesByPcov()'),
+            ...PhpCalls::flag($this->steps, 'Outbreak::stepsCounted()', 'Outbreak::stepsUncounted()'),
             ...$this->stepFloor instanceof Absent ? [] : [sprintf('Outbreak::stepFloor(%d)', $this->stepFloor)],
         ])->and($this->serve->php())->and($this->cache->php());
     }
