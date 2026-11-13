@@ -221,7 +221,7 @@ fn settled(
 fn walked(
     paths: &BTreeSet<PathBuf>,
     skipped: &Path,
-    mut each: impl FnMut(&Path, bool) -> Result<(), String>,
+    each: &mut dyn FnMut(&Path, bool) -> Result<(), String>,
 ) -> Result<(), String> {
     let mut left: Vec<PathBuf> = paths.iter().cloned().collect();
 
@@ -384,7 +384,7 @@ mod inotify {
             let fd = &self.fd;
             let directories = &mut self.directories;
 
-            walked(paths, &self.skipped, |path, directory| {
+            walked(paths, &self.skipped, &mut |path, directory| {
                 if !directory {
                     return Ok(());
                 }
@@ -594,7 +594,7 @@ mod kqueue {
             let known = &mut self.known;
             let mut any = false;
 
-            walked(paths, &self.skipped, |path, _| {
+            walked(paths, &self.skipped, &mut |path, _| {
                 if known.contains(path) {
                     return Ok(());
                 }
@@ -874,7 +874,7 @@ mod tests {
         let mut seen = Vec::new();
 
         assert_eq!(
-            walked(&paths, &root.join(".mutation-gate"), |path, _| {
+            walked(&paths, &root.join(".mutation-gate"), &mut |path, _| {
                 seen.push(path.to_path_buf());
                 Ok(())
             }),
@@ -886,7 +886,7 @@ mod tests {
         let skipped = root.join(".mutation-gate");
 
         assert_eq!(
-            walked(&vanishing, &skipped, |path, _| {
+            walked(&vanishing, &skipped, &mut |path, _| {
                 fs::remove_dir_all(path).unwrap();
                 Ok(())
             }),
@@ -896,7 +896,7 @@ mod tests {
         fs::create_dir_all(root.join("src/deep")).unwrap();
 
         assert!(
-            walked(&vanishing, &skipped, |path, _| {
+            walked(&vanishing, &skipped, &mut |path, _| {
                 fs::remove_dir_all(path).unwrap();
                 fs::write(path, "").unwrap();
                 Ok(())

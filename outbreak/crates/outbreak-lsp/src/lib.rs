@@ -118,10 +118,10 @@ fn value<'a>(given: Option<&'a String>, option: &str) -> Result<&'a str, String>
 ///
 /// Fails where the editor's stream breaks, the server cannot write to it, or the editor leaves
 /// without asking the server to shut down first.
-pub fn serve<W: Write + Send + 'static>(
+pub fn serve(
     options: &Options,
-    mut input: impl BufRead,
-    output: W,
+    mut input: &mut dyn BufRead,
+    output: Box<dyn Write + Send>,
 ) -> Result<(), String> {
     let mut session = Session::new(options.clone(), output);
     let ended = loop {
@@ -173,19 +173,12 @@ enum Shown {
 }
 
 /// The editor's end of the server's output, shared by every thread that writes to it.
-struct Client<W> {
-    output: Arc<Mutex<W>>,
+#[derive(Clone)]
+struct Client {
+    output: Arc<Mutex<Box<dyn Write + Send>>>,
 }
 
-impl<W> Clone for Client<W> {
-    fn clone(&self) -> Self {
-        Self {
-            output: Arc::clone(&self.output),
-        }
-    }
-}
-
-impl<W: Write> Client<W> {
+impl Client {
     fn send(&self, content: &str) -> Result<(), String> {
         frame::write(&mut *locked(&self.output), content)
             .map_err(|error| format!("cannot write to the editor: {error}"))
@@ -197,16 +190,16 @@ impl<W: Write> Client<W> {
     }
 }
 
-struct Session<W> {
+struct Session {
     options: Options,
-    client: Client<W>,
+    client: Client,
     phase: Phase,
     project: Option<(String, Gate)>,
     watching: Arc<Mutex<Option<Child>>>,
 }
 
-impl<W: Write + Send + 'static> Session<W> {
-    fn new(options: Options, output: W) -> Self {
+impl Session {
+    fn new(options: Options, output: Box<dyn Write + Send>) -> Self {
         Self {
             options,
             client: Client {
@@ -292,7 +285,10 @@ impl<W: Write + Send + 'static> Session<W> {
                     self.options.severity,
                 );
                 let _ = lines.map(|lines| {
-                    thread::spawn(move || told(lines, &client, &watching, &root, severity))
+                    thread::spawn(move || {
+                        let mut lines = lines;
+                        told(&mut lines, &client, &watching, &root, severity);
+                    })
                 });
             }
             Err(error) => self
@@ -348,9 +344,9 @@ impl<W: Write + Send + 'static> Session<W> {
 
 /// Reads `watch`'s lines and shows the diagnostics each event moved; once they end, ends
 /// `watch` where the server did not stop it already, and says so where the editor still reads.
-fn told<W: Write>(
-    lines: impl Read,
-    client: &Client<W>,
+fn told(
+    lines: &mut dyn Read,
+    client: &Client,
     watching: &Mutex<Option<Child>>,
     root: &str,
     severity: Severity,
@@ -518,8 +514,8 @@ mod tests {
         let written = Written::default();
         let ended = serve(
             &options(&[]).unwrap(),
-            framed(messages).as_slice(),
-            written.clone(),
+            &mut framed(messages).as_slice(),
+            Box::new(written.clone()),
         );
 
         (ended, answers(&written))
@@ -666,7 +662,9 @@ mod tests {
             let (reader, input) = std::io::pipe().unwrap();
             let written = Written::default();
             let output = written.clone();
-            let served = thread::spawn(move || serve(&options, BufReader::new(reader), output));
+            let served = thread::spawn(move || {
+                serve(&options, &mut BufReader::new(reader), Box::new(output))
+            });
 
             Self {
                 input,
@@ -795,14 +793,18 @@ mod tests {
         let options = options(&[]).unwrap();
 
         assert!(
-            serve(&options, framed(&[SHUTDOWN]).as_slice(), broken())
-                .is_err_and(|why| why.starts_with("cannot write to the editor"))
+            serve(
+                &options,
+                &mut framed(&[SHUTDOWN]).as_slice(),
+                Box::new(broken())
+            )
+            .is_err_and(|why| why.starts_with("cannot write to the editor"))
         );
         assert!(
             serve(
                 &options,
-                &b"Content-Length: x\r\n\r\n"[..],
-                Written::default()
+                &mut &b"Content-Length: x\r\n\r\n"[..],
+                Box::new(Written::default())
             )
             .is_err_and(|why| why.starts_with("cannot read the editor"))
         );
@@ -820,11 +822,11 @@ mod tests {
         };
         let unheard = running();
         let broken = Client {
-            output: Arc::new(Mutex::new(broken())),
+            output: Arc::new(Mutex::new(Box::new(broken()))),
         };
 
         told(
-            format!("Watching src for changes\n{SURVIVOR}\n").as_bytes(),
+            &mut format!("Watching src for changes\n{SURVIVOR}\n").as_bytes(),
             &broken,
             &unheard,
             "file:///p",
@@ -836,12 +838,18 @@ mod tests {
         let heard = running();
         let written = Written::default();
         let client = Client {
-            output: Arc::new(Mutex::new(written.clone())),
+            output: Arc::new(Mutex::new(Box::new(written.clone()))),
         };
         let pid = rustix::process::Pid::from_child(locked(&heard).as_ref().unwrap());
         rustix::process::kill_process(pid, rustix::process::Signal::KILL).unwrap();
         rustix::process::waitpid(Some(pid), rustix::process::WaitOptions::empty()).unwrap();
-        told(Unreadable, &client, &heard, "file:///p", Severity::Warning);
+        told(
+            &mut Unreadable,
+            &client,
+            &heard,
+            "file:///p",
+            Severity::Warning,
+        );
 
         assert!(answers(&written)[0].contains("mutation-gate watch ended"));
     }

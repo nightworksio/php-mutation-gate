@@ -26,7 +26,7 @@ use std::os::unix::ffi::OsStrExt as _;
 use std::os::unix::fs::{
     DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _,
 };
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::net::{SocketAddr, UnixListener, UnixStream};
 use std::os::unix::process::CommandExt as _;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -192,9 +192,12 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
         let shared = Arc::clone(&shared);
         let root = options.root.clone();
         let socket = socket.clone();
-        serving(accepted, move |stream| {
-            connected(&stream, &shared, &root, &socket, contract);
-        });
+        serving(
+            accepted,
+            Box::new(move |stream| {
+                connected(&stream, &shared, &root, &socket, contract);
+            }),
+        );
     }
 
     let _ = ticking.join();
@@ -261,7 +264,7 @@ fn own(
     path: &Path,
     metadata: &Metadata,
     euid: u32,
-    kind: impl Fn(&Metadata) -> bool,
+    kind: fn(&Metadata) -> bool,
 ) -> Result<(), String> {
     match () {
         () if metadata.file_type().is_symlink() => Err(format!(
@@ -434,9 +437,9 @@ fn synced(kept: &mut MutexGuard<'_, Kept>) {
 }
 
 /// Serves the connection an accept gave on a thread of its own; nothing where the accept failed.
-fn serving<T: Send + 'static, A>(
-    accepted: std::io::Result<(T, A)>,
-    serve: impl FnOnce(T) + Send + 'static,
+fn serving(
+    accepted: std::io::Result<(UnixStream, SocketAddr)>,
+    serve: Box<dyn FnOnce(UnixStream) + Send>,
 ) {
     if let Ok((stream, _)) = accepted {
         thread::spawn(move || serve(stream));
@@ -606,9 +609,7 @@ mod tests {
 
     #[test]
     fn serves_nothing_where_an_accept_failed() {
-        let refused = Err::<((), ()), _>(std::io::Error::other("refused"));
-
-        serving(refused, std::mem::drop::<()>);
+        serving(Err(std::io::Error::other("refused")), Box::new(drop));
     }
 
     #[test]

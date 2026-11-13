@@ -134,7 +134,12 @@ pub fn run(
 pub fn lsp(arguments: &[String]) -> Result<(), Failure> {
     let options = outbreak_lsp::options(arguments).map_err(Failure::Usage)?;
 
-    outbreak_lsp::serve(&options, BufReader::new(io::stdin()), io::stdout()).map_err(Failure::Io)
+    outbreak_lsp::serve(
+        &options,
+        &mut BufReader::new(io::stdin()),
+        Box::new(io::stdout()),
+    )
+    .map_err(Failure::Io)
 }
 
 /// What `outbreak serve` answers once it stopped, or once the daemon it detached started.
