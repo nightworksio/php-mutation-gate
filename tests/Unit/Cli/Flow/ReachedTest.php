@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\ChangeBase;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\MapJudges;
+use NightWorksIO\MutationGate\Cli\Flow\ProjectLayout;
 use NightWorksIO\MutationGate\Cli\Flow\Reached;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Config\Reach;
@@ -137,8 +138,8 @@ it('lays out as a fixture project each directory reach.fixtures names, and none 
     $suite = reachedSuite($checkout, $adapters);
     $change = Change::modified(Path::of('tests/Fixtures/app/src/Money.php'), Lines::of(Line::of(1)));
 
-    expect(Reached::layout($adapters, Flows::settings(Reach::fixtures('tests/Fixtures/*')), $suite)->isInFixtures($change))->toBeTrue()
-        ->and(Reached::layout($adapters, Flows::settings(), $suite)->isInFixtures($change))->toBeFalse();
+    expect(ProjectLayout::of($adapters, Flows::settings(Reach::fixtures('tests/Fixtures/*')), $suite)->isInFixtures($change))->toBeTrue()
+        ->and(ProjectLayout::of($adapters, Flows::settings(), $suite)->isInFixtures($change))->toBeFalse();
 });
 
 it('lays out as a module each directory with a composer.json of its own inside the package, and the package itself as none', function (): void {
@@ -156,7 +157,7 @@ it('lays out as a module each directory with a composer.json of its own inside t
         ...Trees::of(GateTree::at(Path::of('packages/sdk/src'), Floor::of(50), Package::at(Path::of('packages/sdk')))),
     ));
     $adapters = Flows::adapters(Flows::project(), [], $checkout, $trees);
-    $layout = Reached::layout($adapters, Flows::settings(), reachedSuite($checkout, $adapters));
+    $layout = ProjectLayout::of($adapters, Flows::settings(), reachedSuite($checkout, $adapters));
 
     expect(array_map(static fn(Path $module): string => $module->value(), [...$layout->modulesHolding(Path::of('app-modules/billing/tests/InvoiceTest.php'))]))
         ->toBe(['app-modules/billing'])

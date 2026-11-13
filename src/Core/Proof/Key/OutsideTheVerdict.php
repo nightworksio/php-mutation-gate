@@ -105,6 +105,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/QuickRound.php',
             'src/Cli/Flow/Raising.php',
             'src/Cli/Flow/Reached.php',
+            'src/Cli/Flow/ProjectLayout.php',
             'src/Cli/Flow/Read.php',
             'src/Cli/Flow/RecheckRuns.php',
             'src/Cli/Flow/Rechecking.php',

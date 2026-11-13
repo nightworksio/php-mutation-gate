@@ -13,13 +13,8 @@ use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Glob;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Reach\DecidingManifests;
-use NightWorksIO\MutationGate\Core\Reach\Layout;
-use NightWorksIO\MutationGate\Core\Reach\Modules;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reaching;
@@ -69,7 +64,7 @@ final readonly class Reached
         $sinceRef = $adapters->changes->changesSince($base->ref());
         $fromRun = $sinceRef instanceof Changes ? self::fromLastRun($base, $adapters) : $sinceRef;
         [$changes, $from] = is_array($fromRun) ? $fromRun : [$sinceRef, $base->ref()];
-        $layout = self::layout($adapters, $settings, $suite);
+        $layout = ProjectLayout::of($adapters, $settings, $suite);
         $judges = $judged->judges();
         $packages = Packages::of($trees);
         $manifests = DecidingManifests::in($packages, $settings->reach()->lockPackages())->measuredBy($map);
@@ -145,38 +140,6 @@ final readonly class Reached
     public function ownOnly(): Paths
     {
         return $this->ownOnly;
-    }
-
-    /**
-     * Where the repository keeps what the reach rules ask about: the files
-     * that decide how the gate runs, among them what `reach.everything` and
-     * the presets name and what the config file reads beside itself, the CI
-     * definitions that run it, the tests, and the fixture projects
-     * `reach.fixtures` names.
-     */
-    public static function layout(Adapters $adapters, Settings $settings, Suite $suite): Layout
-    {
-        $layout = Layout::standard($adapters->runner->definitions())
-            ->testedIn(...$suite->directories())
-            ->supportedFrom(...$suite->supportPlaces())
-            ->readByTheConfig($adapters->configReads)
-            ->withFixtures(...$settings->reach()->fixtures());
-
-        foreach ($adapters->ci->definitions() as $definition) {
-            $layout = $layout->runBy(Glob::of($definition->value()));
-        }
-
-        $judged = JudgedRun::of($adapters->project, OwnArchive::running());
-
-        foreach ($settings->reach()->everything() as $glob) {
-            $layout = $judged->leavesOut($glob) ? $layout : $layout->decidedAlsoBy($glob);
-        }
-
-        foreach (self::modules($adapters) as $module) {
-            $layout = $layout->withModule($module);
-        }
-
-        return $layout;
     }
 
     /**
@@ -287,16 +250,5 @@ final readonly class Reached
         }
 
         return $changed;
-    }
-
-    /** The repository's modules among the files version control lists; none where it lists none or reads no tree. */
-    private static function modules(Adapters $adapters): Paths
-    {
-        $listed = $adapters->changes->listed(Paths::of(Path::root()));
-        $trees = $adapters->trees->trees();
-
-        return $listed instanceof Paths && $trees instanceof Trees
-            ? Modules::among($listed, Packages::of($trees)->paths())
-            : Paths::none();
     }
 }

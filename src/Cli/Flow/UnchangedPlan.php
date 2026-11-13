@@ -65,7 +65,7 @@ final readonly class UnchangedPlan
         $passed = $ledgers->lastPassed();
         $changes = $passed instanceof Passed ? $this->adapters->changes->changesFrom($passed->commit()) : $passed;
         $unchanged = Unchanging::within(
-            Reached::layout($this->adapters, $this->settings, $inventory->suite),
+            ProjectLayout::of($this->adapters, $this->settings, $inventory->suite),
             Packages::of($inventory->trees),
             $this->settings->floors()->baseline(),
             GateRelease::of($this->setup->gate),
