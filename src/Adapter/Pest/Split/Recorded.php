@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_filter;
+use function array_key_exists;
 use function array_keys;
-use function array_values;
 
 use const FILTER_VALIDATE_BOOL;
 
@@ -13,8 +14,6 @@ use function filter_var;
 use function function_exists;
 use function getenv;
 use function ini_get;
-use function is_array;
-use function is_int;
 use function is_string;
 use function outbreak_lines_start;
 use function outbreak_lines_stop;
@@ -87,25 +86,28 @@ final readonly class Recorded
             return [function_exists('outbreak_lines_stop') ? outbreak_lines_stop() : [], []];
         }
 
-        if (! function_exists('pcov\\stop') || ! function_exists('pcov\\collect')) {
-            return [[], []];
-        }
+        return function_exists('pcov\\stop') && function_exists('pcov\\collect') ? self::collected($known) : [[], []];
+    }
 
+    /**
+     * @param  array<string, list<int>>                                 $known
+     * @return array{array<string, list<int>>, array<string, list<int>>}
+     */
+    private static function collected(array $known): array
+    {
         stop();
-        $collected = collect();
         $executed = [];
         $reported = [];
 
-        foreach (is_array($collected) ? $collected : [] as $file => $marks) {
-            $marks = is_array($marks) ? $marks : [];
+        foreach (collect() as $file => $marks) {
             $lines = self::executedOf($marks);
 
             if ($lines !== []) {
-                $executed[(string) $file] = $lines;
+                $executed[$file] = $lines;
             }
 
-            if (! isset($known[(string) $file])) {
-                $reported[(string) $file] = self::reportedOf($marks);
+            if (! array_key_exists($file, $known)) {
+                $reported[$file] = self::reportedOf($marks);
             }
         }
 
@@ -113,40 +115,26 @@ final readonly class Recorded
     }
 
     /**
-     * @param  array<mixed> $marks
+     * @param  array<int, int> $marks
      * @return list<int>
      */
     private static function executedOf(array $marks): array
     {
-        $lines = [];
-
-        foreach ($marks as $line => $mark) {
-            if (is_int($line) && $mark === self::EXECUTED) {
-                $lines[] = $line;
-            }
-        }
-
+        $lines = array_keys(array_filter($marks, static fn(int $mark): bool => $mark === self::EXECUTED));
         sort($lines);
 
-        return array_values($lines);
+        return $lines;
     }
 
     /**
-     * @param  array<mixed> $marks
+     * @param  array<int, int> $marks
      * @return list<int>
      */
     private static function reportedOf(array $marks): array
     {
-        $lines = [];
-
-        foreach (array_keys($marks) as $line) {
-            if (is_int($line)) {
-                $lines[] = $line;
-            }
-        }
-
+        $lines = array_keys($marks);
         sort($lines);
 
-        return array_values($lines);
+        return $lines;
     }
 }

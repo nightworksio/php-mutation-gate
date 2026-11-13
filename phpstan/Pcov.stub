@@ -1,0 +1,12 @@
+<?php
+
+namespace pcov;
+
+/**
+ * pcov answers each file it collected with a mark for each line it reports, 1
+ * where a test executed it and -1 where none did; PHP's own stub leaves it untyped.
+ *
+ * @param  list<string>                     $filter
+ * @return array<string, array<int, int>>
+ */
+function collect(int $type = 0, array $filter = []): array {}

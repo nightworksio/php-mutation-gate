@@ -7,13 +7,10 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 use function file;
 use function glob;
 use function is_array;
-use function is_float;
-use function is_int;
-use function is_string;
-use function json_decode;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -45,57 +42,68 @@ final readonly class RecordedMap
     public static function in(string $directory, Root $root, bool $wholeOnly = false): CoverageMap|NotGiven
     {
         $map = CoverageMap::of();
-        $files = glob(sprintf(self::RECORDED, $directory)) ?: [];
+        $texts = self::texts($directory);
 
-        if ($files === []) {
-            return NotGiven::value();
+        foreach ($texts as $text) {
+            $map = self::with($map, RecordedLine::of($text), $root, $wholeOnly);
         }
 
-        foreach ($files as $file) {
-            foreach (file($file) ?: [] as $text) {
-                $map = self::with($map, json_decode($text, associative: true), $root, $wholeOnly);
-            }
-        }
-
-        return $map;
+        return self::files($directory) === [] ? NotGiven::value() : $map;
     }
 
     /** Removes every file of lines a directory's streams recorded, so a later run there starts with none. */
     public static function cleared(string $directory): void
     {
-        foreach (glob(sprintf(self::RECORDED, $directory)) ?: [] as $file) {
+        foreach (self::files($directory) as $file) {
             unlink($file);
         }
     }
 
-    private static function with(CoverageMap $map, mixed $line, Root $root, bool $wholeOnly): CoverageMap
+    /** @return list<string> each line every stream recorded in a directory */
+    public static function texts(string $directory): array
     {
-        if (! is_array($line) || ($line[StreamLine::KIND] ?? '') !== StreamLine::COVERED) {
+        $texts = [];
+
+        foreach (self::files($directory) as $file) {
+            $lines = file($file);
+            $texts = is_array($lines) ? [...$texts, ...$lines] : $texts;
+        }
+
+        return $texts;
+    }
+
+    /** @return list<string> every file of lines a directory's streams recorded */
+    private static function files(string $directory): array
+    {
+        $files = glob(sprintf(self::RECORDED, $directory));
+
+        return is_array($files) ? $files : [];
+    }
+
+    private static function with(CoverageMap $map, RecordedLine $line, Root $root, bool $wholeOnly): CoverageMap
+    {
+        if (! $line->covered || ($wholeOnly && $line->own) || $line->test === '') {
             return $map;
         }
 
-        if ($wholeOnly && ($line[StreamLine::OWN] ?? false) === true) {
-            return $map;
+        $test = TestId::of($line->test);
+
+        foreach ($line->lines as $file => $numbers) {
+            $map = str_starts_with($file, $root->value())
+                ? self::covered($map, $root->relative($file), $numbers, $test)
+                : $map;
         }
 
-        if (! is_string($line['t'] ?? null)) {
-            return $map;
+        return $line->seconds instanceof NotGiven ? $map : $map->timed($test, Seconds::of($line->seconds));
+    }
+
+    /** @param list<int> $numbers */
+    private static function covered(CoverageMap $map, Path $file, array $numbers, TestId $test): CoverageMap
+    {
+        foreach ($numbers as $number) {
+            $map = $number > 0 ? $map->covered($file, Line::of($number), $test) : $map;
         }
 
-        $test = TestId::of($line['t']);
-
-        foreach (is_array($line['l'] ?? null) ? $line['l'] : [] as $file => $lines) {
-            $inside = is_string($file) && str_starts_with($file, $root->value());
-
-            foreach ($inside && is_array($lines) ? $lines : [] as $number) {
-                $map = is_int($number) && $number > 0
-                    ? $map->covered($root->relative($file), Line::of($number), $test)
-                    : $map;
-            }
-        }
-
-        $seconds = $line['s'] ?? null;
-
-        return is_float($seconds) || is_int($seconds) ? $map->timed($test, Seconds::of((float) $seconds)) : $map;
+        return $map;
     }
 }

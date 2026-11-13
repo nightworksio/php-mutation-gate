@@ -5,17 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_flip;
+use function array_key_exists;
 use function array_keys;
-use function file;
-use function glob;
-use function is_array;
-use function is_int;
-use function is_string;
-use function json_decode;
 
 use Pest\Mutate\MutationTest;
-
-use function sprintf;
 
 /**
  * Which tests executed each mutant's lines, as a run planned without a fresh
@@ -33,23 +26,33 @@ final readonly class RecordedCovering
      */
     public static function of(string $directory, array $mutants): array
     {
-        $executed = self::executed($directory);
+        $executed = $directory === '' ? [] : self::executed($directory);
         $covering = [];
 
         foreach ($mutants as $id => $test) {
             $file = (string) $test->mutation->file->getRealPath();
-            $tests = [];
-
-            foreach ($executed[$file] ?? [] as $line => $by) {
-                if ($line >= $test->mutation->startLine && $line <= $test->mutation->endLine) {
-                    $tests = [...$tests, ...array_keys($by)];
-                }
-            }
-
-            $covering[$id] = array_keys(array_flip($tests));
+            $lines = array_key_exists($file, $executed) ? $executed[$file] : [];
+            $covering[$id] = self::covering($lines, $test->mutation->startLine, $test->mutation->endLine);
         }
 
         return $covering;
+    }
+
+    /**
+     * The tests that executed any of these lines, from the first to the last, each once.
+     *
+     * @param  array<int, array<string, true>> $lines the tests that executed each line of a file
+     * @return list<string>
+     */
+    private static function covering(array $lines, int $first, int $last): array
+    {
+        $tests = [];
+
+        foreach ($lines as $line => $by) {
+            $tests = $line >= $first && $line <= $last ? [...$tests, ...array_keys($by)] : $tests;
+        }
+
+        return array_keys(array_flip($tests));
     }
 
     /** @return array<string, array<int, array<string, true>>> the tests that executed each line, by file and line */
@@ -57,23 +60,11 @@ final readonly class RecordedCovering
     {
         $executed = [];
 
-        foreach ($directory === '' ? [] : (glob(sprintf(RecordedMap::RECORDED, $directory)) ?: []) as $file) {
-            foreach (file($file) ?: [] as $text) {
-                $line = json_decode($text, associative: true);
+        foreach (RecordedMap::texts($directory) as $text) {
+            $line = RecordedLine::of($text);
 
-                if (! is_array($line) || ($line[StreamLine::KIND] ?? '') !== StreamLine::COVERED) {
-                    continue;
-                }
-
-                $test = $line['t'] ?? null;
-
-                foreach (is_string($test) && is_array($line['l'] ?? null) ? $line['l'] : [] as $source => $numbers) {
-                    foreach (is_string($source) && is_array($numbers) ? $numbers : [] as $number) {
-                        if (is_int($number)) {
-                            $executed[$source][$number][$test] = true;
-                        }
-                    }
-                }
+            foreach ($line->covered && $line->test !== '' ? $line->places() : [] as [$source, $number]) {
+                $executed[$source][$number][$line->test] = true;
             }
         }
 

@@ -61,6 +61,7 @@ parameters:
     stubFiles:
         - phpstan/DescribeCall.stub
         - phpstan/Pcntl.stub
+        - phpstan/Pcov.stub
         - phpstan/TestCall.stub
     # PHP's zstd extension and outbreak.so, which the gate uses where they are loaded and which are not loaded where
     # it is analysed.
@@ -236,6 +237,7 @@ services:
                 - src/Adapter/Pest/Warm/Database/PdoStatements.php # PDO hands a row's values untyped
                 - src/Adapter/Pest/Split/StreamPlanFile.php # a split stream's plan, as JSON Pest's own process wrote
                 - src/Adapter/Pest/Split/StreamRead.php # a line of a split stream's results, as JSON a stream wrote
+                - src/Adapter/Pest/Split/RecordedLine.php # a line of a split stream's recorded lines, as JSON a stream wrote
                 - tests/Support/Bucket.php
                 - tests/Support/Cloud.php # Symfony's MockHttpClient hands a responder request options untyped
                 - tests/Support/Commands.php
