@@ -129,31 +129,20 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
     let directory = options.root.join(DIRECTORY);
     owned_directory(&directory, euid)?;
     fs::set_permissions(&directory, Permissions::from_mode(0o700))
-        .map_err(|error| format!("cannot keep {} to its owner: {error}", directory.display()))?;
+        .map_err(failed("keep to its owner", &directory))?;
     let lock = owned(&directory.join(LOCK), false, euid)?;
 
-    match lock.try_lock() {
-        Ok(()) => {}
-        Err(TryLockError::WouldBlock) => {
-            return Err(format!(
-                "a daemon already serves {}",
-                options.root.display()
-            ));
-        }
-        Err(TryLockError::Error(error)) => {
-            return Err(format!("cannot lock {}: {error}", directory.display()));
-        }
-    }
+    lock.try_lock()
+        .map_err(|error| unlocked(&error, &options.root, &directory))?;
 
     let state = read(&directory, euid);
     snapshotted(&directory, &state, euid)?;
     let journal = owned(&directory.join(JOURNAL), true, euid)?;
     let socket = socket(&options.root, euid)?;
     let _ = fs::remove_file(&socket);
-    let listener = UnixListener::bind(&socket)
-        .map_err(|error| format!("cannot listen on {}: {error}", socket.display()))?;
+    let listener = UnixListener::bind(&socket).map_err(failed("listen on", &socket))?;
     fs::set_permissions(&socket, Permissions::from_mode(0o600))
-        .map_err(|error| format!("cannot keep {} to its owner: {error}", socket.display()))?;
+        .map_err(failed("keep to its owner", &socket))?;
     let now = Instant::now();
     let shared = Arc::new(Shared {
         kept: Mutex::new(Kept {
@@ -193,16 +182,18 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
         })
     };
 
-    for stream in listener.incoming() {
+    loop {
+        let accepted = listener.accept();
+
         if shared.stopping.load(Ordering::SeqCst) {
             break;
         }
 
-        if let Ok(stream) = stream {
+        if let Ok((stream, _)) = accepted {
             let shared = Arc::clone(&shared);
             let root = options.root.clone();
             let socket = socket.clone();
-            thread::spawn(move || connected(stream, &shared, &root, &socket, contract));
+            thread::spawn(move || connected(&stream, &shared, &root, &socket, contract));
         }
     }
 
@@ -229,7 +220,7 @@ fn owned_directory(path: &Path, euid: u32) -> Result<(), String> {
         Err(error) if error.kind() == ErrorKind::NotFound => DirBuilder::new()
             .mode(0o700)
             .create(path)
-            .map_err(|error| format!("cannot make {}: {error}", path.display())),
+            .map_err(failed("make", path)),
         Err(error) => Err(format!("cannot read {}: {error}", path.display())),
     }
 }
@@ -252,7 +243,7 @@ pub fn socket(root: &Path, euid: u32) -> Result<PathBuf, String> {
     let short = PathBuf::from(format!("{SHORT}{euid}"));
     owned_directory(&short, euid)?;
     fs::set_permissions(&short, Permissions::from_mode(0o700))
-        .map_err(|error| format!("cannot keep {} to its owner: {error}", short.display()))?;
+        .map_err(failed("keep to its owner", &short))?;
     let digest = Sha256::digest(root.as_os_str().as_bytes());
     let named = digest
         .iter()
@@ -309,11 +300,9 @@ fn snapshotted(directory: &Path, state: &State, euid: u32) -> Result<(), String>
         .duration_since(UNIX_EPOCH)
         .map_or(0, |since| since.as_nanos());
     let written = directory.join(format!("{SNAPSHOT}.{}.{nanos}", std::process::id()));
-    let mut file = opened(
-        &written,
-        OpenOptions::new().write(true).create_new(true).mode(0o600),
-        euid,
-    )?;
+    let mut fresh = OpenOptions::new();
+    fresh.write(true).create_new(true).mode(0o600);
+    let mut file = opened(&written, &mut fresh, euid)?;
     file.write_all(&journal::snapshot(&state.records()))
         .and_then(|()| file.sync_all())
         .and_then(|()| fs::rename(&written, directory.join(SNAPSHOT)))
@@ -322,14 +311,10 @@ fn snapshotted(directory: &Path, state: &State, euid: u32) -> Result<(), String>
             format!("cannot write the snapshot: {error}")
         })?;
 
-    match opened(
-        &directory.join(JOURNAL),
-        OpenOptions::new().write(true),
-        euid,
-    ) {
-        Ok(journal) => journal
-            .set_len(0)
-            .map_err(|error| format!("cannot empty the journal: {error}")),
+    let journal = directory.join(JOURNAL);
+
+    match opened(&journal, OpenOptions::new().write(true), euid) {
+        Ok(file) => file.set_len(0).map_err(failed("empty", &journal)),
         Err(_) => Ok(()),
     }
 }
@@ -343,8 +328,7 @@ fn owned(path: &Path, emptied: bool, euid: u32) -> Result<File, String> {
     )?;
 
     if emptied {
-        file.set_len(0)
-            .map_err(|error| format!("cannot empty {}: {error}", path.display()))?;
+        file.set_len(0).map_err(failed("empty", path))?;
     }
 
     Ok(file)
@@ -355,10 +339,8 @@ fn opened(path: &Path, options: &mut OpenOptions, euid: u32) -> Result<File, Str
     let file = options
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
         .open(path)
-        .map_err(|error| format!("cannot open {}: {error}", path.display()))?;
-    let metadata = file
-        .metadata()
-        .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+        .map_err(failed("open", path))?;
+    let metadata = file.metadata().map_err(failed("read", path))?;
     own(path, &metadata, euid, Metadata::is_file)?;
 
     Ok(file)
@@ -452,12 +434,9 @@ fn synced(kept: &mut MutexGuard<'_, Kept>) {
 }
 
 /// Answers each request line of a client until it hangs up or the daemon stops.
-fn connected(stream: UnixStream, shared: &Shared, root: &Path, socket: &Path, contract: u32) {
+fn connected(stream: &UnixStream, shared: &Shared, root: &Path, socket: &Path, contract: u32) {
     shared.connected.fetch_add(1, Ordering::SeqCst);
-    let Ok(mut writer) = stream.try_clone() else {
-        shared.connected.fetch_sub(1, Ordering::SeqCst);
-        return;
-    };
+    let mut writer = stream;
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
 
@@ -545,6 +524,19 @@ fn stop(shared: &Shared, socket: &Path) {
     }
 }
 
+/// Why a step on a path failed, from the error it failed with.
+fn failed<'a>(doing: &'a str, path: &'a Path) -> impl FnOnce(std::io::Error) -> String + 'a {
+    move |error| format!("cannot {doing} {}: {error}", path.display())
+}
+
+/// Why the daemon's lock was not taken: another daemon holds it, or it could not be tried.
+fn unlocked(error: &TryLockError, root: &Path, directory: &Path) -> String {
+    match error {
+        TryLockError::WouldBlock => format!("a daemon already serves {}", root.display()),
+        TryLockError::Error(error) => format!("cannot lock {}: {error}", directory.display()),
+    }
+}
+
 fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
@@ -559,7 +551,11 @@ mod tests {
 
     use std::os::unix::fs::symlink;
 
-    use super::{DIRECTORY, Options, detached, own, owned_directory, serve, socket};
+    use super::{
+        DIRECTORY, Options, SNAPSHOT, detached, own, owned_directory, serve, snapshotted, socket,
+        unlocked,
+    };
+    use crate::state::State;
 
     fn options(root: PathBuf) -> Options {
         Options {
@@ -582,15 +578,20 @@ mod tests {
     }
 
     fn connected(root: &std::path::Path) -> UnixStream {
-        for _ in 0..200 {
-            if let Ok(stream) =
-                UnixStream::connect(socket(root, rustix::process::geteuid().as_raw()).unwrap())
-            {
+        let at = socket(root, rustix::process::geteuid().as_raw()).unwrap();
+        let since = std::time::Instant::now();
+
+        loop {
+            if let Ok(stream) = UnixStream::connect(&at) {
                 return stream;
             }
+
+            assert!(
+                since.elapsed() < Duration::from_secs(5),
+                "the daemon never listened"
+            );
             thread::sleep(Duration::from_millis(10));
         }
-        panic!("the daemon never listened");
     }
 
     #[test]
@@ -845,6 +846,84 @@ mod tests {
                     .permissions()
             ) & 0o777,
             0o700
+        );
+    }
+
+    #[test]
+    fn answers_the_graph_from_the_disk_and_the_power_source_and_lets_a_client_hang_up() {
+        let root = fresh("graph");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/A.php"), "<?php final class A {}").unwrap();
+        let serving = {
+            let options = options(root.clone());
+            thread::spawn(move || serve(&options, 1))
+        };
+        let graph = |at: &std::path::Path| {
+            format!(
+                r#"graph {{"root": {:?}, "sources": ["src/A.php"], "tests": [], "reach": [], "names": ["src/A.php"]}}"#,
+                at.display().to_string()
+            )
+        };
+        let mut stream = connected(&root);
+
+        assert!(!asked(&mut stream, &graph(&root)).contains("a file that cannot be read"));
+        assert!(
+            asked(&mut stream, &graph(std::path::Path::new("/elsewhere")))
+                .contains("a file that cannot be read")
+        );
+        assert!(
+            asked(&mut stream, r#"power {"since": 0, "wait": 0}"#)
+                .starts_with(r#"{"outbreak":1,""#)
+        );
+
+        for line in [
+            "contract",
+            r#"changed {"paths": ["src"], "since": 0, "wait": 0}"#,
+        ] {
+            let mut leaving = connected(&root);
+            writeln!(leaving, "{line}").unwrap();
+            drop(leaving);
+        }
+
+        thread::sleep(Duration::from_millis(200));
+
+        assert_eq!(
+            asked(&mut stream, "stop"),
+            r#"{"outbreak":1,"stopping":true}"#
+        );
+        assert_eq!(serving.join().unwrap(), Ok(()));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn leaves_no_snapshot_behind_that_it_could_not_put_in_place() {
+        let directory = fresh("snapshot");
+        std::fs::create_dir_all(directory.join(SNAPSHOT).join("held")).unwrap();
+        let euid = rustix::process::geteuid().as_raw();
+
+        assert!(
+            snapshotted(&directory, &State::default(), euid)
+                .is_err_and(|why| why.starts_with("cannot write the snapshot"))
+        );
+        assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    #[test]
+    fn says_why_its_lock_was_not_taken() {
+        let (root, directory) = (std::path::Path::new("/p"), std::path::Path::new("/p/d"));
+
+        assert_eq!(
+            unlocked(&std::fs::TryLockError::WouldBlock, root, directory),
+            "a daemon already serves /p"
+        );
+        assert_eq!(
+            unlocked(
+                &std::fs::TryLockError::Error(std::io::Error::other("gone")),
+                root,
+                directory
+            ),
+            "cannot lock /p/d: gone"
         );
     }
 }
