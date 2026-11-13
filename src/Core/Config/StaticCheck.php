@@ -248,8 +248,8 @@ final readonly class StaticCheck implements Part
             ...$this->seconds instanceof Seconds
                 ? [sprintf('StaticCheck::seconds(%d)', intval($this->seconds->seconds()))]
                 : [],
-            ...$this->before === true ? ['StaticCheck::beforeTests()'] : [],
-            ...$this->before === false ? ['StaticCheck::afterTests()'] : [],
+            ...$this->before === true ? ['CheckTiming::beforeTests()'] : [],
+            ...$this->before === false ? ['CheckTiming::afterTests()'] : [],
             ...$this->testsTime instanceof TestsTime ? [$this->testsTime->php()] : [],
             ...$this->learningPhp(),
             ...$this->php instanceof Json
@@ -281,7 +281,7 @@ final readonly class StaticCheck implements Part
                 : [sprintf('StaticCheck::dependents(%d)', $this->dependents)],
             ...$this->preCheckAfter instanceof Absent
                 ? []
-                : [sprintf('StaticCheck::preCheckAfter(%d)', $this->preCheckAfter)],
+                : [sprintf('CheckTiming::preCheckAfter(%d)', $this->preCheckAfter)],
         ];
     }
 

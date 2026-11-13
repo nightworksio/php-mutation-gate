@@ -10,9 +10,9 @@ use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Config\CheckTiming;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
-use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
@@ -835,7 +835,7 @@ it('checks mutants before their tests by default where an analyser is wired, and
         [],
     );
 
-    new Running(Flows::adapters($project, [], $after, $checker()), Flows::settings(StaticCheck::afterTests()), $ticking())
+    new Running(Flows::adapters($project, [], $after, $checker()), Flows::settings(CheckTiming::afterTests()), $ticking())
         ->run($plan, ShardId::of(1), Workspace::results());
     new Running(Flows::adapters($project, [], $before, $checker()), Flows::settings(), $ticking())
         ->run($plan, ShardId::of(1), Workspace::results());

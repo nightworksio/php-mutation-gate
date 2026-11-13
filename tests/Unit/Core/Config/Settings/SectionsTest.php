@@ -239,7 +239,7 @@ describe('Settings sections', function (): void {
             ->toContain("Pipeline::bitbucketDefinition('ci/bitbucket.yml')")
             ->toContain("Pipeline::jenkinsDefinition('ci/Jenkinsfile')")
             ->toContain('StaticCheck::seconds(45)')
-            ->toContain('StaticCheck::beforeTests()')
+            ->toContain('CheckTiming::beforeTests()')
             ->toContain('Survivors::firstAtMost(5)')
             ->toContain("Survivors::firstWithin('45m')")
             ->toContain('Survivors::firstAcross(6)')
@@ -506,15 +506,15 @@ describe('Settings sections', function (): void {
         expect($code)->toContain($written)
             ->and(str_contains($code, $unwritten))->toBeFalse();
     })->with([
-        'after' => [['staticCheck' => ['before' => false]], 'StaticCheck::afterTests()', 'StaticCheck::beforeTests()'],
-        'before' => [['staticCheck' => ['before' => true]], 'StaticCheck::beforeTests()', 'StaticCheck::afterTests()'],
+        'after' => [['staticCheck' => ['before' => false]], 'CheckTiming::afterTests()', 'CheckTiming::beforeTests()'],
+        'before' => [['staticCheck' => ['before' => true]], 'CheckTiming::beforeTests()', 'CheckTiming::afterTests()'],
         'unset' => [[], 'Runner::pest()', 'Tests()'],
         'weighed as learned' => [[
             'staticCheck' => ['testsTime' => 'learned'],
-        ], 'StaticCheck::learnedTestsTime()', 'StaticCheck::coveringTestsTime()'],
+        ], 'CheckTiming::learnedTestsTime()', 'CheckTiming::coveringTestsTime()'],
         'weighed as covering' => [[
             'staticCheck' => ['testsTime' => 'covering'],
-        ], 'StaticCheck::coveringTestsTime()', 'StaticCheck::learnedTestsTime()'],
+        ], 'CheckTiming::coveringTestsTime()', 'CheckTiming::learnedTestsTime()'],
         'weighed as by default' => [[], 'Runner::pest()', 'TestsTime()'],
     ]);
 })->group('holds:src/Core/Config/Floors.php', 'holds:src/Core/Config/Shards.php');

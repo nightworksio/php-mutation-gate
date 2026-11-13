@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Config\CheckTiming;
 use NightWorksIO\MutationGate\Config\Controls as ControlsBuilder;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Pest as PestBuilder;
@@ -25,7 +26,7 @@ $toggles = [
     'pest.trials' => [Toggle::PestTrials, static fn(): Setting => PestBuilder::withoutTrials(), static fn(): Setting => PestBuilder::trying()],
     'pest.valueReaders' => [Toggle::PestValueReaders, static fn(): Setting => PestBuilder::withoutValueReaders(), static fn(): Setting => PestBuilder::readingValues()],
     'pest.narrow' => [Toggle::PestNarrow, static fn(): Setting => PestBuilder::unnarrowed(), static fn(): Setting => PestBuilder::narrowing()],
-    'staticCheck.after' => [Toggle::StaticCheckAfter, static fn(): Setting => StaticCheckBuilder::survivorsUnchecked(), static fn(): Setting => StaticCheckBuilder::checkingSurvivors()],
+    'staticCheck.after' => [Toggle::StaticCheckAfter, static fn(): Setting => CheckTiming::survivorsUnchecked(), static fn(): Setting => CheckTiming::checkingSurvivors()],
     'timeouts.parts' => [Toggle::TimeoutsParts, static fn(): Setting => TimeoutsBuilder::neverInParts(), static fn(): Setting => TimeoutsBuilder::inParts()],
     'suggest.looseValues' => [Toggle::SuggestLooseValues, static fn(): Setting => SuggestBuilder::looseValuesSilent(), static fn(): Setting => SuggestBuilder::looseValuesNoted()],
     'pest.shardScan' => [Toggle::PestShardScan, static fn(): Setting => PestSpeedUps::scanningEachChunk(), static fn(): Setting => PestSpeedUps::scanningOnceAShard()],

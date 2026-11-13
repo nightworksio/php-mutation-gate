@@ -10,12 +10,12 @@ use NightWorksIO\MutationGate\Cli\Flow\MapJudges;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Config\Baseline;
+use NightWorksIO\MutationGate\Config\CheckTiming;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\PathRule;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
-use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
@@ -464,7 +464,7 @@ it('keys a unit apart by what the paths entries matching it set, leaving the bas
     );
     $judged = keyingOf(
         keyingRunner('fake'),
-        Flows::settings(PathRule::matching('src/Money.php', Gate::configure()->with(StaticCheck::afterTests()))),
+        Flows::settings(PathRule::matching('src/Money.php', Gate::configure()->with(CheckTiming::afterTests()))),
         keyingSuite('1'),
         Flows::setup(),
     );

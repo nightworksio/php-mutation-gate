@@ -26,6 +26,7 @@ final readonly class BuilderClasses
         'Badge' => self::BUILDER,
         'Baseline' => self::BUILDER,
         'Budget' => self::BUILDER,
+        'CheckTiming' => self::BUILDER,
         'Ci' => self::BUILDER,
         'Comment' => self::BUILDER,
         'Context' => self::BUILDER,

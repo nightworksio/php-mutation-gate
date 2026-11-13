@@ -6,13 +6,12 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck as CoreStaticCheck;
-use NightWorksIO\MutationGate\Core\Config\TestsTime;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
- * `staticCheck`: the static analyser that may kill a mutant before or after
- * its tests, and the config it reads (ADR-0020).
+ * `staticCheck`: the static analyser that may kill a mutant, the config it
+ * reads and how it runs (ADR-0020); when it checks is CheckTiming's.
  */
 final readonly class StaticCheck implements Setting
 {
@@ -65,30 +64,6 @@ final readonly class StaticCheck implements Setting
         return new self(Json::at('staticCheck.seconds', $seconds));
     }
 
-    /** `staticCheck.before`, as by default: a mutant is also checked before its tests, where that pays. */
-    public static function beforeTests(): self
-    {
-        return new self(Json::at('staticCheck.before', value: true));
-    }
-
-    /** `staticCheck.before` off: only the tests' survivors are checked. */
-    public static function afterTests(): self
-    {
-        return new self(Json::at('staticCheck.before', value: false));
-    }
-
-    /** `staticCheck.testsTime`, as by default: a check is weighed against what the ledgers learned judging costs. */
-    public static function learnedTestsTime(): self
-    {
-        return new self(Json::at('staticCheck.testsTime', TestsTime::Learned->value));
-    }
-
-    /** `staticCheck.testsTime: covering`: a check is weighed against every covering test's own time. */
-    public static function coveringTestsTime(): self
-    {
-        return new self(Json::at('staticCheck.testsTime', TestsTime::Covering->value));
-    }
-
     /** `staticCheck.opcache.batch`: the programs one child compiles; 100. */
     public static function opcacheBatch(int $programs): self
     {
@@ -105,26 +80,6 @@ final readonly class StaticCheck implements Setting
     public static function dependents(int $files): self
     {
         return new self(Json::at('staticCheck.dependents', $files));
-    }
-
-    /** `staticCheck.preCheckAfter`: how many checks of a mutator come before its rate decides, 50 by default. */
-    public static function preCheckAfter(int $checks): self
-    {
-        return new self(Json::at('staticCheck.preCheckAfter', $checks));
-    }
-
-    /**
-     * `staticCheck.after`, `true`: a survivor the analyser rejects counts as killed by static analysis, as by default.
-     */
-    public static function checkingSurvivors(): self
-    {
-        return new self(Json::at('staticCheck.after', value: true));
-    }
-
-    /** `staticCheck.after`, `false`: no survivor is checked after its tests. */
-    public static function survivorsUnchecked(): self
-    {
-        return new self(Json::at('staticCheck.after', value: false));
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Config\Badge;
 use NightWorksIO\MutationGate\Config\Baseline;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Config\CheckTiming;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Comment;
 use NightWorksIO\MutationGate\Config\CostModel;
@@ -433,19 +434,19 @@ it('names each built-in adapter by a method of its own', function (Closure $gate
         ['staticCheck' => ['tool' => 'none']],
     ],
     'analysis before the tests' => [
-        fn(): Gate => Gate::configure()->with(StaticCheck::beforeTests()),
+        fn(): Gate => Gate::configure()->with(CheckTiming::beforeTests()),
         ['staticCheck' => ['before' => true]],
     ],
     'analysis of the survivors only' => [
-        fn(): Gate => Gate::configure()->with(StaticCheck::beforeTests(), StaticCheck::afterTests()),
+        fn(): Gate => Gate::configure()->with(CheckTiming::beforeTests(), CheckTiming::afterTests()),
         ['staticCheck' => ['before' => false]],
     ],
     'checks weighed against what the ledgers learned' => [
-        fn(): Gate => Gate::configure()->with(StaticCheck::coveringTestsTime(), StaticCheck::learnedTestsTime()),
+        fn(): Gate => Gate::configure()->with(CheckTiming::coveringTestsTime(), CheckTiming::learnedTestsTime()),
         ['staticCheck' => ['testsTime' => 'learned']],
     ],
     'checks weighed against every covering test' => [
-        fn(): Gate => Gate::configure()->with(StaticCheck::coveringTestsTime()),
+        fn(): Gate => Gate::configure()->with(CheckTiming::coveringTestsTime()),
         ['staticCheck' => ['testsTime' => 'covering']],
     ],
     'mago' => [fn(): Gate => Gate::configure()->with(StaticCheck::mago()), ['staticCheck' => ['tool' => 'mago']]],
