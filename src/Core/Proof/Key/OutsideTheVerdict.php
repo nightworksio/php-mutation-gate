@@ -99,6 +99,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/PartedRuns.php',
             'src/Cli/Flow/PlanMade.php',
             'src/Cli/Flow/Planning.php',
+            'src/Cli/Flow/PlannedShards.php',
             'src/Cli/Flow/PrintBaselines.php',
             'src/Cli/Flow/PrunedUnits.php',
             'src/Cli/Flow/QuickCoverage.php',

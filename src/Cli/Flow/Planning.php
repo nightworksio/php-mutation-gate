@@ -11,19 +11,15 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\Coverage\Untested;
-use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
-use NightWorksIO\MutationGate\Core\Order\RiskOrder;
 use NightWorksIO\MutationGate\Core\Order\Saved;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
@@ -32,24 +28,15 @@ use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
-use NightWorksIO\MutationGate\Core\Plan\Weighed;
-use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
-use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
-use NightWorksIO\MutationGate\Core\Reach\Packages;
-use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Sample\Sample;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Tree\Tree;
-use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
 use function sprintf;
@@ -73,11 +60,6 @@ final readonly class Planning
         A pull request's or merge group's new code is judged against %s, and git cannot tell what changed since it,
         so no floor for new code can be held. %s
         Fetch it into the checkout before the plan.
-        SAID;
-
-    private const string PACKAGED = <<<'SAID'
-        The package at %s has units to mutate, and the runner runs the suite of the project's root alone,
-        which does not judge another package's code, so their mutants cannot be judged.
         SAID;
 
     private const string NOT_FULL = <<<'SAID'
@@ -128,18 +110,38 @@ final readonly class Planning
 
         $early = $this->early($inventory, $ledgers, $mode, $coverage);
 
-        if (! $early instanceof CoverageMeasured && $earlyOnly) {
-            $waits = Plan::of($inventory->standing->head(), Digest::ofNothing(), Keys::none(), Shards::none());
+        return match (true) {
+            $early instanceof CoverageMeasured
+                => $this->plannedEarly($inventory, $writing, $mode, $early, $cut, $matrix, $ownMap, $quick),
+            $earlyOnly => $this->waiting($inventory),
+            default => $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap, $quick),
+        };
+    }
 
-            return PlanMade::of($waits->briefed(Briefing::standard()->waitingForAMap()), self::WAITS);
-        }
+    /** The plan of a run that waits for a fresh map, planning nothing: the caller that hands one runs it. */
+    private function waiting(Inventory $inventory): PlanMade
+    {
+        $waits = Plan::of($inventory->standing->head(), Digest::ofNothing(), Keys::none(), Shards::none());
 
-        if (! $early instanceof CoverageMeasured) {
-            return $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap, $quick);
-        }
+        return PlanMade::of($waits->briefed(Briefing::standard()->waitingForAMap()), self::WAITS);
+    }
 
-        $taking = $mode->takingNone();
+    /**
+     * The plan of a run started early against the map it keeps, taking no
+     * proof, since what it runs is judged again once the fresh map is in.
+     */
+    private function plannedEarly(
+        Inventory $inventory,
+        Writing $writing,
+        Mode $mode,
+        CoverageMeasured $early,
+        Cut $cut,
+        MatrixKind $matrix,
+        bool $ownMap,
+        QuickRound|NotGiven $quick,
+    ): PlanMade|CannotJudge {
         $none = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing, TakenProofs::None);
+        $taking = $mode->takingNone();
         $made = $this->measured($inventory, $none, $taking, $early->request(), $cut, $matrix, $ownMap, $quick);
 
         return $made instanceof PlanMade ? $made->plannedEarly($early) : $made;
@@ -335,15 +337,16 @@ final readonly class Planning
             $this->settings->shards()->costs()->firstRunShape(),
         )
             ->measured($map, $ledgers->untimed($toRun, $this->setup->gate));
-        $shards = $this->shardsOf(
+        $planned = new PlannedShards($this->adapters, $this->settings, $this->setup);
+        $shards = $planned->of(
             $toRun,
             $inventory->trees,
             $ledgers,
             $firstRun,
-            $cut->opening($opening),
-            $this->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun)->saving($saved),
+            $cut,
+            $opening,
+            $planned->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun)->saving($saved),
         );
-        $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $digests = $this->committed($now, $inventory->standing->head());
         $reasons = KeysApart::said(
             OwnScopeStanding::said(
@@ -396,27 +399,6 @@ final readonly class Planning
     }
 
     /**
-     * The units to run cut into shards, each of the project's root package,
-     * where the runner has no ignore marker in them the config refuses, and
-     * each shard's units the riskiest first, the order a budget runs them in.
-     */
-    private function shardsOf(
-        Units $toRun,
-        Trees $trees,
-        Ledgers $ledgers,
-        FirstRun $firstRun,
-        Cut $cut,
-        RiskOrder $order,
-    ): Shards|CannotJudge {
-        $unmarked = new RunnerMarkers($this->adapters, $this->settings)->refusing($toRun);
-        $shards = $unmarked instanceof Units
-            ? $cut->cut($this->workload($unmarked, $trees, $ledgers, $firstRun), $trees)
-            : $unmarked;
-
-        return $shards instanceof Shards ? $this->rooted($shards, $order) : $shards;
-    }
-
-    /**
      * The run's digests, taken at the commit the checkout is at where the
      * working tree holds nothing that commit does not, as read once every key
      * is built: a change made while they were built and still on disk then
@@ -433,35 +415,6 @@ final readonly class Planning
         return $clean && $still instanceof Revision && $still->name() === $head->name()
             ? $digests->takenAt($head)
             : $digests;
-    }
-
-    /**
-     * The order a budget takes these units in, knowing when each of the least
-     * risky last changed; by path among those where git cannot tell. A run
-     * that knows no change, as a full one does not, reaches no unit by one.
-     */
-    private function riskOrder(Reached $reached, Trees $trees, NewestProofs $newest, Units $units): RiskOrder
-    {
-        $order = RiskOrder::of(
-            $reached->changed() instanceof Changes ? $reached->reach() : Reach::nothing(Packages::of($trees)),
-            $newest,
-            MutantTriage::under($this->settings->triage()->timeouts(), $this->settings->triage()->headroom()),
-        );
-        $changed = $this->adapters->changes->lastChanged($order->least($units));
-
-        return $changed instanceof ByPath ? $order->knowing($changed) : $order;
-    }
-
-    /** The shards, each expecting its runner to pay this opening run first. */
-    private function opening(Shards $shards, Seconds $opening): Shards
-    {
-        $opened = [];
-
-        foreach ($shards as $shard) {
-            $opened[] = $shard->estimated($shard->estimate()->opening($opening));
-        }
-
-        return Shards::of(...$opened);
     }
 
     /**
@@ -514,24 +467,6 @@ final readonly class Planning
     }
 
 
-    /** The shards, each in this order, where each is of the project's root package. */
-    private function rooted(Shards $shards, RiskOrder $order): Shards|CannotJudge
-    {
-        $ordered = Shards::none();
-
-        foreach ($shards as $shard) {
-            $package = $shard->package()->path();
-
-            if (! $package->equals(Path::root())) {
-                return CannotJudge::because(sprintf(self::PACKAGED, $package->value()));
-            }
-
-            $ordered = $ordered->with($shard->ordered($order));
-        }
-
-        return $ordered;
-    }
-
     private function unitsOf(UnitResults $results): Units
     {
         $units = Units::none();
@@ -541,22 +476,5 @@ final readonly class Planning
         }
 
         return $units;
-    }
-
-    /** Each unit to run, in the package its tree is in, weighed by what the cost model expects of it. */
-    private function workload(Units $units, Trees $trees, Ledgers $ledgers, FirstRun $firstRun): Workload
-    {
-        $weighed = [];
-
-        foreach ($units as $unit) {
-            $tree = $trees->holding($unit->path());
-
-            if ($tree instanceof Tree) {
-                $estimated = $ledgers->estimated($this->adapters->costs, $unit, $firstRun, $this->setup->gate);
-                $weighed[] = Weighed::of($unit, $tree->package(), $estimated);
-            }
-        }
-
-        return Workload::of(...$weighed);
     }
 }
