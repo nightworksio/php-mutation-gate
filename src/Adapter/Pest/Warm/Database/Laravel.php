@@ -33,13 +33,13 @@ use function spl_autoload_register;
  */
 final readonly class Laravel
 {
+    /** Laravel's container, by its class's name, which the gate does not require. */
+    public const string CONTAINER = 'Illuminate\Container\Container';
     private const string STATE = 'Illuminate\Foundation\Testing\RefreshDatabaseState';
 
     private const string MIGRATED = 'migrated';
 
     private const string TRANSACTIONS = 'Illuminate\Foundation\Testing\DatabaseTransactionsManager';
-
-    private const string CONTAINER = 'Illuminate\Container\Container';
 
     /** Whether `RefreshDatabase` holds its test database migrated; not where Laravel's testing is not installed. */
     public static function migrated(): bool

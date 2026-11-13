@@ -83,8 +83,6 @@ final readonly class FreshRuns
     private const string COVERING = 'covering.txt';
 
     /** Where a mutant's fresh run writes its JUnit log, in the mutant's own directory. */
-    private const string LOG = '%s/%s';
-
     /** Where the unmutated copy a mutant's control serves is written, in the mutant's own directory. */
     private const string UNMUTATED = '%s/unmutated.php';
 
@@ -263,7 +261,7 @@ final readonly class FreshRuns
         $id = $mutant->id()->value();
         $log = $files instanceof CannotJudge
             ? $files
-            : $this->placement->fresh(sprintf(self::LOG, $id, JUnitLog::NAME));
+            : $this->placement->fresh(sprintf('%s/%s', $id, JUnitLog::NAME));
         $copy = $printed instanceof CannotJudge || $files instanceof CannotJudge || $log instanceof CannotJudge
             ? $log
             : $this->unmutated($printed, $files, $id);

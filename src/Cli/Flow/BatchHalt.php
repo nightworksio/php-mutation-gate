@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Watch\Watched;
 
 use function pcntl_alarm;
 use function pcntl_signal;
@@ -37,7 +38,7 @@ use const SIGALRM;
  */
 final class BatchHalt
 {
-    private const string HASH = 'xxh128';
+    private const string HASH = Watched::HASH;
 
     private const string UNREAD = '';
 

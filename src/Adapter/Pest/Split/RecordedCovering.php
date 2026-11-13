@@ -27,8 +27,6 @@ use function sprintf;
  */
 final readonly class RecordedCovering
 {
-    private const string RECORDED = '%s/recorded-*.jsonl';
-
     /**
      * @param  array<string, MutationTest> $mutants by Pest's id
      * @return array<string, list<string>>  each mutant's covering tests, by their ids
@@ -59,7 +57,7 @@ final readonly class RecordedCovering
     {
         $executed = [];
 
-        foreach ($directory === '' ? [] : (glob(sprintf(self::RECORDED, $directory)) ?: []) as $file) {
+        foreach ($directory === '' ? [] : (glob(sprintf(RecordedMap::RECORDED, $directory)) ?: []) as $file) {
             foreach (file($file) ?: [] as $text) {
                 $line = json_decode($text, associative: true);
 

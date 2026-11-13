@@ -21,7 +21,7 @@ final readonly class CoverageDrivers
     /** The value of pcov's variable that turns it off. */
     private const string PCOV_OFF = '0';
 
-    private const string XDEBUG_OFF = 'off';
+    private const string XDEBUG_OFF = Xdebug::OFF;
 
     /**
      * What a mutation run's environment sets, where its streams record lines with pcov or not.

@@ -12,6 +12,7 @@ use function is_object;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\ByName;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Laravel;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\LaravelConfig;
 use PDO;
 use PDOException;
@@ -28,8 +29,6 @@ use PDOException;
  */
 final readonly class LaravelDatabases
 {
-    private const string CONTAINER = 'Illuminate\Container\Container';
-
     private const string MANAGER = 'db';
 
     private const string FACTORY = 'db.factory';
@@ -48,7 +47,7 @@ final readonly class LaravelDatabases
     /** The current application's databases; none where there is no application, or it binds no database manager. */
     public static function current(): ?self
     {
-        $application = ByName::called(self::CONTAINER, 'getInstance');
+        $application = ByName::called(Laravel::CONTAINER, 'getInstance');
         $bound = ByName::called($application, 'bound', self::MANAGER) === true
             && ByName::called($application, 'bound', self::FACTORY) === true
             && ByName::called($application, 'bound', self::CONFIG) === true;

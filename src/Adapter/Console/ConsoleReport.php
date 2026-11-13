@@ -49,6 +49,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class ConsoleReport implements Configurable, Reporter
 {
+    /** A line the gate says on the console, after its name. */
+    public const string JUDGED = 'mutation-gate: %s';
     private const string RAISE = 'Raise them with %s, and commit the baseline.';
 
     /** A floor that can rise: what it is of, and what to. */
@@ -56,8 +58,6 @@ final readonly class ConsoleReport implements Configurable, Reporter
 
     /** How many units the run judged, and where each one's results came from. */
     private const string UNITS = '%d %s: %d run, %d proved, %d carried.';
-
-    private const string JUDGED = 'mutation-gate: %s';
 
     private const string QUICK = <<<'SAID'
         mutation-gate: quick, not a verdict: covering tests only, no static check.

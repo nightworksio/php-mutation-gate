@@ -29,12 +29,10 @@ use function str_starts_with;
  */
 final readonly class RecordedSuite
 {
-    private const string RECORDED = '%s/recorded-*.jsonl';
-
     /** The suite recorded in a directory; none where its streams recorded nothing. */
     public static function in(string $directory, Root $root): StreamedSuite|NotGiven
     {
-        $files = glob(sprintf(self::RECORDED, $directory));
+        $files = glob(sprintf(RecordedMap::RECORDED, $directory));
 
         if ($files === false || $files === []) {
             return NotGiven::value();

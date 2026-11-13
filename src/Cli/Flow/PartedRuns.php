@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use Closure;
+use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -40,7 +41,7 @@ use function sprintf;
 final readonly class PartedRuns
 {
     /** A line of the log, naming what each round of a heavy mutant's parts runs. */
-    private const string SAID = 'mutation-gate: %s';
+    private const string SAID = ConsoleReport::JUDGED;
 
     public function __construct(
         private Adapters $adapters,

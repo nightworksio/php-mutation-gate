@@ -16,6 +16,7 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 
 use function preg_match;
 use function rmdir;
@@ -72,7 +73,14 @@ final readonly class OpArrays
         PHP;
 
     /** What the child runs with besides the tests' own php.ini: the extension, and no error among its answers. */
-    private const array SETTINGS = ['-d', 'extension=%s', '-d', 'display_errors=0', '-d', 'log_errors=0'];
+    private const array SETTINGS = [
+        PcovReach::SETS,
+        'extension=%s',
+        PcovReach::SETS,
+        'display_errors=0',
+        PcovReach::SETS,
+        'log_errors=0',
+    ];
 
     /**
      * @param string $binary    the PHP the tests run on

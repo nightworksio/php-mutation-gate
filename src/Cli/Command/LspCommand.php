@@ -53,10 +53,6 @@ final readonly class LspCommand
 
     private const string REST = '--';
 
-    private const string LONG = '--%s';
-
-    private const string GIVEN = '%s=';
-
     private const string NO_BINARY = <<<'SAID'
         mutation-gate lsp needs the Outbreak binary, and none is in use:
         `outbreak.enabled` is off, or none is built for this machine.
@@ -129,8 +125,8 @@ final readonly class LspCommand
     private static function watching(InputInterface $input): array
     {
         $tokens = $input instanceof ArgvInput ? $input->getRawTokens(strip: true) : [];
-        $severity = sprintf(self::LONG, self::SEVERITY);
-        $own = [$severity, sprintf(self::LONG, self::STDIO)];
+        $severity = sprintf('--%s', self::SEVERITY);
+        $own = [$severity, sprintf('--%s', self::STDIO)];
         $handed = [];
         $valueOfOwn = false;
 
@@ -141,7 +137,7 @@ final readonly class LspCommand
 
             $isOwn = $valueOfOwn
                 || in_array($token, $own, strict: true)
-                || str_starts_with($token, sprintf(self::GIVEN, $severity));
+                || str_starts_with($token, sprintf('%s=', $severity));
             $valueOfOwn = $token === $severity;
 
             if (! $isOwn) {

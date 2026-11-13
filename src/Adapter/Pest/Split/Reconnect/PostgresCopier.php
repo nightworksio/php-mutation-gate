@@ -36,8 +36,6 @@ final readonly class PostgresCopier implements Copier
 
     private const string CREATE = 'CREATE DATABASE %s TEMPLATE %s';
 
-    private const string DROP = 'DROP DATABASE IF EXISTS %s';
-
     private const string MARK = '"';
 
     public function holdsState(Session $session): bool

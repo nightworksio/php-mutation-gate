@@ -8,6 +8,7 @@ use function in_array;
 use function is_string;
 use function json_decode;
 
+use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
@@ -30,14 +31,14 @@ use function sprintf;
  */
 final readonly class PhpStanRestart
 {
-    private const string ANALYSER = 'phpstan';
+    private const string ANALYSER = BuiltinAnalyser::PhpStan->value;
 
-    private const string MODE_SETTING = 'xdebug.mode';
+    private const string MODE_SETTING = Xdebug::MODE_SETTING;
 
-    private const string OFF = 'off';
+    private const string OFF = Xdebug::OFF;
 
     /** Xdebug's mode where nothing sets one. */
-    private const string DEFAULT_MODE = 'develop';
+    private const string DEFAULT_MODE = Xdebug::DEFAULT_MODE;
 
     private const string FOUND = 'PHPStan restarts itself without Xdebug for every check in %s.';
 

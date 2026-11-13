@@ -15,6 +15,9 @@ use PDOException;
  */
 interface Copier
 {
+    /** The statement that drops a copy's database, on a server that holds databases by name. */
+    public const string DROP = 'DROP DATABASE IF EXISTS %s';
+
     /** Whether the session holds state a copy would lack: true where the database cannot tell. */
     public function holdsState(Session $session): bool;
 

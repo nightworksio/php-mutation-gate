@@ -11,6 +11,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\File\Glob;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Proof\Compression;
@@ -35,7 +36,7 @@ final readonly class Proofs implements Part
 
     /** @param Listed<Glob>|Absent $ignore */
     /** gzip's own default level, which a coverage map is packed at where nothing says. */
-    private const int COVERAGE_LEVEL = 6;
+    private const int COVERAGE_LEVEL = Gzip::LEVEL;
 
     private function __construct(
         private Choice|Absent $store,

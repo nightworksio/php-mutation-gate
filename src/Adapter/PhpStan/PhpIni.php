@@ -13,6 +13,7 @@ use function is_scalar;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
+use NightWorksIO\MutationGate\Core\Runner\Opcache;
 
 use const PHP_MAJOR_VERSION;
 use const PHP_MINOR_VERSION;
@@ -39,9 +40,9 @@ use function strtolower;
 final readonly class PhpIni
 {
     /** The setting of Xdebug's mode, which its variable overrides. */
-    public const string XDEBUG_MODE = 'xdebug.mode';
+    public const string XDEBUG_MODE = Xdebug::MODE_SETTING;
 
-    private const string FILE_CACHE = 'opcache.file_cache';
+    private const string FILE_CACHE = Opcache::FILE_CACHE;
 
     private const string FILE_CACHE_ONLY = 'opcache.file_cache_only';
 

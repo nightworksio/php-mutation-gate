@@ -109,8 +109,6 @@ final readonly class MySqlCopier implements Copier
 
     private const string INSERT = 'INSERT INTO %s.%s (%s) SELECT %s FROM %s.%s';
 
-    private const string DROP = 'DROP DATABASE IF EXISTS %s';
-
     private const string MARK = '`';
 
     public function holdsState(Session $session): bool

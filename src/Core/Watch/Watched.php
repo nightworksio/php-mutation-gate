@@ -36,10 +36,10 @@ use function sprintf;
  */
 final readonly class Watched
 {
+    /** The hash a look tells a changed file by. */
+    public const string HASH = 'xxh128';
     /** A test file in the digest of them all: its path and its own digest. */
     private const string ENTRY = '%s %s';
-
-    private const string HASH = 'xxh128';
 
     /** @param list<SuiteDirectory> $tests */
     private function __construct(

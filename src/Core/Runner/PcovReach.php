@@ -21,14 +21,14 @@ use function sprintf;
 final readonly class PcovReach
 {
     public const string SETTING = '%s=%s';
+
+    /** How PHP's command line sets an ini setting. */
+    public const string SETS = '-d';
     /** pcov's setting of the directory it collects from. */
     private const string DIRECTORY = 'pcov.directory';
 
     /** pcov's setting of the pattern a file it leaves out matches, its path as PHP compiled it. */
     private const string EXCLUDE = 'pcov.exclude';
-
-    /** How PHP's command line sets an ini setting. */
-    private const string SETS = '-d';
 
     /** A path that starts in a directory. */
     private const string WITHIN = '~^%s/~';

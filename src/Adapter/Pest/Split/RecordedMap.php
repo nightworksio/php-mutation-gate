@@ -33,7 +33,8 @@ use function unlink;
  */
 final readonly class RecordedMap
 {
-    private const string RECORDED = '%s/recorded-*.jsonl';
+    /** Every stream's recorded lines in a directory, by the directory. */
+    public const string RECORDED = '%s/recorded-*.jsonl';
 
     /**
      * The map recorded in a directory; none where its streams recorded
