@@ -175,8 +175,8 @@
         "error": "A test threw against the lowest dependencies: a lower bound in composer.json no longer works."
       }
     },
-    "phar": {
-      "check": "phar",
+    "phar/phar": {
+      "check": "phar / phar",
       "checks": "The gate's PHAR builds as a release builds it, says its version, prints the committed config schema, judges an Infection project that installs no copy of the gate, and refuses the Pest runner, on the PHP it is built with and on the lowest PHP the package supports.",
       "reproduce": "composer phar && composer install --working-dir=tests/Fixtures/Archive && vendor/bin/pest --group=phar",
       "evidence": [

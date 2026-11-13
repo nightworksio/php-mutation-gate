@@ -23,7 +23,7 @@ CHECKS = {
     "guards": ("rules", "the rules refuse violations"),
     "checks": ("checks",),
     "lowest": ("lowest dependencies",),
-    "phar": ("phar",),
+    "phar": ("phar / phar",),
 }
 
 

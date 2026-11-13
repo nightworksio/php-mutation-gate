@@ -227,6 +227,9 @@ REPLAY = (
 # (ADR-0022).
 IMAGE = ("Dockerfile", ".dockerignore", "box.json.dist", "scoper.inc.php", "scripts/phar.sh", ".github/workflows/image.yml")
 
+# The workflow that builds the PHAR and runs its smoke suite.
+PHAR = ".github/workflows/phar.yml"
+
 # The native runner, which drives each framework that has no runner of its own.
 NATIVE = ("src/Adapter/Native/", "src/Core/Native/")
 
@@ -349,7 +352,7 @@ INPUTS: dict[str, Callable[[str], bool]] = {
     "checks": is_program,
     "tests": lambda path: suites_read(path) or under(path, SONAR),
     "lowest": is_program,
-    "phar": is_program,
+    "phar": lambda path: is_program(path) or path == PHAR,
     "image": lambda path: path in IMAGE,
     "replay": lambda path: under(path, REPLAY),
     "outbreak": lambda path: under(path, OUTBREAK + OUTBREAK_BOUNDARY),

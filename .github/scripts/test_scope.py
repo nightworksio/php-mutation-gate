@@ -195,6 +195,11 @@ class TheImage(unittest.TestCase):
             self.assertIn("image", ran(pull(path)), path)
         self.assertNotIn("image", ran(pull("src/Core/Plan/Cut.php")))
 
+    def test_builds_the_phar_where_the_program_or_its_own_workflow_changed(self):
+        self.assertEqual(ran(pull(scope.PHAR)), ["phar"])
+        self.assertIn("phar", ran(pull("src/Core/Plan/Cut.php")))
+        self.assertNotIn("phar", ran(pull(".github/workflows/image.yml")))
+
 
 class TheWorkflowAgrees(unittest.TestCase):
     def setUp(self):
