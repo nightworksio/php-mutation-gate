@@ -16,9 +16,12 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\Unproved;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+
+$unitOf = static fn(Proof|Unproved $proof): string => $proof instanceof Proof ? $proof->unit()->value() : '';
 
 // What the binary does with the gate's packs of proofs (ADR-0131): a pack it
 // merges and pulls gives back each proof exactly as the gate reads it, the
@@ -30,14 +33,14 @@ afterEach(function (): void {
 });
 
 $makeBase = static fn(): Digest => Digest::of(str_repeat('b', 64));
-$proofAt = static fn(string $key, string $unit, string $run) => Proof::of(
+$proofAt = static fn(string $key, string $unit, string $run): Proof => Proof::of(
     Digest::of($key),
     Path::of($unit),
     Mutants::none(),
     Run::of($run, Instant::at(new DateTimeImmutable('2026-11-09T20:00:00Z')), Digest::of(str_repeat('b', 64))),
 );
 
-it('merges a verdict\'s entries into the restored pack, and pulls back each proof as the gate reads it', function () use ($makeBase, $proofAt): void {
+it('merges a verdict\'s entries into the restored pack, and pulls back each proof as the gate reads it', function () use ($makeBase, $proofAt, $unitOf): void {
     $base = $makeBase();
     $root = Scratch::directory();
     $binary = getenv('OUTBREAK_BINARY');
@@ -64,7 +67,7 @@ it('merges a verdict\'s entries into the restored pack, and pulls back each proo
 
     expect([$pushed, $pulled])->each->toBeInstanceOf(Written::class)
         ->and($read)->toBeInstanceOf(Proofs::class)
-        ->and($read instanceof Proofs ? $read->proofFor($newer->key())->unit()->value() : '')->toBe('src/New.php')
-        ->and($read instanceof Proofs ? $read->proofFor($kept->key())->unit()->value() : '')->toBe('src/Kept.php')
+        ->and($read instanceof Proofs ? $unitOf($read->proofFor($newer->key())) : '')->toBe('src/New.php')
+        ->and($read instanceof Proofs ? $unitOf($read->proofFor($kept->key())) : '')->toBe('src/Kept.php')
         ->and($read instanceof Proofs ? $read->count() : 0)->toBe(2);
 });

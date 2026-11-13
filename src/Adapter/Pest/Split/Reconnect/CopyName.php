@@ -35,6 +35,6 @@ final readonly class CopyName
     /** A name quoted between this mark, each such mark in it doubled. */
     public static function quoted(string $name, string $mark): string
     {
-        return $mark . str_replace($mark, $mark . $mark, $name) . $mark;
+        return sprintf('%1$s%2$s%1$s', $mark, str_replace($mark, sprintf('%1$s%1$s', $mark), $name));
     }
 }

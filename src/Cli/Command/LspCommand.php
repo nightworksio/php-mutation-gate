@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function array_slice;
+use function in_array;
 use function is_resource;
 
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
@@ -16,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Verb;
 
 use function proc_close;
 use function proc_open;
+use function sprintf;
 use function str_starts_with;
 
 use Symfony\Component\Console\Command\Command;
@@ -51,13 +53,9 @@ final readonly class LspCommand
 
     private const string REST = '--';
 
-    private const string LONG = '--';
+    private const string LONG = '--%s';
 
-    private const string SEVERITY_OPTION = self::LONG . self::SEVERITY;
-
-    private const string SEVERITY_GIVEN = self::SEVERITY_OPTION . '=';
-
-    private const string STDIO_OPTION = self::LONG . self::STDIO;
+    private const string GIVEN = '%s=';
 
     private const string NO_BINARY = <<<'SAID'
         mutation-gate lsp needs the Outbreak binary, and none is in use:
@@ -131,6 +129,8 @@ final readonly class LspCommand
     private static function watching(InputInterface $input): array
     {
         $tokens = $input instanceof ArgvInput ? $input->getRawTokens(strip: true) : [];
+        $severity = sprintf(self::LONG, self::SEVERITY);
+        $own = [$severity, sprintf(self::LONG, self::STDIO)];
         $handed = [];
         $valueOfOwn = false;
 
@@ -139,13 +139,12 @@ final readonly class LspCommand
                 return [...$handed, ...array_slice($tokens, $at + 1)];
             }
 
-            $own = $valueOfOwn
-                || $token === self::SEVERITY_OPTION
-                || $token === self::STDIO_OPTION
-                || str_starts_with($token, self::SEVERITY_GIVEN);
-            $valueOfOwn = $token === self::SEVERITY_OPTION;
+            $isOwn = $valueOfOwn
+                || in_array($token, $own, strict: true)
+                || str_starts_with($token, sprintf(self::GIVEN, $severity));
+            $valueOfOwn = $token === $severity;
 
-            if (! $own) {
+            if (! $isOwn) {
                 $handed[] = $token;
             }
         }

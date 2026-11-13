@@ -97,7 +97,7 @@ it('judges a fresh run by its JUnit log, its exit status and the guard', functio
     'killed by the covering test that failed' => [
         fn(): Ran => Ran::finished(succeeded: false, output: 'FAILED'),
         true,
-        fn(): string => freshLog(freshCase('it adds', '<failure>x</failure>') . freshCase('it rounds', '<failure>x</failure>')),
+        fn(): string => freshLog(sprintf('%s%s', freshCase('it adds', '<failure>x</failure>'), freshCase('it rounds', '<failure>x</failure>'))),
         [MutantStatus::Killed, ['P\Tests\MoneySpec::__pest_evaluable_it_adds'], ''],
     ],
     'killed by the covering test that errored' => [

@@ -68,7 +68,7 @@ final readonly class CachePack
             )->line();
         }
 
-        return Gzip::packAt(implode(self::LINE, $lines) . self::LINE, LedgerCodec::LEVEL);
+        return Gzip::packAt(sprintf('%s%s', implode(self::LINE, $lines), self::LINE), LedgerCodec::LEVEL);
     }
 
     /** The proofs a pack of this class at this base holds, within the ledger's limits; or why it holds none. */

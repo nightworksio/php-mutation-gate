@@ -15,7 +15,10 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\Unproved;
 use NightWorksIO\MutationGate\Core\Time\Instant;
+
+$unitOf = static fn(Proof|Unproved $proof): string => $proof instanceof Proof ? $proof->unit()->value() : '';
 
 $makeBase = static fn(): Digest => Digest::of(str_repeat('b', 64));
 $cached = static fn(string $key, string $unit, Digest $at): Proof => Proof::of(
@@ -25,7 +28,7 @@ $cached = static fn(string $key, string $unit, Digest $at): Proof => Proof::of(
     Run::of('github:7/1', Instant::at(new DateTimeImmutable('2026-11-09T20:00:00Z')), $at),
 );
 
-it('reads back each proof it packs under its key, leaving out a proof of another base', function () use ($makeBase, $cached): void {
+it('reads back each proof it packs under its key, leaving out a proof of another base', function () use ($makeBase, $cached, $unitOf): void {
     $base = $makeBase();
     $here = $cached(str_repeat('1', 64), 'src/A.php', $base);
     $elsewhere = $cached(str_repeat('2', 64), 'src/B.php', Digest::of(str_repeat('c', 64)));
@@ -36,7 +39,7 @@ it('reads back each proof it packs under its key, leaving out a proof of another
     expect($read)->toBeInstanceOf(Proofs::class)
         ->and($read instanceof Proofs ? $read->count() : 0)->toBe(1)
         ->and($read instanceof Proofs ? $read->proofFor($here->key()) : null)->toBeInstanceOf(Proof::class)
-        ->and($read instanceof Proofs ? $read->proofFor($here->key())->unit()->value() : '')->toBe('src/A.php');
+        ->and($read instanceof Proofs ? $unitOf($read->proofFor($here->key())) : '')->toBe('src/A.php');
 });
 
 it('takes nothing from a pack of another class or base, or past its limits', function () use ($makeBase, $cached): void {
@@ -59,7 +62,7 @@ it('reads a branch\'s packs on a pull request, and the default branch\'s alone o
         ->and(CacheClass::Trusted->isOwnScope())->toBeFalse();
 });
 
-it('keeps a proof read first under its key, and holds each class apart', function () use ($makeBase, $cached): void {
+it('keeps a proof read first under its key, and holds each class apart', function () use ($makeBase, $cached, $unitOf): void {
     $base = $makeBase();
     $first = $cached(str_repeat('1', 64), 'src/First.php', $base);
     $later = $cached(str_repeat('1', 64), 'src/Later.php', $base);
@@ -68,7 +71,7 @@ it('keeps a proof read first under its key, and holds each class apart', functio
         ->with(CacheClass::Trusted, Proofs::of($later))
         ->with(CacheClass::Branch, Proofs::of($later));
 
-    expect($held->trusted()->proofFor($first->key())->unit()->value())->toBe('src/First.php')
-        ->and($held->branch()->proofFor($first->key())->unit()->value())->toBe('src/Later.php')
+    expect($unitOf($held->trusted()->proofFor($first->key())))->toBe('src/First.php')
+        ->and($unitOf($held->branch()->proofFor($first->key())))->toBe('src/Later.php')
         ->and($held->count())->toBe(2);
 });

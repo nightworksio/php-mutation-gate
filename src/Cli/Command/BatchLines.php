@@ -60,7 +60,7 @@ final readonly class BatchLines
         return $work->isOn(LocalSwitch::StreamBatches)
             ? BatchEnds::telling(static function (Invoked $invoked) use ($said, $quick): void {
                 foreach (self::of($invoked->result->mutants()) as $line) {
-                    $said($quick ? self::QUICK . $line : $line);
+                    $said($quick ? sprintf('%s%s', self::QUICK, $line) : $line);
                 }
             })
             : new BatchEnds();
@@ -106,7 +106,7 @@ final readonly class BatchLines
         $lines = [];
 
         foreach ($units as $file => $judged) {
-            $lines = [...$lines, ...self::block((string) $file, Mutants::of(...$judged))];
+            $lines = [...$lines, ...self::block($file, Mutants::of(...$judged))];
         }
 
         return $lines;

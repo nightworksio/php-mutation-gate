@@ -44,28 +44,21 @@ final readonly class MySqlCopier implements Copier
         performance_schema.threads WHERE THREAD_ID = PS_CURRENT_THREAD_ID()) = 'YES'
         SAID;
 
-    private const array STATE = [
-        [
-            'SELECT COUNT(*) FROM information_schema.TEMPORARY_TABLES',
-            'SELECT COUNT(*) FROM information_schema.INNODB_TEMP_TABLE_INFO',
-        ],
-        [
-            'SELECT IF(' . self::WATCHED . ', COUNT(*), 1) FROM performance_schema.user_variables_by_thread'
-                . ' WHERE THREAD_ID = PS_CURRENT_THREAD_ID()',
-            'SELECT COUNT(*) FROM information_schema.USER_VARIABLES',
-        ],
-        [
-            'SELECT IF(' . self::WATCHED . " AND (SELECT ENABLED FROM performance_schema.setup_instruments"
-                . " WHERE NAME = 'wait/lock/metadata/sql/mdl') = 'YES', COUNT(*), 1)"
-                . ' FROM performance_schema.metadata_locks'
-                . " WHERE OWNER_THREAD_ID = PS_CURRENT_THREAD_ID() AND LOCK_DURATION = 'EXPLICIT'",
-            'SELECT COUNT(*) FROM information_schema.METADATA_LOCK_INFO WHERE THREAD_ID = CONNECTION_ID()',
-        ],
-        [
-            'SELECT IF(' . self::WATCHED . ', COUNT(*), 1) FROM performance_schema.prepared_statements_instances'
-                . ' WHERE OWNER_THREAD_ID = PS_CURRENT_THREAD_ID() AND STATEMENT_NAME IS NOT NULL',
-        ],
-    ];
+    private const string USER_VARIABLES = <<<'SAID'
+        SELECT IF(%s, COUNT(*), 1) FROM performance_schema.user_variables_by_thread
+        WHERE THREAD_ID = PS_CURRENT_THREAD_ID()
+        SAID;
+
+    private const string METADATA_LOCKS = <<<'SAID'
+        SELECT IF(%s AND (SELECT ENABLED FROM performance_schema.setup_instruments
+        WHERE NAME = 'wait/lock/metadata/sql/mdl') = 'YES', COUNT(*), 1) FROM performance_schema.metadata_locks
+        WHERE OWNER_THREAD_ID = PS_CURRENT_THREAD_ID() AND LOCK_DURATION = 'EXPLICIT'
+        SAID;
+
+    private const string PREPARED = <<<'SAID'
+        SELECT IF(%s, COUNT(*), 1) FROM performance_schema.prepared_statements_instances
+        WHERE OWNER_THREAD_ID = PS_CURRENT_THREAD_ID() AND STATEMENT_NAME IS NOT NULL
+        SAID;
 
     private const array SETTINGS = [
         'SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.session_variables',
@@ -122,7 +115,18 @@ final readonly class MySqlCopier implements Copier
 
     public function holdsState(Session $session): bool
     {
-        return $session->countsAny(self::STATE);
+        return $session->countsAny([
+            [
+                'SELECT COUNT(*) FROM information_schema.TEMPORARY_TABLES',
+                'SELECT COUNT(*) FROM information_schema.INNODB_TEMP_TABLE_INFO',
+            ],
+            [sprintf(self::USER_VARIABLES, self::WATCHED), 'SELECT COUNT(*) FROM information_schema.USER_VARIABLES'],
+            [
+                sprintf(self::METADATA_LOCKS, self::WATCHED),
+                'SELECT COUNT(*) FROM information_schema.METADATA_LOCK_INFO WHERE THREAD_ID = CONNECTION_ID()',
+            ],
+            [sprintf(self::PREPARED, self::WATCHED)],
+        ]);
     }
 
     /** @return list<list<string>>|null */

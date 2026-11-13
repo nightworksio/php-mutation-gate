@@ -83,7 +83,7 @@ final readonly class FreshRuns
     private const string COVERING = 'covering.txt';
 
     /** Where a mutant's fresh run writes its JUnit log, in the mutant's own directory. */
-    private const string LOG = '%s/' . JUnitLog::NAME;
+    private const string LOG = '%s/%s';
 
     /** Where the unmutated copy a mutant's control serves is written, in the mutant's own directory. */
     private const string UNMUTATED = '%s/unmutated.php';
@@ -258,10 +258,12 @@ final readonly class FreshRuns
         $files = $printed instanceof CannotJudge ? $printed : $this->placement->placed(
             $mutant,
             $printed->mutant(),
-            self::listing($covering, $selection->fits()),
+            $this->listing($covering, $selection->fits()),
         );
         $id = $mutant->id()->value();
-        $log = $files instanceof CannotJudge ? $files : $this->placement->fresh(sprintf(self::LOG, $id));
+        $log = $files instanceof CannotJudge
+            ? $files
+            : $this->placement->fresh(sprintf(self::LOG, $id, JUnitLog::NAME));
         $copy = $printed instanceof CannotJudge || $files instanceof CannotJudge || $log instanceof CannotJudge
             ? $log
             : $this->unmutated($printed, $files, $id);
@@ -321,7 +323,7 @@ final readonly class FreshRuns
      * line: exactly those where its run selects them by a filter, and those
      * whose files it runs whole otherwise.
      */
-    private static function listing(TestIds $covering, bool $filtered): NativeSelection
+    private function listing(TestIds $covering, bool $filtered): NativeSelection
     {
         $lines = array_map(static fn(TestId $test): string => $test->value(), [...$covering]);
         $option = sprintf('%s=%%s', PhpUnitOption::TestIdFilterFile->value);

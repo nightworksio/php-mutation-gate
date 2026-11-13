@@ -76,7 +76,7 @@ final readonly class SqliteCopier implements Copier
     }
 
     /** @param array<mixed> $config */
-    public function copied(Connection $original, array $config, string $token, string $directory): ?Copy
+    public function copied(Connection $original, array $config, string $token, string $directory): Copy
     {
         $path = sprintf(self::PATH, $directory, $token);
         $copy = new Copy($path, $original, $this);
@@ -96,8 +96,10 @@ final readonly class SqliteCopier implements Copier
     public function drop(Connection $admin, string $copy): void
     {
         foreach (self::BESIDE as $suffix) {
-            if (file_exists($copy . $suffix)) {
-                unlink($copy . $suffix);
+            $beside = sprintf('%s%s', $copy, $suffix);
+
+            if (file_exists($beside)) {
+                unlink($beside);
             }
         }
     }

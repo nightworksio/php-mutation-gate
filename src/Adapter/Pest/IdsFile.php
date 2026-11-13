@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
+use function sprintf;
+
 /**
  * A file that names tests by their ids, one a line, which PHPUnit reads with
  * `--test-id-filter-file` to run exactly those (ADR-0138).
@@ -29,7 +31,7 @@ final readonly class IdsFile
     public static function written(TestIds $tests, string $file): string|NotGiven
     {
         $ids = array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
-        $text = implode(PhpUnitOption::LINE_END, $ids) . PhpUnitOption::LINE_END;
+        $text = sprintf('%s%s', implode(PhpUnitOption::LINE_END, $ids), PhpUnitOption::LINE_END);
 
         return $ids !== []
             && array_all($ids, PhpUnitOption::readsBack(...))
