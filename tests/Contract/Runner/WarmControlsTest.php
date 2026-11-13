@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
@@ -145,7 +146,7 @@ it('finds of patched Pest controls of every test file forked from a booted worke
         Control::of(Path::of('src/Held.php'), TestIds::of(TestId::of($held)), Seconds::of(0.01)),
         Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts')), Seconds::of(60.0)),
     ];
-    $library = Library::pest(Patching::on(Library::canary())->bootingTail(boots: true));
+    $library = Library::pest(Patching::on(Library::canary())->working(PestWorkers::of(bootTail: true)));
     $loads = sprintf('%s/loads.txt', Scratch::directory());
     $memory = getenv('LIBRARY_MEMORY');
     putenv(sprintf('LIBRARY_MEMORY=%s', $loads));

@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
@@ -563,7 +564,7 @@ it('leaves what mutants\' workers boot beside the mutants\' run, and what the ta
 
         return $inner->run($command);
     });
-    $patching = PestCases::canary()->bootingTail($tail)->bootingMutants($mutants);
+    $patching = PestCases::canary()->working(PestWorkers::of(bootTail: $tail))->working(PestWorkers::of(bootMutants: $mutants));
 
     new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), Workers::Fork)));
@@ -586,7 +587,7 @@ it('leaves what opcache keeps out beside every forked run, the mutants\' and the
         return $inner->run($command);
     });
 
-    new Pest($at, $shell, PestCases::canary()->cachingInWorkers($caches), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
+    new Pest($at, $shell, PestCases::canary()->working(PestWorkers::of(workerOpcache: $caches)), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), Workers::Fork)));
 
     expect($seen)->toBe($kept);

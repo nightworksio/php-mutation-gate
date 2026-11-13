@@ -110,7 +110,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
         RunExtension|NotGiven $extension = new NotGiven(),
     ) {
         $this->tests = new TestFiles($project);
-        $this->remembered = new Remembered($maps, $patching->toggled(Toggle::PestRemember));
+        $this->remembered = new Remembered($maps, $patching->steps()->on(Toggle::PestRemember));
         $this->suites = new MapSuites();
         $this->runs = new PestRuns(
             $project,
@@ -165,7 +165,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
         return $loading instanceof CannotJudge ? Invalid::because(Problem::at('', $loading->why())) : new self(
             $project,
             new ProcessShell($processes, $project->root(), $loading)
-                ->longestFirst($read->patching()->toggled(Toggle::PestLongestFirst)),
+                ->longestFirst($read->patching()->steps()->on(Toggle::PestLongestFirst)),
             $read->patching(),
             $files,
             $packages,
@@ -311,7 +311,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
             $this->project,
             $shell,
             $this->files,
-            $this->patching->isOn() && $this->patching->longFilter() === LongFilter::Set,
+            $this->patching->isOn() && $this->patching->steps()->longFilter() === LongFilter::Set,
         )->of($request, $controls);
     }
 
@@ -328,7 +328,7 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
             $this->project,
             $shell,
             $this->files,
-            $this->patching->isOn() && $this->patching->longFilter() === LongFilter::Set,
+            $this->patching->isOn() && $this->patching->steps()->longFilter() === LongFilter::Set,
         )->started($request, $controls);
     }
 

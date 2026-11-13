@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
@@ -231,7 +232,7 @@ final readonly class MutationRun
         $coverage = $result instanceof MutationResult
             && ! $shared instanceof CannotJudge
             && $placement instanceof MutantPlacement
-            && $this->patching->preloaded() === Preloaded::Fresh
+            && $this->patching->steps()->preloaded() === Preloaded::Fresh
             && FreshRuns::findAny($result->mutants())
             ? $this->coveringOf($shared, $results)
             : NotGiven::value();
@@ -239,7 +240,7 @@ final readonly class MutationRun
             $shared instanceof CannotJudge,
             $result instanceof CannotJudge,
             ! $this->narrows(),
-            $this->patching->narrowedKills() === NarrowedKillTrust::Trust => $result,
+            $this->patching->steps()->narrowedKills() === NarrowedKillTrust::Trust => $result,
             default => $this->vouched($result, $request, $results, $shared, $started, $laps),
         };
 
@@ -409,14 +410,14 @@ final readonly class MutationRun
             ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading))
             ->withWarnings($warned);
 
-        return $this->patching->toggled(Toggle::PestTrials)
+        return $this->patching->steps()->on(Toggle::PestTrials)
             ? new Trials(
                 $this->project,
                 $this->tail($request),
                 $this->files,
                 $bounds,
                 $this->remembered,
-                $this->patching->toggled(Toggle::PestShardScan),
+                $this->patching->steps()->on(Toggle::PestShardScan),
             )->of($read, $request, $results, $coverage, $shared, $laps)
             : $read;
     }
@@ -484,7 +485,7 @@ final readonly class MutationRun
                 $this->bridges,
                 $held,
                 $prover,
-                $this->patching->judgesDuplicatesOnce(),
+                $this->patching->steps()->duplicates() === Duplicates::JudgeOnce,
             )
             : NotGiven::value();
     }
@@ -492,7 +493,7 @@ final readonly class MutationRun
     /** Whether each mutant's own run loads only the test files its covering tests need, as `pest.narrow` says. */
     private function narrows(): bool
     {
-        return $this->patching->isOn() && $this->patching->toggled(Toggle::PestNarrow) && ! $this->whole;
+        return $this->patching->isOn() && $this->patching->steps()->on(Toggle::PestNarrow) && ! $this->whole;
     }
 
     /**

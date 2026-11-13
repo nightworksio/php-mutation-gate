@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Composer\Package;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -328,7 +329,7 @@ it('reports the same four mutants from warm workers, and warns of nothing, with 
 
 it('reports the same four mutants from warm workers that cache through opcache as from workers that do not', function (bool $caches): void {
     Library::patched();
-    $library = Library::pest(Patching::on(Library::canary())->cachingInWorkers($caches));
+    $library = Library::pest(Patching::on(Library::canary())->working(PestWorkers::of(workerOpcache: $caches)));
     $result = $library->mutate(
         sprintf('money warm %s', $caches ? 'cached' : 'uncached'),
         MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
@@ -350,7 +351,7 @@ it('reports the same four mutants from warm workers that cache through opcache a
 it('reports the same records for every mutant Pest makes of the library\'s files with schemata as with a copy for each', function (): void {
     Library::patched();
     $records = static function (bool $compiles): array {
-        $result = Library::pest(Patching::on(Library::canary())->compilingSchemata($compiles))->mutate(
+        $result = Library::pest(Patching::on(Library::canary())->working(PestWorkers::of(schemata: $compiles)))->mutate(
             sprintf('every mutant %s', $compiles ? 'schemata' : 'copies'),
             MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php')), WholeSuite::tests())
                 ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
@@ -468,7 +469,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
 it('reports the same records for every mutant Pest makes of the library\'s files from mutants\' workers that boot the project as from workers that do not', function (): void {
     Library::patched();
     $records = static function (bool $boots): array {
-        $result = Library::pest(Patching::on(Library::canary())->bootingMutants($boots))->mutate(
+        $result = Library::pest(Patching::on(Library::canary())->working(PestWorkers::of(bootMutants: $boots)))->mutate(
             sprintf('every mutant %s', $boots ? 'booted' : 'unbooted'),
             MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php')), WholeSuite::tests())
                 ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),

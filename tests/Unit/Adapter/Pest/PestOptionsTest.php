@@ -177,7 +177,7 @@ it('refuses every mutation run where the options name a class that is not a muta
 
 it('judges a preloaded mutant again in a fresh run unless the options say unjudged, and refuses any other value', function (): void {
     $preloaded = static fn(string $json): Preloaded|Invalid => ($read = PestOptions::read(Configs::options($json))) instanceof PestOptions
-        ? $read->patching()->preloaded()
+        ? $read->patching()->steps()->preloaded()
         : $read;
 
     expect([$preloaded('{}'), $preloaded('{"preloaded": "unjudged"}'), $preloaded('{"patch": true, "preloaded": "fresh"}')])

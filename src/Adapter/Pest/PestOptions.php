@@ -125,10 +125,12 @@ final readonly class PestOptions
             $rejudging instanceof Problem => Invalid::because($rejudging),
             default => new self(
                 self::patchingOf($patch, $canary)
-                    ->bootingTail($bootTail === true)
-                    ->cachingInWorkers($opcache !== false)
-                    ->compilingSchemata($schemata !== false)
-                    ->bootingMutants($bootMutants !== false)
+                    ->working(PestWorkers::of(
+                        $bootTail === true,
+                        $opcache !== false,
+                        $schemata !== false,
+                        $bootMutants !== false,
+                    ))
                     ->splitting($streams)
                     ->stepping(
                         PestSteps::of($toggles, $vouching, $selecting, $judging, $bootChunks === true, $rejudging),

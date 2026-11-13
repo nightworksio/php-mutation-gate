@@ -144,7 +144,7 @@ final readonly class ShardMap
      */
     private function read(MutationRequest $request, CoverageMap $own, Laps $laps, StepTime $read): OpenedMap
     {
-        if (! $this->patching->toggled(Toggle::PestValueReaders)) {
+        if (! $this->patching->steps()->on(Toggle::PestValueReaders)) {
             return OpenedMap::readied($own, StepTimes::of($read));
         }
 
@@ -158,7 +158,7 @@ final readonly class ShardMap
 
         $wholeRead = $laps->lap(Step::ValueReaderCoverage, $from);
         $from = $laps->now();
-        $selector = $whole->selector($request, $reads, $own, $this->patching->toggled(Toggle::PestShardScan));
+        $selector = $whole->selector($request, $reads, $own, $this->patching->steps()->on(Toggle::PestShardScan));
         $map = $selector->armCoverage($request->files(), $selector->readCoverage($request->files(), $own));
 
         return OpenedMap::readied($map, StepTimes::of($read, $wholeRead, $laps->lap(Step::ValueReaders, $from)));

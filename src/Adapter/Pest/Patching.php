@@ -7,9 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
-use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
-use NightWorksIO\MutationGate\Core\Config\Preloaded;
-use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
@@ -38,21 +36,23 @@ final readonly class Patching
         private Group|Unpatched $canary,
         private StreamSettings $streams,
         private PestSteps $steps,
-        private bool $bootsTail = false,
-        private bool $caches = true,
-        private bool $compiles = true,
-        private bool $bootsMutants = true,
+        private PestWorkers $workers,
     ) {
     }
 
     public static function off(): self
     {
-        return new self(Unpatched::Vendor, StreamSettings::off(), PestSteps::standard());
+        return new self(
+            Unpatched::Vendor,
+            StreamSettings::off(),
+            PestSteps::standard(),
+            PestWorkers::of(bootTail: false, workerOpcache: true, schemata: true, bootMutants: true),
+        );
     }
 
     public static function on(Group $canary): self
     {
-        return new self($canary, StreamSettings::off(), PestSteps::standard());
+        return new self($canary, StreamSettings::off(), PestSteps::standard(), self::off()->workers);
     }
 
     public function isOn(): bool
@@ -60,121 +60,31 @@ final readonly class Patching
         return $this->canary instanceof Group;
     }
 
-    /** The same, the tail's workers booting the project where it applies the patch, as `pest.bootTail` says. */
-    public function bootingTail(bool $boots): self
-    {
-        return new self(
-            $this->canary,
-            $this->streams,
-            $this->steps,
-            $boots,
-            $this->caches,
-            $this->compiles,
-            $this->bootsMutants,
-        );
-    }
-
-    /** Whether a mutant that is the same program as one made before it is judged by that one's run (ADR-0137). */
-    public function judgesDuplicatesOnce(): bool
-    {
-        return $this->steps->duplicates() === Duplicates::JudgeOnce;
-    }
-
     /**
-     * The same, its warm workers compiling through opcache where it applies
-     * the patch, as `pest.workerOpcache` says.
+     * The same, its warm workers booting, compiling and serving as these say where it applies the patch, each
+     * where they set it: `pest.bootTail`, `pest.workerOpcache`, `pest.schemata` and `pest.bootMutants`.
      */
-    public function cachingInWorkers(bool $caches): self
+    public function working(PestWorkers $workers): self
     {
-        return new self(
-            $this->canary,
-            $this->streams,
-            $this->steps,
-            $this->bootsTail,
-            $caches,
-            $this->compiles,
-            $this->bootsMutants,
-        );
-    }
-
-    /** The same, each file's mutants compiled into a schema where it applies the patch, as `pest.schemata` says. */
-    public function compilingSchemata(bool $compiles): self
-    {
-        return new self(
-            $this->canary,
-            $this->streams,
-            $this->steps,
-            $this->bootsTail,
-            $this->caches,
-            $compiles,
-            $this->bootsMutants,
-        );
-    }
-
-    /** The same, mutants' workers booting the project where it applies the patch, as `pest.bootMutants` says. */
-    public function bootingMutants(bool $boots): self
-    {
-        return new self(
-            $this->canary,
-            $this->streams,
-            $this->steps,
-            $this->bootsTail,
-            $this->caches,
-            $this->compiles,
-            $boots,
-        );
+        return new self($this->canary, $this->streams, $this->steps, $this->workers->over($workers));
     }
 
     /** The same, its mutants judged in split streams as `splitStream` says, where it compiles schemata (ADR-0117). */
     public function splitting(StreamSettings $streams): self
     {
-        return new self(
-            $this->canary,
-            $streams,
-            $this->steps,
-            $this->bootsTail,
-            $this->caches,
-            $this->compiles,
-            $this->bootsMutants,
-        );
+        return new self($this->canary, $streams, $this->steps, $this->workers);
     }
 
     /** The same, taking these steps (ADR-0138, ADR-0142). */
     public function stepping(PestSteps $steps): self
     {
-        return new self(
-            $this->canary,
-            $this->streams,
-            $steps,
-            $this->bootsTail,
-            $this->caches,
-            $this->compiles,
-            $this->bootsMutants,
-        );
+        return new self($this->canary, $this->streams, $steps, $this->workers);
     }
 
-    /** Whether a step of a run is on: every one unless the options turn it off (ADR-0142). */
-    public function toggled(Toggle $toggle): bool
+    /** The steps a run takes, and what they say of narrowed kills, long filters and preloaded files (ADR-0142). */
+    public function steps(): PestSteps
     {
-        return $this->steps->on($toggle);
-    }
-
-    /** What a kill in a narrowed run needs before it counts, as `pest.narrowedKills` says. */
-    public function narrowedKills(): NarrowedKillTrust
-    {
-        return $this->steps->narrowedKills();
-    }
-
-    /** What becomes of a mutant whose file its own run loaded first, as `pest.preloaded` says (ADR-0148). */
-    public function preloaded(): Preloaded
-    {
-        return $this->steps->preloaded();
-    }
-
-    /** What a run selects where its filter cannot be passed, as `pest.longFilter` says. */
-    public function longFilter(): LongFilter
-    {
-        return $this->steps->longFilter();
+        return $this->steps;
     }
 
     /**
@@ -187,7 +97,7 @@ final readonly class Patching
      */
     public function schemata(): array
     {
-        return $this->isOn() && $this->compiles
+        return $this->isOn() && $this->workers->schemata()
             ? [GateVariable::Schemata->value => '1', ...$this->streams->variables()]
             : [];
     }
@@ -214,25 +124,25 @@ final readonly class Patching
     /** Whether a run judges its mutants in split streams: where it compiles schemata and `splitStream` asks it to. */
     public function splitsStreams(): bool
     {
-        return $this->isOn() && $this->compiles && $this->streams->isOn();
+        return $this->isOn() && $this->workers->schemata() && $this->streams->isOn();
     }
 
     /** Whether the warm workers compile through opcache, keeping out each file the run mutates and copy it serves. */
     public function cachesInWorkers(): bool
     {
-        return $this->isOn() && $this->caches;
+        return $this->isOn() && $this->workers->workerOpcache();
     }
 
     /** Whether the verification tail's workers boot the project before they fork its runs of every test file. */
     public function bootsTail(): bool
     {
-        return $this->isOn() && $this->bootsTail;
+        return $this->isOn() && $this->workers->bootTail();
     }
 
     /** Whether the workers of mutants' own runs boot the project, no test file loaded, before they fork. */
     public function bootsMutants(): bool
     {
-        return $this->isOn() && $this->bootsMutants;
+        return $this->isOn() && $this->workers->bootMutants();
     }
 
     /**
@@ -243,7 +153,10 @@ final readonly class Patching
      */
     public function keepsChunkWorkers(): bool
     {
-        return $this->isOn() && $this->steps->bootsChunks() && ! $this->bootsMutants && ! $this->caches;
+        return $this->isOn()
+            && $this->steps->bootsChunks()
+            && ! $this->workers->bootMutants()
+            && ! $this->workers->workerOpcache();
     }
 
     /**
