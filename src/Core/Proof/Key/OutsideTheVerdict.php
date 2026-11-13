@@ -132,6 +132,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/Spent.php',
             'src/Cli/Flow/Standing.php',
             'src/Cli/Flow/StaticGraph.php',
+            'src/Cli/Flow/SuiteQuestion.php',
             'src/Cli/Flow/Stopped.php',
             'src/Cli/Flow/Stopwatch.php',
             'src/Cli/Flow/StoredCoverage.php',
