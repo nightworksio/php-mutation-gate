@@ -15,7 +15,6 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
 use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
-use Pest\Mutate\Plugins\Mutate;
 
 /**
  * The streams of a run planned without a fresh map (ADR-0135): its map
@@ -104,11 +103,7 @@ final readonly class EarlyStreams
 
                 $mutant = $test->mutation->id;
                 $paths[$switch[0]] = (string) $test->mutation->file->getRealPath();
-                $sites[$mutant] = [...$switch, '', [
-                    Mutate::ENV_MUTATION_TESTING => (string) $test->mutation->file->getRealPath(),
-                    Mutate::ENV_MUTATION_FILE => $test->mutation->modifiedSourcePath,
-                    ...Schemata::variablesOf($test->mutation),
-                ]];
+                $sites[$mutant] = [...$switch, '', PlannedMutants::variablesOf($test)];
                 $byId[$mutant] = $test;
             }
         }
