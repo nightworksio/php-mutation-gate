@@ -159,9 +159,8 @@ it('runs a round after each change, measuring again only the test files whose en
     string $path,
     array $coverage,
 ) use ($kinds): void {
-    $files = [...Flows::FILES, 'tests/HeldTest.php' => "<?php\n\nit('doubles', fn () => expect(2)->toBe(2));\n"];
     $project = watchedProject();
-    Scratch::write($project, 'tests/HeldTest.php', $files['tests/HeldTest.php']);
+    $files = withHeldTest($project);
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     $checkout = ChangingCheckout::holding($files, ChangingCheckout::with($path, "<?php\n\n// changed\n", $files));
     $composition = FlowCommands::watching($project, $runner, new ProofStoreFake(), $checkout);
@@ -524,9 +523,8 @@ it('says each mutant a batch judged as one line of JSON with --output=events, an
 });
 
 it('takes each round after one that planned as quick under local.quick, the saved file first, each event saying so', function (): void {
-    $files = [...Flows::FILES, 'tests/HeldTest.php' => "<?php\n\nit('doubles', fn () => expect(2)->toBe(2));\n"];
     $project = watchedProject('"local": {"quick": true}');
-    Scratch::write($project, 'tests/HeldTest.php', $files['tests/HeldTest.php']);
+    $files = withHeldTest($project);
     $checkout = ChangingCheckout::holding($files, ChangingCheckout::with('src/Money.php', "<?php\n\n// changed\n", $files));
     $composition = FlowCommands::watching($project, ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
     $waits = waitsChanging($checkout, 1);
