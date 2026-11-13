@@ -18,22 +18,22 @@ use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
-$toggles = static fn(): array => [
-    'controls.kills' => [Toggle::ControlsKills, ControlsBuilder::killsUncontrolled(), ControlsBuilder::killsControlled()],
-    'controls.memory' => [Toggle::ControlsMemory, ControlsBuilder::memoryUncontrolled(), ControlsBuilder::memoryControlled()],
-    'pest.trials' => [Toggle::PestTrials, PestBuilder::withoutTrials(), PestBuilder::trying()],
-    'pest.valueReaders' => [Toggle::PestValueReaders, PestBuilder::withoutValueReaders(), PestBuilder::readingValues()],
-    'pest.narrow' => [Toggle::PestNarrow, PestBuilder::unnarrowed(), PestBuilder::narrowing()],
-    'staticCheck.after' => [Toggle::StaticCheckAfter, StaticCheckBuilder::survivorsUnchecked(), StaticCheckBuilder::checkingSurvivors()],
-    'timeouts.parts' => [Toggle::TimeoutsParts, TimeoutsBuilder::neverInParts(), TimeoutsBuilder::inParts()],
-    'suggest.looseValues' => [Toggle::SuggestLooseValues, SuggestBuilder::looseValuesSilent(), SuggestBuilder::looseValuesNoted()],
-    'pest.shardScan' => [Toggle::PestShardScan, PestBuilder::scanningEachChunk(), PestBuilder::scanningOnceAShard()],
-    'pest.longestFirst' => [Toggle::PestLongestFirst, PestBuilder::inTheirOrder(), PestBuilder::longestFirst()],
-    'pest.remember' => [Toggle::PestRemember, PestBuilder::forgetting(), PestBuilder::remembering()],
-    'pest.overlapSteps' => [Toggle::PestOverlapSteps, PestBuilder::stepByStep(), PestBuilder::overlappingSteps()],
-    'pest.pcovOff' => [Toggle::PestPcovOff, PestBuilder::pcovOn(), PestBuilder::pcovOff()],
-    'pest.xdebugOff' => [Toggle::PestXdebugOff, PestBuilder::xdebugAsConfigured(), PestBuilder::xdebugOff()],
-    'staticCheck.turbo' => [Toggle::StaticCheckTurbo, StaticCheckBuilder::withoutTurbo(), StaticCheckBuilder::turbo()],
+$toggles = [
+    'controls.kills' => [Toggle::ControlsKills, static fn(): Setting => ControlsBuilder::killsUncontrolled(), static fn(): Setting => ControlsBuilder::killsControlled()],
+    'controls.memory' => [Toggle::ControlsMemory, static fn(): Setting => ControlsBuilder::memoryUncontrolled(), static fn(): Setting => ControlsBuilder::memoryControlled()],
+    'pest.trials' => [Toggle::PestTrials, static fn(): Setting => PestBuilder::withoutTrials(), static fn(): Setting => PestBuilder::trying()],
+    'pest.valueReaders' => [Toggle::PestValueReaders, static fn(): Setting => PestBuilder::withoutValueReaders(), static fn(): Setting => PestBuilder::readingValues()],
+    'pest.narrow' => [Toggle::PestNarrow, static fn(): Setting => PestBuilder::unnarrowed(), static fn(): Setting => PestBuilder::narrowing()],
+    'staticCheck.after' => [Toggle::StaticCheckAfter, static fn(): Setting => StaticCheckBuilder::survivorsUnchecked(), static fn(): Setting => StaticCheckBuilder::checkingSurvivors()],
+    'timeouts.parts' => [Toggle::TimeoutsParts, static fn(): Setting => TimeoutsBuilder::neverInParts(), static fn(): Setting => TimeoutsBuilder::inParts()],
+    'suggest.looseValues' => [Toggle::SuggestLooseValues, static fn(): Setting => SuggestBuilder::looseValuesSilent(), static fn(): Setting => SuggestBuilder::looseValuesNoted()],
+    'pest.shardScan' => [Toggle::PestShardScan, static fn(): Setting => PestBuilder::scanningEachChunk(), static fn(): Setting => PestBuilder::scanningOnceAShard()],
+    'pest.longestFirst' => [Toggle::PestLongestFirst, static fn(): Setting => PestBuilder::inTheirOrder(), static fn(): Setting => PestBuilder::longestFirst()],
+    'pest.remember' => [Toggle::PestRemember, static fn(): Setting => PestBuilder::forgetting(), static fn(): Setting => PestBuilder::remembering()],
+    'pest.overlapSteps' => [Toggle::PestOverlapSteps, static fn(): Setting => PestBuilder::stepByStep(), static fn(): Setting => PestBuilder::overlappingSteps()],
+    'pest.pcovOff' => [Toggle::PestPcovOff, static fn(): Setting => PestBuilder::pcovOn(), static fn(): Setting => PestBuilder::pcovOff()],
+    'pest.xdebugOff' => [Toggle::PestXdebugOff, static fn(): Setting => PestBuilder::xdebugAsConfigured(), static fn(): Setting => PestBuilder::xdebugOff()],
+    'staticCheck.turbo' => [Toggle::StaticCheckTurbo, static fn(): Setting => StaticCheckBuilder::withoutTurbo(), static fn(): Setting => StaticCheckBuilder::turbo()],
 ];
 
 it('turns every step on by default, and a step off where its key says, a later layer\'s over an earlier one\'s', function (): void {
@@ -52,15 +52,15 @@ it('turns every step on by default, and a step off where its key says, a later l
     }
 });
 
-it('writes a toggle where a layer sets it, and the builder calls for it, as the builder writes it', function (Toggle $toggle, Setting $off, Setting $on): void {
+it('writes a toggle where a layer sets it, and the builder calls for it, as the builder writes it', function (Toggle $toggle, Closure $off, Closure $on): void {
     [$section, $key] = explode('.', $toggle->value);
     $layer = Layer::of(Toggles::of($toggle, on: false));
 
     expect($layer->written(ProjectRoot::origin())->line())->toBe(sprintf('{"%s":{"%s":false}}', $section, $key))
         ->and($layer->php(ProjectRoot::origin())->code())->toContain($toggle->php(on: false))
         ->and(Layer::of(Toggles::of($toggle, on: true))->php(ProjectRoot::origin())->code())->toContain($toggle->php(on: true))
-        ->and(Configs::written(Gate::configure()->with($off)))->toBe([$section => [$key => false]])
-        ->and(Configs::written(Gate::configure()->with($on)))->toBe([$section => [$key => true]]);
+        ->and(Configs::written(Gate::configure()->with(Configs::called($off))))->toBe([$section => [$key => false]])
+        ->and(Configs::written(Gate::configure()->with(Configs::called($on))))->toBe([$section => [$key => true]]);
 })->with($toggles);
 
 it('hands Pest the toggles it reads among its options, and any other runner none', function (): void {

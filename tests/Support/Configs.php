@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_key_exists;
 
+use Closure;
 use DateTimeImmutable;
 
 use function explode;
@@ -109,15 +110,23 @@ final readonly class Configs
         return json_decode($gate->written()->line(), associative: true);
     }
 
+    /** The setting a builder call gives, called as the test runs, where coverage sees it. */
+    public static function called(Closure $call): Setting
+    {
+        $setting = $call();
+
+        return $setting instanceof Setting ? $setting : throw new LogicException('A builder call gave no setting.');
+    }
+
     /**
      * What a Pest config with one builder call holds at a dotted path, and that config written back as PHP; null
      * where it holds nothing there.
      *
      * @return array{mixed, string}
      */
-    public static function oneCall(Setting $call, string $path): array
+    public static function oneCall(Closure $call, string $path): array
     {
-        $written = self::written(Gate::configure()->runner(Runner::pest())->with($call));
+        $written = self::written(Gate::configure()->runner(Runner::pest())->with(self::called($call)));
         $at = $written;
 
         foreach (explode('.', $path) as $key) {
