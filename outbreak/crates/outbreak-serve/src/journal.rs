@@ -158,7 +158,7 @@ fn check(payload: &[u8]) -> [u8; CHECK] {
 
 #[cfg(test)]
 mod tests {
-    use super::{Kind, Record, check, journal, snapshot, snapshot_read, written};
+    use super::{Kind, LONGEST, Record, check, journal, snapshot, snapshot_read, written};
 
     fn proof(key: &str, value: &str) -> Record {
         Record {
@@ -213,5 +213,16 @@ mod tests {
 
             assert_eq!(journal(&bytes), vec![]);
         }
+    }
+
+    #[test]
+    fn reads_a_forgotten_key_back_and_writes_no_record_past_the_longest() {
+        let forgotten = Record {
+            kind: Kind::Forgotten,
+            ..proof("a", "")
+        };
+
+        assert_eq!(journal(&written(&forgotten).unwrap()), vec![forgotten]);
+        assert_eq!(written(&proof("a", &"x".repeat(LONGEST))), None);
     }
 }

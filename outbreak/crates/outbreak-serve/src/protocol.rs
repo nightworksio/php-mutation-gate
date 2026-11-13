@@ -220,7 +220,7 @@ fn graph(
     contract: u32,
     read: &impl Fn(&str, &str) -> Option<Vec<u8>>,
 ) -> Result<Answer, String> {
-    let asked = request::read(json).map_err(|refused| said(&refused))?;
+    let asked = request::read(json).map_err(said)?;
     let line = outbreak_graph::answered(
         &asked,
         |path| match asked.given.get(path) {
@@ -240,17 +240,14 @@ fn graph(
 }
 
 fn waited(json: &[u8], files: bool) -> Result<Waiting, String> {
-    let mut cursor = Cursor::over(json).map_err(|refused| said(&refused))?;
-    let mut members = cursor.object().map_err(|refused| said(&refused))?;
+    let mut cursor = Cursor::over(json).map_err(said)?;
+    let mut members = cursor.object().map_err(said)?;
     let (mut paths, mut since, mut wait) = (None, None, None);
 
-    while let Some(key) = members
-        .next(&mut cursor)
-        .map_err(|refused| said(&refused))?
-    {
+    while let Some(key) = members.next(&mut cursor).map_err(said)? {
         match key.text.as_str() {
             "paths" if files => {
-                paths = Some(strings(&mut cursor).map_err(|refused| said(&refused))?);
+                paths = Some(strings(&mut cursor).map_err(said)?);
             }
             "since" => since = Some(whole(&mut cursor, "since")?),
             "wait" => wait = Some(Duration::from_millis(whole(&mut cursor, "wait")?)),
@@ -258,7 +255,7 @@ fn waited(json: &[u8], files: bool) -> Result<Waiting, String> {
         }
     }
 
-    cursor.end().map_err(|refused| said(&refused))?;
+    cursor.end().map_err(said)?;
 
     let watched = match paths {
         Some(paths) => Watched::Files(paths),
@@ -288,7 +285,7 @@ fn strings(cursor: &mut Cursor<'_>) -> Result<Vec<String>, Refused> {
 }
 
 fn whole(cursor: &mut Cursor<'_>, name: &str) -> Result<u64, String> {
-    match cursor.number().map_err(|refused| said(&refused))? {
+    match cursor.number().map_err(said)? {
         Number::Whole(value) => Ok(value),
         Number::Other { .. } => Err(format!("the request: expected {name} as a whole number")),
     }
@@ -300,31 +297,31 @@ fn only<T>(
     name: &str,
     value: impl FnOnce(&mut Cursor<'_>) -> Result<T, Refused>,
 ) -> Result<T, String> {
-    let mut cursor = Cursor::over(json).map_err(|refused| said(&refused))?;
-    let mut members = cursor.object().map_err(|refused| said(&refused))?;
-    let key = members
-        .next(&mut cursor)
-        .map_err(|refused| said(&refused))?;
+    let mut cursor = Cursor::over(json).map_err(said)?;
+    let mut members = cursor.object().map_err(said)?;
+    let key = members.next(&mut cursor).map_err(said)?;
 
     if key.as_ref().map(|key| key.text.as_str()) != Some(name) {
         return Err(format!("the request: expected {name}"));
     }
 
-    let read = value(&mut cursor).map_err(|refused| said(&refused))?;
-    let end = members
-        .next(&mut cursor)
-        .map_err(|refused| said(&refused))?;
+    let read = value(&mut cursor).map_err(said)?;
+    let end = members.next(&mut cursor).map_err(said)?;
 
     if end.is_some() {
         return Err(format!("the request: expected {name} alone"));
     }
 
-    cursor.end().map_err(|refused| said(&refused))?;
+    cursor.end().map_err(said)?;
 
     Ok(read)
 }
 
-fn said(refused: &Refused) -> String {
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "map_err hands each refusal over by value"
+)]
+fn said(refused: Refused) -> String {
     format!(
         "the request: expected {} at byte {}",
         refused.expected, refused.at
@@ -338,22 +335,20 @@ mod tests {
     use super::{Waiting, Watched, answer, changed, unwatched, waiting};
     use crate::state::State;
 
-    fn asked(state: &mut State, line: &str) -> String {
+    fn answered(state: &mut State, line: &str) -> super::Answer {
         answer(state, line, 1, |_, path| {
             (path == "src/A.php").then(|| b"<?php class A {}".to_vec())
         })
-        .line
+    }
+
+    fn asked(state: &mut State, line: &str) -> String {
+        answered(state, line).line
     }
 
     #[test]
     fn keeps_proofs_and_answers_those_it_holds() {
         let mut state = State::default();
-        let kept = answer(
-            &mut state,
-            r#"keep {"proofs": {"k1": "one", "k2": "two"}}"#,
-            1,
-            |_, _| None,
-        );
+        let kept = answered(&mut state, r#"keep {"proofs": {"k1": "one", "k2": "two"}}"#);
 
         assert_eq!(kept.line, r#"{"outbreak":1,"kept":2}"#);
         assert_eq!(kept.kept.len(), 2);
@@ -362,9 +357,7 @@ mod tests {
             r#"{"outbreak":1,"proofs":{"k1":"one","k2":"two"}}"#
         );
 
-        let forgot = answer(&mut state, r#"forget {"keys": ["k1", "k3"]}"#, 1, |_, _| {
-            None
-        });
+        let forgot = answered(&mut state, r#"forget {"keys": ["k1", "k3"]}"#);
 
         assert_eq!(forgot.line, r#"{"outbreak":1,"forgot":2}"#);
         assert_eq!(forgot.kept.len(), 2);
@@ -400,7 +393,7 @@ mod tests {
             asked(&mut state, "contract"),
             r#"{"outbreak":1,"serving":true}"#
         );
-        assert!(answer(&mut state, "stop", 1, |_, _| None).stops);
+        assert!(answered(&mut state, "stop").stops);
 
         for line in [
             "other",
