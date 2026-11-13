@@ -134,7 +134,7 @@ mod uevents {
 
     impl Uevents {
         pub(super) fn bound() -> Result<Self, String> {
-            let socket = tried(
+            tried(
                 socket_with(
                     AddressFamily::NETLINK,
                     SocketType::DGRAM,
@@ -142,13 +142,14 @@ mod uevents {
                     Some(netlink::KOBJECT_UEVENT),
                 ),
                 &format!("open {EVENTS}"),
-            )?;
-            tried(
-                bind(&socket, &netlink::SocketAddrNetlink::new(0, KERNEL_GROUP)),
-                &format!("listen to {EVENTS}"),
-            )?;
-
-            Ok(Self::over(socket, File::open(PROFILE).ok()))
+            )
+            .and_then(|socket| {
+                tried(
+                    bind(&socket, &netlink::SocketAddrNetlink::new(0, KERNEL_GROUP)),
+                    &format!("listen to {EVENTS}"),
+                )
+                .map(|()| Self::over(socket, File::open(PROFILE).ok()))
+            })
         }
 
         /// The events of a socket that reads one datagram at a time, and of the profile where there is one.
@@ -221,6 +222,7 @@ mod uevents {
     #[cfg(test)]
     mod tests {
         use std::fs::File;
+        use std::io::Write as _;
         use std::os::fd::OwnedFd;
         use std::time::Duration;
 
@@ -275,6 +277,19 @@ mod uevents {
                 events
                     .next(Duration::MAX)
                     .is_err_and(|why| why.starts_with("cannot wait"))
+            );
+        }
+
+        #[test]
+        fn says_why_it_cannot_read_its_events() {
+            let (reader, mut writer) = std::io::pipe().unwrap();
+            writer.write_all(b"change@/x\0").unwrap();
+            let mut events = Uevents::over(OwnedFd::from(reader), None);
+
+            assert!(
+                events
+                    .next(Duration::from_secs(1))
+                    .is_err_and(|why| why.starts_with("cannot read the kernel's device events"))
             );
         }
 

@@ -189,12 +189,12 @@ pub fn serve(options: &Options, contract: u32) -> Result<(), String> {
             break;
         }
 
-        if let Ok((stream, _)) = accepted {
-            let shared = Arc::clone(&shared);
-            let root = options.root.clone();
-            let socket = socket.clone();
-            thread::spawn(move || connected(&stream, &shared, &root, &socket, contract));
-        }
+        let shared = Arc::clone(&shared);
+        let root = options.root.clone();
+        let socket = socket.clone();
+        serving(accepted, move |stream| {
+            connected(&stream, &shared, &root, &socket, contract);
+        });
     }
 
     let _ = ticking.join();
@@ -433,6 +433,16 @@ fn synced(kept: &mut MutexGuard<'_, Kept>) {
     }
 }
 
+/// Serves the connection an accept gave on a thread of its own; nothing where the accept failed.
+fn serving<T: Send + 'static, A>(
+    accepted: std::io::Result<(T, A)>,
+    serve: impl FnOnce(T) + Send + 'static,
+) {
+    if let Ok((stream, _)) = accepted {
+        thread::spawn(move || serve(stream));
+    }
+}
+
 /// Answers each request line of a client until it hangs up or the daemon stops.
 fn connected(stream: &UnixStream, shared: &Shared, root: &Path, socket: &Path, contract: u32) {
     shared.connected.fetch_add(1, Ordering::SeqCst);
@@ -552,8 +562,8 @@ mod tests {
     use std::os::unix::fs::symlink;
 
     use super::{
-        DIRECTORY, Options, SNAPSHOT, detached, own, owned_directory, serve, snapshotted, socket,
-        unlocked,
+        DIRECTORY, Options, SNAPSHOT, detached, own, owned_directory, serve, serving, snapshotted,
+        socket, unlocked,
     };
     use crate::state::State;
 
@@ -592,6 +602,19 @@ mod tests {
             );
             thread::sleep(Duration::from_millis(10));
         }
+    }
+
+    #[test]
+    fn serves_nothing_where_an_accept_failed() {
+        let (sent, received) = std::sync::mpsc::channel();
+        serving(
+            Err::<((), ()), _>(std::io::Error::other("refused")),
+            move |()| {
+                sent.send(()).unwrap();
+            },
+        );
+
+        assert!(received.recv().is_err());
     }
 
     #[test]

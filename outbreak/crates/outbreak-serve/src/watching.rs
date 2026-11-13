@@ -353,20 +353,21 @@ mod inotify {
 
     impl Inotify {
         pub(super) fn armed(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Self, String> {
-            let fd = tried(
+            tried(
                 inotify::init(CreateFlags::CLOEXEC | CreateFlags::NONBLOCK),
                 "start inotify",
-            )?;
-            let mut armed = Self {
-                fd,
-                directories: HashMap::new(),
-                paths: paths.clone(),
-                skipped: skipped.to_path_buf(),
-                buffer: vec![MaybeUninit::uninit(); BUFFER],
-            };
-            armed.added(paths)?;
+            )
+            .and_then(|fd| {
+                let mut armed = Self {
+                    fd,
+                    directories: HashMap::new(),
+                    paths: paths.clone(),
+                    skipped: skipped.to_path_buf(),
+                    buffer: vec![MaybeUninit::uninit(); BUFFER],
+                };
 
-            Ok(armed)
+                armed.added(paths).map(|()| armed)
+            })
         }
 
         fn added(&mut self, paths: &BTreeSet<PathBuf>) -> Result<(), String> {

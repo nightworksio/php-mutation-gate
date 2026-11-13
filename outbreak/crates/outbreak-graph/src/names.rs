@@ -676,6 +676,12 @@ mod tests {
         }
         assert_eq!(found.unplaced, None);
         assert!(read(b"<?php use App\\Money").names.is_empty());
+        let closure = read(b"<?php $f = function () use ($rate) { return new Money($rate); };");
+        assert!(
+            closure.names.contains("money"),
+            "money in {:?}",
+            closure.names
+        );
         assert_eq!(
             read(b"<?php Foo::$bar();").unplaced,
             Some("a call by a name held in a variable")
