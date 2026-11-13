@@ -36,10 +36,7 @@ $daemon = static function (string $root): Process|NotGiven {
 
     $process = new Process([$binary, 'serve', $root, '--idle', '30']);
     $process->start();
-
-    for ($tries = 0; $tries < 200 && ! file_exists($socket); $tries++) {
-        usleep(10000);
-    }
+    OutbreakDaemon::of($root, posix_geteuid(), Seconds::of(10))->listening(Seconds::of(2));
 
     return $process;
 };

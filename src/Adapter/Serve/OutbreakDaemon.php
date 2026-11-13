@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Reach\GraphAnswered;
 use NightWorksIO\MutationGate\Core\Reach\GraphAsked;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Reach\ReachGraph;
+use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
@@ -31,6 +32,8 @@ use function round;
 use function sprintf;
 
 use stdClass;
+
+use function usleep;
 
 /**
  * `outbreak serve` as the gate asks it (ADR-0133), for the proofs it holds,
@@ -93,6 +96,14 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
     public static function of(string $root, int $owner, Seconds $timeout): self
     {
         return new self(ServeSocket::at(self::socketOf($root, $owner), $owner), $timeout, $root);
+    }
+
+    /** Whether the daemon's socket is there within this long, looked for an interval apart. */
+    public function listening(Seconds $within): bool
+    {
+        Polling::wait($within, $this->socket->isThere(...), usleep(...));
+
+        return $this->socket->isThere();
     }
 
     public function proofs(string ...$keys): array|NotWritten
