@@ -122,18 +122,18 @@ final readonly class OutbreakServe
     {
         return PhpCalls::inWith(...[
             ...match ($this->enabled) {
-                true => ['Outbreak::serving()'],
-                false => ['Outbreak::notServing()'],
+                true => ['OutbreakServe::serving()'],
+                false => ['OutbreakServe::notServing()'],
                 default => [],
             },
             ...$this->snapshotEvery instanceof Seconds
-                ? [sprintf('Outbreak::snapshotEvery(%s)', PhpCalls::literal($this->snapshotEvery->written()))]
+                ? [sprintf('OutbreakServe::snapshotEvery(%s)', PhpCalls::literal($this->snapshotEvery->written()))]
                 : [],
             ...$this->syncEvery instanceof Seconds
-                ? [sprintf('Outbreak::syncEvery(%s)', PhpCalls::literal($this->syncEvery->written()))]
+                ? [sprintf('OutbreakServe::syncEvery(%s)', PhpCalls::literal($this->syncEvery->written()))]
                 : [],
             ...$this->debounce instanceof Seconds
-                ? [sprintf('Outbreak::debounce(%s)', PhpCalls::literal($this->debounce->written()))]
+                ? [sprintf('OutbreakServe::debounce(%s)', PhpCalls::literal($this->debounce->written()))]
                 : [],
         ]);
     }

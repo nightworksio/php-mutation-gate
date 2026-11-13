@@ -26,10 +26,10 @@ enum GraphUse: string
     public function php(): string
     {
         return match ($this) {
-            self::Local => 'Outbreak::graphInQuickRounds()',
-            self::Narrow => 'Outbreak::graphNarrowing()',
-            self::Widen => 'Outbreak::graphWidening()',
-            self::Off => 'Outbreak::graphOff()',
+            self::Local => 'OutbreakGraph::inQuickRounds()',
+            self::Narrow => 'OutbreakGraph::narrowing()',
+            self::Widen => 'OutbreakGraph::widening()',
+            self::Off => 'OutbreakGraph::off()',
         };
     }
 

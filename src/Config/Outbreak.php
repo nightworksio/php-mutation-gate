@@ -8,10 +8,10 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * Whether Outbreak's core takes the coverage maps' bulk off the gate's PHP,
- * its binary, how long a run of it may take and its threads (ADR-0118),
- * where `outbreak cache` keeps proofs by their keys (ADR-0131), where its
- * static graph acts (ADR-0132), and whether `outbreak serve` holds the
- * project's state (ADR-0133): `outbreak`.
+ * its binary, how long a run of it may take and its threads (ADR-0118), and
+ * how it proves equivalence and judges a split stream's kills (ADR-0130,
+ * ADR-0147): `outbreak`. Its cache, graph and daemon have builders of their
+ * own: OutbreakCache, OutbreakGraph and OutbreakServe.
  */
 final readonly class Outbreak implements Setting
 {
@@ -88,33 +88,6 @@ final readonly class Outbreak implements Setting
         return new self(Json::at('outbreak.equivalence', value: false));
     }
 
-    /** `outbreak.graph`, `local`, as by default: the static graph adds tests to `watch`'s quick rounds alone. */
-    public static function graphInQuickRounds(): self
-    {
-        return new self(Json::at('outbreak.graph', 'local'));
-    }
-
-    /**
-     * `outbreak.graph`, `narrow`: a change the coverage map cannot place reaches what the static graph joins to it
-     * in place of its whole package. A loose value.
-     */
-    public static function graphNarrowing(): self
-    {
-        return new self(Json::at('outbreak.graph', 'narrow'));
-    }
-
-    /** `outbreak.graph`, `widen`: a changed source file also reaches the units its joined tests run. */
-    public static function graphWidening(): self
-    {
-        return new self(Json::at('outbreak.graph', 'widen'));
-    }
-
-    /** `outbreak.graph`, `off`: the static graph acts nowhere. */
-    public static function graphOff(): self
-    {
-        return new self(Json::at('outbreak.graph', 'off'));
-    }
-
     /** `outbreak.lines` on, as by default: a stream records its tests' lines with `outbreak.so` where it loads. */
     public static function linesRecorded(): self
     {
@@ -145,84 +118,6 @@ final readonly class Outbreak implements Setting
     public static function stepFloor(int $steps): self
     {
         return new self(Json::at('outbreak.stepFloor', $steps));
-    }
-
-    /**
-     * `outbreak.serve.enabled`, as by default: `outbreak serve` holds the project's state where the binary is in use.
-     */
-    public static function serving(): self
-    {
-        return new self(Json::at('outbreak.serve.enabled', value: true));
-    }
-
-    /** `outbreak.serve.enabled` off: `watch` and the hooks talk to the PHP daemon alone, which reads every file. */
-    public static function notServing(): self
-    {
-        return new self(Json::at('outbreak.serve.enabled', value: false));
-    }
-
-    /** `outbreak.serve.snapshotEvery`: how often, at most, the daemon writes its snapshot, such as `10m`. */
-    public static function snapshotEvery(string $duration): self
-    {
-        return new self(Json::at('outbreak.serve.snapshotEvery', $duration));
-    }
-
-    /** `outbreak.serve.syncEvery`: how often, at most, the daemon syncs its journal to disk, such as `1s`. */
-    public static function syncEvery(string $duration): self
-    {
-        return new self(Json::at('outbreak.serve.syncEvery', $duration));
-    }
-
-    /**
-     * `outbreak.serve.debounce`: how long the changes the daemon watches settle before a round starts, such as `50ms`.
-     */
-    public static function debounce(string $duration): self
-    {
-        return new self(Json::at('outbreak.serve.debounce', $duration));
-    }
-
-    /**
-     * `outbreak.cache.store`, `auto`, as by default: a registry where one is named, the Actions cache under the action.
-     */
-    public static function cacheStoredAuto(): self
-    {
-        return new self(Json::at('outbreak.cache.store', 'auto'));
-    }
-
-    /** `outbreak.cache.store`, `none`: a run proves from its ledgers alone. */
-    public static function cacheStoredNowhere(): self
-    {
-        return new self(Json::at('outbreak.cache.store', 'none'));
-    }
-
-    /** `outbreak.cache.store`, `actions`: each pack an entry of the Actions cache. */
-    public static function cacheStoredInActions(): self
-    {
-        return new self(Json::at('outbreak.cache.store', 'actions'));
-    }
-
-    /** `outbreak.cache.store`, `oci`: each pack an artifact in the repository `outbreak.cache.registry` names. */
-    public static function cacheStoredInRegistry(): self
-    {
-        return new self(Json::at('outbreak.cache.store', 'oci'));
-    }
-
-    /** `outbreak.cache.registry`: the OCI repository the packs live in, such as `ghcr.io/owner/proofs`. */
-    public static function cacheRegistry(string $repository): self
-    {
-        return new self(Json::at('outbreak.cache.registry', $repository));
-    }
-
-    /** `outbreak.cache.trust`, `default-branch`, as by default: the default branch reads its own runs' packs alone. */
-    public static function cacheTrustingTheDefaultBranch(): self
-    {
-        return new self(Json::at('outbreak.cache.trust', 'default-branch'));
-    }
-
-    /** `outbreak.cache.trust`, `repository`: the default branch reads the packs any branch wrote too. A loose value. */
-    public static function cacheTrustingTheRepository(): self
-    {
-        return new self(Json::at('outbreak.cache.trust', 'repository'));
     }
 
     public function written(): Json

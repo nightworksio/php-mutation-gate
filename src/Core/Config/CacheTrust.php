@@ -20,8 +20,8 @@ enum CacheTrust: string
     public function php(): string
     {
         return match ($this) {
-            self::DefaultBranch => 'Outbreak::cacheTrustingTheDefaultBranch()',
-            self::Repository => 'Outbreak::cacheTrustingTheRepository()',
+            self::DefaultBranch => 'OutbreakCache::trustingTheDefaultBranch()',
+            self::Repository => 'OutbreakCache::trustingTheRepository()',
         };
     }
 

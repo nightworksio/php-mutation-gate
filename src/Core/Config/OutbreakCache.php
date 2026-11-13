@@ -119,7 +119,7 @@ final readonly class OutbreakCache
             ...$this->store instanceof CacheStore ? [$this->store->php()] : [],
             ...$this->registry instanceof Absent
                 ? []
-                : [sprintf('Outbreak::cacheRegistry(%s)', PhpCalls::literal($this->registry))],
+                : [sprintf('OutbreakCache::registry(%s)', PhpCalls::literal($this->registry))],
             ...$this->trust instanceof CacheTrust ? [$this->trust->php()] : [],
         ]);
     }

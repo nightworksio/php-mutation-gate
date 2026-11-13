@@ -26,10 +26,10 @@ enum CacheStore: string
     public function php(): string
     {
         return match ($this) {
-            self::Auto => 'Outbreak::cacheStoredAuto()',
-            self::None => 'Outbreak::cacheStoredNowhere()',
-            self::Actions => 'Outbreak::cacheStoredInActions()',
-            self::Oci => 'Outbreak::cacheStoredInRegistry()',
+            self::Auto => 'OutbreakCache::storedAuto()',
+            self::None => 'OutbreakCache::storedNowhere()',
+            self::Actions => 'OutbreakCache::storedInActions()',
+            self::Oci => 'OutbreakCache::storedInRegistry()',
         };
     }
 }
