@@ -60,17 +60,17 @@ final readonly class PostgresCopier implements Copier
         }
 
         $name = CopyName::of($database, $token);
-        $admin->opened()->run(sprintf(self::CREATE, self::quoted($name), self::quoted($database)));
+        $admin->opened()->run(sprintf(self::CREATE, $this->quoted($name), $this->quoted($database)));
 
         return new Copy($name, $admin, $this);
     }
 
     public function drop(Connection $admin, string $copy): void
     {
-        $admin->opened()->run(sprintf(self::DROP, self::quoted($copy)));
+        $admin->opened()->run(sprintf(self::DROP, $this->quoted($copy)));
     }
 
-    private static function quoted(string $name): string
+    private function quoted(string $name): string
     {
         return CopyName::quoted($name, self::MARK);
     }

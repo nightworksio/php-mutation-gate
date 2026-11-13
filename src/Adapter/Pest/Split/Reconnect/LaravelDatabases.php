@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect;
 
-use function array_key_exists;
+use function array_fill_keys;
+use function array_flip;
+use function array_intersect_key;
 use function in_array;
 use function is_array;
 use function is_int;
@@ -141,7 +143,7 @@ final readonly class LaravelDatabases
         $names = [];
 
         foreach ($all as $name => $each) {
-            if (is_array($each) && self::reachesAlike($each, $config)) {
+            if (is_array($each) && $this->reachesAlike($each, $config)) {
                 $all[$name][LaravelConfig::DATABASE] = $copy;
                 $names[] = $name;
             }
@@ -161,17 +163,17 @@ final readonly class LaravelDatabases
      * @param array<mixed> $one
      * @param array<mixed> $other
      */
-    private static function reachesAlike(array $one, array $other): bool
+    private function reachesAlike(array $one, array $other): bool
     {
-        foreach (self::REACHES as $key) {
-            $mine = array_key_exists($key, $one) ? $one[$key] : null;
-            $theirs = array_key_exists($key, $other) ? $other[$key] : null;
+        return $this->reached($one) === $this->reached($other);
+    }
 
-            if ($mine !== $theirs) {
-                return false;
-            }
-        }
-
-        return true;
+    /**
+     * @param  array<mixed> $config
+     * @return array<mixed> each key that says where a connection reaches, in order, none where it holds none
+     */
+    private function reached(array $config): array
+    {
+        return [...array_fill_keys(self::REACHES, null), ...array_intersect_key($config, array_flip(self::REACHES))];
     }
 }

@@ -90,7 +90,7 @@ final readonly class PhpIni
             }
         }
 
-        $turbo = $this->turbo && ! extension_loaded(self::TURBO) ? self::build($root) : '';
+        $turbo = $this->turbo && ! extension_loaded(self::TURBO) ? $this->build($root) : '';
         $arguments = [];
 
         foreach ([...$settings, ...$turbo === '' ? [] : ['extension' => $turbo]] as $name => $value) {
@@ -115,9 +115,9 @@ final readonly class PhpIni
     }
 
     /** PHPStan's turbo build for this PHP and machine, where it ships one; none otherwise. */
-    private static function build(string $root): string
+    private function build(string $root): string
     {
-        $platform = self::platform();
+        $platform = $this->platform();
         $built = $platform === '' ? '' : sprintf(
             self::BUILDS,
             $root,
@@ -132,7 +132,7 @@ final readonly class PhpIni
     }
 
     /** The name PHPStan gives this machine's platform among its builds; none where it ships none for it. */
-    private static function platform(): string
+    private function platform(): string
     {
         $machine = match (strtolower(php_uname('m'))) {
             'x86_64', 'amd64' => 'x86_64',
@@ -144,13 +144,13 @@ final readonly class PhpIni
             $machine === '' => '',
             PHP_OS_FAMILY === 'Darwin' => $machine === 'arm64' ? 'macos-arm64' : '',
             PHP_OS_FAMILY === 'Windows' => $machine === 'x86_64' ? 'windows-x86_64' : '',
-            PHP_OS_FAMILY === 'Linux' => sprintf('linux-%s-%s', self::isMusl() ? 'musl' : 'gnu', $machine),
+            PHP_OS_FAMILY === 'Linux' => sprintf('linux-%s-%s', $this->isMusl() ? 'musl' : 'gnu', $machine),
             default => '',
         };
     }
 
     /** Whether this Linux links against musl, as Alpine's does, by its loader. */
-    private static function isMusl(): bool
+    private function isMusl(): bool
     {
         $loaders = glob('/lib/ld-musl-*');
 

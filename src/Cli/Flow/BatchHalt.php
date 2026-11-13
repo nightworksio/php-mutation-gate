@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function ceil;
 use function function_exists;
 use function hash;
-use function is_callable;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -70,8 +69,7 @@ final class BatchHalt
         }
 
         $halt = new self($project, $digests, max(1, (int) ceil($every->seconds())), Halting::listened());
-        $before = pcntl_signal_get_handler(SIGALRM);
-        $halt->before = is_callable($before) ? $before : (int) $before;
+        $halt->before = pcntl_signal_get_handler(SIGALRM);
         pcntl_signal(SIGALRM, $halt->looked(...));
         pcntl_alarm($halt->every);
 
