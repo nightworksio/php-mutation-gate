@@ -504,6 +504,7 @@ jobs:
           tools: php-config, phpize
       - if: runner.os == 'Linux'
         run: bash .github/scripts/libclang.sh
+        working-directory: .
       - env:
           TARGET: ${{ matrix.target }}
         run: rustup target add "${TARGET}"
