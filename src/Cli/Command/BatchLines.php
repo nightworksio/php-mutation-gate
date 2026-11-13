@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Invoked;
 use NightWorksIO\MutationGate\Core\Config\LocalWork;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -78,9 +79,7 @@ final readonly class BatchLines
             $quick,
         ): void {
             foreach ($invoked->result->mutants() as $mutant) {
-                $file = $mutant->location()->file();
-                $digest = $digests instanceof Digests ? $digests->sourceOf($file) : NotGiven::value();
-                $event = MutantEvent::of($mutant, $quick, $digest instanceof Digest ? $digest : NotGiven::value());
+                $event = MutantEvent::of($mutant, $quick, self::sourceOf($mutant, $digests));
 
                 if ($event instanceof MutantEvent) {
                     $said($event->line());
@@ -110,6 +109,14 @@ final readonly class BatchLines
         }
 
         return $lines;
+    }
+
+    /** The digest of the source a mutant is in, where the run took one. */
+    private static function sourceOf(Mutant $mutant, Digests|Undigested $digests): Digest|NotGiven
+    {
+        $digest = $digests instanceof Digests ? $digests->sourceOf($mutant->location()->file()) : NotGiven::value();
+
+        return $digest instanceof Digest ? $digest : NotGiven::value();
     }
 
     /** @return list<string> how many of a unit's mutants were judged, by status, and each survivor */
