@@ -281,6 +281,18 @@ mod uevents {
         }
 
         #[test]
+        fn reads_a_profile_it_can_seek_from_its_start_and_waits_on_it() {
+            let path =
+                std::env::temp_dir().join(format!("outbreak-profile-{}", std::process::id()));
+            std::fs::write(&path, b"balanced\n").unwrap();
+            let (socket, _kernel) = pair();
+            let mut events = Uevents::over(socket, Some(File::open(&path).unwrap()));
+            std::fs::remove_file(&path).unwrap();
+
+            assert!(events.next(Duration::ZERO).is_ok());
+        }
+
+        #[test]
         fn says_why_it_cannot_read_its_events() {
             let (reader, mut writer) = std::io::pipe().unwrap();
             writer.write_all(b"change@/x\0").unwrap();
