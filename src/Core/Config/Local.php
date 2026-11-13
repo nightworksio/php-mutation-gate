@@ -253,33 +253,31 @@ final readonly class Local implements Part
 
     public function php(PathOrigin $origin): PhpCalls
     {
-        return PhpCalls::inWith(...[
-            ...PhpCalls::duration('Local::watchBudget', $this->watchBudget),
-            ...PhpCalls::duration('Local::prePushBudget', $this->prePushBudget),
-            ...PhpCalls::duration('Local::serveIdle', $this->serveIdle),
-            ...$this->serveStart instanceof ServeStart
-                ? [sprintf('Local::serveStarting(ServeStart::%s)', $this->serveStart->name)]
-                : [],
-            ...PhpCalls::duration('Local::serveStartWait', $this->serveStartWait),
-            ...PhpCalls::flag($this->inferSubsumed, 'Local::inferringSubsumed()', 'Local::runningSubsumed()'),
-            ...PhpCalls::duration('Local::watchPoll', $this->watchPoll),
-            ...PhpCalls::flag($this->quick, 'Local::quickRounds()', 'Local::fullRounds()'),
-            ...PhpCalls::flag($this->cancelByUnit, 'Local::cancellingByUnit()', 'Local::cancellingByRound()'),
-            ...$this->roomPhp(),
-            ...$this->triageFewest instanceof Absent
-                ? []
-                : [sprintf('Local::triageFewest(%d)', $this->triageFewest)],
-        ])->and($this->work->php());
+        return PhpCalls::duration('Local::watchBudget', $this->watchBudget)
+            ->and(PhpCalls::duration('Local::prePushBudget', $this->prePushBudget))
+            ->and(PhpCalls::duration('Local::serveIdle', $this->serveIdle))
+            ->and(PhpCalls::inWith(
+                ...$this->serveStart instanceof ServeStart
+                    ? [sprintf('Local::serveStarting(ServeStart::%s)', $this->serveStart->name)]
+                    : [],
+            ))
+            ->and(PhpCalls::duration('Local::serveStartWait', $this->serveStartWait))
+            ->and(PhpCalls::flag($this->inferSubsumed, 'Local::inferringSubsumed()', 'Local::runningSubsumed()'))
+            ->and(PhpCalls::duration('Local::watchPoll', $this->watchPoll))
+            ->and(PhpCalls::flag($this->quick, 'Local::quickRounds()', 'Local::fullRounds()'))
+            ->and(PhpCalls::flag($this->cancelByUnit, 'Local::cancellingByUnit()', 'Local::cancellingByRound()'))
+            ->and(PhpCalls::inWith(
+                ...$this->memoryHeadroom instanceof Absent
+                    ? []
+                    : [sprintf('Local::memoryHeadroom(%d)', $this->memoryHeadroom)],
+            ))
+            ->and(PhpCalls::duration('Local::serveRequest', $this->serveRequest))
+            ->and(PhpCalls::inWith(
+                ...$this->triageFewest instanceof Absent
+                    ? []
+                    : [sprintf('Local::triageFewest(%d)', $this->triageFewest)],
+            ))
+            ->and($this->work->php());
     }
 
-    /** @return list<string> the builder's calls for `local.memoryHeadroom` and `local.serveRequest` */
-    private function roomPhp(): array
-    {
-        return [
-            ...$this->memoryHeadroom instanceof Absent
-                ? []
-                : [sprintf('Local::memoryHeadroom(%d)', $this->memoryHeadroom)],
-            ...PhpCalls::duration('Local::serveRequest', $this->serveRequest),
-        ];
-    }
 }

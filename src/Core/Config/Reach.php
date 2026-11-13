@@ -325,35 +325,30 @@ final readonly class Reach implements Part
 
     public function php(PathOrigin $origin): PhpCalls
     {
-        $packages = PhpCalls::globs('Reach::packages', $this->packages, $origin);
-        $everything = PhpCalls::globs('Reach::everything', $this->everything, $origin);
         $changedTests = $this->changedTests instanceof ChangedTests ? [$this->changedTests->php()] : [];
-        $fixtures = PhpCalls::globs('Reach::fixtures', $this->fixtures, $origin);
         $hotPath = $this->hotPath instanceof Absent
             ? []
             : [sprintf('Reach::hotPath(%s)', PhpCalls::literal($this->hotPath))];
+        $hotPathFewest = $this->hotPathFewest instanceof Absent
+            ? []
+            : [sprintf('Reach::hotPathFewestTests(%d)', $this->hotPathFewest)];
 
-        $full = PhpCalls::flag($this->full, 'Reach::fullByDefault()', 'Reach::changedByDefault()');
-        $lock = $this->lock->php();
-        $calls = PhpCalls::inWith(
-            ...$packages,
-            ...$everything,
-            ...$lock,
-            ...$changedTests,
-            ...$fixtures,
-            ...$hotPath,
-            ...$this->hotPathFewest instanceof Absent
-                ? []
-                : [sprintf('Reach::hotPathFewestTests(%d)', $this->hotPathFewest)],
-            ...$full,
-            ...$this->heldCoverage instanceof HeldCoverageMode ? [$this->heldCoverage->php()] : [],
-            ...$this->defaultBranchSince instanceof DefaultBranchSince ? [$this->defaultBranchSince->php()] : [],
-            ...$this->versionControl instanceof Choice
-                ? [PhpCalls::chosen($this->versionControl, AdapterBuilder::VersionControl, ...self::NAMED_CONTROLS)]
-                : [],
-        );
-
-        return $calls->and($this->failingFast->php())->and($this->pruning->php())->and($this->sampling->php());
+        return PhpCalls::globs('Reach::packages', $this->packages, $origin)
+            ->and(PhpCalls::globs('Reach::everything', $this->everything, $origin))
+            ->and(PhpCalls::inWith(...$this->lock->php(), ...$changedTests))
+            ->and(PhpCalls::globs('Reach::fixtures', $this->fixtures, $origin))
+            ->and(PhpCalls::inWith(...$hotPath, ...$hotPathFewest))
+            ->and(PhpCalls::flag($this->full, 'Reach::fullByDefault()', 'Reach::changedByDefault()'))
+            ->and(PhpCalls::inWith(
+                ...$this->heldCoverage instanceof HeldCoverageMode ? [$this->heldCoverage->php()] : [],
+                ...$this->defaultBranchSince instanceof DefaultBranchSince ? [$this->defaultBranchSince->php()] : [],
+                ...$this->versionControl instanceof Choice
+                    ? [PhpCalls::chosen($this->versionControl, AdapterBuilder::VersionControl, ...self::NAMED_CONTROLS)]
+                    : [],
+            ))
+            ->and($this->failingFast->php())
+            ->and($this->pruning->php())
+            ->and($this->sampling->php());
     }
 
     /**

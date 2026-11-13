@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
-$toggles = [
+$toggles = static fn(): array => [
     'controls.kills' => [Toggle::ControlsKills, ControlsBuilder::killsUncontrolled(), ControlsBuilder::killsControlled()],
     'controls.memory' => [Toggle::ControlsMemory, ControlsBuilder::memoryUncontrolled(), ControlsBuilder::memoryControlled()],
     'pest.trials' => [Toggle::PestTrials, PestBuilder::withoutTrials(), PestBuilder::trying()],

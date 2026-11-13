@@ -308,24 +308,29 @@ final readonly class Outbreak
 
     public function php(): PhpCalls
     {
-        return PhpCalls::inWith(...[
-            ...PhpCalls::flag($this->enabled, 'Outbreak::on()', 'Outbreak::off()'),
-            ...$this->binary instanceof Absent
-                ? []
-                : [sprintf('Outbreak::binary(%s)', PhpCalls::literal($this->binary))],
-            ...PhpCalls::duration('Outbreak::timeout', $this->timeout),
-            ...$this->threads instanceof Absent ? [] : [sprintf('Outbreak::threads(%d)', $this->threads)],
-            ...PhpCalls::flag($this->equivalence, 'Outbreak::equivalenceOn()', 'Outbreak::equivalenceOff()'),
-            ...PhpCalls::flag($this->forkStates, 'Outbreak::forkStatesCounted()', 'Outbreak::forkStatesUncounted()'),
-            ...PhpCalls::flag(
+        return PhpCalls::flag($this->enabled, 'Outbreak::on()', 'Outbreak::off()')
+            ->and(PhpCalls::inWith(
+                ...$this->binary instanceof Absent
+                    ? []
+                    : [sprintf('Outbreak::binary(%s)', PhpCalls::literal($this->binary))],
+            ))
+            ->and(PhpCalls::duration('Outbreak::timeout', $this->timeout))
+            ->and(PhpCalls::inWith(
+                ...$this->threads instanceof Absent ? [] : [sprintf('Outbreak::threads(%d)', $this->threads)],
+            ))
+            ->and(PhpCalls::flag($this->equivalence, 'Outbreak::equivalenceOn()', 'Outbreak::equivalenceOff()'))
+            ->and(PhpCalls::flag($this->forkStates, 'Outbreak::forkStatesCounted()', 'Outbreak::forkStatesUncounted()'))
+            ->and(PhpCalls::flag(
                 $this->recheckTouchedKills,
                 'Outbreak::touchedKillsRechecked()',
                 'Outbreak::touchedKillsTrusted()',
-            ),
-            ...$this->graph instanceof GraphUse ? [$this->graph->php()] : [],
-            ...PhpCalls::flag($this->lines, 'Outbreak::linesRecorded()', 'Outbreak::linesByPcov()'),
-            ...PhpCalls::flag($this->steps, 'Outbreak::stepsCounted()', 'Outbreak::stepsUncounted()'),
-            ...$this->stepFloor instanceof Absent ? [] : [sprintf('Outbreak::stepFloor(%d)', $this->stepFloor)],
-        ])->and($this->serve->php())->and($this->cache->php());
+            ))
+            ->and(PhpCalls::inWith(...$this->graph instanceof GraphUse ? [$this->graph->php()] : []))
+            ->and(PhpCalls::flag($this->lines, 'Outbreak::linesRecorded()', 'Outbreak::linesByPcov()'))
+            ->and(PhpCalls::flag($this->steps, 'Outbreak::stepsCounted()', 'Outbreak::stepsUncounted()'))
+            ->and(PhpCalls::inWith(
+                ...$this->stepFloor instanceof Absent ? [] : [sprintf('Outbreak::stepFloor(%d)', $this->stepFloor)],
+            ))
+            ->and($this->serve->php())->and($this->cache->php());
     }
 }

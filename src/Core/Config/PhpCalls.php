@@ -62,25 +62,21 @@ final readonly class PhpCalls
     /**
      * The builder's call that sets a duration, such as `Local::watchBudget('30s')`, where one is set; none
      * otherwise.
-     *
-     * @return list<string>
      */
-    public static function duration(string $method, Seconds|Absent $value): array
+    public static function duration(string $method, Seconds|Absent $value): self
     {
-        return $value instanceof Seconds ? [sprintf('%s(%s)', $method, self::literal($value->written()))] : [];
+        return $value instanceof Seconds
+            ? self::inWith(sprintf('%s(%s)', $method, self::literal($value->written())))
+            : self::none();
     }
 
-    /**
-     * The builder's call for a setting turned on or off, where it is set; none otherwise.
-     *
-     * @return list<string>
-     */
-    public static function flag(bool|Absent $value, string $on, string $off): array
+    /** The builder's call for a setting turned on or off, where it is set; none otherwise. */
+    public static function flag(bool|Absent $value, string $on, string $off): self
     {
         return match ($value) {
-            true => [$on],
-            false => [$off],
-            default => [],
+            true => self::inWith($on),
+            false => self::inWith($off),
+            default => self::none(),
         };
     }
 
@@ -88,14 +84,13 @@ final readonly class PhpCalls
      * The builder's call that lists globs, such as `Reach::packages('src/*')`, spelt from the origin, where any are
      * listed; none otherwise.
      *
-     * @param  Listed<Glob>|Absent $globs
-     * @return list<string>
+     * @param Listed<Glob>|Absent $globs
      */
-    public static function globs(string $method, Listed|Absent $globs, PathOrigin $origin): array
+    public static function globs(string $method, Listed|Absent $globs, PathOrigin $origin): self
     {
         return $globs instanceof Listed
-            ? [sprintf('%s(%s)', $method, self::literals(...WrittenPaths::globs($origin, $globs)))]
-            : [];
+            ? self::inWith(sprintf('%s(%s)', $method, self::literals(...WrittenPaths::globs($origin, $globs))))
+            : self::none();
     }
 
     /** Values as PHP writes them, as the arguments of one call. */
