@@ -89,7 +89,7 @@ final readonly class Mutating
         Stopwatch $stopwatch,
     ): Mutated|CannotJudge {
         $from = $stopwatch->now();
-        $held = new HeldCoverage($this->adapters, $this->settings->reach()->heldCoverage())
+        $held = new HeldCoverage($this->adapters, $this->settings->reach()->held()->coverage())
             ->checked($shard, $map, $plan->briefing()->isEarly());
         $stopwatch->handled(Step::HeldCoverage, $from, $shard->units()->held());
 

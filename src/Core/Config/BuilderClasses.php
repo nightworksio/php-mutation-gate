@@ -39,6 +39,7 @@ final readonly class BuilderClasses
         'Floor' => self::BUILDER,
         'Gate' => self::BUILDER,
         'Heatmap' => self::BUILDER,
+        'HeldUnits' => self::BUILDER,
         'Ignore' => self::BUILDER,
         'Ignores' => self::BUILDER,
         'Load' => self::BUILDER,

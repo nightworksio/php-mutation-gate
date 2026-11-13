@@ -81,8 +81,8 @@ final readonly class Mutators
     public function over(self $later): self
     {
         return new self(
-            $this->joined($this->sets, $later->sets),
-            $this->joined($this->except, $later->except),
+            Listed::joined($this->sets, $later->sets, static fn(string $name): string => $name),
+            Listed::joined($this->except, $later->except, static fn(string $name): string => $name),
             [...$later->offeredBeside($this), ...$this->offeredBeside($later)],
         );
     }
@@ -138,19 +138,5 @@ final readonly class Mutators
         $chosen = $other->sets instanceof Listed ? array_diff([...$other->sets], array_keys($other->offered)) : [];
 
         return array_diff_key($this->offered, array_flip($chosen));
-    }
-
-    /**
-     * @param  Listed<string>|Absent $earlier
-     * @param  Listed<string>|Absent $later
-     * @return Listed<string>|Absent
-     */
-    private function joined(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
-    {
-        return match (true) {
-            $later instanceof Absent => $earlier,
-            $earlier instanceof Absent => $later,
-            default => $earlier->and($later, static fn(string $name): string => $name),
-        };
     }
 }

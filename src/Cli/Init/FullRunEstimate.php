@@ -159,7 +159,7 @@ final readonly class FullRunEstimate
 
         $lines = [];
 
-        foreach ($composed->settings->reach()->hotPaths()->hot($map, $units) as $file) {
+        foreach ($composed->settings->reach()->held()->hotPaths()->hot($map, $units) as $file) {
             $lines[] = HotPaths::said($map, $file);
             $lines[] = HotPaths::holding($file);
         }

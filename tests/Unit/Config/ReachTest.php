@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Config\HeldUnits;
 use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 $calls = [
-    'Reach::heldCoverageFromTheMap' => [static fn(): Setting => Reach::heldCoverageFromTheMap(), 'holds.coverage', 'map', 'Reach::heldCoverageFromTheMap'],
+    'HeldUnits::coverageFromTheMap' => [static fn(): Setting => HeldUnits::coverageFromTheMap(), 'holds.coverage', 'map', 'HeldUnits::coverageFromTheMap'],
     'Reach::sinceJudgedOffBranch' => [static fn(): Setting => Reach::sinceJudgedOffBranch(), 'reach.defaultBranchSince', 'judged-off-branch', 'Reach::sinceJudgedOffBranch'],
     'Reach::sincePassed' => [static fn(): Setting => Reach::sincePassed(), 'reach.defaultBranchSince', 'passed', 'Reach::sincePassed'],
 ];

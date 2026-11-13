@@ -17,8 +17,8 @@ enum HeldCoverageMode: string
     public function php(): string
     {
         return match ($this) {
-            self::Measure => 'Reach::measuringHeldCoverage()',
-            self::Map => 'Reach::heldCoverageFromTheMap()',
+            self::Measure => 'HeldUnits::measuringCoverage()',
+            self::Map => 'HeldUnits::coverageFromTheMap()',
         };
     }
 }

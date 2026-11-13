@@ -169,7 +169,7 @@ final readonly class VerdictWarnings
             $units = [...$units, ...$shard->units()];
         }
 
-        foreach ($this->settings->reach()->hotPaths()->in($map, Units::of(...$units)) as $hot) {
+        foreach ($this->settings->reach()->held()->hotPaths()->in($map, Units::of(...$units)) as $hot) {
             $warnings = $warnings->with($hot);
         }
 

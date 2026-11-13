@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Config\Digest;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Floor;
 use NightWorksIO\MutationGate\Config\Gate;
+use NightWorksIO\MutationGate\Config\HeldUnits;
 use NightWorksIO\MutationGate\Config\Ignore;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Load;
@@ -134,7 +135,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Reach::lockPackages('pestphp/*'),
                 Reach::wholeChangedTestFiles(),
                 Reach::fixtures('tests/fixtures/*'),
-                Reach::hotPath(0.5),
+                HeldUnits::hotPath(0.5),
                 Shards::seconds(900),
                 Shards::max(8),
                 Shards::secondsPerLine('', 0.3),

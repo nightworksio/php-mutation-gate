@@ -166,7 +166,7 @@ it('writes each key into a config written as PHP, through the builder that reads
     'timeouts.learned.most' => [['timeouts' => ['learned' => ['most' => 8.5]]], 'Timeouts::learnedMost(8.5)'],
     'staticCheck.dependents' => [['staticCheck' => ['dependents' => 30]], 'StaticCheck::dependents(30)'],
     'staticCheck.preCheckAfter' => [['staticCheck' => ['preCheckAfter' => 40]], 'StaticCheck::preCheckAfter(40)'],
-    'holds.fewestTests' => [['holds' => ['fewestTests' => 9]], 'Reach::hotPathFewestTests(9)'],
+    'holds.fewestTests' => [['holds' => ['fewestTests' => 9]], 'HeldUnits::fewestTests(9)'],
     'versionControl git, by name' => [['versionControl' => 'git'], 'VersionControl::git()'],
     'versionControl github, by name' => [['versionControl' => 'github'], 'VersionControl::github()'],
     'reach.lockMoves' => [['reach' => ['lockMoves' => 'loaded']], 'Reach::lockMoves(LockMoveReach::Loaded)'],

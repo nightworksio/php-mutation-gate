@@ -43,7 +43,7 @@ final readonly class HotPath
         $settings = $observed->settings();
 
         return $measured instanceof Measurement && $settings instanceof Settings
-            ? self::measured($measured, $settings->reach()->hotPaths())
+            ? self::measured($measured, $settings->reach()->held()->hotPaths())
             : Findings::none();
     }
 

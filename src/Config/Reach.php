@@ -7,13 +7,13 @@ namespace NightWorksIO\MutationGate\Config;
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\DefaultBranchSince;
 use NightWorksIO\MutationGate\Core\Config\FailFast;
-use NightWorksIO\MutationGate\Core\Config\HeldCoverageMode;
 use NightWorksIO\MutationGate\Core\Config\LockMoveReach;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * What decides what a change reaches (ADR-0005): `packages`, `reach.everything`, `reach.lockPackages`,
- * `reach.changedTests`, `reach.fixtures`, `holds.hotPath`, `run.full`, `run.failFast`, `run.failFastWaits`.
+ * `reach.changedTests`, `reach.fixtures`, `reach.lockMoves`, `reach.defaultBranchSince`, `run.full`, `run.failFast`,
+ * `run.failFastWaits`. How held units are read is HeldUnits'.
  */
 final readonly class Reach implements Setting
 {
@@ -75,18 +75,6 @@ final readonly class Reach implements Setting
         return new self(Json::at('reach.fixtures', Json::items(...$globs)));
     }
 
-    /** `holds.hotPath`: the share of the suite past which code nothing holds is warned about. */
-    public static function hotPath(int|float $share): self
-    {
-        return new self(Json::at('holds.hotPath', $share));
-    }
-
-    /** `holds.fewestTests`: the fewest tests a suite holds for a file to read as hot, 20 by default. */
-    public static function hotPathFewestTests(int $tests): self
-    {
-        return new self(Json::at('holds.fewestTests', $tests));
-    }
-
     /** `run.full`, `true`: a run given neither `--full` nor `--changed-since` considers every unit. */
     public static function fullByDefault(): self
     {
@@ -130,18 +118,6 @@ final readonly class Reach implements Setting
     public static function failFastWaitingOn(string ...$outcomes): self
     {
         return new self(Json::at('run.failFastWaits', Json::items(...$outcomes)));
-    }
-
-    /** `holds.coverage`, `measure`: a held unit's holding tests run alone under coverage first, as by default. */
-    public static function measuringHeldCoverage(): self
-    {
-        return new self(Json::at('holds.coverage', HeldCoverageMode::Measure->value));
-    }
-
-    /** `holds.coverage`, `map`: their lines are read from the handed map, which loosens under `uncovered: exclude`. */
-    public static function heldCoverageFromTheMap(): self
-    {
-        return new self(Json::at('holds.coverage', HeldCoverageMode::Map->value));
     }
 
     /**

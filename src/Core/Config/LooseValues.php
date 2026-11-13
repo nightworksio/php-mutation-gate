@@ -96,7 +96,7 @@ final readonly class LooseValues implements Countable, IteratorAggregate
                 LooseValue::of('pest.narrowedKills', NarrowedKillTrust::Trust->value, self::NARROWED),
             ),
             ...self::when(
-                $excluded && $reach->heldCoverage() === HeldCoverageMode::Map,
+                $excluded && $reach->held()->coverage() === HeldCoverageMode::Map,
                 LooseValue::of('holds.coverage', HeldCoverageMode::Map->value, self::HELD),
             ),
             ...self::when(
