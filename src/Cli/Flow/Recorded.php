@@ -5,44 +5,30 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_all;
-use function array_filter;
 use function count;
-use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredLedger;
-use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
-use NightWorksIO\MutationGate\Core\Config\CacheStore;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Cost\MutantTimes;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Untimed;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
-use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
-use NightWorksIO\MutationGate\Core\Proof\CacheClass;
-use NightWorksIO\MutationGate\Core\Proof\CachePack;
 use NightWorksIO\MutationGate\Core\Proof\Judged;
-use NightWorksIO\MutationGate\Core\Proof\KillPace;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\NotRecorded;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
-use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
-use NightWorksIO\MutationGate\Core\Proof\Timings;
-use NightWorksIO\MutationGate\Core\Pruning\Outcomes;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
@@ -93,40 +79,30 @@ final readonly class Recorded
         $written = $ledgers->written()->atBase($plan->base());
         $written = $written->withLearned($written->learned()->analysers()->plus($results->checks()->histories()));
         $recordings = Recordings::of($plan, $fresh, $run, $this->adapters->project, $map);
-        $proved = $this->proved($written, $plan, $recordings);
-        $learned = $this->adapters->narrowing->isNone()
-            ? $this->learned(
-                $this->subsumed($this->survived($proved, $fresh), $fresh, $plan),
-                $results,
-                $judged,
-                $ledgers->timings(),
-                $plan,
-            )
-            : $proved;
-        $ledger = $this->taught($learned, $fresh);
-        $ledger = $ledger instanceof Ledger ? $this->paced($ledger, $timings) : $ledger;
+        $ledger = new Learning($this->adapters, $this->settings)->learned(
+            $this->proved($written, $plan, $recordings),
+            $fresh,
+            $results,
+            $judged,
+            $ledgers,
+            $plan,
+            $timings,
+        );
 
         if ($ledger instanceof CannotJudge) {
             return $ledger;
         }
 
-        $runs = $passed instanceof Passed ? $ledger->runs()->passing($passed) : $ledger->runs();
-        $runs = $lastRun instanceof LastRun && $this->judgedEvery($results, $recordings, $plan)
-            ? $runs->lastRunAt($lastRun)
-            : $runs->cutShort();
-        $runs = $ended instanceof Instant && $this->recordsJudged($ledgers, $plan)
-            ? $runs->judging(Judged::of(
-                $plan->commit(),
-                $this->settings->ci()->check(),
-                $ended,
-                $this->open($plan, $ledger),
-            ))
-            : $runs;
-
+        $runs = $this->runs($ledger, $results, $recordings, $ledgers, $plan, $passed, $lastRun, $ended);
         $wrote = $this->adapters->proofs->write($scope, $ledger->withRuns($runs));
 
         if ($wrote instanceof Written) {
-            $this->cached($ledger, $plan, $run, $scope->equals(Standing::planned($plan)->defaultBranch()));
+            new CachedPacks($this->adapters, $this->settings)->left(
+                $ledger,
+                $plan,
+                $run,
+                $scope->equals(Standing::planned($plan)->defaultBranch()),
+            );
         }
 
         return $wrote;
@@ -146,6 +122,39 @@ final readonly class Recorded
         return $scope instanceof Scope
             ? $this->adapters->proofs->write($scope, $ledger->withRuns($ledger->runs()->passing($passed)->cutShort()))
             : $scope;
+    }
+
+    /**
+     * The runs the ledger records: this commit as the newest that passed,
+     * where it did; as the scope's last run, where the run judged every unit
+     * it considered, and otherwise none; and what it judged, where the run
+     * records that (ADR-0007, ADR-0141).
+     *
+     * @param list<array{UnitResult, Proof|NotRecorded}> $recordings
+     */
+    private function runs(
+        Ledger $ledger,
+        Results $results,
+        array $recordings,
+        Ledgers $ledgers,
+        Plan $plan,
+        Passed|CannotTell $passed,
+        LastRun|CannotTell $lastRun,
+        Instant|NotGiven $ended,
+    ): ScopeRuns {
+        $runs = $passed instanceof Passed ? $ledger->runs()->passing($passed) : $ledger->runs();
+        $runs = $lastRun instanceof LastRun && $this->judgedEvery($results, $recordings, $plan)
+            ? $runs->lastRunAt($lastRun)
+            : $runs->cutShort();
+
+        return $ended instanceof Instant && $this->recordsJudged($ledgers, $plan)
+            ? $runs->judging(Judged::of(
+                $plan->commit(),
+                $this->settings->ci()->check(),
+                $ended,
+                $this->open($plan, $ledger),
+            ))
+            : $runs;
     }
 
     /**
@@ -169,31 +178,6 @@ final readonly class Recorded
                 static fn(array $recording): bool => $recording[1] instanceof Proof
                     || $pruned->has($recording[0]->unit()->path()),
             );
-    }
-
-    /**
-     * The ledger, having learned what each mutant the run judged itself came
-     * to, by its runner and mutator, which decides what later runs prune
-     * (ADR-0025).
-     */
-    private function survived(Ledger $ledger, UnitResults $fresh): Ledger
-    {
-        $window = $this->settings->reach()->pruning()->window();
-        $runner = $this->settings->runner()->name();
-
-        return $ledger->withLearned($ledger->learned()->survival()->after($runner, $window, ...Outcomes::of($fresh)));
-    }
-
-    /**
-     * The ledger, having learned which mutant subsumes which in each file
-     * the run judged every mutant of with every test that killed it, in
-     * place of what it held of those files (ADR-0079).
-     */
-    private function subsumed(Ledger $ledger, UnitResults $fresh, Plan $plan): Ledger
-    {
-        return $plan->briefing()->matrix() === MatrixKind::Full
-            ? $ledger->withLearned($ledger->learned()->subsumption()->afterRun($fresh))
-            : $ledger;
     }
 
     /** Each unit the shards ran, with the mutants a proof under its key in either ledger disagrees on flaky. */
@@ -229,112 +213,6 @@ final readonly class Recorded
     }
 
     /**
-     * The ledger, having learned the first killer of every mutant the shards
-     * killed, in the function it is in, and keeping the killers of functions
-     * only in the files that still exist (ADR-0013).
-     */
-    private function taught(Ledger|CannotJudge $ledger, UnitResults $fresh): Ledger|CannotJudge
-    {
-        if ($ledger instanceof CannotJudge) {
-            return $ledger;
-        }
-
-        $files = Paths::none();
-
-        foreach ($ledger->learned()->killers()->functions() as $ranked) {
-            $files = $files->with($ranked->function()->file());
-        }
-
-        foreach ($fresh as $result) {
-            foreach ($result->mutants() as $mutant) {
-                $files = $files->with($mutant->location()->file());
-            }
-        }
-
-        $functions = SourceFunctions::read($this->adapters->project, $files);
-
-        return $functions instanceof SourceFunctions ? $this->killedIn($ledger, $fresh, $functions) : $functions;
-    }
-
-    private function killedIn(Ledger $ledger, UnitResults $fresh, SourceFunctions $functions): Ledger
-    {
-        $lessons = [];
-
-        foreach ($fresh as $result) {
-            foreach ($result->mutants() as $mutant) {
-                $lessons[] = Lesson::of($mutant, $functions->around($mutant));
-            }
-        }
-
-        return $ledger
-            ->withLearned($ledger->learned()->killers()->learnedFrom(...$lessons))
-            ->keepingKillersIn($functions->files());
-    }
-
-    /**
-     * The ledger, with what each shard taught the cost model of the units it
-     * ran, timed by the map it was handed, the shards that each judge a unit
-     * by a part of the test files adding up (ADR-0117), smoothed over the
-     * timing every ledger read held of it: a unit its budget ran out before
-     * took none of its time, and a mutant a shard's part did not reach none of
-     * its time; each mutant a test killed, its time over its covering tests'
-     * own time by that map, which a learned `timeouts.multiple` is read from
-     * (ADR-0073); and what each mutator's mutants the shard ran cost and came
-     * to, as the verdict judged them (ADR-0076).
-     */
-    private function learned(
-        Ledger $ledger,
-        Results $results,
-        JudgedMutants $judged,
-        Timings $held,
-        Plan $plan,
-    ): Ledger|CannotJudge {
-        $pruned = $plan->considered()->pruned()->files();
-        $handoff = new Handoff(
-            $this->adapters->project,
-            Handoff::limits(),
-            $this->adapters->maps,
-            $this->settings->proofs()->coverageCompressionLevel(),
-        );
-        $times = MutantTimes::none();
-        $timings = Timings::none();
-
-        foreach ($results->shards() as [$shard, $result, $mutated]) {
-            $map = $handoff->read($shard->id());
-
-            if ($map instanceof CannotJudge) {
-                return $map;
-            }
-
-            $reached = $mutated->mutants()->reached();
-            $ran = $shard->units()->except($result->unjudged());
-            $times = $times->and(MutantTimes::of($reached, $map, $result->measured()->spent()));
-            $timings = $timings->plus($this->adapters->costs->learn(
-                $ran->except($ran->within($pruned)),
-                $reached,
-                $map,
-                $result->measured(),
-            ));
-            $paces = KillPace::ofAll($reached, $map);
-            $ledger = $ledger->withLearned($ledger->learned()->limits()->afterKills(...$paces));
-        }
-
-        $runner = $this->settings->runner()->name();
-
-        return $ledger
-            ->withTimings($timings->smoothedOver($held, $this->settings->shards()->planning()->newest()))
-            ->withLearned($ledger->learned()->tallies()->after($runner, $judged, $times));
-    }
-
-    /** The ledger, having learned, for a run cut into shards, how many of them ran at once (ADR-0073). */
-    private function paced(Ledger $ledger, RunTimings|Untimed $timings): Ledger
-    {
-        return $timings instanceof RunTimings && $timings->isSharded()
-            ? $ledger->withLearned($ledger->learned()->limits()->afterRuns($timings->mostAtOnce()))
-            : $ledger;
-    }
-
-    /**
      * Whether a run records what it judged: one on the default branch of the whole suite and every mutator, that
      * drew no sample (ADR-0141).
      */
@@ -365,47 +243,5 @@ final readonly class Recorded
         }
 
         return Paths::of(...$open);
-    }
-
-    /**
-     * The proofs this run wrote into its ledger at the plan's base left as the
-     * entries of its class's pack, for the store of `outbreak cache` to take
-     * (ADR-0131): under `actions` merged into the pack the Actions cache saves
-     * in the run's scope now, and under `oci` left for `deliver`, which holds
-     * the registry's credential. A run with no store leaves none.
-     */
-    private function cached(Ledger $ledger, Plan $plan, Run $run, bool $onTheDefaultBranch): void
-    {
-        $packs = new CachedPacks($this->adapters, $this->settings);
-        $store = $packs->store();
-
-        if ($store === CacheStore::None) {
-            return;
-        }
-
-        $class = CacheClass::writtenBy($onTheDefaultBranch);
-        $ours = Proofs::of(...array_filter(
-            [...$ledger->proofs()],
-            static fn(Proof $proof): bool => $proof->run()->id() === $run->id(),
-        ));
-        $entries = Workspace::cacheEntries($class);
-        $bytes = Contents::of(CachePack::bytes($class, $plan->base(), $ours));
-        $written = $this->adapters->project->write($entries, $bytes);
-        $registry = $this->settings->shards()->outbreak()->cache()->registry();
-        $proofs = $this->adapters->proofs;
-
-        if (! $written instanceof Written) {
-            return;
-        }
-
-        if ($store === CacheStore::Actions) {
-            $packs->pushed($class, $entries, $plan->base());
-
-            return;
-        }
-
-        if ($proofs instanceof DeliveredLedger && is_string($registry)) {
-            $proofs->cache(CacheDelivery::request($registry, $plan->base(), $class), $bytes);
-        }
     }
 }

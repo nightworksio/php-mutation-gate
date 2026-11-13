@@ -108,6 +108,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/RecheckRuns.php',
             'src/Cli/Flow/Rechecking.php',
             'src/Cli/Flow/Recorded.php',
+            'src/Cli/Flow/Learning.php',
             'src/Cli/Flow/Recordings.php',
             'src/Cli/Flow/ReportConversion.php',
             'src/Cli/Flow/Reported.php',

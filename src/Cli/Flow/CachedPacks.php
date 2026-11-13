@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_filter;
+use function is_string;
+
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredLedger;
+use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
 use NightWorksIO\MutationGate\Core\Config\CacheStore;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -16,9 +21,12 @@ use NightWorksIO\MutationGate\Core\Proof\CacheClass;
 use NightWorksIO\MutationGate\Core\Proof\CachedProofs;
 use NightWorksIO\MutationGate\Core\Proof\CachePack;
 use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
+use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\ProofCache;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
 
@@ -131,6 +139,46 @@ final readonly class CachedPacks
         return $cached;
     }
 
+    /**
+     * The proofs this run wrote into its ledger at the plan's base left as the
+     * entries of its class's pack, for the store of `outbreak cache` to take
+     * (ADR-0131): under `actions` merged into the pack the Actions cache saves
+     * in the run's scope now, and under `oci` left for `deliver`, which holds
+     * the registry's credential. A run with no store leaves none.
+     */
+    public function left(Ledger $ledger, Plan $plan, Run $run, bool $onTheDefaultBranch): void
+    {
+        $store = $this->store();
+
+        if ($store === CacheStore::None) {
+            return;
+        }
+
+        $class = CacheClass::writtenBy($onTheDefaultBranch);
+        $ours = Proofs::of(...array_filter(
+            [...$ledger->proofs()],
+            static fn(Proof $proof): bool => $proof->run()->id() === $run->id(),
+        ));
+        $entries = Workspace::cacheEntries($class);
+        $bytes = Contents::of(CachePack::bytes($class, $plan->base(), $ours));
+        $written = $this->adapters->project->write($entries, $bytes);
+        $registry = $this->settings->shards()->outbreak()->cache()->registry();
+        $proofs = $this->adapters->proofs;
+
+        if (! $written instanceof Written) {
+            return;
+        }
+
+        if ($store === CacheStore::Actions) {
+            $this->pushed($class, $entries, $plan->base());
+
+            return;
+        }
+
+        if ($proofs instanceof DeliveredLedger && is_string($registry)) {
+            $proofs->cache(CacheDelivery::request($registry, $plan->base(), $class), $bytes);
+        }
+    }
     /**
      * What the plan says of the cache: how many of the units it proved only
      * a pack's proof covers, none of the ledgers' (ADR-0131); nothing where
