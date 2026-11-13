@@ -17,7 +17,6 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function pcntl_fork;
@@ -146,17 +145,16 @@ final class StreamRun
     }
 
     /**
-     * Forks the current test from the booted application: true in the
-     * test's own process, which runs it; false in the stream's, which waits
-     * for it, reads its kills, and skips the test; none where the stream
-     * cannot fork here, and the test boots its own application.
+     * Forks the current test from the booted application, where the stream
+     * can fork here: taken in the test's own process, which runs it, and
+     * waited for in the stream's, which reads its kills and skips the test.
      */
-    public function forkedTest(): bool|NotGiven
+    public function forkedTest(): TestHanding
     {
         return $this->mutant === '' && ! $this->testProcess && $this->forkable && $this->test !== ''
             && ! Descriptors::held()->shares($this->start)
             ? $this->handedOver()
-            : NotGiven::value();
+            : TestHanding::Kept;
     }
 
     /** The run ended: the parent waits for every child, each held to its limit. */
@@ -254,27 +252,27 @@ final class StreamRun
      * kills it wrote read, or a fallback written where it never ended the
      * test; none where PHP cannot fork.
      */
-    private function handedOver(): bool|NotGiven
+    private function handedOver(): TestHanding
     {
         clearstatcache(clear_realpath_cache: true, filename: $this->plan->results);
         $from = is_file($this->plan->results) ? (int) filesize($this->plan->results) : 0;
         $pid = pcntl_fork();
 
         if ($pid === -1) {
-            return NotGiven::value();
+            return TestHanding::Kept;
         }
 
         if ($pid === 0) {
             $this->testProcess = true;
 
-            return true;
+            return TestHanding::Taken;
         }
 
         pcntl_waitpid($pid, $status);
         $this->handed = true;
         HandedTest::read($this->plan->results, $from, $this->test)->into($this->kills, $this->plan);
 
-        return false;
+        return TestHanding::Waited;
     }
 
     /**

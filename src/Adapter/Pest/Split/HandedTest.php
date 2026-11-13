@@ -12,8 +12,6 @@ use function is_bool;
 use function is_file;
 use function json_decode;
 
-use NightWorksIO\MutationGate\Core\NotGiven;
-
 /**
  * How a test's own process, forked from a stream's booted application
  * (`splitStream.bootOnce`), ended the test, as it wrote it to the stream's
@@ -26,14 +24,14 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 final readonly class HandedTest
 {
     /** @param list<array{string, string}> $failed each mutant a child failed or ended in, and the test */
-    private function __construct(public bool|NotGiven $passed, public array $failed, private string $test)
+    private function __construct(public HandedEnd $end, public array $failed, private string $test)
     {
     }
 
     public static function read(string $results, int $from, string $test): self
     {
         $text = is_file($results) ? (string) file_get_contents($results, offset: $from) : '';
-        $passed = NotGiven::value();
+        $end = HandedEnd::Unended;
         $failed = [];
 
         foreach (explode("\n", $text) as $line) {
@@ -43,11 +41,11 @@ final readonly class HandedTest
                 continue;
             }
 
-            $passed = self::passed($read, $said, $passed);
+            $end = self::endOf($read, $said, $end);
             $failed = self::ends($read) ? [...$failed, [$read->mutant, $test]] : $failed;
         }
 
-        return new self($passed, $failed, $test);
+        return new self($end, $failed, $test);
     }
 
     /**
@@ -58,9 +56,9 @@ final readonly class HandedTest
     {
         $kills->failedIn($this->failed);
 
-        match (true) {
-            $this->passed instanceof NotGiven => $plan->recorded(StreamLine::fallback($this->test)),
-            default => $kills->ended($this->test, $this->passed),
+        match ($this->end) {
+            HandedEnd::Unended => $plan->recorded(StreamLine::fallback($this->test)),
+            HandedEnd::Passed, HandedEnd::Failed => $kills->ended($this->test, $this->end === HandedEnd::Passed),
         };
     }
 
@@ -77,10 +75,10 @@ final readonly class HandedTest
         return [StreamRead::of($decoded), array_key_exists('p', $decoded) && is_bool($decoded['p'])];
     }
 
-    /** Whether the test passed, as a line of its process's says, or as an earlier line said. */
-    private static function passed(StreamRead $read, bool $said, bool|NotGiven $before): bool|NotGiven
+    /** How the test ended, as a line of its process's says, or as an earlier line said. */
+    private static function endOf(StreamRead $read, bool $said, HandedEnd $before): HandedEnd
     {
-        return $read->kind === StreamLine::PARENT && $said ? $read->passed : $before;
+        return $read->kind === StreamLine::PARENT && $said ? HandedEnd::of($read->passed) : $before;
     }
 
     /** Whether a line says a child failed its mutant, or ended in it. */

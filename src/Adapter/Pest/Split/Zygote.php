@@ -16,7 +16,6 @@ use function method_exists;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\File\FileMode;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use PHPUnit\Framework\Assert;
 
 use function putenv;
@@ -112,10 +111,10 @@ final class Zygote
     {
         $forked = Stream::forkedTest();
 
-        return match (true) {
-            $forked instanceof NotGiven => require $bootstrap,
-            $forked => $booted,
-            default => Assert::markTestSkipped(self::HANDED),
+        return match ($forked) {
+            TestHanding::Kept => require $bootstrap,
+            TestHanding::Taken => $booted,
+            TestHanding::Waited => Assert::markTestSkipped(self::HANDED),
         };
     }
 

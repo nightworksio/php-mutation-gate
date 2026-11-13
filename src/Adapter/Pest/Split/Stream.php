@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
-use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Runner\Forking;
+use function function_exists;
 
 /**
  * The split stream of this process, where it runs one (ADR-0117), as Pest's
@@ -21,7 +20,7 @@ final class Stream
     /** Starts a split stream from the plan this file holds, where PHP can fork. */
     public static function from(string $file): bool
     {
-        $plan = Forking::isAvailable() ? StreamPlanFile::read($file) : false;
+        $plan = function_exists('pcntl_fork') && function_exists('posix_kill') ? StreamPlanFile::read($file) : false;
 
         if ($plan === false) {
             return false;
@@ -51,13 +50,13 @@ final class Stream
     }
 
     /**
-     * Forks the current test from the booted application: true in the
-     * test's own process, false in the stream's; none where no stream can
-     * fork here.
+     * Forks the current test from the booted application: taken in the
+     * test's own process, waited for in the stream's; kept where no stream
+     * can fork here.
      */
-    public static function forkedTest(): bool|NotGiven
+    public static function forkedTest(): TestHanding
     {
-        return self::$run instanceof StreamRun ? self::$run->forkedTest() : NotGiven::value();
+        return self::$run instanceof StreamRun ? self::$run->forkedTest() : TestHanding::Kept;
     }
 
     /** The test raised an issue: it was risky, or triggered a deprecation, a notice or a warning. */
