@@ -68,4 +68,14 @@ suite=(--testsuite=Contract "--log-junit=evidence/raw/${leg}.xml")
 if [ -n "${fixture[filter]}" ]; then
   suite+=("--filter=${fixture[filter]}")
 fi
-RUNNER_CONTRACTS="${fixture[contracts]}" ANALYSER_CONTRACTS="${fixture[analysers]}" vendor/bin/pest "${suite[@]}"
+# Where COVERAGE_INTO names a directory, the leg runs under pcov with every
+# process its tests start recording its lines (scripts/process-coverage.php),
+# and leaves its report and those lines there for the coverage job (G7).
+php=(php)
+if [ -n "${COVERAGE_INTO:-}" ]; then
+  php scripts/process-coverage.php ini "${COVERAGE_INTO}/processes"
+  export PHP_INI_SCAN_DIR=":${COVERAGE_INTO}/processes/ini"
+  php+=(-d pcov.enabled=1 -d pcov.directory=. -d 'pcov.exclude=~/(vendor|tests)/~')
+  suite+=("--coverage-php=${COVERAGE_INTO}/report.php")
+fi
+RUNNER_CONTRACTS="${fixture[contracts]}" ANALYSER_CONTRACTS="${fixture[analysers]}" "${php[@]}" vendor/bin/pest "${suite[@]}"
