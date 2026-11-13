@@ -12,9 +12,9 @@ use outbreak_map::json::Cursor;
 use sha2::{Digest as _, Sha256};
 use ureq::Agent;
 
-use crate::Failure;
 use crate::pack::{self, Pack};
 use crate::request::Request;
+use crate::{Failure, entries, write};
 
 /// The variable the job hands the registry's token in.
 pub const TOKEN: &str = "MUTATION_GATE_REGISTRY_TOKEN";
@@ -37,21 +37,15 @@ const TIMEOUT: Duration = Duration::from_secs(120);
 ///
 /// Fails where the request names no registry, or a pack read cannot be written.
 pub fn pull(request: &Request) -> Result<usize, Failure> {
-    let registry = Registry::named(request)?;
+    pulled(request, &Registry::named(request)?)
+}
+
+fn pulled(request: &Request, registry: &Registry) -> Result<usize, Failure> {
     let mut pulled = 0;
 
     for (class, into) in &request.packs {
         if let Some(found) = registry.pack(request, class, Access::Pull)? {
-            let bytes = found.bytes(request.limits)?;
-
-            if let Some(parent) = std::path::Path::new(into).parent() {
-                std::fs::create_dir_all(parent).map_err(|error| {
-                    Failure::Io(format!("cannot make {}: {error}", parent.display()))
-                })?;
-            }
-
-            std::fs::write(into, bytes)
-                .map_err(|error| Failure::Io(format!("cannot write {into}: {error}")))?;
+            write(into, &found.bytes(request.limits)?)?;
             pulled += 1;
         }
     }
@@ -65,20 +59,14 @@ pub fn pull(request: &Request) -> Result<usize, Failure> {
 ///
 /// Fails where the request names no registry, the entries cannot be read, or the registry refuses the push.
 pub fn push(request: &Request) -> Result<usize, Failure> {
-    let registry = Registry::named(request)?;
+    pushed(request, &Registry::named(request)?)
+}
+
+fn pushed(request: &Request, registry: &Registry) -> Result<usize, Failure> {
     let mut pushed = 0;
 
-    for (class, entries) in &request.packs {
-        let bytes = std::fs::read(entries)
-            .map_err(|error| Failure::Io(format!("cannot read {entries}: {error}")))?;
-        let newer = pack::read(&bytes, request.limits)?;
-
-        if newer.class != *class || newer.base != request.base {
-            return Err(Failure::Refused(format!(
-                "{entries} is no {class} pack at the request's base"
-            )));
-        }
-
+    for (class, path) in &request.packs {
+        let newer = entries(request, class, path)?;
         let older = registry
             .pack(request, class, Access::Push)?
             .unwrap_or_else(|| Pack::empty(class, &request.base));
@@ -114,7 +102,7 @@ impl Access {
 /// A repository of a registry, reached over HTTPS.
 struct Registry {
     agent: Agent,
-    host: String,
+    origin: String,
     name: String,
     token: Option<String>,
 }
@@ -132,21 +120,32 @@ impl Registry {
                 "{repository} names no repository of a registry"
             )));
         };
+
+        Ok(Self::at(
+            format!("https://{host}"),
+            name,
+            env::var(TOKEN).unwrap_or_default(),
+        ))
+    }
+
+    /// The repository of this name at a registry's origin, asked with this token where it asks one and the token
+    /// is not empty.
+    fn at(origin: String, name: &str, token: String) -> Self {
         let config = Agent::config_builder()
             .http_status_as_error(false)
             .timeout_global(Some(TIMEOUT))
             .build();
 
-        Ok(Self {
+        Self {
             agent: config.into(),
-            host: host.to_owned(),
+            origin,
             name: name.to_owned(),
-            token: env::var(TOKEN).ok().filter(|token| !token.is_empty()),
-        })
+            token: (!token.is_empty()).then_some(token),
+        }
     }
 
     fn url(&self, path: &str) -> String {
-        format!("https://{}/v2/{}/{path}", self.host, self.name)
+        format!("{}/v2/{}/{path}", self.origin, self.name)
     }
 
     /// The pack of a class at the request's base the registry holds; none where it holds none.
@@ -188,7 +187,7 @@ impl Registry {
 
         let read = pack::read(&bytes, request.limits)?;
 
-        Ok((read.class == class && (request.newest || read.base == request.base)).then_some(read))
+        Ok(request.holds(&read, class).then_some(read))
     }
 
     /// The pack's bytes tagged, its layer and the empty config uploaded first.
@@ -247,7 +246,7 @@ impl Registry {
             )));
         };
         let at = if location.starts_with('/') {
-            format!("https://{}{location}", self.host)
+            format!("{}{location}", self.origin)
         } else {
             location.to_owned()
         };
@@ -312,9 +311,9 @@ impl Registry {
     fn bearer(&self, access: Access) -> Result<Option<String>, Failure> {
         let response = self
             .agent
-            .get(&format!("https://{}/v2/", self.host))
+            .get(&format!("{}/v2/", self.origin))
             .call()
-            .map_err(|error| Failure::Io(format!("cannot reach {}: {error}", self.host)))?;
+            .map_err(|error| Failure::Io(format!("cannot reach {}: {error}", self.origin)))?;
 
         if response.status().as_u16() != 401 {
             return Ok(None);
@@ -327,7 +326,7 @@ impl Registry {
         else {
             return Err(Failure::Io(format!(
                 "{} asks for credentials it does not name",
-                self.host
+                self.origin
             )));
         };
         let realm = parameter(challenge, "realm").unwrap_or_default();
@@ -461,7 +460,369 @@ fn base64(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{base64, layer_of, parameter, sha256, token_in};
+    use std::collections::HashMap;
+    use std::fmt::Write as _;
+    use std::io::{BufRead as _, BufReader, Read as _, Write as _};
+    use std::net::TcpListener;
+    use std::sync::Mutex;
+
+    use super::{
+        Registry, base64, layer_of, parameter, pull, pulled, push, pushed, sha256, token_in,
+    };
+    use crate::Failure;
+    use crate::request::{Limits, Request, Store};
+    use crate::tests::{packed, request, scratch};
+
+    /// A request as the registry read it.
+    struct Asked {
+        method: String,
+        target: String,
+        headers: HashMap<String, String>,
+        body: Vec<u8>,
+    }
+
+    impl Asked {
+        fn header(&self, name: &str) -> Option<&str> {
+            self.headers.get(name).map(String::as_str)
+        }
+
+        /// The part of the target's path after `/v2/`'s first name.
+        fn scenario(&self) -> &str {
+            self.target.split('/').nth(2).unwrap()
+        }
+    }
+
+    /// A status, its headers and a body.
+    type Answer = (u16, Vec<(&'static str, String)>, Vec<u8>);
+
+    /// The status of an answer never sent: the connection is dropped.
+    const DROPPED: u16 = 0;
+
+    /// A registry on a port of its own, answering each request as `answer` does given its origin: the origin.
+    fn serve(answer: impl Fn(&Asked, &str) -> Answer + Send + 'static) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let at = origin.clone();
+
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                let mut words = line.split_whitespace();
+                let (method, target) = (words.next().unwrap(), words.next().unwrap());
+                let mut headers = HashMap::new();
+
+                loop {
+                    let mut header = String::new();
+                    reader.read_line(&mut header).unwrap();
+                    let Some((name, value)) = header.trim_end().split_once(':') else {
+                        break;
+                    };
+                    headers.insert(name.to_ascii_lowercase(), value.trim().to_owned());
+                }
+
+                let length = headers
+                    .get("content-length")
+                    .map_or(0, |length| length.parse().unwrap());
+                let mut body = vec![0; length];
+                reader.read_exact(&mut body).unwrap();
+                let asked = Asked {
+                    method: method.to_owned(),
+                    target: target.to_owned(),
+                    headers,
+                    body,
+                };
+                let (status, headers, body) = answer(&asked, &at);
+
+                if status == DROPPED {
+                    continue;
+                }
+
+                let mut head = format!(
+                    "HTTP/1.1 {status} X\r\nContent-Length: {}\r\nConnection: close\r\n",
+                    body.len()
+                );
+
+                for (name, value) in headers {
+                    let _ = write!(head, "{name}: {value}\r\n");
+                }
+
+                head.push_str("\r\n");
+                stream.write_all(head.as_bytes()).unwrap();
+                stream.write_all(&body).unwrap();
+            }
+        });
+
+        origin
+    }
+
+    /// A registry that keeps what is pushed to it, asking a token for `secret` where it asks one.
+    fn registry(asks: bool) -> String {
+        let kept: Mutex<HashMap<String, Vec<u8>>> = Mutex::default();
+
+        serve(move |asked, origin| {
+            let path = asked.target.split('?').next().unwrap();
+
+            if path == "/v2/" {
+                return if asks {
+                    let challenge = format!(r#"Bearer realm="{origin}/token",service="fake""#);
+                    (401, vec![("WWW-Authenticate", challenge)], Vec::new())
+                } else {
+                    (200, Vec::new(), Vec::new())
+                };
+            }
+
+            if path == "/token" {
+                assert_eq!(
+                    asked.header("authorization"),
+                    Some(format!("Basic {}", base64(b"token:secret")).as_str())
+                );
+                assert!(asked.target.contains("service=fake"));
+                return (
+                    200,
+                    Vec::new(),
+                    br#"{"expires_in":300,"token":"t"}"#.to_vec(),
+                );
+            }
+
+            assert_eq!(asked.header("authorization"), asks.then_some("Bearer t"));
+            let mut kept = kept.lock().unwrap();
+
+            match asked.method.as_str() {
+                "POST" => {
+                    let location = if asks {
+                        "/v2/o/p/blobs/uploads/1?state=s".to_owned()
+                    } else {
+                        format!("{origin}/v2/o/p/blobs/uploads/2")
+                    };
+                    (202, vec![("Location", location)], Vec::new())
+                }
+                "PUT" if path.contains("/uploads/") => {
+                    let digest = asked.target.split("digest=").nth(1).unwrap();
+                    assert_eq!(sha256(&asked.body), digest.replace("%3A", ":"));
+                    kept.insert(
+                        format!("/v2/o/p/blobs/{}", digest.replace("%3A", ":")),
+                        asked.body.clone(),
+                    );
+                    (201, Vec::new(), Vec::new())
+                }
+                "PUT" => {
+                    kept.insert(path.to_owned(), asked.body.clone());
+                    (201, Vec::new(), Vec::new())
+                }
+                _ => kept
+                    .get(path)
+                    .map_or((404, Vec::new(), Vec::new()), |body| {
+                        (200, Vec::new(), body.clone())
+                    }),
+            }
+        })
+    }
+
+    fn pushing(directory: &std::path::Path, key: &str) -> Request {
+        let entries = directory.join(format!("{key}.pack"));
+        std::fs::write(&entries, packed("trusted", "base1", key)).unwrap();
+
+        request(Store::Oci, &entries.to_string_lossy())
+    }
+
+    #[test]
+    fn pushes_and_pulls_through_a_registry_that_asks_a_token() {
+        let directory = scratch("oci-token");
+        let at = Registry::at(registry(true), "o/p", "secret".to_owned());
+        let into = directory.join("into/trusted.pack");
+        let mut pulling = request(Store::Oci, &into.to_string_lossy());
+
+        assert_eq!(pulled(&pulling, &at), Ok(0));
+        assert_eq!(pushed(&pushing(&directory, "a"), &at), Ok(1));
+        assert_eq!(pushed(&pushing(&directory, "b"), &at), Ok(1));
+        assert_eq!(pulled(&pulling, &at), Ok(1));
+        assert_eq!(
+            crate::pack::read(&std::fs::read(&into).unwrap(), pulling.limits)
+                .unwrap()
+                .len(),
+            2
+        );
+
+        pulling.newest = true;
+        pulling.base = String::new();
+
+        assert_eq!(pulled(&pulling, &at), Ok(1));
+    }
+
+    #[test]
+    fn answers_without_credentials_where_the_registry_asks_none() {
+        let directory = scratch("oci-open");
+        let at = Registry::at(registry(false), "o/p", String::new());
+        let into = directory.join("trusted.pack");
+        let mut pulling = request(Store::Oci, &into.to_string_lossy());
+
+        assert_eq!(pushed(&pushing(&directory, "a"), &at), Ok(1));
+        assert_eq!(pulled(&pulling, &at), Ok(1));
+
+        pulling.base = "base0".to_owned();
+
+        assert_eq!(pulled(&pulling, &at), Ok(0));
+    }
+
+    fn failed(origin: &str, name: &str, asked: &Request, push: bool) -> String {
+        let at = Registry::at(origin.to_owned(), name, String::new());
+        let done = if push {
+            pushed(asked, &at)
+        } else {
+            pulled(asked, &at)
+        };
+
+        done.unwrap_err().to_string()
+    }
+
+    #[test]
+    fn fails_where_the_registry_asks_credentials_it_gives_no_token_for() {
+        let pulling = request(Store::Oci, "/nowhere");
+        let unnamed = serve(|_, _| (401, Vec::new(), Vec::new()));
+        let challenging = |status: u16, body: Vec<u8>| {
+            serve(move |asked, origin| {
+                if asked.target == "/v2/" {
+                    let challenge = format!(r#"Bearer realm="{origin}/token",service="fake""#);
+                    (401, vec![("WWW-Authenticate", challenge)], Vec::new())
+                } else {
+                    (status, Vec::new(), body.clone())
+                }
+            })
+        };
+        let long = vec![b' '; usize::try_from(super::MANIFEST_MOST).unwrap() + 1];
+
+        assert!(
+            failed(&unnamed, "o/p", &pulling, false)
+                .ends_with("asks for credentials it does not name")
+        );
+        assert!(
+            failed(&challenging(403, Vec::new()), "o/p", &pulling, false)
+                .ends_with("gave no token: 403 Forbidden")
+        );
+        assert!(
+            failed(&challenging(DROPPED, Vec::new()), "o/p", &pulling, false)
+                .contains("for a token")
+        );
+        assert!(failed(&challenging(200, long), "o/p", &pulling, false).contains("'s token"));
+        assert!(failed("http://127.0.0.1:1", "o/p", &pulling, false).starts_with("cannot reach"));
+    }
+
+    #[test]
+    fn fails_where_the_registry_answers_no_pack_or_refuses_one() {
+        let held = packed("trusted", "base1", "a");
+        let digest = sha256(&held);
+        let origin = serve(move |asked, origin| {
+            let manifest =
+                |digest: &str| format!(r#"{{"layers":[{{"digest":"{digest}"}}]}}"#).into_bytes();
+            let path = asked.target.split('?').next().unwrap();
+
+            match (asked.scenario(), asked.method.as_str()) {
+                (_, "GET") if path == "/v2/" => (200, Vec::new(), Vec::new()),
+                ("status", _) => (500, Vec::new(), Vec::new()),
+                ("dropped", _) | ("unbegun", "POST") | ("unsent", "PUT") => {
+                    (DROPPED, Vec::new(), Vec::new())
+                }
+                ("unpacked", _) => (200, Vec::new(), b"[]".to_vec()),
+                ("blobless" | "big", "GET") if path.contains("/manifests/") => {
+                    (200, Vec::new(), manifest(&digest))
+                }
+                ("other", "GET") if path.contains("/manifests/") => {
+                    (200, Vec::new(), manifest("sha256:0"))
+                }
+                ("other" | "big", "GET") => (200, Vec::new(), held.clone()),
+                (_, "POST") if asked.scenario() != "unlocated" => (
+                    202,
+                    vec![(
+                        "Location",
+                        format!("{origin}/v2/{}/x/upload", asked.scenario()),
+                    )],
+                    Vec::new(),
+                ),
+                (scenario, "PUT") if path.ends_with("/upload") && scenario != "refused" => {
+                    (201, Vec::new(), Vec::new())
+                }
+                (scenario, "PUT") => {
+                    let status = if scenario == "untaggable" {
+                        DROPPED
+                    } else {
+                        400
+                    };
+                    (status, Vec::new(), Vec::new())
+                }
+                _ => (404, Vec::new(), Vec::new()),
+            }
+        });
+        let directory = scratch("oci-failing");
+        let pulling = request(Store::Oci, &directory.join("into.pack").to_string_lossy());
+        let small = Request {
+            limits: Limits {
+                packed: 10,
+                unpacked: 10,
+            },
+            ..pulling.clone()
+        };
+        let pushes = pushing(&directory, "a");
+
+        assert!(
+            failed(&origin, "status/x", &pulling, false).starts_with("the registry answered 500")
+        );
+        assert!(failed(&origin, "dropped/x", &pulling, false).starts_with("cannot read"));
+        assert!(failed(&origin, "unbegun/x", &pushes, true).starts_with("cannot begin an upload"));
+        assert!(failed(&origin, "unsent/x", &pushes, true).starts_with("cannot upload"));
+        assert!(failed(&origin, "untaggable/x", &pushes, true).starts_with("cannot tag"));
+        assert_eq!(
+            failed(&origin, "unpacked/x", &pulling, false),
+            "the registry's manifest is not one of a pack"
+        );
+        assert!(
+            failed(&origin, "blobless/x", &pulling, false)
+                .starts_with("the registry holds no blob")
+        );
+        assert!(
+            failed(&origin, "other/x", &pulling, false)
+                .starts_with("the blob the registry answered is not")
+        );
+        assert!(failed(&origin, "big/x", &small, false).starts_with("cannot read"));
+        assert!(
+            failed(&origin, "unlocated/x", &pushes, true)
+                .starts_with("the registry began no upload")
+        );
+        assert!(
+            failed(&origin, "refused/x", &pushes, true).starts_with("the registry refused sha256:")
+        );
+        assert!(
+            failed(&origin, "untagged/x", &pushes, true)
+                .starts_with("the registry refused the tag")
+        );
+    }
+
+    #[test]
+    fn reaches_the_registry_the_request_names() {
+        let mut asked = request(Store::Oci, "/nowhere/entries.pack");
+        let refused = |why: &str| Err(Failure::Refused(why.to_owned()));
+
+        assert_eq!(pull(&asked), refused("the request names no registry"));
+        assert_eq!(push(&asked), refused("the request names no registry"));
+
+        asked.registry = Some("https://ghcr.io/o/p".to_owned());
+
+        assert_eq!(
+            pull(&asked),
+            refused("https://ghcr.io/o/p names no repository of a registry")
+        );
+
+        asked.registry = Some("127.0.0.1:1/o/p".to_owned());
+
+        assert!(
+            matches!(pull(&asked), Err(Failure::Io(why)) if why.starts_with("cannot reach https://127.0.0.1:1"))
+        );
+        assert!(
+            matches!(push(&asked), Err(Failure::Io(why)) if why.starts_with("cannot read /nowhere"))
+        );
+    }
 
     #[test]
     fn encodes_base64_as_the_standard_does() {
@@ -487,10 +848,13 @@ mod tests {
         let manifest = br#"{"schemaVersion":2,"config":{"digest":"sha256:c"},"layers":[{"mediaType":"x","digest":"sha256:l","size":1}]}"#;
 
         assert_eq!(layer_of(manifest).ok().as_deref(), Some("sha256:l"));
+        assert!(layer_of(br#"{"layers":[]}"#).is_err());
         assert_eq!(
             token_in(br#"{"access_token":"t"}"#).ok().as_deref(),
             Some("t")
         );
+        assert!(token_in(b"{}").is_err());
+        assert!(token_in(b"[").is_err());
     }
 
     #[test]

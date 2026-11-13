@@ -112,13 +112,7 @@ impl Pack {
         let mut most = limits.unpacked;
 
         loop {
-            let mut encoder = GzEncoder::new(Vec::new(), Compression::new(9));
-            encoder
-                .write_all(self.text(most).as_bytes())
-                .map_err(|error| Failure::Io(format!("cannot compress the pack: {error}")))?;
-            let bytes = encoder
-                .finish()
-                .map_err(|error| Failure::Io(format!("cannot compress the pack: {error}")))?;
+            let bytes = gzipped(self.text(most).as_bytes());
 
             if bytes.len() as u64 <= limits.packed {
                 return Ok(bytes);
@@ -133,6 +127,16 @@ impl Pack {
             most /= 2;
         }
     }
+}
+
+/// A text gzipped, in memory, which no write fails.
+fn gzipped(text: &[u8]) -> Vec<u8> {
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::new(9));
+
+    encoder
+        .write_all(text)
+        .and_then(|()| encoder.finish())
+        .unwrap_or_default()
 }
 
 /// The first line of a pack of this class at this base.
@@ -201,12 +205,11 @@ pub fn parse(text: &[u8]) -> Result<Pack, Refused> {
                 at: at + refused.at,
                 expected: refused.expected,
             })?;
-            let written = String::from_utf8(line.to_vec()).map_err(|_| Refused {
-                at,
-                expected: "UTF-8",
-            })?;
             pack.added += 1;
-            pack.entries.insert(key, (pack.added, written));
+            pack.entries.insert(
+                key,
+                (pack.added, String::from_utf8_lossy(line).into_owned()),
+            );
         }
 
         at += line.len() + 1;
@@ -281,13 +284,10 @@ fn read_entry(line: &[u8]) -> Result<String, Refused> {
 mod tests {
     use std::fmt::Write as _;
 
-    use super::{Pack, header, parse};
+    use super::{Pack, header, parse, read};
+    use crate::Failure;
     use crate::request::Limits;
-
-    const LIMITS: Limits = Limits {
-        packed: 1_000_000,
-        unpacked: 1_000_000,
-    };
+    use crate::tests::LIMITS;
 
     fn pack(entries: &[(&str, &str)]) -> Vec<u8> {
         let mut text = header("trusted", "base1");
@@ -300,51 +300,126 @@ mod tests {
         text.into_bytes()
     }
 
+    fn refused(failed: Result<Pack, Failure>) -> String {
+        failed.unwrap_err().to_string()
+    }
+
     #[test]
     fn keeps_the_newer_entry_under_a_key() {
-        let older = parse(&pack(&[("a", "old"), ("b", "kept")]));
-        let newer = parse(&pack(&[("a", "new")]));
-
-        let merged = match (older, newer) {
-            (Ok(older), Ok(newer)) => older.merged(newer),
-            _ => Pack::empty("trusted", "base1"),
-        };
+        let older = parse(&pack(&[("a", "old"), ("b", "kept")])).unwrap();
+        let newer = parse(&pack(&[("a", "new")])).unwrap();
+        let merged = older.merged(newer);
 
         assert_eq!(merged.len(), 2);
+        assert!(!merged.is_empty());
+        assert!(Pack::empty("trusted", "base1").is_empty());
         assert!(merged.text(u64::MAX).contains(r#""ledger":"new""#));
         assert!(!merged.text(u64::MAX).contains(r#""ledger":"old""#));
     }
 
     #[test]
     fn keeps_the_newest_entries_that_fit() {
-        let read = parse(&pack(&[("a", "first"), ("b", "second")]));
-        let text = read.map(|pack| pack.text(header("trusted", "base1").len() as u64 + 40));
+        let read = parse(&pack(&[("a", "first"), ("b", "second")])).unwrap();
+        let kept = read.text(header("trusted", "base1").len() as u64 + 40);
 
-        assert!(matches!(text, Ok(ref kept) if kept.contains("second") && !kept.contains("first")));
+        assert!(kept.contains("second") && !kept.contains("first"));
     }
 
     #[test]
     fn writes_what_it_reads() {
-        let read = parse(&pack(&[("a", "x")]));
-        let again = read
-            .and_then(|pack| {
-                pack.bytes(LIMITS).map_err(|_| outbreak_map::json::Refused {
-                    at: 0,
-                    expected: "bytes",
-                })
-            })
-            .and_then(|bytes| {
-                super::read(&bytes, LIMITS).map_err(|_| outbreak_map::json::Refused {
-                    at: 0,
-                    expected: "a pack",
-                })
-            });
+        let bytes = parse(&pack(&[("a", "x")])).unwrap().bytes(LIMITS).unwrap();
+        let again = read(&bytes, LIMITS).unwrap();
 
-        assert!(matches!(again, Ok(ref pack) if pack.len() == 1 && pack.base == "base1"));
+        assert_eq!(again.len(), 1);
+        assert_eq!(again.base, "base1");
+    }
+
+    #[test]
+    fn drops_the_oldest_entries_to_fit_the_packed_limit() {
+        let entries: Vec<(String, String)> = (0..64)
+            .map(|index| (format!("k{index}"), format!("{:064x}", index * 7_919)))
+            .collect();
+        let borrowed: Vec<(&str, &str)> = entries
+            .iter()
+            .map(|(key, ledger)| (key.as_str(), ledger.as_str()))
+            .collect();
+        let full = parse(&pack(&borrowed)).unwrap();
+        let whole = full.bytes(LIMITS).unwrap();
+        let limits = Limits {
+            packed: whole.len() as u64 / 2,
+            unpacked: LIMITS.unpacked,
+        };
+        let halved = read(&full.bytes(limits).unwrap(), limits).unwrap();
+
+        assert!(halved.len() < full.len());
+        assert!(halved.text(u64::MAX).contains(r#""key":"k63""#));
+        assert_eq!(
+            full.bytes(Limits {
+                packed: 1,
+                unpacked: 1
+            }),
+            Err(Failure::Refused(
+                "the pack's header alone is past the packed limit".to_owned()
+            ))
+        );
+    }
+
+    #[test]
+    fn refuses_bytes_past_a_limit_or_no_whole_pack() {
+        let bytes = Pack::empty("trusted", "base1").bytes(LIMITS).unwrap();
+
+        assert!(
+            refused(read(
+                &bytes,
+                Limits {
+                    packed: 1,
+                    unpacked: LIMITS.unpacked
+                }
+            ))
+            .contains("packed limit")
+        );
+        assert!(
+            refused(read(
+                &bytes,
+                Limits {
+                    packed: LIMITS.packed,
+                    unpacked: 1
+                }
+            ))
+            .contains("unpacked limit")
+        );
+        assert!(refused(read(b"plain", LIMITS)).contains("gzip"));
+
+        let unpacked = Pack {
+            class: "anyone".to_owned(),
+            ..Pack::empty("trusted", "base1")
+        }
+        .bytes(LIMITS)
+        .unwrap();
+
+        assert_eq!(
+            refused(read(&unpacked, LIMITS)),
+            "the pack: expected a pack of proofs in contract 1 at byte 0"
+        );
     }
 
     #[test]
     fn refuses_another_contract() {
         assert!(parse(br#"{"outbreak":2,"pack":"proofs","class":"trusted","base":"b"}"#).is_err());
+    }
+
+    #[test]
+    fn skips_a_header_s_other_keys_and_refuses_a_line_that_is_no_entry() {
+        let mut text =
+            br#"{"outbreak":1,"pack":"proofs","class":"branch","base":"b","made":"x"}"#.to_vec();
+
+        assert_eq!(parse(&text).unwrap().class, "branch");
+
+        text.extend_from_slice(b"\n{\"key\":\"a\",\"ledger\":\"l\",\"more\":1}");
+        let at = parse(&text).unwrap_err().at;
+
+        assert_eq!(text.get(at..at + 6), Some(&b"\"more\""[..]));
+        assert!(parse(&pack(&[("", "l")])).is_err());
+        assert!(parse(b"{\"outbreak\":1,\"pack\":\"proofs\",\"class\":\"trusted\",\"base\":\"b\"}\n{\"key\":\"a\"}").is_err());
     }
 }

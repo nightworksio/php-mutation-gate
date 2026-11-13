@@ -12,6 +12,7 @@ use std::collections::{BTreeMap, HashSet};
 use outbreak_map::json::{Cursor, Number, Refused};
 
 use crate::Failure;
+use crate::pack::Pack;
 
 /// Where the packs live.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,6 +49,15 @@ pub struct Request {
     pub packs: BTreeMap<String, String>,
     /// Where the Actions cache restored each class's pack, and where a push leaves the merged one.
     pub restored: BTreeMap<String, String>,
+}
+
+impl Request {
+    /// Whether a pack read for a class answers this request: of the class, and at its base unless it pulls the
+    /// newest.
+    #[must_use]
+    pub fn holds(&self, pack: &Pack, class: &str) -> bool {
+        pack.class == class && (self.newest || pack.base == self.base)
+    }
 }
 
 /// The request a text holds.
@@ -273,5 +283,48 @@ mod tests {
         );
 
         assert!(request.is_err());
+    }
+
+    #[test]
+    fn refuses_each_part_it_does_not_read() {
+        let refused = |text: &str| read(text.as_bytes()).unwrap_err().to_string();
+        let packs = r#""limits":{"packed":1,"unpacked":1},"packs":{"trusted":"/a"}"#;
+
+        assert!(
+            refused(&format!(
+                r#"{{"store":"oci","store":"oci","base":"b",{packs}}}"#
+            ))
+            .contains("each key once")
+        );
+        assert!(
+            refused(&format!(r#"{{"store":"oci","base":"b","port":1,{packs}}}"#))
+                .contains("a key of the cache's request")
+        );
+        assert!(
+            refused(r#"{"store":"oci","base":"b"}"#).contains("a store, a base, limits and packs")
+        );
+        assert!(
+            refused(&format!(
+                r#"{{"store":"oci","registry":"https://x/y","base":"b",{packs}}}"#
+            ))
+            .contains("host[:port]/path")
+        );
+        assert!(
+            refused(&format!(r#"{{"store":"s3","base":"b",{packs}}}"#)).contains("actions or oci")
+        );
+        assert!(
+            refused(r#"{"store":"oci","base":"b","limits":{"packed":1,"most":1},"packs":{}}"#)
+                .contains("packed or unpacked")
+        );
+        assert!(
+            refused(r#"{"store":"oci","base":"b","limits":{"packed":1},"packs":{}}"#)
+                .contains("both limits")
+        );
+        assert!(
+            refused(
+                r#"{"store":"oci","base":"b","limits":{"packed":1.5,"unpacked":1},"packs":{}}"#
+            )
+            .contains("a whole number of bytes")
+        );
     }
 }
