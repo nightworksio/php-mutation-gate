@@ -23,12 +23,21 @@ function moneyBatchHalt(string $project): BatchHalt
     return $armed instanceof BatchHalt ? $armed : throw new LogicException('This PHP has no alarm.');
 }
 
+/** The alarm the halt armed, rung through the handler PHP would call for it. */
+function alarmed(): void
+{
+    $handler = pcntl_signal_get_handler(SIGALRM);
+
+    if (is_callable($handler)) {
+        $handler();
+    }
+}
+
 it('halts the batch from the first look that finds a unit\'s file saved since the batch began, and handles the alarm as before once disarmed', function (): void {
     $project = Scratch::directory();
     $halt = moneyBatchHalt($project);
     Scratch::write($project, 'src/Money.php', "<?php\n\n// saved\n");
-    posix_kill(posix_getpid(), SIGALRM);
-    pcntl_signal_dispatch();
+    alarmed();
 
     expect($halt->disarmed())->toBeTrue()
         ->and(pcntl_signal_get_handler(SIGALRM))->toBe(SIG_DFL);
@@ -37,8 +46,7 @@ it('halts the batch from the first look that finds a unit\'s file saved since th
 it('lets a batch whose files no save moved run to its end', function (): void {
     $project = Scratch::directory();
     $halt = moneyBatchHalt($project);
-    posix_kill(posix_getpid(), SIGALRM);
-    pcntl_signal_dispatch();
+    alarmed();
 
     expect($halt->disarmed())->toBeFalse();
 })->skip(! function_exists('pcntl_alarm'), 'a batch is halted only where this PHP has an alarm');
@@ -47,8 +55,7 @@ it('takes a file it cannot read, as the batch began or at a look, as one unlike 
     $project = Scratch::directory();
     $halt = moneyBatchHalt($project);
     unlink(sprintf('%s/src/Money.php', $project));
-    posix_kill(posix_getpid(), SIGALRM);
-    pcntl_signal_dispatch();
+    alarmed();
 
     expect($halt->disarmed())->toBeTrue();
 })->skip(! function_exists('pcntl_alarm'), 'a batch is halted only where this PHP has an alarm');
