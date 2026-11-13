@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Cli\Flow\KeptFrom;
 use NightWorksIO\MutationGate\Cli\Flow\StoredCoverage;
@@ -168,7 +166,7 @@ it('warns of the four mutants only where its runner runs unpatched', function (L
 
 it('makes no mutant of a mutator a request prunes in a file, and every other, where its runner is patched to leave them out', function (Library $library): void {
     if ($library->runner() instanceof Pest) {
-        expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
+        Library::patched();
     }
 
     $mutators = $library->mutators('adds', 'large', 'unused', 'drains');

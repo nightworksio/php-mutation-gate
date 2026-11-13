@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Project as InfectionProject;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
 use NightWorksIO\MutationGate\Adapter\Native\ProcessShell as NativeShell;
 use NightWorksIO\MutationGate\Adapter\Native\Project as NativeProject;
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
@@ -555,6 +556,16 @@ final class Library
             $runner === 'testo' && self::isTestoInstalled() => self::testo(),
             default => Assert::markTestSkipped(sprintf('the runner contracts job for %s installs its library', $runner)),
         };
+    }
+
+    /** Pest's patch applied to the library, which only the runner contracts job installs: the test is skipped elsewhere. */
+    public static function patched(): void
+    {
+        if (! self::isInstalled()) {
+            Assert::markTestSkipped('the runner contracts job installs the fixture library');
+        }
+
+        Assert::assertIsString(Patch::applyIn(self::vendor(), new PackageDirectory()));
     }
 
     public static function isInstalled(): bool

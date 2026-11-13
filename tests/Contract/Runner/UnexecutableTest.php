@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -212,7 +210,7 @@ it('records the time a trial\'s tests took on their own, unmutated, so a trial t
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('records the time a trial\'s tests took on their own, unmutated, with patched Pest', function (): void {
-    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
+    Library::patched();
     $library = Library::pestWithin(
         Patching::on(Library::canary()),
         LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)),

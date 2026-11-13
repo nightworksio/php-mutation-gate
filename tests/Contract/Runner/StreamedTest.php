@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -31,7 +29,7 @@ it('kills in its stream a mutant a test tells apart, stops at its limit one that
     $test = Tree::at(sprintf('%s/tests/StreamedSpec.php', Library::DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/streamed/src/Streamed.php'), $source);
     copy(Tree::at('tests/Contract/Runner/streamed/tests/StreamedSpec.php'), $test);
-    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
+    Library::patched();
 
     try {
         $result = Library::pest(Patching::on(Library::canary())->splitting(

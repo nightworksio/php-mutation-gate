@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -158,7 +156,7 @@ it('kills a mutant whose tests run past the most only together, by its last part
         copy(Tree::at(sprintf('tests/Contract/Runner/heavy/%s', $file)), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
     }
 
-    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
+    Library::patched();
     $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1));
     $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, heavy')->runner();
     try {
@@ -252,7 +250,7 @@ it('judges the parts of one mutant at once as it does one after another, with pa
         copy(Tree::at(sprintf('tests/Contract/Runner/heavy/%s', $file)), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
     }
 
-    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
+    Library::patched();
     $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1));
     $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, heavy at once')->runner();
 
@@ -284,7 +282,7 @@ it('splits a part that runs out unmutated too by its files, and kills by the hal
         copy(Tree::at(sprintf('tests/Contract/Runner/heavy/%s', $file)), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
     }
 
-    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
+    Library::patched();
     $bounds = LimitBounds::between(Seconds::of(4.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1));
     $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, split')->runner();
     try {

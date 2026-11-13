@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -38,7 +36,7 @@ function heldBackId(string $id): MutantId
 }
 
 it('runs a mutant the gate holds back after the others, and reports every mutant as it would unheld', function (): void {
-    expect(Patch::applyIn(Library::vendor(), new PackageDirectory()))->toBeString();
+    Library::patched();
     $library = Library::pest(Patching::on(Library::canary()));
     [$addsRecord, $largeRecord] = $library->expected('adds', 'large');
     $adds = heldBackId($addsRecord[0]);
