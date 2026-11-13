@@ -43,7 +43,7 @@ final readonly class QuickCovered
         foreach ($files as $file) {
             $tests = array_map(
                 static fn(TestId $test): string => $test->value(),
-                iterator_to_array($file->tests, false),
+                iterator_to_array($file->tests, preserve_keys: false),
             );
 
             foreach ($tests === [] || $file->lines < 1 ? [] : range(1, $file->lines) as $line) {

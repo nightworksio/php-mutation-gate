@@ -169,7 +169,7 @@ final readonly class Briefing
             $this->unchanged,
             $this->kills,
             $this->early,
-            true,
+            waits: true,
         );
     }
 

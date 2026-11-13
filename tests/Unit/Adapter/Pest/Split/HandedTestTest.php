@@ -12,16 +12,19 @@ afterEach(function (): void {
 
 it('reads how a handed test ended after the offset: passed, and each mutant a child failed or ended in', function (): void {
     $results = sprintf('%s/results-1-0.jsonl', Scratch::directory());
-    $before = StreamLine::parent('MoneyTest::adds', false, 0.1) . StreamLine::child('m0', 'MoneyTest::subtracts', true, 0.1);
-    file_put_contents(
-        $results,
-        $before
-        . StreamLine::child('m1', 'MoneyTest::subtracts', true, 0.1)
-        . StreamLine::child('m2', 'MoneyTest::subtracts', false, 0.1)
-        . StreamLine::endedChild('m3', 'MoneyTest::subtracts', 255)
-        . StreamLine::child('m4', 'MoneyTest::other', true, 0.1)
-        . StreamLine::parent('MoneyTest::subtracts', true, 0.3),
+    $before = sprintf(
+        '%s%s',
+        StreamLine::parent('MoneyTest::adds', passed: false, seconds: 0.1),
+        StreamLine::child('m0', 'MoneyTest::subtracts', failed: true, seconds: 0.1),
     );
+    file_put_contents($results, implode('', [
+        $before,
+        StreamLine::child('m1', 'MoneyTest::subtracts', failed: true, seconds: 0.1),
+        StreamLine::child('m2', 'MoneyTest::subtracts', failed: false, seconds: 0.1),
+        StreamLine::endedChild('m3', 'MoneyTest::subtracts', 255),
+        StreamLine::child('m4', 'MoneyTest::other', failed: true, seconds: 0.1),
+        StreamLine::parent('MoneyTest::subtracts', passed: true, seconds: 0.3),
+    ]));
     $ended = HandedTest::read($results, strlen($before), 'MoneyTest::subtracts');
 
     expect($ended->passed)->toBeTrue()
@@ -30,7 +33,7 @@ it('reads how a handed test ended after the offset: passed, and each mutant a ch
 
 it('reads no end where the test\'s process never ended the test, or wrote nothing', function (): void {
     $results = sprintf('%s/results-1-0.jsonl', Scratch::directory());
-    file_put_contents($results, StreamLine::child('m1', 'MoneyTest::adds', true, 0.1));
+    file_put_contents($results, StreamLine::child('m1', 'MoneyTest::adds', failed: true, seconds: 0.1));
 
     expect(HandedTest::read($results, 0, 'MoneyTest::adds')->passed)->toBeNull()
         ->and(HandedTest::read(sprintf('%s/missing.jsonl', Scratch::directory()), 0, 'MoneyTest::adds')->failed)->toBe([]);

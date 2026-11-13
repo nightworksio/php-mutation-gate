@@ -67,7 +67,7 @@ function waitsChanging(ChangingCheckout $checkout, int $waits): Closure
  */
 function watchedProject(string $config = ''): string
 {
-    $members = (array) json_decode(sprintf('{%s}', $config), true);
+    $members = (array) json_decode(sprintf('{%s}', $config), associative: true);
     $members['local'] = ['quick' => false, 'streamBatches' => false, 'cancelByUnit' => false, ...(array) ($members['local'] ?? [])];
 
     return FlowCommands::project(mb_substr((string) json_encode($members), 1, -1));

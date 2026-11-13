@@ -111,11 +111,11 @@ it('scans the codebase once for the whole map and a run\'s files, and afresh for
         ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
     $shared = CoverageMap::of();
 
-    expect($whole->selector($money, $reading, $shared, false))->toBe($whole->selector($money, $reading, $shared, false))
-        ->and($whole->selector($other, $reading, $shared, false))->not->toBe($whole->selector($money, $reading, $shared, false))
-        ->and($whole->selector($money, $reading, Unshared::Coverage, false))->not->toBe($whole->selector($money, $reading, Unshared::Coverage, false))
-        ->and($whole->selector(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $reading, $shared, false))
-        ->not->toBe($whole->selector($money, $reading, $shared, false));
+    expect($whole->selector($money, $reading, $shared, perShard: false))->toBe($whole->selector($money, $reading, $shared, perShard: false))
+        ->and($whole->selector($other, $reading, $shared, perShard: false))->not->toBe($whole->selector($money, $reading, $shared, perShard: false))
+        ->and($whole->selector($money, $reading, Unshared::Coverage, perShard: false))->not->toBe($whole->selector($money, $reading, Unshared::Coverage, perShard: false))
+        ->and($whole->selector(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $reading, $shared, perShard: false))
+        ->not->toBe($whole->selector($money, $reading, $shared, perShard: false));
 });
 
 it('holds one scan at a time, so a shard that runs in chunks keeps no scan of an earlier chunk\'s files', function (): void {
@@ -127,12 +127,12 @@ it('holds one scan at a time, so a shard that runs in chunks keeps no scan of an
     $other = MutationRequest::of(Paths::of(Path::of('src/Other.php')), WholeSuite::tests())->reusingCoverage($handed);
     $shared = CoverageMap::of();
 
-    $first = $whole->selector($money, $reading, $shared, false);
-    $again = $whole->selector($money, $reading, $shared, false);
-    $whole->selector($other, $reading, $shared, false);
+    $first = $whole->selector($money, $reading, $shared, perShard: false);
+    $again = $whole->selector($money, $reading, $shared, perShard: false);
+    $whole->selector($other, $reading, $shared, perShard: false);
 
     expect($again)->toBe($first)
-        ->and($whole->selector($money, $reading, $shared, false))->not->toBe($first);
+        ->and($whole->selector($money, $reading, $shared, perShard: false))->not->toBe($first);
 });
 
 it('scans the codebase once a shard under pest.shardScan, a later chunk reading only what it mutates that the scan did not', function (): void {
@@ -144,9 +144,9 @@ it('scans the codebase once a shard under pest.shardScan, a later chunk reading 
     $other = MutationRequest::of(Paths::of(Path::of('src/Other.php')), WholeSuite::tests())->reusingCoverage($handed);
     $shared = CoverageMap::of();
 
-    $first = $whole->selector($money, $reading, $shared, true);
+    $first = $whole->selector($money, $reading, $shared, perShard: true);
 
-    expect($whole->selector($money, $reading, $shared, true))->toBe($first)
-        ->and($whole->selector($other, $reading, $shared, true)->original(Path::of('src/Other.php')))
-        ->toEqual($whole->selector($other, $reading, $shared, false)->original(Path::of('src/Other.php')));
+    expect($whole->selector($money, $reading, $shared, perShard: true))->toBe($first)
+        ->and($whole->selector($other, $reading, $shared, perShard: true)->original(Path::of('src/Other.php')))
+        ->toEqual($whole->selector($other, $reading, $shared, perShard: false)->original(Path::of('src/Other.php')));
 });

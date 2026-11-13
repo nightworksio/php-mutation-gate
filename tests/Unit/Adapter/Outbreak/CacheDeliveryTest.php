@@ -71,8 +71,8 @@ it('pushes a trusted pack only from a trusted run, and a branch\'s only with a t
     $trusted = cacheDelivered('ghcr.io/o/p', CacheClass::Trusted);
     $branch = cacheDelivered('ghcr.io/o/p', CacheClass::Branch);
 
-    $untrusted = CacheDelivery::pushed(Outbreak::none($trusted), $trusted, false, $environment('secret'));
-    $tokenless = CacheDelivery::pushed(Outbreak::none($branch), $branch, true, $environment(''));
+    $untrusted = CacheDelivery::pushed(Outbreak::none($trusted), $trusted, trusted: false, environment: $environment('secret'));
+    $tokenless = CacheDelivery::pushed(Outbreak::none($branch), $branch, trusted: true, environment: $environment(''));
 
     expect($untrusted instanceof NotWritten ? $untrusted->why() : '')->toContain('no default branch ledger')
         ->and($tokenless instanceof NotWritten ? $tokenless->why() : '')->toContain('no registry token');
@@ -81,5 +81,5 @@ it('pushes a trusted pack only from a trusted run, and a branch\'s only with a t
 it('says nothing of a delivery that holds no request', function (): void {
     $from = Scratch::directory();
 
-    expect(CacheDelivery::pushed(Outbreak::none($from), $from, true, Variables::of([])))->toBeInstanceOf(NotGiven::class);
+    expect(CacheDelivery::pushed(Outbreak::none($from), $from, trusted: true, environment: Variables::of([])))->toBeInstanceOf(NotGiven::class);
 });

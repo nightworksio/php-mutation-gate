@@ -346,7 +346,7 @@ final class Stream
      */
     private function handedOver(): ?bool
     {
-        clearstatcache(true, $this->plan->results);
+        clearstatcache(clear_realpath_cache: true, filename: $this->plan->results);
         $from = is_file($this->plan->results) ? (int) filesize($this->plan->results) : 0;
         $pid = pcntl_fork();
 

@@ -61,7 +61,7 @@ final readonly class RecordedCovering
 
         foreach ($directory === '' ? [] : (glob(sprintf(self::RECORDED, $directory)) ?: []) as $file) {
             foreach (file($file) ?: [] as $text) {
-                $line = json_decode($text, true);
+                $line = json_decode($text, associative: true);
 
                 if (! is_array($line) || ($line[StreamLine::KIND] ?? '') !== StreamLine::COVERED) {
                     continue;

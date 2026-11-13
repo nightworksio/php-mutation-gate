@@ -78,7 +78,7 @@ final class Zygote
             mkdir(dirname($shim), 0o700, recursive: true);
         }
 
-        file_put_contents($shim, sprintf(self::SHIM, self::class, var_export($real, true)));
+        file_put_contents($shim, sprintf(self::SHIM, self::class, var_export($real, return: true)));
         $_ENV[self::BASE] = $directory;
         $_SERVER[self::BASE] = $directory;
         putenv(sprintf('%s=%s', self::BASE, $directory));
@@ -112,7 +112,7 @@ final class Zygote
 
     private static function boot(string $bootstrap): ?object
     {
-        Stream::booting(true);
+        Stream::booting(booting: true);
 
         try {
             $application = require $bootstrap;
@@ -128,7 +128,7 @@ final class Zygote
         } catch (Throwable) {
             self::$failed = true;
         } finally {
-            Stream::booting(false);
+            Stream::booting(booting: false);
         }
 
         self::$failed = self::$failed || self::$booted === null;

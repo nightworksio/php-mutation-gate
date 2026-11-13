@@ -56,7 +56,7 @@ it('reads a run told nothing as one that does not split, checking changes and ki
 });
 
 it('streams only killers in a first pass where told to and forking killers first, and reads it back', function (bool $killersFirst, bool $streams): void {
-    $told = StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: $killersFirst)->streamingKillers(true);
+    $told = StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: $killersFirst)->streamingKillers(killerStreams: true);
 
     foreach ($told->variables() as $name => $value) {
         putenv(sprintf('%s=%s', $name, $value));

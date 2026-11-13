@@ -84,9 +84,9 @@ it('lays the block of the CI a built-in plan is for between ci and the kind of r
 it('puts the run in the context --context names, whatever the environment says', function () use ($contexts): void {
     $pullRequest = $contexts(
         CannotTell::because('A fake run.'),
-        false,
-        [],
-        CommandLine::nothing()->defaultingTo(Context::PullRequest),
+        inCi: false,
+        config: [],
+        given: CommandLine::nothing()->defaultingTo(Context::PullRequest),
     );
 
     expect($pullRequest instanceof ContextChain ? $pullRequest->spelt() : $pullRequest)->toBe('ci, pr');

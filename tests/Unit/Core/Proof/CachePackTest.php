@@ -50,11 +50,11 @@ it('takes nothing from a pack of another class or base, or past its limits', fun
 });
 
 it('reads a branch\'s packs on a pull request, and the default branch\'s alone on it unless the repository is trusted', function (): void {
-    expect(CacheClass::readBy(false, CacheTrust::DefaultBranch))->toBe([CacheClass::Trusted, CacheClass::Branch])
-        ->and(CacheClass::readBy(true, CacheTrust::DefaultBranch))->toBe([CacheClass::Trusted])
-        ->and(CacheClass::readBy(true, CacheTrust::Repository))->toBe([CacheClass::Trusted, CacheClass::Branch])
-        ->and(CacheClass::writtenBy(true))->toBe(CacheClass::Trusted)
-        ->and(CacheClass::writtenBy(false))->toBe(CacheClass::Branch)
+    expect(CacheClass::readBy(defaultBranchOrGroup: false, trust: CacheTrust::DefaultBranch))->toBe([CacheClass::Trusted, CacheClass::Branch])
+        ->and(CacheClass::readBy(defaultBranchOrGroup: true, trust: CacheTrust::DefaultBranch))->toBe([CacheClass::Trusted])
+        ->and(CacheClass::readBy(defaultBranchOrGroup: true, trust: CacheTrust::Repository))->toBe([CacheClass::Trusted, CacheClass::Branch])
+        ->and(CacheClass::writtenBy(onTheDefaultBranch: true))->toBe(CacheClass::Trusted)
+        ->and(CacheClass::writtenBy(onTheDefaultBranch: false))->toBe(CacheClass::Branch)
         ->and(CacheClass::Branch->isOwnScope())->toBeTrue()
         ->and(CacheClass::Trusted->isOwnScope())->toBeFalse();
 });

@@ -46,7 +46,15 @@ final readonly class CacheRequest
     /** This request, pulling each class's newest pack whatever its base, as a trusted job does before the plan. */
     public function newest(): self
     {
-        return new self($this->store, $this->registry, $this->base, $this->limits, $this->packs, $this->restored, true);
+        return new self(
+            $this->store,
+            $this->registry,
+            $this->base,
+            $this->limits,
+            $this->packs,
+            $this->restored,
+            newest: true,
+        );
     }
 
     /** Whether it pulls each class's newest pack whatever its base. */

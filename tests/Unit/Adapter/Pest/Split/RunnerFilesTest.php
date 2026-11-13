@@ -20,7 +20,7 @@ it('knows each file its command line names, as a value of an option or alone, by
     $linked = sprintf('%s/linked', $directory);
     symlink($status, $linked);
 
-    expect([$runner->hold(stat($progress)), $runner->hold(stat($linked)), $runner->hold(stat($other)), $runner->hold(false)])
+    expect([$runner->hold(stat($progress)), $runner->hold(stat($linked)), $runner->hold(stat($other)), $runner->hold(status: false)])
         ->toBe([true, true, false, false])
         ->and($runner->holdStream($writing))->toBeTrue()
         ->and($runner->holdStream('not a stream'))->toBeFalse()

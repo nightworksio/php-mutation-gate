@@ -52,7 +52,7 @@ final readonly class RecordedMap
 
         foreach ($files as $file) {
             foreach (file($file) ?: [] as $text) {
-                $map = self::with($map, json_decode($text, true), $root, $wholeOnly);
+                $map = self::with($map, json_decode($text, associative: true), $root, $wholeOnly);
             }
         }
 

@@ -24,7 +24,7 @@ final readonly class PlanJobs
         foreach ($plan as $shard) {
             $number = $shard->worker()->number();
             $labels = array_key_exists($number, $jobs) ? $jobs[$number] : [];
-            $jobs[$number] = in_array($shard->label(), $labels, true) ? $labels : [...$labels, $shard->label()];
+            $jobs[$number] = in_array($shard->label(), $labels, strict: true) ? $labels : [...$labels, $shard->label()];
         }
 
         ksort($jobs);

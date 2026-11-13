@@ -21,6 +21,9 @@ final readonly class TrustedMerges implements Shape
 {
     private const string EXPECTED = 'true, false or "delta"';
 
+    /** @var list<bool|string> the values the setting takes, as its schema lists them */
+    private const array VALUES = [false, true, MergedTrust::Delta->value];
+
     public static function values(): self
     {
         return new self();
@@ -42,7 +45,7 @@ final readonly class TrustedMerges implements Shape
 
     public function schema(): Json
     {
-        return Json::object(Member::of('enum', Json::items(false, true, MergedTrust::Delta->value)));
+        return Json::object(Member::of('enum', Json::items(...self::VALUES)));
     }
 
     public function effects(): array

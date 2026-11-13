@@ -68,7 +68,9 @@ final readonly class ArtifactAccess
         }
 
         try {
-            $decoded = is_string($text) ? json_decode($text, true, 4, JSON_THROW_ON_ERROR) : null;
+            $decoded = is_string($text)
+                ? json_decode($text, associative: true, depth: 4, flags: JSON_THROW_ON_ERROR)
+                : null;
         } catch (JsonException) {
             $decoded = null;
         }

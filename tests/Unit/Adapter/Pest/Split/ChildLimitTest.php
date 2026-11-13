@@ -12,7 +12,7 @@ it('holds a child to a multiple of the parent\'s own time of the test, never und
 
 it('holds a child to the most a test may take where the test\'s own time is not known, or no multiple is set', function (): void {
     expect([
-        new ChildLimit(3.0, 2.0, 30.0)->of(false),
+        new ChildLimit(3.0, 2.0, 30.0)->of(own: false),
         new ChildLimit(0.0, 2.0, 30.0)->of(1.5),
         new ChildLimit(-1.0, 2.0, 30.0)->of(1.5),
         new ChildLimit(0.01, 0.0, 30.0)->of(1.0),

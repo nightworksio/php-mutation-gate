@@ -154,7 +154,7 @@ it('cannot root itself in a directory that installs no Pest', function (): void 
 it('is Pest in the project the gate runs in, as its options say, or the options\' problem', function (): void {
     $pest = static fn(LimitBounds $bounds): Pest => new Pest(
         Project::at('.', Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('lib/vendor')),
-        new ProcessShell(new LocalProcesses(new SystemClock()), Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root())->longestFirst(true),
+        new ProcessShell(new LocalProcesses(new SystemClock()), Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root())->longestFirst(longestFirst: true),
         Patching::off(),
         new CapDirectory(),
         new PackageDirectory(),

@@ -26,13 +26,13 @@ final readonly class LocalLoop
 
     public static function of(LocalWork $work): self
     {
-        return new self($work, false);
+        return new self($work, quick: false);
     }
 
     /** The same, for a quick round of `watch` (ADR-0146). */
     public function quickly(): self
     {
-        return new self($this->work, true);
+        return new self($this->work, quick: true);
     }
 
     /** Whether it runs a quick round, whose proofs no other run takes. */

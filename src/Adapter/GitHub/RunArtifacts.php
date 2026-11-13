@@ -147,7 +147,7 @@ final readonly class RunArtifacts
         }
 
         try {
-            $decoded = json_decode($answer->body(), true, 16, JSON_THROW_ON_ERROR);
+            $decoded = json_decode($answer->body(), associative: true, depth: 16, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             $decoded = null;
         }
@@ -170,10 +170,12 @@ final readonly class RunArtifacts
     private static function backendIds(string $token): array
     {
         $parts = explode('.', $token);
-        $claims = isset($parts[1]) ? base64_decode(strtr($parts[1], '-_', '+/'), true) : false;
+        $claims = isset($parts[1]) ? base64_decode(strtr($parts[1], '-_', '+/'), strict: true) : false;
 
         try {
-            $decoded = is_string($claims) ? json_decode($claims, true, 8, JSON_THROW_ON_ERROR) : null;
+            $decoded = is_string($claims)
+                ? json_decode($claims, associative: true, depth: 8, flags: JSON_THROW_ON_ERROR)
+                : null;
         } catch (JsonException) {
             $decoded = null;
         }

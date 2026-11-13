@@ -96,8 +96,8 @@ final readonly class CoverageMap
     public function besides(CoveredLine ...$covered): self
     {
         return new self(
-            LineTests::of(...iterator_to_array($this->lines(), false), ...$covered)
-                ->knowing(...iterator_to_array($this->tests(), false)),
+            LineTests::of(...iterator_to_array($this->lines(), preserve_keys: false), ...$covered)
+                ->knowing(...iterator_to_array($this->tests(), preserve_keys: false)),
             $this->durations,
             $this->methods,
             $this->loaded,

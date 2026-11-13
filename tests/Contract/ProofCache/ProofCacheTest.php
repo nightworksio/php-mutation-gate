@@ -45,7 +45,7 @@ it('merges a verdict\'s entries into the restored pack, and pulls back each proo
     $older = $proofAt(str_repeat('1', 64), 'src/Old.php', 'github:1/1');
     $kept = $proofAt(str_repeat('2', 64), 'src/Kept.php', 'github:1/1');
     $newer = $proofAt(str_repeat('1', 64), 'src/New.php', 'github:2/1');
-    mkdir(sprintf('%s/restored', $root), 0o700, true);
+    mkdir(sprintf('%s/restored', $root), 0o700, recursive: true);
     file_put_contents(sprintf('%s/restored/trusted.pack', $root), CachePack::bytes(CacheClass::Trusted, $base, Proofs::of($older, $kept)));
     file_put_contents(sprintf('%s/entries.pack', $root), CachePack::bytes(CacheClass::Trusted, $base, Proofs::of($newer)));
     $request = static fn(string $pack): CacheRequest => CacheRequest::to(CacheStore::Actions, NotGiven::value(), $base, LedgerLimits::standard())
