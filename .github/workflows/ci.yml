@@ -807,7 +807,7 @@ jobs:
     name: replay
     needs: [scope, tests]
     if: ${{ !cancelled() && github.event_name != 'push' && needs.tests.result == 'success' && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'replay')) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
