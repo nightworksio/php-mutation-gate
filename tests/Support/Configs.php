@@ -8,6 +8,7 @@ use function array_key_exists;
 
 use DateTimeImmutable;
 
+use function explode;
 use function is_array;
 use function is_string;
 use function json_decode;
@@ -15,6 +16,8 @@ use function json_encode;
 
 use LogicException;
 use NightWorksIO\MutationGate\Config\Gate;
+use NightWorksIO\MutationGate\Config\Runner;
+use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Definition;
@@ -104,6 +107,24 @@ final readonly class Configs
     public static function written(Gate $gate): mixed
     {
         return json_decode($gate->written()->line(), associative: true);
+    }
+
+    /**
+     * What a Pest config with one builder call holds at a dotted path, and that config written back as PHP; null
+     * where it holds nothing there.
+     *
+     * @return array{mixed, string}
+     */
+    public static function oneCall(Setting $call, string $path): array
+    {
+        $written = self::written(Gate::configure()->runner(Runner::pest())->with($call));
+        $at = $written;
+
+        foreach (explode('.', $path) as $key) {
+            $at = is_array($at) && array_key_exists($key, $at) ? $at[$key] : null;
+        }
+
+        return [$at, self::valid(is_array($written) ? $written : [])->php(ProjectRoot::origin())->code()];
     }
 
     /** What a layer writes, decoded. */

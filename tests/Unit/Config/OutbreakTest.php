@@ -6,7 +6,6 @@ use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Outbreak;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Setting;
-use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 $calls = static fn(): array => [
@@ -57,14 +56,7 @@ it('writes every outbreak key, as the config file would', function (): void {
 });
 
 it('writes each call\'s key, and writes the config back with the same call', function (Setting $call, string $path, string|int|bool $value, string $method): void {
-    $written = Configs::written(Gate::configure()->runner(Runner::pest())->with($call));
-    $at = $written;
+    [$at, $php] = Configs::oneCall($call, $path);
 
-    foreach (explode('.', $path) as $key) {
-        $at = is_array($at) && array_key_exists($key, $at) ? $at[$key] : null;
-    }
-
-    expect($at)->toBe($value)
-        ->and(Configs::valid(is_array($written) ? $written : [])->php(ProjectRoot::origin())->code())
-        ->toContain(sprintf('Outbreak::%s(', $method));
+    expect($at)->toBe($value)->and($php)->toContain(sprintf('Outbreak::%s(', $method));
 })->with($calls);
