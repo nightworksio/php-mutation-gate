@@ -169,7 +169,7 @@ it('writes its pipeline where the gate expects it, with the named template', fun
         : '';
 
     expect(GitLabPlan::PIPELINE)->toBe('.mutation-gate/pipeline.yml')
-        ->and(Ci::none()->gitlabTemplate()->value())->toBe('.gitlab/mutation-gate.yml')
+        ->and(Ci::none()->pipelines()->gitlabTemplate()->value())->toBe('.gitlab/mutation-gate.yml')
         ->and($to($wrote))->toBe('.mutation-gate/pipeline.yml')
         ->and($to($wroteNamed))->toBe('.mutation-gate/pipeline.yml')
         ->and($wrote instanceof Invalid ? $wrote : $pipelineIn($wrote))

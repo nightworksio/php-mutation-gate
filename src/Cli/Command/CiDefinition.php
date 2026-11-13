@@ -259,12 +259,12 @@ final readonly class CiDefinition
         $unnamed = match ($plan) {
             BuiltinCiPlan::Buildkite => $this->unnamed(
                 'ci.buildkite.definition',
-                $ci->buildkiteDefinition(),
+                $ci->pipelines()->buildkiteDefinition(),
                 CiTemplate::buildkitePipeline(),
             ),
             BuiltinCiPlan::Azure => $this->unnamed(
                 'ci.azure.definition',
-                $ci->azureDefinition(),
+                $ci->pipelines()->azureDefinition(),
                 CiTemplate::azureJobs(),
             ),
             BuiltinCiPlan::GitHub,
