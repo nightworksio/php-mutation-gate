@@ -192,8 +192,7 @@ final readonly class FlowOptions
             ->addOption(
                 self::OUTPUT,
                 mode: InputOption::VALUE_REQUIRED,
-                description: 'Print the verdict as console, or as problems: one line per result, for editors;'
-                    . ' watch also prints events: one line of JSON per judged mutant',
+                description: 'Print the verdict as console, or as problems: one line per result, for editors; watch also prints events: one line of JSON per judged mutant',
             )
             ->addOption(
                 self::ONLY,

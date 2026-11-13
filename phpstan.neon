@@ -48,6 +48,7 @@ parameters:
             - tests/Contract/Runner/constants
             - tests/Contract/Runner/interceptor
             - tests/Contract/Runner/twins
+            - tests/Contract/Runner/streamed
             - tests/Contract/Runner/phpunit-fixture
             - tests/Contract/Runner/phpspec-fixture
             - tests/Contract/Runner/codeception-fixture
