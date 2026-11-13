@@ -607,12 +607,8 @@ mod tests {
     #[test]
     fn serves_nothing_where_an_accept_failed() {
         let (sent, received) = std::sync::mpsc::channel();
-        serving(
-            Err::<((), ()), _>(std::io::Error::other("refused")),
-            move |()| {
-                sent.send(()).unwrap();
-            },
-        );
+        let refused = Err::<((), ()), _>(std::io::Error::other("refused"));
+        serving(refused, move |()| sent.send(()).unwrap());
 
         assert!(received.recv().is_err());
     }
