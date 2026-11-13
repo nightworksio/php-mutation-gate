@@ -90,9 +90,11 @@ final readonly class Printing
             return;
         }
 
-        $reporter = $this->output === VerdictOutput::Problems
-            ? ProblemsReport::to($output, $project->root(), $this->shown)
-            : ($this->quick ? ConsoleReport::quick($output) : ConsoleReport::to($output));
+        $reporter = match (true) {
+            $this->output === VerdictOutput::Problems => ProblemsReport::to($output, $project->root(), $this->shown),
+            $this->quick => ConsoleReport::quick($output),
+            default => ConsoleReport::to($output),
+        };
         $reporter->report($verdict);
     }
 }

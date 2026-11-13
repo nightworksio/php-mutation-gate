@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\StreamedSuite;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\FileMode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -283,12 +284,13 @@ final readonly class Running
             }
 
             $queue = $queue->without($item->id());
-            $taken = $claims instanceof ArtifactClaims ? $claims->take($item->id()) : true;
+            $claim = $claims instanceof ArtifactClaims ? $claims->take($item->id()) : true;
 
-            if ($taken instanceof CannotJudge) {
-                [$claims, $queue, $left] = [$taken, $queue->ownAlone(), $left->alone($taken)];
-                $taken = $item->worker()->number() === $job->number();
+            if ($claim instanceof CannotJudge) {
+                [$claims, $queue, $left] = [$claim, $queue->ownAlone(), $left->alone($claim)];
             }
+
+            $taken = $claim instanceof CannotJudge ? $item->worker()->number() === $job->number() : $claim;
 
             if (! $taken) {
                 continue;
@@ -334,7 +336,7 @@ final readonly class Running
         $directory = Root::here()->at(Workspace::recording($shard->id()))->value();
 
         if (! is_dir($directory)) {
-            mkdir($directory, 0o700, recursive: true);
+            mkdir($directory, FileMode::OWNER_ONLY, recursive: true);
         }
 
         RecordedMap::cleared($directory);

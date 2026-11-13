@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_map;
+use function array_values;
 
 use NightWorksIO\MutationGate\Core\Runner\EndedProcesses;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
@@ -52,7 +53,7 @@ final readonly class DriversSetShell implements Shell, StartsCommands
         Seconds|Unlimited $startingWithin,
         Command ...$commands,
     ): ProcessEnds {
-        return $this->shell->sideBySide($slots, $startingWithin, ...$this->set($commands));
+        return $this->shell->sideBySide($slots, $startingWithin, ...$this->set(array_values($commands)));
     }
 
     public function started(
@@ -60,9 +61,11 @@ final readonly class DriversSetShell implements Shell, StartsCommands
         Seconds|Unlimited $startingWithin,
         Command ...$commands,
     ): StartedProcesses {
+        $set = $this->set(array_values($commands));
+
         return $this->shell instanceof StartsCommands
-            ? $this->shell->started($slots, $startingWithin, ...$this->set($commands))
-            : EndedProcesses::of($this->shell->sideBySide($slots, $startingWithin, ...$this->set($commands)));
+            ? $this->shell->started($slots, $startingWithin, ...$set)
+            : EndedProcesses::of($this->shell->sideBySide($slots, $startingWithin, ...$set));
     }
 
     public function in(string $directory): Shell

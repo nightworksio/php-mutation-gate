@@ -36,7 +36,7 @@ final readonly class GraphAnswered
             $unplaced = [];
 
             foreach ($said->field('unplaced')->entries() as $path => $why) {
-                $unplaced[$path] = $why->text();
+                $unplaced[sprintf('%s', $path)] = $why->text();
             }
 
             return GraphAnswer::of(
@@ -61,7 +61,7 @@ final readonly class GraphAnswered
         $answers = [];
 
         foreach ($asked->entries() as $path => $answer) {
-            $answers[$path] = $answer->kind() === Kind::Null ? NotGiven::value() : self::paths($answer);
+            $answers[sprintf('%s', $path)] = $answer->kind() === Kind::Null ? NotGiven::value() : self::paths($answer);
         }
 
         return $answers;

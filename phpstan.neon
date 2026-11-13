@@ -229,6 +229,7 @@ services:
                 - src/Adapter/Codeception/Told.php # Codeception hands an extension its settings untyped
                 - src/Adapter/Testo/GateConfig.php # a project's testo.php returns whatever its code returns
                 - src/Adapter/Pest/Warm/Database/Laravel.php # Laravel's container hands its services untyped
+                - src/Adapter/Pest/ByName.php # a framework the gate does not require answers its calls untyped
                 - src/Adapter/Pest/Warm/Database/LaravelConfig.php # Laravel holds a connection's config untyped
                 - src/Adapter/Pest/Warm/Database/PdoStatements.php # PDO hands a row's values untyped
                 - src/Adapter/Pest/Split/StreamPlanFile.php # a split stream's plan, as JSON Pest's own process wrote
@@ -259,6 +260,7 @@ services:
                 - src/Adapter/Pest/Families.php # Pest's mutator names
                 - src/Core/File/Glob.php # the glob grammar
                 - src/Adapter/Outbreak/Platform.php # PHP's names of OS families and machines
+                - src/Adapter/PhpStan/PhpIni.php # PHP's names of machines, and PHPStan's of its turbo builds' platforms
                 - src/Core/Assertion/AssertionTable.php # PHPUnit's assertions and Pest's expectations
             # Closed sets still to become enums, by the builder whose area holds them.
             awaiting: []

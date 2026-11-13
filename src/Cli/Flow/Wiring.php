@@ -151,6 +151,7 @@ final readonly class Wiring
             ! $costs instanceof CostModel => $costs,
             ! $ci instanceof CiPlan => $ci,
             ! $trusted instanceof ChangeSource => $trusted,
+            ! $changes instanceof ChangeSource => $changes,
             ! $repository instanceof Repository => $repository,
             default => new Adapters(
                 $runner,

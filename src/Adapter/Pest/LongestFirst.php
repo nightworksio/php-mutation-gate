@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_keys;
+use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -30,7 +31,7 @@ final readonly class LongestFirst
     {
         $limits = [];
 
-        foreach ($commands as $at => $command) {
+        foreach (array_values($commands) as $at => $command) {
             $deadline = $command->deadline();
             $limits[$at] = $deadline instanceof Seconds ? $deadline->seconds() : PHP_FLOAT_MAX;
         }
@@ -43,7 +44,7 @@ final readonly class LongestFirst
     /** The order they were given in. */
     public static function asGiven(Command ...$commands): self
     {
-        return new self(array_keys($commands));
+        return new self(array_keys(array_values($commands)));
     }
 
     /**

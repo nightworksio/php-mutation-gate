@@ -128,7 +128,7 @@ final readonly class DigestsRecord
         return $commit->isPresent() ? $inputs->takenAt($table->commitAt($commit)) : $inputs;
     }
 
-    /** @return array<string, string> the field of the first five inputs' digest, where the run took it */
+    /** @return array{reads?: string} the field of the first five inputs' digest, where the run took it */
     private static function readsOf(Digest|NotGiven $reads): array
     {
         return $reads instanceof Digest ? [DigestKind::Reads->value => $reads->value()] : [];

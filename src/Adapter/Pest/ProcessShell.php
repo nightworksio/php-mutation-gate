@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_values;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\EndedProcesses;
 use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
@@ -69,7 +71,7 @@ final readonly class ProcessShell implements Shell, StartsCommands
         $ends = $this->processes->sideBySide(
             $slots,
             $startingWithin,
-            ...$this->processCommandsOf(...$order->sorted($commands)),
+            ...$this->processCommandsOf(...$order->sorted(array_values($commands))),
         );
 
         return ProcessEnds::of(...$order->restored([...$ends]));

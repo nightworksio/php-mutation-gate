@@ -141,19 +141,24 @@ final readonly class CacheDelivery
     ): Written|NotWritten|NotGiven {
         $file = sprintf('%s/%s', $from, CacheRequest::DELIVERED);
         $request = is_file($file) ? file_get_contents($file) : false;
+        $registry = is_string($request) ? self::registryIn($environment) : NotGiven::value();
 
-        if (! is_string($request)) {
-            return NotGiven::value();
-        }
+        return match (true) {
+            ! is_string($request) => NotGiven::value(),
+            ! is_string($registry) => $registry,
+            default => self::pushedAs(Node::decode($request), $binary, $registry, $trusted, $environment),
+        };
+    }
 
-        $registry = self::registryIn($environment);
-
-        if (! is_string($registry)) {
-            return $registry;
-        }
-
+    /** The entries a delivery's request names pushed to this registry, where it may push them; or why they were not. */
+    private static function pushedAs(
+        Node $read,
+        Outbreak $binary,
+        string $registry,
+        bool $trusted,
+        Variables $environment,
+    ): Written|NotWritten {
         try {
-            $read = Node::decode($request);
             $named = $read->field('registry')->text();
             $base = $read->field('base')->text();
             $class = CacheClass::tryFrom($read->field('class')->text())

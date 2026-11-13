@@ -9,12 +9,10 @@ use function file_exists;
 use function file_get_contents;
 use function file_put_contents;
 use function getenv;
-use function is_array;
 use function is_dir;
 use function is_file;
 use function is_string;
 use function is_writable;
-use function json_decode;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
@@ -38,6 +36,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
@@ -147,7 +146,7 @@ final readonly class PhpStan implements StaticChecker
         $config = $options->path(Key::of('config'));
         $php = $options->object(Key::of(PhpStanOption::Php->value));
         $turbo = $options->flag(Key::of(PhpStanOption::Turbo->value));
-        $ini = $php instanceof Options ? json_decode($php->written()->line(), associative: true) : [];
+        $ini = Node::decode($php instanceof Options ? $php->written()->line() : Node::NO_KEYS);
 
         return match (true) {
             $config instanceof Problem => Invalid::because($config),
@@ -157,7 +156,7 @@ final readonly class PhpStan implements StaticChecker
                 Root::of($root),
                 $config instanceof NotGiven ? Absent::setting() : $config,
                 $processes,
-                PhpIni::of(is_array($ini) ? $ini : [], $turbo === true),
+                PhpIni::of($ini, $turbo === true),
             ),
         };
     }

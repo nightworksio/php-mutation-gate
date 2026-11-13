@@ -30,6 +30,8 @@ use NightWorksIO\MutationGate\Core\Written;
 use function round;
 use function sprintf;
 
+use stdClass;
+
 /**
  * `outbreak serve` as the gate asks it (ADR-0133), for the proofs it holds,
  * for the static graph it keeps (ADR-0132) and for the changes it watches
@@ -44,6 +46,8 @@ use function sprintf;
  * answer is no answer.
  *
  * @internal
+ *
+ * @phpstan-type Request array<string, int|list<string>|array<string, string>|stdClass>
  */
 final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, ReachGraph
 {
@@ -103,7 +107,7 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
             $proofs = [];
 
             foreach ($said->field('proofs')->entries() as $key => $proof) {
-                $proofs[$key] = $proof->text();
+                $proofs[sprintf('%s', $key)] = $proof->text();
             }
 
             return $proofs;
@@ -114,7 +118,7 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
 
     public function kept(array $proofs): Written|NotWritten
     {
-        return $this->counted('keep', ['proofs' => (object) $proofs], 'kept', self::KEPT);
+        return $this->counted('keep', ['proofs' => $proofs === [] ? new stdClass() : $proofs], 'kept', self::KEPT);
     }
 
     public function forgotten(string ...$keys): Written|NotWritten
@@ -142,7 +146,7 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
     /**
      * The generation a request waiting for a change is answered with, or why the daemon watches none.
      *
-     * @param array<string, mixed> $request
+     * @param Request $request
      */
     private function generation(string $verb, array $request, int $since, Seconds $wait): int|Unwatched|NotWritten
     {
@@ -167,7 +171,7 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
     /**
      * What a request that changes the proofs held did, as the count its answer holds says it; or why it did not.
      *
-     * @param array<string, mixed> $request
+     * @param Request $request
      */
     private function counted(string $verb, array $request, string $count, string $said): Written|NotWritten
     {
@@ -182,7 +186,7 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
         }
     }
 
-    /** @param array<string, mixed> $request */
+    /** @param Request $request */
     private function asked(string $verb, array $request, Seconds $longer): Node|NotWritten
     {
         return $this->line($verb, json_encode($request, JsonText::FLAGS), $longer);

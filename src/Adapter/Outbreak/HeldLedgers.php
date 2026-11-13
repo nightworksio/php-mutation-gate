@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
+use function array_key_exists;
 use function array_keys;
+use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -56,7 +58,7 @@ final class HeldLedgers implements ProofStore
 
     public function read(Scope $scope): Ledger|Unreadable
     {
-        $held = $this->held[$scope->ref()] ?? null;
+        $held = $this->heldOf($scope);
 
         if ($held instanceof Ledger) {
             return $held;
@@ -73,8 +75,8 @@ final class HeldLedgers implements ProofStore
 
     public function write(Scope $scope, Ledger $ledger): Written|NotWritten
     {
-        $held = $this->held[$scope->ref()] ?? null;
-        $dropped = $held instanceof Ledger ? self::droppedFrom($held, $ledger) : [];
+        $held = $this->heldOf($scope);
+        $dropped = $held instanceof Ledger ? $this->droppedFrom($held, $ledger) : [];
         $forgot = $this->forgetting(...array_keys($dropped));
 
         if (! $held instanceof Ledger || ! $ledger->runs()->tellsAs($held->runs()) || $forgot instanceof NotWritten) {
@@ -97,7 +99,7 @@ final class HeldLedgers implements ProofStore
 
         $this->held[$scope->ref()] = $ledger;
         $this->unwritten[$scope->ref()] = $scope;
-        $this->dropped[$scope->ref()] = [...($this->dropped[$scope->ref()] ?? []), ...$dropped];
+        $this->dropped[$scope->ref()] = [...$this->droppedOf($scope), ...$dropped];
 
         return $kept;
     }
@@ -130,13 +132,29 @@ final class HeldLedgers implements ProofStore
         return $released;
     }
 
+    /** The ledger held of a scope; none where none is held. */
+    private function heldOf(Scope $scope): Ledger|NotGiven
+    {
+        return array_key_exists($scope->ref(), $this->held) ? $this->held[$scope->ref()] : NotGiven::value();
+    }
+
+    /**
+     * The keys of the proofs the rounds dropped from a scope's ledger.
+     *
+     * @return array<string, Digest>
+     */
+    private function droppedOf(Scope $scope): array
+    {
+        return array_key_exists($scope->ref(), $this->dropped) ? $this->dropped[$scope->ref()] : [];
+    }
+
     /** The ledger held of a scope, over the store's as it reads now, without the proofs the rounds dropped. */
     private function over(Scope $scope): Ledger
     {
         $read = $this->store->read($scope);
         $stored = $read instanceof Unreadable ? $read->ledger() : $read;
 
-        foreach ($this->dropped[$scope->ref()] ?? [] as $key) {
+        foreach ($this->droppedOf($scope) as $key) {
             $stored = $stored->withoutProof($key);
         }
 
@@ -148,7 +166,7 @@ final class HeldLedgers implements ProofStore
      *
      * @return array<string, Digest>
      */
-    private static function droppedFrom(Ledger $held, Ledger $ledger): array
+    private function droppedFrom(Ledger $held, Ledger $ledger): array
     {
         $dropped = [];
 
@@ -167,7 +185,7 @@ final class HeldLedgers implements ProofStore
      */
     private function forgetting(string ...$keys): Written|NotWritten|NotGiven
     {
-        $forget = [...$this->unforgotten, ...$keys];
+        $forget = [...$this->unforgotten, ...array_values($keys)];
 
         if ($forget === []) {
             return NotGiven::value();

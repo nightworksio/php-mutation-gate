@@ -45,6 +45,8 @@ use NightWorksIO\MutationGate\Port\MapEngine;
 
 use function sprintf;
 
+use stdClass;
+
 /**
  * Outbreak's core, the `outbreak` binary, as the gate's map engine (ADR-0118),
  * which converts a run's PHP report too (ADR-0119), the store of `outbreak
@@ -368,6 +370,8 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
     private function cacheAsked(CacheRequest $request): string
     {
         $registry = $request->registry();
+        $packs = array_map($this->absolute(...), $request->packs());
+        $restored = array_map($this->absolute(...), $request->restored());
 
         return json_encode([
             'store' => $request->store()->value,
@@ -375,8 +379,8 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             'base' => $request->base()->value(),
             ...$request->isNewest() ? ['newest' => true] : [],
             'limits' => ['packed' => $request->limits()->packed(), 'unpacked' => $request->limits()->unpacked()],
-            'packs' => (object) array_map($this->absolute(...), $request->packs()),
-            'restored' => (object) array_map($this->absolute(...), $request->restored()),
+            'packs' => $packs === [] ? new stdClass() : $packs,
+            'restored' => $restored === [] ? new stdClass() : $restored,
         ], JsonText::FLAGS);
     }
 

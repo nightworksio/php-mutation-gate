@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
+use Closure;
+
 use function function_exists;
 use function is_callable;
 use function pcntl_signal;
@@ -29,8 +31,8 @@ final class Halting
 {
     private bool $heard = false;
 
-    /** @var callable|int the handler the signal had before */
-    private mixed $before = SIG_DFL;
+    /** The handler the signal had before. */
+    private Closure|int $before = SIG_DFL;
 
     private function __construct(private readonly bool $listening)
     {
@@ -45,7 +47,7 @@ final class Halting
 
         $halting = new self(listening: true);
         $before = pcntl_signal_get_handler(self::signal());
-        $halting->before = is_callable($before) ? $before : $before;
+        $halting->before = is_callable($before) ? Closure::fromCallable($before) : $before;
         pcntl_signal(self::signal(), $halting->hear(...));
 
         return $halting;
@@ -89,12 +91,12 @@ final class Halting
         return SIGUSR2;
     }
 
-    /** @param mixed $info what the signal came with */
-    private function hear(int $signal, mixed $info): void
+    /** @param array<array-key, int|string> $info what the signal came with */
+    private function hear(int $signal, array $info): void
     {
         $this->heard = true;
 
-        if (is_callable($this->before)) {
+        if ($this->before instanceof Closure) {
             ($this->before)($signal, $info);
         }
     }

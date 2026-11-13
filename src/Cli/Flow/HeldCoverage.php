@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_filter;
+use function array_map;
+use function array_values;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\HeldCoverageMode;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -14,9 +18,11 @@ use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 use function sprintf;
@@ -55,32 +61,23 @@ final readonly class HeldCoverage
     public function checked(Shard $shard, CoverageMap $suite, bool $early = false): HeldChecks|CannotJudge
     {
         $checks = HeldChecks::none();
-        $listing = NotGiven::value();
+        $listing = $this->listingFor($shard->units());
 
         foreach ($shard->units() as $unit) {
             $judgedBy = $unit->judgedBy();
-
-            if ($judgedBy instanceof WholeSuite) {
-                continue;
-            }
-
-            $mapped = $this->mode === HeldCoverageMode::Map && $judgedBy instanceof Group;
-            $listing = $mapped && $listing instanceof NotGiven
-                ? $this->adapters->runner->listing($this->adapters->withheld, $this->adapters->suite->suites())
-                : $listing;
-            $group = $mapped && $judgedBy instanceof Group && $listing instanceof TestListing
-                ? $suite->ranBy($listing->inGroup($judgedBy))
-                : $this->adapters->runner->coverage(
-                    $this->adapters->covering(CoverageRun::of($judgedBy, Workspace::heldCoverage($shard->id()))),
-                );
+            $group = $judgedBy instanceof WholeSuite
+                ? NotGiven::value()
+                : $this->coverageOf($shard, $judgedBy, $suite, $listing);
 
             if ($group instanceof CannotJudge) {
                 return CannotJudge::because(sprintf(self::FAILED, $unit->path()->value(), $group->why()));
             }
 
-            $checks = $checks->with(
-                $early ? Covered::by($unit, $group->tests()) : GroupCoverage::of($unit, $suite, $group),
-            );
+            $checks = match (true) {
+                $group instanceof NotGiven => $checks,
+                $early => $checks->with(Covered::by($unit, $group->tests())),
+                default => $checks->with(GroupCoverage::of($unit, $suite, $group)),
+            };
         }
 
         return $checks;
@@ -96,5 +93,39 @@ final readonly class HeldCoverage
         }
 
         return $shard->holding($kept);
+    }
+
+    /**
+     * The runner's listing that a group's tests are read from under `holds.coverage: map`, where these units hold
+     * any group; none otherwise.
+     */
+    private function listingFor(Units $units): TestListing|CannotJudge|NotGiven
+    {
+        $groups = $this->mode === HeldCoverageMode::Map
+            ? array_values(array_filter(
+                array_map(static fn(Unit $unit): WholeSuite|Group|Filter => $unit->judgedBy(), [...$units]),
+                static fn(WholeSuite|Group|Filter $tests): bool => $tests instanceof Group,
+            ))
+            : [];
+
+        $adapters = $this->adapters;
+
+        return $groups === []
+            ? NotGiven::value()
+            : $adapters->runner->listing($adapters->withheld, $adapters->narrowing->suitesFor($groups[0]));
+    }
+
+    /** The coverage of the tests that hold a unit: read from the map for a group listed, else run alone. */
+    private function coverageOf(
+        Shard $shard,
+        Group|Filter $judgedBy,
+        CoverageMap $suite,
+        TestListing|CannotJudge|NotGiven $listing,
+    ): CoverageMap|CannotJudge {
+        return $judgedBy instanceof Group && $listing instanceof TestListing
+            ? $suite->ranBy($listing->inGroup($judgedBy))
+            : $this->adapters->runner->coverage(
+                $this->adapters->covering(CoverageRun::of($judgedBy, Workspace::heldCoverage($shard->id()))),
+            );
     }
 }

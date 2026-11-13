@@ -9,11 +9,14 @@ use function extension_loaded;
 use function glob;
 use function is_dir;
 use function is_file;
-use function is_scalar;
 use function mb_strtolower;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
+use NightWorksIO\MutationGate\Core\File\FileMode;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 
 use const PHP_MAJOR_VERSION;
@@ -61,13 +64,13 @@ final readonly class PhpIni
         return new self([], turbo: false);
     }
 
-    /** @param array<mixed> $written the settings as `staticCheck.php` writes them */
-    public static function of(array $written, bool $turbo): self
+    /** The settings as `staticCheck.php` writes them. */
+    public static function of(Node $written, bool $turbo): self
     {
         $settings = [];
 
-        foreach ($written as $name => $value) {
-            $settings[sprintf('%s', $name)] = is_scalar($value) ? self::spelt($value) : '';
+        foreach (Lenient::entries($written) as $name => $value) {
+            $settings[sprintf('%s', $name)] = self::spelt($value);
         }
 
         return new self($settings, $turbo);
@@ -80,16 +83,7 @@ final readonly class PhpIni
      */
     public function arguments(string $root, string $cache): array
     {
-        $settings = $this->settings;
-
-        if (($settings[self::FILE_CACHE_ONLY] ?? '') === '1' && ! array_key_exists(self::FILE_CACHE, $settings)) {
-            $settings[self::FILE_CACHE] = $cache;
-
-            if (! is_dir($cache)) {
-                mkdir($cache, 0o700, recursive: true);
-            }
-        }
-
+        $settings = $this->withFileCache($cache);
         $turbo = $this->turbo && ! extension_loaded(self::TURBO) ? $this->build($root) : '';
         $arguments = [];
 
@@ -112,6 +106,28 @@ final readonly class PhpIni
         return array_key_exists(self::XDEBUG_MODE, $this->settings)
             ? [...$environment, Xdebug::MODE_VARIABLE => $this->settings[self::XDEBUG_MODE]]
             : $environment;
+    }
+
+    /**
+     * The settings, with the file cache under this directory, made, where they ask for a file cache alone and name
+     * no directory.
+     *
+     * @return array<string, string>
+     */
+    private function withFileCache(string $cache): array
+    {
+        $settings = $this->settings;
+        $alone = array_key_exists(self::FILE_CACHE_ONLY, $settings) && $settings[self::FILE_CACHE_ONLY] === '1';
+
+        if (! $alone || array_key_exists(self::FILE_CACHE, $settings)) {
+            return $settings;
+        }
+
+        if (! is_dir($cache)) {
+            mkdir($cache, FileMode::OWNER_ONLY, recursive: true);
+        }
+
+        return [...$settings, self::FILE_CACHE => $cache];
     }
 
     /** PHPStan's turbo build for this PHP and machine, where it ships one; none otherwise. */
@@ -157,12 +173,15 @@ final readonly class PhpIni
         return $loaders !== false && $loaders !== [];
     }
 
-    private static function spelt(string|int|float|bool $value): string
+    /** A setting's value as a `-d` argument spells it; none where it is not a single value. */
+    private static function spelt(Node $value): string
     {
-        return match (true) {
-            $value === true => '1',
-            $value === false => '0',
-            default => sprintf('%s', $value),
+        return match ($value->kind()) {
+            Kind::Boolean => $value->boolean() ? '1' : '0',
+            Kind::Text => $value->text(),
+            Kind::Integer => sprintf('%d', $value->integer()),
+            Kind::Number => sprintf('%s', $value->number()),
+            Kind::Map, Kind::List, Kind::Empty, Kind::Null, Kind::Nothing => '',
         };
     }
 }

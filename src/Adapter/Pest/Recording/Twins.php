@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use Pest\Mutate\Mutation;
 
 use function sprintf;
@@ -50,26 +51,15 @@ final class Twins
      */
     public static function isTwin(Mutation $mutation, string $results): bool
     {
-        if ($results === '' || getenv(GateVariable::Duplicates->value) === Duplicates::JudgeEach->value) {
+        $twin = $results === '' || getenv(GateVariable::Duplicates->value) === Duplicates::JudgeEach->value
+            ? NotGiven::value()
+            : self::twinOf($mutation, $results);
+
+        if ($twin instanceof NotGiven) {
             return false;
         }
 
-        $copy = sprintf('%s %s', $mutation->file->getRealPath(), $mutation->modifiedSourcePath);
-
-        if (array_key_exists($results, self::$made) && array_key_exists($copy, self::$made[$results])) {
-            self::$twins[$results][] = Recorder::madeOf($mutation);
-
-            return true;
-        }
-
-        self::$made[$results][$copy] = true;
-        $first = self::negatedTwinOf($mutation, $results);
-
-        if ($first === '') {
-            return false;
-        }
-
-        self::$twins[$results][] = Recorder::madeOf($mutation)->servedAs(DiskPath::of($first));
+        self::$twins[$results][] = $twin;
 
         return true;
     }
@@ -85,6 +75,25 @@ final class Twins
     }
 
     /**
+     * This mutant as the twin of one made before it: one that leaves its file as it does, or one the negation rule
+     * makes one program with it, whose copy then serves it; none where there is none, this one then kept for a
+     * later one to pair with.
+     */
+    private static function twinOf(Mutation $mutation, string $results): PlannedMutant|NotGiven
+    {
+        $copy = sprintf('%s %s', $mutation->file->getRealPath(), $mutation->modifiedSourcePath);
+
+        if (array_key_exists($results, self::$made) && array_key_exists($copy, self::$made[$results])) {
+            return Recorder::madeOf($mutation);
+        }
+
+        self::$made[$results][$copy] = true;
+        $first = self::negatedTwinOf($mutation, $results);
+
+        return $first === '' ? NotGiven::value() : Recorder::madeOf($mutation)->servedAs(DiskPath::of($first));
+    }
+
+    /**
      * The copy of the mutant made before this one that the negation rule makes one program with it (see
      * NegationTwins), which judges it; none where none does, this one then kept for a later one to pair with.
      */
@@ -95,7 +104,9 @@ final class Twins
         }
 
         $site = sprintf('%s:%d:%d', $mutation->file->getRealPath(), $mutation->startLine, $mutation->endLine);
-        $made = self::$negations[$results][$site] ?? [];
+        $made = array_key_exists($results, self::$negations) && array_key_exists($site, self::$negations[$results])
+            ? self::$negations[$results][$site]
+            : [];
 
         foreach ($made as [$mutator, $copy]) {
             if (NegationTwins::alike($mutation->mutator, $mutation->modifiedSourcePath, $mutator, $copy)) {

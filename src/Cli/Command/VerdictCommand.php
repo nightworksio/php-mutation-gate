@@ -178,6 +178,10 @@ final readonly class VerdictCommand
     ): Judged|Invalid|CannotJudge {
         $map = EarlyKeys::recorded($following, $plan, $results);
 
+        if ($map instanceof CannotJudge) {
+            return $map;
+        }
+
         $suite = $map instanceof CoverageMap ? StreamedSuites::left($following, $plan, $results, $map) : $map;
 
         if ($suite instanceof CannotJudge) {

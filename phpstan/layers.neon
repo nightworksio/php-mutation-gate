@@ -302,6 +302,11 @@ parameters:
                 - src/Adapter/Pest/Split/OwnEnd.php
                 # A split stream stops a child that runs past its limit (ADR-0117).
                 - src/Adapter/Pest/Split/Children.php
+                # watch halts the batch running in its own process with SIGUSR2 once a save moves one of its units
+                # (ADR-0146).
+                - src/Adapter/Process/Halting.php
+                # The served projects of the tests stop the daemons they started.
+                - tests/Support/ServedProjects.php
 
         # --- base64 of what holds no secret ------------------------------------------
         # The extension keys each entry by its call, so this entry replaces the timing-safe set's own for

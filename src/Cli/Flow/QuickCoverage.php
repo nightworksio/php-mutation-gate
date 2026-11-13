@@ -52,24 +52,9 @@ final readonly class QuickCoverage
         CoverageEntries $entries,
         QuickRound $round,
     ): self {
-        $outside = [];
-
-        foreach ($suite->outside() as $file) {
-            $outside[] = $file->path();
-        }
-
-        $outside = Paths::of(...$outside);
         $places = $adapters->loop instanceof LocalLoop && $adapters->loop->placesTestFiles();
-        $sources = [];
-        $tests = [];
-
-        foreach ($round->changed() as $path) {
-            $test = $entries->testFiles()->has($path);
-            $sources = $path->isPhp() && $outside->has($path) && ! $test ? [...$sources, $path] : $sources;
-            $tests = $places && $path->isPhp() && $test ? [...$tests, $path] : $tests;
-        }
-
-        $sources = Paths::of(...$sources);
+        $sources = $round->sourcesChanged($entries, $suite);
+        $tests = $places ? $round->testsChanged($entries) : [];
         $asked = $sources->and(Paths::of(...$tests));
         $graph = count($asked) === 0
             ? NotGiven::value()
@@ -103,7 +88,6 @@ final readonly class QuickCoverage
         $covered = [];
 
         foreach ($this->sources as $source) {
-            $text = $adapters->project->read($source);
             $reaching = $this->graph instanceof GraphAnswer ? $this->graph->reaching($source) : NotGiven::value();
             $reached = $reaching instanceof Paths ? $entries->testsIn($reaching, $map) : TestIds::none();
 
@@ -111,16 +95,8 @@ final readonly class QuickCoverage
                 return $reached;
             }
 
-            $covered = $text instanceof Contents
-                ? [
-                    ...$covered,
-                    QuickCovered::of(
-                        $source,
-                        mb_substr_count($text->text(), self::LINE) + 1,
-                        $map->testsCoveringFile($source)->and($reached),
-                    ),
-                ]
-                : $covered;
+            $tests = $map->testsCoveringFile($source)->and($reached);
+            $covered = [...$covered, ...$this->wholly($source, $tests, $adapters)];
         }
 
         $placed = $this->placedOver($map, $entries, $adapters);
@@ -140,22 +116,40 @@ final readonly class QuickCoverage
         $covered = [];
 
         foreach ($this->placed as $test) {
-            $joined = $this->graph instanceof GraphAnswer ? $this->graph->joined($test) : NotGiven::value();
             $tests = $entries->testsIn(Paths::of($test), $map);
 
             if ($tests instanceof CannotJudge) {
                 return $tests;
             }
 
-            foreach ($joined instanceof Paths ? $joined : Paths::none() as $file) {
-                $text = $adapters->project->read($file);
-                $covered = $text instanceof Contents
-                    ? [...$covered, QuickCovered::of($file, mb_substr_count($text->text(), self::LINE) + 1, $tests)]
-                    : $covered;
+            foreach ($this->joinedBy($test) as $file) {
+                $covered = [...$covered, ...$this->wholly($file, $tests, $adapters)];
             }
         }
 
         return $covered;
+    }
+
+    /** The files the graph says a test file reaches; none where it says nothing of it. */
+    private function joinedBy(Path $test): Paths
+    {
+        $joined = $this->graph instanceof GraphAnswer ? $this->graph->joined($test) : NotGiven::value();
+
+        return $joined instanceof Paths ? $joined : Paths::none();
+    }
+
+    /**
+     * A file covered on every line by these tests, where it is on disk.
+     *
+     * @return list<QuickCovered>
+     */
+    private function wholly(Path $file, TestIds $tests, Adapters $adapters): array
+    {
+        $text = $adapters->project->read($file);
+
+        return $text instanceof Contents
+            ? [QuickCovered::of($file, mb_substr_count($text->text(), self::LINE) + 1, $tests)]
+            : [];
     }
 
     /** The test files among these the graph says which files they reach. */

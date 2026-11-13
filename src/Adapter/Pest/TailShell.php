@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_key_exists;
 use function count;
-use function in_array;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Recorded;
@@ -191,10 +191,12 @@ final readonly class TailShell implements Shell, StartsCommands
      */
     private function startingWith(Command $command): array
     {
+        $environment = $command->environment();
         $starting = [];
 
-        foreach ($command->environment() as $name => $value) {
-            $starting += in_array($name, self::STARTING, strict: true) && is_string($value) ? [$name => $value] : [];
+        foreach (self::STARTING as $name) {
+            $value = array_key_exists($name, $environment) ? $environment[$name] : false;
+            $starting += is_string($value) ? [$name => $value] : [];
         }
 
         return $starting;
