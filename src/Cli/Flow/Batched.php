@@ -67,7 +67,7 @@ final readonly class Batched
 
         while (true) {
             $kept = $this->interruption->kept($queue);
-            $spent = $spent->leaving(self::unitsOf($queue)->except(self::unitsOf($kept)));
+            $spent = $spent->leaving($this->unitsOf($queue)->except($this->unitsOf($kept)));
             $queue = $kept;
             $batch = $watch->stopsAfter($spent) ? Units::none() : $this->batchOf($batching, $queue, $left);
 
@@ -75,22 +75,8 @@ final readonly class Batched
                 break;
             }
 
-            $request = $requestFor($batch);
-            $halt = $this->interruption->halting($batch);
-            $invoked = $this->invoking->invoked($this->within($request, $left));
-            $halted = $halt instanceof BatchHalt && $halt->disarmed();
-
-            if (! $halted) {
-                $this->ends->ended($invoked);
-            }
-
+            $spent = $this->ran($batch, $spent, $watch, $requestFor($batch), $left);
             $queue = array_slice($queue, $batch->count());
-            $spent = match (true) {
-                $halted => $spent->leaving($batch),
-                ! $invoked instanceof CannotJudge => $watch->after($spent, $batch, $invoked),
-                $this->isOver() => $spent->leaving($batch),
-                default => $invoked,
-            };
 
             if ($spent instanceof CannotJudge) {
                 return $spent;
@@ -99,7 +85,31 @@ final readonly class Batched
             $left = $this->left();
         }
 
-        return $spent->leaving(self::unitsOf($queue));
+        return $spent->leaving($this->unitsOf($queue));
+    }
+
+    /** What the batches came to once this batch ran, or the cannot judge of it the runner could not judge in time. */
+    private function ran(
+        Units $batch,
+        Spent $spent,
+        DoomWatch $watch,
+        MutationRequest $request,
+        Seconds|Unlimited $left,
+    ): Spent|CannotJudge {
+        $halt = $this->interruption->halting($batch);
+        $invoked = $this->invoking->invoked($this->within($request, $left));
+        $halted = $halt instanceof BatchHalt && $halt->disarmed();
+
+        if (! $halted) {
+            $this->ends->ended($invoked);
+        }
+
+        return match (true) {
+            $halted => $spent->leaving($batch),
+            ! $invoked instanceof CannotJudge => $watch->after($spent, $batch, $invoked),
+            $this->isOver() => $spent->leaving($batch),
+            default => $invoked,
+        };
     }
 
     /**
@@ -107,7 +117,7 @@ final readonly class Batched
      *
      * @param list<Weighed> $weighed
      */
-    private static function unitsOf(array $weighed): Units
+    private function unitsOf(array $weighed): Units
     {
         return Units::of(...array_map(static fn(Weighed $one): Unit => $one->unit(), $weighed));
     }
