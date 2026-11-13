@@ -262,6 +262,32 @@ fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// Whether a poll of notifications found one ready; not where it timed out or was interrupted.
+#[cfg(target_os = "linux")]
+pub(crate) fn polled(result: rustix::io::Result<usize>, of: &str) -> Result<bool, String> {
+    match result {
+        Ok(0) | Err(rustix::io::Errno::INTR) => Ok(false),
+        Ok(_) => Ok(true),
+        Err(error) => Err(format!("cannot wait for {of}: {error}")),
+    }
+}
+
+/// What a step of arming notifications gave; why it failed otherwise.
+#[cfg(target_os = "linux")]
+pub(crate) fn tried<T>(result: rustix::io::Result<T>, doing: &str) -> Result<T, String> {
+    result.map_err(|error| format!("cannot {doing}: {error}"))
+}
+
+/// What a read of notifications gave; none where none is left to read now.
+#[cfg(target_os = "linux")]
+pub(crate) fn taken<T>(result: rustix::io::Result<T>, of: &str) -> Result<Option<T>, String> {
+    match result {
+        Ok(read) => Ok(Some(read)),
+        Err(rustix::io::Errno::AGAIN | rustix::io::Errno::INTR) => Ok(None),
+        Err(error) => Err(format!("cannot read {of}: {error}")),
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn native(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Box<dyn Notices>, String> {
     inotify::Inotify::armed(paths, skipped).map(|notices| Box::new(notices) as Box<dyn Notices>)
@@ -308,7 +334,10 @@ mod inotify {
     use rustix::fs::inotify::{self, CreateFlags, ReadFlags, Reader, WatchFlags};
     use rustix::io::Errno;
 
-    use super::{Notices, walked};
+    use super::{Notices, polled, taken, tried, walked};
+
+    /// What the notifications are called where they fail.
+    const INOTIFY: &str = "inotify";
 
     /// The bytes read from the notifications at once.
     const BUFFER: usize = 1 << 16;
@@ -324,8 +353,10 @@ mod inotify {
 
     impl Inotify {
         pub(super) fn armed(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Self, String> {
-            let fd = inotify::init(CreateFlags::CLOEXEC | CreateFlags::NONBLOCK)
-                .map_err(|error| format!("cannot start inotify: {error}"))?;
+            let fd = tried(
+                inotify::init(CreateFlags::CLOEXEC | CreateFlags::NONBLOCK),
+                "start inotify",
+            )?;
             let mut armed = Self {
                 fd,
                 directories: HashMap::new(),
@@ -357,18 +388,58 @@ mod inotify {
                     return Ok(());
                 }
 
-                match inotify::add_watch(fd, path, flags) {
-                    Ok(watch) => {
-                        directories.insert(watch, path.to_path_buf());
-                        Ok(())
-                    }
-                    Err(Errno::NOENT) => Ok(()),
-                    Err(Errno::NOSPC) => Err(String::from(
-                        "inotify has no watch left: fs.inotify.max_user_watches is too low for the trees",
-                    )),
-                    Err(error) => Err(format!("cannot watch {}: {error}", path.display())),
+                if let Some(watch) = watched(inotify::add_watch(fd, path, flags), path)? {
+                    directories.insert(watch, path.to_path_buf());
                 }
+
+                Ok(())
             })
+        }
+    }
+
+    /// The watch a directory was given; none where it is gone; why not, where it could not be watched.
+    fn watched(added: rustix::io::Result<i32>, path: &Path) -> Result<Option<i32>, String> {
+        match added {
+            Ok(watch) => Ok(Some(watch)),
+            Err(Errno::NOENT) => Ok(None),
+            Err(Errno::NOSPC) => Err(String::from(
+                "inotify has no watch left: fs.inotify.max_user_watches is too low for the trees",
+            )),
+            Err(error) => Err(format!("cannot watch {}: {error}", path.display())),
+        }
+    }
+
+    /// What one read of the notifications told: the directories made under watched ones, the watches that ended,
+    /// and whether the queue overflowed.
+    #[derive(Debug, Default, PartialEq, Eq)]
+    struct Batch {
+        made: BTreeSet<PathBuf>,
+        ended: Vec<i32>,
+        overflowed: bool,
+    }
+
+    impl Batch {
+        /// One event, of these flags on this watch, the directory it made named by `made`.
+        fn took(&mut self, flags: ReadFlags, watch: i32, made: impl FnOnce() -> Option<PathBuf>) {
+            if flags.contains(ReadFlags::QUEUE_OVERFLOW) {
+                self.overflowed = true;
+            } else if flags.contains(ReadFlags::IGNORED) {
+                self.ended.push(watch);
+            } else if flags.contains(ReadFlags::ISDIR)
+                && flags.intersects(ReadFlags::CREATE | ReadFlags::MOVED_TO)
+                && let Some(directory) = made()
+            {
+                self.made.insert(directory);
+            }
+        }
+
+        /// The directories to watch from now on: every one of `all` where the queue overflowed.
+        fn created(self, all: &BTreeSet<PathBuf>) -> BTreeSet<PathBuf> {
+            if self.overflowed {
+                all.clone()
+            } else {
+                self.made
+            }
         }
     }
 
@@ -378,44 +449,92 @@ mod inotify {
                 .map_err(|error| format!("cannot wait {within:?}: {error}"))?;
             let mut fds = [PollFd::new(&self.fd, PollFlags::IN)];
 
-            match poll(&mut fds, Some(&timeout)) {
-                Ok(0) | Err(Errno::INTR) => return Ok(false),
-                Ok(_) => {}
-                Err(error) => return Err(format!("cannot wait for inotify: {error}")),
+            if !polled(poll(&mut fds, Some(&timeout)), INOTIFY)? {
+                return Ok(false);
             }
 
-            let mut created = BTreeSet::new();
-            let mut overflowed = false;
+            let mut batch = Batch::default();
             let mut reader = Reader::new(&self.fd, &mut self.buffer);
 
-            loop {
-                let event = match reader.next() {
-                    Ok(event) => event,
-                    Err(Errno::AGAIN | Errno::INTR) => break,
-                    Err(error) => return Err(format!("cannot read inotify: {error}")),
-                };
-                let flags = event.events();
-
-                if flags.contains(ReadFlags::QUEUE_OVERFLOW) {
-                    overflowed = true;
-                } else if flags.contains(ReadFlags::IGNORED) {
-                    self.directories.remove(&event.wd());
-                } else if flags.contains(ReadFlags::ISDIR)
-                    && flags.intersects(ReadFlags::CREATE | ReadFlags::MOVED_TO)
-                    && let (Some(directory), Some(name)) =
-                        (self.directories.get(&event.wd()), event.file_name())
-                {
-                    created.insert(directory.join(OsStr::from_bytes(name.to_bytes())));
-                }
+            while let Some(event) = taken(reader.next(), INOTIFY)? {
+                let directories = &self.directories;
+                batch.took(event.events(), event.wd(), || {
+                    Some(
+                        directories
+                            .get(&event.wd())?
+                            .join(OsStr::from_bytes(event.file_name()?.to_bytes())),
+                    )
+                });
             }
 
-            if overflowed {
-                created.clone_from(&self.paths);
+            for ended in &batch.ended {
+                self.directories.remove(ended);
             }
 
+            let created = batch.created(&self.paths);
             self.added(&created)?;
 
             Ok(true)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use std::collections::BTreeSet;
+        use std::path::{Path, PathBuf};
+
+        use rustix::fs::inotify::ReadFlags;
+        use rustix::io::Errno;
+
+        use super::{Batch, Inotify, watched};
+        use crate::watching::Notices;
+
+        #[test]
+        fn says_why_it_cannot_wait_that_long() {
+            let mut armed = Inotify::armed(&BTreeSet::new(), Path::new("/skipped")).unwrap();
+
+            assert!(
+                armed
+                    .next(std::time::Duration::MAX)
+                    .is_err_and(|why| why.starts_with("cannot wait"))
+            );
+        }
+
+        #[test]
+        fn tells_each_kind_of_event_apart() {
+            let mut batch = Batch::default();
+            let made = || Some(PathBuf::from("/p/new"));
+            batch.took(ReadFlags::ISDIR | ReadFlags::CREATE, 1, made);
+            batch.took(ReadFlags::ISDIR | ReadFlags::MOVED_TO, 1, || None);
+            batch.took(ReadFlags::CREATE, 1, made);
+            batch.took(ReadFlags::IGNORED, 2, made);
+            let all = BTreeSet::from([PathBuf::from("/p")]);
+
+            assert_eq!(batch.ended, [2]);
+            assert_eq!(
+                batch.created(&all),
+                BTreeSet::from([PathBuf::from("/p/new")])
+            );
+
+            let mut overflowed = Batch::default();
+            overflowed.took(ReadFlags::QUEUE_OVERFLOW, -1, made);
+
+            assert_eq!(overflowed.created(&all), all);
+        }
+
+        #[test]
+        fn watches_no_directory_that_is_gone_and_says_why_it_cannot_watch_one() {
+            let path = Path::new("/p");
+
+            assert_eq!(watched(Ok(3), path), Ok(Some(3)));
+            assert_eq!(watched(Err(Errno::NOENT), path), Ok(None));
+            assert!(
+                watched(Err(Errno::NOSPC), path).is_err_and(|why| why.contains("max_user_watches"))
+            );
+            assert!(
+                watched(Err(Errno::ACCESS), path)
+                    .is_err_and(|why| why.starts_with("cannot watch /p"))
+            );
         }
     }
 }
@@ -597,7 +716,9 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    use super::{Noticed, Watching};
+    use std::collections::{BTreeSet, VecDeque};
+
+    use super::{Noticed, Notices, Watching, walked};
 
     const SETTLED: Duration = Duration::from_secs(5);
 
@@ -622,11 +743,9 @@ mod tests {
         )
     }
 
+    #[rustfmt::skip]
     fn generation(noticed: Noticed) -> u64 {
-        match noticed {
-            Noticed::Changed(generation) => generation,
-            Noticed::Unwatched(why) => panic!("{why}"),
-        }
+        match noticed { Noticed::Changed(generation) => generation, Noticed::Unwatched(why) => panic!("{why}") }
     }
 
     #[test]
@@ -661,7 +780,11 @@ mod tests {
         assert!(replaced > added);
 
         fs::write(root.join("src/new/B.php"), "<?php\necho 3;\n").unwrap();
-        assert!(generation(watching.changed(&paths, replaced, SETTLED)) > replaced);
+        let rewritten = generation(watching.changed(&paths, replaced, SETTLED));
+        assert!(rewritten > replaced);
+
+        fs::remove_dir_all(root.join("src/new")).unwrap();
+        assert!(generation(watching.changed(&paths, rewritten, SETTLED)) > rewritten);
         watching.stop();
     }
 
@@ -698,5 +821,116 @@ mod tests {
 
         assert_eq!(power.changed(&[], 0, Duration::ZERO), Noticed::Changed(0));
         power.stop();
+    }
+
+    /// Notifications that answer as they are told to, then fail once a wait passed.
+    struct Told(VecDeque<bool>);
+
+    impl Notices for Told {
+        fn next(&mut self, within: Duration) -> Result<bool, String> {
+            self.0.pop_front().ok_or_else(|| {
+                std::thread::sleep(within);
+                String::from("told all")
+            })
+        }
+    }
+
+    #[test]
+    fn says_why_it_watches_nothing_where_its_notifications_cannot_arm_or_fail() {
+        let unarmed = Watching::of(
+            PathBuf::from("/p"),
+            Duration::ZERO,
+            Box::new(|_| Err(String::from("no notifications"))),
+        );
+
+        assert_eq!(
+            unarmed.changed(&[String::from("src")], 0, Duration::ZERO),
+            Noticed::Unwatched(String::from("no notifications"))
+        );
+
+        let failing = Watching::of(
+            PathBuf::from("/p"),
+            Duration::ZERO,
+            Box::new(|_| {
+                Ok(Box::new(Told(VecDeque::from([false, true, false]))) as Box<dyn Notices>)
+            }),
+        );
+
+        assert_eq!(
+            failing.changed(&[String::from("src")], 0, SETTLED),
+            Noticed::Changed(1)
+        );
+        assert_eq!(
+            failing.changed(&[String::from("src")], 1, SETTLED),
+            Noticed::Unwatched(String::from("told all"))
+        );
+    }
+
+    #[test]
+    fn walks_past_what_is_gone_and_says_why_it_cannot_read_a_directory() {
+        let root = fresh("walk");
+        let paths = BTreeSet::from([root.join("src"), root.join("gone")]);
+        let mut seen = Vec::new();
+
+        assert_eq!(
+            walked(&paths, &root.join(".mutation-gate"), |path, _| {
+                seen.push(path.to_path_buf());
+                Ok(())
+            }),
+            Ok(())
+        );
+        assert!(seen.contains(&root.join("src/deep/A.php")));
+
+        let vanishing = BTreeSet::from([root.join("src/deep")]);
+        let skipped = root.join(".mutation-gate");
+
+        assert_eq!(
+            walked(&vanishing, &skipped, |path, _| {
+                fs::remove_dir_all(path).unwrap();
+                Ok(())
+            }),
+            Ok(())
+        );
+
+        fs::create_dir_all(root.join("src/deep")).unwrap();
+
+        assert!(
+            walked(&vanishing, &skipped, |path, _| {
+                fs::remove_dir_all(path).unwrap();
+                fs::write(path, "").unwrap();
+                Ok(())
+            })
+            .is_err_and(|why| why.starts_with("cannot read"))
+        );
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn reads_a_poll_and_a_read_of_notifications() {
+        use rustix::io::Errno;
+
+        use super::{polled, taken, tried};
+
+        assert_eq!(polled(Ok(0), "x"), Ok(false));
+        assert_eq!(polled(Err(Errno::INTR), "x"), Ok(false));
+        assert_eq!(polled(Ok(1), "x"), Ok(true));
+        assert_eq!(
+            polled(Err(Errno::INVAL), "x").map_err(|why| why.starts_with("cannot wait for x")),
+            Err(true)
+        );
+        assert_eq!(tried(Ok(2), "start x"), Ok(2));
+        assert_eq!(
+            tried::<u8>(Err(Errno::ACCESS), "start x")
+                .map_err(|why| why.starts_with("cannot start x")),
+            Err(true)
+        );
+        assert_eq!(taken(Ok(7), "x"), Ok(Some(7)));
+        assert_eq!(taken::<u8>(Err(Errno::AGAIN), "x"), Ok(None));
+        assert_eq!(taken::<u8>(Err(Errno::INTR), "x"), Ok(None));
+        assert_eq!(
+            taken::<u8>(Err(Errno::INVAL), "x").map_err(|why| why.starts_with("cannot read x")),
+            Err(true)
+        );
     }
 }

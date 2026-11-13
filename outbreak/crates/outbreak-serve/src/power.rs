@@ -104,12 +104,11 @@ mod uevents {
     use std::time::Duration;
 
     use rustix::event::{PollFd, PollFlags, Timespec, poll};
-    use rustix::io::Errno;
     use rustix::net::{
         AddressFamily, RecvFlags, SocketFlags, SocketType, bind, netlink, recv, socket_with,
     };
 
-    use crate::watching::Notices;
+    use crate::watching::{Notices, polled, taken, tried};
 
     /// The multicast group the kernel sends its device events to.
     const KERNEL_GROUP: u32 = 1;
@@ -123,6 +122,9 @@ mod uevents {
     /// The bytes of one device event read at once.
     const BUFFER: usize = 1 << 13;
 
+    /// What the device events are called where they fail.
+    const EVENTS: &str = "the kernel's device events";
+
     /// The kernel's device events of power supplies, and the platform profile's changes where it has one.
     pub(super) struct Uevents {
         socket: OwnedFd,
@@ -132,26 +134,34 @@ mod uevents {
 
     impl Uevents {
         pub(super) fn bound() -> Result<Self, String> {
-            let socket = socket_with(
-                AddressFamily::NETLINK,
-                SocketType::DGRAM,
-                SocketFlags::CLOEXEC | SocketFlags::NONBLOCK,
-                Some(netlink::KOBJECT_UEVENT),
-            )
-            .map_err(|error| format!("cannot open the kernel's device events: {error}"))?;
-            bind(&socket, &netlink::SocketAddrNetlink::new(0, KERNEL_GROUP))
-                .map_err(|error| format!("cannot listen to the kernel's device events: {error}"))?;
-            let mut profile = File::open(PROFILE).ok();
+            let socket = tried(
+                socket_with(
+                    AddressFamily::NETLINK,
+                    SocketType::DGRAM,
+                    SocketFlags::CLOEXEC | SocketFlags::NONBLOCK,
+                    Some(netlink::KOBJECT_UEVENT),
+                ),
+                &format!("open {EVENTS}"),
+            )?;
+            tried(
+                bind(&socket, &netlink::SocketAddrNetlink::new(0, KERNEL_GROUP)),
+                &format!("listen to {EVENTS}"),
+            )?;
 
+            Ok(Self::over(socket, File::open(PROFILE).ok()))
+        }
+
+        /// The events of a socket that reads one datagram at a time, and of the profile where there is one.
+        fn over(socket: OwnedFd, mut profile: Option<File>) -> Self {
             if let Some(file) = profile.as_mut() {
                 drained(file);
             }
 
-            Ok(Self {
+            Self {
                 socket,
                 profile,
                 buffer: vec![0; BUFFER],
-            })
+            }
         }
     }
 
@@ -159,45 +169,29 @@ mod uevents {
         fn next(&mut self, within: Duration) -> Result<bool, String> {
             let timeout = Timespec::try_from(within)
                 .map_err(|error| format!("cannot wait {within:?}: {error}"))?;
-            let (events, profiled) = {
-                let mut fds = vec![PollFd::new(&self.socket, PollFlags::IN)];
-                fds.extend(
-                    self.profile
-                        .as_ref()
-                        .map(|file| PollFd::new(file, PollFlags::PRI | PollFlags::ERR)),
-                );
+            let mut fds = vec![PollFd::new(&self.socket, PollFlags::IN)];
+            fds.extend(
+                self.profile
+                    .as_ref()
+                    .map(|file| PollFd::new(file, PollFlags::PRI | PollFlags::ERR)),
+            );
 
-                match poll(&mut fds, Some(&timeout)) {
-                    Ok(0) | Err(Errno::INTR) => return Ok(false),
-                    Ok(_) => {}
-                    Err(error) => {
-                        return Err(format!(
-                            "cannot wait for the kernel's device events: {error}"
-                        ));
-                    }
-                }
+            if !polled(poll(&mut fds, Some(&timeout)), EVENTS)? {
+                return Ok(false);
+            }
 
-                let ready = |at: usize| fds.get(at).is_some_and(|fd| !fd.revents().is_empty());
-                (ready(0), ready(1))
-            };
+            let ready = |at: usize| fds.get(at).is_some_and(|fd| !fd.revents().is_empty());
+            let (events, profiled) = (ready(0), ready(1));
+            drop(fds);
             let mut changed = false;
 
-            if events {
-                loop {
-                    match recv(&self.socket, &mut self.buffer[..], RecvFlags::empty()) {
-                        Ok((read, _)) => {
-                            changed |= self.buffer.get(..read).is_some_and(|event| {
-                                event
-                                    .windows(POWER_SUPPLY.len())
-                                    .any(|part| part == POWER_SUPPLY)
-                            });
-                        }
-                        Err(Errno::AGAIN | Errno::INTR) => break,
-                        Err(error) => {
-                            return Err(format!("cannot read the kernel's device events: {error}"));
-                        }
-                    }
-                }
+            while events
+                && let Some((read, _)) = taken(
+                    recv(&self.socket, &mut self.buffer[..], RecvFlags::empty()),
+                    EVENTS,
+                )?
+            {
+                changed |= self.buffer.get(..read).is_some_and(is_power_supply);
             }
 
             if profiled && let Some(file) = self.profile.as_mut() {
@@ -209,11 +203,87 @@ mod uevents {
         }
     }
 
+    /// Whether a device event is one of a power supply.
+    fn is_power_supply(event: &[u8]) -> bool {
+        event
+            .windows(POWER_SUPPLY.len())
+            .any(|part| part == POWER_SUPPLY)
+    }
+
     /// The profile read from its start, as the kernel asks before it notifies the next change.
     fn drained(file: &mut File) {
         let mut text = String::new();
         let _ = file
             .seek(SeekFrom::Start(0))
             .and_then(|_| file.read_to_string(&mut text));
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use std::fs::File;
+        use std::os::fd::OwnedFd;
+        use std::time::Duration;
+
+        use rustix::net::{AddressFamily, SendFlags, SocketFlags, SocketType, send, socketpair};
+
+        use super::Uevents;
+        use crate::watching::Notices;
+
+        fn pair() -> (OwnedFd, OwnedFd) {
+            socketpair(
+                AddressFamily::UNIX,
+                SocketType::DGRAM,
+                SocketFlags::CLOEXEC | SocketFlags::NONBLOCK,
+                None,
+            )
+            .unwrap()
+        }
+
+        #[test]
+        fn tells_a_change_of_a_power_supply_and_of_the_profile() {
+            let (socket, kernel) = pair();
+            let mut events = Uevents::over(socket, None);
+
+            assert_eq!(events.next(Duration::ZERO), Ok(false));
+
+            send(
+                &kernel,
+                b"change@/devices/x\0ACTION=change\0SUBSYSTEM=net\0",
+                SendFlags::empty(),
+            )
+            .unwrap();
+
+            assert_eq!(events.next(Duration::from_secs(1)), Ok(false));
+
+            send(&kernel, b"change@/x\0SUBSYSTEM=net\0", SendFlags::empty()).unwrap();
+            send(
+                &kernel,
+                b"change@/x\0SUBSYSTEM=power_supply\0",
+                SendFlags::empty(),
+            )
+            .unwrap();
+
+            assert_eq!(events.next(Duration::from_secs(1)), Ok(true));
+
+            let (reader, writer) = std::io::pipe().unwrap();
+            drop(writer);
+            let (socket, _kernel) = pair();
+            let mut profiled = Uevents::over(socket, Some(File::from(OwnedFd::from(reader))));
+
+            assert_eq!(profiled.next(Duration::from_secs(1)), Ok(true));
+            assert!(
+                events
+                    .next(Duration::MAX)
+                    .is_err_and(|why| why.starts_with("cannot wait"))
+            );
+        }
+
+        #[test]
+        fn binds_to_the_kernel_s_device_events() {
+            let mut events = Uevents::bound().unwrap();
+
+            assert!(events.next(Duration::ZERO).is_ok());
+            assert!(super::super::source().is_ok());
+        }
     }
 }
