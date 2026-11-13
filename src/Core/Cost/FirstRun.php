@@ -158,7 +158,7 @@ final readonly class FirstRun
         $every = 0.0;
 
         foreach ($tests as $test) {
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
             $every += $duration instanceof Seconds ? $duration->seconds() : 0.0;
         }
 

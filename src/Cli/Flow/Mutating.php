@@ -182,7 +182,7 @@ final readonly class Mutating
             $stops,
             $this->ends->digested($plan->digests()),
         );
-        $batching = Batching::opening($map->suiteDuration());
+        $batching = Batching::opening($map->durations()->total());
         $pruned = $plan->considered()->pruned();
         $requestFor = fn(Units $units): MutationRequest => $this->requestFor(
             $units,

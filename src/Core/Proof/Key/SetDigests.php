@@ -33,7 +33,7 @@ final readonly class SetDigests
         $sets = [];
 
         foreach ($map->files() as $file) {
-            $lines = $map->lineSets($file);
+            $lines = $map->lineTests()->setsOn($file);
 
             foreach ($lines as $set) {
                 $sets[$set->name()] = [$set, $lines];

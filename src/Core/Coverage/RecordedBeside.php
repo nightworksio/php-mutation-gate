@@ -54,7 +54,7 @@ final readonly class RecordedBeside
     {
         $unknown = array_filter(
             $this->timed,
-            static fn(TimedTest $timed): bool => $map->durationOf($timed->test()) instanceof Unmeasured,
+            static fn(TimedTest $timed): bool => $map->durations()->of($timed->test()) instanceof Unmeasured,
         );
 
         return $map->timedEach(...$unknown)->loading($this->loads);

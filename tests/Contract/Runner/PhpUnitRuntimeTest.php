@@ -252,7 +252,7 @@ it('measures which tests run each line and how long each took, and places and na
 
     expect(array_map(static fn(TestId $test): string => $test->value(), [...$adding]))
         ->toEqualCanonicalizing(['Tests\TallySpec::addsTwoAmounts', $row->value()])
-        ->and($map instanceof CoverageMap ? $map->durationOf($row) : null)->toBeInstanceOf(Seconds::class)
+        ->and($map instanceof CoverageMap ? $map->durations()->of($row) : null)->toBeInstanceOf(Seconds::class)
         ->and($files->files())->toEqual(Paths::of(Path::of('tests/TallySpec.php')))
         ->and($files->names($adding)->nameOf($row))
         ->toEqual(TestRow::of(TestName::in(Path::of('tests/TallySpec.php'), 'addsEachPair'), "\"one\nplus one\""));

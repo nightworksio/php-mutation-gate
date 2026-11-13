@@ -5,21 +5,15 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
 use function array_filter;
-use function array_key_exists;
 use function array_map;
 use function iterator_to_array;
 
-use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
-
-use function sprintf;
-
 use Traversable;
 
 /**
@@ -34,15 +28,10 @@ use Traversable;
  */
 final readonly class CoverageMap
 {
-    /**
-     * @param array<array-key, Seconds> $durations each timed test's duration, by id
-     * @param ByPath<ExecutedMethods> $methods   each file's executed methods
-     */
     private function __construct(
         private LineTests $lines,
-        private array $durations,
-        private ByPath $methods,
-        private LoadedPackages $loaded,
+        private TestDurations $durations,
+        private Executed $executed,
     ) {
     }
 
@@ -53,14 +42,13 @@ final readonly class CoverageMap
      */
     public static function of(CoveredLine ...$covered): self
     {
-        return new self(LineTests::of(...$covered), [], ByPath::none(), LoadedPackages::unrecorded());
+        return new self(LineTests::of(...$covered), TestDurations::none(), Executed::unrecorded());
     }
 
     /** A map of lines held as its file writes them, with each timed test's duration, by id. */
     public static function placed(LineTests $lines, TimedTest ...$timed): self
     {
-        return new self($lines, [], ByPath::none(), LoadedPackages::unrecorded())
-            ->timedEach(...$timed);
+        return new self($lines, TestDurations::none(), Executed::unrecorded())->timedEach(...$timed);
     }
 
     /**
@@ -81,15 +69,11 @@ final readonly class CoverageMap
             );
         }
 
-        foreach ($other->durations as $test => $duration) {
-            $id = TestId::of(sprintf('%s', $test));
-            $mine = $map->durationOf($id);
-            $map = $mine instanceof Seconds && $mine->seconds() >= $duration->seconds()
-                ? $map
-                : $map->timed($id, $duration);
-        }
-
-        return $map;
+        return new self(
+            $map->lines->knowing(...iterator_to_array($other->durations->tests(), preserve_keys: false)),
+            $map->durations->andLonger($other->durations),
+            $map->executed,
+        );
     }
 
     /**
@@ -103,20 +87,14 @@ final readonly class CoverageMap
             LineTests::of(...iterator_to_array($this->lines(), preserve_keys: false), ...$covered)
                 ->knowing(...iterator_to_array($this->tests(), preserve_keys: false)),
             $this->durations,
-            $this->methods,
-            $this->loaded,
+            $this->executed,
         );
     }
 
     /** This map, with these tests covering a line. */
     public function covered(Path $file, Line $line, TestId ...$tests): self
     {
-        return new self(
-            $this->lines->covered($file, $line, ...$tests),
-            $this->durations,
-            $this->methods,
-            $this->loaded,
-        );
+        return new self($this->lines->covered($file, $line, ...$tests), $this->durations, $this->executed);
     }
 
     /** This map, with how long a test took. */
@@ -128,27 +106,15 @@ final readonly class CoverageMap
     /** This map, with how long each of these tests took; a test timed twice took the later. */
     public function timedEach(TimedTest ...$timed): self
     {
-        $durations = $this->durations;
-
-        foreach ($timed as $each) {
-            $durations[$each->test()->value()] = $each->seconds();
-        }
-
         $tests = array_map(static fn(TimedTest $each): TestId => $each->test(), $timed);
 
-        return new self($this->lines->knowing(...$tests), $durations, $this->methods, $this->loaded);
+        return new self($this->lines->knowing(...$tests), $this->durations->with(...$timed), $this->executed);
     }
 
     /** This map, covering only these files: every test it knows and how long each took, and the lines of these. */
     public function onlyFor(Paths $files): self
     {
-        $methods = ByPath::none();
-
-        foreach ($this->methods as $file => $executed) {
-            $methods = $files->has($file) ? $methods->with($file, $executed) : $methods;
-        }
-
-        return new self($this->lines->onlyFor($files), $this->durations, $methods, $this->loaded);
+        return new self($this->lines->onlyFor($files), $this->durations, $this->executed->onlyFor($files));
     }
 
     /**
@@ -173,41 +139,19 @@ final readonly class CoverageMap
     /** This map, with what its tests loaded. */
     public function loading(LoadedPackages $loaded): self
     {
-        return new self($this->lines, $this->durations, $this->methods, $loaded);
-    }
-
-    /** What the map's tests loaded, where the run recorded it. */
-    public function loaded(): LoadedPackages
-    {
-        return $this->loaded;
+        return new self($this->lines, $this->durations, $this->executed->loading($loaded));
     }
 
     /** This map, with these methods of a file executed, after any it already holds for it. */
     public function executing(Path $file, ExecutedMethod ...$methods): self
     {
-        if ($methods === []) {
-            return $this;
-        }
-
-        $held = $this->methods->at($file, ExecutedMethods::none());
-
-        return new self(
-            $this->lines,
-            $this->durations,
-            $this->methods->with($file, ExecutedMethods::of(...$held, ...$methods)),
-            $this->loaded,
-        );
+        return new self($this->lines, $this->durations, $this->executed->executing($file, ...$methods));
     }
 
-    /**
-     * The methods of each file some test ran, for the files whose report
-     * states them.
-     *
-     * @return ByPath<ExecutedMethods>
-     */
-    public function methods(): ByPath
+    /** What the map's tests executed beyond its lines: each file's methods and the packages they loaded. */
+    public function executed(): Executed
     {
-        return $this->methods;
+        return $this->executed;
     }
 
     /**
@@ -222,15 +166,10 @@ final readonly class CoverageMap
         return $this->lines->lines();
     }
 
-    /**
-     * Every executable line as `lines()` lists them, each with the places of
-     * its tests in `tests()`.
-     *
-     * @return Traversable<int, PlacedLine>
-     */
-    public function placedLines(): Traversable
+    /** The lines the map holds, each with the places of the tests that ran it, as the map's file writes them. */
+    public function lineTests(): LineTests
     {
-        return $this->lines->placedLines();
+        return $this->lines;
     }
 
     public function tests(): TestIds
@@ -241,16 +180,6 @@ final readonly class CoverageMap
     public function files(): Paths
     {
         return $this->lines->files();
-    }
-
-    /**
-     * The executable lines of a file: each covered one with a name for the
-     * set of tests that ran it, the same for the same set anywhere in this
-     * map, and those no test ran.
-     */
-    public function lineSets(Path $file): LineSets
-    {
-        return $this->lines->setsOn($file);
     }
 
     /** Every test that covers any line of a file from the first to the last, each once. */
@@ -265,26 +194,9 @@ final readonly class CoverageMap
         return $this->lines->runningFile($file);
     }
 
-    public function durationOf(TestId $test): Seconds|Unmeasured
+    /** How long each test the map timed took. */
+    public function durations(): TestDurations
     {
-        return array_key_exists($test->value(), $this->durations)
-            ? $this->durations[$test->value()]
-            : Unmeasured::duration();
-    }
-
-    /**
-     * How long the whole suite takes, test after test, as the map timed it:
-     * what a runner's opening run costs before it has measured one of its
-     * own. A test the map did not time adds nothing.
-     */
-    public function suiteDuration(): Seconds
-    {
-        $seconds = 0.0;
-
-        foreach ($this->durations as $duration) {
-            $seconds += $duration->seconds();
-        }
-
-        return Seconds::of($seconds);
+        return $this->durations;
     }
 }

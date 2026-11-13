@@ -43,7 +43,7 @@ function missedAsReported(CoverageMap $map): CoverageMap
     $timed = [];
 
     foreach (array_unique($ran) as $test) {
-        $seconds = $map->durationOf(TestId::of($test));
+        $seconds = $map->durations()->of(TestId::of($test));
         $timed[] = TimedTest::of($test, $seconds instanceof Seconds ? $seconds->seconds() : 0.0);
     }
 

@@ -107,7 +107,7 @@ final readonly class CoverageLayout
         $ran = 0;
 
         foreach ($map->files() as $file) {
-            $ran += count($map->lineSets($file)->lines());
+            $ran += count($map->lineTests()->setsOn($file)->lines());
             self::element($directory, 'file', [
                 'name' => basename($file->value()),
                 'href' => sprintf('%s.xml', $file->value()),
@@ -128,7 +128,7 @@ final readonly class CoverageLayout
             'name' => basename($file->value()),
             'path' => sprintf('/%s', $directory === '.' ? '' : $directory),
         ]);
-        $lines = $map->lineSets($file)->lines();
+        $lines = $map->lineTests()->setsOn($file)->lines();
         $totals = self::element($report, 'totals', []);
         self::element($totals, 'lines', [
             'executed' => sprintf('%d', count($lines)),
@@ -136,7 +136,7 @@ final readonly class CoverageLayout
         ]);
         $unit = self::element($report, 'class', []);
 
-        foreach ($map->methods()->at($file, ExecutedMethods::none()) as $method) {
+        foreach ($map->executed()->methods()->at($file, ExecutedMethods::none()) as $method) {
             self::element($unit, 'method', [
                 'name' => $method->name(),
                 'start' => sprintf('%d', $method->first()->number()),
@@ -226,7 +226,7 @@ final readonly class CoverageLayout
 
     private static function secondsOf(CoverageMap $map, TestId $test): float
     {
-        $seconds = $map->durationOf($test);
+        $seconds = $map->durations()->of($test);
 
         return $seconds instanceof Seconds ? $seconds->seconds() : 0.0;
     }

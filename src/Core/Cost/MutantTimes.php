@@ -67,7 +67,7 @@ final readonly class MutantTimes
         $location = $mutant->location();
 
         foreach ($coverage->testsCovering($location->file(), $location->start(), $location->last()) as $test) {
-            $took = $coverage->durationOf($test);
+            $took = $coverage->durations()->of($test);
             $standIn += $took instanceof Seconds ? $took->seconds() : 0.0;
         }
 

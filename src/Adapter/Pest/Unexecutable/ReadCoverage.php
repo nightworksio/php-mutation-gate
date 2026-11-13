@@ -90,9 +90,9 @@ final readonly class ReadCoverage
         $timed = [];
 
         foreach ($tests as $test) {
-            $duration = $this->map->durationOf($test);
+            $duration = $this->map->durations()->of($test);
 
-            if ($duration instanceof Seconds && ! $timing->durationOf($test) instanceof Seconds) {
+            if ($duration instanceof Seconds && ! $timing->durations()->of($test) instanceof Seconds) {
                 $timed[] = TimedTest::of($test->value(), $duration->seconds());
             }
         }

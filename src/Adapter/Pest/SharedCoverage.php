@@ -125,7 +125,7 @@ final readonly class SharedCoverage
                 continue;
             }
 
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
             $places[$id] = count($ids);
             $ids[] = $id;
             $results += $duration instanceof Seconds
@@ -182,7 +182,7 @@ final readonly class SharedCoverage
 
     private static function secondsOf(CoverageMap $map, string $test): float
     {
-        $duration = $map->durationOf(TestId::of($test));
+        $duration = $map->durations()->of(TestId::of($test));
 
         return $duration instanceof Seconds ? $duration->seconds() : 0.0;
     }

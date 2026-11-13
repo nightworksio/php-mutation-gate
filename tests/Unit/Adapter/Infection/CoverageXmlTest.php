@@ -60,7 +60,7 @@ it('reads the methods of a file\'s classes some test ran, as Infection reads the
     $root = (string) realpath(Scratch::directory());
     $map = CoverageXml::read(Project::at(Root::of($root), Paths::none(), Path::of('.gate')), DiskPath::of(coverageXmlOfUnits($root, $units)));
 
-    expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('A.php'), ExecutedMethods::none()) : $map)->toEqual($expected);
+    expect($map instanceof CoverageMap ? $map->executed()->methods()->at(Path::of('A.php'), ExecutedMethods::none()) : $map)->toEqual($expected);
 })->with([
     'a class\'s methods, less one under one percent' => [
         '<class name="A"><method name="add" start="3" end="5" coverage="100"/><method name="few" start="6" end="9" coverage="0.5"/>'

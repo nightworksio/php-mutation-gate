@@ -172,7 +172,7 @@ final readonly class SourceReach
             $from[] = $test->value();
         }
 
-        $traced = ! $unit->isHeld() && count($coverage->lineSets($unit->path())) > 0;
+        $traced = ! $unit->isHeld() && count($coverage->lineTests()->setsOn($unit->path())) > 0;
         $reached = ! $traced || $this->names instanceof NotGiven || $this->declared instanceof NotGiven
             ? $this->observed
             : $this->declared->from(...$this->names->named(...$from));

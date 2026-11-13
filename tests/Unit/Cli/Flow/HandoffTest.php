@@ -92,7 +92,7 @@ it('hands each shard the lines of its own files alone, with every test and its t
         ->and($held)->toEqual($handed(Paths::of(Path::of('src/Held/A.php'), Path::of('src/Held/B.php'))))
         ->and($held instanceof CoverageMap ? $held->files() : $held)
         ->toEqual(Paths::of(Path::of('src/Held/A.php'), Path::of('src/Held/B.php')))
-        ->and($held instanceof CoverageMap ? $held->durationOf(TestId::of('MoneyTest::adds')) : $held)
+        ->and($held instanceof CoverageMap ? $held->durations()->of(TestId::of('MoneyTest::adds')) : $held)
         ->toEqual(Seconds::of(0.5));
 });
 
@@ -245,7 +245,7 @@ it('hands the verdict the lines of every unit the plan considered, run, proved o
         Path::of('src/HeldToo.php'),
         Path::of('src/Kept/C.php'),
     ))
-        ->and($handed instanceof CoverageMap ? $handed->durationOf(TestId::of('MoneyTest::adds')) : $handed)
+        ->and($handed instanceof CoverageMap ? $handed->durations()->of(TestId::of('MoneyTest::adds')) : $handed)
         ->toEqual(Seconds::of(0.5));
 });
 

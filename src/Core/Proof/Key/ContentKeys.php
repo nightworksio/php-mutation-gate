@@ -389,7 +389,7 @@ final readonly class ContentKeys
      */
     private function keyReading(string $base, array $read, Unit $unit, CoverageMap $coverage, SetDigests $sets): Digest
     {
-        $lines = $coverage->lineSets($unit->path());
+        $lines = $coverage->lineTests()->setsOn($unit->path());
         $fields = [
             self::FORMAT,
             $base,

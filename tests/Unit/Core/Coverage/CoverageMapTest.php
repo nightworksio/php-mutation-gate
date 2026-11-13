@@ -45,8 +45,8 @@ it('lists every covered file in the order it was first covered', function () use
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('lists the covered lines of a file, and none for a file nothing covered', function () use ($map): void {
-    expect($map()->lineSets(Path::of('src/Money.php'))->lines())->toEqual(Lines::of(Line::of(3), Line::of(12), Line::of(20)))
-        ->and($map()->lineSets(Path::of('src/Other.php'))->lines())->toEqual(Lines::none());
+    expect($map()->lineTests()->setsOn(Path::of('src/Money.php'))->lines())->toEqual(Lines::of(Line::of(3), Line::of(12), Line::of(20)))
+        ->and($map()->lineTests()->setsOn(Path::of('src/Other.php'))->lines())->toEqual(Lines::none());
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('answers the tests that covered one line', function () use ($map, $ids): void {
@@ -85,8 +85,8 @@ it('answers the tests of a span in time linear in how many cover it', function (
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('answers how long a test took, and says so where it was not timed', function () use ($map): void {
-    expect($map()->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.25))
-        ->and($map()->durationOf(TestId::of('LedgerTest::books')))->toEqual(Unmeasured::duration());
+    expect($map()->durations()->of(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.25))
+        ->and($map()->durations()->of(TestId::of('LedgerTest::books')))->toEqual(Unmeasured::duration());
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('leaves the map it came from as it was', function (): void {
@@ -96,7 +96,7 @@ it('leaves the map it came from as it was', function (): void {
 
     expect($map->files())->toHaveCount(0)
         ->and($map->tests())->toHaveCount(0)
-        ->and($map->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Unmeasured::duration());
+        ->and($map->durations()->of(TestId::of('MoneyTest::adds')))->toEqual(Unmeasured::duration());
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('builds a map at once as it would one entry after another', function () use ($map): void {
@@ -115,7 +115,7 @@ it('builds a map at once as it would one entry after another', function () use (
 
     expect($built)->toEqual($map())
         ->and($built->testsCovering(Path::of('src/Money.php'), Line::of(12), Line::of(12)))->toEqual($map()->testsCovering(Path::of('src/Money.php'), Line::of(12), Line::of(12)))
-        ->and($built->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.25));
+        ->and($built->durations()->of(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.25));
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('holds each file\'s executed methods, in the order given, and keeps them as it grows', function () use ($map): void {
@@ -125,12 +125,12 @@ it('holds each file\'s executed methods, in the order given, and keeps them as i
         ->covered(Path::of('src/Money.php'), Line::of(21), TestId::of('LedgerTest::books'))
         ->timed(TestId::of('LedgerTest::books'), Seconds::of(0.5));
 
-    expect($held->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))->toEqual(ExecutedMethods::of($add, $book))
-        ->and($held->methods()->at(Path::of('123'), ExecutedMethods::none()))->toEqual(ExecutedMethods::none())
-        ->and($held->methods()->paths())->toEqual(Paths::of(Path::of('src/Money.php')))
-        ->and($map()->methods()->paths())->toEqual(Paths::none())
-        ->and($held->onlyFor(Paths::of(Path::of('src/Money.php')))->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))->toEqual(ExecutedMethods::of($add, $book))
-        ->and($held->onlyFor(Paths::of(Path::of('123')))->methods()->paths())->toEqual(Paths::none());
+    expect($held->executed()->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))->toEqual(ExecutedMethods::of($add, $book))
+        ->and($held->executed()->methods()->at(Path::of('123'), ExecutedMethods::none()))->toEqual(ExecutedMethods::none())
+        ->and($held->executed()->methods()->paths())->toEqual(Paths::of(Path::of('src/Money.php')))
+        ->and($map()->executed()->methods()->paths())->toEqual(Paths::none())
+        ->and($held->onlyFor(Paths::of(Path::of('src/Money.php')))->executed()->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))->toEqual(ExecutedMethods::of($add, $book))
+        ->and($held->onlyFor(Paths::of(Path::of('123')))->executed()->methods()->paths())->toEqual(Paths::none());
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('names an executed method and the lines it spans', function (): void {
@@ -146,7 +146,7 @@ it('knows a test whose id is only digits by that id', function (): void {
 
     expect($map->testsCovering(Path::of('src/A.php'), Line::of(1), Line::of(1)))->toEqual(TestIds::of(TestId::of('7')))
         ->and($map->tests())->toEqual(TestIds::of(TestId::of('7'), TestId::of('8')))
-        ->and($map->durationOf(TestId::of('8')))->toEqual(Seconds::of(1.0));
+        ->and($map->durations()->of(TestId::of('8')))->toEqual(Seconds::of(1.0));
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('builds and reads a map in time linear in its entries', function (): void {
@@ -166,7 +166,7 @@ it('builds and reads a map in time linear in its entries', function (): void {
             $read = count($map->tests());
 
             foreach ($map->files() as $file) {
-                $read += count($map->lineSets($file)->lines()) + count($map->testsCoveringFile($file));
+                $read += count($map->lineTests()->setsOn($file)->lines()) + count($map->testsCoveringFile($file));
             }
 
             return $read;
@@ -184,8 +184,8 @@ it('times the whole suite, test after test, adding nothing for a test it did not
         ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.25))
         ->timed(TestId::of('IdleTest::waits'), Seconds::of(1.5));
 
-    expect($map->suiteDuration())->toEqual(Seconds::of(1.75))
-        ->and(CoverageMap::of()->suiteDuration())->toEqual(Seconds::of(0.0));
+    expect($map->durations()->total())->toEqual(Seconds::of(1.75))
+        ->and(CoverageMap::of()->durations()->total())->toEqual(Seconds::of(0.0));
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('holds each executable line no test ran, never one some test covers, whatever the order it reads them in', function (): void {
@@ -199,18 +199,18 @@ it('holds each executable line no test ran, never one some test covers, whatever
         CoveredLine::of(Path::of('src/Tax.php'), 9),
     );
 
-    expect([...$read->lineSets($money)->missed()])->toEqual([Line::of(4)])
-        ->and([...$read->lineSets(Path::of('src/Tax.php'))->missed()])->toEqual([Line::of(9)])
-        ->and([...$read->lineSets(Path::of('src/Other.php'))->missed()])->toBe([])
-        ->and([...$read->lineSets($money)->lines()])->toEqual([Line::of(5), Line::of(6)])
+    expect([...$read->lineTests()->setsOn($money)->missed()])->toEqual([Line::of(4)])
+        ->and([...$read->lineTests()->setsOn(Path::of('src/Tax.php'))->missed()])->toEqual([Line::of(9)])
+        ->and([...$read->lineTests()->setsOn(Path::of('src/Other.php'))->missed()])->toBe([])
+        ->and([...$read->lineTests()->setsOn($money)->lines()])->toEqual([Line::of(5), Line::of(6)])
         ->and($read->files())->toEqual(Paths::of($money))
-        ->and([...$read->covered($money, Line::of(4), TestId::of('MoneyTest::adds'))->lineSets($money)->missed()])->toBe([])
+        ->and([...$read->covered($money, Line::of(4), TestId::of('MoneyTest::adds'))->lineTests()->setsOn($money)->missed()])->toBe([])
         ->and(CoverageMap::of(CoveredLine::of($money, 4))->covered($money, Line::of(4), TestId::of('MoneyTest::adds')))
         ->toEqual(CoverageMap::of()->covered($money, Line::of(4), TestId::of('MoneyTest::adds')))
-        ->and([...$read->onlyFor(Paths::of($money))->lineSets(Path::of('src/Tax.php'))->missed()])->toBe([])
-        ->and([...$read->onlyFor(Paths::of($money))->lineSets($money)->missed()])->toEqual([Line::of(4)])
-        ->and($read->timed(TestId::of('MoneyTest::adds'), Seconds::of(1.0))->lineSets($money)->missed())->toEqual($read->lineSets($money)->missed())
-        ->and($read->executing($money, ExecutedMethod::of('add', 4, 6))->lineSets($money)->missed())->toEqual($read->lineSets($money)->missed());
+        ->and([...$read->onlyFor(Paths::of($money))->lineTests()->setsOn(Path::of('src/Tax.php'))->missed()])->toBe([])
+        ->and([...$read->onlyFor(Paths::of($money))->lineTests()->setsOn($money)->missed()])->toEqual([Line::of(4)])
+        ->and($read->timed(TestId::of('MoneyTest::adds'), Seconds::of(1.0))->lineTests()->setsOn($money)->missed())->toEqual($read->lineTests()->setsOn($money)->missed())
+        ->and($read->executing($money, ExecutedMethod::of('add', 4, 6))->lineTests()->setsOn($money)->missed())->toEqual($read->lineTests()->setsOn($money)->missed());
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('lists every executable line: the covered ones with their tests, then those no test ran, with none', function (): void {
@@ -234,9 +234,9 @@ it('names each covered line\'s set of tests alike wherever the set recurs, in as
         CoveredLine::of($money, 4),
         CoveredLine::of($tax, 2, 'b::t', 'a::t', 'a::t'),
     );
-    $sets = $map->lineSets($money);
+    $sets = $map->lineTests()->setsOn($money);
     $covered = iterator_to_array($sets, preserve_keys: true);
-    $taxed = iterator_to_array($map->lineSets($tax), preserve_keys: true);
+    $taxed = iterator_to_array($map->lineTests()->setsOn($tax), preserve_keys: true);
     $ids = static fn(TestSet $set): array => array_map(static fn(TestId $test): string => $test->value(), [...$sets->testsOf($set)]);
 
     expect(array_keys($covered))->toBe([3, 5, 9])
@@ -247,7 +247,7 @@ it('names each covered line\'s set of tests alike wherever the set recurs, in as
         ->and($ids($covered[3]))->toBe(['a::t', 'b::t'])
         ->and($ids($covered[5]))->toBe(['10', '9'])
         ->and([...$sets->missed()])->toEqual([Line::of(4)])
-        ->and([...$map->lineSets(Path::of('src/Gone.php'))])->toBe([]);
+        ->and([...$map->lineTests()->setsOn(Path::of('src/Gone.php'))])->toBe([]);
 });
 
 it('covers a line with several tests at once, each once, knowing those it did not', function () use ($ids): void {
@@ -267,5 +267,5 @@ it('lays another map beside it, a line both hold keeping the tests of both and a
 
     expect(array_map(static fn(TestId $test): string => $test->value(), [...$both->testsCovering($file, Line::of(3), Line::of(3))]))
         ->toBe(['a', 'b'])
-        ->and($both->durationOf(TestId::of('a')))->toEqual(Seconds::of(2.0));
+        ->and($both->durations()->of(TestId::of('a')))->toEqual(Seconds::of(2.0));
 });

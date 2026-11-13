@@ -131,7 +131,7 @@ it('covers the lines of each value one run can judge with the tests of the files
         static fn(TestId $test): string => $test->value(),
         [...$read->testsCovering($money, Line::of($line), Line::of($line))],
     );
-    $seconds = static fn(string $test): float => ($read->durationOf(TestId::of($test)) instanceof Seconds ? $read->durationOf(TestId::of($test)) : Seconds::of(-1.0))->seconds();
+    $seconds = static fn(string $test): float => ($read->durations()->of(TestId::of($test)) instanceof Seconds ? $read->durations()->of(TestId::of($test)) : Seconds::of(-1.0))->seconds();
 
     expect([$tests(5), $tests(6), $tests(7), $tests(10)])->toEqualCanonicalizing([
         ['P\Tests\MoneySpec::__pest_evaluable_it_reads', 'P\Tests\InternalSpec::__pest_evaluable_it_runs', 'P\Tests\OtherSpec::__pest_evaluable_it_runs_the_other'],
@@ -141,7 +141,7 @@ it('covers the lines of each value one run can judge with the tests of the files
     ])
         ->and([$seconds('P\Tests\MoneySpec::__pest_evaluable_it_reads'), $seconds('P\Tests\InternalSpec::__pest_evaluable_it_runs'), $seconds('P\Tests\OtherSpec::__pest_evaluable_it_runs_the_other')])
         ->toBe([0.1, 9.0, 0.3])
-        ->and(array_map(static fn(PlacedLine $line): string => sprintf('%s:%d', $line->file()->value(), $line->line()), [...$read->placedLines()]))
+        ->and(array_map(static fn(PlacedLine $line): string => sprintf('%s:%d', $line->file()->value(), $line->line()), [...$read->lineTests()->placedLines()]))
         ->not->toContain('src/Money.php:6')
         ->and(selectorOver(Unexecutables::project())->readCoverage(Paths::of(Path::of('src/Gone.php')), $onto))->toEqual($onto);
 });
@@ -169,7 +169,7 @@ it('covers each line of a match\'s arms with the tests of the arms after it too,
         ['down'],
         ['down'],
         [],
-    ])->and(array_map(static fn(PlacedLine $line): int => $line->line(), [...$armed->placedLines()]))->toEqualCanonicalizing([8, 9, 20, 21]);
+    ])->and(array_map(static fn(PlacedLine $line): int => $line->line(), [...$armed->lineTests()->placedLines()]))->toEqualCanonicalizing([8, 9, 20, 21]);
 });
 
 it('chooses the test files that run any line of the body a method\'s parameter default runs in', function (): void {

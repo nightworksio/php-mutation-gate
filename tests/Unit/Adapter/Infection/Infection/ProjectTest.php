@@ -483,8 +483,8 @@ it('reads the lines no test ran from the report beside the XML coverage, which l
     }), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())
         ->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned')));
 
-    expect($map instanceof CoverageMap ? [...$map->lineSets(Path::of('src/Money.php'))->missed()] : $map)->toEqual([Line::of(12)])
-        ->and($map instanceof CoverageMap ? [...$map->lineSets(Path::of('src/Money.php'))->lines()] : $map)->toEqual([Line::of(11)]);
+    expect($map instanceof CoverageMap ? [...$map->lineTests()->setsOn(Path::of('src/Money.php'))->missed()] : $map)->toEqual([Line::of(12)])
+        ->and($map instanceof CoverageMap ? [...$map->lineTests()->setsOn(Path::of('src/Money.php'))->lines()] : $map)->toEqual([Line::of(11)]);
 });
 
 it('cannot judge a coverage run whose report of the lines no test ran is missing or not XML', function (Closure $spoil): void {

@@ -69,11 +69,11 @@ final readonly class Admission
         $placed = $this->placedAnew($map, $tests, $leaving);
         $admitted = CoverageMap::placed($placed['lines'], ...$this->timed($map, $tests, $leaving, $placed['onLines']));
 
-        foreach ($map->methods() as $file => $methods) {
+        foreach ($map->executed()->methods() as $file => $methods) {
             $admitted = $admitted->executing($file, ...$methods);
         }
 
-        return $admitted->loading($map->loaded());
+        return $admitted->loading($map->executed()->loaded());
     }
 
     /**
@@ -90,7 +90,7 @@ final readonly class Admission
         $dropped = $this->dropped($map, $tests, $leaving);
         $first = [];
 
-        foreach ($map->placedLines() as $line) {
+        foreach ($map->lineTests()->placedLines() as $line) {
             $first += array_flip($this->stayingOn($line, $dropped));
         }
 
@@ -98,7 +98,7 @@ final readonly class Admission
         $placed = [];
         $kept = [];
 
-        foreach ($map->placedLines() as $line) {
+        foreach ($map->lineTests()->placedLines() as $line) {
             $placed[] = Tally::placing($line->file(), $line->line(), $this->stayingOn($line, $dropped), $anew);
         }
 
@@ -141,7 +141,7 @@ final readonly class Admission
     {
         $running = [];
 
-        foreach ($map->placedLines() as $line) {
+        foreach ($map->lineTests()->placedLines() as $line) {
             $file = $line->file()->value();
             $running[$file] = array_key_exists($file, $running) ? $running[$file] : [];
             $running[$file] += array_flip([...$line]);
@@ -181,7 +181,7 @@ final readonly class Admission
         $timed = [];
 
         foreach (array_diff_key($tests, array_diff_key($leaving, $onLines)) as $test) {
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
 
             if ($duration instanceof Seconds) {
                 $timed[] = TimedTest::of($test->value(), $duration->seconds());

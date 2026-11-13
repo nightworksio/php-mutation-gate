@@ -211,7 +211,7 @@ it('keeps what the tests of the map recorded loading', function (): void {
     $loaded = LoadedPackages::of(ProcessLoads::of(TestLoad::of(HoldingSuites::ADDS, 'acme/one')));
     $admitted = $suites->admitted(everySuitesMap()->loading($loaded));
 
-    expect($admitted instanceof CoverageMap ? $admitted->loaded() : $admitted)->toEqual($loaded);
+    expect($admitted instanceof CoverageMap ? $admitted->executed()->loaded() : $admitted)->toEqual($loaded);
 });
 
 it('decides the admission of a map by its outline, and none where every test file is a judging suite\'s', function (): void {

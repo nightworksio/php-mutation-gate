@@ -330,7 +330,7 @@ final readonly class Planning
         $toRun = $sample instanceof Sample ? $sample->running($proving->toRun()) : $proving->toRun();
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
             ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
-        $opening = $map->suiteDuration();
+        $opening = $map->durations()->total();
         $firstRun = new FirstRuns(
             $this->adapters,
             $this->settings->shards()->planning()->startUpSamples(),

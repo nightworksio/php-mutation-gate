@@ -57,12 +57,12 @@ final readonly class Remeasured
             ->timedEach(...self::timed($kept, $tests), ...self::timed($measured, TestIds::none()));
 
         foreach ([$kept, $measured] as $map) {
-            foreach ($map->methods() as $file => $methods) {
+            foreach ($map->executed()->methods() as $file => $methods) {
                 $merged = $merged->executing($file, ...$methods);
             }
         }
 
-        return $merged->loading($kept->loaded()->and($measured->loaded()));
+        return $merged->loading($kept->executed()->loaded()->and($measured->executed()->loaded()));
     }
 
     /**
@@ -95,7 +95,7 @@ final readonly class Remeasured
         $timed = [];
 
         foreach ($map->tests() as $test) {
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
 
             if (! $duration instanceof Seconds || $leaving->has($test)) {
                 continue;

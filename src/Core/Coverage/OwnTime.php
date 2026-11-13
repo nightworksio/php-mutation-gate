@@ -28,7 +28,7 @@ final readonly class OwnTime
         $total = 0.0;
 
         foreach ($tests as $test) {
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
 
             if (! $duration instanceof Seconds) {
                 return $duration;
@@ -50,7 +50,7 @@ final readonly class OwnTime
         $durations = [];
 
         foreach ($tests as $test) {
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
 
             if (! $duration instanceof Seconds) {
                 return $duration;
@@ -71,7 +71,7 @@ final readonly class OwnTime
         $each = [];
 
         foreach ($tests as $test) {
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
 
             if ($duration instanceof Seconds) {
                 $each[] = TestTime::of($test, $duration);

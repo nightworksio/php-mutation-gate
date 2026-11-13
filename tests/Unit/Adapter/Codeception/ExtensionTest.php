@@ -177,7 +177,7 @@ it('measures each selected test with what it is handed and writes the map once t
 
     expect($unwritten)->toBeFalse()
         ->and($read instanceof CoverageMap ? $read->testsCoveringFile(Path::of('src/Ran.php')) : $read)->toEqual(TestIds::of($test))
-        ->and($read instanceof CoverageMap ? $read->durationOf($test) : $read)->toEqual(Seconds::of(0.25));
+        ->and($read instanceof CoverageMap ? $read->durations()->of($test) : $read)->toEqual(Seconds::of(0.25));
 });
 
 it('measures over the driver PHP has where it is handed nothing to measure with', function (): void {

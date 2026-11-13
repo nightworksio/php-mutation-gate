@@ -83,7 +83,7 @@ final readonly class HotPath
         $seconds = 0.0;
 
         foreach ($map->testsCoveringFile($file) as $test) {
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
             $seconds += $duration instanceof Seconds ? $duration->seconds() : 0.0;
         }
 
