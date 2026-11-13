@@ -27,6 +27,7 @@ use const LOCK_EX;
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
 use NightWorksIO\MutationGate\Core\Coverage\TestEnded;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function outbreak_state_digest;
@@ -45,8 +46,6 @@ use const SIGKILL;
 use const SIGUSR1;
 
 use function sprintf;
-use function strlen;
-use function substr;
 
 /**
  * A split stream (ADR-0117): the unmutated suite runs once, and where a test
@@ -500,7 +499,7 @@ final class Stream
      */
     private function watched(): int
     {
-        $gate = substr(self::class, 0, -strlen(self::OWN));
+        $gate = Bytes::slice(self::class, 0, -Bytes::length(self::OWN));
 
         return function_exists('outbreak_state_watch') ? (int) outbreak_state_watch($gate) : 0;
     }

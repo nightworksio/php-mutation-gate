@@ -10,11 +10,12 @@ use function is_array;
 use function is_file;
 use function is_resource;
 use function is_string;
+
+use NightWorksIO\MutationGate\Core\Format\Bytes;
+
 use function sprintf;
 use function stat;
 use function str_starts_with;
-use function strpos;
-use function substr;
 
 /**
  * The files this process's own command line names, which its test runner
@@ -89,10 +90,10 @@ final readonly class RunnerFiles
 
     private static function pathIn(string $argument): string
     {
-        $equals = strpos($argument, self::VALUE);
+        $equals = Bytes::find($argument, self::VALUE, 0);
 
         return str_starts_with($argument, self::OPTION) && $equals !== false
-            ? substr($argument, $equals + 1)
+            ? Bytes::from($argument, $equals + 1)
             : $argument;
     }
 }

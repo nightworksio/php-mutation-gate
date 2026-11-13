@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function count;
+use function mb_substr_count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -17,8 +18,6 @@ use NightWorksIO\MutationGate\Core\Local\LocalLoop;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
-
-use function substr_count;
 
 /**
  * How a quick round of `watch` brings the last round's map up to date
@@ -117,7 +116,7 @@ final readonly class QuickCoverage
                     ...$covered,
                     QuickCovered::of(
                         $source,
-                        substr_count($text->text(), self::LINE) + 1,
+                        mb_substr_count($text->text(), self::LINE) + 1,
                         $map->testsCoveringFile($source)->and($reached),
                     ),
                 ]
@@ -151,7 +150,7 @@ final readonly class QuickCoverage
             foreach ($joined instanceof Paths ? $joined : Paths::none() as $file) {
                 $text = $adapters->project->read($file);
                 $covered = $text instanceof Contents
-                    ? [...$covered, QuickCovered::of($file, substr_count($text->text(), self::LINE) + 1, $tests)]
+                    ? [...$covered, QuickCovered::of($file, mb_substr_count($text->text(), self::LINE) + 1, $tests)]
                     : $covered;
             }
         }

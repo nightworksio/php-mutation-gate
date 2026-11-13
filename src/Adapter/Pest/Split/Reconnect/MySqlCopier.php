@@ -9,13 +9,13 @@ use function array_map;
 use function array_values;
 use function implode;
 use function in_array;
+use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Connection;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Statements;
 use PDOException;
 
 use function sprintf;
-use function strtolower;
 
 /**
  * MySQL's and MariaDB's sessions and copies (ADR-0147). A session holds
@@ -134,7 +134,7 @@ final readonly class MySqlCopier implements Copier
 
         return $rows === null ? null : array_values(array_filter(
             $rows,
-            static fn(array $row): bool => ! in_array(strtolower($row[0] ?? ''), self::OWN, strict: true),
+            static fn(array $row): bool => ! in_array(mb_strtolower($row[0] ?? ''), self::OWN, strict: true),
         ));
     }
 

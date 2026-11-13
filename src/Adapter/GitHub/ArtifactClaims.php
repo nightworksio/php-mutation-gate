@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
+use function array_all;
 use function hash;
 use function is_array;
 use function is_string;
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Ci\ItemClaims;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\ShardPull;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
 use NightWorksIO\MutationGate\Core\Http\Reply;
 use NightWorksIO\MutationGate\Core\Http\Request;
@@ -21,7 +23,6 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 
 use function sprintf;
 use function str_starts_with;
-use function strlen;
 
 /**
  * Claims and done markers as artifacts of the workflow run, named for the
@@ -123,14 +124,7 @@ final readonly class ArtifactClaims implements ItemClaims
         }
 
         $done = sprintf(self::DONE_OF, $this->plan, $this->attempt, $item->number());
-
-        foreach ($names as $name) {
-            if (str_starts_with($name, $done)) {
-                return false;
-            }
-        }
-
-        return true;
+        return array_all($names, fn(string $name): bool => !str_starts_with($name, $done));
     }
 
     /** Whether this job created an empty artifact of this name; false where another artifact holds it. */
@@ -155,7 +149,7 @@ final readonly class ArtifactClaims implements ItemClaims
         $finalized = $uploaded instanceof Reply && $uploaded->isAccepted()
             ? $this->artifacts->called('FinalizeArtifact', [
                 'name' => $name,
-                'size' => sprintf('%d', strlen(self::EMPTY)),
+                'size' => sprintf('%d', Bytes::length(self::EMPTY)),
                 'hash' => sprintf('sha256:%s', hash('sha256', self::EMPTY)),
             ])
             : $this->artifacts->refusal('the upload', $uploaded);

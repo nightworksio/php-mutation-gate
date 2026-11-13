@@ -9,6 +9,7 @@ use function hash;
 use function json_encode;
 
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
@@ -28,8 +29,6 @@ use NightWorksIO\MutationGate\Core\Written;
 
 use function round;
 use function sprintf;
-use function strlen;
-use function substr;
 
 /**
  * `outbreak serve` as the gate asks it (ADR-0133), for the proofs it holds,
@@ -186,7 +185,7 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
     /** @param array<string, mixed> $request */
     private function asked(string $verb, array $request, Seconds $longer): Node|NotWritten
     {
-        return $this->line($verb, (string) json_encode($request, JsonText::FLAGS), $longer);
+        return $this->line($verb, json_encode($request, JsonText::FLAGS), $longer);
     }
 
     /** The daemon's answer to one request line, waited for this much longer than the timeout; or why there is none. */
@@ -204,11 +203,11 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
 
         return $answer instanceof NotGiven
             ? NotWritten::because(sprintf(self::UNSERVED, $this->socket->path()))
-            : self::read($answer);
+            : $this->read($answer);
     }
 
     /** An answer's line, where it is in the contract and refuses nothing; or why it is no answer. */
-    private static function read(string $answer): Node|NotWritten
+    private function read(string $answer): Node|NotWritten
     {
         $said = Node::decode($answer, self::ANSWER);
         $refused = $said->field('refused');
@@ -236,9 +235,9 @@ final readonly class OutbreakDaemon implements KeepsProofs, NoticesChanges, Reac
         $beside = sprintf('%s/%s', $root, Workspace::servedState()->value());
         $longest = System::here() === System::Linux ? self::LINUX_ADDRESS : self::ADDRESS;
 
-        return strlen($beside) <= $longest
+        return Bytes::length($beside) <= $longest
             ? $beside
-            : sprintf(self::SHORT, $owner, substr(hash('sha256', $root), 0, self::NAMED_BY));
+            : sprintf(self::SHORT, $owner, Bytes::slice(hash('sha256', $root), 0, self::NAMED_BY));
     }
 
 }

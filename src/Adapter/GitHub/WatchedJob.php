@@ -8,13 +8,12 @@ use function explode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
 use function str_starts_with;
-use function strlen;
-use function substr;
 use function trim;
 
 /**
@@ -74,7 +73,7 @@ final readonly class WatchedJob
 
         foreach ($names instanceof CannotJudge ? [] : $names as $name) {
             if (str_starts_with($name, $this->prefix)) {
-                return sprintf(self::STOPPED, substr($name, strlen($this->prefix)));
+                return sprintf(self::STOPPED, Bytes::from($name, Bytes::length($this->prefix)));
             }
         }
 

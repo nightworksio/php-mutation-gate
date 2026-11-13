@@ -20,6 +20,7 @@ use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
 use NightWorksIO\MutationGate\Core\Http\MediaType;
 use NightWorksIO\MutationGate\Core\Http\Reply;
@@ -29,9 +30,7 @@ use NightWorksIO\MutationGate\Core\Http\Token;
 use function rtrim;
 use function sprintf;
 use function str_starts_with;
-use function strlen;
 use function strtr;
-use function substr;
 
 /**
  * The artifacts of the workflow run, reached through the artifact service
@@ -184,7 +183,7 @@ final readonly class RunArtifacts
 
         foreach ($scopes as $scope) {
             $ids = str_starts_with($scope, self::RESULTS_SCOPE)
-                ? explode(':', substr($scope, strlen(self::RESULTS_SCOPE)))
+                ? explode(':', Bytes::from($scope, Bytes::length(self::RESULTS_SCOPE)))
                 : [];
 
             if (count($ids) === 2 && $ids[0] !== '' && $ids[1] !== '') {

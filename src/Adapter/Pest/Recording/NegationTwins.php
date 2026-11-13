@@ -9,12 +9,10 @@ use function in_array;
 use function is_file;
 use function is_string;
 
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use Pest\Mutate\Mutators\ControlStructures\IfNegated;
 use Pest\Mutate\Mutators\ControlStructures\TernaryNegated;
 use Pest\Mutate\Mutators\Logical\RemoveNot;
-
-use function strlen;
-use function substr;
 
 /**
  * The rule that two mutants of one condition are one program (ADR-0137):
@@ -63,18 +61,18 @@ final readonly class NegationTwins
     /** Whether the negated text is the removed one with `!!` set in at one place, and nothing else apart. */
     private static function doubledIn(string $removed, string $negated): bool
     {
-        if ($removed === '' || strlen($negated) !== strlen($removed) + strlen(self::DOUBLED)) {
+        if ($removed === '' || Bytes::length($negated) !== Bytes::length($removed) + Bytes::length(self::DOUBLED)) {
             return false;
         }
 
         $at = 0;
 
-        while ($at < strlen($removed) && $removed[$at] === $negated[$at]) {
+        while ($at < Bytes::length($removed) && $removed[$at] === $negated[$at]) {
             $at++;
         }
 
-        return substr($negated, $at, strlen(self::DOUBLED)) === self::DOUBLED
-            && substr($negated, $at + strlen(self::DOUBLED)) === substr($removed, $at);
+        return Bytes::slice($negated, $at, Bytes::length(self::DOUBLED)) === self::DOUBLED
+            && Bytes::from($negated, $at + Bytes::length(self::DOUBLED)) === Bytes::from($removed, $at);
     }
 
     private static function read(string $copy): string

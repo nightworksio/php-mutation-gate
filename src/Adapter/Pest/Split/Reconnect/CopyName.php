@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect;
 
+use NightWorksIO\MutationGate\Core\Format\Bytes;
+
 use function preg_replace;
 use function sprintf;
 use function str_replace;
-use function substr;
 
 /**
  * A server database's copy's name: the start of the original's letters,
@@ -29,7 +30,9 @@ final readonly class CopyName
 
     public static function of(string $original, string $token): string
     {
-        return sprintf(self::NAME, substr((string) preg_replace(self::LEFT_OUT, '', $original), 0, self::KEPT), $token);
+        $kept = Bytes::slice((string) preg_replace(self::LEFT_OUT, '', $original), 0, self::KEPT);
+
+        return sprintf(self::NAME, $kept, $token);
     }
 
     /** A name quoted between this mark, each such mark in it doubled. */

@@ -10,6 +10,7 @@ use function glob;
 use function is_dir;
 use function is_file;
 use function is_scalar;
+use function mb_strtolower;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
@@ -24,7 +25,6 @@ use function php_uname;
 use const PHP_ZTS;
 
 use function sprintf;
-use function strtolower;
 
 /**
  * The ini settings a PHPStan process runs under, as `-d` arguments: those
@@ -134,7 +134,7 @@ final readonly class PhpIni
     /** The name PHPStan gives this machine's platform among its builds; none where it ships none for it. */
     private function platform(): string
     {
-        $machine = match (strtolower(php_uname('m'))) {
+        $machine = match (mb_strtolower(php_uname('m'))) {
             'x86_64', 'amd64' => 'x86_64',
             'aarch64', 'arm64' => 'arm64',
             default => '',
