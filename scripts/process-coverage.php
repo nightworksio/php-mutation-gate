@@ -146,7 +146,12 @@ function merge(string $into, string $clover, array $parts): void
     foreach ($coverage->getReport() as $node) {
         if ($node instanceof File && $node->numberOfExecutedLines() < $node->numberOfExecutableLines()) {
             $left = array_keys(array_filter($node->lineCoverageData(), static fn(?array $tests): bool => $tests === []));
-            $uncovered[] = sprintf('%s: %s', $node->pathAsString(), implode(', ', $left));
+            $uncovered[] = sprintf(
+                '%s: %s (%.1f%%)',
+                $node->pathAsString(),
+                implode(', ', $left),
+                100 * $node->numberOfExecutedLines() / $node->numberOfExecutableLines(),
+            );
         }
     }
 
