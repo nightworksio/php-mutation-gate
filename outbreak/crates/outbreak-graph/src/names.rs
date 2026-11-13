@@ -229,7 +229,9 @@ impl<'a> Reader<'a> {
         }
 
         match lower.as_str() {
-            "namespace" => return self.namespace(index + 1),
+            "namespace" if matches!(next, Some(Token::Name(_) | Token::Punct(b'{'))) => {
+                return self.namespace(index + 1);
+            }
             "use" if self.class_depth.is_none() => return self.import(index + 1),
             "function" | "fn" => return self.declared_function(index + 1, &lower),
             "const" => self.declared_constants(index + 1),
@@ -567,6 +569,16 @@ mod tests {
             assert!(found.names.contains(name), "{name} in {:?}", found.names);
         }
         assert_eq!(found.unplaced, None);
+    }
+
+    #[test]
+    fn keeps_its_namespace_past_a_constant_named_namespace() {
+        let found = read(
+            b"<?php namespace App; final class Bag { private const string NAMESPACE = 'X\\\\*'; public function of(Item $i): string { return self::NAMESPACE; } }",
+        );
+
+        assert!(found.declares.contains("app\\bag"), "{:?}", found.declares);
+        assert!(found.names.contains("app\\item"), "{:?}", found.names);
     }
 
     #[test]
