@@ -5,44 +5,31 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_column;
-use function array_diff;
 use function array_key_exists;
 use function count;
 
 use const FILE_APPEND;
 
 use function file_put_contents;
-use function function_exists;
 use function hrtime;
 use function is_int;
 
 use const LOCK_EX;
 
-use function min;
-
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-use function outbreak_steps;
-use function outbreak_steps_bind;
-use function outbreak_steps_limit;
-use function outbreak_steps_share;
 use function pcntl_fork;
 use function pcntl_waitpid;
 use function pcntl_wexitstatus;
 use function pcntl_wifexited;
 use function pcntl_wifsignaled;
 use function pcntl_wtermsig;
-
-use const PHP_INT_MAX;
-
 use function posix_kill;
-use function range;
 use function register_shutdown_function;
 
 use const SIGKILL;
 use const SIGUSR1;
-use const SIGXCPU;
 
 use function usleep;
 
@@ -74,8 +61,8 @@ final class Children
      */
     private array $running = [];
 
-    /** Whether each child is held to its parent's steps. */
-    private readonly bool $steps;
+    /** The steps each child is held to. */
+    private readonly ChildSteps $steps;
 
     /** @var list<array{string, string}> the children that failed or ended in their test while the parent forked */
     private array $pending = [];
@@ -85,9 +72,7 @@ final class Children
 
     public function __construct(private readonly StreamPlan $plan)
     {
-        $this->steps = $plan->limit->countsSteps()
-            && function_exists('outbreak_steps_share')
-            && outbreak_steps_share($plan->children);
+        $this->steps = new ChildSteps($plan);
         register_shutdown_function($this->leftDropped(...));
     }
 
@@ -106,34 +91,16 @@ final class Children
         }
 
         $this->pending = [...$this->pending, ...$failed];
-        $slot = $this->freeSlot();
-        $atFork = $this->stepsTaken();
-
-        if ($this->steps) {
-            outbreak_steps_limit($slot, PHP_INT_MAX);
-        }
-
+        $slot = $this->steps->freeSlot(array_column($this->running, self::SLOT));
+        $atFork = $this->steps->taken();
+        $this->steps->opened($slot);
         $pid = pcntl_fork();
 
-        if ($pid === 0) {
-            $this->running = [];
-            $this->copies = [];
-
-            if ($this->steps) {
-                outbreak_steps_bind($slot);
-            }
-        }
-
-        if ($pid > 0) {
-            $started = $this->now();
-            $own = array_key_exists($test, $this->plan->times) ? $this->plan->times[$test] : false;
-            $this->running[$pid] = [$mutant, $test, $started, $started + $this->secondsOf($own), $slot, $atFork];
-            $this->copies[$pid] = $copies;
-        }
-
-        if ($pid === -1) {
-            $copies->dropped();
-        }
+        match (true) {
+            $pid === 0 => $this->inChild($slot),
+            $pid > 0 => $this->running($pid, [$mutant, $test, $slot, $atFork], $copies),
+            default => $copies->dropped(),
+        };
 
         return $pid;
     }
@@ -145,18 +112,16 @@ final class Children
      */
     public function ended(string $test, float $seconds): void
     {
-        $atEnd = $this->stepsTaken();
+        $atEnd = $this->steps->taken();
 
         foreach ($this->running as $pid => [$mutant, $of, $started, , $slot, $atFork]) {
             if ($of !== $test) {
                 continue;
             }
 
-            $this->running[$pid] = [$mutant, $of, $started, $started + $this->secondsOf($seconds), $slot, $atFork];
-
-            if ($this->steps) {
-                outbreak_steps_limit($slot, $this->plan->limit->stepsOf($atFork, $atEnd));
-            }
+            $deadline = $started + $this->steps->secondsOf($seconds);
+            $this->running[$pid] = [$mutant, $of, $started, $deadline, $slot, $atFork];
+            $this->steps->held($slot, $atFork, $atEnd);
         }
     }
 
@@ -191,6 +156,28 @@ final class Children
         return $this->running !== [];
     }
 
+    /** In a child just forked, nothing of its parent's children kept, its steps counted against its slot. */
+    private function inChild(int $slot): void
+    {
+        $this->running = [];
+        $this->copies = [];
+        $this->steps->bound($slot);
+    }
+
+    /**
+     * A child just forked kept as running, on the databases copied for it.
+     *
+     * @param array{string, string, int, int} $child its mutant, test, slot and the parent's steps at its fork
+     */
+    private function running(int $pid, array $child, Copies $copies): void
+    {
+        [$mutant, $test, $slot, $atFork] = $child;
+        $started = $this->now();
+        $own = array_key_exists($test, $this->plan->times) ? $this->plan->times[$test] : false;
+        $this->running[$pid] = [$mutant, $test, $started, $started + $this->steps->secondsOf($own), $slot, $atFork];
+        $this->copies[$pid] = $copies;
+    }
+
     /**
      * Takes every child that has ended, without waiting.
      *
@@ -223,9 +210,10 @@ final class Children
 
         [$mutant, $test] = $this->running[$pid];
         $this->gone($pid);
-        $signal = pcntl_wifsignaled($status) ? pcntl_wtermsig($status) : 0;
+        $signal = pcntl_wifsignaled($status) ? pcntl_wtermsig($status) : false;
+        $signal = is_int($signal) ? $signal : 0;
 
-        if ($this->steps && $signal === SIGXCPU) {
+        if ($this->steps->exceeded($signal)) {
             $this->write(StreamLine::timedOut($mutant, $test));
 
             return [];
@@ -265,8 +253,11 @@ final class Children
     private function gone(int $pid): void
     {
         unset($this->running[$pid]);
-        ($this->copies[$pid] ?? Copies::none())->dropped();
-        unset($this->copies[$pid]);
+
+        if (array_key_exists($pid, $this->copies)) {
+            $this->copies[$pid]->dropped();
+            unset($this->copies[$pid]);
+        }
     }
 
     /** Each database copied for a child still running as the process ends dropped. */
@@ -277,29 +268,6 @@ final class Children
         }
 
         $this->copies = [];
-    }
-
-    /** The seconds a child may run in a test its parent took this long: the most, where the stream counts steps. */
-    private function secondsOf(float|false $own): float
-    {
-        return $this->steps ? $this->plan->limit->longest() : $this->plan->limit->of($own);
-    }
-
-    /** A slot of limits no running child holds; the first where the stream counts no steps. */
-    private function freeSlot(): int
-    {
-        $held = $this->steps ? array_column($this->running, self::SLOT) : [];
-        $free = array_diff(range(0, $this->plan->children - 1), $held);
-
-        return $free === [] ? 0 : min($free);
-    }
-
-    /** The steps the parent took so far; 0 where the stream counts none. */
-    private function stepsTaken(): int
-    {
-        $taken = $this->steps ? outbreak_steps() : 0;
-
-        return is_int($taken) ? $taken : 0;
     }
 
     private function write(string $line): void
