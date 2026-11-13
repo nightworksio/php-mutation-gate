@@ -111,6 +111,8 @@ enum VerdictSet
                 'src/Cli/Flow/HeldCoverage.php',
                 'src/Cli/Flow/StartUpTiming.php',
                 'src/Cli/Flow/Wiring.php',
+                'src/Cli/Flow/WiredStore.php',
+                'src/Cli/Flow/ToldRunner.php',
                 'src/Cli/Flow/Invoked.php',
                 'src/Cli/Flow/SurvivorBatch.php',
                 'src/Cli/Flow/Confirmed.php',
