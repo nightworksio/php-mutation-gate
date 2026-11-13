@@ -82,67 +82,64 @@ final readonly class LooseValues implements Countable, IteratorAggregate
     public static function in(Settings $settings): self
     {
         $excluded = $settings->floors()->uncovered() === Uncovered::Exclude;
-        $toggles = $settings->toggles();
         $ci = $settings->ci();
-        $reach = $settings->reach();
-        $values = [];
-
-        foreach (Toggle::cases() as $toggle) {
-            if (! $toggle->loosens($toggles->on($toggle), $excluded)) {
-                continue;
-            }
-
-            $values[] = LooseValue::of(
-                $toggle->value,
-                self::OFF,
-                $toggle === Toggle::ControlsKills ? self::KILLS : self::TRIALS,
-            );
-        }
-
         $merged = $ci->mergedTrust();
-        $split = $settings->effective()->pest()->splitStream();
-        $values = [
-            ...$values,
-            ...$settings->effective()->pest()->narrowedKills() === NarrowedKillTrust::Trust
-                ? [LooseValue::of('pest.narrowedKills', NarrowedKillTrust::Trust->value, self::NARROWED)]
-                : [],
-            ...$excluded && $reach->heldCoverage() === HeldCoverageMode::Map
-                ? [LooseValue::of('holds.coverage', HeldCoverageMode::Map->value, self::HELD)]
-                : [],
-            ...$merged->trusts()
-                ? [LooseValue::of(
+        $reach = $settings->reach();
+        $outbreak = $settings->shards()->outbreak();
+        $pest = $settings->effective()->pest();
+        $split = $pest->splitStream();
+
+        return new self([
+            ...self::toggled($settings->toggles(), $excluded),
+            ...self::when(
+                $pest->narrowedKills() === NarrowedKillTrust::Trust,
+                LooseValue::of('pest.narrowedKills', NarrowedKillTrust::Trust->value, self::NARROWED),
+            ),
+            ...self::when(
+                $excluded && $reach->heldCoverage() === HeldCoverageMode::Map,
+                LooseValue::of('holds.coverage', HeldCoverageMode::Map->value, self::HELD),
+            ),
+            ...self::when(
+                $merged->trusts(),
+                LooseValue::of(
                     self::TRUST,
                     $merged->value,
                     $merged === MergedTrust::Delta ? self::DELTA : self::MERGED,
-                )]
-                : [],
-            ...$ci->trustsMergedPullRequests() && $ci->mergedOwnScopeProofs() === OwnScopeTrust::Trust
-                ? [LooseValue::of('ci.mergedOwnScopeProofs', OwnScopeTrust::Trust->value, self::OWN_SCOPE)]
-                : [],
-            ...$settings->triage()->flaky()->killControls() === KillControl::Alone
-                ? [LooseValue::of('flaky.killControls', KillControl::Alone->value, self::ALONE)]
-                : [],
-            ...$settings->shards()->outbreak()->recheckTouchedKills()
-                ? []
-                : [LooseValue::of('outbreak.recheckTouchedKills', self::OFF, self::TOUCHED)],
-            ...$settings->shards()->outbreak()->graph()->isLoose()
-                ? [LooseValue::of('outbreak.graph', GraphUse::Narrow->value, self::GRAPH)]
-                : [],
-            ...$settings->shards()->outbreak()->cache()->trust()->isLoose()
-                ? [LooseValue::of('outbreak.cache.trust', CacheTrust::Repository->value, self::CACHE)]
-                : [],
-            ...$split->enabled() && $split->bootOnce()
-                ? [LooseValue::of('splitStream.bootOnce', 'true', self::BOOT_ONCE)]
-                : [],
-            ...$split->enabled() && $split->reconnect()
-                ? [LooseValue::of('splitStream.reconnect', 'true', self::RECONNECT)]
-                : [],
-            ...$reach->lockMoves() !== LockMoveReach::Everything
-                ? [LooseValue::of('reach.lockMoves', $reach->lockMoves()->value, self::LOCK)]
-                : [],
-        ];
-
-        return new self($values);
+                ),
+            ),
+            ...self::when(
+                $ci->trustsMergedPullRequests() && $ci->mergedOwnScopeProofs() === OwnScopeTrust::Trust,
+                LooseValue::of('ci.mergedOwnScopeProofs', OwnScopeTrust::Trust->value, self::OWN_SCOPE),
+            ),
+            ...self::when(
+                $settings->triage()->flaky()->killControls() === KillControl::Alone,
+                LooseValue::of('flaky.killControls', KillControl::Alone->value, self::ALONE),
+            ),
+            ...self::when(
+                ! $outbreak->recheckTouchedKills(),
+                LooseValue::of('outbreak.recheckTouchedKills', self::OFF, self::TOUCHED),
+            ),
+            ...self::when(
+                $outbreak->graph()->isLoose(),
+                LooseValue::of('outbreak.graph', GraphUse::Narrow->value, self::GRAPH),
+            ),
+            ...self::when(
+                $outbreak->cache()->trust()->isLoose(),
+                LooseValue::of('outbreak.cache.trust', CacheTrust::Repository->value, self::CACHE),
+            ),
+            ...self::when(
+                $split->enabled() && $split->bootOnce(),
+                LooseValue::of('splitStream.bootOnce', 'true', self::BOOT_ONCE),
+            ),
+            ...self::when(
+                $split->enabled() && $split->reconnect(),
+                LooseValue::of('splitStream.reconnect', 'true', self::RECONNECT),
+            ),
+            ...self::when(
+                $reach->lockMoves() !== LockMoveReach::Everything,
+                LooseValue::of('reach.lockMoves', $reach->lockMoves()->value, self::LOCK),
+            ),
+        ]);
     }
 
     public function count(): int
@@ -154,5 +151,37 @@ final readonly class LooseValues implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->values);
+    }
+
+    /**
+     * The toggles these settings turn off where their default doubts what the opt-in counts.
+     *
+     * @return list<LooseValue>
+     */
+    private static function toggled(Toggles $toggles, bool $excluded): array
+    {
+        $values = [];
+
+        foreach (Toggle::cases() as $toggle) {
+            if ($toggle->loosens($toggles->on($toggle), $excluded)) {
+                $values[] = LooseValue::of(
+                    $toggle->value,
+                    self::OFF,
+                    $toggle === Toggle::ControlsKills ? self::KILLS : self::TRIALS,
+                );
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * This loose value, where the settings hold it.
+     *
+     * @return list<LooseValue>
+     */
+    private static function when(bool $held, LooseValue $value): array
+    {
+        return $held ? [$value] : [];
     }
 }
