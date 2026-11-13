@@ -12,19 +12,14 @@ use function is_array;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
-use NightWorksIO\MutationGate\Core\Mutant\Ended;
-use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
-use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -33,7 +28,6 @@ use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -140,58 +134,10 @@ final readonly class Interpretation
 
             $judged = $this->rejected($this->mutant($ids[$at], $mutant, $records, $selection), $mutant);
             $mutants[] = $judged;
-            $given = $records->runOf($mutant)->isMarked(RecordEvent::Streamed)
-                ? Evidence::none()->streamed()
-                : $this->unfiltered($this->evidenceOf($judged, $mutant, $records), $mutant, $records);
-            $share = TestShare::of(
-                owned: $records->runOf($mutant)->isMarked(RecordEvent::OwnedPart),
-                otherOwned: $records->runOf($mutant)->isMarked(RecordEvent::OtherPart),
-            );
-            $evidence = $evidence->with($judged->id(), $given->sharing($share));
+            $evidence = $evidence->with($judged->id(), new RunEvidence($this->project)->of($judged, $mutant, $records));
         }
 
         return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);
-    }
-
-    /**
-     * The evidence of a kill (ADR-0014): how far its own run
-     * went, keyed by the test files it was narrowed to, or by none where it
-     * loaded every one; and, where it names no killer, how its process
-     * ended. None of a mutant that is not killed, or that shares its mutated
-     * copy with another, whose runs cannot be told apart.
-     */
-    private function evidenceOf(Mutant $judged, PlannedMutant $planned, Records $records): Evidence
-    {
-        if ($judged->status() !== MutantStatus::Killed || $records->sharesItsCopy($planned)) {
-            return Evidence::none();
-        }
-
-        $run = $records->runOf($planned);
-        $files = Paths::of(...array_map(
-            $this->project->relative(...),
-            $run->narrowedTo(),
-        ));
-        $prefix = $run->prefix($files);
-        $ended = $run->ended();
-        $evidence = $prefix instanceof Prefix ? Evidence::none()->withPrefix($prefix) : Evidence::none();
-
-        return $ended instanceof Ended && count($run->killers()) === 0 ? $evidence->withEnded($ended) : $evidence;
-    }
-
-    /**
-     * Evidence, with the test files a mutant's own run loaded with no
-     * filter, where a patched run left its filter out: those it was narrowed
-     * to, or every one.
-     */
-    private function unfiltered(Evidence $evidence, PlannedMutant $planned, Records $records): Evidence
-    {
-        $files = $records->runOf($planned)->loadedUnfiltered();
-
-        return match (true) {
-            $files instanceof NotGiven => $evidence,
-            $files === [] => $evidence->loadingUnfiltered(WholeSuite::tests()),
-            default => $evidence->loadingUnfiltered(Paths::of(...array_map($this->project->relative(...), $files))),
-        };
     }
 
     /**
