@@ -11,19 +11,17 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
+use NightWorksIO\MutationGate\Tests\Support\RuntimeToken;
 
 const CLAIMS_SERVICE = 'https://results.example/twirp/github.actions.results.api.v1.ArtifactService/';
 
-$token = static fn(string $scope = 'Actions.Results:run-1:job-7'): string => sprintf(
-    'header.%s.signature',
-    rtrim(strtr(base64_encode(json_encode(['scp' => sprintf('Actions.GenericRead %s', $scope)], JSON_THROW_ON_ERROR)), '+/', '-_'), '='),
-);
+$token = static fn(string $scope = 'Actions.Results:run-1:job-7'): string => RuntimeToken::scoped(sprintf('Actions.GenericRead %s', $scope));
 
-$runtime = static fn(): array => ['GITHUB_RUN_ATTEMPT' => '2'];
+$runtime = static fn(): Variables => Variables::of(['GITHUB_RUN_ATTEMPT' => '2']);
 
-$claims = static fn(Cloud $cloud, array $variables, ShardPull $pull = ShardPull::Auto, ArtifactAccess|CannotJudge|NotGiven|null $service = null): ArtifactClaims|CannotJudge => ArtifactClaims::of(
+$claims = static fn(Cloud $cloud, Variables $variables, ShardPull $pull = ShardPull::Auto, ArtifactAccess|CannotJudge|NotGiven|null $service = null): ArtifactClaims|CannotJudge => ArtifactClaims::of(
     $service ?? ArtifactAccess::of($token(), 'https://results.example/'),
-    Variables::of($variables),
+    $variables,
     $cloud->exchange(),
     $pull,
     Digest::of('abc'),
@@ -32,8 +30,8 @@ $claims = static fn(Cloud $cloud, array $variables, ShardPull $pull = ShardPull:
 
 it('claims an item by creating, filling and finalizing an artifact of its name for the run\'s attempt', function () use ($runtime, $claims): void {
     $cloud = new Cloud()
-        ->answering(CLAIMS_SERVICE . 'CreateArtifact', 200, '{"ok": true, "signed_upload_url": "https://blob.example/upload"}')
-        ->answering(CLAIMS_SERVICE . 'FinalizeArtifact', 200, '{"ok": true, "artifact_id": "9"}');
+        ->answering(sprintf('%sCreateArtifact', CLAIMS_SERVICE), 200, '{"ok": true, "signed_upload_url": "https://blob.example/upload"}')
+        ->answering(sprintf('%sFinalizeArtifact', CLAIMS_SERVICE), 200, '{"ok": true, "artifact_id": "9"}');
     $taken = $claims($cloud, $runtime(), ShardPull::Claim);
 
     expect($taken instanceof ArtifactClaims ? [$taken->pull(), $taken->take(ShardId::of(5)), $taken->finish(ShardId::of(5))] : $taken)
@@ -43,7 +41,7 @@ it('claims an item by creating, filling and finalizing an artifact of its name f
 });
 
 it('leaves an item another job claimed', function () use ($runtime, $claims): void {
-    $cloud = new Cloud()->answering(CLAIMS_SERVICE . 'CreateArtifact', 409, '{"code": "already_exists"}');
+    $cloud = new Cloud()->answering(sprintf('%sCreateArtifact', CLAIMS_SERVICE), 409, '{"code": "already_exists"}');
     $taken = $claims($cloud, $runtime(), ShardPull::Claim);
 
     expect($taken instanceof ArtifactClaims ? $taken->take(ShardId::of(5)) : $taken)->toBeFalse();
@@ -51,9 +49,9 @@ it('leaves an item another job claimed', function () use ($runtime, $claims): vo
 
 it('steals an item no job marked done, leaves one a job did, and marks what it finished', function () use ($runtime, $claims): void {
     $cloud = new Cloud()
-        ->answering(CLAIMS_SERVICE . 'ListArtifacts', 200, '{"artifacts": [{"name": "mutation-gate-done-abc-2-5-1"}, {"name": "mutation-gate-done-abc-2-51-1"}]}')
-        ->answering(CLAIMS_SERVICE . 'CreateArtifact', 200, '{"ok": true, "signed_upload_url": "https://blob.example/upload"}')
-        ->answering(CLAIMS_SERVICE . 'FinalizeArtifact', 200, '{"ok": true}');
+        ->answering(sprintf('%sListArtifacts', CLAIMS_SERVICE), 200, '{"artifacts": [{"name": "mutation-gate-done-abc-2-5-1"}, {"name": "mutation-gate-done-abc-2-51-1"}]}')
+        ->answering(sprintf('%sCreateArtifact', CLAIMS_SERVICE), 200, '{"ok": true, "signed_upload_url": "https://blob.example/upload"}')
+        ->answering(sprintf('%sFinalizeArtifact', CLAIMS_SERVICE), 200, '{"ok": true}');
     $taken = $claims($cloud, $runtime(), ShardPull::Steal);
 
     expect($taken instanceof ArtifactClaims ? [$taken->take(ShardId::of(5)), $taken->take(ShardId::of(6)), $taken->finish(ShardId::of(6))] : $taken)

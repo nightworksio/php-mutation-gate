@@ -6,8 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_all;
 use function hash;
-use function is_array;
-use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\ItemClaims;
@@ -15,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\ShardPull;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
 use NightWorksIO\MutationGate\Core\Http\Reply;
 use NightWorksIO\MutationGate\Core\Http\Request;
@@ -39,6 +38,9 @@ final readonly class ArtifactClaims implements ItemClaims
     private const string DONE = 'mutation-gate-done-%s-%d-%d-%d';
 
     private const string DONE_OF = 'mutation-gate-done-%s-%d-%d-';
+
+    /** The version of the artifact backend each artifact is created for. */
+    private const int VERSION = 4;
 
     /** An empty zip archive: its end of central directory record alone. */
     private const string EMPTY = "PK\x05\x06\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
@@ -123,24 +125,25 @@ final readonly class ArtifactClaims implements ItemClaims
     /** Whether this job created an empty artifact of this name; false where another artifact holds it. */
     private function created(string $name): bool|CannotJudge
     {
-        $answer = $this->artifacts->answer('CreateArtifact', ['name' => $name, 'version' => 4]);
+        $fields = ['name' => $name, 'version' => self::VERSION];
+        $answer = $this->artifacts->answer(ArtifactMethod::CreateArtifact, $fields);
 
         if ($answer instanceof Reply && $answer->isConflict()) {
             return false;
         }
 
-        $created = $this->artifacts->read('CreateArtifact', $answer);
+        $created = $this->artifacts->read(ArtifactMethod::CreateArtifact, $answer);
 
-        if (! is_array($created)) {
+        if ($created instanceof CannotJudge) {
             return $created;
         }
 
-        $url = is_string($created['signed_upload_url'] ?? null) ? $created['signed_upload_url'] : '';
+        $url = Lenient::text($created->field('signed_upload_url'));
         $uploaded = $url === ''
-            ? CannotJudge::because(sprintf(RunArtifacts::UNREAD, 'CreateArtifact'))
+            ? CannotJudge::because(sprintf(RunArtifacts::UNREAD, ArtifactMethod::CreateArtifact->value))
             : $this->artifacts->sent(Request::put($url, self::EMPTY)->asBlockBlob());
         $finalized = $uploaded instanceof Reply && $uploaded->isAccepted()
-            ? $this->artifacts->called('FinalizeArtifact', [
+            ? $this->artifacts->called(ArtifactMethod::FinalizeArtifact, [
                 'name' => $name,
                 'size' => sprintf('%d', Bytes::length(self::EMPTY)),
                 'hash' => sprintf('sha256:%s', hash('sha256', self::EMPTY)),

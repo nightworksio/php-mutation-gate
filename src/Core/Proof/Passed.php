@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use function array_filter;
+
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -148,5 +151,26 @@ final readonly class Passed
     public function usedOwnScope(): bool
     {
         return $this->ownScopeProofs > 0 || $this->ownScopeCoverage;
+    }
+
+    /**
+     * The results of its ledger this pass spares a commit with, as `ci.mergedOwnScopeProofs` takes them: under
+     * `refuse`, all where it used nothing of its own scope; under `reach`, all but the units it took from its own
+     * scope, where its map was not measured on it and it lists them; under `trust`, all (ADR-0139).
+     */
+    public function trusted(OwnScopeTrust $trust, Proofs $proofs): Proofs|NotGiven
+    {
+        $own = $this->ownScopeUnits();
+
+        return match ($trust) {
+            OwnScopeTrust::Trust => $proofs,
+            OwnScopeTrust::Refuse => $this->usedOwnScope() ? NotGiven::value() : $proofs,
+            OwnScopeTrust::Reach => $this->ownScopeCoverage || ! $own instanceof Paths
+                ? NotGiven::value()
+                : Proofs::of(...array_filter(
+                    [...$proofs],
+                    static fn(Proof $proof): bool => ! $own->has($proof->unit()),
+                )),
+        };
     }
 }

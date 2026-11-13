@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
-use function array_filter;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -13,11 +12,9 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Config\MergedTrust;
 use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
-use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Port\ProofStore;
@@ -305,31 +302,11 @@ final readonly class MergedHeads
         $ledger = $ledgers->read(Scope::pullRequest($pullRequest));
         $passed = $ledger instanceof Ledger ? $ledger->runs()->passed() : $ledger;
 
-        if (
-            ! $ledger instanceof Ledger
-            || ! $passed instanceof Passed
-            || $passed->commit()->name() !== $head
-            || $passed->check() !== $this->check
-        ) {
-            return NotGiven::value();
-        }
-
-        $own = $passed->ownScopeUnits();
-
-        return match ($this->ownScope) {
-            OwnScopeTrust::Trust => $ledger->proofs(),
-            OwnScopeTrust::Refuse => $passed->usedOwnScope() ? NotGiven::value() : $ledger->proofs(),
-            OwnScopeTrust::Reach => $passed->measuredOnOwnScope() || ! $own instanceof Paths
-                ? NotGiven::value()
-                : $this->without($ledger->proofs(), $own),
-        };
-    }
-
-    /** These results, but those of these units. */
-    private function without(Proofs $proofs, Paths $units): Proofs
-    {
-        return Proofs::of(
-            ...array_filter([...$proofs], static fn(Proof $proof): bool => ! $units->has($proof->unit())),
-        );
+        return $ledger instanceof Ledger
+            && $passed instanceof Passed
+            && $passed->commit()->name() === $head
+            && $passed->check() === $this->check
+            ? $passed->trusted($this->ownScope, $ledger->proofs())
+            : NotGiven::value();
     }
 }

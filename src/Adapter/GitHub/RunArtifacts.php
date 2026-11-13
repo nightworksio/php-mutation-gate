@@ -4,23 +4,20 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
-use function base64_decode;
+use function array_key_exists;
 use function count;
 use function explode;
-use function is_array;
-use function is_string;
-use function json_decode;
 use function json_encode;
 
 use const JSON_THROW_ON_ERROR;
-
-use JsonException;
 
 use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
 use NightWorksIO\MutationGate\Core\Http\MediaType;
 use NightWorksIO\MutationGate\Core\Http\Reply;
@@ -28,9 +25,14 @@ use NightWorksIO\MutationGate\Core\Http\Request;
 use NightWorksIO\MutationGate\Core\Http\Token;
 
 use function rtrim;
+use function sodium_base642bin;
+
+use const SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING;
+
+use SodiumException;
+
 use function sprintf;
 use function str_starts_with;
-use function strtr;
 
 /**
  * The artifacts of the workflow run, reached through the artifact service
@@ -94,7 +96,7 @@ final readonly class RunArtifacts
      */
     public function names(): array|CannotJudge
     {
-        $listed = $this->called('ListArtifacts', []);
+        $listed = $this->called(ArtifactMethod::ListArtifacts, []);
 
         if ($listed instanceof CannotJudge) {
             return $listed;
@@ -102,10 +104,9 @@ final readonly class RunArtifacts
 
         $names = [];
 
-        foreach (is_array($listed['artifacts'] ?? null) ? $listed['artifacts'] : [] as $artifact) {
-            if (is_array($artifact) && is_string($artifact['name'] ?? null)) {
-                $names[] = $artifact['name'];
-            }
+        foreach (Lenient::items($listed->field('artifacts')) as $artifact) {
+            $name = Lenient::text($artifact->field('name'));
+            $names = $name === '' ? $names : [...$names, $name];
         }
 
         return $names;
@@ -116,7 +117,7 @@ final readonly class RunArtifacts
      *
      * @param array<string, string|int> $fields
      */
-    public function answer(string $method, array $fields): Reply|CannotJudge
+    public function answer(ArtifactMethod $method, array $fields): Reply|CannotJudge
     {
         return $this->exchange->answer($this->request($method, $fields));
     }
@@ -130,35 +131,31 @@ final readonly class RunArtifacts
     /**
      * What a method of the service answers, as JSON; or why it answered nothing readable.
      *
-     * @param  array<string, string|int> $fields
-     * @return array<mixed>|CannotJudge
+     * @param array<string, string|int> $fields
      */
-    public function called(string $method, array $fields): array|CannotJudge
+    public function called(ArtifactMethod $method, array $fields): Node|CannotJudge
     {
         return $this->read($method, $this->answer($method, $fields));
     }
 
-    /** @return array<mixed>|CannotJudge */
-    public function read(string $method, Reply|CannotJudge $answer): array|CannotJudge
+    /** What a method of the service answered, as a JSON object or list; or why it is not one. */
+    public function read(ArtifactMethod $method, Reply|CannotJudge $answer): Node|CannotJudge
     {
         if (! $answer instanceof Reply || ! $answer->isAccepted()) {
-            return $this->refusal($method, $answer);
+            return $this->refusal($method->value, $answer);
         }
 
-        try {
-            $decoded = json_decode($answer->body(), associative: true, depth: 16, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            $decoded = null;
-        }
+        $decoded = Node::decode($answer->body(), $method->value);
 
-        return is_array($decoded) ? $decoded : CannotJudge::because(sprintf(self::UNREAD, $method));
+        return Lenient::holdsMembers($decoded) ? $decoded : CannotJudge::because(sprintf(self::UNREAD, $method->value));
     }
 
-    public function refusal(string $method, Reply|CannotJudge $answer): CannotJudge
+    /** Why what the reader knows as this answered nothing the gate can use. */
+    public function refusal(string $what, Reply|CannotJudge $answer): CannotJudge
     {
         return $answer instanceof CannotJudge
             ? $answer
-            : CannotJudge::because(sprintf(self::REFUSED, $method, $answer->status()));
+            : CannotJudge::because(sprintf(self::REFUSED, $what, $answer->status()));
     }
 
     /**
@@ -168,20 +165,9 @@ final readonly class RunArtifacts
      */
     private static function backendIds(string $token): array
     {
-        $parts = explode('.', $token);
-        $claims = isset($parts[1]) ? base64_decode(strtr($parts[1], '-_', '+/'), strict: true) : false;
+        $scopes = Lenient::text(Node::decode(self::claimsOf($token))->field('scp'));
 
-        try {
-            $decoded = is_string($claims)
-                ? json_decode($claims, associative: true, depth: 8, flags: JSON_THROW_ON_ERROR)
-                : null;
-        } catch (JsonException) {
-            $decoded = null;
-        }
-
-        $scopes = is_array($decoded) && is_string($decoded['scp'] ?? null) ? explode(' ', $decoded['scp']) : [];
-
-        foreach ($scopes as $scope) {
+        foreach (explode(' ', $scopes) as $scope) {
             $ids = str_starts_with($scope, self::RESULTS_SCOPE)
                 ? explode(':', Bytes::from($scope, Bytes::length(self::RESULTS_SCOPE)))
                 : [];
@@ -194,11 +180,25 @@ final readonly class RunArtifacts
         return [];
     }
 
+    /** The claims a JSON web token carries, as their JSON; none where it carries none. */
+    private static function claimsOf(string $token): string
+    {
+        $parts = explode('.', $token);
+
+        try {
+            return array_key_exists(1, $parts)
+                ? sodium_base642bin($parts[1], SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING)
+                : Node::NO_KEYS;
+        } catch (SodiumException) {
+            return Node::NO_KEYS;
+        }
+    }
+
     /** @param array<string, string|int> $fields */
-    private function request(string $method, array $fields): Request
+    private function request(ArtifactMethod $method, array $fields): Request
     {
         return Request::post(
-            sprintf(self::SERVICE, $this->service, $method),
+            sprintf(self::SERVICE, $this->service, $method->value),
             json_encode([self::RUN_ID => $this->run, self::JOB_ID => $this->job, ...$fields], JSON_THROW_ON_ERROR),
         )->sending(MediaType::Json)->carrying($this->token);
     }

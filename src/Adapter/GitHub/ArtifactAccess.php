@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function file_get_contents;
-use function is_array;
 use function is_file;
 use function is_string;
-use function json_decode;
 
-use const JSON_THROW_ON_ERROR;
-
-use JsonException;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
+use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 use function unlink;
@@ -57,30 +54,7 @@ final readonly class ArtifactAccess
     {
         $file = $environment->valueOf(self::FILE);
 
-        if ($file === '') {
-            return CannotJudge::because(sprintf(self::NO_FILE, self::FILE));
-        }
-
-        $text = is_file($file) ? file_get_contents($file) : false;
-
-        if (is_file($file)) {
-            unlink($file);
-        }
-
-        try {
-            $decoded = is_string($text)
-                ? json_decode($text, associative: true, depth: 4, flags: JSON_THROW_ON_ERROR)
-                : null;
-        } catch (JsonException) {
-            $decoded = null;
-        }
-
-        $token = is_array($decoded) && is_string($decoded[self::TOKEN] ?? null) ? $decoded[self::TOKEN] : '';
-        $url = is_array($decoded) && is_string($decoded[self::URL] ?? null) ? $decoded[self::URL] : '';
-
-        return $token === '' || $url === ''
-            ? CannotJudge::because(sprintf(self::NO_HANDOFF, $file))
-            : new self($token, $url);
+        return $file === '' ? CannotJudge::because(sprintf(self::NO_FILE, self::FILE)) : self::takenFrom($file);
     }
 
     public function token(): string
@@ -91,5 +65,23 @@ final readonly class ArtifactAccess
     public function url(): string
     {
         return $this->url;
+    }
+
+    /** The service a handoff file holds, the file removed whatever it held; or why it holds none. */
+    private static function takenFrom(string $file): self|CannotJudge
+    {
+        $text = is_file($file) ? file_get_contents($file) : false;
+
+        if (is_file($file)) {
+            unlink($file);
+        }
+
+        $handoff = Node::decode(is_string($text) ? $text : Node::NO_KEYS);
+        $token = Lenient::text($handoff->field(self::TOKEN));
+        $url = Lenient::text($handoff->field(self::URL));
+
+        return $token === '' || $url === ''
+            ? CannotJudge::because(sprintf(self::NO_HANDOFF, $file))
+            : new self($token, $url);
     }
 }
