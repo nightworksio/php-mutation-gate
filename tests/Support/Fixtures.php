@@ -241,6 +241,7 @@ final readonly class Fixtures
             self::inTheCore('C5', 'PlantedElse', "if (PHP_VERSION_ID > 0) {\n        return 1;\n    } else {\n        return 0;\n    }", 'int', 'C5 — no `else`'),
             self::inTheCore('C5', 'PlantedSwitch', "switch (PHP_VERSION_ID) {\n        default:\n            return 1;\n    }", 'int', 'ergebnis.noSwitch'),
             self::inTheCore('C6', 'PlantedSwallow', "try {\n        return intdiv(1, 1);\n    } catch (\\DivisionByZeroError) {\n    }\n\n    return 0;", 'int', 'C6 —'),
+            self::inTheCore('C6', 'PlantedBroadCatch', "try {\n        return intdiv(1, 1);\n    } catch (\\Throwable) {\n        return 0;\n    }", 'int', 'C6 — this catch catches Throwable'),
             self::inTheCore('C7', 'PlantedEmpty', 'return empty($_SERVER);', 'bool', 'C7 —'),
             self::inTheCore('C8', 'PlantedNullsafe', 'return (new \\ArrayObject())?->count() ?? 0;', 'int', 'C8 —'),
             self::inTheCore('C9', 'PlantedNestedTernary', 'return PHP_VERSION_ID > 1 ? 1 : (PHP_VERSION_ID > 0 ? 0 : 1);', 'int', 'C9 — a ternary inside a ternary'),

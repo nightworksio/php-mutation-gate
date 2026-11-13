@@ -101,7 +101,7 @@ without a repository, a runner or a CI.
 | **C3** | Every thrown exception is the package's own | phpstan `disallowed-calls` on the bare exceptions' constructors |
 | **C4** | No `@` suppression | phpstan: ergebnis `NoErrorSuppressionRule` |
 | **C5** | `match`, never `switch`; and no `else` | phpstan: ergebnis `NoSwitchRule` + `disallowedControlStructures` |
-| **C6** | No empty catch, and no `Throwable` or `Exception` caught without rethrowing | phpstan: own rule |
+| **C6** | No empty catch, and no `Throwable` or `Exception` caught without rethrowing, except where a file boots a project's own application (`allowIn`) | phpstan: own rule |
 | **C7** | No `empty()` | phpstan: own rule |
 | **C8** | No `?->` in the core | phpstan: own rule, scoped by path |
 | **C9** | No nested ternary, and no `??` on an array subscript outside the tests | phpstan: own rule |

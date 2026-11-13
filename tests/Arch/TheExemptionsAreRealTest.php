@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\PHPStan\Rules\NoBroadCatchRule;
 use NightWorksIO\MutationGate\PHPStan\Rules\NoManyMethodsRule;
 use NightWorksIO\MutationGate\PHPStan\Rules\NoMixedOutsideDecodersRule;
 use NightWorksIO\MutationGate\PHPStan\Rules\NoSharedLiteralArgumentRule;
@@ -11,7 +12,7 @@ use NightWorksIO\MutationGate\PHPStan\Rules\ReadonlyPublicPropertyRule;
 use NightWorksIO\MutationGate\Tests\Support\PhpstanNeon;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-// D8, D9, D10, D11, D12 and H3: every file, constant and method phpstan.neon
+// C6, D8, D9, D10, D11, D12 and H3: every file, constant and method phpstan.neon
 // exempts is still there. A fixed site that leaves its entry behind would exempt whatever
 // comes to take its name.
 
@@ -84,18 +85,19 @@ it('exempts only methods that are still declared from the shared-literal rule', 
         ->and(isAMethod('NightWorksIO\MutationGate\Core\CannotJudge::nowhere'))->toBeFalse();
 });
 
-it('exempts only files that are there from the method cap, the readonly rule and the mixed rule\'s protocols', function (): void {
+it('exempts only files that are there from the broad-catch rule, the method cap, the readonly rule and the mixed rule\'s protocols', function (): void {
     $exempt = [
+        PhpstanNeon::files(NoBroadCatchRule::class, 'allowIn'),
         PhpstanNeon::files(NoManyMethodsRule::class, 'allowIn'),
         PhpstanNeon::files(ReadonlyPublicPropertyRule::class, 'allowIn'),
         PhpstanNeon::files(NoMixedOutsideDecodersRule::class, 'protocols'),
     ];
     $gone = array_values(array_filter(array_merge(...$exempt), static fn(string $path): bool => ! is_file(Tree::at($path))));
 
-    // H3, D11, D10
+    // C6, H3, D11, D10
     expect($exempt)->each->not->toBe([])
         ->and($gone)->toBe([], sprintf(
-            "phpstan.neon exempts files from H3, D11 or D10 that are not there:\n  %s\n\nTake each one off the list (H3, D11, D10).",
+            "phpstan.neon exempts files from C6, H3, D11 or D10 that are not there:\n  %s\n\nTake each one off the list (C6, H3, D11, D10).",
             implode("\n  ", $gone),
         ));
 });

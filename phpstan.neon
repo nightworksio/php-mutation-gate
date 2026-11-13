@@ -174,9 +174,12 @@ parameters:
             enabled: false
 
 services:
-    # C6
+    # C6, with the files that boot a project's own application and turn its every failure into an outcome.
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoBroadCatchRule
+        arguments:
+            allowIn:
+                - src/Adapter/Pest/Split/Zygote.php # a failed boot falls back to a fresh run per test
         tags:
             - phpstan.rules.rule
     # C7
