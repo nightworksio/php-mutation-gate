@@ -130,11 +130,7 @@ mod tests {
             b"Content-Length: 4\r\n\r\n{}",
             b"Content-Length: 2\r\n",
         ] {
-            assert!(
-                frames(bytes)[0].is_err(),
-                "{}",
-                String::from_utf8_lossy(bytes)
-            );
+            assert!(frames(bytes)[0].is_err(), "{bytes:?}");
         }
 
         let long = format!("X-Long: {}\r\n\r\n", "x".repeat(2048));

@@ -617,4 +617,231 @@ mod tests {
         );
         assert_eq!(root(br#"{"rootUri":null}"#), None);
     }
+
+    /// An output whose every write fails: it holds no byte.
+    fn broken() -> std::io::Cursor<[u8; 0]> {
+        std::io::Cursor::new([])
+    }
+
+    /// An input whose every read fails.
+    struct Unreadable;
+
+    impl Read for Unreadable {
+        fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("gone"))
+        }
+    }
+
+    const SURVIVOR: &str = r#"{"mutant":"0123456789ab","site":"src/A.php:7","status":"survived","quick":false,"unit":"src/A.php","digest":null}"#;
+
+    /// The script the gate is in a workspace of its own: `watch` runs `watching`, every action says what it was
+    /// asked and fails but `explain`.
+    fn workspace(name: &str, watching: &str) -> (PathBuf, Options) {
+        let root = std::env::temp_dir().join(format!(
+            "outbreak-lsp-session-{name}-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join("gate.sh"),
+            format!(
+                "if [ \"$1\" = watch ]; then\n{watching}\nfi\necho \"said $*\"\n[ \"$1\" = explain ]\n"
+            ),
+        )
+        .unwrap();
+        let options =
+            options(&["--gate", "gate.sh", "--php", "/bin/sh"].map(String::from)).unwrap();
+
+        (root, options)
+    }
+
+    /// An editor talking to a server in a thread of its own.
+    struct Editor {
+        input: std::io::PipeWriter,
+        written: Written,
+        served: thread::JoinHandle<Result<(), String>>,
+    }
+
+    impl Editor {
+        fn open(options: Options) -> Self {
+            let (reader, input) = std::io::pipe().unwrap();
+            let written = Written::default();
+            let output = written.clone();
+            let served = thread::spawn(move || serve(&options, BufReader::new(reader), output));
+
+            Self {
+                input,
+                written,
+                served,
+            }
+        }
+
+        fn send(&mut self, content: &str) {
+            frame::write(&mut self.input, content).unwrap();
+        }
+
+        /// The answers once one holds every part given.
+        fn awaited(&self, parts: &[&str]) -> Vec<String> {
+            let since = std::time::Instant::now();
+
+            loop {
+                let read = answers(&self.written);
+
+                if read
+                    .iter()
+                    .any(|answer| parts.iter().all(|part| answer.contains(part)))
+                {
+                    return read;
+                }
+
+                assert!(
+                    since.elapsed().as_secs() < 20,
+                    "no answer holds {parts:?}: {read:?}"
+                );
+                thread::sleep(std::time::Duration::from_millis(20));
+            }
+        }
+
+        fn close(self) -> Result<(), String> {
+            drop(self.input);
+
+            self.served.join().unwrap()
+        }
+    }
+
+    fn initialize(root: &std::path::Path) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"file://{}"}}}}"#,
+            root.display()
+        )
+    }
+
+    const INITIALIZED: &str = r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#;
+    const SHUTDOWN: &str = r#"{"jsonrpc":"2.0","id":9,"method":"shutdown"}"#;
+    const EXIT: &str = r#"{"jsonrpc":"2.0","method":"exit"}"#;
+
+    fn executed(id: u8, command: &str) -> String {
+        format!(
+            r#"{{"jsonrpc":"2.0","id":{id},"method":"workspace/executeCommand","params":{{"command":"mutation-gate.{command}","arguments":["0123456789ab"]}}}}"#
+        )
+    }
+
+    #[test]
+    fn shows_each_survivor_watch_tells_of_and_runs_its_actions() {
+        let (root, options) = workspace("watching", &format!("echo '{SURVIVOR}'\nexec sleep 30"));
+        let mut editor = Editor::open(options);
+        editor.send(&initialize(&root));
+        editor.send(INITIALIZED);
+        editor.awaited(&[PUBLISH, "0123456789ab"]);
+        editor.send(r#"{"jsonrpc":"2.0","id":2,"method":"textDocument/codeAction","params":{}}"#);
+        editor.send(r#"{"jsonrpc":"2.0","id":3,"method":"initialize","params":{}}"#);
+        editor.send(r#"{"jsonrpc":"2.0","method":"$/cancelRequest","params":{"id":2}}"#);
+        editor.send(&executed(4, "explain"));
+        editor.send(&executed(5, "stub"));
+        editor.awaited(&[r#""id":4,"result":null"#]);
+        let answered = editor.awaited(&[r#""id":5,"result":null"#]);
+        editor.send(SHUTDOWN);
+        editor.send(EXIT);
+
+        assert_eq!(editor.close(), Ok(()));
+        assert!(answered.contains(&r#"{"jsonrpc":"2.0","id":2,"result":[]}"#.to_owned()));
+        assert!(
+            answered
+                .iter()
+                .any(|answer| answer.contains(r#""id":3,"error":{"code":-32600"#))
+        );
+        assert!(
+            answered
+                .iter()
+                .any(|answer| answer.contains(r#""type":3,"message":"said explain 0123456789ab""#))
+        );
+        assert!(
+            answered
+                .iter()
+                .any(|answer| answer.contains(r#""type":1,"message":"said stub 0123456789ab""#))
+        );
+    }
+
+    #[test]
+    fn says_where_watch_ends_of_itself_or_does_not_start() {
+        let (root, options) = workspace("ending", "exit 3");
+        let mut editor = Editor::open(options);
+        editor.send(&initialize(&root));
+        editor.send(INITIALIZED);
+        editor.awaited(&[SHOW, "mutation-gate watch ended"]);
+        editor.send(SHUTDOWN);
+        editor.send(EXIT);
+
+        assert_eq!(editor.close(), Ok(()));
+
+        let unstarted = Options {
+            php: Some(root.join("no-php")),
+            ..super::options(&[]).unwrap()
+        };
+        let mut editor = Editor::open(unstarted);
+        editor.send(&initialize(&root));
+        editor.send(INITIALIZED);
+        editor.send(&executed(2, "explain"));
+        let answered = editor.awaited(&[r#""id":2,"result":null"#]);
+        editor.send(SHUTDOWN);
+        editor.send(EXIT);
+
+        assert_eq!(editor.close(), Ok(()));
+        assert!(answered.iter().any(|answer| answer.contains(UNSTARTED)));
+        assert!(answered.iter().any(|answer| answer.contains(UNRUN)));
+    }
+
+    #[test]
+    fn fails_where_the_editor_s_streams_break() {
+        let options = options(&[]).unwrap();
+
+        assert!(
+            serve(&options, framed(&[SHUTDOWN]).as_slice(), broken())
+                .is_err_and(|why| why.starts_with("cannot write to the editor"))
+        );
+        assert!(
+            serve(
+                &options,
+                &b"Content-Length: x\r\n\r\n"[..],
+                Written::default()
+            )
+            .is_err_and(|why| why.starts_with("cannot read the editor"))
+        );
+    }
+
+    #[test]
+    fn stops_watch_where_the_editor_no_longer_reads_and_ends_on_a_broken_line() {
+        let running = || {
+            Mutex::new(Some(
+                std::process::Command::new("/bin/sh")
+                    .args(["-c", "exec sleep 30"])
+                    .spawn()
+                    .unwrap(),
+            ))
+        };
+        let unheard = running();
+        let broken = Client {
+            output: Arc::new(Mutex::new(broken())),
+        };
+
+        told(
+            format!("{SURVIVOR}\n").as_bytes(),
+            &broken,
+            &unheard,
+            "file:///p",
+            Severity::Warning,
+        );
+
+        assert!(locked(&unheard).is_none());
+
+        let heard = running();
+        let written = Written::default();
+        let client = Client {
+            output: Arc::new(Mutex::new(written.clone())),
+        };
+        locked(&heard).as_mut().unwrap().kill().unwrap();
+        told(Unreadable, &client, &heard, "file:///p", Severity::Warning);
+
+        assert!(answers(&written)[0].contains("mutation-gate watch ended"));
+    }
 }

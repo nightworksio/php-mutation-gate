@@ -224,4 +224,69 @@ mod tests {
             "/bin/gate"
         );
     }
+
+    /// A gate in a directory of its own, a shell script of this body run through `sh`.
+    fn scripted(name: &str, body: &str) -> (PathBuf, Gate) {
+        let root = std::env::temp_dir().join(format!("outbreak-lsp-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("gate.sh"), body).unwrap();
+        let gate = Gate::of(
+            &root,
+            Path::new("gate.sh"),
+            Some(Path::new("/bin/sh")),
+            &["--config=x".to_owned()],
+        );
+
+        (root, gate)
+    }
+
+    #[test]
+    fn runs_each_action_for_a_mutant() {
+        let (_, gate) = scripted("act", "echo \"$@\"\n");
+
+        for (action, said) in [
+            (Action::Explain, "explain 0123456789ab\n"),
+            (Action::Stub, "stub 0123456789ab\n"),
+            (Action::StubWrite, "stub 0123456789ab --write\n"),
+        ] {
+            let output = gate.act(action, "0123456789ab").unwrap();
+
+            assert_eq!(String::from_utf8_lossy(&output.stdout), said);
+        }
+    }
+
+    #[test]
+    fn watches_with_the_options_given_and_waits_for_its_end() {
+        let (_, gate) = scripted("watch", "echo \"$@\"\n");
+        let mut child = gate.watch().unwrap();
+        let mut said = String::new();
+        std::io::Read::read_to_string(&mut child.stdout.take().unwrap(), &mut said).unwrap();
+
+        assert_eq!(said, "watch --output=events --config=x\n");
+        assert!(ended(child).unwrap().success());
+    }
+
+    #[test]
+    fn stops_a_watch_that_ends_when_asked_and_kills_one_that_does_not() {
+        let (_, asked) = scripted("asked", "exec sleep 30\n");
+        let (_, stubborn) = scripted(
+            "stubborn",
+            "trap '' TERM\necho trapped\nwhile :; do sleep 1; done\n",
+        );
+
+        assert!(!stop(asked.watch().unwrap()).unwrap().success());
+
+        let mut child = stubborn.watch().unwrap();
+        let mut trapped = String::new();
+        std::io::BufRead::read_line(
+            &mut std::io::BufReader::new(child.stdout.as_mut().unwrap()),
+            &mut trapped,
+        )
+        .unwrap();
+        let since = Instant::now();
+
+        assert_eq!(trapped, "trapped\n");
+        assert!(!stop(child).unwrap().success());
+        assert!(since.elapsed() >= STOP_WAIT);
+    }
 }
