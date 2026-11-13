@@ -18,33 +18,22 @@ use function sprintf;
 
 /**
  * How long the gate runs while a person works and before a push (ADR-0010),
- * and how its daemon serves those runs and is started (ADR-0078): `local`.
+ * and how its daemon serves those runs and is started (see LocalServe,
+ * ADR-0078): `local`.
  */
 final readonly class Local implements Part
 {
-    /** How long a daemon waits for a request before it stops, by default. */
-    private const int SERVE_IDLE_MINUTES = 30;
-
-    /** How long `watch` waits for a daemon it starts to listen, by default, in seconds. */
-    private const float SERVE_START_WAIT = 10.0;
-
-    /** How long a client may take to send its request, by default, in seconds. */
-    private const float SERVE_REQUEST = 5.0;
-
     /** The fewest runs that can disagree. */
     private const int TRIAGE_FEWEST = 2;
 
     private function __construct(
         private Seconds|Absent $watchBudget,
         private Seconds|Absent $prePushBudget,
-        private Seconds|Absent $serveIdle,
-        private ServeStart|Absent $serveStart,
-        private Seconds|Absent $serveStartWait,
+        private LocalServe $serve,
         private bool|Absent $inferSubsumed,
         private Seconds|Absent $watchPoll,
         private int|Absent $triageFewest,
         private int|Absent $memoryHeadroom,
-        private Seconds|Absent $serveRequest,
         private LocalWork $work,
         private bool|Absent $quick,
         private bool|Absent $cancelByUnit,
@@ -69,14 +58,11 @@ final readonly class Local implements Part
         return new self(
             $watchBudget,
             $prePushBudget,
-            $serveIdle,
-            $serveStart,
-            $serveStartWait,
+            LocalServe::of($serveIdle, $serveStart, $serveStartWait, $serveRequest),
             $inferSubsumed,
             $watchPoll,
             $triageFewest,
             $memoryHeadroom,
-            $serveRequest,
             $work instanceof LocalWork ? $work : LocalWork::of(),
             $quick,
             $cancelByUnit,
@@ -91,18 +77,19 @@ final readonly class Local implements Part
     public static function standard(): self
     {
         $none = self::none();
+        $serve = $none->serve();
 
         return self::of(
             $none->watchBudget(),
             $none->prePushBudget(),
-            $none->serveIdle(),
-            $none->serveStart(),
-            $none->serveStartWait(),
+            $serve->idle(),
+            $serve->start(),
+            $serve->startWait(),
             $none->inferSubsumed(),
             $none->watchPoll(),
             $none->triageFewest(),
             $none->memoryHeadroom(),
-            $none->serveRequest(),
+            $serve->request(),
             LocalWork::standard(),
             $none->quick(),
             $none->cancelsByUnit(),
@@ -115,14 +102,11 @@ final readonly class Local implements Part
             ? new self(
                 Absent::laid($this->watchBudget, $later->watchBudget),
                 Absent::laid($this->prePushBudget, $later->prePushBudget),
-                Absent::laid($this->serveIdle, $later->serveIdle),
-                Absent::laid($this->serveStart, $later->serveStart),
-                Absent::laid($this->serveStartWait, $later->serveStartWait),
+                $this->serve->over($later->serve),
                 Absent::laid($this->inferSubsumed, $later->inferSubsumed),
                 Absent::laid($this->watchPoll, $later->watchPoll),
                 Absent::laid($this->triageFewest, $later->triageFewest),
                 Absent::laid($this->memoryHeadroom, $later->memoryHeadroom),
-                Absent::laid($this->serveRequest, $later->serveRequest),
                 $this->work->over($later->work),
                 Absent::laid($this->quick, $later->quick),
                 Absent::laid($this->cancelByUnit, $later->cancelByUnit),
@@ -140,34 +124,16 @@ final readonly class Local implements Part
         return $this->prePushBudget instanceof Seconds ? $this->prePushBudget : Budgets::standard()->prePush();
     }
 
-    /** `local.serveIdle`: how long a daemon waits for a request before it stops. */
-    public function serveIdle(): Seconds
-    {
-        return $this->serveIdle instanceof Seconds ? $this->serveIdle : Seconds::minutes(self::SERVE_IDLE_MINUTES);
-    }
-
-    /** `local.serveRequest`: how long a client may take to send a daemon its request. */
-    public function serveRequest(): Seconds
-    {
-        return $this->serveRequest instanceof Seconds ? $this->serveRequest : Seconds::of(self::SERVE_REQUEST);
-    }
-
     /** `local.memoryHeadroom`: how many times the suite's peak `doctor` wants a memory cap to hold. */
     public function memoryHeadroom(): int
     {
         return $this->memoryHeadroom instanceof Absent ? Headroom::TIMES : $this->memoryHeadroom;
     }
 
-    /** `local.serveStartWait`: how long `watch` waits for a daemon it starts to listen. */
-    public function serveStartWait(): Seconds
+    /** How the local daemon serves the local runs and is started (ADR-0078). */
+    public function serve(): LocalServe
     {
-        return $this->serveStartWait instanceof Seconds ? $this->serveStartWait : Seconds::of(self::SERVE_START_WAIT);
-    }
-
-    /** `local.serveStart`: whether `watch` starts a daemon where none runs; it does by default. */
-    public function serveStart(): ServeStart
-    {
-        return $this->serveStart instanceof ServeStart ? $this->serveStart : ServeStart::Watch;
+        return $this->serve;
     }
 
     /**
@@ -234,16 +200,10 @@ final readonly class Local implements Part
                 $this->work->written(Json::object(
                     Member::of('watchBudget', WholeSeconds::duration($this->watchBudget)),
                     Member::of('prePushBudget', WholeSeconds::duration($this->prePushBudget)),
-                    Member::of('serveIdle', WholeSeconds::duration($this->serveIdle)),
-                    Member::of(
-                        'serveStart',
-                        $this->serveStart instanceof ServeStart ? $this->serveStart->value : $this->serveStart,
-                    ),
-                    Member::of('serveStartWait', WholeSeconds::duration($this->serveStartWait)),
+                )->merged($this->serve->written())->with(
                     Member::of('inferSubsumed', $this->inferSubsumed),
                     Member::of('watchPoll', WholeSeconds::duration($this->watchPoll)),
                     Member::of('memoryHeadroom', $this->memoryHeadroom),
-                    Member::of('serveRequest', WholeSeconds::duration($this->serveRequest)),
                     Member::of('quick', $this->quick),
                     Member::of('cancelByUnit', $this->cancelByUnit),
                 )),
@@ -255,13 +215,7 @@ final readonly class Local implements Part
     {
         return PhpCalls::duration('Local::watchBudget', $this->watchBudget)
             ->and(PhpCalls::duration('Local::prePushBudget', $this->prePushBudget))
-            ->and(PhpCalls::duration('Local::serveIdle', $this->serveIdle))
-            ->and(PhpCalls::inWith(
-                ...$this->serveStart instanceof ServeStart
-                    ? [sprintf('Local::serveStarting(ServeStart::%s)', $this->serveStart->name)]
-                    : [],
-            ))
-            ->and(PhpCalls::duration('Local::serveStartWait', $this->serveStartWait))
+            ->and($this->serve->php())
             ->and(PhpCalls::flag($this->inferSubsumed, 'Local::inferringSubsumed()', 'Local::runningSubsumed()'))
             ->and(PhpCalls::duration('Local::watchPoll', $this->watchPoll))
             ->and(PhpCalls::flag($this->quick, 'Local::quickRounds()', 'Local::fullRounds()'))
@@ -271,7 +225,6 @@ final readonly class Local implements Part
                     ? []
                     : [sprintf('Local::memoryHeadroom(%d)', $this->memoryHeadroom)],
             ))
-            ->and(PhpCalls::duration('Local::serveRequest', $this->serveRequest))
             ->and(PhpCalls::inWith(
                 ...$this->triageFewest instanceof Absent
                     ? []

@@ -175,7 +175,7 @@ final readonly class Serving
     /** @param list<string> $launch what goes before the PHP daemon's command line */
     private function startedWith(Local $local, array $launch): bool
     {
-        return new DaemonStart(ServeSocket::ofProject(), $local->serveStartWait(), $launch)
+        return new DaemonStart(ServeSocket::ofProject(), $local->serve()->startWait(), $launch)
             ->started($this->script, $this->project);
     }
 
@@ -188,7 +188,7 @@ final readonly class Serving
     {
         $composed = $this->composition->composeLocally($input);
 
-        return $composed instanceof Composed && $composed->settings->local()->serveStart()->startsForWatch()
+        return $composed instanceof Composed && $composed->settings->local()->serve()->start()->startsForWatch()
             ? $composed
             : NotGiven::value();
     }

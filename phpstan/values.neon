@@ -108,9 +108,10 @@ services:
                 'NightWorksIO\MutationGate\Core\Runner\Workers':
                     - Mutants # runner.workers forking only the mutants, not a record's mutants
                 'NightWorksIO\MutationGate\Core\Config\Local':
-                    - SERVE_REQUEST # seconds a client may take to send its request
                     - TRIAGE_FEWEST # the fewest runs that can disagree, not an exit code or an argument
-                    - SERVE_IDLE_MINUTES # how long a daemon idles, not how many presets ship
+                'NightWorksIO\MutationGate\Core\Config\LocalServe':
+                    - REQUEST # seconds a client may take to send its request
+                    - IDLE_MINUTES # how long a daemon idles, not how many presets ship
                 'NightWorksIO\MutationGate\Adapter\Serve\Connection':
                     - PEER_PROCESS # the levels and options of the platforms' sockets, not exit codes
                 'NightWorksIO\MutationGate\Core\Runner\MaxRss':

@@ -261,8 +261,8 @@ it('reads how large a suite may name a hot path, the memory doctor wants, and a 
     $set = Configs::settings(['runner' => 'pest', 'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s']])->local();
     $standard = Configs::settings(['runner' => 'pest'])->local();
 
-    expect([$set->memoryHeadroom(), $set->serveRequest()->seconds()])->toBe([3, 9.0])
-        ->and([$standard->memoryHeadroom(), $standard->serveRequest()->seconds()])->toBe([2, 5.0]);
+    expect([$set->memoryHeadroom(), $set->serve()->request()->seconds()])->toBe([3, 9.0])
+        ->and([$standard->memoryHeadroom(), $standard->serve()->request()->seconds()])->toBe([2, 5.0]);
 });
 
 it('refuses a least learned multiple past the most', function (): void {

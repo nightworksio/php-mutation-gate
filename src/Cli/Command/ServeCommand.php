@@ -125,7 +125,7 @@ final readonly class ServeCommand
             $forking->detached();
         }
 
-        $idle = $composed->settings->local()->serveIdle();
+        $idle = $composed->settings->local()->serve()->idle();
         $socket = ServeSocket::ofProject();
         $output->writeln(
             sprintf(self::SERVING, $identity->root(), $socket->path(), $idle->text()),
@@ -140,7 +140,7 @@ final readonly class ServeCommand
             static fn(ServeRequest $request, Connection $connection): int
                 => self::ran($request, $connection, $root, $vendor),
             $forking,
-            $composed->settings->local()->serveRequest(),
+            $composed->settings->local()->serve()->request(),
         )->served();
 
         return $ended instanceof CannotJudge ? Failed::because($output, $ended) : ExitCode::Passed->value;
