@@ -29,6 +29,7 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Mutant\BeforeRunPrograms;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 
@@ -82,7 +83,7 @@ final readonly class Compiler
         'opcache.enable_cli=1',
         'opcache.opt_debug_level=0x20000',
         'opcache.file_update_protection=0',
-        'display_errors=0',
+        BeforeRunPrograms::QUIET,
     ];
 
     /** The child's script: for each file, the marker on the dump's stream, then whether it compiled. */

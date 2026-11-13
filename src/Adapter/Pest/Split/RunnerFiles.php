@@ -12,6 +12,7 @@ use function is_resource;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Runner\ProgramArguments;
 
 use function sprintf;
 use function stat;
@@ -29,8 +30,6 @@ use function str_starts_with;
 final readonly class RunnerFiles
 {
     private const string IDENTITY = '%d:%d';
-
-    private const string OPTION = '--';
 
     private const string VALUE = '=';
 
@@ -92,7 +91,7 @@ final readonly class RunnerFiles
     {
         $equals = Bytes::find($argument, self::VALUE, 0);
 
-        return str_starts_with($argument, self::OPTION) && $equals !== false
+        return str_starts_with($argument, ProgramArguments::DOUBLE_DASH) && $equals !== false
             ? Bytes::from($argument, $equals + 1)
             : $argument;
     }

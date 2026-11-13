@@ -15,6 +15,7 @@ use function is_dir;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Mutant\BeforeRunPrograms;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 
@@ -77,7 +78,7 @@ final readonly class OpArrays
         PcovReach::SETS,
         'extension=%s',
         PcovReach::SETS,
-        'display_errors=0',
+        BeforeRunPrograms::QUIET,
         PcovReach::SETS,
         'log_errors=0',
     ];

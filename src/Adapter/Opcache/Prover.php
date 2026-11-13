@@ -6,12 +6,12 @@ namespace NightWorksIO\MutationGate\Adapter\Opcache;
 
 use function array_key_exists;
 use function array_map;
-use function hash;
 use function in_array;
 
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\Mutant\BeforeRunPrograms;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 
@@ -30,10 +30,6 @@ use function sprintf;
  */
 final readonly class Prover
 {
-    private const string ORIGINAL = 'original:%s';
-
-    private const string MUTANT = 'mutant:%s';
-
     /** The setting that disables in a child what the tests' PHP disables. */
     private const string DISABLED = 'disable_functions=%s';
 
@@ -85,7 +81,7 @@ final readonly class Prover
         $programs = $this->originals($pairs);
 
         foreach ($pairs as [$key, , $mutant]) {
-            $programs[sprintf(self::MUTANT, $key)] = $mutant;
+            $programs[BeforeRunPrograms::mutant($key)] = $mutant;
         }
 
         $compiled = $this->compiler->compiled($programs);
@@ -109,7 +105,7 @@ final readonly class Prover
 
         foreach ($pairs as $pair) {
             [, $original, $mutant] = $pair;
-            $undecided = $checks[$this->originalOf($original)]->reached($mutant) ? $undecided : [...$undecided, $pair];
+            $undecided = $checks[BeforeRunPrograms::original($original)]->reached($mutant) ? $undecided : [...$undecided, $pair];
         }
 
         return $undecided;
@@ -132,7 +128,7 @@ final readonly class Prover
 
         foreach ($pairs as $pair) {
             [$key, $original] = $pair;
-            $opcodes = $this->sharedOpcodes($compiled, $this->originalOf($original), sprintf(self::MUTANT, $key));
+            $opcodes = $this->sharedOpcodes($compiled, BeforeRunPrograms::original($original), BeforeRunPrograms::mutant($key));
 
             if ($opcodes instanceof Opcodes) {
                 $same[] = $pair;
@@ -144,7 +140,7 @@ final readonly class Prover
         $proven = [];
 
         foreach ($same as [$key, $original, $mutant]) {
-            $before = $declared[$this->originalOf($original)];
+            $before = $declared[BeforeRunPrograms::original($original)];
             $after = Declarations::of($mutant);
             $proven = $before instanceof Declarations && $after instanceof Declarations && $before->same($after)
                 && (! $hiding[$key] || $before->writesTheSameConstants($after))
@@ -166,7 +162,7 @@ final readonly class Prover
         $originals = [];
 
         foreach ($pairs as [, $original]) {
-            $originals[$this->originalOf($original)] = $original;
+            $originals[BeforeRunPrograms::original($original)] = $original;
         }
 
         return $originals;
@@ -185,11 +181,5 @@ final readonly class Prover
         return $before instanceof Opcodes && $after instanceof Opcodes && $before->same($after)
             ? $before
             : NotGiven::value();
-    }
-
-    /** An original's name among the programs, one for every mutant of the same text. */
-    private function originalOf(Contents $original): string
-    {
-        return sprintf(self::ORIGINAL, hash('sha256', $original->text()));
     }
 }

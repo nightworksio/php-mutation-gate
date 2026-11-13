@@ -40,15 +40,8 @@ final readonly class ArtifactClaims implements ItemClaims
 
     private const string DONE_OF = 'mutation-gate-done-%s-%d-%d-';
 
-    /** What the service answers a create whose name another artifact of the run holds. */
-    private const int TAKEN = 409;
-
     /** An empty zip archive: its end of central directory record alone. */
     private const string EMPTY = "PK\x05\x06\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
-
-    private const string BLOB_TYPE = 'x-ms-blob-type';
-
-    private const string BLOCK_BLOB = 'BlockBlob';
 
     private const string UNHANDED = 'The gate was handed no artifact service to claim items by.';
 
@@ -132,7 +125,7 @@ final readonly class ArtifactClaims implements ItemClaims
     {
         $answer = $this->artifacts->answer('CreateArtifact', ['name' => $name, 'version' => 4]);
 
-        if ($answer instanceof Reply && $answer->status() === self::TAKEN) {
+        if ($answer instanceof Reply && $answer->isConflict()) {
             return false;
         }
 
@@ -145,7 +138,7 @@ final readonly class ArtifactClaims implements ItemClaims
         $url = is_string($created['signed_upload_url'] ?? null) ? $created['signed_upload_url'] : '';
         $uploaded = $url === ''
             ? CannotJudge::because(sprintf(RunArtifacts::UNREAD, 'CreateArtifact'))
-            : $this->artifacts->sent(Request::put($url, self::EMPTY)->with(self::BLOB_TYPE, self::BLOCK_BLOB));
+            : $this->artifacts->sent(Request::put($url, self::EMPTY)->asBlockBlob());
         $finalized = $uploaded instanceof Reply && $uploaded->isAccepted()
             ? $this->artifacts->called('FinalizeArtifact', [
                 'name' => $name,

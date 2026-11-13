@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ProgramArguments;
 use NightWorksIO\MutationGate\Core\Verb;
 
 use function proc_close;
@@ -50,8 +51,6 @@ final readonly class LspCommand
     private const string STDIO = 'stdio';
 
     private const string WATCHING = 'watching';
-
-    private const string REST = '--';
 
     private const string NO_BINARY = <<<'SAID'
         mutation-gate lsp needs the Outbreak binary, and none is in use:
@@ -131,7 +130,7 @@ final readonly class LspCommand
         $valueOfOwn = false;
 
         foreach ($tokens as $at => $token) {
-            if ($token === self::REST) {
+            if ($token === ProgramArguments::DOUBLE_DASH) {
                 return [...$handed, ...array_slice($tokens, $at + 1)];
             }
 

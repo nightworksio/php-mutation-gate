@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
 use function array_key_exists;
-use function hash;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Mutant\BeforeRunPrograms;
 use NightWorksIO\MutationGate\Core\Mutant\BeforeRunProofs;
 use NightWorksIO\MutationGate\Core\Mutant\PrintsDeclarations;
 use NightWorksIO\MutationGate\Core\Mutant\ProvesBeforeRun;
@@ -30,10 +30,6 @@ use function sprintf;
  */
 final readonly class ProvenBeforeRun implements ProvesBeforeRun
 {
-    private const string ORIGINAL = 'original:%s';
-
-    private const string MUTANT = 'mutant:%s';
-
     private const string PROOF = <<<'SAID'
         outbreak.so %s compiled it to its original's op arrays before any test ran,
         and it declares what its original declares, so no test can fail on it (ADR-0130).
@@ -48,8 +44,8 @@ final readonly class ProvenBeforeRun implements ProvesBeforeRun
         $programs = [];
 
         foreach ($pairs as [$key, $original, $mutant]) {
-            $programs[$this->originalOf($original)] = $original;
-            $programs[sprintf(self::MUTANT, $key)] = $mutant;
+            $programs[BeforeRunPrograms::original($original)] = $original;
+            $programs[BeforeRunPrograms::mutant($key)] = $mutant;
         }
 
         $compiled = $pairs === [] ? NotGiven::value() : $this->compiler->digests($programs);
@@ -59,17 +55,53 @@ final readonly class ProvenBeforeRun implements ProvesBeforeRun
         }
 
         [$digests, $version] = $compiled;
-        $proof = Reason::that(sprintf(self::PROOF, $version));
-        $declared = [];
-        $proven = [];
+
+        return new BeforeRunProofs(
+            $this->provenOf($pairs, $digests, Reason::that(sprintf(self::PROOF, $version))),
+            $this->digestsOf($pairs, $digests),
+        );
+    }
+
+    public function declarations(Contents $program): string|NotGiven
+    {
+        return $this->printer->declarations($program);
+    }
+
+    /**
+     * Each mutant's digest, by its key, where it compiled.
+     *
+     * @param  list<array{string, Contents, Contents}> $pairs
+     * @param  array<string, string>                   $digests by program
+     * @return array<string, string>
+     */
+    private function digestsOf(array $pairs, array $digests): array
+    {
         $programs = [];
 
-        foreach ($pairs as [$key, $original, $mutant]) {
-            $before = $this->originalOf($original);
-            $after = sprintf(self::MUTANT, $key);
+        foreach ($pairs as [$key]) {
+            $after = BeforeRunPrograms::mutant($key);
             $programs = array_key_exists($after, $digests) ? [...$programs, $key => $digests[$after]] : $programs;
+        }
 
-            if (! array_key_exists($before, $digests) || ($digests[$after] ?? '') !== $digests[$before]) {
+        return $programs;
+    }
+
+    /**
+     * The proof of each mutant that compiled to its original's op arrays and declares what its original declares.
+     *
+     * @param  list<array{string, Contents, Contents}> $pairs
+     * @param  array<string, string>                   $digests by program
+     * @return array<string, Reason>
+     */
+    private function provenOf(array $pairs, array $digests, Reason $proof): array
+    {
+        $declared = [];
+        $proven = [];
+
+        foreach ($pairs as [$key, $original, $mutant]) {
+            $before = BeforeRunPrograms::original($original);
+
+            if (! $this->compiledAlike($digests, $before, BeforeRunPrograms::mutant($key))) {
                 continue;
             }
 
@@ -80,17 +112,18 @@ final readonly class ProvenBeforeRun implements ProvesBeforeRun
                 : $proven;
         }
 
-        return new BeforeRunProofs($proven, $programs);
+        return $proven;
     }
 
-    public function declarations(Contents $program): string|NotGiven
+    /**
+     * Whether both programs compiled, to the same op arrays.
+     *
+     * @param array<string, string> $digests by program
+     */
+    private function compiledAlike(array $digests, string $before, string $after): bool
     {
-        return $this->printer->declarations($program);
-    }
-
-    /** An original's name among the programs, one for every mutant of the same text. */
-    private function originalOf(Contents $original): string
-    {
-        return sprintf(self::ORIGINAL, hash('sha256', $original->text()));
+        return array_key_exists($before, $digests)
+            && array_key_exists($after, $digests)
+            && $digests[$before] === $digests[$after];
     }
 }

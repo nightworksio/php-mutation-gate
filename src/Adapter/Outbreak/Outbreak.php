@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Reach\GraphAsked;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Reach\ReachGraph;
 use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
+use NightWorksIO\MutationGate\Core\Runner\ProgramArguments;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -91,9 +92,6 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
 
     /** The option `outbreak serve` takes the seconds the changes it watches settle for with. */
     private const string DEBOUNCE = '--debounce';
-
-    /** What separates `outbreak serve`'s options from the child's command line, and `outbreak lsp`'s from `watch`'s. */
-    private const string CHILD = '--';
 
     /** The option `outbreak lsp` takes the gate's script with. */
     private const string GATE = '--gate';
@@ -280,7 +278,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             sprintf('%F', $serve->syncEvery()->seconds()),
             self::DEBOUNCE,
             sprintf('%F', $serve->debounce()->seconds()),
-            self::CHILD,
+            ProgramArguments::DOUBLE_DASH,
         ];
     }
 
@@ -305,7 +303,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             $php,
             self::SEVERITY,
             $severity,
-            self::CHILD,
+            ProgramArguments::DOUBLE_DASH,
             ...$watching,
         ];
     }
@@ -371,7 +369,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
     {
         $registry = $request->registry();
 
-        return (string) json_encode([
+        return json_encode([
             'store' => $request->store()->value,
             ...$registry instanceof NotGiven ? [] : ['registry' => $registry],
             'base' => $request->base()->value(),

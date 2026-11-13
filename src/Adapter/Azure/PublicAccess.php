@@ -26,9 +26,6 @@ use function sprintf;
  */
 final readonly class PublicAccess
 {
-    /** How an account that refuses anonymous reads answers a request of a version before the bearer challenge. */
-    private const int REFUSED = 409;
-
     private const string CONTAINER = '%s?restype=container';
 
     /** The account that refused, where the options name a public URL and its account refuses anonymous reads. */
@@ -37,7 +34,7 @@ final readonly class PublicAccess
         $url = $options->publicUrl();
         $answer = is_string($url) ? $exchange->answer(Request::get(sprintf(self::CONTAINER, rtrim($url, '/')))) : $url;
 
-        return is_string($url) && $answer instanceof Reply && $answer->status() === self::REFUSED
+        return is_string($url) && $answer instanceof Reply && $answer->isConflict()
             ? AnonymousReadsRefused::by($options->account(), $url)
             : NotGiven::value();
     }
