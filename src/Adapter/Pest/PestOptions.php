@@ -70,10 +70,11 @@ final readonly class PestOptions
 
     private const string CANARY = 'canary';
 
+    /** @param list<string> $mutators the registered mutators' classes the options name */
     private function __construct(
         private Patching $patching,
         private Paths $tests,
-        private Bridges $bridges,
+        private array $mutators,
         private LimitBounds $bounds,
     ) {
     }
@@ -125,7 +126,7 @@ final readonly class PestOptions
                         PestSteps::of($toggles, $vouching, $selecting, $judging, $bootChunks === true, $rejudging),
                     ),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
-                self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
+                $mutators instanceof Listed ? [...$mutators] : [],
                 $bounds,
             ),
         };
@@ -147,10 +148,16 @@ final readonly class PestOptions
         return $this->bounds;
     }
 
-    /** The bridges to the registered mutators the options name, or why Pest cannot make mutants with one. */
+    /**
+     * The bridges to the registered mutators the options name, or why Pest
+     * cannot make mutants with one, read from Pest's own mutators only once
+     * asked for, so a run Pest's processes cannot start never loads them.
+     */
     public function bridges(): Bridges
     {
-        return $this->bridges;
+        $enabled = Enabled::named(BuiltinRunner::Pest, ...$this->mutators);
+
+        return $enabled instanceof CannotJudge ? Bridges::refusing($enabled) : Bridges::to($enabled);
     }
 
     /** Whether a run is patched, and the group of its canary where it is. */
@@ -237,13 +244,5 @@ final readonly class PestOptions
                 ->bootingOnce($bootOnce === true)
                 ->reconnecting($reconnect === true),
         };
-    }
-
-    /** @param list<string> $classes */
-    private static function bridgesTo(array $classes): Bridges
-    {
-        $enabled = Enabled::named(BuiltinRunner::Pest, ...$classes);
-
-        return $enabled instanceof CannotJudge ? Bridges::refusing($enabled) : Bridges::to($enabled);
     }
 }
