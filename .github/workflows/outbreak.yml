@@ -161,14 +161,14 @@ jobs:
       - run: >-
           cargo llvm-cov nextest --workspace --locked --fail-under-lines 100 --show-missing-lines
           --ignore-filename-regex 'crates/outbreak-ext/src/(engine|lib|program|state|value)\.rs'
-      # Every line the report counts unrun, in any instantiation, which
-      # --show-missing-lines may not name.
+      # Every line the report counts unrun, which --show-missing-lines may
+      # not name: the report credits a function with its best instantiation.
       - name: the lines left unrun
         if: failure()
         run: |
           cargo llvm-cov report --color never --text --show-instantiations \
             --ignore-filename-regex 'crates/outbreak-ext/src/(engine|lib|program|state|value)\.rs' > "${RUNNER_TEMP}/unrun.txt"
-          awk '/\.rs:$/ { file = $0 } /^[ |]*[0-9]+\|[ ]*0\|/ { print file " " $0 }' "${RUNNER_TEMP}/unrun.txt"
+          python3 ../.github/scripts/unrun_lines.py "${RUNNER_TEMP}/unrun.txt"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
