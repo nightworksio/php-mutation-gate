@@ -285,16 +285,15 @@ impl<W: Write + Send + 'static> Session<W> {
             Ok(mut child) => {
                 let lines = child.stdout.take();
                 *locked(&self.watching) = Some(child);
-
-                if let Some(lines) = lines {
-                    let (client, watching, root, severity) = (
-                        self.client.clone(),
-                        Arc::clone(&self.watching),
-                        root.clone(),
-                        self.options.severity,
-                    );
-                    thread::spawn(move || told(lines, &client, &watching, &root, severity));
-                }
+                let (client, watching, root, severity) = (
+                    self.client.clone(),
+                    Arc::clone(&self.watching),
+                    root.clone(),
+                    self.options.severity,
+                );
+                let _ = lines.map(|lines| {
+                    thread::spawn(move || told(lines, &client, &watching, &root, severity))
+                });
             }
             Err(error) => self
                 .client
@@ -825,7 +824,7 @@ mod tests {
         };
 
         told(
-            format!("{SURVIVOR}\n").as_bytes(),
+            format!("Watching src for changes\n{SURVIVOR}\n").as_bytes(),
             &broken,
             &unheard,
             "file:///p",
@@ -839,7 +838,9 @@ mod tests {
         let client = Client {
             output: Arc::new(Mutex::new(written.clone())),
         };
-        locked(&heard).as_mut().unwrap().kill().unwrap();
+        let pid = rustix::process::Pid::from_child(locked(&heard).as_ref().unwrap());
+        rustix::process::kill_process(pid, rustix::process::Signal::KILL).unwrap();
+        rustix::process::waitpid(Some(pid), rustix::process::WaitOptions::empty()).unwrap();
         told(Unreadable, &client, &heard, "file:///p", Severity::Warning);
 
         assert!(answers(&written)[0].contains("mutation-gate watch ended"));
