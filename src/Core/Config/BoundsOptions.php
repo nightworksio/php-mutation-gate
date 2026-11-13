@@ -112,12 +112,24 @@ final readonly class BoundsOptions
             $startUp instanceof Problem => $startUp,
             $startUpMultiple instanceof Problem => $startUpMultiple,
             default => LimitBounds::between(
-                $timeout instanceof NotGiven ? $standard->limit() : Seconds::of($timeout),
-                $most instanceof NotGiven ? $standard->most() : Seconds::of($most),
-                $startUp instanceof NotGiven ? MutantLimit::START_UP : $startUp,
-                $startUpMultiple instanceof NotGiven ? MutantLimit::FACTOR : $startUpMultiple,
+                self::seconds($timeout, $standard->limit()),
+                self::seconds($most, $standard->most()),
+                self::number($startUp, MutantLimit::START_UP),
+                self::number($startUpMultiple, MutantLimit::FACTOR),
             ),
         };
+    }
+
+    /** A number of seconds given, or the standard where none is. */
+    private static function seconds(float|NotGiven $given, Seconds $standard): Seconds
+    {
+        return $given instanceof NotGiven ? $standard : Seconds::of($given);
+    }
+
+    /** A number given, or the standard where none is. */
+    private static function number(float|NotGiven $given, float $standard): float
+    {
+        return $given instanceof NotGiven ? $standard : $given;
     }
 
     /** These bounds, their floor learned where the options say it is. */
