@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Support\Commands;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -177,4 +178,15 @@ it('says why it cannot resolve the config for a context --context does not name,
 
     expect($shown->code)->toBe(2)
         ->and(sprintf('%s%s', $shown->output, $shown->errors))->toContain('--context: expected local, ci, github, gitlab, bitbucket, azure, buildkite, jenkins, circleci, pr or main, got "staging"');
+});
+
+it('marks each loose value in force aside, apart from the config it prints', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"runner": "pest", "controls": {"kills": false}}');
+
+    $shown = Commands::run($project, 'config:show');
+
+    expect($shown->code)->toBe(0)
+        ->and($shown->errors)->toBe("Loose: controls.kills is false, a loose value: a kill counts without its control on the unmutated code.\n")
+        ->and(Node::decode($shown->output)->field('controls')->field('kills')->boolean())->toBeFalse();
 });

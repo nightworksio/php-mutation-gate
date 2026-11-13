@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -482,3 +484,76 @@ it('measures every test in its first round where the carried map was measured in
     'measured in a dirty tree' => [true, 'was measured in a dirty working tree'],
     'not there' => [false, 'map.json.gz'],
 ]);
+/**
+ * Each event line of a watch's output, by its site, status, killer and whether its round was quick.
+ *
+ * @return list<string>
+ */
+function watchEvents(string $output): array
+{
+    $events = [];
+
+    foreach (array_filter(explode("\n", $output), static fn(string $line): bool => $line !== '') as $line) {
+        $event = Node::decode($line);
+        $by = $event->field('by');
+        $events[] = sprintf(
+            '%s %s by %s%s',
+            $event->field('site')->text(),
+            $event->field('status')->text(),
+            $by->kind() === Kind::Text ? $by->text() : 'none',
+            $event->field('quick')->boolean() ? ' (quick)' : '',
+        );
+    }
+
+    return $events;
+}
+
+it('says each mutant a batch judged as one line of JSON with --output=events, and prints no verdict', function () use ($changing): void {
+    $composition = FlowCommands::watching(watchedProject(), ScriptedRunner::fixture(), new ProofStoreFake(), $changing());
+
+    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false), '--output=events');
+
+    expect([$ran->code, $ran->errors])->toBe([0, ''])
+        ->and(watchEvents($ran->output))->toBe([
+            'src/Held.php:11 survived by none',
+            'src/Money.php:11 killed by MoneyTest::adds',
+            'src/Money.php:16 survived by none',
+            'src/Money.php:21 survived by none',
+            'src/Money.php:27 timeout by none',
+        ]);
+});
+
+it('takes each round after one that planned as quick under local.quick, the saved file first, each event saying so', function (): void {
+    $files = [...Flows::FILES, 'tests/HeldTest.php' => "<?php\n\nit('doubles', fn () => expect(2)->toBe(2));\n"];
+    $project = watchedProject('"local": {"quick": true}');
+    Scratch::write($project, 'tests/HeldTest.php', $files['tests/HeldTest.php']);
+    $checkout = ChangingCheckout::holding($files, ChangingCheckout::with('src/Money.php', "<?php\n\n// changed\n", $files));
+    $composition = FlowCommands::watching($project, ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
+    $waits = waitsChanging($checkout, 1);
+
+    $ran = FlowCommands::run(WatchCommand::command($composition, static function () use ($waits, $project): bool {
+        Scratch::write($project, 'src/Money.php', "<?php\n\n// changed\n");
+
+        return $waits();
+    }), '--output=events');
+
+    expect($ran->code)->toBe(0)
+        ->and(array_slice(watchEvents($ran->output), 5))->toBe([
+            'src/Money.php:11 killed by MoneyTest::adds (quick)',
+            'src/Money.php:16 survived by none (quick)',
+            'src/Money.php:21 survived by none (quick)',
+            'src/Money.php:27 timeout by none (quick)',
+            'src/Held.php:11 survived by none (quick)',
+        ]);
+});
+
+it('leaves the units a change moved to the next round where local.cancelByUnit is on, and says so', function (): void {
+    $checkout = ChangingCheckout::becomingAt(3, ChangingCheckout::with('src/Money.php', "<?php\n\n// changed\n"));
+    $composition = FlowCommands::watching(watchedProject('"local": {"watchPoll": "0s", "cancelByUnit": true}'), ScriptedRunner::fixture(), new ProofStoreFake(), $checkout);
+
+    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false));
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toStartWith(sprintf("%sA change arrived: the units it moved wait for the next round, which judges again.\nWrote memory:refs/heads/main.\n", WATCHING))
+        ->and(substr_count($ran->output, 'mutation-gate: '))->toBe(1);
+});
