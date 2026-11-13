@@ -33,20 +33,39 @@ final readonly class StreamPlanFile
 
         return new StreamPlan(
             $read['results'],
-            self::sitesOf(self::listed($read, 'sites')),
-            self::textsOf(self::listed($read, 'paths')),
+            PlannedSites::of(self::listed($read, 'sites')),
+            self::texts(self::listed($read, 'paths')),
             self::timesOf(self::listed($read, 'times')),
-            max(1, self::holds($read, 'children') && is_int($read['children']) ? $read['children'] : 1),
+            max(1, self::integer($read, 'children', 1)),
             new ChildLimit(
                 self::number($read, 'multiple'),
                 self::number($read, 'floor'),
                 self::number($read, 'longest'),
-                max(0, self::holds($read, 'stepFloor') && is_int($read['stepFloor']) ? $read['stepFloor'] : 0),
+                max(0, self::integer($read, 'stepFloor', 0)),
             ),
-            self::holds($read, 'recording') && is_string($read['recording']) ? $read['recording'] : '',
-            self::holds($read, 'bootOnce') && $read['bootOnce'] === true,
-            self::holds($read, 'reconnect') && $read['reconnect'] === true,
+            self::text($read, 'recording'),
+            self::flag($read, 'bootOnce'),
+            self::flag($read, 'reconnect'),
         );
+    }
+
+    /**
+     * Each of these that is text, by its name.
+     *
+     * @param  array<mixed>          $texts
+     * @return array<string, string>
+     */
+    public static function texts(array $texts): array
+    {
+        $read = [];
+
+        foreach ($texts as $name => $value) {
+            if (is_string($value)) {
+                $read[(string) $name] = $value;
+            }
+        }
+
+        return $read;
     }
 
     /** @param array<mixed> $read */
@@ -65,82 +84,29 @@ final readonly class StreamPlanFile
     }
 
     /** @param array<mixed> $read */
+    private static function integer(array $read, string $key, int $otherwise): int
+    {
+        return self::holds($read, $key) && is_int($read[$key]) ? $read[$key] : $otherwise;
+    }
+
+    /** @param array<mixed> $read */
+    private static function text(array $read, string $key): string
+    {
+        return self::holds($read, $key) && is_string($read[$key]) ? $read[$key] : '';
+    }
+
+    /** @param array<mixed> $read */
+    private static function flag(array $read, string $key): bool
+    {
+        return self::holds($read, $key) && $read[$key] === true;
+    }
+
+    /** @param array<mixed> $read */
     private static function number(array $read, string $key): float
     {
         $value = self::holds($read, $key) ? $read[$key] : 0;
 
         return is_float($value) || is_int($value) ? (float) $value : 0.0;
-    }
-
-    /**
-     * @param  array<mixed>                                                               $sites
-     * @return array<string, array<int, array{string, string, array<string, string>}>>
-     */
-    private static function sitesOf(array $sites): array
-    {
-        $read = [];
-
-        foreach ($sites as $file => $switches) {
-            $read[(string) $file] = is_array($switches) ? self::switchesOf($switches) : [];
-        }
-
-        return $read;
-    }
-
-    /**
-     * @param  array<mixed>                                                $switches
-     * @return array<int, array{string, string, array<string, string>}>
-     */
-    private static function switchesOf(array $switches): array
-    {
-        $read = [];
-
-        foreach ($switches as $id => $site) {
-            $planned = is_array($site) ? self::siteOf($site) : false;
-
-            if ($planned !== false) {
-                $read[(int) $id] = $planned;
-            }
-        }
-
-        return $read;
-    }
-
-    /**
-     * @param  array<mixed>                                      $site
-     * @return array{string, string, array<string, string>}|false
-     */
-    private static function siteOf(array $site): array|false
-    {
-        $mutant = self::textAt($site, 0);
-        $killer = self::textAt($site, 1);
-
-        return $mutant !== false && $killer !== false
-            ? [$mutant, $killer, self::textsOf(self::listed($site, '2'))]
-            : false;
-    }
-
-    /** @param array<mixed> $read */
-    private static function textAt(array $read, int $at): string|false
-    {
-        return array_key_exists($at, $read) && is_string($read[$at]) ? $read[$at] : false;
-    }
-
-    /**
-     * @param  array<mixed>          $texts
-     * @return array<string, string>
-     */
-    private static function textsOf(array $texts): array
-    {
-        $read = [];
-
-        foreach ($texts as $name => $value) {
-            if (is_string($value)) {
-                $read[(string) $name] = $value;
-            }
-        }
-
-        return $read;
     }
 
     /**
