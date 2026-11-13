@@ -119,7 +119,7 @@ final class Running
         try {
             $process = proc_open(
                 $arguments,
-                self::DESCRIPTORS,
+                Unshared::over(self::DESCRIPTORS),
                 $pipes,
                 $command->directory(),
                 self::environment($command->in($slot)->environment()),
@@ -132,6 +132,7 @@ final class Running
             return self::unstarted(sprintf(self::NOT_STARTED, $arguments[0]));
         }
 
+        $pipes = Unshared::kept($pipes, self::DESCRIPTORS);
         fclose($pipes[self::INPUT]);
         unset($pipes[self::INPUT]);
 

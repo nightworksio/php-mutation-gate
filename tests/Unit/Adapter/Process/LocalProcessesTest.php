@@ -92,3 +92,28 @@ it('starts a test process that sees neither the runtime token, the artifact serv
         ->and($ran->succeeded())->toBeTrue()
         ->and(trim($ran->printed()))->toBe('[false,false,false,true]');
 });
+
+it('starts a process that holds an empty pipe where the gate holds a file open for writing', function (): void {
+    $file = sprintf('%s/held.log', Scratch::directory());
+    $held = fopen($file, 'wb');
+    $inode = fileinode($file);
+    $descriptors = scandir('/dev/fd');
+    $number = current(array_filter(
+        is_array($descriptors) ? $descriptors : [],
+        static fn(string $descriptor): bool => is_file(sprintf('/dev/fd/%s', $descriptor))
+            && fileinode(sprintf('/dev/fd/%s', $descriptor)) === $inode,
+    ));
+    $seen = sprintf(
+        '$stream = fopen("php://fd/%s", "rb"); echo json_encode([fstat($stream)["mode"] & 0170000, stream_get_contents($stream)]);',
+        $number,
+    );
+    $ran = new LocalProcesses(new SystemClock())->run(ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', $seen));
+
+    if (is_resource($held)) {
+        fclose($held);
+    }
+
+    expect($number)->toBeString()
+        ->and($ran->succeeded())->toBeTrue($ran->output())
+        ->and(trim($ran->printed()))->toBe('[4096,""]');
+});

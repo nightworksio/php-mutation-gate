@@ -76,10 +76,14 @@ switch (ADR-0091), so the stream's program holds every site.
    command line names, known by device and inode: the test runner's
    output, such as paratest's status, progress and unexpected-output files
    or a JUnit log, which a child, killed as its test ends, never writes
-   into what the parent reads. A mutant whose covering tests
-   include such a test, and that no stream killed, runs its own run as
-   before, narrowed to its covering tests, with its verification. Without
-   `pcntl` and `posix` every mutant runs its own run, and the run warns.
+   into what the parent reads. The gate starts its runner holding the read
+   end of an empty pipe in the place of each descriptor past the standard
+   three that the gate's own process holds, so a file the gate, or what
+   started it, holds open for writing reaches no stream. A mutant whose
+   covering tests include such a test, and that no stream killed, runs its
+   own run as before, narrowed to its covering tests, with its
+   verification. Without `pcntl` and `posix` every mutant runs its own run,
+   and the run warns.
 8. **`splitStream.killersFirst`, true by default, forks each mutant first
    at the test the ledger last saw kill it** (ADR-0013). A mutant with no
    such test forks at every covering test. A mutant its killer did not kill
