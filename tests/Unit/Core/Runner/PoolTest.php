@@ -29,10 +29,10 @@ it('lays bounds on the start-up it measured, keeping it for the tail, and on non
     $measured = Pool::of(ProcessCount::of(4), Workers::Mutants)->startingIn(Seconds::of(2.5));
     $tail = $measured->tail();
 
-    expect($measured->bounding($bounds)->startUp())->toEqual(Seconds::of(2.5))
+    expect($measured->bounding($bounds)->startUp()->measured())->toEqual(Seconds::of(2.5))
         ->and([$tail->processes()->count(), $tail->workers()])->toBe([4, Workers::Fresh])
-        ->and($tail->bounding($bounds)->startUp())->toEqual(Seconds::of(2.5))
-        ->and(Pool::single()->bounding($bounds)->startUp())->toBeInstanceOf(Unmeasured::class);
+        ->and($tail->bounding($bounds)->startUp()->measured())->toEqual(Seconds::of(2.5))
+        ->and(Pool::single()->bounding($bounds)->startUp()->measured())->toBeInstanceOf(Unmeasured::class);
 });
 
 it('runs the tail as runner.workers says: forked under fork, and fresh under mutants and fresh', function (Workers $workers, Workers $tail): void {

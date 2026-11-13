@@ -85,8 +85,8 @@ final readonly class BoundsOptions
         return [
             Member::of(self::TIMEOUT, $triage->limit()->seconds()),
             Member::of(self::MOST, $triage->most()->seconds()),
-            Member::of(self::START_UP, $bounds->unmeasuredStartUp()->seconds()),
-            Member::of(self::START_UP_MULTIPLE, $bounds->startUpMultiple()),
+            Member::of(self::START_UP, $bounds->startUp()->unmeasured()->seconds()),
+            Member::of(self::START_UP_MULTIPLE, $bounds->startUp()->multiple()),
             $bounds->learnsMultiple()
                 ? Member::of(self::LEARNS_MULTIPLE, value: true)
                 : Member::of(self::MULTIPLE, $bounds->multiple()->times()),

@@ -74,13 +74,13 @@ it('reads the remaining keys that tune a run, each at its default where no layer
         'triage' => ['fewest' => 3],
     ]);
 
-    expect($standard->triage()->bounds()->unmeasuredStartUp())->toEqual(Seconds::of(5.0))
+    expect($standard->triage()->bounds()->startUp()->unmeasured())->toEqual(Seconds::of(5.0))
         ->and($standard->staticCheck()->opcacheBatch())->toBe(100)
         ->and($standard->staticCheck()->opcacheLimit())->toEqual(Seconds::of(60.0))
         ->and($standard->ignores()->notice())->toBe(14)
         ->and($standard->local()->watchPoll())->toEqual(Seconds::of(2.0))
         ->and($standard->local()->triageFewest())->toBe(2)
-        ->and($set->triage()->bounds()->unmeasuredStartUp())->toEqual(Seconds::of(9.0))
+        ->and($set->triage()->bounds()->startUp()->unmeasured())->toEqual(Seconds::of(9.0))
         ->and($set->staticCheck()->opcacheBatch())->toBe(50)
         ->and($set->staticCheck()->opcacheLimit())->toEqual(Seconds::of(30.0))
         ->and($set->ignores()->notice())->toBe(7)

@@ -28,7 +28,7 @@ it('reads back what a run gets to start in where nothing measured it', function 
     $written = Json::object(...BoundsOptions::of(Triage::of(startUp: Seconds::of(9.0))));
     $read = BoundsOptions::read(Configs::options($written->line()));
 
-    expect($read instanceof LimitBounds ? $read->unmeasuredStartUp() : $read)->toEqual(Seconds::of(9.0));
+    expect($read instanceof LimitBounds ? $read->startUp()->unmeasured() : $read)->toEqual(Seconds::of(9.0));
 });
 
 it('says why where a bound is no number or the tighter mutators no list of text', function (string $options): void {

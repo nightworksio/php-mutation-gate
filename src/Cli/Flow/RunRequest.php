@@ -39,7 +39,7 @@ final readonly class RunRequest
             ->cappedAt($settings->runner()->memory())
             ->across(
                 Pool::of(ProcessCount::single(), $settings->runner()->workers())
-                    ->pacedBy($settings->runner()->pace($settings->triage()->bounds()->unmeasuredStartUp())),
+                    ->pacedBy($settings->runner()->pace($settings->triage()->bounds()->startUp()->unmeasured())),
             );
     }
 }

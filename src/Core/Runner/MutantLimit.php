@@ -71,12 +71,6 @@ final readonly class MutantLimit
     /** What a run is allowed to start in, in seconds, within these bounds. */
     private function startUpWithin(LimitBounds $bounds): float
     {
-        $measured = $bounds->startUp();
-
-        return match (true) {
-            ! $this->isTheGates => self::START_UP,
-            $measured instanceof Seconds => $bounds->startUpMultiple() * $measured->seconds(),
-            default => $bounds->unmeasuredStartUp()->seconds(),
-        };
+        return $this->isTheGates ? $bounds->startUp()->allowed() : self::START_UP;
     }
 }

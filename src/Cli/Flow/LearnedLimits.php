@@ -89,7 +89,7 @@ final readonly class LearnedLimits
 
         return new self($multiple, $shards, $pace, [
             ...$bounds->learnsFloor()
-                ? [sprintf(self::FLOOR, round($bounds->startUpMultiple(), 2), $floor)]
+                ? [sprintf(self::FLOOR, round($bounds->startUp()->multiple(), 2), $floor)]
                 : [],
             ...$bounds->learnsMultiple() ? [self::multipleSaid($kills, $read)] : [],
             ...$statistic instanceof LearnedStatistic ? [self::shardsSaid($runs, $statistic)] : [],
