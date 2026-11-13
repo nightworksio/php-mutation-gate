@@ -34,7 +34,7 @@ final readonly class PestUnpatched
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $composer = $observed->files()->composer();
         $patching = $settings instanceof Settings
             && $settings->runner()->choice()->use()->value() === BuiltinRunner::Pest->value

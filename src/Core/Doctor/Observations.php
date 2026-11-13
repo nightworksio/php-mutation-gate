@@ -25,14 +25,12 @@ final readonly class Observations
     private function __construct(
         private RunnerPhp|CannotJudge|NotGiven $php,
         private InstalledRunners|NotGiven $runners,
-        private Settings|Invalid|CannotJudge|NotGiven $settings,
-        private Trees|Invalid|CannotJudge|NotGiven $trees,
+        private ProjectConfig $config,
         private Markers|NotGiven $markers,
         private ProjectFiles $files,
         private KeptLedgers|NotGiven $ledgers,
         private Asked $asked,
         private DoctorRun|NotGiven $run,
-        private Layer|NotGiven $written,
     ) {
     }
 
@@ -43,13 +41,11 @@ final readonly class Observations
         return new self(
             $none,
             $none,
-            $none,
-            $none,
+            ProjectConfig::none(),
             $none,
             ProjectFiles::none(),
             $none,
             Asked::nothing(),
-            $none,
             $none,
         );
     }
@@ -60,14 +56,12 @@ final readonly class Observations
         return new self(
             $php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $this->ledgers,
             $this->asked,
             $this->run,
-            $this->written,
         );
     }
 
@@ -76,14 +70,12 @@ final readonly class Observations
         return new self(
             $this->php,
             $runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $this->ledgers,
             $this->asked,
             $this->run,
-            $this->written,
         );
     }
 
@@ -93,14 +85,12 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $settings,
-            $this->trees,
+            $this->config->withSettings($settings),
             $this->markers,
             $this->files,
             $this->ledgers,
             $this->asked,
             $this->run,
-            $this->written,
         );
     }
 
@@ -110,14 +100,12 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $trees,
+            $this->config->withTrees($trees),
             $this->markers,
             $this->files,
             $this->ledgers,
             $this->asked,
             $this->run,
-            $this->written,
         );
     }
 
@@ -127,14 +115,12 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $markers,
             $this->files,
             $this->ledgers,
             $this->asked,
             $this->run,
-            $this->written,
         );
     }
 
@@ -144,14 +130,12 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $files,
             $this->ledgers,
             $this->asked,
             $this->run,
-            $this->written,
         );
     }
 
@@ -161,14 +145,12 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $ledgers,
             $this->asked,
             $this->run,
-            $this->written,
         );
     }
 
@@ -178,14 +160,12 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $this->ledgers,
             $asked,
             $this->run,
-            $this->written,
         );
     }
 
@@ -195,14 +175,12 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $this->ledgers,
             $this->asked,
             $run,
-            $this->written,
         );
     }
 
@@ -212,21 +190,13 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config->withWritten($written),
             $this->markers,
             $this->files,
             $this->ledgers,
             $this->asked,
             $this->run,
-            $written,
         );
-    }
-
-    /** The config file's own layer, its context blocks as it writes them; none where it was not read. */
-    public function written(): Layer|NotGiven
-    {
-        return $this->written;
     }
 
     public function php(): RunnerPhp|CannotJudge|NotGiven
@@ -239,14 +209,10 @@ final readonly class Observations
         return $this->runners;
     }
 
-    public function settings(): Settings|Invalid|CannotJudge|NotGiven
+    /** The config as doctor read it: its settings, the trees its tree source found, and its file's own layer. */
+    public function config(): ProjectConfig
     {
-        return $this->settings;
-    }
-
-    public function trees(): Trees|Invalid|CannotJudge|NotGiven
-    {
-        return $this->trees;
+        return $this->config;
     }
 
     public function markers(): Markers|NotGiven

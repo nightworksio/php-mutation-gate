@@ -38,8 +38,8 @@ final readonly class KeyedContextBlocks
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
-        $written = $observed->written();
+        $settings = $observed->config()->settings();
+        $written = $observed->config()->written();
         $keys = $written instanceof Layer
             && $settings instanceof Settings
             && $settings->effective()->reports()->suggest()->enabled()

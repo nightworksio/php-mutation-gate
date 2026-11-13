@@ -173,7 +173,7 @@ final readonly class Fixing
 
     private static function memory(Observations $observed): Repair|NotGiven
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $phpUnit = $observed->files()->runnerConfig()->phpUnitMemory();
 
         if (! $settings instanceof Settings || ! $phpUnit instanceof PhpUnitMemory) {
@@ -192,7 +192,7 @@ final readonly class Fixing
 
     private function sources(Observations $observed): Repair
     {
-        $trees = $observed->trees();
+        $trees = $observed->config()->trees();
         $directories = [];
 
         foreach ($trees instanceof Trees ? $trees : [] as $tree) {

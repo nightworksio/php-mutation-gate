@@ -50,7 +50,7 @@ final readonly class PhpStanRestart
     public static function in(Observations $observed): Findings
     {
         $php = $observed->php();
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
 
         if (! $php instanceof RunnerPhp || ! $settings instanceof Settings || ! $php->loads(Driver::XDEBUG)) {
             return Findings::none();

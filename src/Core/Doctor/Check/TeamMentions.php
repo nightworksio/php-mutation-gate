@@ -32,7 +32,7 @@ final readonly class TeamMentions
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
 
         return $settings instanceof Settings
             && $settings->floors()->owners()->mention() === OwnerMention::First

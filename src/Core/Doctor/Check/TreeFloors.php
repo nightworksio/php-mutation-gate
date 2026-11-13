@@ -43,7 +43,7 @@ final readonly class TreeFloors
 
     public static function in(Observations $observed): Findings
     {
-        $trees = $observed->trees();
+        $trees = $observed->config()->trees();
         $baseline = $observed->files()->baseline();
         $definitions = $observed->files()->runningTheGate();
         $running = $definitions instanceof GateDefinitions ? $definitions->paths() : Paths::none();

@@ -37,7 +37,7 @@ final readonly class Config
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $runners = $observed->runners();
 
         if (!$settings instanceof Invalid && !$settings instanceof CannotJudge

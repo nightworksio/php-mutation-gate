@@ -30,7 +30,7 @@ final readonly class KillControlsAlone
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
 
         return $settings instanceof Settings && $settings->triage()->flaky()->killControls() === KillControl::Alone
             ? Findings::of(Finding::of(Slug::KillControlsAlone, Severity::Advice, self::FOUND, self::WHY, self::FIX))

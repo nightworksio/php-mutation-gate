@@ -40,7 +40,7 @@ final readonly class HotPath
     public static function in(Observations $observed): Findings
     {
         $measured = $observed->asked()->measurement();
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
 
         return $measured instanceof Measurement && $settings instanceof Settings
             ? self::measured($measured, $settings->reach()->held()->hotPaths())
