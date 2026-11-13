@@ -102,7 +102,7 @@ final readonly class LspCommand
         }
 
         $engine = $composed->adapters->maps;
-        $line = $engine instanceof Outbreak ? $engine->editing(
+        $line = $engine instanceof Outbreak ? $engine->lines()->editing(
             $script,
             PHP_BINARY,
             CommandText::option($input, self::SEVERITY),

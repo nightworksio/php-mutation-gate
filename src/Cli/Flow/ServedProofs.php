@@ -15,8 +15,6 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 
-use function sprintf;
-
 /**
  * The proofs `outbreak serve` keeps under the keys a run proves its units by
  * and no ledger it read holds (ADR-0133): those `watch` rounds kept since a
@@ -34,7 +32,7 @@ final readonly class ServedProofs
     {
         $engine = $adapters->maps;
 
-        return $engine instanceof Outbreak ? $engine->state() : NotGiven::value();
+        return $engine instanceof Outbreak ? $engine->served() : NotGiven::value();
     }
 
     public static function read(Adapters $adapters, TakenProofs $taken, Ledgers $ledgers, Keys $keys): Proofs
@@ -77,7 +75,7 @@ final readonly class ServedProofs
         $proofs = Proofs::none();
 
         foreach ($answered as $key => $entry) {
-            $proof = ProofEntry::read(Digest::of(sprintf('%s', $key)), $entry);
+            $proof = ProofEntry::read(Digest::of($key), $entry);
             $proofs = $proof instanceof Proof ? $proofs->with($proof) : $proofs;
         }
 

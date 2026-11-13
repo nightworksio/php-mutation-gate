@@ -167,7 +167,7 @@ final readonly class Serving
         $local = $composed->settings->local();
         $launch = Launch::here()->prefix($local->work());
         $engine = $composed->adapters->maps;
-        $served = $engine instanceof Outbreak ? $engine->serving($launch) : $launch;
+        $served = $engine instanceof Outbreak ? $engine->lines()->serving($launch) : $launch;
 
         return $this->startedWith($local, $served) || ($served !== $launch && $this->startedWith($local, $launch));
     }

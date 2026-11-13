@@ -60,8 +60,7 @@ final readonly class ShippedExtension implements RunExtension
      */
     public static function beneath(Options $options, string $shipped, PrintsDeclarations $printer): self|NotGiven
     {
-        $beneath = $options->object(Key::of(OutbreakSettings::OPTION));
-        $read = $beneath instanceof Options ? $beneath : Options::none();
+        $read = OutbreakOptions::beneath($options);
         $settings = OutbreakSettings::of(
             enabled: $read->flag(Key::of(OutbreakSettings::ENABLED)) !== false,
             equivalence: $read->flag(Key::of(OutbreakSettings::EQUIVALENCE)) !== false,

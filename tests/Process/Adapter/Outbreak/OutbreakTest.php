@@ -173,11 +173,10 @@ it('keeps the state outbreak serve holds only where the binary speaks and servin
     $served = OutbreakDaemon::of('/project', 0, Seconds::of(1));
     $off = OutbreakSettings::of(serve: OutbreakServe::of(enabled: false));
 
-    expect(Outbreak::at($speaking, '/project')->servedBy($served)->state())->toBe($served)
-        ->and(Outbreak::at($speaking, '/project')->servedBy($served)->notices())->toBe($served)
-        ->and(Outbreak::at($speaking, '/project', $off)->servedBy($served)->state())->toEqual(NotGiven::value())
-        ->and(Outbreak::none('/project')->servedBy($served)->state())->toEqual(NotGiven::value())
-        ->and(Outbreak::at($speaking, '/project')->state())->toEqual(NotGiven::value());
+    expect(Outbreak::at($speaking, '/project')->servedBy($served)->served())->toBe($served)
+        ->and(Outbreak::at($speaking, '/project', $off)->servedBy($served)->served())->toEqual(NotGiven::value())
+        ->and(Outbreak::none('/project')->servedBy($served)->served())->toEqual(NotGiven::value())
+        ->and(Outbreak::at($speaking, '/project')->served())->toEqual(NotGiven::value());
 })->group(...$holds);
 
 it('reads the settings beneath a runner\'s options, and the defaults where they hold none', function (): void {

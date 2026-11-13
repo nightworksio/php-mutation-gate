@@ -4,25 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
-use function array_map;
-use function is_float;
-use function is_int;
-use function is_string;
-use function json_encode;
-
-use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Outbreak as OutbreakSettings;
 use NightWorksIO\MutationGate\Core\Coverage\Conversion;
 use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
-use NightWorksIO\MutationGate\Core\Coverage\MapSlice;
 use NightWorksIO\MutationGate\Core\Coverage\MapSlices;
 use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
 use NightWorksIO\MutationGate\Core\Coverage\PendingOutline;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -35,17 +25,13 @@ use NightWorksIO\MutationGate\Core\Reach\GraphAsked;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Reach\ReachGraph;
 use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
-use NightWorksIO\MutationGate\Core\Runner\ProgramArguments;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\MapEngine;
 
 use function sprintf;
-
-use stdClass;
 
 /**
  * Outbreak's core, the `outbreak` binary, as the gate's map engine (ADR-0118),
@@ -64,45 +50,13 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
 {
     private const string NO_BINARY = 'No Outbreak binary is in use.';
 
-    private const string FAILED = 'Outbreak did not split the map: %s';
-
-    private const string DECLINED = 'Outbreak declined to split the map: %s';
-
-    private const string ANSWERED = 'it answered %s';
-
-    private const string WROTE = 'Outbreak wrote %d coverage maps from %s.';
-
     private const string UNREAD = 'Outbreak did not read the report: %s';
-
-    private const string UNCACHED = 'Outbreak did not %s the proof cache\'s packs: %s';
-
-    private const string CACHED = 'Outbreak %s %d of the proof cache\'s packs.';
 
     private const string UNGRAPHED = 'Outbreak\'s graph answered nothing: %s';
 
     /** The option the binary takes how many threads it writes on with. */
     private const string THREADS = '--threads';
 
-    /** The option that starts `outbreak serve` in a process of its own. */
-    private const string DETACH = '--detach';
-
-    /** The option `outbreak serve` takes the seconds between snapshots with. */
-    private const string SNAPSHOT_EVERY = '--snapshot-every';
-
-    /** The option `outbreak serve` takes the seconds between syncs of its journal with. */
-    private const string SYNC_EVERY = '--sync-every';
-
-    /** The option `outbreak serve` takes the seconds the changes it watches settle for with. */
-    private const string DEBOUNCE = '--debounce';
-
-    /** The option `outbreak lsp` takes the gate's script with. */
-    private const string GATE = '--gate';
-
-    /** The option `outbreak lsp` takes the PHP that runs the gate with. */
-    private const string PHP = '--php';
-
-    /** The option `outbreak lsp` takes how the editor shows a survivor with. */
-    private const string SEVERITY = '--severity';
 
     private function __construct(
         private string|NotGiven $binary,
@@ -138,21 +92,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
      */
     public static function beneath(Options $options, string $root, string $shipped): self
     {
-        $beneath = $options->object(Key::of(OutbreakSettings::OPTION));
-        $read = $beneath instanceof Options ? $beneath : Options::none();
-        $enabled = $read->flag(Key::of(OutbreakSettings::ENABLED));
-        $binary = $read->text(Key::of(OutbreakSettings::BINARY));
-        $timeout = $read->number(Key::of(OutbreakSettings::TIMEOUT));
-        $threads = $read->integer(Key::of(OutbreakSettings::THREADS));
-
-        $settings = OutbreakSettings::of(
-            $enabled === false ? $enabled : Absent::setting(),
-            is_string($binary) ? $binary : Absent::setting(),
-            is_float($timeout) ? Seconds::of($timeout) : Absent::setting(),
-            is_int($threads) ? $threads : Absent::setting(),
-        );
-
-        return self::configured($settings, $root, $shipped);
+        return self::configured(OutbreakOptions::binary($options), $root, $shipped);
     }
 
     /**
@@ -193,11 +133,15 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
 
     public function vouches(Contents $text): MapVouch
     {
-        $said = $this->binary instanceof NotGiven
-            ? NotWritten::because(self::NO_BINARY)
-            : BinaryRun::ran($this->binary, Command::Vouch->words(), $text->text(), $this->settings->timeout());
+        $said = $this->ran(Command::Vouch->words(), $text->text());
 
-        return $said instanceof Node && $this->flag($said, 'vouched') ? MapVouch::Vouched : MapVouch::Unvouched;
+        try {
+            $vouched = $said instanceof Node && $said->field('vouched')->boolean();
+        } catch (NotInShape) {
+            $vouched = false;
+        }
+
+        return $vouched ? MapVouch::Vouched : MapVouch::Unvouched;
     }
 
     public function outlining(RanReport $report): PendingOutline
@@ -230,94 +174,49 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             return NotWritten::because(self::NO_BINARY);
         }
 
-        $request = json_encode([
-            'whole' => $this->absolute($whole),
-            'slices' => array_map($this->asked(...), [...$slices]),
-        ], JsonText::FLAGS);
         $threads = $this->settings->threads();
         $on = $threads instanceof NotGiven ? [] : [self::THREADS, sprintf('%d', $threads)];
-        $timeout = $this->settings->timeout();
-        $said = BinaryRun::ran($this->binary, [...Command::Split->words(), ...$on], $request, $timeout);
 
-        return $said instanceof Node
-            ? $this->splitBy($said, $whole)
-            : NotWritten::because(sprintf(self::FAILED, $said->why()));
+        return SplitAnswer::of(
+            $this->ran([...Command::Split->words(), ...$on], SplitAsked::of($whole, $slices, $this->absolute(...))),
+            $whole,
+        );
     }
 
     public function pulled(CacheRequest $request): Written|NotWritten
     {
-        return $this->cached(Command::Pull, 'pull', 'pulled', $request);
+        if ($this->binary instanceof NotGiven) {
+            return NotWritten::because(self::NO_BINARY);
+        }
+
+        $said = $this->ran(Command::Pull->words(), CacheAsked::of($request, $this->absolute(...)));
+
+        return CacheAnswer::of($said, 'pull', 'pulled');
     }
 
     public function pushed(CacheRequest $request): Written|NotWritten
     {
-        return $this->cached(Command::Push, 'push', 'pushed', $request);
+        if ($this->binary instanceof NotGiven) {
+            return NotWritten::because(self::NO_BINARY);
+        }
+
+        $said = $this->ran(Command::Push->words(), CacheAsked::of($request, $this->absolute(...)));
+
+        return CacheAnswer::of($said, 'push', 'pushed');
+    }
+
+    /** The command lines that start the binary in use as a process of its own. */
+    public function lines(): BinaryLines
+    {
+        return new BinaryLines($this->binary, $this->root, $this->settings->serve());
     }
 
     /**
-     * What goes before the PHP daemon's command line of `serve` (ADR-0078)
-     * so `outbreak serve` starts it as its child in a process group of its
-     * own (ADR-0133), launched as the PHP daemon would be: where a binary is
-     * in use and `outbreak.serve.enabled` is on; the launch alone otherwise.
-     *
-     * @param list<string> $launch what the daemon is launched under, such as its priority
-     *
-     * @return list<string>
+     * The state `outbreak serve` keeps for the project: the changes it watches
+     * the files for and the proofs it keeps by key, where it serves the
+     * project; none otherwise.
      */
-    public function serving(array $launch): array
-    {
-        $serve = $this->settings->serve();
-
-        return $this->binary instanceof NotGiven || ! $serve->enabled() ? $launch : [
-            ...$launch,
-            $this->binary,
-            ...Command::Serve->words(),
-            $this->root,
-            self::DETACH,
-            self::SNAPSHOT_EVERY,
-            sprintf('%F', $serve->snapshotEvery()->seconds()),
-            self::SYNC_EVERY,
-            sprintf('%F', $serve->syncEvery()->seconds()),
-            self::DEBOUNCE,
-            sprintf('%F', $serve->debounce()->seconds()),
-            ProgramArguments::DOUBLE_DASH,
-        ];
-    }
-
-    /**
-     * The command line of `outbreak lsp` (ADR-0133 decision 10), serving an
-     * editor the survivors this gate's script, run by this PHP, tells of in
-     * `watch` with these options, shown at this severity; none where no
-     * binary is in use.
-     *
-     * @param list<string> $watching
-     *
-     * @return list<string>|NotGiven
-     */
-    public function editing(string $script, string $php, string $severity, array $watching): array|NotGiven
-    {
-        return $this->binary instanceof NotGiven ? NotGiven::value() : [
-            $this->binary,
-            ...Command::Lsp->words(),
-            self::GATE,
-            $script,
-            self::PHP,
-            $php,
-            self::SEVERITY,
-            $severity,
-            ProgramArguments::DOUBLE_DASH,
-            ...$watching,
-        ];
-    }
-
-    /** The changes `outbreak serve` watches the files for, where it serves the project; none otherwise. */
-    public function notices(): NoticesChanges|NotGiven
-    {
-        return $this->served;
-    }
-
-    /** The proofs `outbreak serve` keeps by key, where it serves the project; none otherwise. */
-    public function state(): KeepsProofs|NotGiven
+    public function served(): (NoticesChanges&ReachGraph&KeepsProofs)|NotGiven
     {
         return $this->served;
     }
@@ -339,63 +238,24 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
             return $served;
         }
 
-        $asked = GraphAsked::of($question, $this->root);
-        $said = BinaryRun::ran($this->binary, Command::Graph->words(), $asked, $this->settings->timeout());
+        $said = $this->ran(Command::Graph->words(), GraphAsked::of($question, $this->root));
 
         return $said instanceof Node
             ? GraphAnswered::of($said)
             : NotWritten::because(sprintf(self::UNGRAPHED, $said->why()));
     }
 
-    /** What the binary said of a request to the proof cache: how many packs it moved, or why none. */
-    private function cached(Command $command, string $verb, string $done, CacheRequest $request): Written|NotWritten
+    /**
+     * What one run of the binary answered to these arguments and this input;
+     * why it did not, or that there is no binary.
+     *
+     * @param non-empty-list<string> $arguments
+     */
+    private function ran(array $arguments, string $input): Node|NotWritten
     {
-        if ($this->binary instanceof NotGiven) {
-            return NotWritten::because(self::NO_BINARY);
-        }
-
-        $asked = $this->cacheAsked($request);
-        $said = BinaryRun::ran($this->binary, $command->words(), $asked, $this->settings->timeout());
-
-        try {
-            return $said instanceof Node
-                ? Written::noting($done, sprintf(self::CACHED, $done, $said->field($done)->integer()))
-                : NotWritten::because(sprintf(self::UNCACHED, $verb, $said->why()));
-        } catch (NotInShape) {
-            return NotWritten::because(sprintf(self::UNCACHED, $verb, sprintf(self::ANSWERED, $said->json())));
-        }
-    }
-
-    /** A request to the proof cache as the binary reads it on its input. */
-    private function cacheAsked(CacheRequest $request): string
-    {
-        $registry = $request->registry();
-        $packs = array_map($this->absolute(...), $request->packs());
-        $restored = array_map($this->absolute(...), $request->restored());
-
-        return json_encode([
-            'store' => $request->store()->value,
-            ...$registry instanceof NotGiven ? [] : ['registry' => $registry],
-            'base' => $request->base()->value(),
-            ...$request->isNewest() ? ['newest' => true] : [],
-            'limits' => ['packed' => $request->limits()->packed(), 'unpacked' => $request->limits()->unpacked()],
-            'packs' => $packs === [] ? new stdClass() : $packs,
-            'restored' => $restored === [] ? new stdClass() : $restored,
-        ], JsonText::FLAGS);
-    }
-
-    /** What the binary said of a split: the slices written, or why they were not. */
-    private function splitBy(Node $said, Path $whole): Written|NotWritten
-    {
-        $written = $said->field('written');
-
-        try {
-            return $written->isPresent()
-                ? Written::noting($whole->value(), sprintf(self::WROTE, $written->integer(), $whole->value()))
-                : NotWritten::because(sprintf(self::DECLINED, $said->field('declined')->text()));
-        } catch (NotInShape) {
-            return NotWritten::because(sprintf(self::FAILED, sprintf(self::ANSWERED, $said->json())));
-        }
+        return $this->binary instanceof NotGiven
+            ? NotWritten::because(self::NO_BINARY)
+            : BinaryRun::ran($this->binary, $arguments, $input, $this->settings->timeout());
     }
 
     /**
@@ -421,27 +281,8 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
         return $said instanceof Node ? $said : NotWritten::because(sprintf(self::UNREAD, $said->why()));
     }
 
-    /** @return array{into: string, files: list<string>} */
-    private function asked(MapSlice $slice): array
-    {
-        return [
-            'into' => $this->absolute($slice->into()),
-            'files' => array_map(static fn(Path $file): string => $file->value(), [...$slice->files()]),
-        ];
-    }
-
     private function absolute(Path $path): string
     {
         return sprintf('%s/%s', $this->root, $path->value());
-    }
-
-    /** Whether an answer is in this contract and says yes to a question. */
-    private function flag(Node $said, string $question): bool
-    {
-        try {
-            return $said->field($question)->boolean();
-        } catch (NotInShape) {
-            return false;
-        }
     }
 }

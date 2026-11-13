@@ -30,6 +30,9 @@ use function trim;
  */
 final readonly class BinaryRun
 {
+    /** Why an answer in the contract is read as none: what it answered, out of the shape asked for. */
+    public const string ANSWERED = 'it answered %s';
+
     /** The contract every answer is written in, as `outbreak contract` says it. */
     private const int CONTRACT = 1;
 

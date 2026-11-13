@@ -36,7 +36,7 @@ final readonly class WatchedChanges
     {
         $engine = $this->composed->adapters->maps;
 
-        return $engine instanceof Outbreak ? $engine->notices() : NotGiven::value();
+        return $engine instanceof Outbreak ? $engine->served() : NotGiven::value();
     }
 
     /** The watched files as they are on disk now. */
