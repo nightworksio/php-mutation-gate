@@ -229,7 +229,7 @@ final readonly class Running
     /** What the shard's streams record of each test's lines. */
     private function recording(): ShardRecording
     {
-        return new ShardRecording($this->adapters, $this->settings, $this->setup);
+        return new ShardRecording($this->adapters, $this->settings);
     }
 
     /** A shard's result, left where the verdict reads it; or why it has none. */

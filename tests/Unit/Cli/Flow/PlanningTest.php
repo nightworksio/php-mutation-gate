@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\CoverageEntries;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
@@ -947,7 +948,7 @@ it('briefs a plan measured against the map its own scope keeps as such, and one 
     $store = new ProofStoreFake();
     $adapters = Flows::adapters($project, [], $store, $checkout);
     $kept = new KeptCoverage($adapters, Flows::settings(), Flows::setup());
-    $keys = KeptCoverage::keysOf($kept->entries(Inventory::of($adapters, Flows::settings())), Flows::map());
+    $keys = CoverageEntries::keysOver($kept->entries(Inventory::of($adapters, Flows::settings())), Flows::map());
     $bytes = CoverageMapFile::encode(
         Flows::map(),
         MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false),

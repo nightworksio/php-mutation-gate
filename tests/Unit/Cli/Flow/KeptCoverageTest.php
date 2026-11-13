@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
+use NightWorksIO\MutationGate\Cli\Flow\CoverageEntries;
 use NightWorksIO\MutationGate\Cli\Flow\CoverageMeasured;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\KeptFrom;
+use NightWorksIO\MutationGate\Cli\Flow\KeptMaps;
 use NightWorksIO\MutationGate\Cli\Flow\StoredCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\SuiteCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
@@ -146,7 +148,7 @@ function keptFlow(array $files, CoverageAsked $runner, Changes $since, Setting .
 function keptMap(CoverageMap $map, MeasuredAt|Unplaced $at): KeptMap
 {
     [$kept, $inventory] = keptFlow(keptFiles(), new CoverageAsked(ScriptedRunner::fixture(), $map), Changes::none());
-    $keys = $inventory instanceof Inventory ? KeptCoverage::keysOf($kept->entries($inventory), $map) : $inventory;
+    $keys = $inventory instanceof Inventory ? CoverageEntries::keysOver($kept->entries($inventory), $map) : $inventory;
 
     return KeptMap::of($map, $at, $keys instanceof EntryKeys ? $keys : EntryKeys::none());
 }
@@ -398,9 +400,9 @@ it('moves every entry where any file every entry reads changed, not the last of 
     $loaded = ['tests/fixtures/a.json' => "{}\n", 'tests/fixtures/b.json' => "{}\n"];
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     [$kept, $inventory] = keptFlow([...keptFiles(), ...$loaded], new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), Changes::none());
-    $before = $inventory instanceof Inventory ? KeptCoverage::keysOf($kept->entries($inventory), Flows::map()) : $inventory;
+    $before = $inventory instanceof Inventory ? CoverageEntries::keysOver($kept->entries($inventory), Flows::map()) : $inventory;
     [$again, $now] = keptFlow([...keptFiles(), ...$loaded, $changed => "{\"changed\": true}\n"], $runner, Changes::none());
-    $after = $now instanceof Inventory ? KeptCoverage::keysOf($again->entries($now), Flows::map()) : $now;
+    $after = $now instanceof Inventory ? CoverageEntries::keysOver($again->entries($now), Flows::map()) : $now;
 
     expect($after)->not->toEqual($before);
 })->with(['the first' => ['tests/fixtures/a.json'], 'the last' => ['tests/fixtures/b.json']]);
@@ -585,12 +587,13 @@ it('reads the map a run asks to read as it is, saying nothing', function (): voi
 });
 
 it('reads no map the last round left where there is none, and says why one that is no map cannot be read', function (): void {
-    [$kept, , $project] = keptFlow(keptFiles(), new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), Changes::none());
-    $none = $kept->fromWorkspace();
+    $project = keptProject(keptFiles());
+    $maps = new KeptMaps(Flows::adapters($project), Flows::settings());
+    $none = $maps->fromWorkspace();
     Scratch::write($project, '.mutation-gate/coverage/map.json.gz', 'not a map');
 
     expect($none)->toBeInstanceOf(Missing::class)
-        ->and($kept->fromWorkspace())->toBeInstanceOf(CannotJudge::class);
+        ->and($maps->fromWorkspace())->toBeInstanceOf(CannotJudge::class);
 });
 
 it('keys each test file\'s entries over a map, and none where coverage.incremental is false or they cannot be told', function (
@@ -599,7 +602,7 @@ it('keys each test file\'s entries over a map, and none where coverage.increment
     array|string $keyed,
 ): void {
     [$kept, $inventory] = keptFlow(keptFiles(), $runner, Changes::none(), $coverage);
-    $keys = $inventory instanceof Inventory ? KeptCoverage::keysOf($kept->entries($inventory), Flows::map()) : $inventory;
+    $keys = $inventory instanceof Inventory ? CoverageEntries::keysOver($kept->entries($inventory), Flows::map()) : $inventory;
 
     expect($keys instanceof EntryKeys ? array_keys($keys->written()) : $keys::class)->toBe($keyed);
 })->with([
@@ -641,9 +644,9 @@ function keptKeeping(string|NotGiven $handed, Scope $on, Setting ...$parts): arr
     }
 
     $adapters = Flows::adapters($project, [], $store);
-    $kept = new KeptCoverage($adapters, Flows::settings(...$parts), Flows::setup());
+    $maps = new KeptMaps($adapters, Flows::settings(...$parts));
 
-    return [$project, $store, $kept->keep(Access::of($on, Scope::branch('main'), Writing::Auto))];
+    return [$project, $store, $maps->keep(Access::of($on, Scope::branch('main'), Writing::Auto))];
 }
 
 it('keeps the map the plan handed on beside the default branch\'s ledger, for a run on that branch', function (): void {
@@ -761,7 +764,7 @@ it('measures again only the moved test files of a suite that judges, so a suite 
     $base = keptFiles(['phpunit.xml' => $phpunit, 'tests/KeptTest.php' => "<?php\n\nit('keeps', fn () => expect(1)->toBe(1));\n"]);
     $files = [...$base, 'tests/MoneyTest.php' => "<?php\n\n// changed\n", 'tests/HeldTest.php' => "<?php\n\n// changed\n"];
     [$keeping, $before] = keptJudging(keptProject($base), $base, new CoverageAsked(ScriptedRunner::fixture(), Flows::map()));
-    $keys = KeptCoverage::keysOf($keeping->entries($before), Flows::map());
+    $keys = CoverageEntries::keysOver($keeping->entries($before), Flows::map());
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map())->runningFiles(remeasuredMoney());
     $project = keptProject($files);
     Scratch::write($project, '.mutation-gate/coverage/map.json.gz', CoverageMapFile::encode(Flows::map(), keptAt(), $keys));

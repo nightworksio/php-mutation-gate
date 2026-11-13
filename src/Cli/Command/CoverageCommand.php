@@ -202,7 +202,7 @@ final readonly class CoverageCommand
         $map = $measured instanceof CoverageMeasured
             ? $kept->mapOf($measured, $suites)
             : self::admitted($measured, $suites);
-        $keys = $map instanceof CoverageMap ? KeptCoverage::keysOf($entries, $map) : NotGiven::value();
+        $keys = $map instanceof CoverageMap ? CoverageEntries::keysOver($entries, $map) : NotGiven::value();
 
         return $map instanceof CoverageMap
             ? $adapters->project->write($file, Contents::of(CoverageMapFile::encode($map, $at, $keys, $level)))

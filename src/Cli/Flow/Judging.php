@@ -212,7 +212,7 @@ final readonly class Judging
      */
     private function kept(Ledgers $ledgers): array
     {
-        $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup)->keep($ledgers->access());
+        $kept = new KeptMaps($this->adapters, $this->settings)->keep($ledgers->access());
 
         return match (true) {
             $kept instanceof Written => [$kept->said()],

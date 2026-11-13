@@ -76,6 +76,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/JudgedRun.php',
             'src/Cli/Flow/Judging.php',
             'src/Cli/Flow/KeptCoverage.php',
+            'src/Cli/Flow/KeptMaps.php',
             'src/Cli/Flow/KeptFrom.php',
             'src/Cli/Flow/KeptReport.php',
             'src/Cli/Flow/KeysApart.php',

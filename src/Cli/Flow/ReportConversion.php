@@ -140,6 +140,6 @@ final readonly class ReportConversion
     ): Conversion {
         $admitted = $admission instanceof Admission ? $admission->outlined($outline) : $outline;
 
-        return Conversion::of($outline, $admission, $at, KeptCoverage::keysBy($entries, $admitted));
+        return Conversion::of($outline, $admission, $at, CoverageEntries::keysByOutline($entries, $admitted));
     }
 }

@@ -37,6 +37,24 @@ final readonly class CoverageEntries
     ) {
     }
 
+
+    /**
+     * Each test file's entry key over a map, which the map carries for the
+     * verdict to keep; none where there are no entries or the keys cannot be
+     * told, and the next run measures every test.
+     */
+    public static function keysOver(self|CannotJudge|NotGiven $entries, CoverageMap $map): EntryKeys|NotGiven
+    {
+        return self::keysByOutline($entries, MapOutline::of($map));
+    }
+
+    /** Each test file's entry key by a map's outline, as `keysOver()` tells them. */
+    public static function keysByOutline(self|CannotJudge|NotGiven $entries, MapOutline $outline): EntryKeys|NotGiven
+    {
+        $keys = $entries instanceof self ? $entries->keysOf($outline) : NotGiven::value();
+
+        return $keys instanceof CannotJudge ? NotGiven::value() : $keys;
+    }
     /** The entries of a project's test files, keyed as the project stands; or why they cannot be. */
     public static function of(
         Adapters $adapters,

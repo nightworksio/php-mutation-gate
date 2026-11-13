@@ -179,7 +179,7 @@ final readonly class Planning
             || $ledgers->defaultBranch()->proofs()->mayShareReads($reads);
 
         return $pest->splitStream()->early()->startsEarly($mode->isUnproven(), $match)
-            ? new KeptCoverage($this->adapters, $this->settings, $this->setup)->keptAsIs($inventory)
+            ? new KeptMaps($this->adapters, $this->settings)->keptAsIs($inventory)
             : NotGiven::value();
     }
 
@@ -235,7 +235,7 @@ final readonly class Planning
             ? $this->planned(
                 $inventory,
                 $ledgers,
-                KeptCoverage::keysOf($entries, $map),
+                CoverageEntries::keysOver($entries, $map),
                 $judges,
                 $at,
                 $keying,

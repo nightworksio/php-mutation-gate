@@ -34,7 +34,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
  */
 final readonly class ShardRecording
 {
-    public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
+    public function __construct(private Adapters $adapters, private Settings $settings)
     {
     }
 
@@ -82,7 +82,7 @@ final readonly class ShardRecording
         );
 
         if ($recorded instanceof CoverageMap) {
-            new KeptCoverage($this->adapters, $this->settings, $this->setup)->recorded($recorded);
+            new KeptMaps($this->adapters, $this->settings)->recorded($recorded);
         }
     }
 
