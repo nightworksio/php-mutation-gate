@@ -1,7 +1,7 @@
 //! The binary as the gate runs it: arguments, input and output streams, and the code it ends with.
 
 use std::error::Error;
-use std::io::{self, Write};
+use std::io::Write;
 use std::process::{Command, Stdio};
 
 /// What a run said: the code it ended with, its output and its error stream.
@@ -17,8 +17,8 @@ fn ran(arguments: &[&str], input: &[u8]) -> Result<Said, Box<dyn Error>> {
     child
         .stdin
         .take()
-        .ok_or_else(|| io::Error::other("no input"))?
-        .write_all(input)?;
+        .map(|mut stdin| stdin.write_all(input))
+        .transpose()?;
     let output = child.wait_with_output()?;
 
     Ok((
@@ -76,6 +76,24 @@ fn starts_a_daemon_of_its_own_that_stops_once_idle() -> Result<(), Box<dyn Error
     assert!(listened && stopped);
     assert!(root.join(".mutation-gate/outbreak/state.bin").exists());
     std::fs::remove_dir_all(&root)?;
+
+    Ok(())
+}
+
+#[test]
+fn serves_an_editor_on_its_streams_and_says_why_it_cannot() -> Result<(), Box<dyn Error>> {
+    let exit = r#"{"jsonrpc":"2.0","method":"exit"}"#;
+    let framed = format!("Content-Length: {}\r\n\r\n{exit}", exit.len());
+    let (code, said, errors) = ran(&["lsp", "--stdio"], framed.as_bytes())?;
+
+    assert_eq!(code, Some(1));
+    assert_eq!(said, "");
+    assert!(errors.starts_with("outbreak: the editor left without asking the server to shut down"));
+
+    let (code, _, errors) = ran(&["lsp", "--port"], b"")?;
+
+    assert_eq!(code, Some(2));
+    assert!(errors.starts_with("outbreak: lsp takes no --port"));
 
     Ok(())
 }

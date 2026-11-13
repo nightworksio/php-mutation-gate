@@ -122,7 +122,7 @@ pub fn run(
         _ => return Err(Failure::Usage(USAGE.to_owned())),
     };
 
-    writeln!(output, "{answer}").map_err(|error| Failure::Io(format!("cannot answer: {error}")))
+    writeln!(output, "{answer}").map_err(failed("answer"))
 }
 
 /// `outbreak lsp` on the process's standard streams, which the threads it starts write to too.
@@ -143,8 +143,7 @@ fn served(arguments: &[String]) -> Result<String, Failure> {
     let (options, detach) = outbreak_serve::options(arguments).map_err(Failure::Usage)?;
 
     if detach {
-        let binary = std::env::current_exe()
-            .map_err(|error| Failure::Io(format!("cannot find itself: {error}")))?;
+        let binary = std::env::current_exe().map_err(failed("find itself"))?;
         let child = arguments
             .iter()
             .position(|argument| argument == "--")
@@ -205,11 +204,16 @@ fn threads_of(threads: &str) -> Result<NonZero<usize>, Failure> {
     })
 }
 
+/// Why a step on the process's streams or its own binary failed, from the error it failed with.
+fn failed(doing: &str) -> impl FnOnce(io::Error) -> Failure + '_ {
+    move |error| Failure::Io(format!("cannot {doing}: {error}"))
+}
+
 fn read_all(input: &mut impl Read) -> Result<Vec<u8>, Failure> {
     let mut bytes = Vec::new();
     input
         .read_to_end(&mut bytes)
-        .map_err(|error| Failure::Io(format!("cannot read the input: {error}")))?;
+        .map_err(failed("read the input"))?;
 
     Ok(bytes)
 }
@@ -304,6 +308,22 @@ mod tests {
         assert!(matches!(
             ran(&["graph", "reach"], "[]").unwrap_err(),
             Failure::Usage(why) if why.starts_with("the graph's request")
+        ));
+    }
+
+    #[test]
+    fn says_how_many_packs_the_cache_moved_or_why_it_moved_none() {
+        assert_eq!(
+            ran(
+                &["cache", "push"],
+                r#"{"store":"actions","base":"b","limits":{"packed":1,"unpacked":1},"packs":{}}"#
+            )
+            .unwrap(),
+            "{\"outbreak\":1,\"pushed\":0}\n"
+        );
+        assert!(matches!(
+            ran(&["cache", "pull"], "{}").unwrap_err(),
+            Failure::Io(why) if why.starts_with("the cache's request")
         ));
     }
 
