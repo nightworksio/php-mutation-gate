@@ -141,19 +141,28 @@ final readonly class TestReach
         return $modules;
     }
 
+    /**
+     * The reach of a test file the coverage map cannot judge, gone or with no
+     * map: what the graph narrows it to, or its package wholly, for this reason.
+     */
+    private function unmapped(Reach $reach, Path $path, Package $package, string $because): Reach
+    {
+        $mapped = $this->coverage instanceof Judges ? $this->coverage->filesRunBy($path) : Paths::none();
+        $narrowed = $this->graph->narrowed($reach, $path, $mapped);
+
+        return $narrowed instanceof Reach ? $this->withModules($narrowed, $path) : $reach->wholly(
+            Paths::of($package->path()),
+            Reason::that(sprintf($because, $path->value(), self::named($package))),
+        );
+    }
+
     private function testChanged(Reach $reach, Change $change, Package $package): Reach
     {
         $path = $change->path();
         $gone = $change->kind() === ChangeKind::Deleted;
 
         if ($gone || $this->coverage instanceof NoMap) {
-            $mapped = $this->coverage instanceof Judges ? $this->coverage->filesRunBy($path) : Paths::none();
-            $narrowed = $this->graph->narrowed($reach, $path, $mapped);
-
-            return $narrowed instanceof Reach ? $this->withModules($narrowed, $path) : $reach->wholly(
-                Paths::of($package->path()),
-                Reason::that(sprintf($gone ? self::GONE : self::NO_MAP, $path->value(), self::named($package))),
-            );
+            return $this->unmapped($reach, $path, $package, $gone ? self::GONE : self::NO_MAP);
         }
 
         $placed = $this->runs->in($path);
