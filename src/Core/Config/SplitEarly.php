@@ -26,10 +26,10 @@ enum SplitEarly: string
     public function php(): string
     {
         return match ($this) {
-            self::NoMatch => 'SplitStream::earlyWhereNothingMatches()',
-            self::Always => 'SplitStream::alwaysEarly()',
-            self::UnprovenOnly => 'SplitStream::earlyUnprovenOnly()',
-            self::Never => 'SplitStream::neverEarly()',
+            self::NoMatch => 'EarlyStreams::whereNothingMatches()',
+            self::Always => 'EarlyStreams::always()',
+            self::UnprovenOnly => 'EarlyStreams::unprovenOnly()',
+            self::Never => 'EarlyStreams::never()',
         };
     }
 

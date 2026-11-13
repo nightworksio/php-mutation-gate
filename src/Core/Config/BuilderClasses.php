@@ -35,6 +35,7 @@ final readonly class BuilderClasses
         'Coverage' => self::BUILDER,
         'Dashboard' => self::BUILDER,
         'Digest' => self::BUILDER,
+        'EarlyStreams' => self::BUILDER,
         'Equivalence' => self::BUILDER,
         'Flaky' => self::BUILDER,
         'Floor' => self::BUILDER,

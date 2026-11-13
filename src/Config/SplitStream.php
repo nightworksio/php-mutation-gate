@@ -114,30 +114,6 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.sharding', 'source'));
     }
 
-    /** `splitStream.early` `no-match`, as by default: a full run plans without a fresh map where no proof matches. */
-    public static function earlyWhereNothingMatches(): self
-    {
-        return new self(Json::at('splitStream.early', 'no-match'));
-    }
-
-    /** `splitStream.early` `always`: every full split-stream run plans without a fresh map, taking no proof. */
-    public static function alwaysEarly(): self
-    {
-        return new self(Json::at('splitStream.early', 'always'));
-    }
-
-    /** `splitStream.early` `unproven-only`: only a run under `unproven` plans without a fresh map. */
-    public static function earlyUnprovenOnly(): self
-    {
-        return new self(Json::at('splitStream.early', 'unproven-only'));
-    }
-
-    /** `splitStream.early` `never`: every plan waits for a fresh map. */
-    public static function neverEarly(): self
-    {
-        return new self(Json::at('splitStream.early', 'never'));
-    }
-
     public function written(): Json
     {
         return $this->json;
