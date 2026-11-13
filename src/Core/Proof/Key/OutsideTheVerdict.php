@@ -84,6 +84,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/LearnedLimits.php',
             'src/Cli/Flow/Ledgers.php',
             'src/Cli/Flow/LeftNone.php',
+            'src/Cli/Flow/LeftResults.php',
             'src/Cli/Flow/Listings.php',
             'src/Cli/Flow/MapJudges.php',
             'src/Cli/Flow/Measured.php',
