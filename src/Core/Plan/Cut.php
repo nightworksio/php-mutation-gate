@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use function array_key_exists;
 use function array_map;
 use function array_merge;
 use function array_pad;
@@ -208,16 +209,16 @@ final readonly class Cut
             $items = $this->itemsOf($packages[$at], $count);
             $made = $this->testParts ? $packages[$at]->parts($items) : $packages[$at]->runs($items);
             $runs[] = $made;
-            $owners = [...$owners, ...self::owners(count($made), max(1, $count), $workers)];
+            $owners = [...$owners, ...$this->owners(count($made), max(1, $count), $workers)];
             $workers += max(1, $count);
         }
 
         $cut = array_merge(...$runs);
 
-        $owners = $this->exact ? self::owners(count($cut), min($this->most, max(1, count($cut))), 0) : $owners;
+        $owners = $this->exact ? $this->owners(count($cut), min($this->most, max(1, count($cut))), 0) : $owners;
 
         return $this->item instanceof Seconds
-            ? self::pulled(Labels::of($trees, ...$cut), $owners)
+            ? $this->pulled(Labels::of($trees, ...$cut), $owners)
             : Labels::of($trees, ...$this->exact ? array_pad($cut, $this->most, Run::of()) : $cut);
     }
 
@@ -240,7 +241,7 @@ final readonly class Cut
      *
      * @return list<int>
      */
-    private static function owners(int $items, int $count, int $before): array
+    private function owners(int $items, int $count, int $before): array
     {
         $owners = [];
 
@@ -256,12 +257,12 @@ final readonly class Cut
      *
      * @param list<int> $owners
      */
-    private static function pulled(Shards $items, array $owners): Shards
+    private function pulled(Shards $items, array $owners): Shards
     {
         $pulled = [];
 
         foreach ($items as $at => $item) {
-            $pulled[] = $item->workedBy(ShardId::of($owners[$at] ?? 1));
+            $pulled[] = $item->workedBy(ShardId::of(array_key_exists($at, $owners) ? $owners[$at] : 1));
         }
 
         return Shards::of(...$pulled);

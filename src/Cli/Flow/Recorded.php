@@ -119,7 +119,7 @@ final readonly class Recorded
                 $plan->commit(),
                 $this->settings->ci()->check(),
                 $ended,
-                self::open($plan, $ledger),
+                $this->open($plan, $ledger),
             ))
             : $runs;
 
@@ -350,7 +350,7 @@ final readonly class Recorded
      * The units a plan ran that the ledger it wrote holds no proof of under their key: left unjudged, flaky,
      * unjudgeable or stopped by a budget (ADR-0141).
      */
-    private static function open(Plan $plan, Ledger $ledger): Paths
+    private function open(Plan $plan, Ledger $ledger): Paths
     {
         $open = [];
 
@@ -394,14 +394,18 @@ final readonly class Recorded
         $registry = $this->settings->shards()->outbreak()->cache()->registry();
         $proofs = $this->adapters->proofs;
 
-        match (true) {
-            ! $written instanceof Written => null,
-            $store === CacheStore::Actions => $packs->pushed($class, $entries, $plan->base()),
-            $proofs instanceof DeliveredLedger && is_string($registry) => $proofs->cache(
-                CacheDelivery::request($registry, $plan->base(), $class),
-                $bytes,
-            ),
-            default => null,
-        };
+        if (! $written instanceof Written) {
+            return;
+        }
+
+        if ($store === CacheStore::Actions) {
+            $packs->pushed($class, $entries, $plan->base());
+
+            return;
+        }
+
+        if ($proofs instanceof DeliveredLedger && is_string($registry)) {
+            $proofs->cache(CacheDelivery::request($registry, $plan->base(), $class), $bytes);
+        }
     }
 }

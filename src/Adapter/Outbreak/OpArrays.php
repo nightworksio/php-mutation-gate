@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
+use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_slice;
@@ -171,7 +172,7 @@ final readonly class OpArrays
         $answers = array_slice($lines, 1);
 
         foreach (array_keys($paths) as $index => $key) {
-            $answer = $answers[$index] ?? self::NONE;
+            $answer = array_key_exists($index, $answers) ? $answers[$index] : self::NONE;
 
             if (preg_match(self::DIGEST, $answer) !== 1) {
                 break;

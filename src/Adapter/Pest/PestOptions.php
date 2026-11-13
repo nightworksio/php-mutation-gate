@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use Closure;
+
 use function is_bool;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
@@ -93,10 +95,15 @@ final readonly class PestOptions
         $bounds = BoundsOptions::read($options);
         $streams = self::streamsOf($options);
         $toggles = self::togglesOf($options);
-        $vouching = self::chosen($options, ConfigPest::NARROWED_KILLS, NarrowedKillTrust::Vouch);
-        $selecting = self::chosen($options, ConfigPest::LONG_FILTER, LongFilter::Files);
-        $judging = self::chosen($options, Mutants::DUPLICATES, Duplicates::JudgeOnce);
-        $rejudging = self::chosen($options, ConfigPest::PRELOADED, Preloaded::Fresh);
+        $vouching = self::chosen(
+            $options,
+            ConfigPest::NARROWED_KILLS,
+            NarrowedKillTrust::Vouch,
+            NarrowedKillTrust::tryFrom(...),
+        );
+        $selecting = self::chosen($options, ConfigPest::LONG_FILTER, LongFilter::Files, LongFilter::tryFrom(...));
+        $judging = self::chosen($options, Mutants::DUPLICATES, Duplicates::JudgeOnce, Duplicates::tryFrom(...));
+        $rejudging = self::chosen($options, ConfigPest::PRELOADED, Preloaded::Fresh, Preloaded::tryFrom(...));
 
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
@@ -169,25 +176,26 @@ final readonly class PestOptions
     }
 
     /**
-     * The case of an enum an option names, this one where it names none, or why it names no case.
+     * The case of an enum an option names, read by the enum, this one where it names none, or why it names no case.
      *
      * @template E of NarrowedKillTrust|LongFilter|Duplicates|Preloaded
      *
-     * @param  E           $standard
+     * @param  E                         $standard
+     * @param  Closure(string): (E|null) $read
      * @return E|Problem
      */
     private static function chosen(
         Options $options,
         string $key,
         NarrowedKillTrust|LongFilter|Duplicates|Preloaded $standard,
+        Closure $read,
     ): NarrowedKillTrust|LongFilter|Duplicates|Preloaded|Problem {
         $named = $options->text(Key::of($key));
 
         return match (true) {
             $named instanceof Problem => $named,
             $named instanceof NotGiven => $standard,
-            default => $standard::tryFrom($named)
-                ?? Problem::mismatch($key, 'one of its values', sprintf('"%s"', $named)),
+            default => $read($named) ?? Problem::mismatch($key, 'one of its values', sprintf('"%s"', $named)),
         };
     }
 

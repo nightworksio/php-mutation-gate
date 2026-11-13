@@ -6,9 +6,10 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function array_slice;
 use function in_array;
-use function is_resource;
+use function is_int;
 
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
+use NightWorksIO\MutationGate\Adapter\Process\Attached;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -16,8 +17,6 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProgramArguments;
 use NightWorksIO\MutationGate\Core\Verb;
 
-use function proc_close;
-use function proc_open;
 use function sprintf;
 use function str_starts_with;
 
@@ -150,11 +149,8 @@ final readonly class LspCommand
     /** @param list<string> $line */
     private static function served(array $line, OutputInterface $output): int
     {
-        $pipes = [];
-        $process = proc_open($line, [STDIN, STDOUT, STDERR], $pipes);
+        $status = Attached::exitOf($line);
 
-        return is_resource($process)
-            ? proc_close($process)
-            : Failed::because($output, CannotJudge::because(self::UNSTARTED));
+        return is_int($status) ? $status : Failed::because($output, CannotJudge::because(self::UNSTARTED));
     }
 }

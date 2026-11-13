@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function ceil;
+
+use Closure;
+
 use function function_exists;
 use function hash;
+use function is_callable;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -43,8 +47,8 @@ final class BatchHalt
 
     private bool $moved = false;
 
-    /** @var callable|int the handler the alarm had before */
-    private mixed $before = SIG_DFL;
+    /** The handler the alarm had before. */
+    private Closure|int $before = SIG_DFL;
 
     /** @param array<string, string> $digests each unit's file's digest as the batch began, by its path */
     private function __construct(
@@ -69,7 +73,8 @@ final class BatchHalt
         }
 
         $halt = new self($project, $digests, max(1, (int) ceil($every->seconds())), Halting::listened());
-        $halt->before = pcntl_signal_get_handler(SIGALRM);
+        $before = pcntl_signal_get_handler(SIGALRM);
+        $halt->before = is_callable($before) ? Closure::fromCallable($before) : $before;
         pcntl_signal(SIGALRM, $halt->looked(...));
         pcntl_alarm($halt->every);
 

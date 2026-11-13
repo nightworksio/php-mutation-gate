@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function array_any;
 use function array_diff;
 use function array_filter;
+use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_slice;
@@ -23,6 +24,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\FailFastSavings;
@@ -276,17 +278,13 @@ final readonly class Results
      */
     private static function againstTheOthers(array $stood, array $others): array
     {
-        $statuses = [];
-
-        foreach ($stood[1]->mutants() as $mutant) {
-            $statuses[$mutant->id()->value()] = $mutant->status();
-        }
-
+        $statuses = self::statusesOf($stood[1]);
         $differ = [];
 
         foreach ($others as [, $outcome]) {
             foreach ($outcome->mutants() as $mutant) {
-                $differ = ($statuses[$mutant->id()->value()] ?? null) === $mutant->status()
+                $id = $mutant->id()->value();
+                $differ = array_key_exists($id, $statuses) && $statuses[$id] === $mutant->status()
                     ? $differ
                     : [...$differ, $mutant->id()];
             }
@@ -295,6 +293,22 @@ final readonly class Results
         return $differ === []
             ? $stood
             : [$stood[0]->withFlaky($stood[0]->flaky()->and(MutantIds::of(...$differ))), $stood[1]];
+    }
+
+    /**
+     * Each mutant's status in a result, by its id.
+     *
+     * @return array<string, MutantStatus>
+     */
+    private static function statusesOf(MutationResult $result): array
+    {
+        $statuses = [];
+
+        foreach ($result->mutants() as $mutant) {
+            $statuses[$mutant->id()->value()] = $mutant->status();
+        }
+
+        return $statuses;
     }
 
     /** @return array{ShardResult, MutationResult}|CannotJudge */

@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 use function sprintf;
@@ -55,17 +56,10 @@ final readonly class EarlyKeys
         $map = CoverageMap::of();
 
         foreach ($plan as $shard) {
-            $file = Workspace::recorded($results, $shard->id());
-            $contents = $composed->adapters->project->read($file);
+            $read = self::recordedBy($composed, $shard, $results);
 
-            if (! $contents instanceof Contents) {
-                return CannotJudge::because(sprintf(self::UNRECORDED, $shard->id()->number(), $file->value()));
-            }
-
-            $read = CoverageMapFile::decode($contents->text(), Handoff::limits());
-
-            if (! $read instanceof CoverageMap) {
-                return CannotJudge::because(sprintf(self::UNREAD, $shard->id()->number(), $read->why()));
+            if ($read instanceof CannotJudge) {
+                return $read;
             }
 
             $map = $map->and($read);
@@ -100,6 +94,34 @@ final readonly class EarlyKeys
             return $plan;
         }
 
+        $keying = self::keyingBy($composed, $map);
+        $units = self::unitsOf($plan);
+
+        return $keying instanceof Keying
+            ? $plan->keyedBy($keying->base(), $keying->keysOf($units), $keying->digestsOf($units))
+            : $keying;
+    }
+
+    /** The map a shard recorded; or why it left none that can be read. */
+    private static function recordedBy(Composed $composed, Shard $shard, Path $results): CoverageMap|CannotJudge
+    {
+        $file = Workspace::recorded($results, $shard->id());
+        $contents = $composed->adapters->project->read($file);
+
+        if (! $contents instanceof Contents) {
+            return CannotJudge::because(sprintf(self::UNRECORDED, $shard->id()->number(), $file->value()));
+        }
+
+        $read = CoverageMapFile::decode($contents->text(), Handoff::limits());
+
+        return $read instanceof CoverageMap
+            ? $read
+            : CannotJudge::because(sprintf(self::UNREAD, $shard->id()->number(), $read->why()));
+    }
+
+    /** The keying of a map, written first where the verdict reads the run's coverage; or why there is none. */
+    private static function keyingBy(Composed $composed, CoverageMap $map): Keying|CannotJudge
+    {
         $text = Contents::of(CoverageMapFile::encode($map, Measuring::now($composed->adapters)));
 
         foreach ([Workspace::coverage(), Workspace::verdictCoverage()] as $directory) {
@@ -111,18 +133,19 @@ final readonly class EarlyKeys
         }
 
         $inventory = Inventory::of($composed->adapters, $composed->settings);
-        $keying = $inventory instanceof Inventory ? Keying::of(
+
+        return $inventory instanceof Inventory ? Keying::of(
             $composed->adapters,
             $composed->settings,
             $composed->setup,
             $inventory->suite,
             MapJudges::of($composed->adapters->runner, $map),
         ) : $inventory;
+    }
 
-        if (! $keying instanceof Keying) {
-            return $keying;
-        }
-
+    /** Every unit of a plan's shards. */
+    private static function unitsOf(Plan $plan): Units
+    {
         $units = Units::none();
 
         foreach ($plan as $shard) {
@@ -131,6 +154,6 @@ final readonly class EarlyKeys
             }
         }
 
-        return $plan->keyedBy($keying->base(), $keying->keysOf($units), $keying->digestsOf($units));
+        return $units;
     }
 }
