@@ -15,15 +15,15 @@ it('knows each file its command line names, as a value of an option or alone, by
         file_put_contents($file, '');
     }
 
-    $runner = RunnerFiles::namedBy(['worker.php', sprintf('--progress-file=%s', $progress), '--status-file', $status, 7]);
+    $runner = RunnerFiles::namedBy(['worker.php', sprintf('--progress-file=%s', $progress), '--status-file', $status]);
     $writing = fopen($progress, 'ab');
+    $held = is_resource($writing) && $runner->hold(fstat($writing));
     $linked = sprintf('%s/linked', $directory);
     symlink($status, $linked);
 
     expect([$runner->hold(stat($progress)), $runner->hold(stat($linked)), $runner->hold(stat($other)), $runner->hold(status: false)])
         ->toBe([true, true, false, false])
-        ->and($runner->holdStream($writing))->toBeTrue()
-        ->and($runner->holdStream('not a stream'))->toBeFalse()
+        ->and($held)->toBeTrue()
         ->and($runner->identities())->toHaveCount(2);
 
     if (is_resource($writing)) {

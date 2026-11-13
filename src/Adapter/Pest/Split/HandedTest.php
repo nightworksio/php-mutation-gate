@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_key_exists;
 use function explode;
 use function file_get_contents;
 use function is_array;
 use function is_bool;
 use function is_file;
-use function is_string;
 use function json_decode;
+
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * How a test's own process, forked from a stream's booted application
@@ -24,37 +26,54 @@ use function json_decode;
 final readonly class HandedTest
 {
     /** @param list<array{string, string}> $failed each mutant a child failed or ended in, and the test */
-    private function __construct(public ?bool $passed, public array $failed)
+    private function __construct(public bool|NotGiven $passed, public array $failed)
     {
     }
 
     public static function read(string $results, int $from, string $test): self
     {
         $text = is_file($results) ? (string) file_get_contents($results, offset: $from) : '';
-        $passed = null;
+        $passed = NotGiven::value();
         $failed = [];
 
         foreach (explode("\n", $text) as $line) {
-            $read = json_decode($line, associative: true);
+            [$read, $said] = self::line($line);
 
-            if (! is_array($read) || ($read['t'] ?? null) !== $test) {
+            if ($read->test !== $test) {
                 continue;
             }
 
-            $kind = $read[StreamLine::KIND] ?? '';
-            $mutant = $read['m'] ?? null;
-
-            if ($kind === StreamLine::PARENT && is_bool($read['p'] ?? null)) {
-                $passed = $read['p'];
-            }
-
-            $ended = $kind === StreamLine::ENDED || ($kind === StreamLine::CHILD && ($read['f'] ?? false) === true);
-
-            if ($ended && is_string($mutant)) {
-                $failed[] = [$mutant, $test];
-            }
+            $passed = self::passed($read, $said, $passed);
+            $failed = self::ends($read) ? [...$failed, [$read->mutant, $test]] : $failed;
         }
 
         return new self($passed, $failed);
+    }
+
+    /**
+     * A line of the results read, and whether it says whether a test passed.
+     *
+     * @return array{StreamRead, bool}
+     */
+    private static function line(string $line): array
+    {
+        $decoded = json_decode($line, associative: true);
+        $decoded = is_array($decoded) ? $decoded : [];
+
+        return [StreamRead::of($decoded), array_key_exists('p', $decoded) && is_bool($decoded['p'])];
+    }
+
+    /** Whether the test passed, as a line of its process's says, or as an earlier line said. */
+    private static function passed(StreamRead $read, bool $said, bool|NotGiven $before): bool|NotGiven
+    {
+        return $read->kind === StreamLine::PARENT && $said ? $read->passed : $before;
+    }
+
+    /** Whether a line says a child failed its mutant, or ended in it. */
+    private static function ends(StreamRead $read): bool
+    {
+        $ended = $read->kind === StreamLine::ENDED || ($read->kind === StreamLine::CHILD && $read->failed);
+
+        return $ended && $read->mutant !== '';
     }
 }

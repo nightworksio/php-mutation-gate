@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
 use NightWorksIO\MutationGate\Core\Coverage\TestEnded;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function outbreak_state_digest;
@@ -362,11 +363,13 @@ final class Stream
         $ended = HandedTest::read($this->plan->results, $from, $this->test);
         $this->kills->failedIn($ended->failed);
 
-        if ($ended->passed === null) {
+        if ($ended->passed instanceof NotGiven) {
             $this->write(StreamLine::fallback($this->test));
-        } else {
-            $this->kills->ended($this->test, $ended->passed);
+
+            return false;
         }
+
+        $this->kills->ended($this->test, $ended->passed);
 
         return false;
     }

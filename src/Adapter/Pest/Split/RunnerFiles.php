@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_filter;
+use function array_key_exists;
 use function array_values;
-use function fstat;
 use function is_array;
 use function is_file;
-use function is_resource;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
@@ -38,13 +38,13 @@ final readonly class RunnerFiles
     {
     }
 
-    /** @param list<mixed> $arguments the command line, as `$_SERVER['argv']` holds it */
+    /** @param list<string> $arguments the command line */
     public static function namedBy(array $arguments): self
     {
         $identities = [];
 
         foreach ($arguments as $argument) {
-            $path = is_string($argument) ? self::pathIn($argument) : '';
+            $path = self::pathIn($argument);
             $status = $path !== '' && is_file($path) ? stat($path) : false;
 
             if (is_array($status)) {
@@ -58,23 +58,20 @@ final readonly class RunnerFiles
     /** The files this process was started with. */
     public static function ofThisProcess(): self
     {
-        $arguments = $_SERVER['argv'] ?? [];
+        $arguments = array_key_exists('argv', $_SERVER) ? $_SERVER['argv'] : [];
 
-        return self::namedBy(is_array($arguments) ? array_values($arguments) : []);
+        return self::namedBy(is_array($arguments) ? array_values(array_filter($arguments, is_string(...))) : []);
     }
 
-    /** Whether a file's status, as stat or fstat gives it, is one of the runner's own. */
-    public function hold(mixed $status): bool
+    /**
+     * Whether a file's status, as stat or fstat gives it, is one of the runner's own.
+     *
+     * @param array{dev: int, ino: int}|false $status
+     */
+    public function hold(array|false $status): bool
     {
         return is_array($status)
-            && isset($status['dev'], $status['ino'])
-            && isset($this->identities[sprintf(self::IDENTITY, $status['dev'], $status['ino'])]);
-    }
-
-    /** Whether a stream is open on one of the runner's own files. */
-    public function holdStream(mixed $stream): bool
-    {
-        return is_resource($stream) && $this->hold(fstat($stream));
+            && array_key_exists(sprintf(self::IDENTITY, $status['dev'], $status['ino']), $this->identities);
     }
 
     /**

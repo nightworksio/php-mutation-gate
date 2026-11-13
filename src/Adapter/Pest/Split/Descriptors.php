@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_any;
 use function count;
 use function file_get_contents;
+use function fstat;
 use function function_exists;
 use function get_resources;
 use function is_array;
@@ -13,6 +15,7 @@ use function is_dir;
 use function is_link;
 use function is_string;
 
+use NightWorksIO\MutationGate\Core\File\FileDescriptor;
 use NightWorksIO\MutationGate\Core\Runner\SocketStreams;
 
 use function octdec;
@@ -66,11 +69,14 @@ final readonly class Descriptors
     /** The bits of the flags that say how a descriptor is open: for reading alone where they are none. */
     private const int ACCESS = 3;
 
-    /** The first descriptor past standard input, output and error. */
-    private const int FIRST = 3;
+    /** How many counts `outbreak_descriptors()` answers: the files, the pipes and the sockets. */
+    private const int COUNTS = 3;
 
     /** A stream's mode that writes. */
     private const array WRITES = ['w', 'a', 'x', 'c', '+'];
+
+    /** How PHP names the wrapper of a stream on a plain file. */
+    private const string PLAIN_FILE = 'plainfile';
 
     private function __construct(private int $files, private int $pipes, private int $sockets)
     {
@@ -82,8 +88,8 @@ final readonly class Descriptors
         $runner = RunnerFiles::ofThisProcess();
         $counted = function_exists('outbreak_descriptors') ? outbreak_descriptors($runner->identities()) : [];
 
-        if (count($counted) === 3) {
-            return new self((int) $counted[0], (int) $counted[1], (int) $counted[2]);
+        if (count($counted) === self::COUNTS) {
+            return new self(...$counted);
         }
 
         return is_dir(self::DESCRIPTORS) ? self::listed($runner) : self::streams($runner);
@@ -97,26 +103,38 @@ final readonly class Descriptors
 
     private static function listed(RunnerFiles $runner): self
     {
-        $files = 0;
-        $pipes = 0;
-        $sockets = 0;
+        $held = new self(0, 0, 0);
         $descriptors = scandir(self::DESCRIPTORS);
 
         foreach (is_array($descriptors) ? $descriptors : [] as $descriptor) {
-            $path = sprintf('%s/%s', self::DESCRIPTORS, $descriptor);
-            $target = is_link($path) && (int) $descriptor >= self::FIRST ? readlink($path) : false;
-
-            if (! is_string($target)) {
-                continue;
-            }
-
-            $writes = self::writes($descriptor);
-            $sockets += str_starts_with($target, self::SOCKET) ? 1 : 0;
-            $pipes += $writes && str_starts_with($target, self::PIPE) ? 1 : 0;
-            $files += $writes && self::isFile($target) && ! $runner->hold(stat($path)) ? 1 : 0;
+            $held = $held->plus(self::one($descriptor, $runner));
         }
 
-        return new self($files, $pipes, $sockets);
+        return $held;
+    }
+
+    /** What one descriptor Linux lists counts as: a file, a pipe or a socket of a test's, or none of them. */
+    private static function one(string $descriptor, RunnerFiles $runner): self
+    {
+        $path = sprintf('%s/%s', self::DESCRIPTORS, $descriptor);
+        $target = is_link($path) && (int) $descriptor >= FileDescriptor::FIRST ? readlink($path) : false;
+
+        if (! is_string($target)) {
+            return new self(0, 0, 0);
+        }
+
+        $writes = self::writes($descriptor);
+
+        return new self(
+            $writes && self::isFile($target) && ! $runner->hold(stat($path)) ? 1 : 0,
+            $writes && str_starts_with($target, self::PIPE) ? 1 : 0,
+            str_starts_with($target, self::SOCKET) ? 1 : 0,
+        );
+    }
+
+    private function plus(self $more): self
+    {
+        return new self($this->files + $more->files, $this->pipes + $more->pipes, $this->sockets + $more->sockets);
     }
 
     /** Whether Linux says a descriptor is open for writing. */
@@ -132,17 +150,8 @@ final readonly class Descriptors
     /** Whether a descriptor's target is a file a test could write, a deleted one among them. */
     private static function isFile(string $target): bool
     {
-        if (! str_starts_with($target, '/')) {
-            return false;
-        }
-
-        foreach (self::NO_FILE as $prefix) {
-            if (str_starts_with($target, $prefix)) {
-                return false;
-            }
-        }
-
-        return true;
+        return str_starts_with($target, '/')
+            && ! array_any(self::NO_FILE, static fn(string $prefix): bool => str_starts_with($target, $prefix));
     }
 
     /** What PHP's own streams say, where the system lists no descriptors. */
@@ -152,9 +161,9 @@ final readonly class Descriptors
         $files = 0;
 
         foreach ($streams as $stream) {
-            $meta = stream_get_meta_data($stream);
-            $plain = ($meta['wrapper_type'] ?? '') === 'plainfile';
-            $files += $plain && self::modeWrites($meta['mode']) && ! $runner->holdStream($stream) ? 1 : 0;
+            $meta = stream_get_meta_data($stream) + ['wrapper_type' => ''];
+            $plain = $meta['wrapper_type'] === self::PLAIN_FILE;
+            $files += $plain && self::modeWrites($meta['mode']) && ! $runner->hold(fstat($stream)) ? 1 : 0;
         }
 
         return new self($files, 0, SocketStreams::among($streams));
@@ -162,12 +171,6 @@ final readonly class Descriptors
 
     private static function modeWrites(string $mode): bool
     {
-        foreach (self::WRITES as $writing) {
-            if (str_contains($mode, $writing)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(self::WRITES, static fn(string $writing): bool => str_contains($mode, $writing));
     }
 }

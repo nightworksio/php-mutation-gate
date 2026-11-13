@@ -610,8 +610,10 @@ services:
                     - FIRST # the status PHPUnit runs first, not random bytes of a copy's name
                 'NightWorksIO\MutationGate\Adapter\Pest\Split\Descriptors':
                     - ACCESS # the access bits of a descriptor's flags, not letters per edit
+                    - COUNTS # how many counts the extension answers of descriptors, not letters per edit
+                'NightWorksIO\MutationGate\Core\File\FileDescriptor':
                     - FIRST # the first descriptor past the standard streams, not letters per edit
-                'NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies':
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\LaravelDatabases':
                     - APART # a database config's keys that read and write apart, not a run's option
                 'NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\CopyName':
                     - KEPT # characters of an original's name a copy keeps, not a chart's height

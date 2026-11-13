@@ -10,6 +10,9 @@ use function array_key_exists;
 use function ctype_digit;
 use function fclose;
 use function is_array;
+
+use NightWorksIO\MutationGate\Core\File\FileDescriptor;
+
 use function scandir;
 
 /**
@@ -23,12 +26,6 @@ use function scandir;
  */
 final readonly class Unshared
 {
-    /** Where the system lists the descriptors this process holds. */
-    private const string HELD = '/dev/fd';
-
-    /** The first descriptor past standard input, output and error. */
-    private const int FIRST = 3;
-
     /** The read end of a pipe whose write end is closed once the process starts. */
     private const array EMPTY = ['pipe', 'r'];
 
@@ -41,12 +38,12 @@ final readonly class Unshared
      */
     public static function over(array $descriptors): array
     {
-        $held = scandir(self::HELD);
+        $held = scandir(FileDescriptor::LISTED);
 
         foreach (is_array($held) ? $held : [] as $descriptor) {
             $number = ctype_digit($descriptor) ? (int) $descriptor : 0;
 
-            if ($number >= self::FIRST && ! array_key_exists($number, $descriptors)) {
+            if ($number >= FileDescriptor::FIRST && ! array_key_exists($number, $descriptors)) {
                 $descriptors[$number] = self::EMPTY;
             }
         }
