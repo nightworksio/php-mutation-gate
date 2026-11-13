@@ -43,6 +43,7 @@ final readonly class BuilderClasses
         'HeldUnits' => self::BUILDER,
         'Ignore' => self::BUILDER,
         'Ignores' => self::BUILDER,
+        'LearnedTimeouts' => self::BUILDER,
         'Load' => self::BUILDER,
         'Local' => self::BUILDER,
         'LocalWork' => self::BUILDER,

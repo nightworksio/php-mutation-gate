@@ -114,13 +114,13 @@ final readonly class LearnedBounds
         return PhpCalls::inWith(...[
             ...$this->percentile instanceof Absent
                 ? []
-                : [sprintf('Timeouts::learnedPercentile(%s)', PhpCalls::literal($this->percentile))],
+                : [sprintf('LearnedTimeouts::percentile(%s)', PhpCalls::literal($this->percentile))],
             ...$this->least instanceof Absent
                 ? []
-                : [sprintf('Timeouts::learnedLeast(%s)', PhpCalls::literal($this->least))],
+                : [sprintf('LearnedTimeouts::least(%s)', PhpCalls::literal($this->least))],
             ...$this->most instanceof Absent
                 ? []
-                : [sprintf('Timeouts::learnedMost(%s)', PhpCalls::literal($this->most))],
+                : [sprintf('LearnedTimeouts::most(%s)', PhpCalls::literal($this->most))],
         ]);
     }
 }
