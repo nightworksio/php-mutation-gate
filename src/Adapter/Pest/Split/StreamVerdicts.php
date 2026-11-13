@@ -8,6 +8,7 @@ use function array_any;
 use function array_filter;
 use function array_key_exists;
 use function array_keys;
+use function array_unique;
 
 use Closure;
 
@@ -110,7 +111,7 @@ final class StreamVerdicts
         $events = Facade::instance();
         $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
 
-        if ($killer !== '' && array_key_exists($killer, $this->touched[$mutant] ?? [])) {
+        if ($killer !== '' && $this->touches($mutant, $killer)) {
             return;
         }
 
@@ -171,7 +172,7 @@ final class StreamVerdicts
     public function forkStates(): array
     {
         $read = array_filter($this->states, static fn(array $both): bool => count($both) === 2);
-        $alike = array_filter($read, static fn(array $both): bool => ($both[0] ?? '') === ($both[1] ?? ''));
+        $alike = array_filter($read, static fn(array $both): bool => count(array_unique($both)) === 1);
 
         return [count($read), count($alike)];
     }
@@ -221,8 +222,13 @@ final class StreamVerdicts
 
     private function take(StreamRead $read): void
     {
-        $end = $read->childEnd();
+        $this->takeWhole($read);
+        $this->takeFork($read);
+    }
 
+    /** What a line says of a test, or of a mutant, as a whole. */
+    private function takeWhole(StreamRead $read): void
+    {
         if ($read->kind === StreamLine::PARENT) {
             $earlier = ! array_key_exists($read->test, $this->passed) || $this->passed[$read->test];
             $this->passed[$read->test] = $read->passed && $earlier;
@@ -239,6 +245,12 @@ final class StreamVerdicts
         if ($read->kind === StreamLine::BOOTED) {
             $this->booted[$read->mutant] = true;
         }
+    }
+
+    /** What a line says of a fork: how a mutant's child came out of a test, what it touched, and the state it left. */
+    private function takeFork(StreamRead $read): void
+    {
+        $end = $read->childEnd();
 
         if ($end instanceof ChildEnd) {
             $this->children[$read->mutant][$read->test] = $end;
@@ -251,6 +263,12 @@ final class StreamVerdicts
         if ($read->kind === StreamLine::STATE) {
             $this->states[sprintf('%s %s', $read->mutant, $read->test)][$read->child ? 1 : 0] = $read->digest;
         }
+    }
+
+    /** Whether a mutant's child touched nondeterminism in the test, so its kill there is not taken. */
+    private function touches(string $mutant, string $test): bool
+    {
+        return array_key_exists($mutant, $this->touched) && array_key_exists($test, $this->touched[$mutant]);
     }
 
     /** Writes that a stream judged the mutant, and this line, to its killer file, which Pest's own process takes. */

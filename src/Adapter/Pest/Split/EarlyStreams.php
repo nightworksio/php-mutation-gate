@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_filter;
+use function array_key_exists;
 use function array_keys;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
@@ -67,9 +68,11 @@ final readonly class EarlyStreams
         foreach ($byId as $mutant => $test) {
             if ($covering[$mutant] === []) {
                 $verdicts->uncovered($test);
-            } else {
-                $verdicts->give($mutant, $test, $covering[$mutant]);
+
+                continue;
             }
+
+            $verdicts->give($mutant, $test, $covering[$mutant]);
         }
 
         StreamDirectory::removed($directory);
@@ -132,7 +135,9 @@ final readonly class EarlyStreams
         $assigned = TestParts::assigned($units, LoadedMap::timed(), $part->parts());
         $mine = array_filter(
             array_keys($units),
-            static fn(string $file): bool => ($assigned[$file] ?? 0) === $part->number() - 1,
+            static fn(string $file): bool => array_key_exists($file, $assigned)
+                ? $assigned[$file] === $part->number() - 1
+                : $part->number() === 1,
         );
         $held = [];
 
