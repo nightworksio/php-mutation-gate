@@ -289,7 +289,7 @@ describe('Settings sections', function (): void {
 
         expect($options instanceof Options ? $options->number(Key::of('12')) : $options)->toBe(2.0)
             ->and($settings->shards()->costs()->secondsPerLine()->forPath(Path::of('12/Money.php')))->toEqual(Seconds::of(2.0))
-            ->and($php)->toContain("Shards::secondsPerLine('12', 2)")
+            ->and($php)->toContain("Costs::secondsPerLine('12', 2)")
             ->and($php)->toContain("Badge::colour('12', 50)")
             ->and($php)->toContain("Option::nested('colors', Option::of('12', 50))");
     });

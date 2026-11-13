@@ -46,6 +46,7 @@ use NightWorksIO\MutationGate\Cli\PestPlugin;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\CostModel;
+use NightWorksIO\MutationGate\Config\Costs;
 use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
@@ -53,7 +54,6 @@ use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Setting;
-use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Tests as TestsSetting;
 use NightWorksIO\MutationGate\Config\Timeouts;
@@ -368,7 +368,7 @@ it('opens the store read-only for a CI job without its credentials, reading the 
 ])->group(...$holds);
 
 it('learns costs at the seconds a line the config sets, and at the standard ones otherwise', function (): void {
-    $slow = wiredOf(Flows::settings(Shards::secondsPerLine('src/Slow', 0.5)), Variables::of([]))->costs;
+    $slow = wiredOf(Flows::settings(Costs::secondsPerLine('src/Slow', 0.5)), Variables::of([]))->costs;
     $unset = wiredOf(Flows::settings(), Variables::of([]))->costs;
 
     $slowly = Configs::options('{"secondsPerLine": {"": 0.2, "src/Slow": 0.5}}');

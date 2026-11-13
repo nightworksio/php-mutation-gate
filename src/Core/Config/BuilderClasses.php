@@ -31,6 +31,7 @@ final readonly class BuilderClasses
         'Context' => self::BUILDER,
         'Controls' => self::BUILDER,
         'CostModel' => self::BUILDER,
+        'Costs' => self::BUILDER,
         'Coverage' => self::BUILDER,
         'Dashboard' => self::BUILDER,
         'Digest' => self::BUILDER,

@@ -183,7 +183,7 @@ final readonly class Costs
 
         foreach ($rates as $prefix => $seconds) {
             $calls[] = sprintf(
-                'Shards::secondsPerLine(%s, %s)',
+                'Costs::secondsPerLine(%s, %s)',
                 PhpCalls::literal($prefix),
                 PhpCalls::literal($seconds),
             );
@@ -192,12 +192,12 @@ final readonly class Costs
         return PhpCalls::inWith(
             ...$calls,
             ...$this->perRunnerMinute instanceof Price ? [sprintf(
-                'Shards::perRunnerMinute(%s, %s)',
+                'Costs::perRunnerMinute(%s, %s)',
                 PhpCalls::literal($this->perRunnerMinute->amount()),
                 PhpCalls::literal($this->perRunnerMinute->currency()),
             )] : [],
             ...$this->savingsWindow instanceof Seconds
-                ? [sprintf('Shards::savingsWindow(%s)', PhpCalls::literal($this->savingsWindow->written()))]
+                ? [sprintf('Costs::savingsWindow(%s)', PhpCalls::literal($this->savingsWindow->written()))]
                 : [],
             ...$this->model instanceof Choice
                 ? [PhpCalls::chosen($this->model, AdapterBuilder::CostModel, BuiltinCostModel::Learned->value)]
@@ -220,7 +220,7 @@ final readonly class Costs
         ) {
             $calls = $value instanceof Absent
                 ? $calls
-                : [...$calls, sprintf('Shards::%s(%s)', $method, PhpCalls::literal($value))];
+                : [...$calls, sprintf('Costs::%s(%s)', $method, PhpCalls::literal($value))];
         }
 
         return $calls;

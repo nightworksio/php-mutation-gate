@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Comment;
 use NightWorksIO\MutationGate\Config\CostModel;
+use NightWorksIO\MutationGate\Config\Costs;
 use NightWorksIO\MutationGate\Config\Coverage;
 use NightWorksIO\MutationGate\Config\Dashboard;
 use NightWorksIO\MutationGate\Config\Digest;
@@ -138,9 +139,9 @@ it('writes every setting of the configuration reference', function (): void {
                 HeldUnits::hotPath(0.5),
                 Shards::seconds(900),
                 Shards::max(8),
-                Shards::secondsPerLine('', 0.3),
-                Shards::secondsPerLine('src', 1),
-                Shards::savingsWindow('14d'),
+                Costs::secondsPerLine('', 0.3),
+                Costs::secondsPerLine('src', 1),
+                Costs::savingsWindow('14d'),
                 CostModel::uses('acme', Option::of('rate', 2)),
                 VersionControl::uses('hg', Option::of('branch', 'tip')),
                 Ci::gitlab(),

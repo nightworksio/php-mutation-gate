@@ -81,13 +81,13 @@ describe('Shards', function (): void {
             "Shards::target('30m')",
             "Shards::setup('3m')",
             "Shards::jobLimit('50m')",
-            "Shards::secondsPerLine('', 0.25)",
-            "Shards::secondsPerLine('src/Legacy', 2)",
-            "Shards::perRunnerMinute(0.008, 'USD')",
-            "Shards::savingsWindow('7d')",
-            'Shards::testsBeforeAKill(3)',
-            'Shards::surviving(0.05)',
-            'Shards::shardOverhead(2)',
+            "Costs::secondsPerLine('', 0.25)",
+            "Costs::secondsPerLine('src/Legacy', 2)",
+            "Costs::perRunnerMinute(0.008, 'USD')",
+            "Costs::savingsWindow('7d')",
+            'Costs::testsBeforeAKill(3)',
+            'Costs::surviving(0.05)',
+            'Costs::shardOverhead(2)',
         ));
     });
 
