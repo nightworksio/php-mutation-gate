@@ -608,6 +608,8 @@ services:
                     - STEPS # what a stream's extension counts, not a setting or a shard result's section
                 'NightWorksIO\MutationGate\Adapter\Pest\Order\Seed':
                     - FIRST # the status PHPUnit runs first, not random bytes of a copy's name
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\PlannedSites':
+                    - VARIABLES # where a plan's site lists its variables, not an argument's place or an exit code
                 'NightWorksIO\MutationGate\Adapter\Pest\Split\Descriptors':
                     - ACCESS # the access bits of a descriptor's flags, not letters per edit
                     - COUNTS # how many counts the extension answers of descriptors, not letters per edit
