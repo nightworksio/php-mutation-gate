@@ -59,7 +59,7 @@ it('reports a mutant Infection skips at timeouts.most, allowed it, and judges it
     $result = $library->mutate('slow', $request);
     $skipped = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
     $limits = array_map(
-        static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
+        static fn(Mutant $mutant): float => $mutant->stop()->limit() instanceof Seconds ? $mutant->stop()->limit()->seconds() : 0.0,
         iterator_to_array($skipped, preserve_keys: false),
     );
     $again = $library->runner()->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $skipped, Seconds::of(3.0));
@@ -80,7 +80,7 @@ it('allows a mutant Infection times out its own five seconds and five times its 
     $result = $library->mutate('drains', $request);
     $timedOut = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
     $limits = array_map(
-        static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
+        static fn(Mutant $mutant): float => $mutant->stop()->limit() instanceof Seconds ? $mutant->stop()->limit()->seconds() : 0.0,
         iterator_to_array($timedOut, preserve_keys: false),
     );
     $again = $library->runner()->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $timedOut, Seconds::of(20.0));
@@ -96,7 +96,7 @@ it('allows a mutant patched Pest times out the floor its quick tests fall under,
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains')));
     $limits = static fn(Mutants $mutants): array => array_map(
-        static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
+        static fn(Mutant $mutant): float => $mutant->stop()->limit() instanceof Seconds ? $mutant->stop()->limit()->seconds() : 0.0,
         iterator_to_array($mutants, preserve_keys: false),
     );
     $result = $library->mutate('drains patched', $request);
@@ -137,7 +137,7 @@ it('stops a mutant\'s run where no test of it finishes for its silence limit, sh
     $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
-        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
         ->each->toBeGreaterThan(11.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
         ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
@@ -265,7 +265,7 @@ it('allows a mutant patched Infection times out the floor its quick tests fall u
 
     expect(Library::records($timedOut))->toBe($library->expected('drains'))
         ->and(array_map(
-            static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
+            static fn(Mutant $mutant): float => $mutant->stop()->limit() instanceof Seconds ? $mutant->stop()->limit()->seconds() : 0.0,
             iterator_to_array($timedOut, preserve_keys: false),
         ))->toBe([10.0])
         ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
@@ -300,7 +300,7 @@ it('stops a mutant\'s run where it prints nothing for its silence limit, short o
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
-        ->and(array_map(static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0, $mutants))
+        ->and(array_map(static fn(Mutant $mutant): float => $mutant->stop()->limit() instanceof Seconds ? $mutant->stop()->limit()->seconds() : 0.0, $mutants))
         ->each->toBeGreaterThan(13.0)
         ->and(array_map(
             static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
@@ -360,7 +360,7 @@ it('runs, patched, a mutant Infection skips unpatched at timeouts.most, and time
     $result = RunnerContracts::withPatchedInfection(static fn(): MutationResult|CannotJudge => $library->runner()->mutate($request));
 
     expect($result instanceof MutationResult ? array_map(
-        static fn(Mutant $mutant): array => [$mutant->status()->value, $mutant->limit()],
+        static fn(Mutant $mutant): array => [$mutant->status()->value, $mutant->stop()->limit()],
         iterator_to_array($result->mutants(), preserve_keys: false),
     ) : [$result])->toEqual([[MutantStatus::TimedOut->value, Seconds::of(1.0)]]);
 })->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);

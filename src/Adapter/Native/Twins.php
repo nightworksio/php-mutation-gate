@@ -131,8 +131,8 @@ final readonly class Twins
     /** A twin, judged as the first whose mutated file it leaves: its status, killers, limits and why. */
     private function judgedAs(MadeMutant $twin, Mutant $first): Mutant
     {
-        $limit = $first->limit();
-        $need = $first->unmutatedNeed();
+        $limit = $first->stop()->limit();
+        $need = $first->stop()->need();
         $reason = $first->reason();
         $judged = Mutant::of(
             $twin->id(),

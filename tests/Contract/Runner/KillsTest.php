@@ -258,7 +258,7 @@ it('stops a mutant\'s run where no test of it starts or ends for its silence lim
     $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
-        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
         ->each->toBeGreaterThan(11.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
         ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
@@ -291,7 +291,7 @@ it('stops a mutant\'s run where no example of it starts or ends for its silence 
     $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
-        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
         ->each->toBeGreaterThan(11.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
         ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
@@ -321,7 +321,7 @@ it('stops a mutant\'s run where no test of it starts or ends for its silence lim
     $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
-        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
         ->each->toBeGreaterThan(11.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
         ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)

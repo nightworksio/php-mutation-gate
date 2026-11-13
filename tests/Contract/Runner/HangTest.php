@@ -64,7 +64,7 @@ it('stops a mutant whose loop never ends, saying nothing or printing, by its lim
     $took = (hrtime(as_number: true) - $started) / 1e9;
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
     $hanging = array_values(array_filter($mutants, static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::TimedOut));
-    $limits = array_map(static fn(Mutant $mutant): float => hangSeconds($mutant->limit()), $hanging);
+    $limits = array_map(static fn(Mutant $mutant): float => hangSeconds($mutant->stop()->limit()), $hanging);
 
     expect(array_map(static fn(Mutant $mutant): array => [
         $mutant->location()->file()->value(),
@@ -78,7 +78,7 @@ it('stops a mutant whose loop never ends, saying nothing or printing, by its lim
         ['src/Hang.php', 32, PlusToMinus::class, MutantStatus::Killed, ''],
     ])
         ->and(array_map(
-            static fn(Mutant $mutant): bool => hangSeconds($mutant->duration()) <= hangSeconds($mutant->limit()) + 0.5,
+            static fn(Mutant $mutant): bool => hangSeconds($mutant->duration()) <= hangSeconds($mutant->stop()->limit()) + 0.5,
             $hanging,
         ))->toBe([true, true])
         ->and($took)->toBeLessThan(array_sum($limits) + 15.0);

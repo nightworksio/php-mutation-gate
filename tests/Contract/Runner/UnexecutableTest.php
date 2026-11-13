@@ -189,8 +189,8 @@ function unexecutablePaced(Library $library): array
         $result instanceof MutationResult ? [...$result->mutants()] : [],
         static fn(Mutant $mutant): bool => $mutant->location()->start()->number() === 10,
     ));
-    $need = $paced === [] ? Unmeasured::duration() : $paced[0]->unmutatedNeed();
-    $limit = $paced === [] ? Unmeasured::duration() : $paced[0]->limit();
+    $need = $paced === [] ? Unmeasured::duration() : $paced[0]->stop()->need();
+    $limit = $paced === [] ? Unmeasured::duration() : $paced[0]->stop()->limit();
 
     return $paced === [] ? [] : [
         $paced[0]->status(),

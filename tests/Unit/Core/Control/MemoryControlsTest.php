@@ -151,7 +151,7 @@ it('judges each mutant out of memory by what its control found', function (Contr
     $applied = [...$controls->applied($mutants, ControlRuns::none()->with([...$controls->asked()][0], $found), Controls::none())];
     $said = $applied[0]->reason();
 
-    expect([$applied[0]->status(), $applied[0]->unmutatedNeed(), $said instanceof Reason ? $said->text() : ''])
+    expect([$applied[0]->status(), $applied[0]->stop()->need(), $said instanceof Reason ? $said->text() : ''])
         ->toEqual([$status, $need, $reason]);
 })->with([
     'a control that held 20M' => [

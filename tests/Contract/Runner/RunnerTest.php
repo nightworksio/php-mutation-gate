@@ -267,7 +267,7 @@ it('holds a timed-out mutant to a limit of five seconds at least', function (Lib
     $limits = [];
 
     foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
-        $limit = $mutant->limit();
+        $limit = $mutant->stop()->limit();
         $limits[$mutant->status()->value] = $limit instanceof Seconds && $limit->seconds() >= 5.0;
     }
 

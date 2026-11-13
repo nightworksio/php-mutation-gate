@@ -91,6 +91,6 @@ it('keeps its first\'s rejection and unmutated need, and leaves a twin no limit 
 
     expect($copy->status())->toBe(MutantStatus::KilledByStaticAnalysis)
         ->and($copy->reason())->toEqual($rejection)
-        ->and($copy->unmutatedNeed())->toEqual(Seconds::of(1.5))
-        ->and($copy->limit())->toEqual(Unmeasured::duration());
+        ->and($copy->stop()->need())->toEqual(Seconds::of(1.5))
+        ->and($copy->stop()->limit())->toEqual(Unmeasured::duration());
 });

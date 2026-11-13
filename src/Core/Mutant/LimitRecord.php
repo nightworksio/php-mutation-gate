@@ -35,8 +35,8 @@ final readonly class LimitRecord
     /** @return Written */
     public static function of(Mutant $mutant): array
     {
-        $limit = $mutant->limit();
-        $need = $mutant->unmutatedNeed();
+        $limit = $mutant->stop()->limit();
+        $need = $mutant->stop()->need();
 
         return [
             ...$limit instanceof Seconds ? [self::LIMIT => $limit->seconds()] : [],

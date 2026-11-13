@@ -37,8 +37,8 @@ final readonly class TimeoutTriage
     /** What a mutant comes to: as its status reports it, and a timeout as triage judges it. */
     public function judged(Mutant $mutant): MutantJudgement
     {
-        $limit = $mutant->limit();
-        $time = $mutant->unmutatedNeed();
+        $limit = $mutant->stop()->limit();
+        $time = $mutant->stop()->need();
 
         return $mutant->status() === MutantStatus::TimedOut
             && $this->mode === TimeoutMode::Confirm

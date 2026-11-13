@@ -102,7 +102,7 @@ it('runs its parts served the mutant one after another, and is killed by the tes
 
     expect([$first, $second])->toEqual([partedControls()[0], partedControls()[1]])
         ->and($killed->next())->toEqual(NotGiven::value())
-        ->and([$killed->judged()->status(), [...$killed->judged()->killers()], $killed->judged()->limit()])
+        ->and([$killed->judged()->status(), [...$killed->judged()->killers()], $killed->judged()->stop()->limit()])
         ->toEqual([MutantStatus::Killed, [TestId::of('LoopTest::b')], Seconds::of(120.0)]);
 });
 
@@ -130,7 +130,7 @@ it('runs the control of a part that runs out, and times out where its tests pass
     $judged = partedAfter(ControlRun::ranOut(), ControlRun::passed(Seconds::of(35.0)))->judged();
 
     expect($ranOut->next())->toEqual(partedControls()[0]->unmutated())
-        ->and([$judged->status(), $judged->limit(), $judged->unmutatedNeed()])
+        ->and([$judged->status(), $judged->stop()->limit(), $judged->stop()->need()])
         ->toEqual([MutantStatus::TimedOut, Seconds::of(90.0), Seconds::of(35.0)]);
 });
 

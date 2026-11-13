@@ -126,7 +126,7 @@ it('keeps with each timed-out mutant the time its unmutated control took, its te
 
     expect(controlKeysAsked($runner))->toContain($moneyControl()->key())
         ->and($timedOut->status())->toBe(MutantStatus::TimedOut)
-        ->and($timedOut->unmutatedNeed())->toEqual(Seconds::of(1.5));
+        ->and($timedOut->stop()->need())->toEqual(Seconds::of(1.5));
 });
 
 it('leaves a timeout unjudged where its tests fail unmutated too, and too slow to judge, saying why, where they run out or never run', function (
@@ -146,7 +146,7 @@ it('leaves a timeout unjudged where its tests fail unmutated too, and too slow t
 
     expect($timedOut->status())->toBe($status)
         ->and($said instanceof Reason ? $said->text() : '')->toBe($reason)
-        ->and($timedOut->unmutatedNeed())->toEqual(Unmeasured::duration());
+        ->and($timedOut->stop()->need())->toEqual(Unmeasured::duration());
 })->with([
     'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::FailsUnmutated, TimeoutControls::FAILS_UNMUTATED],
     'tests that run out unmutated' => [fn(): ControlRun => ControlRun::ranOut(), MutantStatus::TimedOut, TimeoutControls::RAN_OUT],
@@ -215,7 +215,7 @@ it('runs no control of a timeout under timeouts.mode unjudged, which makes every
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
     expect(controlKeysAsked($runner))->not->toContain($moneyControl()->key())
-        ->and(controlMutantIn($resultIn($project, 1), 'Decrement-27')->unmutatedNeed())->toEqual(Unmeasured::duration());
+        ->and(controlMutantIn($resultIn($project, 1), 'Decrement-27')->stop()->need())->toEqual(Unmeasured::duration());
 });
 
 it('runs no control of a timeout whose own run already ran its tests unmutated, as a trial does', function () use ($makeResultIn): void {
@@ -239,7 +239,7 @@ it('runs no control of a timeout whose own run already ran its tests unmutated, 
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
     expect($runner->controlled())->toBe([])
-        ->and(controlMutantIn($resultIn($project, 1), 'Decrement-27')->unmutatedNeed())->toEqual(Seconds::of(0.4));
+        ->and(controlMutantIn($resultIn($project, 1), 'Decrement-27')->stop()->need())->toEqual(Seconds::of(0.4));
 });
 
 it('leaves a timeout unjudged where its control would not fit in the time the budget has left', function () use (
@@ -347,7 +347,7 @@ it('weighs a mutant out of memory by the peak of its control under the same cap,
     $said = $weighed->reason();
 
     expect(controlKeysAsked($runner))->toContain($control->key())
-        ->and($weighed->unmutatedNeed())->toEqual($need)
+        ->and($weighed->stop()->need())->toEqual($need)
         ->and($said instanceof Reason ? $said->text() : '')->toBe($reason);
 })->with([
     'a control that held 20M' => [fn(): ControlRun => ControlRun::passed(Seconds::of(1.0))->withPeak(MemoryCap::of(20, MemoryUnit::Megabytes)), fn(): MemoryCap => MemoryCap::of(20, MemoryUnit::Megabytes), ''],

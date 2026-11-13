@@ -136,7 +136,7 @@ $hogged = static function (Library $library, string $hog, string $also = '', str
         static fn(Mutant $mutant): string => sprintf(
             '%s %s',
             $mutant->status()->value,
-            $mutant->limit() instanceof MemoryCap ? $mutant->limit()->written() : 'unlimited',
+            $mutant->stop()->limit() instanceof MemoryCap ? $mutant->stop()->limit()->written() : 'unlimited',
         ),
         iterator_to_array($result->mutants(), preserve_keys: false),
     ) : [$result->why()];

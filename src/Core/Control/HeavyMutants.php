@@ -232,7 +232,7 @@ final readonly class HeavyMutants
      */
     private static function atMost(Mutant $mutant, LimitBounds $bounds): bool
     {
-        $limit = $mutant->limit();
+        $limit = $mutant->stop()->limit();
         $reason = $mutant->reason();
 
         return $mutant->status() === MutantStatus::TimedOut

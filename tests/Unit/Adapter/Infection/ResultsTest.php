@@ -134,7 +134,7 @@ it('reads every list of the log as the gate\'s status, by file and then by line,
             MutantStatus::Killed,
             Unmeasured::duration(),
         ))
-        ->and($result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false)[4]->limit() : null)
+        ->and($result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false)[4]->stop()->limit() : null)
         ->toEqual(Seconds::of(5.0));
 });
 
@@ -210,7 +210,7 @@ it('reads a kill or an error whose output ran out of exactly the gate\'s cap as 
         static fn(Mutant $mutant): array => [
             $mutant->location()->start()->number(),
             $mutant->status(),
-            $mutant->limit() instanceof MemoryCap ? $mutant->limit()->written() : 'none',
+            $mutant->stop()->limit() instanceof MemoryCap ? $mutant->stop()->limit()->written() : 'none',
             count($mutant->killers()),
         ],
         iterator_to_array($result->mutants(), preserve_keys: false),
@@ -247,7 +247,7 @@ it('reads a mutant as out of memory with no limit where PHPUnit says its process
     $mutant = $result instanceof MutationResult ? [...$result->mutants()][0] : null;
 
     expect($mutant?->status())->toBe($status)
-        ->and($mutant?->limit())->toEqual(Unmeasured::duration())
+        ->and($mutant?->stop()->limit())->toEqual(Unmeasured::duration())
         ->and(count($mutant?->killers() ?? TestIds::none()))->toBe($killers);
 })->with([
     'ended where the config hides errors' => [$prematureEnd, ErrorDisplay::Nowhere, $capped, MutantStatus::OutOfMemory, 0],
@@ -297,7 +297,7 @@ it('reads the skipped mutants from the text log, allowed the cap', function (): 
         ->and($mutants[0]->status())->toBe(MutantStatus::Skipped)
         ->and($mutants[0]->nativeId())->toBe('s11')
         ->and($mutants[0]->location()->file())->toEqual(Path::of('src/Money.php'))
-        ->and($mutants[0]->limit())->toEqual(Seconds::of(7.5));
+        ->and($mutants[0]->stop()->limit())->toEqual(Seconds::of(7.5));
 });
 
 it('records a mutant a pattern of Infection\'s config ignored as ignored by a native marker, where markers are allowed', function (): void {
@@ -398,7 +398,7 @@ it('says a timed-out mutant a patched Infection stopped at its silence limit was
     expect($result instanceof MutationResult ? array_map(
         static fn(Mutant $mutant): array => [
             $mutant->status(),
-            $mutant->limit(),
+            $mutant->stop()->limit(),
             $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
         ],
         iterator_to_array($result->mutants(), preserve_keys: false),

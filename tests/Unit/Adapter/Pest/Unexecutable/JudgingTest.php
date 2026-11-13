@@ -111,7 +111,7 @@ it('judges each uncovered mutant on a line that is not executable by the tests t
         'internal' => 'killed',
         'other' => 'uncovered',
     ])->and($judged instanceof MutationResult ? $judged->skipped() : -1)->toBe(2)
-        ->and($judged instanceof MutationResult ? array_map(static fn(Mutant $mutant): mixed => $mutant->limit(), [...$judged->mutants()]) : [])
+        ->and($judged instanceof MutationResult ? array_map(static fn(Mutant $mutant): mixed => $mutant->stop()->limit(), [...$judged->mutants()]) : [])
         ->toEqual(array_fill(0, 4, Unmeasured::duration()));
 });
 
@@ -286,7 +286,7 @@ it('gives a mutant that timed out the limit its run was allowed: five seconds an
         $judged = new Judging($at, $shell, new CapDirectory(), $bounds)->of(judgingResult('rate'), $money, $results, judgingScan($at, $results));
         $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
 
-        return array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->limit()], $mutants);
+        return array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->stop()->limit()], $mutants);
     };
 
     expect($limits(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0))))->toEqual([[MutantStatus::TimedOut, Seconds::of(5.0 + 3 * 0.1)]])
@@ -303,7 +303,7 @@ it('skips a mutant whose tests on their own run out of its limit, giving it that
     $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of(judgingResult('rate'), $money, $results, judgingScan($at, $results));
     $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
 
-    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->limit(), $mutant->reason()], $mutants))
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->stop()->limit(), $mutant->reason()], $mutants))
         ->toEqual([[MutantStatus::Skipped, Seconds::of(10.0), Unreported::reason()]])
         ->and($shell->commands())->toHaveCount(1);
 });
@@ -392,7 +392,7 @@ it('gives a mutant that timed out the time its tests took on their own, unmutate
         ->of(judgingResult('rate'), $money, $results, judgingScan($at, $results));
     $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
 
-    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->limit(), $mutant->unmutatedNeed()], $mutants))
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->stop()->limit(), $mutant->stop()->need()], $mutants))
         ->toEqual([[MutantStatus::TimedOut, Seconds::of(10.0), Seconds::of(0.5)]]);
 });
 

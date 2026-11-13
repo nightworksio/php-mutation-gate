@@ -33,7 +33,7 @@ it('is one mutant as its runner reported it', function (): void {
         ->and($mutant->mutation())->toBe($mutation)
         ->and($mutant->status())->toBe(MutantStatus::Survived)
         ->and($mutant->duration())->toEqual(Seconds::of(0.4))
-        ->and($mutant->limit())->toEqual(Unmeasured::duration());
+        ->and($mutant->stop()->limit())->toEqual(Unmeasured::duration());
 });
 
 it('carries the seconds its runner allowed it, keeping the rest of its record', function (): void {
@@ -43,14 +43,14 @@ it('carries the seconds its runner allowed it, keeping the rest of its record', 
     $mutant = Mutant::of($id, '9a0b7e', $location, $mutation, MutantStatus::TimedOut, Seconds::of(0.4));
     $limited = $mutant->withLimit(Seconds::of(5.0));
 
-    expect($limited->limit())->toEqual(Seconds::of(5.0))
+    expect($limited->stop()->limit())->toEqual(Seconds::of(5.0))
         ->and($limited->id())->toBe($id)
         ->and($limited->nativeId())->toBe('9a0b7e')
         ->and($limited->location())->toBe($location)
         ->and($limited->mutation())->toBe($mutation)
         ->and($limited->status())->toBe(MutantStatus::TimedOut)
         ->and($limited->duration())->toEqual(Seconds::of(0.4))
-        ->and($mutant->limit())->toEqual(Unmeasured::duration());
+        ->and($mutant->stop()->limit())->toEqual(Unmeasured::duration());
 });
 
 it('gives no reason until one is said', function (): void {

@@ -330,7 +330,7 @@ it('says how long the run took, and the limit of one that timed out', function (
     $stopped = $judged(recording('', Ran::stopped('')->took(Seconds::of(3.0))), TestIds::of($adds));
 
     expect($done instanceof Mutant ? $done->duration() : null)->toEqual(Seconds::of(0.5))
-        ->and($stopped instanceof Mutant ? [$stopped->duration(), $stopped->limit()] : [])->toEqual([Seconds::of(3.0), Seconds::of(3.0)]);
+        ->and($stopped instanceof Mutant ? [$stopped->duration(), $stopped->stop()->limit()] : [])->toEqual([Seconds::of(3.0), Seconds::of(3.0)]);
 });
 
 it('stops a run that selects its tests by their ids at its silence limit too, on its results file, and says so of a mutant it stopped there', function () use ($makeAdds, $makeRequest): void {
@@ -348,7 +348,7 @@ it('stops a run that selects its tests by their ids at its silence limit too, on
 
     expect($command->silence())->toEqual(SilenceLimit::of(Seconds::of(1.0), $command->environment()[Variable::Results->value]))
         ->and(judgedAs($quiet))->toBe([MutantStatus::TimedOut, [], Reason::silent(Seconds::of(1.0))->text()])
-        ->and($quiet instanceof Mutant ? $quiet->limit() : null)->toEqual(Seconds::of(3.0))
+        ->and($quiet instanceof Mutant ? $quiet->stop()->limit() : null)->toEqual(Seconds::of(3.0))
         ->and($late instanceof Mutant ? [$late->status(), $late->reason()] : [])->toEqual([MutantStatus::TimedOut, Unreported::reason()]);
 });
 
@@ -492,7 +492,7 @@ $weighed = static function (string $lines, Ran $ran, MemoryCap $cap, ErrorDispla
     $mutant = $run->judged(moneyMutant($project), TestIds::of($adds, TestId::of('T::dies')), $request, Seconds::of(3.0));
 
     return $mutant instanceof Mutant
-        ? [$mutant->status(), $mutant->limit(), array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()])]
+        ? [$mutant->status(), $mutant->stop()->limit(), array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()])]
         : [$mutant->why()];
 };
 

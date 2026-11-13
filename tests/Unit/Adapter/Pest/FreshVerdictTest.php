@@ -171,7 +171,7 @@ it('judges a fresh run by its JUnit log, its exit status and the guard', functio
 it('keeps the limit of a timeout and the cap of a run out of memory', function (): void {
     $limitOf = static fn(Ran $ran): Seconds|MemoryCap|Unmeasured => freshVerdictOf($ran, served: true, log: false)
         ->mutant(freshMutant(), $ran->duration(), Seconds::of(7.0), MemoryCap::of(64, MemoryUnit::Megabytes))
-        ->limit();
+        ->stop()->limit();
 
     expect($limitOf(Ran::stopped('')))->toEqual(Seconds::of(7.0))
         ->and($limitOf(Ran::finished(succeeded: false, output: 'Allowed memory size of 67108864 bytes exhausted')))
