@@ -250,3 +250,26 @@ it('runs, where a mutant\'s filter is left out, each test whose class a file its
     expect(CoveringFiles::loading('/tmp/mutations/whole', $tests))->toBe($tests)
         ->and(CoveringFiles::loading('/tmp/mutations/abc', $tests))->toBe($tests);
 });
+
+it('streams the tests of each test file by the file that declares their class, with what it needs, and none where a class is not loaded', function () use ($suite): void {
+    [$namespace, $files] = $suite();
+    $child = sprintf('%s\ChildTest::testIt', $namespace);
+    $alone = sprintf('%s\AloneTest::testIt with data set #0', $namespace);
+    $loaded = LoadedTests::inThisProcess(dirname($files['ChildTest.php'], 2));
+
+    expect(CoveringFiles::streamed([$child, $alone, $child]))->toBe([
+        $files['ChildTest.php'] => ['files' => $loaded->needs($files['ChildTest.php']), 'tests' => [$child, $child]],
+        $files['AloneTest.php'] => ['files' => $loaded->needs($files['AloneTest.php']), 'tests' => [$alone]],
+    ])
+        ->and(CoveringFiles::streamed([$child, 'Never\Loaded::test']))->toBe([]);
+});
+
+it('runs every loaded test file beside the ones a stream holds, each with what it needs and no test the map knows of it', function () use ($suite): void {
+    [$namespace, $files] = $suite();
+    $child = sprintf('%s\ChildTest::testIt', $namespace);
+    $every = CoveringFiles::everyCase([$files['ChildTest.php'] => ['files' => [$files['ChildTest.php']], 'tests' => [$child]]]);
+    $loaded = LoadedTests::inThisProcess(dirname($files['ChildTest.php'], 2));
+
+    expect($every[$files['ChildTest.php']])->toBe(['files' => [$files['ChildTest.php']], 'tests' => [$child]])
+        ->and($every[$files['AloneTest.php']])->toBe(['files' => $loaded->needs($files['AloneTest.php']), 'tests' => []]);
+});

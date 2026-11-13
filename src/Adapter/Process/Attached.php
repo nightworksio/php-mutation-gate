@@ -23,10 +23,6 @@ use const STDOUT;
  */
 final readonly class Attached
 {
-    private function __construct()
-    {
-    }
-
     /**
      * The exit status of a program, its name then its arguments; none where it cannot start.
      *

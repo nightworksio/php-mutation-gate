@@ -94,3 +94,13 @@ it('keeps its first\'s rejection and unmutated need, and leaves a twin no limit 
         ->and($copy->stop()->need())->toEqual(Seconds::of(1.5))
         ->and($copy->stop()->limit())->toEqual(Unmeasured::duration());
 });
+
+it('runs every mutant, twins too, and joins nothing to a verdict, where each is judged by its own run', function (): void {
+    $first = twinMade('src/A.php', 'Less', '<?php a <= b;');
+    $twin = twinMade('src/A.php', 'Greater', '<?php a <= b;');
+    $judged = [twinJudged($first, MutantStatus::Killed), twinJudged($twin, MutantStatus::Survived)];
+    $twins = Twins::none([$first, $twin]);
+
+    expect($twins->first())->toBe([$first, $twin])
+        ->and($twins->joined($judged))->toBe($judged);
+});

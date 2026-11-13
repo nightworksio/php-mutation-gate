@@ -207,3 +207,22 @@ it('lists the tests once for each digest of the test files watch sets, and names
     expect($once)->toBe([1, 2])
         ->and([$listed, $named])->toBe([3, 4]);
 });
+
+it('answers each ask afresh where pest.remember is off, keeping nothing from an earlier one', function (): void {
+    $remembered = new Remembered(remembers: false);
+    $patched = [$remembered->patched(static fn(): bool => true), $remembered->patched(static fn(): bool => false)];
+    $map = $remembered->map(Path::of('planned'), static fn(): CannotJudge => CannotJudge::because('read first'));
+    $mapAgain = $remembered->map(Path::of('planned'), static fn(): CannotJudge => CannotJudge::because('read again'));
+    $written = 0;
+    $remembered->writeOnce('/m', static function () use (&$written): void {
+        $written++;
+    });
+    $remembered->writeOnce('/m', static function () use (&$written): void {
+        $written++;
+    });
+
+    expect($patched)->toBe([true, false])
+        ->and($map)->toEqual(CannotJudge::because('read first'))
+        ->and($mapAgain)->toEqual(CannotJudge::because('read again'))
+        ->and($written)->toBe(2);
+});

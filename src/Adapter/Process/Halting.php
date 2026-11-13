@@ -41,16 +41,7 @@ final class Halting
     /** The signal, heard from now until it is let go. */
     public static function listened(): self
     {
-        if (! self::signals()) {
-            return new self(listening: false);
-        }
-
-        $halting = new self(listening: true);
-        $before = pcntl_signal_get_handler(self::signal());
-        $halting->before = is_callable($before) ? Closure::fromCallable($before) : $before;
-        pcntl_signal(self::signal(), $halting->hear(...));
-
-        return $halting;
+        return self::signals() ? self::listening() : new self(listening: false);
     }
 
     /** The signal sent to this process, where anything can hear it. */
@@ -83,6 +74,17 @@ final class Halting
     public static function signals(): bool
     {
         return function_exists('pcntl_signal') && function_exists('posix_kill');
+    }
+
+    /** The signal, heard from now until it is let go, its handler before kept. */
+    private static function listening(): self
+    {
+        $halting = new self(listening: true);
+        $before = pcntl_signal_get_handler(self::signal());
+        $halting->before = is_callable($before) ? Closure::fromCallable($before) : $before;
+        pcntl_signal(self::signal(), $halting->hear(...));
+
+        return $halting;
     }
 
     /** The signal: SIGUSR2, which nothing else of the gate sends. */
