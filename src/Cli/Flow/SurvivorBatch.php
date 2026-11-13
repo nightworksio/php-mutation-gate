@@ -195,7 +195,7 @@ final readonly class SurvivorBatch
      */
     private function written(WarmedUp $warm, CheckableSurvivor $survivor): MutantCheck|CannotJudge
     {
-        $at = Workspace::checkedMutant($survivor->mutant()->id());
+        $at = CheckedFiles::mutant($survivor->mutant()->id());
         $written = $this->adapters->project->write($at, $survivor->checkable()->mutant());
         $check = MutantCheck::of($survivor->mutant()->location()->file(), $at)
             ->within($this->perCheck)

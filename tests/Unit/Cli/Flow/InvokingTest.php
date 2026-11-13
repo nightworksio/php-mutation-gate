@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\Invoked;
 use NightWorksIO\MutationGate\Cli\Flow\Invoking;
 use NightWorksIO\MutationGate\Cli\Flow\PartedRuns;
 use NightWorksIO\MutationGate\Cli\Flow\Stopwatch;
 use NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking;
-use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -262,8 +262,8 @@ it('screens a heavy mutant whose parts all pass as a survivor, after the survivo
         AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}')),
         Findings::none(),
         [
-            Workspace::checkedMutant(invokedTimedOut()->id())->value() => Findings::none(),
-            Workspace::checkedMutant($survivor->id())->value() => Findings::none(),
+            CheckedFiles::mutant(invokedTimedOut()->id())->value() => Findings::none(),
+            CheckedFiles::mutant($survivor->id())->value() => Findings::none(),
         ],
     ), Flows::project());
 

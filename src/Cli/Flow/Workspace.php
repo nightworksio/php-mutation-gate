@@ -6,9 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace as GateDirectory;
-use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
-use NightWorksIO\MutationGate\Core\Proof\CacheClass;
 use NightWorksIO\MutationGate\Core\Recheck\ShareOf;
 
 use function sprintf;
@@ -111,58 +109,6 @@ final readonly class Workspace
     public static function heldCoverage(ShardId $shard): Path
     {
         return Path::of(sprintf('%s/held/shard-%d', GateDirectory::root()->value(), $shard->number()));
-    }
-
-    /** Where static analysis reads a survivor's mutated code, for its one check. */
-    public static function checkedMutant(MutantId $mutant): Path
-    {
-        return Path::of(sprintf('%s/staticcheck/mutants/%s.php', GateDirectory::root()->value(), $mutant->value()));
-    }
-
-    /**
-     * Where static analysis reads a survivor's original printed as its runner
-     * prints its mutants, for the check that it analyses as the file does.
-     */
-    public static function checkedOriginal(MutantId $mutant): Path
-    {
-        return Path::of(sprintf('%s/staticcheck/originals/%s.php', GateDirectory::root()->value(), $mutant->value()));
-    }
-
-    /**
-     * Where static analysis reads a survivor's original as it is written,
-     * beside its print, for the check that the print analyses as the file
-     * does read from there.
-     */
-    public static function checkedAsWritten(MutantId $mutant): Path
-    {
-        return Path::of(sprintf('%s/staticcheck/written/%s.php', GateDirectory::root()->value(), $mutant->value()));
-    }
-
-    /** Where survivors and their originals are compiled, to prove a survivor equivalent. */
-    public static function equivalence(): Path
-    {
-        return Path::of(sprintf('%s/equivalence', GateDirectory::root()->value()));
-    }
-
-    /**
-     * Where the packs of `outbreak cache` a run reads are, one for each class
-     * of writer, which the plan's artifact hands on to the verdict (ADR-0131).
-     */
-    public static function cachePack(CacheClass $class): Path
-    {
-        return Path::of(sprintf('%s/cache/%s.pack', GateDirectory::root()->value(), $class->value));
-    }
-
-    /** Where a verdict leaves the entries of the proofs it wrote, of the class it writes as, for the store to take. */
-    public static function cacheEntries(CacheClass $class): Path
-    {
-        return Path::of(sprintf('%s/cache/entries/%s.pack', GateDirectory::root()->value(), $class->value));
-    }
-
-    /** Where the Actions cache restored the packs of a class of writer, for `outbreak cache pull` to read. */
-    public static function restoredPacks(CacheClass $class): Path
-    {
-        return Path::of(sprintf('%s/cache/restored/%s', GateDirectory::root()->value(), $class->value));
     }
 
     /** Where the verdict keeps the JSON report of the last run, which `digest` renders. */

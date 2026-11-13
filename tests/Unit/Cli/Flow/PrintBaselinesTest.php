@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\Dependents;
 use NightWorksIO\MutationGate\Cli\Flow\NameGraph;
 use NightWorksIO\MutationGate\Cli\Flow\PrintBaselines;
 use NightWorksIO\MutationGate\Cli\Flow\WarmedUp;
-use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\DependentCap;
@@ -45,14 +45,14 @@ it('keeps the baseline of each file a batch before it printed, and leaves to its
     $project = Scratch::directory();
     $money = [...Flows::mutantsOf('src/Money.php')][0];
     $held = [...Flows::mutantsOf('src/Held.php')][0];
-    $blocked = sprintf('%s/%s', $project, Workspace::checkedOriginal($held->id())->value());
+    $blocked = sprintf('%s/%s', $project, CheckedFiles::original($held->id())->value());
     Scratch::write($project, 'elsewhere.php', '<?php');
     mkdir(dirname($blocked), recursive: true);
     symlink(sprintf('%s/elsewhere.php', $project), $blocked);
     $identity = AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}'));
     $originals = Findings::of(Finding::error(Path::of('src/Money.php'), 'known', 'The originals already have this.'));
     $checker = new RecordingChecker(
-        new StaticCheckerFake($identity, $originals, [Workspace::checkedOriginal($money->id())->value() => $originals]),
+        new StaticCheckerFake($identity, $originals, [CheckedFiles::original($money->id())->value() => $originals]),
         $project,
     );
     $adapters = Flows::adapters($project, [], ScriptedRunner::fixture(), $checker);
@@ -76,10 +76,10 @@ it('stands a print unlike the warm-up where the file as written, read from the p
     $placed = Findings::of(Finding::error(Path::of('src/Money.php'), 'disallowed.function', 'Calling config() is forbidden.'));
     $printed = Findings::of(Finding::error(Path::of('src/Held.php'), 'method.notFound', 'Call to an undefined method.'));
     $checker = new StaticCheckerFake($identity, Findings::none(), [
-        Workspace::checkedOriginal($money->id())->value() => $placed,
-        Workspace::checkedAsWritten($money->id())->value() => $placed,
-        Workspace::checkedOriginal($held->id())->value() => $printed,
-        Workspace::checkedAsWritten($held->id())->value() => Findings::none(),
+        CheckedFiles::original($money->id())->value() => $placed,
+        CheckedFiles::asWritten($money->id())->value() => $placed,
+        CheckedFiles::original($held->id())->value() => $printed,
+        CheckedFiles::asWritten($held->id())->value() => Findings::none(),
     ]);
     $adapters = Flows::adapters($project, [], ScriptedRunner::fixture(), $checker);
     $warm = new WarmedUp($checker, $identity, Findings::none(), Seconds::of(1.0), new Dependents(new NameGraph($adapters), DependentCap::standard()));
@@ -91,7 +91,7 @@ it('stands a print unlike the warm-up where the file as written, read from the p
     expect($baselines->baseline(printedBaseline($money)))->toBe($placed)
         ->and($differing instanceof DifferingPrint ? $differing->detail() : $differing)
         ->toBe('The print alone reports `method.notFound` Call to an undefined method.; the file as written there alone reports no finding')
-        ->and(is_dir(sprintf('%s/%s', $project, dirname(Workspace::checkedAsWritten($money->id())->value()))) ? scandir(sprintf('%s/%s', $project, dirname(Workspace::checkedAsWritten($money->id())->value()))) : [])
+        ->and(is_dir(sprintf('%s/%s', $project, dirname(CheckedFiles::asWritten($money->id())->value()))) ? scandir(sprintf('%s/%s', $project, dirname(CheckedFiles::asWritten($money->id())->value()))) : [])
         ->toBe(['.', '..']);
 });
 
@@ -100,7 +100,7 @@ it('weighs a print unlike the warm-up against the warm-up where the file as writ
     $money = [...Flows::mutantsOf('src/Money.php')][0];
     $identity = AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}'));
     $known = Findings::of(Finding::error(Path::of('src/Money.php'), 'known', 'Known.'));
-    $checker = new StaticCheckerFake($identity, $known, [Workspace::checkedOriginal($money->id())->value() => Findings::none()]);
+    $checker = new StaticCheckerFake($identity, $known, [CheckedFiles::original($money->id())->value() => Findings::none()]);
     $adapters = Flows::adapters($project, [], ScriptedRunner::fixture(), $checker);
     $warm = new WarmedUp($checker, $identity, $known, Seconds::of(1.0), new Dependents(new NameGraph($adapters), DependentCap::standard()));
 

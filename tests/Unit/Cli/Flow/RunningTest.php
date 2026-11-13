@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\PreChecking;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
@@ -417,7 +418,7 @@ it('checks each survivor by static analysis before it runs again, and runs none 
     $survivor = Dooms::survivor('src/Money.php');
     $new = Finding::error(Path::of('src/Money.php'), 'new', 'New.');
     $checker = new StaticCheckerFake(AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')), Findings::none(), [
-        Workspace::checkedMutant($survivor->id())->value() => Findings::of($new),
+        CheckedFiles::mutant($survivor->id())->value() => Findings::of($new),
     ]);
 
     new Running(Flows::adapters($project, [], $runner, $checker), Flows::settings(), Flows::setup())

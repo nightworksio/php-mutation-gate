@@ -159,6 +159,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/VerdictTimings.php',
             'src/Cli/Flow/VerdictWarnings.php',
             'src/Cli/Flow/Workspace.php',
+            'src/Cli/Flow/CheckedFiles.php',
         ],
         'The PHP config builder: what a config says is keyed as its canonical form.' => [
             'src/Config/**',

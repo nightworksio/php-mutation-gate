@@ -154,7 +154,7 @@ final readonly class Wiring
                 Narrowing::none(),
                 Prover::of(
                     PHP_BINARY,
-                    $project->root()->at(Workspace::equivalence()),
+                    $project->root()->at(CheckedFiles::equivalence()),
                     $processes,
                     ini_get('disable_functions'),
                     $settings->staticCheck()->opcacheBatch(),

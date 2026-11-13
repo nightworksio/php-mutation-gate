@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Workspace as GateDirectory;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -98,8 +99,8 @@ final readonly class CachedPacks
         $request = $this->request(CacheStore::Actions, $base);
 
         foreach ($this->classes($standing) as $class) {
-            $this->adapters->project->remove(Workspace::cachePack($class));
-            $request = $request->for($class, Workspace::cachePack($class), Workspace::restoredPacks($class));
+            $this->adapters->project->remove($this->pack($class));
+            $request = $request->for($class, $this->pack($class), $this->restored($class));
         }
 
         return $cache->pulled($request);
@@ -116,7 +117,7 @@ final readonly class CachedPacks
 
         return $store === CacheStore::None || ! $cache instanceof ProofCache
             ? NotWritten::because(self::NO_STORE)
-            : $cache->pushed($this->request($store, $base)->for($class, $entries, Workspace::restoredPacks($class)));
+            : $cache->pushed($this->request($store, $base)->for($class, $entries, $this->restored($class)));
     }
 
     /** The proofs the packs a run of this standing reads hold at this base. */
@@ -131,7 +132,7 @@ final readonly class CachedPacks
         $limits = LedgerLimits::kept($this->settings->proofs()->retained());
 
         foreach ($this->classes($standing) as $class) {
-            $bytes = $this->adapters->project->read(Workspace::cachePack($class));
+            $bytes = $this->adapters->project->read($this->pack($class));
             $proofs = $bytes instanceof Contents ? CachePack::read($bytes->text(), $class, $base, $limits) : null;
             $cached = $proofs instanceof Proofs ? $cached->with($class, $proofs) : $cached;
         }
@@ -159,7 +160,7 @@ final readonly class CachedPacks
             [...$ledger->proofs()],
             static fn(Proof $proof): bool => $proof->run()->id() === $run->id(),
         ));
-        $entries = Workspace::cacheEntries($class);
+        $entries = $this->entries($class);
         $bytes = Contents::of(CachePack::bytes($class, $plan->base(), $ours));
         $written = $this->adapters->project->write($entries, $bytes);
         $registry = $this->settings->shards()->outbreak()->cache()->registry();
@@ -212,5 +213,26 @@ final readonly class CachedPacks
             $base,
             LedgerLimits::kept($this->settings->proofs()->retained()),
         );
+    }
+
+    /**
+     * Where the packs of `outbreak cache` a run reads are, one for each class
+     * of writer, which the plan's artifact hands on to the verdict (ADR-0131).
+     */
+    private function pack(CacheClass $class): Path
+    {
+        return Path::of(sprintf('%s/cache/%s.pack', GateDirectory::root()->value(), $class->value));
+    }
+
+    /** Where a verdict leaves the entries of the proofs it wrote, of the class it writes as, for the store to take. */
+    private function entries(CacheClass $class): Path
+    {
+        return Path::of(sprintf('%s/cache/entries/%s.pack', GateDirectory::root()->value(), $class->value));
+    }
+
+    /** Where the Actions cache restored the packs of a class of writer, for `outbreak cache pull` to read. */
+    private function restored(CacheClass $class): Path
+    {
+        return Path::of(sprintf('%s/cache/restored/%s', GateDirectory::root()->value(), $class->value));
     }
 }
