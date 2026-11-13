@@ -50,7 +50,7 @@ final readonly class JsonReportFile implements Configurable, Reporter, ReportsTh
             $path instanceof Invalid => $path,
             $tests instanceof Problem => Invalid::because($tests),
             ! $listed instanceof ReportTests => Invalid::because(
-                Problem::mismatch(ReportTests::OPTION, '"all", "killers" or "none"', sprintf('"%s"', (string) $tests)),
+                Problem::mismatch(ReportTests::OPTION, '"all", "killers" or "none"', sprintf('"%s"', $tests)),
             ),
             default => new self($path, $listed),
         };

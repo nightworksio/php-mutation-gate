@@ -76,11 +76,17 @@ final class WatchWaits
 
         if (is_int($now)) {
             $waits->seen = $now;
-        } elseif ($now instanceof Unwatched) {
-            $waits->dropped($now);
-        } else {
-            $waits->notices = NotGiven::value();
+
+            return $waits;
         }
+
+        if ($now instanceof Unwatched) {
+            $waits->dropped($now);
+
+            return $waits;
+        }
+
+        $waits->notices = NotGiven::value();
 
         return $waits;
     }

@@ -106,12 +106,15 @@ final readonly class OutbreakServe
     /** These settings as a layer writes them, only those it sets. */
     public function written(): Member
     {
-        return Member::unlessEmpty(self::OPTION, Json::object(
-            Member::of(self::ENABLED, $this->enabled),
-            Member::of(self::SNAPSHOT_EVERY, WholeSeconds::duration($this->snapshotEvery)),
-            Member::of(self::SYNC_EVERY, WholeSeconds::duration($this->syncEvery)),
-            Member::of(self::DEBOUNCE, WholeSeconds::duration($this->debounce)),
-        ));
+        return Member::unlessEmpty(
+            self::OPTION,
+            Json::object(
+                Member::of(self::ENABLED, $this->enabled),
+                Member::of(self::SNAPSHOT_EVERY, WholeSeconds::duration($this->snapshotEvery)),
+                Member::of(self::SYNC_EVERY, WholeSeconds::duration($this->syncEvery)),
+                Member::of(self::DEBOUNCE, WholeSeconds::duration($this->debounce)),
+            ),
+        );
     }
 
     /** The builder's calls that set these as a layer sets them. */

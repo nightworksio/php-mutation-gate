@@ -38,9 +38,11 @@ final readonly class PullQueue
         foreach ($plan as $item) {
             if ($item->worker()->number() === $job->number()) {
                 $own[] = $item;
-            } else {
-                $others[$item->worker()->number()][] = $item;
+
+                continue;
             }
+
+            $others[$item->worker()->number()][] = $item;
         }
 
         foreach ($others as $number => $items) {

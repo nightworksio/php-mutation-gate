@@ -105,7 +105,8 @@ final readonly class Prover
 
         foreach ($pairs as $pair) {
             [, $original, $mutant] = $pair;
-            $undecided = $checks[BeforeRunPrograms::original($original)]->reached($mutant) ? $undecided : [...$undecided, $pair];
+            $reached = $checks[BeforeRunPrograms::original($original)]->reached($mutant);
+            $undecided = $reached ? $undecided : [...$undecided, $pair];
         }
 
         return $undecided;
@@ -128,7 +129,8 @@ final readonly class Prover
 
         foreach ($pairs as $pair) {
             [$key, $original] = $pair;
-            $opcodes = $this->sharedOpcodes($compiled, BeforeRunPrograms::original($original), BeforeRunPrograms::mutant($key));
+            $program = BeforeRunPrograms::original($original);
+            $opcodes = $this->sharedOpcodes($compiled, $program, BeforeRunPrograms::mutant($key));
 
             if ($opcodes instanceof Opcodes) {
                 $same[] = $pair;

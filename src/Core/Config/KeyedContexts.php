@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_key_exists;
 use function explode;
-use function is_array;
-use function json_decode;
 
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
@@ -48,32 +46,21 @@ final readonly class KeyedContexts
         return $this->keys;
     }
 
-    /** @return array<mixed> */
-    private static function decoded(Layer $layer): array
+    /** A layer as it is written, read back as JSON. */
+    private static function decoded(Layer $layer): Node
     {
-        $decoded = json_decode($layer->written(ProjectRoot::origin())->line(), associative: true);
-
-        return is_array($decoded) ? $decoded : [];
+        return Node::decode($layer->written(ProjectRoot::origin())->line());
     }
 
-    /**
-     * Whether a config sets a path, and what it sets there.
-     *
-     * @param  array<mixed>       $config
-     * @return array{bool, mixed}
-     */
-    private static function at(array $config, string $path): array
+    /** What a config sets at a path, as JSON; nothing where it sets nothing there. */
+    private static function at(Node $config, string $path): string
     {
         $at = $config;
 
         foreach (explode('.', $path) as $key) {
-            if (! is_array($at) || ! array_key_exists($key, $at)) {
-                return [false, null];
-            }
-
-            $at = $at[$key];
+            $at = $at->field($key);
         }
 
-        return [true, $at];
+        return $at->isPresent() ? $at->json() : '';
     }
 }

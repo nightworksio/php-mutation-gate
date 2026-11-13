@@ -228,13 +228,16 @@ final class HandOff implements ProcessWatch
             }
 
             $program = sprintf('%s %s', $site, $programs[$copy]);
-            $same = $this->declaringAlike($printer, $copies[$copy], $firsts[$program] ?? [], $copies);
+            $earlier = array_key_exists($program, $firsts) ? $firsts[$program] : [];
+            $same = $this->declaringAlike($printer, $copies[$copy], $earlier, $copies);
 
             if ($same === '') {
                 $firsts[$program][] = $copy;
-            } else {
-                $duplicates[$copy] = $same;
+
+                continue;
             }
+
+            $duplicates[$copy] = $same;
         }
 
         return $duplicates;

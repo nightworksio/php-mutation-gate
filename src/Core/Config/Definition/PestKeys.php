@@ -68,18 +68,21 @@ final readonly class PestKeys
                     $named = $group->value();
 
                     return Reading::built(
-                        static fn(): Layer => Layer::of(Pest::of(
-                            $patched->value(),
-                            $named instanceof Absent ? $named : Group::named($named),
-                            $booted->value(),
-                            $cached->value(),
-                            $compiled->value(),
-                            $forked->value(),
-                            $vouching->value(),
-                            $selecting->value(),
-                            $kept->value(),
-                            $rejudging->value(),
-                        ), $toggles->set($switched)),
+                        static fn(): Layer => Layer::of(
+                            Pest::of(
+                                $patched->value(),
+                                $named instanceof Absent ? $named : Group::named($named),
+                                $booted->value(),
+                                $cached->value(),
+                                $compiled->value(),
+                                $forked->value(),
+                                $vouching->value(),
+                                $selecting->value(),
+                                $kept->value(),
+                                $rejudging->value(),
+                            ),
+                            $toggles->set($switched),
+                        ),
                         $patched,
                         $group,
                         $booted,

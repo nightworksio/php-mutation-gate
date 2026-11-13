@@ -359,7 +359,11 @@ final readonly class Running
     {
         if ($plan->briefing()->isEarly()) {
             $this->standInLeft($id, $results);
-        } elseif ($this->recordsLines()) {
+
+            return;
+        }
+
+        if ($this->recordsLines()) {
             $this->recordedKept($id);
         }
     }

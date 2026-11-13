@@ -77,7 +77,7 @@ final readonly class Bundled
      */
     public static function extensionIn(string $directory): string|NotGiven
     {
-        return PHP_ZTS
+        return PHP_ZTS === 1
             ? NotGiven::value()
             : self::extensionFor(
                 $directory,

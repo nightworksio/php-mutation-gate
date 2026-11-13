@@ -45,7 +45,7 @@ final class Halting
 
         $halting = new self(listening: true);
         $before = pcntl_signal_get_handler(self::signal());
-        $halting->before = is_callable($before) ? $before : (int) $before;
+        $halting->before = is_callable($before) ? $before : $before;
         pcntl_signal(self::signal(), $halting->hear(...));
 
         return $halting;

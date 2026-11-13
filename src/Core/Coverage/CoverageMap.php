@@ -17,6 +17,9 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+
+use function sprintf;
+
 use Traversable;
 
 /**
@@ -32,7 +35,7 @@ use Traversable;
 final readonly class CoverageMap
 {
     /**
-     * @param array<string, Seconds>  $durations each timed test's duration, by id
+     * @param array<array-key, Seconds> $durations each timed test's duration, by id
      * @param ByPath<ExecutedMethods> $methods   each file's executed methods
      */
     private function __construct(
@@ -79,10 +82,11 @@ final readonly class CoverageMap
         }
 
         foreach ($other->durations as $test => $duration) {
-            $mine = $map->durations[$test] ?? null;
+            $id = TestId::of(sprintf('%s', $test));
+            $mine = $map->durationOf($id);
             $map = $mine instanceof Seconds && $mine->seconds() >= $duration->seconds()
                 ? $map
-                : $map->timed(TestId::of((string) $test), $duration);
+                : $map->timed($id, $duration);
         }
 
         return $map;

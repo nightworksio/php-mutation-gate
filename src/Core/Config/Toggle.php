@@ -82,7 +82,12 @@ enum Toggle: string
             self::PestOverlapSteps,
             self::PestPcovOff,
             self::PestXdebugOff => true,
-            default => false,
+            self::ControlsKills,
+            self::ControlsMemory,
+            self::StaticCheckAfter,
+            self::TimeoutsParts,
+            self::SuggestLooseValues,
+            self::StaticCheckTurbo => false,
         };
     }
 
@@ -105,30 +110,21 @@ enum Toggle: string
             self::PestOverlapSteps,
             self::PestPcovOff,
             self::PestXdebugOff => true,
-            default => false,
+            self::ControlsKills,
+            self::ControlsMemory,
+            self::PestTrials,
+            self::PestValueReaders,
+            self::PestNarrow,
+            self::StaticCheckAfter,
+            self::TimeoutsParts,
+            self::SuggestLooseValues => false,
         };
     }
 
     /** The builder's call that sets it so. */
     public function php(bool $on): string
     {
-        return match ($this) {
-            self::ControlsKills => $on ? 'Controls::killsControlled()' : 'Controls::killsUncontrolled()',
-            self::ControlsMemory => $on ? 'Controls::memoryControlled()' : 'Controls::memoryUncontrolled()',
-            self::PestTrials => $on ? 'Pest::trying()' : 'Pest::withoutTrials()',
-            self::PestValueReaders => $on ? 'Pest::readingValues()' : 'Pest::withoutValueReaders()',
-            self::PestNarrow => $on ? 'Pest::narrowing()' : 'Pest::unnarrowed()',
-            self::StaticCheckAfter => $on ? 'StaticCheck::checkingSurvivors()' : 'StaticCheck::survivorsUnchecked()',
-            self::TimeoutsParts => $on ? 'Timeouts::inParts()' : 'Timeouts::neverInParts()',
-            self::SuggestLooseValues => $on ? 'Suggest::looseValuesNoted()' : 'Suggest::looseValuesSilent()',
-            self::StaticCheckTurbo => $on ? 'StaticCheck::turbo()' : 'StaticCheck::withoutTurbo()',
-            self::PestShardScan => $on ? 'Pest::scanningOnceAShard()' : 'Pest::scanningEachChunk()',
-            self::PestLongestFirst => $on ? 'Pest::longestFirst()' : 'Pest::inTheirOrder()',
-            self::PestRemember => $on ? 'Pest::remembering()' : 'Pest::forgetting()',
-            self::PestOverlapSteps => $on ? 'Pest::overlappingSteps()' : 'Pest::stepByStep()',
-            self::PestPcovOff => $on ? 'Pest::pcovOff()' : 'Pest::pcovOn()',
-            self::PestXdebugOff => $on ? 'Pest::xdebugOff()' : 'Pest::xdebugAsConfigured()',
-        };
+        return $on ? $this->onCall() : $this->offCall();
     }
 
     /**
@@ -140,7 +136,63 @@ enum Toggle: string
         return ! $on && match ($this) {
             self::ControlsKills => true,
             self::PestTrials => $uncoveredExcluded,
-            default => false,
+            self::ControlsMemory,
+            self::PestValueReaders,
+            self::PestNarrow,
+            self::StaticCheckAfter,
+            self::TimeoutsParts,
+            self::SuggestLooseValues,
+            self::PestShardScan,
+            self::PestLongestFirst,
+            self::PestRemember,
+            self::PestOverlapSteps,
+            self::PestPcovOff,
+            self::PestXdebugOff,
+            self::StaticCheckTurbo => false,
+        };
+    }
+
+    /** The builder's call that turns it on. */
+    private function onCall(): string
+    {
+        return match ($this) {
+            self::ControlsKills => 'Controls::killsControlled()',
+            self::ControlsMemory => 'Controls::memoryControlled()',
+            self::PestTrials => 'Pest::trying()',
+            self::PestValueReaders => 'Pest::readingValues()',
+            self::PestNarrow => 'Pest::narrowing()',
+            self::StaticCheckAfter => 'StaticCheck::checkingSurvivors()',
+            self::TimeoutsParts => 'Timeouts::inParts()',
+            self::SuggestLooseValues => 'Suggest::looseValuesNoted()',
+            self::StaticCheckTurbo => 'StaticCheck::turbo()',
+            self::PestShardScan => 'Pest::scanningOnceAShard()',
+            self::PestLongestFirst => 'Pest::longestFirst()',
+            self::PestRemember => 'Pest::remembering()',
+            self::PestOverlapSteps => 'Pest::overlappingSteps()',
+            self::PestPcovOff => 'Pest::pcovOff()',
+            self::PestXdebugOff => 'Pest::xdebugOff()',
+        };
+    }
+
+    /** The builder's call that turns it off. */
+    private function offCall(): string
+    {
+        return match ($this) {
+            self::ControlsKills => 'Controls::killsUncontrolled()',
+            self::ControlsMemory => 'Controls::memoryUncontrolled()',
+            self::PestTrials => 'Pest::withoutTrials()',
+            self::PestValueReaders => 'Pest::withoutValueReaders()',
+            self::PestNarrow => 'Pest::unnarrowed()',
+            self::StaticCheckAfter => 'StaticCheck::survivorsUnchecked()',
+            self::TimeoutsParts => 'Timeouts::neverInParts()',
+            self::SuggestLooseValues => 'Suggest::looseValuesSilent()',
+            self::StaticCheckTurbo => 'StaticCheck::withoutTurbo()',
+            self::PestShardScan => 'Pest::scanningEachChunk()',
+            self::PestLongestFirst => 'Pest::inTheirOrder()',
+            self::PestRemember => 'Pest::forgetting()',
+            self::PestOverlapSteps => 'Pest::stepByStep()',
+            self::PestPcovOff => 'Pest::pcovOn()',
+            self::PestXdebugOff => 'Pest::xdebugAsConfigured()',
         };
     }
 }

@@ -594,6 +594,8 @@ services:
                     - ENABLED # the splitStream key, not a hook recipe's key
                 'NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess':
                     - URL # a key of GitHub's artifact answers, not pre-push's option
+                'NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims':
+                    - VERSION # the artifact backend's version, not a killed record's field count
                 'NightWorksIO\MutationGate\Adapter\Infection\MutatorSettings':
                     - 'ON' # infection.json's mutator turned on bare, not a merged pull request's trust
                 'NightWorksIO\MutationGate\Adapter\Infection\PrintedList':

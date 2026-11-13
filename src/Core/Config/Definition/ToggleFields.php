@@ -87,13 +87,16 @@ final readonly class ToggleFields
      */
     public function section(): Field
     {
-        return Field::section($this->section, Section::of(
-            function (Node $node): Layer|Invalid {
-                $readings = $this->read($node);
+        return Field::section(
+            $this->section,
+            Section::of(
+                function (Node $node): Layer|Invalid {
+                    $readings = $this->read($node);
 
-                return Reading::built(fn(): Layer => Layer::of($this->set($readings)), ...$readings);
-            },
-            ...$this->fields(),
-        ));
+                    return Reading::built(fn(): Layer => Layer::of($this->set($readings)), ...$readings);
+                },
+                ...$this->fields(),
+            ),
+        );
     }
 }

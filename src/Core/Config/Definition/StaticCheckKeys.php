@@ -68,16 +68,19 @@ final readonly class StaticCheckKeys
                     $cap = $limit->value();
 
                     return Reading::built(
-                        static fn(): Layer => Layer::of(StaticCheck::of(
-                            $chosen->value(),
-                            $read->value(),
-                            $cap instanceof Absent ? $cap : Seconds::of($cap),
-                            $placed->value(),
-                            $weighed->value(),
-                            dependents: $following->value(),
-                            preCheckAfter: $learning->value(),
-                            php: $ini->value(),
-                        )->over($compiled->must()), $toggles->set($switched)),
+                        static fn(): Layer => Layer::of(
+                            StaticCheck::of(
+                                $chosen->value(),
+                                $read->value(),
+                                $cap instanceof Absent ? $cap : Seconds::of($cap),
+                                $placed->value(),
+                                $weighed->value(),
+                                dependents: $following->value(),
+                                preCheckAfter: $learning->value(),
+                                php: $ini->value(),
+                            )->over($compiled->must()),
+                            $toggles->set($switched),
+                        ),
                         $chosen,
                         $read,
                         $limit,

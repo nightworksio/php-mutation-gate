@@ -97,7 +97,7 @@ final readonly class Deliver
             $output->writeln($line, OutputInterface::OUTPUT_RAW);
         }
 
-        $pushed = is_string($from) ? $this->cachePushed($from) : NotGiven::value();
+        $pushed = $this->cachePushed($from);
 
         if (! $pushed instanceof NotGiven) {
             $output->writeln(

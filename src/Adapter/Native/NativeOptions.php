@@ -70,7 +70,7 @@ final readonly class NativeOptions
             $mutators instanceof Problem => Invalid::because($mutators),
             $duplicates instanceof Problem => Invalid::because($duplicates),
             ! $judged instanceof Duplicates => Invalid::because(
-                Problem::mismatch(Mutants::DUPLICATES, '"judge-once" or "judge-each"', (string) $duplicates),
+                Problem::mismatch(Mutants::DUPLICATES, '"judge-once" or "judge-each"', $duplicates),
             ),
             default => new self(
                 $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),

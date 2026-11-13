@@ -282,10 +282,14 @@ services:
                     - text # keys: GitHub's API answers
                     - number # keys: GitHub's API answers
                     - items # keys: GitHub's API answers
+                'NightWorksIO\MutationGate\Adapter\Pest\ByName':
+                    - called # vocabulary: a framework's methods, called by their names
                 'NightWorksIO\MutationGate\Core\CannotJudge':
                     - because # prose: why a verdict cannot be given
                 'NightWorksIO\MutationGate\Core\Change\CannotTell':
                     - because # prose: why what changed cannot be told
+                'NightWorksIO\MutationGate\Core\NotWritten':
+                    - because # prose: why something was not written
                 'NightWorksIO\MutationGate\Core\Ci\Variables':
                     - has # vocabulary: a CI's environment variables
                     - valueOf # vocabulary: a CI's environment variables
@@ -293,14 +297,19 @@ services:
                     - optional # keys: a config's settings
                     - required # keys: a config's settings
                     - section # keys: a config's sections
+                'NightWorksIO\MutationGate\Core\Config\Definition\ToggleFields':
+                    - in # keys: a config's sections
                 'NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting':
                     - as # prose: the type a setting was read as
                 'NightWorksIO\MutationGate\Core\Config\Definition\Text':
                     - of # prose: what a setting holds
                 'NightWorksIO\MutationGate\Core\Config\Key':
                     - of # keys: an adapter's options
+                'NightWorksIO\MutationGate\Core\File\Path':
+                    - of # vocabulary: the names of files and directories
                 'NightWorksIO\MutationGate\Core\Config\Problem':
                     - at # keys and prose: a setting's path, and what is wrong with it
+                    - mismatch # prose: what a setting should hold
                 'NightWorksIO\MutationGate\Core\Format\Json':
                     - at # keys: a setting's path
                 'NightWorksIO\MutationGate\Core\Format\Member':

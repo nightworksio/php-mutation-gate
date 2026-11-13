@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_key_exists;
-use function is_array;
 
 /** The `json` reporter's `tests`: which tests each mutant's entry lists (ADR-0112).
  *
  * @internal
+ *
+ * @phpstan-import-type Report from JsonReport
  */
 enum ReportTests: string
 {
@@ -28,7 +29,7 @@ enum ReportTests: string
     /**
      * The keys of a mutant's entry it empties.
      *
-     * @return list<string>
+     * @return list<'coveredBy'|'judgedBy'|'killedBy'|'failingUnmutated'>
      */
     public function emptied(): array
     {
@@ -42,24 +43,19 @@ enum ReportTests: string
     /**
      * A report's data with each mutant's lists it empties emptied, where they are written.
      *
-     * @param  array<string, mixed> $report
-     * @return array<string, mixed>
+     * @param  Report $report
+     * @return Report
      */
     public function trimmed(array $report): array
     {
-        $emptied = $this->emptied();
-        $mutants = $report['mutants'] ?? [];
+        $mutants = [];
 
-        if ($emptied === [] || ! is_array($mutants)) {
-            return $report;
-        }
-
-        foreach ($mutants as $at => $mutant) {
-            foreach (is_array($mutant) ? $emptied : [] as $key) {
-                if (array_key_exists($key, $mutant)) {
-                    $mutants[$at][$key] = [];
-                }
+        foreach ($report['mutants'] as $mutant) {
+            foreach ($this->emptied() as $key) {
+                $mutant = array_key_exists($key, $mutant) ? [...$mutant, $key => []] : $mutant;
             }
+
+            $mutants[] = $mutant;
         }
 
         return [...$report, 'mutants' => $mutants];

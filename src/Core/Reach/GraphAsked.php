@@ -29,7 +29,7 @@ final readonly class GraphAsked
 {
     public static function of(GraphQuestion $question, string $root): string
     {
-        return (string) json_encode([
+        return json_encode([
             'root' => $root,
             'sources' => self::listed($question->sources()),
             'tests' => self::listed($question->tests()),

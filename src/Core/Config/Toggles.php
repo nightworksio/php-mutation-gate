@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_key_exists;
+
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /** Which steps of a run a layer turns on or off ({@see Toggle}), each where the layer sets it. */
@@ -50,7 +52,7 @@ final readonly class Toggles implements Part
     /** Whether a step is on: as the layer sets it, or on. */
     public function on(Toggle $toggle): bool
     {
-        return $this->set[$toggle->value] ?? true;
+        return array_key_exists($toggle->value, $this->set) ? $this->set[$toggle->value] : true;
     }
 
     /** The runner a config chooses, with the toggles Pest reads beneath its options; any other runner as it is. */
@@ -74,7 +76,7 @@ final readonly class Toggles implements Part
         $written = Json::object();
 
         foreach (Toggle::cases() as $toggle) {
-            if (isset($this->set[$toggle->value])) {
+            if (array_key_exists($toggle->value, $this->set)) {
                 $written = $written->merged(Json::at($toggle->value, $this->set[$toggle->value]));
             }
         }
@@ -87,7 +89,7 @@ final readonly class Toggles implements Part
         $calls = [];
 
         foreach (Toggle::cases() as $toggle) {
-            if (isset($this->set[$toggle->value])) {
+            if (array_key_exists($toggle->value, $this->set)) {
                 $calls[] = $toggle->php($this->set[$toggle->value]);
             }
         }

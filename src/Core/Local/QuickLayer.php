@@ -22,10 +22,13 @@ final readonly class QuickLayer
     public static function members(): array
     {
         return [
-            Member::of(SplitStream::SECTION, Json::object(
-                Member::of(SplitStream::ENABLED, value: true),
-                Member::of(SplitStream::SHARDING, StreamSharding::Source->value),
-            )),
+            Member::of(
+                SplitStream::SECTION,
+                Json::object(
+                    Member::of(SplitStream::ENABLED, value: true),
+                    Member::of(SplitStream::SHARDING, StreamSharding::Source->value),
+                ),
+            ),
             Member::of(StaticCheck::SECTION, Json::object(Member::of(StaticCheck::TOOL, StaticCheck::NONE))),
         ];
     }

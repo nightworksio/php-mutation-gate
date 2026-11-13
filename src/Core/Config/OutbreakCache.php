@@ -89,21 +89,27 @@ final readonly class OutbreakCache
     /** These settings as the runner's options carry them, every one in force. */
     public function option(): Member
     {
-        return Member::of(self::OPTION, Json::object(
-            Member::of(self::STORE, $this->store()->value),
-            Member::of(self::REGISTRY, $this->registry),
-            Member::of(self::TRUST, $this->trust()->value),
-        ));
+        return Member::of(
+            self::OPTION,
+            Json::object(
+                Member::of(self::STORE, $this->store()->value),
+                Member::of(self::REGISTRY, $this->registry),
+                Member::of(self::TRUST, $this->trust()->value),
+            ),
+        );
     }
 
     /** These settings as a layer writes them, only those it sets. */
     public function written(): Member
     {
-        return Member::unlessEmpty(self::OPTION, Json::object(
-            Member::of(self::STORE, $this->store instanceof CacheStore ? $this->store->value : $this->store),
-            Member::of(self::REGISTRY, $this->registry),
-            Member::of(self::TRUST, $this->trust instanceof CacheTrust ? $this->trust->value : $this->trust),
-        ));
+        return Member::unlessEmpty(
+            self::OPTION,
+            Json::object(
+                Member::of(self::STORE, $this->store instanceof CacheStore ? $this->store->value : $this->store),
+                Member::of(self::REGISTRY, $this->registry),
+                Member::of(self::TRUST, $this->trust instanceof CacheTrust ? $this->trust->value : $this->trust),
+            ),
+        );
     }
 
     /** The builder's calls that set these as a layer sets them. */

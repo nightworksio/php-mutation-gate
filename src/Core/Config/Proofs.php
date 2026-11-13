@@ -4,11 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_keys;
-use function array_map;
-use function implode;
-use function is_string;
-
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
@@ -34,10 +29,10 @@ final readonly class Proofs implements Part
     /** Where the directory store keeps its ledgers. */
     private const string PATH = 'path';
 
-    /** @param Listed<Glob>|Absent $ignore */
     /** gzip's own default level, which a coverage map is packed at where nothing says. */
     private const int COVERAGE_LEVEL = Gzip::LEVEL;
 
+    /** @param Listed<Glob>|Absent $ignore */
     private function __construct(
         private Choice|Absent $store,
         private Listed|Absent $ignore,
@@ -220,24 +215,23 @@ final readonly class Proofs implements Part
                     ...$this->compressed->members(),
                 )),
             ),
-            Member::unlessEmpty('coverage', Json::object(
-                Member::of('incremental', $this->incremental),
-                Member::of('compressionLevel', $this->coverageLevel),
-            )),
+            Member::unlessEmpty(
+                'coverage',
+                Json::object(
+                    Member::of('incremental', $this->incremental),
+                    Member::of('compressionLevel', $this->coverageLevel),
+                ),
+            ),
         );
     }
 
     public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->store instanceof Choice ? [$this->storeCall($this->storeFrom($origin))] : [],
+            ...$this->store instanceof Choice ? [ProofStoreCall::of($this->storeFrom($origin))] : [],
             ...$this->ignore instanceof Listed
                 ? [sprintf('Proofs::ignore(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->ignore)))]
                 : [],
-            ...$this->write instanceof Writing ? [match ($this->write) {
-                Writing::Auto => 'Proofs::writing()',
-                Writing::Never => 'Proofs::readOnly()',
-            }] : [],
             ...$this->choiceCalls(),
             ...$this->compressed->calls(),
             ...$this->incremental instanceof Absent
@@ -249,10 +243,19 @@ final readonly class Proofs implements Part
         ])->and($this->retained->php());
     }
 
-    /** @return list<string> the calls that choose the copy of a ledger a run reads and its scope's proofs */
+    /**
+     * The calls that choose whether a run writes, the copy of a ledger it reads and its scope's proofs.
+     *
+     * @return list<string>
+     */
     private function choiceCalls(): array
     {
         return [
+            ...match ($this->write) {
+                Writing::Auto => ['Proofs::writing()'],
+                Writing::Never => ['Proofs::readOnly()'],
+                default => [],
+            },
             ...match ($this->copies) {
                 Copies::Newest => ['Proofs::newestCopy()'],
                 Copies::Together => ['Proofs::copiesTogether()'],
@@ -275,41 +278,5 @@ final readonly class Proofs implements Part
         return $store->use()->value() === BuiltinStore::Directory->value
             ? WrittenPaths::choice($store, $origin, self::PATH)
             : $store;
-    }
-
-    /** The proof store, by `Proofs::directory()`, `::s3()`, `::gcs()` or `::azure()` for the built-in ones. */
-    private function storeCall(Choice $store): string
-    {
-        $options = $store->options();
-        $texts = [];
-
-        foreach ($options as $key) {
-            $text = $options->text($key);
-            $texts = is_string($text) ? [...$texts, $key->value() => $text] : $texts;
-        }
-
-        return match ($store->use()->value()) {
-            BuiltinStore::Directory->value => sprintf(
-                'Proofs::directory(%s)',
-                PhpCalls::literals(...$texts),
-            ),
-            BuiltinStore::S3->value, BuiltinStore::Gcs->value, BuiltinStore::Azure->value => sprintf(
-                'Proofs::%s(%s)',
-                $store->use()->value(),
-                implode(
-                    ', ',
-                    array_map(
-                        static fn(string $option, string $value): string => sprintf(
-                            '%s: %s',
-                            $option,
-                            PhpCalls::literal($value),
-                        ),
-                        array_keys($texts),
-                        $texts,
-                    ),
-                ),
-            ),
-            default => PhpCalls::chosen($store, AdapterBuilder::Proofs),
-        };
     }
 }

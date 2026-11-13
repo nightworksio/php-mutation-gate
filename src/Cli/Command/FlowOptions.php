@@ -98,6 +98,11 @@ final readonly class FlowOptions
         Record the first test that kills each mutant (first, the default), or every test that does (full)
         SAID;
 
+    private const string OUTPUT_SAID = <<<'SAID'
+        Print the verdict as console, or as problems: one line per result, for editors;
+        watch also prints events: one line of JSON per judged mutant
+        SAID;
+
     private const string MATRIX_WHAT = '--kill-matrix takes first or full, not "%s".';
 
     private const string ONLY_WHERE = '--only=changed limits the problems output. Add --output=problems.';
@@ -192,7 +197,7 @@ final readonly class FlowOptions
             ->addOption(
                 self::OUTPUT,
                 mode: InputOption::VALUE_REQUIRED,
-                description: 'Print the verdict as console, or as problems: one line per result, for editors; watch also prints events: one line of JSON per judged mutant',
+                description: self::OUTPUT_SAID,
             )
             ->addOption(
                 self::ONLY,

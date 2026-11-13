@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
-use function base64_decode;
-use function base64_encode;
-use function is_string;
-
 use NightWorksIO\MutationGate\Core\File\Digest;
+
+use function sodium_base642bin;
+
+use const SODIUM_BASE64_VARIANT_ORIGINAL;
+
+use function sodium_bin2base64;
+
+use SodiumException;
 
 /**
  * A proof written whole, as the gzipped file of a ledger holding that proof
@@ -22,14 +26,20 @@ final readonly class ProofEntry
 {
     public static function text(Proof $proof): string
     {
-        return base64_encode(LedgerFile::encode(Ledger::empty()->atBase($proof->run()->base())->withProof($proof)));
+        $ledger = LedgerFile::encode(Ledger::empty()->atBase($proof->run()->base())->withProof($proof));
+
+        return sodium_bin2base64($ledger, SODIUM_BASE64_VARIANT_ORIGINAL);
     }
 
     /** The proof an entry holds under this key; or none where it holds none, or is no entry. */
     public static function read(Digest $key, string $text): Proof|Unproved
     {
-        $ledger = base64_decode($text, strict: true);
+        try {
+            $ledger = sodium_base642bin($text, SODIUM_BASE64_VARIANT_ORIGINAL);
+        } catch (SodiumException) {
+            return Unproved::key($key);
+        }
 
-        return is_string($ledger) ? LedgerFile::decode($ledger)->proofs()->proofFor($key) : Unproved::key($key);
+        return LedgerFile::decode($ledger)->proofs()->proofFor($key);
     }
 }
