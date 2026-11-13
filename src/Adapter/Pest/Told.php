@@ -8,6 +8,7 @@ use function getmypid;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\TestPartVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
@@ -23,7 +24,7 @@ use function strval;
  * mutant's own run is narrowed (see CoveringFiles), where it waits for the
  * gate's verdicts (see Verdicts), where its warm workers share their files
  * (see Warm\Pool), the bounds of each mutant's limits, and the part of
- * the test files whose tests judge its mutants (see Split\StreamSettings).
+ * the test files whose tests judge its mutants (see Split\TestPartVariable).
  *
  * @internal
  */
@@ -63,7 +64,7 @@ final readonly class Told
             ...$this->patching->bounding($bounds),
             ...$this->patching->schemata(),
             ...$this->patching->stepVariables(),
-            ...StreamSettings::parting($request->narrowing()->testPart()),
+            ...TestPartVariable::told($request->narrowing()->testPart()),
             ...StreamSettings::recordingInto($request->narrowing()->recording()),
         ];
     }

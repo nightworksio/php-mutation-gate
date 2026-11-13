@@ -77,11 +77,6 @@ it('reads a child count that is no number, or under one, as one', function (stri
     expect(StreamSettings::fromEnvironment()->children())->toBe(1);
 })->with(['many', '0', '-2']);
 
-it('tells a run its part of the test files, and nothing of every test file', function (): void {
-    expect(StreamSettings::parting(TestPart::of(2, 3)))->toBe(['MUTATION_GATE_SPLIT_PART' => '2/3'])
-        ->and(StreamSettings::parting(TestPart::whole()))->toBe([]);
-});
-
 it('reads back the part it told a run, and every test file where it told none there is', function (string $told, TestPart $part): void {
     putenv(sprintf('%s=%s', GateVariable::SplitPart->value, $told));
 

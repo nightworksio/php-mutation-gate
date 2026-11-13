@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function getenv;
-use function is_array;
-use function is_int;
 use function is_numeric;
 use function is_string;
 use function max;
@@ -16,7 +14,6 @@ use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 use function sprintf;
-use function sscanf;
 
 /**
  * What `splitStream` asks of a patched Pest run (ADR-0117), as the gate
@@ -34,9 +31,6 @@ final readonly class StreamSettings
     private const string ON = '1';
 
     private const string OFF = '0';
-
-    /** A part of the test files, as the gate tells it: its number, then how many parts there are. */
-    private const string PART = '%d/%d';
 
     private function __construct(
         private bool $enabled,
@@ -62,34 +56,23 @@ final readonly class StreamSettings
         return new self($enabled, max(1, $children), $changeCheck, $killersFirst, TestPart::whole());
     }
 
-    /**
-     * What a run tells Pest's own process of the part of the test files whose
-     * tests judge its mutants: nothing of every test file.
-     *
-     * @return array<string, string>
-     */
-    public static function parting(TestPart $part): array
-    {
-        return $part->isWhole()
-            ? []
-            : [GateVariable::SplitPart->value => sprintf(self::PART, $part->number(), $part->parts())];
-    }
-
     /** What the gate told this process. */
     public static function fromEnvironment(): self
     {
         $children = getenv(GateVariable::SplitChildren->value);
+        $recording = getenv(GateVariable::SplitRecording->value);
+        $lines = getenv(GateVariable::SplitLines->value);
 
         return new self(
             getenv(GateVariable::Split->value) === self::ON,
             is_numeric($children) ? max(1, (int) $children) : 1,
             getenv(GateVariable::SplitChangeCheck->value) !== self::OFF,
             getenv(GateVariable::SplitKillersFirst->value) !== self::OFF,
-            self::partIn(getenv(GateVariable::SplitPart->value)),
+            TestPartVariable::read(getenv(GateVariable::SplitPart->value)),
             getenv(GateVariable::SplitKillerStreams->value) === self::ON,
-            self::recordingIn(getenv(GateVariable::SplitRecording->value)),
+            is_string($recording) ? $recording : '',
             getenv(GateVariable::SplitBootOnce->value) === self::ON,
-            self::recordingIn(getenv(GateVariable::SplitLines->value)),
+            is_string($lines) ? $lines : '',
             getenv(GateVariable::SplitReconnect->value) === self::ON,
         );
     }
@@ -245,28 +228,18 @@ final readonly class StreamSettings
             ? [
                 GateVariable::Split->value => self::ON,
                 GateVariable::SplitChildren->value => sprintf('%d', $this->children),
-                GateVariable::SplitChangeCheck->value => $this->changeCheck ? self::ON : self::OFF,
-                GateVariable::SplitKillersFirst->value => $this->killersFirst ? self::ON : self::OFF,
-                GateVariable::SplitKillerStreams->value => $this->killerStreams ? self::ON : self::OFF,
-                GateVariable::SplitBootOnce->value => $this->bootOnce ? self::ON : self::OFF,
-                GateVariable::SplitReconnect->value => $this->reconnect ? self::ON : self::OFF,
+                GateVariable::SplitChangeCheck->value => $this->told($this->changeCheck),
+                GateVariable::SplitKillersFirst->value => $this->told($this->killersFirst),
+                GateVariable::SplitKillerStreams->value => $this->told($this->killerStreams),
+                GateVariable::SplitBootOnce->value => $this->told($this->bootOnce),
+                GateVariable::SplitReconnect->value => $this->told($this->reconnect),
             ]
             : [];
     }
 
-    private static function recordingIn(string|false $told): string
+    /** A setting turned on or off, as the gate tells it. */
+    private function told(bool $on): string
     {
-        return is_string($told) ? $told : '';
-    }
-
-    /** The part a variable names, as the gate writes it; every test file where it names none there is. */
-    private static function partIn(string|false $told): TestPart
-    {
-        $read = is_string($told) ? sscanf($told, self::PART) : null;
-        [$number, $parts] = is_array($read) ? $read + [0, 0] : [0, 0];
-
-        return is_int($number) && is_int($parts) && $number >= 1 && $number <= $parts
-            ? TestPart::of($number, $parts)
-            : TestPart::whole();
+        return $on ? self::ON : self::OFF;
     }
 }
