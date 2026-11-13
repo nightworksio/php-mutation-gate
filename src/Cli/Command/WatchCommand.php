@@ -5,41 +5,33 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Command;
 
 use Closure;
-
-use function count;
-
 use NightWorksIO\MutationGate\Adapter\Outbreak\HeldLedgers;
-use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
-use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\ExitCode;
+use NightWorksIO\MutationGate\Cli\Flow\BatchEnds;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Interruption;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
+use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\QuickRound;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
-use NightWorksIO\MutationGate\Cli\Flow\ServedProofs;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Change\CannotTell;
-use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\File\Fingerprints;
+use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Local\Power;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
-use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Watch\Watched;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -99,7 +91,6 @@ final readonly class WatchCommand
         private OutputInterface $output,
         private Closure $waited,
         private bool $report,
-        private HeldLedgers|NotGiven $held,
     ) {
     }
 
@@ -114,18 +105,7 @@ final readonly class WatchCommand
                 $waited,
             ): int {
                 $printing = FlowOptions::printing($input, events: true);
-                $composed = $composition->composeForWatch($input);
-                $composed = $composed instanceof Composed ? self::budgeted($composed, $input) : $composed;
-                $held = $composed instanceof Composed ? self::held($composed) : NotGiven::value();
-                $composed = $composed instanceof Composed && $held instanceof HeldLedgers
-                    ? new Composed(
-                        $composed->settings,
-                        $composed->adapters->withProofs($held),
-                        $composed->setup,
-                        $composed->reporting,
-                        $composed->ruling,
-                    )
-                    : $composed;
+                $composed = WatchComposition::of($composition, $input);
 
                 return match (true) {
                     $printing instanceof CannotJudge => Failed::because($output, $printing),
@@ -136,26 +116,9 @@ final readonly class WatchCommand
                         $output,
                         $waited,
                         $input->getOption(self::REPORT) === true,
-                        $held,
                     )->watched(),
                 };
             });
-    }
-
-    /** The composition with `local.watchBudget` as each round's budget, unless `--budget` sets one. */
-    private static function budgeted(Composed $composed, InputInterface $input): Composed|Invalid
-    {
-        return CommandLine::from($input)->budget instanceof NotGiven
-            ? $composed->budgeted($composed->settings->local()->watchBudget())
-            : $composed;
-    }
-
-    /** The ledgers each round reads and writes held between the rounds, where `outbreak serve` keeps proofs. */
-    private static function held(Composed $composed): HeldLedgers|NotGiven
-    {
-        $state = ServedProofs::state($composed->adapters);
-
-        return $state instanceof KeepsProofs ? new HeldLedgers($composed->adapters->proofs, $state) : $state;
     }
 
     private function watched(): int
@@ -170,14 +133,15 @@ final readonly class WatchCommand
         $watched = Watched::in($inventory->trees, ...$inventory->suite->directories())->at($inventory->files);
         $waits = WatchWaits::armed(
             $this->waited,
-            $this->notices(),
+            $this->changes()->notices(),
             $watched->directories(),
             $this->composed->settings->local()->watchPoll(),
             fn(string $said) => $this->printing->note($said, $this->output),
         );
 
         $ended = $this->rounds($watched, $waits);
-        $released = $this->held instanceof HeldLedgers ? $this->held->released() : NotGiven::value();
+        $held = WatchComposition::held($this->composed);
+        $released = $held instanceof HeldLedgers ? $held->released() : NotGiven::value();
 
         if ($released instanceof NotWritten) {
             $this->printing->note($released->why(), $this->output);
@@ -198,7 +162,7 @@ final readonly class WatchCommand
         $ownMap = false;
         $before = $seen;
         $local = $this->composed->settings->local();
-        $load = WatchLoad::of($local->work(), $this->notices(), $local->watchPoll());
+        $load = WatchLoad::of($local->work(), $this->changes()->notices(), $local->watchPoll());
 
         while (true) {
             $power = $load->powered(
@@ -211,36 +175,24 @@ final readonly class WatchCommand
             }
 
             $looks = new WatchLooks(
-                $this->look(...),
+                $this->changes()->look(...),
                 $waits->told(...),
                 $this->composed->setup->clock,
                 $local->watchPoll(),
                 $seen,
             );
-            $quick = $ownMap && $local->quick()
-                ? QuickRound::after($seen->changesSince($before))
-                : NotGiven::value();
+            $quick = $this->quick($ownMap, $seen, $before);
             $planned = $this->round($load->fitted($this->composed, $power, $seen), $ownMap, $quick, $looks);
-            $now = $this->after($seen, $looks, $waits);
+            $now = $this->changes()->after($seen, $looks, $waits);
 
             if (! $now instanceof Watched) {
-                return $now instanceof CannotJudge ? Failed::because($this->output, $now) : ExitCode::Passed->value;
+                return $this->exited($now);
             }
 
             $ownMap = $planned;
             $before = $seen;
             $seen = $now;
         }
-    }
-
-    /** The files once a round is over: as a change during it left them, or as the next change leaves them. */
-    private function after(Watched $seen, WatchLooks $looks, WatchWaits $waits): Watched|CannotJudge|NotGiven
-    {
-        $now = $looks->after();
-
-        return $now instanceof Watched && count($now->changesSince($seen)) === 0
-            ? $this->nextChange($now, $waits)
-            : $now;
     }
 
     /**
@@ -255,16 +207,7 @@ final readonly class WatchCommand
         $arrived = $local->cancelsByUnit()
             ? Interruption::byUnit($looks->moved(...), $composed->adapters->project, $local->watchPoll())
             : Interruption::when($looks->arrived(...));
-        $running = Running::composed($composed)->interrupted($arrived)->telling($this->printing->events()
-            ? BatchLines::events(
-                fn(string $line) => $this->output->writeln($line, OutputInterface::OUTPUT_RAW),
-                $local->quick(),
-            )
-            : BatchLines::streamed(
-                $local->work(),
-                fn(string $line) => $this->printing->note($line, $this->output),
-                $local->quick(),
-            ));
+        $running = Running::composed($composed)->interrupted($arrived)->telling($this->told($local));
         $this->printing->begin($this->output, $composed->adapters->project);
         $made = new Planning($composed->adapters, $composed->settings, $composed->setup)
             ->plan(
@@ -280,62 +223,60 @@ final readonly class WatchCommand
             ? VerdictCommand::ranAndJudged($running, $composed, $plan, $running->deadline(), HeldTo::NewCode)
             : $plan;
 
-        $stopped = $looks->arrived();
-
-        if ($stopped) {
-            $this->printing->note($local->cancelsByUnit() ? self::MOVED : self::ARRIVED, $this->output);
-        }
-
-        $reports = $this->report || ! $local->work()->isOn(LocalSwitch::StreamBatches);
-
-        if (! $stopped && $this->printing->endsRounds($reports)) {
-            VerdictCommand::printed($judged, $this->output, $this->printing, $composed->adapters->project);
-        }
+        $this->ended($looks->arrived(), $local, $judged, $composed);
 
         return $plan instanceof Plan;
     }
 
-    /** What `outbreak serve` tells of the changes it watches for, where it serves the project. */
-    private function notices(): NoticesChanges|NotGiven
+    /**
+     * What a round says as it ends: that a change arrived, where one did;
+     * its verdict otherwise, where the round's report ends it.
+     */
+    private function ended(bool $stopped, Local $local, Judged|Invalid|CannotJudge $judged, Composed $composed): void
     {
-        $engine = $this->composed->adapters->maps;
+        if ($stopped) {
+            $this->printing->note($local->cancelsByUnit() ? self::MOVED : self::ARRIVED, $this->output);
 
-        return $engine instanceof Outbreak ? $engine->notices() : NotGiven::value();
-    }
-
-    /** The files as they are once one changes, or nothing where the wait says to stop first. */
-    private function nextChange(Watched $seen, WatchWaits $waits): Watched|CannotJudge|NotGiven
-    {
-        while ($waits->waited()) {
-            $now = $this->look($seen);
-
-            if (! $now instanceof Watched) {
-                return $now;
-            }
-
-            if (count($now->changesSince($seen)) > 0) {
-                $waits->found();
-
-                return $now;
-            }
+            return;
         }
 
-        return NotGiven::value();
+        if ($this->printing->endsRounds($this->report || ! $local->work()->isOn(LocalSwitch::StreamBatches))) {
+            VerdictCommand::printed($judged, $this->output, $this->printing, $composed->adapters->project);
+        }
     }
 
-    /**
-     * The watched files as they are on disk now, looked at through version
-     * control's status where `local.watchStatus` lets it, every file hashed
-     * where it does not.
-     */
-    private function look(Watched $seen): Watched|CannotJudge
+    /** What each batch of a round tells as it ends: one line of JSON per mutant with events, its blocks otherwise. */
+    private function told(Local $local): BatchEnds
     {
-        $changes = $this->composed->adapters->changes;
-        $files = $this->composed->settings->local()->work()->isOn(LocalSwitch::WatchStatus)
-            ? $changes->lookedSince($seen->looked())
-            : $changes->fingerprints();
-        $looked = $files instanceof Fingerprints ? Looked::whole($files) : $files;
+        return $this->printing->events()
+            ? BatchLines::events(
+                fn(string $line) => $this->output->writeln($line, OutputInterface::OUTPUT_RAW),
+                $local->quick(),
+            )
+            : BatchLines::streamed(
+                $local->work(),
+                fn(string $line) => $this->printing->note($line, $this->output),
+                $local->quick(),
+            );
+    }
 
-        return $looked instanceof CannotTell ? CannotJudge::because($looked->why()) : $seen->after($looked);
+    /** What the next round takes as quick, where it is quick and the last round left a map: the changes since. */
+    private function quick(bool $ownMap, Watched $seen, Watched $before): QuickRound|NotGiven
+    {
+        return $ownMap && $this->composed->settings->local()->quick()
+            ? QuickRound::after($seen->changesSince($before))
+            : NotGiven::value();
+    }
+
+    /** What the watch exits with once no change is left to look for: failed where the files cannot be looked at. */
+    private function exited(CannotJudge|NotGiven $why): int
+    {
+        return $why instanceof CannotJudge ? Failed::because($this->output, $why) : ExitCode::Passed->value;
+    }
+
+    /** How the watch finds a change to the files it watches. */
+    private function changes(): WatchedChanges
+    {
+        return new WatchedChanges($this->composed);
     }
 }
