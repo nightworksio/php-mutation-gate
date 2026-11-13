@@ -336,7 +336,7 @@ final readonly class Planning
             $this->settings->shards()->planning()->startUpSamples(),
             $this->settings->shards()->costs()->firstRunShape(),
         )
-            ->measured($map, $ledgers->untimed($toRun, $this->setup->gate));
+            ->measured($map, $ledgers->costs($this->setup->gate)->untimed($toRun));
         $planned = new PlannedShards($this->adapters, $this->settings, $this->setup);
         $shards = $planned->of(
             $toRun,

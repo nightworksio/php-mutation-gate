@@ -255,10 +255,11 @@ final readonly class Mutating
             Writing::Never,
             $this->settings->proofs()->taken(),
         );
+        $costs = $ledgers->costs($this->setup->gate);
         $weighed = [];
 
         foreach ($shard->units() as $unit) {
-            $estimated = $ledgers->estimated($this->adapters->costs, $unit, FirstRun::unmeasured(), $this->setup->gate);
+            $estimated = $costs->estimated($this->adapters->costs, $unit, FirstRun::unmeasured());
             $weighed[] = Weighed::of($unit, $shard->package(), $estimated)->sharedAmong($shard->testPart());
         }
 

@@ -121,13 +121,14 @@ final readonly class PlannedShards
     /** Each unit to run, in the package its tree is in, weighed by what the cost model expects of it. */
     private function workload(Units $units, Trees $trees, Ledgers $ledgers, FirstRun $firstRun): Workload
     {
+        $costs = $ledgers->costs($this->setup->gate);
         $weighed = [];
 
         foreach ($units as $unit) {
             $tree = $trees->holding($unit->path());
 
             if ($tree instanceof Tree) {
-                $estimated = $ledgers->estimated($this->adapters->costs, $unit, $firstRun, $this->setup->gate);
+                $estimated = $costs->estimated($this->adapters->costs, $unit, $firstRun);
                 $weighed[] = Weighed::of($unit, $tree->package(), $estimated);
             }
         }

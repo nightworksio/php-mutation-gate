@@ -84,6 +84,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/LastRun.php',
             'src/Cli/Flow/LearnedLimits.php',
             'src/Cli/Flow/Ledgers.php',
+            'src/Cli/Flow/LearnedCosts.php',
             'src/Cli/Flow/LeftNone.php',
             'src/Cli/Flow/LeftResults.php',
             'src/Cli/Flow/Listings.php',
