@@ -140,11 +140,11 @@ final readonly class SourceReach
     private function framedReads(array $paths, Fingerprints $files): string
     {
         sort($paths, SORT_STRING);
-        $read = ContentKeys::framed(self::SECTION, sprintf('%d', count($paths)));
+        $read = KeyFields::framed(self::SECTION, sprintf('%d', count($paths)));
 
         foreach ($paths as $path) {
             $digest = $files->digestOf(Path::of($path));
-            $read .= ContentKeys::framed($path, $digest instanceof Digest ? $digest->value() : Missing::DIGESTED);
+            $read .= KeyFields::framed($path, $digest instanceof Digest ? $digest->value() : Missing::DIGESTED);
         }
 
         return Digest::sha256Of($read)->value();

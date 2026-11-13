@@ -59,6 +59,6 @@ final readonly class SetDigests
     {
         $ids = array_map(static fn(TestId $test): string => $test->value(), [...$lines->testsOf($set)]);
 
-        return Digest::sha256Of(ContentKeys::framed(sprintf('%d', count($ids)), ...$ids))->value();
+        return Digest::sha256Of(KeyFields::framed(sprintf('%d', count($ids)), ...$ids))->value();
     }
 }
