@@ -9,23 +9,17 @@ use function array_key_exists;
 use function array_keys;
 use function array_unique;
 use function array_values;
-
-use const FILTER_VALIDATE_BOOL;
-
-use function filter_var;
 use function function_exists;
 use function getenv;
 use function ini_get;
 use function is_string;
+use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
+use NightWorksIO\MutationGate\Core\Runner\OnSwitch;
 
 use function outbreak_lines_start;
 use function outbreak_lines_stop;
-use function pcov\clear;
-use function pcov\collect;
-use function pcov\start;
-use function pcov\stop;
 use function sort;
 
 /**
@@ -48,6 +42,16 @@ final readonly class Recorded
     /** pcov's mark of a line a test executed. */
     private const int EXECUTED = 1;
 
+    public function __construct(private LineCollector|false $collector)
+    {
+    }
+
+    /** What records a test's lines in this process: `outbreak.so` where it can, else pcov where it is usable. */
+    public static function inProcess(): self
+    {
+        return new self(self::usable() ? new PcovLines() : false);
+    }
+
     /**
      * Whether pcov is loaded and enabled, so a test's lines can be collected:
      * `PCOV_ENABLED` wins over `pcov.enabled`, as pcov reads them.
@@ -57,22 +61,24 @@ final readonly class Recorded
         $variable = getenv(self::ENABLED);
         $enabled = is_string($variable) ? $variable : ini_get('pcov.enabled');
 
-        return function_exists('pcov\\start') && filter_var($enabled, FILTER_VALIDATE_BOOL);
+        return function_exists('pcov\\start')
+            && is_string($enabled)
+            && OnSwitch::tryFrom(mb_strtolower($enabled)) instanceof OnSwitch;
     }
 
     /** Starts recording a test's lines afresh: what records them, or false where nothing can. */
-    public static function start(): LineRecorder|false
+    public function start(): LineRecorder|false
     {
         if (function_exists('outbreak_lines_start') && outbreak_lines_start()) {
             return LineRecorder::Outbreak;
         }
 
-        if (! self::usable()) {
+        if ($this->collector === false) {
             return false;
         }
 
-        clear();
-        start();
+        $this->collector->clear();
+        $this->collector->start();
 
         return LineRecorder::Pcov;
     }
@@ -86,13 +92,13 @@ final readonly class Recorded
      * @param  array<string, list<int>>                                 $known
      * @return array{array<string, list<int>>, array<string, list<int>>}
      */
-    public static function stop(LineRecorder $recorder, array $known = []): array
+    public function stop(LineRecorder $recorder, array $known = []): array
     {
         if ($recorder === LineRecorder::Outbreak) {
             return [self::atOriginals(function_exists('outbreak_lines_stop') ? outbreak_lines_stop() : []), []];
         }
 
-        return function_exists('pcov\\stop') && function_exists('pcov\\collect') ? self::collected($known) : [[], []];
+        return $this->collector === false ? [[], []] : $this->collected($this->collector, $known);
     }
 
     /**
@@ -117,21 +123,21 @@ final readonly class Recorded
      * @param  array<string, list<int>>                                 $known
      * @return array{array<string, list<int>>, array<string, list<int>>}
      */
-    private static function collected(array $known): array
+    private function collected(LineCollector $collector, array $known): array
     {
-        stop();
+        $collector->stop();
         $executed = [];
         $reported = [];
 
-        foreach (collect() as $file => $marks) {
-            $lines = self::executedOf($marks);
+        foreach ($collector->collect() as $file => $marks) {
+            $lines = $this->executedOf($marks);
 
             if ($lines !== []) {
                 $executed[$file] = $lines;
             }
 
             if (! array_key_exists(ServedClasses::originalOf($file), $known)) {
-                $reported[$file] = self::reportedOf($marks);
+                $reported[$file] = $this->reportedOf($marks);
             }
         }
 
@@ -158,7 +164,7 @@ final readonly class Recorded
      * @param  array<int, int> $marks
      * @return list<int>
      */
-    private static function executedOf(array $marks): array
+    private function executedOf(array $marks): array
     {
         $lines = array_keys(array_filter($marks, static fn(int $mark): bool => $mark === self::EXECUTED));
         sort($lines);
@@ -170,7 +176,7 @@ final readonly class Recorded
      * @param  array<int, int> $marks
      * @return list<int>
      */
-    private static function reportedOf(array $marks): array
+    private function reportedOf(array $marks): array
     {
         $lines = array_keys($marks);
         sort($lines);

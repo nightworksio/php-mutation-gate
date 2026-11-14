@@ -9,7 +9,7 @@
 # - local loop: a `watch` round that starts from a map carried from an
 #   earlier measure (`--from-map`), after one source line changed, is quick
 #   under `local.cpu: balanced` and ends within ten minutes, outside any CI
-#   as on a developer's machine.
+#   as on a developer's machine; it prints its whole report.
 name: local mode
 
 on:
@@ -125,7 +125,7 @@ jobs:
           timeout "${MOST_SECONDS}" env -u CI -u GITHUB_ACTIONS -u GITHUB_EVENT_NAME -u GITHUB_EVENT_PATH \
             -u GITHUB_BASE_REF -u GITHUB_HEAD_REF \
             vendor/bin/mutation-gate watch --no-interaction --config=bench-local.json \
-            --rounds=1 --from-map=.mutation-gate/carried || status=$?
+            --rounds=1 --from-map=.mutation-gate/carried --whole-report || status=$?
           took=$(( SECONDS - started ))
           echo "local loop: a round from the carried map took ${took} s and ended ${status}." >> "${GITHUB_STEP_SUMMARY}"
           if [ "${status}" -eq 124 ]; then

@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
-use function ctype_digit;
 use function dirname;
 use function fclose;
 use function file_put_contents;
 use function implode;
 use function is_array;
 use function is_resource;
+
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use const PHP_BINARY;
 
@@ -88,7 +89,7 @@ final readonly class FreshProcess
         $held = scandir(self::HELD);
 
         foreach (is_array($held) ? $held : [] as $descriptor) {
-            if (ctype_digit($descriptor) && (int) $descriptor >= self::FIRST) {
+            if (WholeNumber::isDigits($descriptor) && (int) $descriptor >= self::FIRST) {
                 $closing .= sprintf(' %d>&-', (int) $descriptor);
             }
         }

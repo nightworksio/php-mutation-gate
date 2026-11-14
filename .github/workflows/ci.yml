@@ -443,7 +443,8 @@ jobs:
 
   # G7 — every line of src is run: the suite's coverage with the lines of the
   # processes its tests start, Pest's highest runner contract leg's, and
-  # Outbreak's boundary's, merged, with nothing exempt.
+  # Outbreak's boundary's, merged, with only the files
+  # scripts/coverage-exemptions.php names exempt.
   coverage:
     needs: [tests, outbreak]
     if: ${{ !cancelled() && needs.tests.result == 'success' }}

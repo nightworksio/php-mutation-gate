@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function ctype_digit;
 use function getenv;
 use function is_string;
 
+use NightWorksIO\MutationGate\Core\WholeNumber;
 use Pest\Mutate\Repositories\ConfigurationRepository;
 use Pest\Mutate\Support\Configuration\CliConfiguration;
 use Pest\Support\Container;
@@ -37,7 +37,7 @@ final readonly class MutantsAtOnce
     /** This count, where it is one or more, in this command-line configuration. */
     public static function setIn(CliConfiguration $configuration, string|false $count): void
     {
-        if (is_string($count) && ctype_digit($count) && (int) $count > 0) {
+        if (is_string($count) && WholeNumber::isDigits($count) && (int) $count > 0) {
             $configuration->processes((int) $count);
         }
     }

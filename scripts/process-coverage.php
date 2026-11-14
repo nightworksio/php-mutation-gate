@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-// Every line of src covered (G7), across the runs that execute it: the suite's
-// own PHP reports, and the lines each PHP process a test started recorded
-// through tests/Support/ProcessCoverage/prepend.php, the processes a split
-// stream forks among them.
+// Every line of src covered (G7), but the files scripts/coverage-exemptions.php
+// names, across the runs that execute it: the suite's own PHP reports, and the
+// lines each PHP process a test started recorded through
+// tests/Support/ProcessCoverage/prepend.php, the processes a split stream
+// forks among them.
 //
 //   process-coverage.php ini <dir>
 //     Writes <dir>/ini/process-coverage.ini and the script it prepends, which
@@ -30,6 +31,7 @@ use SebastianBergmann\CodeCoverage\Report\Facade;
 use SebastianBergmann\CodeCoverage\Util\PathReducer;
 
 require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/covered-sources.php';
 
 const ROOT = __DIR__ . '/..';
 const PREPEND = 'tests/Support/ProcessCoverage/prepend.php';
@@ -47,27 +49,6 @@ function fail(string $why): never
     fwrite(STDERR, $why . "\n");
 
     exit(1);
-}
-
-/** @return list<string> every PHP file of the sources phpunit.xml includes, by its absolute path */
-function sources(): array
-{
-    $xml = simplexml_load_file(ROOT . '/phpunit.xml') ?: fail('phpunit.xml cannot be read.');
-    $files = [];
-
-    foreach ($xml->source->include->directory ?? [] as $pattern) {
-        foreach (glob(ROOT . '/' . (string) $pattern, GLOB_ONLYDIR) ?: [] as $directory) {
-            $walk = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
-
-            foreach ($walk as $file) {
-                if ($file instanceof SplFileInfo && $file->getExtension() === 'php') {
-                    $files[] = (string) $file->getRealPath();
-                }
-            }
-        }
-    }
-
-    return $files;
 }
 
 function ini(string $directory): void
@@ -124,8 +105,9 @@ function recorded(string $directory, Filter $filter): ProcessedCodeCoverageData
 /** @param list<string> $parts */
 function collected(array $parts): CodeCoverage
 {
+    $root = (string) realpath(ROOT);
     $filter = new Filter();
-    $filter->includeFiles(sources());
+    $filter->includeFiles(coveredSources($root));
     $coverage = new CodeCoverage(new Selector()->forLineCoverage($filter), $filter);
     $data = $coverage->getData(raw: true);
 
@@ -133,6 +115,7 @@ function collected(array $parts): CodeCoverage
         $data->merge(is_dir($part) ? recorded($part, $filter) : report($part));
     }
 
+    withoutExemptions($data, $root);
     $coverage->setData($data);
 
     return $coverage;

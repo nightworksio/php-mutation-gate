@@ -98,7 +98,7 @@ final class StreamRun
         private readonly Descriptors $start,
     ) {
         $this->states = new ForkStates($plan);
-        $this->lines = new ParentLines($plan);
+        $this->lines = new ParentLines($plan, Recorded::inProcess());
         $this->boot = new BootedSites($plan);
     }
 

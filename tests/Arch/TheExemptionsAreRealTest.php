@@ -13,7 +13,8 @@ use NightWorksIO\MutationGate\Tests\Support\PhpstanNeon;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 // C6, D8, D9, D10, D11, D12 and H3: every file, constant and method phpstan.neon
-// exempts is still there. A fixed site that leaves its entry behind would exempt whatever
+// exempts is still there, and G7: every file scripts/coverage-exemptions.php
+// exempts. A fixed site that leaves its entry behind would exempt whatever
 // comes to take its name.
 
 /** Whether a class still declares a constant or an enum case, as `Class::NAME`, of any visibility. */
@@ -98,6 +99,23 @@ it('exempts only files that are there from the broad-catch rule, the method cap,
     expect($exempt)->each->not->toBe([])
         ->and($gone)->toBe([], sprintf(
             "phpstan.neon exempts files from C6, H3, D11 or D10 that are not there:\n  %s\n\nTake each one off the list (C6, H3, D11, D10).",
+            implode("\n  ", $gone),
+        ));
+});
+
+it('exempts only files that are there from the coverage floor, each with its reason', function (): void {
+    $exempt = require Tree::at('scripts/coverage-exemptions.php');
+    $exempt = is_array($exempt) ? $exempt : [];
+    $gone = array_values(array_filter(
+        array_keys($exempt),
+        static fn(int|string $path): bool => ! is_file(Tree::at((string) $path)),
+    ));
+
+    // G7
+    expect($exempt)->not->toBe([])
+        ->and(array_filter($exempt, static fn(mixed $why): bool => ! is_string($why) || $why === ''))->toBe([])
+        ->and($gone)->toBe([], sprintf(
+            "scripts/coverage-exemptions.php exempts files from G7 that are not there:\n  %s\n\nTake each one off the list (G7).",
             implode("\n  ", $gone),
         ));
 });

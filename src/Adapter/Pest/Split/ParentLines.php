@@ -31,7 +31,7 @@ final class ParentLines
     /** @var array<string, list<int>> each line pcov reported in each file the parent's tests loaded, executed or not */
     private array $reported = [];
 
-    public function __construct(private readonly StreamPlan $plan)
+    public function __construct(private readonly StreamPlan $plan, private readonly Recorded $recorded)
     {
     }
 
@@ -39,7 +39,7 @@ final class ParentLines
     public function began(bool $parent): void
     {
         $this->own = false;
-        $this->recording = $parent && $this->plan->recording !== '' ? Recorded::start() : false;
+        $this->recording = $parent && $this->plan->recording !== '' ? $this->recorded->start() : false;
     }
 
     /** The test runs in a process of its own. */
@@ -63,7 +63,7 @@ final class ParentLines
             return;
         }
 
-        [$executed, $reported] = Recorded::stop($this->recording, $this->reported);
+        [$executed, $reported] = $this->recorded->stop($this->recording, $this->reported);
         $this->reported += $reported;
         $this->write(StreamLine::covered($test, $executed, new TestEnded($passed, $troubled, $this->own, $seconds)));
     }

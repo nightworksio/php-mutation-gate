@@ -185,7 +185,7 @@ osv-scanner, which read the repository rather than the code.
 | **G4** | No dev dependency is reachable from `src`, and every dependency is used | `composer-dependency-analyser` |
 | **G5** | One assertion idiom: Pest's `expect()`, never PHPUnit's `assert*` | arch: over the text of every test |
 | **G6** | No committed `->only()`, and no `->skip()` without the reason | arch: over the text of every test |
-| **G7** | Every line of `src` and of each plugin's `src` is covered | ci: `pest --coverage --min=100` |
+| **G7** | Every line of `src` and of each plugin's `src` is covered, but the files `scripts/coverage-exemptions.php` names | ci: the `coverage` job, by `scripts/process-coverage.php` |
 | **G8** | Every mutant of `src` and of each plugin's `src` is killed, or its tree holds the floor `mutation-gate.baseline.json` records | ci: the `mutation` job, the package's own gate through its reusable workflow and action |
 | **G9** | A diagnostic fails the run, and no setting exempts one | arch: the settings, read out of `phpunit.xml` |
 | **G10** | Every test file is inert: loading it runs nothing, so a mutant's narrowed run need not load it (ADR-0004) | arch: every test file, read as the Pest adapter reads it |

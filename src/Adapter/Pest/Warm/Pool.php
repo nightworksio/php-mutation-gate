@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
 use function array_key_exists;
-use function ctype_digit;
 use function getenv;
 use function getmypid;
 use function is_resource;
@@ -14,6 +13,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\OwnScript;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use const PHP_BINARY;
 
@@ -120,6 +120,6 @@ final class Pool
     {
         $keeper = getenv(GateVariable::WarmKeeper->value);
 
-        return is_string($keeper) && ctype_digit($keeper) ? $keeper : strval(getmypid());
+        return is_string($keeper) && WholeNumber::isDigits($keeper) ? $keeper : strval(getmypid());
     }
 }

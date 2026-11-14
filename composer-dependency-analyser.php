@@ -14,7 +14,7 @@ use ShipMonk\ComposerDependencyAnalyser\Config\ErrorType;
  * and the first a user hears of it is a fatal error in their CI.
  */
 
-return new Configuration()
+$configuration = new Configuration()
     // A dev tool invoked from a composer script is never named in PHP, so every
     // dev dependency is either used in code or listed below with what runs it.
     ->enableAnalysisOfUnusedDevDependencies()
@@ -156,7 +156,19 @@ return new Configuration()
     // (ADR-0085); composer.json suggests it, and a PHP without it declares
     // none of its functions.
     ->ignoreUnknownFunctions(['zstd_compress', 'zstd_uncompress_add', 'zstd_uncompress_init'])
+    // A stream's parent records its lines and holds its children to its steps
+    // through outbreak.so only where PHP loads it, and runs without otherwise
+    // (ADR-0147); a PHP without it declares none of its functions.
+    ->ignoreUnknownFunctionsRegex('~^outbreak_~')
     // The tests' stand-in for Laravel's testing declares the classes a warm
     // worker's child reads by name, where a test loads it; the gate requires
     // no Laravel.
     ->ignoreUnknownClassesRegex('~^Illuminate\\\\~');
+
+// A stream's parent collects its lines through pcov where outbreak.so does not
+// record them, only where pcov is loaded and enabled (ADR-0135); composer.json
+// suggests it. Where PHP loads it, its functions are ext-pcov's, and a PHP
+// without it declares none of them.
+return extension_loaded('pcov')
+    ? $configuration->ignoreErrorsOnExtension('ext-pcov', [ErrorType::SHADOW_DEPENDENCY])
+    : $configuration->ignoreUnknownFunctionsRegex('~^pcov\\\\~');

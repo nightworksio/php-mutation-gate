@@ -15,7 +15,7 @@ declare(strict_types=1);
 //     rest's run, through php-code-coverage's own filters, writes the merged
 //     report to <into> and its Clover report to <clover>, adds the streamed
 //     tests to <junit> as the testsuite `streams`, and exits 1 where a line
-//     of the sources phpunit.xml names is left uncovered.
+//     of the sources G7 holds is left uncovered (scripts/covered-sources.php).
 
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -32,6 +32,7 @@ use SebastianBergmann\CodeCoverage\Test\TestStatus;
 use SebastianBergmann\CodeCoverage\Util\PathReducer;
 
 require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/covered-sources.php';
 
 const ROOT = __DIR__ . '/..';
 const LEFT_OUT = 'Guards';
@@ -52,36 +53,15 @@ function suiteIn(string $directory): StreamedSuite
     return $suite instanceof StreamedSuite ? $suite : fail("No streamed suite can be read in {$directory}.");
 }
 
-/** @return list<string> every PHP file of the sources phpunit.xml includes, by its absolute path */
-function sources(): array
-{
-    $xml = simplexml_load_file(ROOT . '/phpunit.xml') ?: fail('phpunit.xml cannot be read.');
-    $files = [];
-
-    foreach ($xml->source->include->directory ?? [] as $pattern) {
-        foreach (glob(ROOT . '/' . (string) $pattern, GLOB_ONLYDIR) ?: [] as $directory) {
-            $walk = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
-
-            foreach ($walk as $file) {
-                if ($file instanceof SplFileInfo && $file->getExtension() === 'php') {
-                    $files[] = (string) $file->getRealPath();
-                }
-            }
-        }
-    }
-
-    return $files;
-}
-
 /** The streamed tests' coverage, through the filters PHPUnit's own run applies. */
 function streamed(string $directory, StreamedSuite $suite): CodeCoverage
 {
-    $sources = sources();
+    $root = (string) realpath(ROOT);
+    $sources = coveredSources($root);
     $filter = new Filter();
     $filter->includeFiles($sources);
     $coverage = new CodeCoverage(new Selector()->forLineCoverage($filter), $filter);
     $coverage->excludeUncoveredFiles();
-    $root = (string) realpath(ROOT);
     $included = array_flip($sources);
     $seed = [];
 
@@ -161,6 +141,7 @@ function merge(string $directory, string $restFile, string $into, string $clover
 
     $streamed = streamed($directory, $suite);
     $data->merge($streamed->getData(raw: true));
+    withoutExemptions($data, (string) realpath(ROOT));
     $merged = [
         'buildInformation' => $rest['buildInformation'],
         'basePath' => new PathReducer()->reduce($data),

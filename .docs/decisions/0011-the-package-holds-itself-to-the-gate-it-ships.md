@@ -168,7 +168,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | the rules refuse violations | `composer test:guards` | yes |
    | checks | validate, normalize, lint, analyse, refactor, deps, audit | yes |
    | tests and coverage | `test:report` with the highest dependencies, its coverage collected for `coverage` | yes |
-   | coverage | G7: the suite's coverage with the lines of the processes its tests start, Pest's highest runner contract leg's and Outbreak's boundary's, merged, with nothing exempt | yes |
+   | coverage | G7: the suite's coverage with the lines of the processes its tests start, Pest's highest runner contract leg's and Outbreak's boundary's, merged, with only the files scripts/coverage-exemptions.php names exempt | yes |
    | lowest dependencies | the suite after `composer update --prefer-lowest` | yes |
    | runner contract | one leg per runner and resolution, side by side, each with its own install and suite: the Runner contract suite (ADR-0004) or the StaticChecker contract suite (ADR-0020) against the lowest supported Pest, Infection, PHPUnit, Mago, PHPStan or Psalm, each analyser lowest with the other packages as high as it allows, or the highest the fixtures' committed locks hold, which Dependabot moves | no |
    | runner contracts | every leg of runner contract passed, with what each leg's suite reported as its evidence | yes |

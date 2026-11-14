@@ -7,11 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Process;
 use function array_diff_key;
 use function array_intersect_key;
 use function array_key_exists;
-use function ctype_digit;
 use function fclose;
 use function is_array;
 
 use NightWorksIO\MutationGate\Core\File\FileDescriptor;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use function scandir;
 
@@ -41,7 +41,7 @@ final readonly class Unshared
         $held = scandir(FileDescriptor::LISTED);
 
         foreach (is_array($held) ? $held : [] as $descriptor) {
-            $number = ctype_digit($descriptor) ? (int) $descriptor : 0;
+            $number = WholeNumber::isDigits($descriptor) ? (int) $descriptor : 0;
 
             if ($number >= FileDescriptor::FIRST && ! array_key_exists($number, $descriptors)) {
                 $descriptors[$number] = self::EMPTY;

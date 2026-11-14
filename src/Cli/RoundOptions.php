@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli;
 
-use function ctype_digit;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -55,7 +55,7 @@ final readonly class RoundOptions
         $fromMap = self::given($input, self::FROM_MAP);
         $members = $rounds instanceof NotGiven
             ? []
-            : [Member::of(self::ROUNDS, ctype_digit($rounds) ? (int) $rounds : $rounds)];
+            : [Member::of(self::ROUNDS, WholeNumber::isDigits($rounds) ? (int) $rounds : $rounds)];
 
         return $fromMap instanceof NotGiven ? $members : [...$members, Member::of('fromMap', $fromMap)];
     }

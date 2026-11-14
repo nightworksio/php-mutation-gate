@@ -146,7 +146,7 @@
     },
     "coverage": {
       "check": "coverage",
-      "checks": "Every line of src run (G7): the suite's coverage with the lines of the processes its tests start, Pest's highest runner contract leg's and Outbreak's boundary's, merged, with nothing exempt.",
+      "checks": "Every line of src run (G7): the suite's coverage with the lines of the processes its tests start, Pest's highest runner contract leg's and Outbreak's boundary's, merged, with only the files scripts/coverage-exemptions.php names exempt.",
       "reproduce": "composer test:report, which holds the suite's own coverage to the floor; the runner contract's and the boundary's join it in CI alone",
       "troubleshooting": "no-coverage-driver",
       "evidence": [
