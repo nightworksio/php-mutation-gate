@@ -83,3 +83,16 @@ it('says nothing of a delivery that holds no request', function (): void {
 
     expect(CacheDelivery::pushed(Outbreak::none($from), $from, trusted: true, environment: Variables::of([])))->toBeInstanceOf(NotGiven::class);
 });
+
+it('pushes nothing from a request that names no registry, base or class it knows, saying what it could not read', function (string $request, string $unread): void {
+    $from = Scratch::directory();
+    file_put_contents(sprintf('%s/%s', $from, CacheRequest::DELIVERED), $request);
+    $environment = Variables::of([CacheDelivery::REGISTRY => 'ghcr.io/owner/proofs', CacheDelivery::TOKEN => 'secret']);
+
+    $pushed = CacheDelivery::pushed(Outbreak::none($from), $from, trusted: true, environment: $environment);
+
+    expect($pushed instanceof NotWritten ? $pushed->why() : $pushed)->toBe(sprintf("The proof cache's request is not one deliver reads: %s.", $unread));
+})->with([
+    'no class' => ['{"registry": "ghcr.io/owner/proofs", "base": "b"}', 'the file.class is missing'],
+    'a class it does not know' => ['{"registry": "ghcr.io/owner/proofs", "base": "b", "class": "everyone"}', 'class is not trusted or branch'],
+]);

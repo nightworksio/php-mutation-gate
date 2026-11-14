@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function chmod;
+use function dirname;
 use function file_get_contents;
 use function file_put_contents;
 use function is_string;
@@ -30,6 +31,9 @@ final readonly class OutbreakStandIn
         exit %d
         SH;
 
+    /** The contract a stand-in answers where it is given none. */
+    private const string CONTRACT = '{"outbreak":1,"version":"0.0.0"}';
+
     private function __construct(private string $binary)
     {
     }
@@ -38,13 +42,30 @@ final readonly class OutbreakStandIn
     public static function answering(
         string $command,
         int $exit = 0,
-        string $contract = '{"outbreak":1,"version":"0.0.0"}',
+        string $contract = self::CONTRACT,
     ): self {
         $binary = sprintf('%s/outbreak', Scratch::directory());
         file_put_contents($binary, sprintf(self::SCRIPT, $contract, $command, $exit));
         chmod($binary, 0o755);
 
         return new self($binary);
+    }
+
+    /** A stand-in answering so, listed as the binary the package ships for this machine in a directory of its own. */
+    public static function shipped(string $command, int $exit = 0): self
+    {
+        $directory = Scratch::directory();
+        ShippedOutbreak::listed($directory, ShippedOutbreak::binaryName(), sprintf(self::SCRIPT, self::CONTRACT, $command, $exit));
+        $binary = sprintf('%s/%s', $directory, ShippedOutbreak::binaryName());
+        chmod($binary, 0o755);
+
+        return new self($binary);
+    }
+
+    /** The directory the package ships the stand-in in, where it was shipped. */
+    public function shippedIn(): string
+    {
+        return dirname($this->binary, 2);
     }
 
     public function binary(): string

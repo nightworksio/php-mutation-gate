@@ -5,7 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Outbreak\Bundled;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
-use NightWorksIO\MutationGate\Tests\Support\ShippedExtensions;
+use NightWorksIO\MutationGate\Tests\Support\ShippedOutbreak;
 
 // The binary the package ships for the machine, used only where its checksum
 // is the one listed beside it.
@@ -62,7 +62,7 @@ it('finds the extension for a PHP\'s minor on a machine where its checksum is th
 });
 
 it('finds the extension for the PHP and machine it runs on', function (): void {
-    $directory = ShippedExtensions::directory();
+    $directory = ShippedOutbreak::withExtension();
 
-    expect(Bundled::extensionIn($directory))->toBe(PHP_ZTS === 1 ? NotGiven::value() : ShippedExtensions::in($directory));
+    expect(Bundled::extensionIn($directory))->toBe(PHP_ZTS === 1 ? NotGiven::value() : ShippedOutbreak::extensionIn($directory));
 });
