@@ -25,7 +25,7 @@ final class KeepsProofsFake implements KeepsProofs
     /** @var array<string, string> */
     private array $proofs = [];
 
-    private function __construct(private bool $running)
+    private function __construct(private readonly bool $running)
     {
     }
 

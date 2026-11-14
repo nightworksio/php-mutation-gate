@@ -72,9 +72,9 @@ final readonly class ScopeRuns
      */
     public function tellsAs(self $other): bool
     {
-        return self::same($this->passed, $other->passed)
-            && self::same($this->lastRun, $other->lastRun)
-            && self::same($this->judged, $other->judged);
+        return $this->same($this->passed, $other->passed)
+            && $this->same($this->lastRun, $other->lastRun)
+            && $this->same($this->judged, $other->judged);
     }
 
     public function passed(): Passed|CannotTell
@@ -93,7 +93,7 @@ final readonly class ScopeRuns
         return $this->judged;
     }
 
-    private static function same(Passed|LastRun|Judged|CannotTell $one, Passed|LastRun|Judged|CannotTell $other): bool
+    private function same(Passed|LastRun|Judged|CannotTell $one, Passed|LastRun|Judged|CannotTell $other): bool
     {
         return $one === $other || ($one instanceof CannotTell && $other instanceof CannotTell);
     }

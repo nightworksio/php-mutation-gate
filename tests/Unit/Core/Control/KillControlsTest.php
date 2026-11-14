@@ -305,7 +305,7 @@ it('controls a file\'s kills whose runs left their filter out together first, by
     ])
         ->and($tax->selected())->toEqual(WholeSuite::tests())
         ->and($loop->selected())->toEqual(Paths::of(Path::of('tests/LoopTest.php'), Path::of('tests/RateTest.php')))
-        ->and(array_map(static fn(Control $own) => $own->selected() instanceof Paths ? $own->selected() : null, [...$controls->fallback($failed, Controls::none())]))
+        ->and(array_map(static fn(Control $own): ?Paths => $own->selected() instanceof Paths ? $own->selected() : null, [...$controls->fallback($failed, Controls::none())]))
         ->toEqual([Paths::of(Path::of('tests/LoopTest.php')), Paths::of(Path::of('tests/RateTest.php'))])
         ->and([...$controls->fallback(ControlRuns::none()->with($loop, ControlRun::passed(Seconds::of(1.0))), Controls::none())])->toBe([]);
 });

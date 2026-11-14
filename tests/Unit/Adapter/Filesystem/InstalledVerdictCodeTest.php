@@ -35,7 +35,7 @@ function installedAt(array $packages): InstalledVerdictCode
     }
 
     return InstalledVerdictCode::at(
-        static fn(string $package) => $roots[$package] ?? null,
+        static fn(string $package): ?string => $roots[$package] ?? null,
         ...array_map(strval(...), array_keys($roots)),
     );
 }
