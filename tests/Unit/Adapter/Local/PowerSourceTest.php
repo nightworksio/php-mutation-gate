@@ -50,15 +50,19 @@ it('reads another system as on power', function (): void {
     expect(PowerSource::on(System::Other, Scratch::directory())->now())->toBe(Power::Mains);
 });
 
-it('starts the daemon under the class: a QoS clamp on macOS, a niceness on Linux, nothing at normal or elsewhere', function (): void {
+it('starts the daemon under the class: a QoS clamp on macOS, a niceness on Linux, nothing at normal, elsewhere or where the program is not there', function (): void {
     $quiet = LocalWork::of(CpuProfile::Quiet);
     $fast = LocalWork::of(CpuProfile::Fast);
-    $taskpolicy = is_executable(Launch::TASKPOLICY);
-    $nice = is_executable('/usr/bin/nice');
+    $taskpolicy = PHP_BINARY;
+    $nice = PHP_BINARY;
+    $missing = sprintf('%s/missing', Scratch::directory());
 
-    expect(Launch::on(System::Darwin)->prefix($quiet))->toBe($taskpolicy ? [Launch::TASKPOLICY, '-c', 'background'] : [])
-        ->and(Launch::on(System::Linux)->prefix(LocalWork::of()))->toBe($nice ? ['/usr/bin/nice', '-n', '10'] : [])
-        ->and(Launch::on(System::Darwin)->prefix($fast))->toBe([])
-        ->and(Launch::on(System::Linux)->prefix($fast))->toBe([])
-        ->and(Launch::on(System::Windows)->prefix($quiet))->toBe([]);
+    expect(Launch::on(System::Darwin, $taskpolicy, $nice)->prefix($quiet))->toBe([$taskpolicy, '-c', 'background'])
+        ->and(Launch::on(System::Linux, $taskpolicy, $nice)->prefix(LocalWork::of()))->toBe([$nice, '-n', '10'])
+        ->and(Launch::on(System::Darwin, $missing, $missing)->prefix($quiet))->toBe([])
+        ->and(Launch::on(System::Linux, $missing, $missing)->prefix(LocalWork::of()))->toBe([])
+        ->and(Launch::on(System::Darwin, $taskpolicy, $nice)->prefix($fast))->toBe([])
+        ->and(Launch::on(System::Linux, $taskpolicy, $nice)->prefix($fast))->toBe([])
+        ->and(Launch::on(System::Windows, $taskpolicy, $nice)->prefix($quiet))->toBe([])
+        ->and(Launch::here())->toEqual(Launch::on(System::here()));
 });

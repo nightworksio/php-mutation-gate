@@ -27,18 +27,19 @@ final readonly class Launch
 
     private const string NICE = '/usr/bin/nice';
 
-    private function __construct(private System $system)
+    private function __construct(private System $system, private string $taskpolicy, private string $nice)
     {
     }
 
     public static function here(): self
     {
-        return new self(System::here());
+        return new self(System::here(), self::TASKPOLICY, self::NICE);
     }
 
-    public static function on(System $system): self
+    /** One on this system, clamping with this `taskpolicy` and niceing with this `nice`, each where it runs. */
+    public static function on(System $system, string $taskpolicy = self::TASKPOLICY, string $nice = self::NICE): self
     {
-        return new self($system);
+        return new self($system, $taskpolicy, $nice);
     }
 
     /** @return list<string> */
@@ -48,10 +49,10 @@ final readonly class Launch
         $nice = $work->linuxNice();
 
         return match (true) {
-            $this->system === System::Darwin && $macos->clamps() && is_executable(self::TASKPOLICY)
-                => [self::TASKPOLICY, '-c', $macos->value],
-            $this->system === System::Linux && $nice > 0 && is_executable(self::NICE)
-                => [self::NICE, '-n', strval($nice)],
+            $this->system === System::Darwin && $macos->clamps() && is_executable($this->taskpolicy)
+                => [$this->taskpolicy, '-c', $macos->value],
+            $this->system === System::Linux && $nice > 0 && is_executable($this->nice)
+                => [$this->nice, '-n', strval($nice)],
             default => [],
         };
     }

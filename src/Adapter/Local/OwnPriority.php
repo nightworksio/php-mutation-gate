@@ -36,19 +36,22 @@ final class OwnPriority
 {
     private bool $background = false;
 
-    private function __construct(private readonly System $system, private readonly int $process)
-    {
+    private function __construct(
+        private readonly System $system,
+        private readonly int $process,
+        private readonly string $taskpolicy,
+    ) {
     }
 
     public static function here(): self
     {
-        return new self(System::here(), (int) getmypid());
+        return new self(System::here(), (int) getmypid(), Launch::TASKPOLICY);
     }
 
-    /** The priority of the process with this id on this system. */
-    public static function on(System $system, int $process): self
+    /** The priority of the process with this id on this system, put in the background with this `taskpolicy`. */
+    public static function on(System $system, int $process, string $taskpolicy = Launch::TASKPOLICY): self
     {
-        return new self($system, $process);
+        return new self($system, $process, $taskpolicy);
     }
 
     /** This process at the class its platform takes of these. */
@@ -73,8 +76,8 @@ final class OwnPriority
     {
         $background = $class === MacosClass::Background || $class === MacosClass::Maintenance;
 
-        if ($background !== $this->background && is_executable(Launch::TASKPOLICY)) {
-            new Process([Launch::TASKPOLICY, $background ? '-b' : '-B', '-p', strval($this->process)])->run();
+        if ($background !== $this->background && is_executable($this->taskpolicy)) {
+            new Process([$this->taskpolicy, $background ? '-b' : '-B', '-p', strval($this->process)])->run();
             $this->background = $background;
         }
 
