@@ -120,7 +120,7 @@ fallback.
    "by", "quick", "unit", "digest"}`, the status `killed`, `survived`,
    `timeout`, `pending` or `equivalent`, as `watch --output=events` prints
    them (ADR-0146 decision 8); `watch` prints one block per unit as its
-   results land and the whole report only for `watch --report`.
+   results land and the whole report only for `watch --whole-report`.
 10. **`outbreak lsp` brings the survivors to the editor.** It speaks the
     Language Server Protocol on stdio. Once the editor initialized it, it
     starts `mutation-gate watch --output=events` in the workspace's root, a

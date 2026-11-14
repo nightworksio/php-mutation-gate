@@ -79,9 +79,9 @@ function lspArguments(string $binary): array
 it('serves the editor through the binary, handing watch every option but its own and those after the double dash', function (): void {
     $binary = lspBinary(exit: 7);
 
-    expect(lspExit(lspBinaryNamed($binary), '--severity', 'hint', '--stdio', 'src/Money.php', '--', '--report'))->toBe(7)
+    expect(lspExit(lspBinaryNamed($binary), '--severity', 'hint', '--stdio', 'src/Money.php', '--', '--whole-report'))->toBe(7)
         ->and(lspArguments($binary))->toBe([
-            'lsp', '--gate', '/gate/bin/mutation-gate', '--php', PHP_BINARY, '--severity', 'hint', '--', 'src/Money.php', '--report',
+            'lsp', '--gate', '/gate/bin/mutation-gate', '--php', PHP_BINARY, '--severity', 'hint', '--', 'src/Money.php', '--whole-report',
         ]);
 })->group(...$holds);
 

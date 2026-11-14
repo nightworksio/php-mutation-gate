@@ -82,7 +82,7 @@ final readonly class WatchCommand
 
     private const string MOVED = 'A change arrived: the units it moved wait for the next round, which judges again.';
 
-    private const string REPORT = 'report';
+    private const string REPORT = 'whole-report';
 
     private const string REPORT_SAID = 'Print the whole report after each round';
 

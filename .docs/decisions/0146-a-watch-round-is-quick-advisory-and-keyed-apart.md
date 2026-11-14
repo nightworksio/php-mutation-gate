@@ -81,7 +81,7 @@ what a source file declares, without running anything.
    so its event says what the verification judged. The PHP `serve` that
    `outbreak serve` starts sends the same lines to every client (ADR-0133
    decision 9). The console prints one block per unit as each batch ends,
-   and ends a round with the whole report only with `watch --report`, or
+   and ends a round with the whole report only with `watch --whole-report`, or
    where `local.streamBatches` is off; `--output=problems` still ends every
    round with its problems.
 9. **The first round can start from a carried map, and `watch` can end
@@ -134,7 +134,7 @@ what a source file declares, without running anything.
 | **Measure every moved test file, as today** | The re-measure is the largest part of a round after a source save. |
 | **Stop the whole round on any save, as before** | A save to one unit throws away the work of every other; `local.cancelByUnit: false` keeps it. |
 | **Read what a halted batch judged before the halt** | Its runner reads a stopped process as one that ran out of time, which counts as a kill; only a whole batch's result is sound. |
-| **Print the whole report after every round** | It scrolls each round's blocks away; `--report` gives it. |
+| **Print the whole report after every round** | It scrolls each round's blocks away; `--whole-report` gives it. |
 
 ## Consequences
 

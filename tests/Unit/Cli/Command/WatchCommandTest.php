@@ -295,7 +295,7 @@ it('looks for a change while a round runs only once a wait has passed, and judge
 it('prints what each batch judged as it ends, before the round\'s verdict --report asks for, unless local.streamBatches is off', function (string $config, string $printed) use ($changing): void {
     $composition = FlowCommands::watching(watchedProject($config), ScriptedRunner::fixture(), new ProofStoreFake(), $changing());
 
-    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false), '--report');
+    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false), '--whole-report');
 
     expect($ran->code)->toBe(0)
         ->and($ran->output)->toStartWith(sprintf("%s%sWrote memory:refs/heads/main.\n", WATCHING, $printed));
