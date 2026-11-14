@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Outbreak;
 
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Outbreak as OutbreakSettings;
 use NightWorksIO\MutationGate\Core\Coverage\Conversion;
@@ -191,7 +193,7 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
 
         $said = $this->ran(Command::Pull->words(), CacheAsked::of($request, $this->absolute(...)));
 
-        return CacheAnswer::of($said, 'pull', 'pulled');
+        return CacheAnswer::of($said, 'pull', 'pulled', $this->root);
     }
 
     public function pushed(CacheRequest $request): Written|NotWritten
@@ -201,8 +203,9 @@ final readonly class Outbreak implements ConvertsPhpReports, MapEngine, ProofCac
         }
 
         $said = $this->ran(Command::Push->words(), CacheAsked::of($request, $this->absolute(...)));
+        $registry = $request->registry();
 
-        return CacheAnswer::of($said, 'push', 'pushed');
+        return CacheAnswer::of($said, 'push', 'pushed', is_string($registry) ? $registry : $this->root);
     }
 
     /** The command lines that start the binary in use as a process of its own. */

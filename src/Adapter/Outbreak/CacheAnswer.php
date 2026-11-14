@@ -24,12 +24,12 @@ final readonly class CacheAnswer
 
     private const string CACHED = 'Outbreak %s %d of the proof cache\'s packs.';
 
-    /** How many packs the binary moved, under the field it did that by; or why none. */
-    public static function of(Node|NotWritten $said, string $verb, string $done): Written|NotWritten
+    /** How many packs the binary moved to where they went, under the field it did that by; or why none. */
+    public static function of(Node|NotWritten $said, string $verb, string $done, string $where): Written|NotWritten
     {
         try {
             return $said instanceof Node
-                ? Written::noting($done, sprintf(self::CACHED, $done, $said->field($done)->integer()))
+                ? Written::noting($where, sprintf(self::CACHED, $done, $said->field($done)->integer()))
                 : NotWritten::because(sprintf(self::UNCACHED, $verb, $said->why()));
         } catch (NotInShape) {
             return NotWritten::because(sprintf(self::UNCACHED, $verb, sprintf(BinaryRun::ANSWERED, $said->json())));
