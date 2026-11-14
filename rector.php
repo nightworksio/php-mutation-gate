@@ -45,6 +45,8 @@ return RectorConfig::configure()
             __DIR__ . '/tests/Unit/Core/Stub/TestFileTest.php',
             // A warm worker's child reads Laravel's testing by its names, and the gate requires no Laravel (A1).
             __DIR__ . '/src/Adapter/Pest/Warm/Database/Laravel.php',
+            // A JUnit log names the fixture's test class as Pest writes it, a class the package never loads.
+            __DIR__ . '/tests/Unit/Adapter/Pest/FreshRunsTest.php',
         ],
         // Pest binds a closure in a dataset to the test case before calling it,
         // and the closure of a static method cannot be bound.
