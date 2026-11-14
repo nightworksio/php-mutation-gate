@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -33,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Fakes\ProvesBeforeRunFake;
 use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -130,6 +132,25 @@ it('waits until Pest has written every mutant it planned, then writes the copy o
         ->and($handOff->rejectionOf($planned[1]))->toBeInstanceOf(Rejection::class)
         ->and($handOff->rejectionOf($planned[2]))->toEqual(NotGiven::value())
         ->and($handOff->rejectionOf($planned[3]))->toEqual(NotGiven::value());
+});
+
+it('writes the copy of each mutant proven equivalent before it ran, so Pest runs none of them', function (): void {
+    [$project, $results, $planned] = handedProject();
+    $copy = $planned[2]->mutated()->value();
+    $handOff = new HandOff(
+        $project,
+        $results,
+        new NoPreCheck(),
+        ProcessCount::of(2),
+        static fn(): CannotJudge => CannotJudge::because('No map.'),
+        new Bridges(),
+        equivalence: new ProvesBeforeRunFake([$copy => Reason::that('Its op arrays are its original\'s.')]),
+    );
+    handedRecords($results, $planned, made: true);
+
+    $handOff->look();
+
+    expect(file_get_contents(Verdicts::beside($results)))->toBe($copy);
 });
 
 it('writes no rejection, so Pest runs every mutant, where the run\'s covering tests cannot be read', function (): void {

@@ -304,3 +304,17 @@ it('leaves the entries of a verdict\'s proofs and their request beside the deliv
         ->and(file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/%s', $project, CachePack::DELIVERED)))->toBe('the entries')
         ->and(file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/%s', $project, CacheRequest::DELIVERED)))->toBe('the request');
 });
+
+it('leaves no request beside the delivery where the entries it merges cannot be written', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/delivery/verdict/delivery.json', '{"format": 1}');
+    $stage = sprintf('%s/.mutation-gate/delivery/verdict', $project);
+    chmod($stage, 0o555);
+    set_error_handler(static fn(): bool => true);
+    $cached = DeliveryDirectory::of(Directory::at($project), Stage::Verdict)->cache(Contents::of('the request'), Contents::of('the entries'));
+    restore_error_handler();
+    chmod($stage, 0o755);
+
+    expect($cached)->toBeInstanceOf(CannotJudge::class)
+        ->and(sprintf('%s/%s', $stage, CacheRequest::DELIVERED))->not->toBeFile();
+});

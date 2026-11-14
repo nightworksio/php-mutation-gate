@@ -30,10 +30,15 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
+use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
+use NightWorksIO\MutationGate\Core\Reach\ReachGraph;
 use NightWorksIO\MutationGate\Core\Runner\RanReport;
+use NightWorksIO\MutationGate\Core\Serve\KeepsProofs;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Watch\NoticesChanges;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\OutbreakStandIn;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -177,6 +182,49 @@ it('keeps the state outbreak serve holds only where the binary speaks and servin
         ->and(Outbreak::at($speaking, '/project', $off)->servedBy($served)->served())->toEqual(NotGiven::value())
         ->and(Outbreak::none('/project')->servedBy($served)->served())->toEqual(NotGiven::value())
         ->and(Outbreak::at($speaking, '/project')->served())->toEqual(NotGiven::value());
+})->group(...$holds);
+
+it('takes the graph outbreak serve answers, and asks the binary nothing then', function (): void {
+    $answer = GraphAnswer::of([], [], [], Paths::none(), []);
+    $served = new readonly class ($answer) implements KeepsProofs, NoticesChanges, ReachGraph {
+        public function __construct(private GraphAnswer $answer)
+        {
+        }
+
+        public function answered(GraphQuestion $question): GraphAnswer
+        {
+            return $this->answer;
+        }
+
+        public function changed(array $directories, int $since, Seconds $wait): NotWritten
+        {
+            return NotWritten::because('unasked');
+        }
+
+        public function powered(int $since, Seconds $wait): NotWritten
+        {
+            return NotWritten::because('unasked');
+        }
+
+        public function proofs(string ...$keys): NotWritten
+        {
+            return NotWritten::because('unasked');
+        }
+
+        public function kept(array $proofs): NotWritten
+        {
+            return NotWritten::because('unasked');
+        }
+
+        public function forgotten(string ...$keys): NotWritten
+        {
+            return NotWritten::because('unasked');
+        }
+    };
+    $silent = OutbreakStandIn::answering('{"outbreak":1,"vouched":true}')->binary();
+    $question = GraphQuestion::over(Paths::of(Path::of('src/Money.php')), Paths::none(), Paths::none());
+
+    expect(Outbreak::at($silent, '/project')->servedBy($served)->answered($question))->toBe($answer);
 })->group(...$holds);
 
 it('reads the settings beneath a runner\'s options, and the defaults where they hold none', function (): void {

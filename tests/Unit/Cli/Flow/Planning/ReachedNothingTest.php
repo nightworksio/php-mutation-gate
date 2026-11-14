@@ -285,6 +285,14 @@ it('judges what it proves where the config reads a file it cannot name, which ev
         ->toEqual([0, 2, NotGiven::value()]);
 });
 
+it('lets the verdict the default branch passed stand where the config reads a file it names, which the change leaves alone', function () use ($plan, $pullRequest516, $reporting): void {
+    $made = $plan($pullRequest516(), $reporting(), port: ConfigReads::named(Path::of('mutation-gate/floors.json')));
+    $stands = $made instanceof Plan ? $made->briefing()->unchanged() : $made;
+
+    expect($stands instanceof Unchanged ? [$stands->because(), $stands->base()->commit()->name()] : $stands)
+        ->toBe([StandsBecause::NothingReached, REACHED_NOTHING_BASE]);
+});
+
 it('judges what it proves where the config, found by its name or read beside it, changed', function (string $changed, ConfigReads $reads) use ($plan, $reporting): void {
     $made = $plan(
         Changes::of(Change::modified(Path::of($changed), Lines::of(Line::of(1)))),

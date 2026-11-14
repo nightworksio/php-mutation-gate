@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Pest\PestSteps;
 use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Pest\ShardMap;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
@@ -20,7 +21,12 @@ use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
@@ -612,6 +618,26 @@ it('makes the directory its warm workers share, its owner\'s alone, while Pest r
 
     expect($mode)->toBe(0o700)
         ->and(is_dir($directory))->toBeFalse();
+});
+
+it('takes the handed map as it is, reading no value, under pest.valueReaders: false', function (): void {
+    $at = PestCases::patched();
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
+        ? PestCases::listed($command)
+        : PestCases::killed($command, $at));
+    $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
+    $patching = PestCases::canary()->stepping(PestSteps::of(
+        Toggles::of(Toggle::PestValueReaders, on: false),
+        NarrowedKillTrust::Vouch,
+        LongFilter::Files,
+        Duplicates::JudgeOnce,
+    ));
+    $result = new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+    expect($result instanceof MutationResult ? array_slice(array_map(
+        static fn(StepTime $step): Step => $step->step(),
+        [...$result->steps()],
+    ), 0, 2) : $result)->toBe([Step::Coverage, Step::Mutation]);
 });
 
 it('opens a patched shard on the canary group, with the planning job\'s map written again for its Pest', function (): void {
