@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\MergedTrust;
 use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
@@ -448,7 +449,8 @@ it('reads files, fingerprints and the files it lists from the source underneath'
         ->and($proved->filesAt(Paths::of(Path::of('src/Money.php')), Revision::ref('base')))->toEqual($source()->filesAt(Paths::of(Path::of('src/Money.php')), Revision::ref('base')))
         ->and($proved->fingerprints())->toEqual($source()->fingerprints())
         ->and($proved->listed(Paths::of(Path::of('src'))))->toEqual($source()->listed(Paths::of(Path::of('src'))))
-        ->and($proved->listed(Paths::of(Path::of('src'))))->not->toEqual(Paths::none());
+        ->and($proved->listed(Paths::of(Path::of('src'))))->not->toEqual(Paths::none())
+        ->and($proved->lookedSince(Looked::none()))->toEqual($source()->lookedSince(Looked::none()));
 });
 
 it('says where the checkout stands as the source underneath says', function (): void {
