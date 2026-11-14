@@ -45,7 +45,7 @@ final class OwnPriority
 
     public static function here(): self
     {
-        return new self(System::here(), (int) getmypid(), Launch::TASKPOLICY);
+        return self::on(System::here(), (int) getmypid());
     }
 
     /** The priority of the process with this id on this system, put in the background with this `taskpolicy`. */

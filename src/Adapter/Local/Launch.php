@@ -33,7 +33,7 @@ final readonly class Launch
 
     public static function here(): self
     {
-        return new self(System::here(), self::TASKPOLICY, self::NICE);
+        return self::on(System::here());
     }
 
     /** One on this system, clamping with this `taskpolicy` and niceing with this `nice`, each where it runs. */
