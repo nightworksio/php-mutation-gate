@@ -277,7 +277,13 @@ final readonly class Streaming
             file_put_contents($fields['recording'], '');
         }
         $process = new Process(
-            [PHP_BINARY, ...$this->counting(), ...$this->runArguments($this->arguments), ...$files],
+            [
+                PHP_BINARY,
+                ...$this->counting(),
+                ...$this->reach($fields['recording']),
+                ...$this->runArguments($this->arguments),
+                ...$files,
+            ],
             env: [
                 GateVariable::SplitPlan->value => $plan,
                 Mutate::ENV_MUTATION_TESTING => false,
@@ -302,6 +308,18 @@ final readonly class Streaming
         $extension = getenv(GateVariable::StreamExtension->value);
 
         return is_string($extension) && $extension !== '' ? ['-d', sprintf('extension=%s', $extension)] : [];
+    }
+
+    /**
+     * What has pcov collect from every tree of the project, and from the
+     * schemata the stream serves, where the stream records its tests' lines;
+     * nothing otherwise.
+     *
+     * @return list<string>
+     */
+    private function reach(string $recording): array
+    {
+        return $recording === '' ? [] : StreamReach::options();
     }
 
     /**

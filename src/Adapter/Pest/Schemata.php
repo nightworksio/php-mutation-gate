@@ -16,6 +16,7 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WholeFile;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -47,6 +48,9 @@ final class Schemata
 {
     /** Where a file's schema is written, beside the folder of mutated copies, by the file's key. */
     private const string PATH = '%s/../schemata/%s%s';
+
+    /** Where every schema is written, from the vendor directory: beside pest-plugin-mutate's `.temp/mutations`. */
+    private const string IN_VENDOR = '%s/.temp/schemata';
 
     /** The digest of a file's real path that keys its schema's switch and names the schema. */
     private const string DIGEST = 'xxh3';
@@ -155,6 +159,12 @@ final class Schemata
         return array_key_exists($mutation->id, self::$switched) && ! Bridged::isPinnedBySource($mutation->mutator)
             ? [hash(self::DIGEST, strval($mutation->file->getRealPath())), self::$switched[$mutation->id][1]]
             : NotGiven::value();
+    }
+
+    /** The directory every schema is written to, and served from, by its path from the vendor directory. */
+    public static function inVendor(): Path
+    {
+        return Path::of(sprintf(self::IN_VENDOR, Package::PestMutate->value));
     }
 
     /** Leaves each file's schema, by the file, in a run's warm directory, for its workers to serve as they boot. */

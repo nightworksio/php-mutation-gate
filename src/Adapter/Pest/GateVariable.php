@@ -163,6 +163,9 @@ enum GateVariable: string
     /** Where each stream's parent records the lines each test executed, for a quick round's kept map (ADR-0147). */
     case SplitLines = 'MUTATION_GATE_SPLIT_LINES';
 
+    /** The PHP options, a JSON list, a stream starts with where it records lines with pcov (see Split\StreamReach). */
+    case SplitReach = 'MUTATION_GATE_SPLIT_REACH';
+
     /** Whether a first-pass stream runs only the killers of its mutants (ADR-0136). */
     case SplitKillerStreams = 'MUTATION_GATE_SPLIT_KILLER_STREAMS';
 

@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 use function array_filter;
 use function array_key_exists;
 use function array_keys;
+use function array_unique;
+use function array_values;
 
 use const FILTER_VALIDATE_BOOL;
 
@@ -15,6 +17,9 @@ use function function_exists;
 use function getenv;
 use function ini_get;
 use function is_string;
+
+use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
+
 use function outbreak_lines_start;
 use function outbreak_lines_stop;
 use function pcov\clear;
@@ -28,9 +33,10 @@ use function sort;
  * `outbreak.so` where the stream observes `lines` (ADR-0147), and collected
  * by pcov where it is loaded otherwise, for a run that plans without a fresh
  * map (ADR-0135) or a quick round of `watch`: the streams record what the
- * coverage run would have measured. A run that stands in for the suite's
- * coverage report never observes `lines`, so pcov reports its executable
- * lines.
+ * coverage run would have measured, each schema served in a file's place
+ * recorded as that file, whose lines it keeps. A run that stands in for the
+ * suite's coverage report never observes `lines`, so pcov reports its
+ * executable lines.
  *
  * @internal
  */
@@ -83,10 +89,28 @@ final readonly class Recorded
     public static function stop(LineRecorder $recorder, array $known = []): array
     {
         if ($recorder === LineRecorder::Outbreak) {
-            return [function_exists('outbreak_lines_stop') ? outbreak_lines_stop() : [], []];
+            return [self::atOriginals(function_exists('outbreak_lines_stop') ? outbreak_lines_stop() : []), []];
         }
 
         return function_exists('pcov\\stop') && function_exists('pcov\\collect') ? self::collected($known) : [[], []];
+    }
+
+    /**
+     * Lines recorded by the file PHP compiled, each copy this process serves
+     * taken as its original's, joined to any of the original's own.
+     *
+     * @param  array<string, list<int>> $recorded
+     * @return array<string, list<int>>
+     */
+    public static function atOriginals(array $recorded): array
+    {
+        $lines = [];
+
+        foreach ($recorded as $served => $executed) {
+            $lines = self::joined($lines, ServedClasses::originalOf($served), $executed);
+        }
+
+        return $lines;
     }
 
     /**
@@ -106,12 +130,28 @@ final readonly class Recorded
                 $executed[$file] = $lines;
             }
 
-            if (! array_key_exists($file, $known)) {
+            if (! array_key_exists(ServedClasses::originalOf($file), $known)) {
                 $reported[$file] = self::reportedOf($marks);
             }
         }
 
-        return [$executed, $reported];
+        return [self::atOriginals($executed), self::atOriginals($reported)];
+    }
+
+    /**
+     * These lines, with more of a file's joined to those they hold of it.
+     *
+     * @param  array<string, list<int>> $lines
+     * @param  list<int>                $more
+     * @return array<string, list<int>>
+     */
+    private static function joined(array $lines, string $file, array $more): array
+    {
+        $joined = array_values(array_unique([...array_key_exists($file, $lines) ? $lines[$file] : [], ...$more]));
+        sort($joined);
+        $lines[$file] = $joined;
+
+        return $lines;
     }
 
     /**

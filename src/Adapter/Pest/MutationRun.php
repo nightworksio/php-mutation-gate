@@ -13,6 +13,7 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamReach;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -35,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\RunExtension;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -342,7 +344,8 @@ final readonly class MutationRun
 
     /**
      * The variables a run of this request is started with: what it tells the patched plugin, what it tells its
-     * streams of Outbreak's extension, and the coverage drivers it turns off.
+     * streams of Outbreak's extension, the coverage drivers it turns off, and, where its streams record lines with
+     * pcov, what pcov collects from there.
      *
      * @return array<string, string>
      */
@@ -353,12 +356,16 @@ final readonly class MutationRun
         LimitBounds $bounds,
     ): array {
         $recording = $request->narrowing()->recording();
+        $withPcov = ToldExtension::recordsWithPcov($this->extension, $recording);
 
         return [
             ...new Told($this->project, $this->patching, $this->only, $this->narrows())
                 ->of($request, $results, $handOff instanceof HandOff, $bounds),
             ...ToldExtension::of($this->extension, $recording),
-            ...CoverageDrivers::of($this->patching, ToldExtension::recordsWithPcov($this->extension, $recording)),
+            ...CoverageDrivers::of($this->patching, $withPcov),
+            ...$withPcov ? StreamReach::told(
+                PcovReach::under($this->project->root(), $this->project->vendor())->keeping(Schemata::inVendor()),
+            ) : [],
         ];
     }
 

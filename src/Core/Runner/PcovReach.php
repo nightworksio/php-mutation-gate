@@ -12,9 +12,11 @@ use function sprintf;
 
 /**
  * Which files pcov collects a coverage run's lines from: every file under the
- * project's root but those in its vendor directory. Left unset, pcov collects
- * only from the first of `src`, `lib` and `app` in the directory it runs in,
- * so a tree beside it reads as run by no test. Xdebug reads neither setting.
+ * project's root but those in its vendor directory, save a directory in it
+ * where the run serves copies of the project's own files. Left unset, pcov
+ * collects only from the first of `src`, `lib` and `app` in the directory it
+ * runs in, so a tree beside it reads as run by no test. Xdebug reads neither
+ * setting.
  *
  * @internal
  */
@@ -33,9 +35,12 @@ final readonly class PcovReach
     /** A path that starts in a directory. */
     private const string WITHIN = '~^%s/~';
 
+    /** A path that starts in a directory, but not in a directory within it. */
+    private const string WITHIN_BUT = '~^%s/(?!%s/)~';
+
     private const string DELIMITER = '~';
 
-    private function __construct(private string $root, private string $vendor)
+    private function __construct(private string $root, private string $vendor, private string $kept = '')
     {
     }
 
@@ -49,10 +54,19 @@ final readonly class PcovReach
         return new self($root, Path::of(Root::of($root)->at($vendor)->value())->collapsed()->value());
     }
 
+    /** These, collecting from this directory of the vendor directory too, by its path from there. */
+    public function keeping(Path $inVendor): self
+    {
+        return new self($this->root, $this->vendor, $inVendor->collapsed()->value());
+    }
+
     /** @return list<string> the options of PHP's command line that set both */
     public function options(): array
     {
-        $excluded = sprintf(self::WITHIN, preg_quote($this->vendor, self::DELIMITER));
+        $vendor = preg_quote($this->vendor, self::DELIMITER);
+        $excluded = $this->kept === ''
+            ? sprintf(self::WITHIN, $vendor)
+            : sprintf(self::WITHIN_BUT, $vendor, preg_quote($this->kept, self::DELIMITER));
 
         return [
             self::SETS,

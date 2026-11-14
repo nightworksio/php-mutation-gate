@@ -467,7 +467,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);
 
-it('reports the same records for every mutant Pest makes of the library\'s files from split streams that record each test\'s lines for a quick round\'s map as from each mutant\'s own run, and leaves the lines recorded', function (): void {
+it('reports the same records for every mutant Pest makes of the library\'s files from split streams that record each test\'s lines as from each mutant\'s own run, and leaves the lines recorded', function (bool $standsIn): void {
     Library::patched();
     $files = Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php'));
     $streams = StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: false);
@@ -480,9 +480,11 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     );
     $into = Scratch::directory();
     $recorded = $library->mutate(
-        'every mutant, split, its streams recording',
+        sprintf('every mutant, split, its streams recording %s', $standsIn ? 'standing in' : 'for the map'),
         MutationRequest::of($files, WholeSuite::tests())
-            ->narrowedTo($files, Narrowing::none()->recordingInto(LineRecording::forTheMap($into)))
+            ->narrowedTo($files, Narrowing::none()->recordingInto(
+                $standsIn ? LineRecording::standingIn($into) : LineRecording::forTheMap($into),
+            ))
             ->across(Pool::of(ProcessCount::of(2), Workers::Fork))
             ->reusingCoverage(Handed::maps($handed, $handed)),
     );
@@ -491,10 +493,18 @@ it('reports the same records for every mutant Pest makes of the library\'s files
         MutationRequest::of($files, WholeSuite::tests())->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
     );
 
+    $lines = glob(sprintf('%s/recorded-*.jsonl', $into));
+    $text = implode('', array_map(file_get_contents(...), is_array($lines) ? $lines : []));
+
     expect($recorded instanceof MutationResult ? Library::records($recorded->mutants()) : [$recorded])
         ->toEqualCanonicalizing($own instanceof MutationResult ? Library::records($own->mutants()) : [$own])
-        ->and(glob(sprintf('%s/recorded-*.jsonl', $into)))->not->toBe([]);
-})->skip(
+        ->and($lines)->not->toBe([])
+        ->and($text)->toContain('/src/Money.php":[')
+        ->and($text)->not->toContain(sprintf('%s.served', Path::PHP));
+})->with([
+    'for a quick round\'s map' => [false],
+    'standing in for the suite\'s coverage report' => [true],
+])->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);

@@ -108,8 +108,11 @@ verdict: 17 to 22 minutes, of which the tests job is 4.5.
    or warning from PHP, the code or PHPUnit), and whether it ran in a
    process of its own; once it ran every test of its stream it records every
    line pcov reported in each file its tests loaded, executed or not, which
-   a coverage report counts as executable. Each recording file starts empty,
-   so a stream that stopped short leaves one that says so. Each shard leaves
+   a coverage report counts as executable. pcov collects there from every
+   tree of the project, as in a coverage run, and from the schemata the
+   stream serves, each schema's lines recorded as the lines of the file it
+   stands in for. Each recording file starts empty, so a stream that
+   stopped short leaves one that says so. Each shard leaves
    `<shard>.suite.json` beside its recorded map, and the verdict merges them
    into `.mutation-gate/suite/`, with the merged map and the judging suites,
    which the reusable workflow uploads as `mutation-gate-suite` and reports
