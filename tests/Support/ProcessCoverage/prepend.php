@@ -9,6 +9,12 @@ use function pcov\collect;
 use function pcov\start;
 use function pcov\waiting;
 
+use PHPUnit\Event\EventFacadeIsSealedException;
+use PHPUnit\Event\Facade;
+use PHPUnit\Event\TestRunner\Finished;
+use PHPUnit\Event\TestRunner\FinishedSubscriber;
+use PHPUnit\Event\UnknownSubscriberTypeException;
+
 return static function (string $into, string $root): void {
     if (getcwd() === $root || ! is_dir($into) || ! function_exists('pcov\collect')) {
         return;
@@ -37,6 +43,22 @@ return static function (string $into, string $root): void {
 
         if (class_exists(OwnEnd::class)) {
             OwnEnd::first($written);
+        }
+
+        if (! interface_exists(FinishedSubscriber::class)) {
+            return;
+        }
+
+        try {
+            Facade::instance()->registerSubscriber(new class implements FinishedSubscriber {
+                /** Records again once the run's own coverage stopped recording at its last test, for what runs after it. */
+                public function notify(Finished $event): void
+                {
+                    start();
+                }
+            });
+        } catch (EventFacadeIsSealedException|UnknownSubscriberTypeException) {
+            return;
         }
     }
 };
