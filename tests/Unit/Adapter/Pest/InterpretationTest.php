@@ -45,6 +45,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
@@ -633,4 +635,16 @@ it('gives a bridged mutant its mutator\'s own name, family and hint', function (
         ->toBe('Add a test that checks what is printed.')
         ->and($unbridged instanceof MutationResult ? [...$unbridged->mutants()][0]->mutation()->family() : $unbridged)
         ->toBe(MutatorFamily::Unknown);
+});
+
+it('warns how many forks of its split streams read their state, and how many found it alike, where the run counted them', function () use ($six, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
+    $records = $six($root);
+    $end = array_pop($records);
+    PestRun::write($results, [...$records, rtrim(RecordLine::forkStates(4, 3)), $end]);
+    $result = $read($project, Ran::finished(succeeded: true, output: INTERPRETED_SUMMARY), $results);
+
+    expect($result instanceof MutationResult ? $result->warnings() : $result)->toEqual(Warnings::of(Warning::that(
+        "Split streams read the state 4 forks left in parent and child;\n3 of them found it alike, so the fork changed nothing the call returned or held (outbreak.forkStates).",
+    )));
 });
