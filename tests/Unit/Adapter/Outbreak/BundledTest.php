@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Outbreak\Bundled;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ShippedExtensions;
 
 // The binary the package ships for the machine, used only where its checksum
 // is the one listed beside it.
@@ -46,4 +47,22 @@ it('finds none where the checksum differs, none is listed, the binary is missing
 
 it('finds the binary for the machine it runs on', function (): void {
     expect(Bundled::in(Scratch::directory()))->toEqual(NotGiven::value());
+});
+
+it('finds the extension for a PHP\'s minor on a machine where its checksum is the one listed, and none on Windows, elsewhere, for another minor or a thread-safe PHP', function (): void {
+    $directory = Scratch::directory();
+    Scratch::write($directory, 'linux-aarch64/php8.5/outbreak.so', 'the extension');
+    Scratch::write($directory, Bundled::SUMS, sprintf("%s  linux-aarch64/php8.5/outbreak.so\n", hash('sha256', 'the extension')));
+
+    expect(Bundled::extensionFor($directory, 'Linux', 'aarch64', '8.5', threadSafe: false))->toBe(sprintf('%s/linux-aarch64/php8.5/outbreak.so', $directory))
+        ->and(Bundled::extensionFor($directory, 'Linux', 'aarch64', '8.4', threadSafe: false))->toEqual(NotGiven::value())
+        ->and(Bundled::extensionFor($directory, 'Linux', 'aarch64', '8.5', threadSafe: true))->toEqual(NotGiven::value())
+        ->and(Bundled::extensionFor($directory, 'Windows', 'AMD64', '8.5', threadSafe: false))->toEqual(NotGiven::value())
+        ->and(Bundled::extensionFor($directory, 'BSD', 'aarch64', '8.5', threadSafe: false))->toEqual(NotGiven::value());
+});
+
+it('finds the extension for the PHP and machine it runs on', function (): void {
+    $directory = ShippedExtensions::directory();
+
+    expect(Bundled::extensionIn($directory))->toBe(PHP_ZTS === 1 ? NotGiven::value() : ShippedExtensions::in($directory));
 });

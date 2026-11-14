@@ -77,28 +77,30 @@ final readonly class Bundled
      */
     public static function extensionIn(string $directory): string|NotGiven
     {
-        return PHP_ZTS === 1
-            ? NotGiven::value()
-            : self::extensionFor(
-                $directory,
-                PHP_OS_FAMILY,
-                php_uname('m'),
-                sprintf('%d.%d', PHP_MAJOR_VERSION, PHP_MINOR_VERSION),
-            );
+        return self::extensionFor(
+            $directory,
+            PHP_OS_FAMILY,
+            php_uname('m'),
+            sprintf('%d.%d', PHP_MAJOR_VERSION, PHP_MINOR_VERSION),
+            PHP_ZTS === 1,
+        );
     }
 
     /**
-     * The extension for a PHP of this minor on a machine of this OS family and architecture, as for `extensionIn()`.
+     * The extension for a PHP of this minor on a machine of this OS family
+     * and architecture, as for `extensionIn()`; none for a thread-safe PHP,
+     * which no extension the package ships is built for.
      */
     public static function extensionFor(
         string $directory,
         string $family,
         string $machine,
         string $minor,
+        bool $threadSafe,
     ): string|NotGiven {
         $platform = Platform::of($family, $machine);
 
-        if (! $platform instanceof Platform || $platform->isWindows()) {
+        if ($threadSafe || ! $platform instanceof Platform || $platform->isWindows()) {
             return NotGiven::value();
         }
 
