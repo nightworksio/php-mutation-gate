@@ -22,12 +22,12 @@ it('warns of each reason a worker forked a run no child once, and removes the di
     file_put_contents(Seat::at($directory, 2)->warned(), "loaded a\n");
     file_put_contents(Seat::at($directory, 2)->out(), 'printed');
 
-    expect(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::noting('loaded a'), Warning::noting('loaded b')))
+    expect(WarmDirectory::cleared($results, Seconds::of(5.0)))->toEqual(Warnings::of(Warning::noting('loaded a'), Warning::noting('loaded b')))
         ->and(is_dir($directory))->toBeFalse();
 });
 
 it('warns of nothing where the run had no warm workers', function (): void {
-    expect(WarmDirectory::cleared(sprintf('%s/results.jsonl', Scratch::directory())))->toEqual(Warnings::none());
+    expect(WarmDirectory::cleared(sprintf('%s/results.jsonl', Scratch::directory()), Seconds::of(5.0)))->toEqual(Warnings::none());
 });
 
 it('waits for no worker whose process id it cannot read', function (): void {
@@ -36,7 +36,7 @@ it('waits for no worker whose process id it cannot read', function (): void {
     mkdir($directory);
     file_put_contents(Seat::at($directory, 1)->pid(), '');
     $started = hrtime(as_number: true);
-    WarmDirectory::cleared($results);
+    WarmDirectory::cleared($results, Seconds::of(5.0));
 
     expect((hrtime(as_number: true) - $started) / Seconds::NANOSECONDS)->toBeLessThan(Seat::WAIT / 2);
 });
@@ -58,10 +58,23 @@ it('waits for a worker to end on its own, signalling it nothing', function (): v
     $directory = WarmDirectory::made($results);
     file_put_contents(Seat::at($directory, 1)->pid(), (string) Passing::for('0.6'));
     $started = hrtime(as_number: true);
-    WarmDirectory::cleared($results);
+    WarmDirectory::cleared($results, Seconds::of(5.0));
     $waited = (hrtime(as_number: true) - $started) / Seconds::NANOSECONDS;
 
     expect($waited)->toBeGreaterThan(0.4)
         ->and($waited)->toBeLessThan(Seat::WAIT / 2)
         ->and(is_dir($directory))->toBeFalse();
+});
+
+it('reads what kept workers warned of once, and leaves them and their directory for the next chunk', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $directory = WarmDirectory::beside($results);
+    mkdir($directory);
+    file_put_contents(Seat::at($directory, 1)->warned(), "loaded a\n");
+    file_put_contents(Seat::at($directory, 1)->pid(), (string) getmypid());
+
+    expect(WarmDirectory::warnedSoFar($results))->toEqual(Warnings::of(Warning::noting('loaded a')))
+        ->and(WarmDirectory::warnedSoFar($results))->toEqual(Warnings::none())
+        ->and(is_file(Seat::at($directory, 1)->pid()))->toBeTrue()
+        ->and(is_file(Seat::stopIn($directory)))->toBeFalse();
 });

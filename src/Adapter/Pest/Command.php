@@ -148,6 +148,25 @@ final readonly class Command
         ) : $this;
     }
 
+    /**
+     * This command, its PHP started with these options before the script it
+     * runs, in a process of its own that no warm worker forks.
+     */
+    public function startingPhpWith(string ...$options): self
+    {
+        return new self(
+            [
+                ...array_slice($this->arguments, 0, self::SCRIPT),
+                ...array_values($options),
+                ...array_slice($this->arguments, self::SCRIPT),
+            ],
+            $this->environment,
+            $this->deadline,
+            $this->silence,
+            everyFile: $this->everyFile,
+        );
+    }
+
     /** This command, which runs Pest over every test file of its suites, as a run that names no test file does. */
     public function loadingEveryTestFile(): self
     {

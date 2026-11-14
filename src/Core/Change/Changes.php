@@ -12,6 +12,7 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use Traversable;
 
 /**
@@ -44,6 +45,18 @@ final readonly class Changes implements Countable, IteratorAggregate
     public function count(): int
     {
         return count($this->changes);
+    }
+
+    /** Every path these changes name, by its name now and before. */
+    public function paths(): Paths
+    {
+        $paths = Paths::none();
+
+        foreach ($this->changes as $change) {
+            $paths = $paths->with($change->path())->with($change->previousPath());
+        }
+
+        return $paths;
     }
 
     /** @return Traversable<int, Change> */

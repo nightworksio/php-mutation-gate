@@ -29,6 +29,8 @@ use function sprintf;
  */
 final readonly class ScheduleRunning
 {
+    public const string NOT_RUN_FIX
+        = 'Run the gate on a schedule, such as on: schedule: [{cron: \'0 3 * * 1\'}] in its workflow.';
     /** How long since the last scheduled run before it counts as not running: a week, and a day to spare. */
     private const string WITHIN = '-8 days';
 
@@ -38,9 +40,6 @@ final readonly class ScheduleRunning
     private const string DISABLED_FIX = 'Enable each again, with gh workflow enable or in the Actions tab.';
 
     private const string NOT_RUN = 'No workflow of %s that runs the gate has run on a schedule since %s.';
-
-    private const string NOT_RUN_FIX
-        = 'Run the gate on a schedule, such as on: schedule: [{cron: \'0 3 * * 1\'}] in its workflow.';
 
     private const string WHY
         = 'The scheduled run keeps the default branch\'s ledger current, which every pull request starts from.';

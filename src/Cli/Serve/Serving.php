@@ -12,6 +12,8 @@ use function is_int;
 use function is_resource;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Local\Launch;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Adapter\Serve\DaemonStart;
 use NightWorksIO\MutationGate\Adapter\Serve\ServeClient;
 use NightWorksIO\MutationGate\Adapter\Serve\ServeSocket;
@@ -26,7 +28,6 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Serve\ServedVariables;
 use NightWorksIO\MutationGate\Core\Serve\ServeRefusal;
 use NightWorksIO\MutationGate\Core\Serve\ServeRequest;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verb;
 
 use function rewind;
@@ -148,24 +149,47 @@ final readonly class Serving
         $client = self::client($output);
         $answer = $client->answered($request);
         $unserved = $answer instanceof NotGiven || $answer instanceof ServeRefusal;
-        $wait = $watch && $unserved ? $this->startWait($input) : NotGiven::value();
-        $started = $wait instanceof Seconds
-            && new DaemonStart(ServeSocket::ofProject(), $wait)->started($this->script, $this->project);
+        $composed = $watch && $unserved ? $this->startable($input) : NotGiven::value();
 
-        return $started ? $client->answered($request) : $answer;
+        return $composed instanceof Composed && $this->started($composed)
+            ? $client->answered($request)
+            : $answer;
     }
 
     /**
-     * How long `watch` waits for a daemon it starts, `local.serveStartWait`,
-     * where `local.serveStart` lets it start one; none where it may not.
+     * Whether a daemon listens once `watch` started one at the priority the
+     * local settings give it: `outbreak serve` with the PHP daemon as its
+     * child, where the binary is in use and `outbreak.serve.enabled` is on
+     * (ADR-0133), and the PHP daemon alone where that did not listen in time.
      */
-    private function startWait(InputInterface $input): Seconds|NotGiven
+    private function started(Composed $composed): bool
+    {
+        $local = $composed->settings->local();
+        $launch = Launch::here()->prefix($local->work());
+        $engine = $composed->adapters->maps;
+        $served = $engine instanceof Outbreak ? $engine->lines()->serving($launch) : $launch;
+
+        return $this->startedWith($local, $served) || ($served !== $launch && $this->startedWith($local, $launch));
+    }
+
+    /** @param list<string> $launch what goes before the PHP daemon's command line */
+    private function startedWith(Local $local, array $launch): bool
+    {
+        return new DaemonStart(ServeSocket::ofProject(), $local->serve()->startWait(), $launch)
+            ->started($this->script, $this->project);
+    }
+
+    /**
+     * The composition `watch` starts a daemon by: its local settings say how
+     * long it waits for it and the priority it starts it at, where
+     * `local.serveStart` lets it start one; none where it may not.
+     */
+    private function startable(InputInterface $input): Composed|NotGiven
     {
         $composed = $this->composition->composeLocally($input);
-        $local = $composed instanceof Composed ? $composed->settings->local() : NotGiven::value();
 
-        return $local instanceof Local && $local->serveStart()->startsForWatch()
-            ? $local->serveStartWait()
+        return $composed instanceof Composed && $composed->settings->local()->serve()->start()->startsForWatch()
+            ? $composed
             : NotGiven::value();
     }
 

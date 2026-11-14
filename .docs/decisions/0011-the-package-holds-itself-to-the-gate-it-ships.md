@@ -160,15 +160,15 @@ about Laravel, NativePHP or the project's modules, and does not.
    | Job | Runs | Required |
    |-----|------|----------|
    | what changed | Skips the PHP jobs for a documentation-only change | yes |
-   | commitlint, description | Every commit's conventional subject and trailers, the title and the body; in the `pr` workflow, which also runs on an edited title or body, where `description` checks the `Spec:` numbers and a breaking change's *Migration* section (ADR-0019) | yes |
-   | hygiene | actionlint, typos, lychee (links), markdownlint and zizmor | yes |
+   | pr | Every commit's conventional subject and trailers, the title and the body, the `Spec:` numbers and a breaking change's *Migration* section, as one job of the `pr` workflow, which also runs on an edited title or body (ADR-0019) | yes |
+   | hygiene / tools | actionlint, zizmor, typos, the line cap, lychee (links), markdownlint, gitleaks and osv-scanner, as steps of one job | yes |
    | scripts | `python3 -m unittest` over the deciding halves of `.github/scripts` and of the action's script in `resources/action` (ADR-0019) | yes |
-   | security | gitleaks and osv-scanner | yes |
    | rules | `pest --testsuite=Arch` | yes |
    | docs | the Docs suite: every example, the generated reference and the message slugs (ADR-0018) | yes |
    | the rules refuse violations | `composer test:guards` | yes |
    | checks | validate, normalize, lint, analyse, refactor, deps, audit | yes |
-   | tests and coverage | `test:report` and `test:floors`, with the highest dependencies | yes |
+   | tests and coverage | `test:report` with the highest dependencies, its coverage collected for `coverage` | yes |
+   | coverage | G7: the suite's coverage with the lines of the processes its tests start, Pest's highest runner contract leg's and Outbreak's boundary's, merged, with only the files scripts/coverage-exemptions.php names exempt | yes |
    | lowest dependencies | the suite after `composer update --prefer-lowest` | yes |
    | runner contract | one leg per runner and resolution, side by side, each with its own install and suite: the Runner contract suite (ADR-0004) or the StaticChecker contract suite (ADR-0020) against the lowest supported Pest, Infection, PHPUnit, Mago, PHPStan or Psalm, each analyser lowest with the other packages as high as it allows, or the highest the fixtures' committed locks hold, which Dependabot moves | no |
    | runner contracts | every leg of runner contract passed, with what each leg's suite reported as its evidence | yes |

@@ -38,7 +38,7 @@ final readonly class MirroredRepository
     public static function in(Observations $observed): Findings
     {
         $composer = $observed->files()->composer();
-        $trees = $observed->trees();
+        $trees = $observed->config()->trees();
 
         if (! $composer instanceof ComposerSetup || ! $trees instanceof Trees) {
             return Findings::none();

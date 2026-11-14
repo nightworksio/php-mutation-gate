@@ -247,6 +247,18 @@ Require approval for all external contributors, under Settings, Actions,
 General, in the approval for running fork pull request workflows from
 contributors.
 
+## arm-runners
+
+`doctor --online` found that the repository is public and that no workflow
+running the gate names an arm runner. GitHub's hosted arm runners are free for
+a public repository, and the gate's shards took 29% fewer runner minutes on
+them where the gate measured it. Proofs are keyed by the architecture, so the
+first run there is a full one.
+
+Pass `runs-on: ubuntu-24.04-arm` to the reusable workflow, where every
+extension the tests need builds on arm. `init --ci` keeps `ubuntu-latest`, and
+suggests the label for a public repository.
+
 ## schedule-not-running
 
 `doctor --online` found that no GitHub workflow that runs the gate ran on a
@@ -257,6 +269,48 @@ branch's ledger current, which every pull request starts from.
 Enable a disabled workflow again, with `gh workflow enable` or in the Actions
 tab. Otherwise run the gate on a schedule, such as
 `on: schedule: [{cron: '0 3 * * 1'}]` in its workflow.
+
+## no-scheduled-run
+
+`doctor` found GitHub workflows that run the gate, and no `schedule` trigger in
+any of them. A full run on a schedule reaches the units no change reaches, and
+judges them with the gate of the day, including a release that moved under a
+tag.
+
+Run the gate on a schedule, such as `on: schedule: [{cron: '0 3 * * 1'}]` in
+its workflow.
+
+## keyed-context-blocks
+
+`doctor` or `config:suggest` found that the config's `pr` and `main` context
+blocks leave a setting that affects results different, as a run in CI
+resolves them. Each such setting is in a proof's key, so a pull request takes
+none of the default branch's proofs of the units it reaches, and runs them;
+the plan says how many it could not take.
+
+Set the setting alike in both blocks, or outside them. `suggest.enabled:
+false` turns the warning off.
+
+## phpstan-restarts
+
+`doctor` found Xdebug loaded in a mode other than `off` for the PHPStan
+processes the gate starts, so PHPStan restarts itself without Xdebug for
+every check and boots PHP twice before it analyses anything. The checks'
+findings are the same either way.
+
+Leave `xdebug.mode` at `off` in `staticCheck.php`, as by default; the gate
+then sets `XDEBUG_MODE=off` for PHPStan too.
+
+## kill-controls-alone
+
+`doctor` found `flaky.killControls: alone`. A kill's control then runs its
+killers alone, which is quicker, and gives up the proof that the kill happened
+in its run's order: a test that fails only after the tests before it counts as
+a kill, and no survivor shows it. Under Pest it only turns off the replay of a
+run that loaded every test file: a narrowed run's replay stays, since it also
+vouches for the files that run left out.
+
+Remove the setting, or set it to `order`.
 
 ## online-unread
 

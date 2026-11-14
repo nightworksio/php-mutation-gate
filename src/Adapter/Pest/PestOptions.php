@@ -4,21 +4,47 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use Closure;
+
+use function is_bool;
+
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\Mutants;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
+use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\SplitStream;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Config\Toggles;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Native\PlacesMutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
+use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\RunExtension;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Port\MapEngine;
+use NightWorksIO\MutationGate\Port\Processes;
+
+use function sprintf;
 
 /**
  * What the `pest` runner's options say: `patch`, whether the project applies
@@ -27,7 +53,15 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
  * tail's workers boot the project (ADR-0075), false by default;
  * `workerOpcache`, whether its warm workers compile through opcache
  * (ADR-0088), true by default; `schemata`, whether each file's mutants are
- * compiled into a schema (ADR-0091), true by default; `tests`, the directories the tests live
+ * compiled into a schema (ADR-0091), true by default; `bootChunks`,
+ * whether a shard's chunks keep their mutants' workers (ADR-0023), false by
+ * default; `trials`,
+ * `valueReaders` and `narrow`, which steps of a run are on (ADR-0142), all
+ * of them by default; `narrowedKills`, `vouch` by default, `longFilter`,
+ * `files` by default (ADR-0138, ADR-0142), and `preloaded`, `fresh` by
+ * default (ADR-0148); `splitStream`,
+ * whether and how a patched run judges its mutants in split streams
+ * (ADR-0117), off by default; `tests`, the directories the tests live
  * in, which the flows write from the PHPUnit config, `tests` by default;
  * `timeout` and `most`, the floor and the most of each mutant's limit, which
  * the flows write from `timeouts.seconds` and `timeouts.most`; and
@@ -44,14 +78,18 @@ final readonly class PestOptions
     /** The option that holds the directories the tests are in, which the flows write from the PHPUnit config. */
     public const string TESTS = 'tests';
 
+    /** Where the gate runs Pest: the project's root, which the gate runs in. */
+    private const string ROOT = '.';
+
     private const string PATCH = 'patch';
 
     private const string CANARY = 'canary';
 
+    /** @param list<string> $mutators the registered mutators' classes the options name */
     private function __construct(
         private Patching $patching,
         private Paths $tests,
-        private Bridges $bridges,
+        private array $mutators,
         private LimitBounds $bounds,
     ) {
     }
@@ -60,13 +98,25 @@ final readonly class PestOptions
     {
         $patch = $options->flag(Key::of(self::PATCH));
         $canary = $options->text(Key::of(self::CANARY));
-        $bootTail = $options->flag(Key::of(ConfigPest::BOOT_TAIL));
-        $opcache = $options->flag(Key::of(ConfigPest::WORKER_OPCACHE));
-        $schemata = $options->flag(Key::of(ConfigPest::SCHEMATA));
-        $bootMutants = $options->flag(Key::of(ConfigPest::BOOT_MUTANTS));
+        $bootTail = $options->flag(Key::of(PestWorkers::BOOT_TAIL));
+        $opcache = $options->flag(Key::of(PestWorkers::WORKER_OPCACHE));
+        $schemata = $options->flag(Key::of(PestWorkers::SCHEMATA));
+        $bootMutants = $options->flag(Key::of(PestWorkers::BOOT_MUTANTS));
+        $bootChunks = $options->flag(Key::of(PestWorkers::BOOT_CHUNKS));
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $bounds = BoundsOptions::read($options);
+        $streams = self::streamsOf($options);
+        $toggles = self::togglesOf($options);
+        $vouching = self::chosen(
+            $options,
+            ConfigPest::NARROWED_KILLS,
+            NarrowedKillTrust::Vouch,
+            NarrowedKillTrust::tryFrom(...),
+        );
+        $selecting = self::chosen($options, ConfigPest::LONG_FILTER, LongFilter::Files, LongFilter::tryFrom(...));
+        $judging = self::chosen($options, Mutants::DUPLICATES, Duplicates::JudgeOnce, Duplicates::tryFrom(...));
+        $rejudging = self::chosen($options, ConfigPest::PRELOADED, Preloaded::Fresh, Preloaded::tryFrom(...));
 
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
@@ -75,20 +125,83 @@ final readonly class PestOptions
             $opcache instanceof Problem => Invalid::because($opcache),
             $schemata instanceof Problem => Invalid::because($schemata),
             $bootMutants instanceof Problem => Invalid::because($bootMutants),
+            $bootChunks instanceof Problem => Invalid::because($bootChunks),
             $tests instanceof Problem => Invalid::because($tests),
             $mutators instanceof Problem => Invalid::because($mutators),
             $bounds instanceof Problem => Invalid::because($bounds),
+            $streams instanceof Problem => Invalid::because($streams),
+            $toggles instanceof Problem => Invalid::because($toggles),
+            $vouching instanceof Problem => Invalid::because($vouching),
+            $selecting instanceof Problem => Invalid::because($selecting),
+            $judging instanceof Problem => Invalid::because($judging),
+            $rejudging instanceof Problem => Invalid::because($rejudging),
             default => new self(
                 self::patchingOf($patch, $canary)
-                    ->bootingTail($bootTail === true)
-                    ->cachingInWorkers($opcache !== false)
-                    ->compilingSchemata($schemata !== false)
-                    ->bootingMutants($bootMutants !== false),
+                    ->working(PestWorkers::of(
+                        $bootTail === true,
+                        $opcache !== false,
+                        $schemata !== false,
+                        $bootMutants !== false,
+                    ))
+                    ->splitting($streams)
+                    ->stepping(
+                        PestSteps::of($toggles, $vouching, $selecting, $judging, $bootChunks === true, $rejudging),
+                    ),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
-                self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
+                $mutators instanceof Listed ? [...$mutators] : [],
                 $bounds,
             ),
         };
+    }
+
+    /**
+     * Pest in the project the gate runs in, installed in this vendor
+     * directory, as the `pest` runner's options configure it, writing its
+     * memory cap with these files, reading whether pest:patch is applied
+     * through these package files and running through these processes, with
+     * the engine that vouches for each map handed over, where one does
+     * (ADR-0118). Under the gate's PHAR, every PHP process of a run loads the
+     * archive first, and its plugin, this class, in the place of a copy of the
+     * gate's the project's Pest lists (ADR-0140). A preloaded mutant is
+     * served in a fresh run where this places it in the project (ADR-0148).
+     *
+     * @param class-string $plugin
+     */
+    public static function runner(
+        Options $options,
+        Path $vendor,
+        CapFiles $files,
+        PackageFiles $packages,
+        Processes $processes,
+        OwnArchive|NotGiven $archive,
+        string $plugin,
+        MapEngine|NotGiven $maps = new NotGiven(),
+        RunExtension|NotGiven $extension = new NotGiven(),
+        PlacesMutants|NotGiven $placing = new NotGiven(),
+    ): Pest|Invalid {
+        $read = self::read($options);
+
+        if ($read instanceof Invalid) {
+            return $read;
+        }
+
+        $project = Project::at(self::ROOT, $read->tests, Workspace::root(), $vendor, $placing);
+        $loading = $archive instanceof OwnArchive
+            ? ArchiveLoading::writtenFor($project, $archive, GatePlugins::listedIn($project, $packages), $plugin)
+            : NotGiven::value();
+
+        return $loading instanceof CannotJudge ? Invalid::because(Problem::at('', $loading->why())) : new Pest(
+            $project,
+            new ProcessShell($processes, $project->root(), $loading)
+                ->longestFirst($read->patching->steps()->on(Toggle::PestLongestFirst)),
+            $read->patching,
+            $files,
+            $packages,
+            $read->bounds,
+            bridges: $read->bridges(),
+            maps: $maps,
+            extension: $extension,
+        );
     }
 
     public function patching(): Patching
@@ -107,10 +220,16 @@ final readonly class PestOptions
         return $this->bounds;
     }
 
-    /** The bridges to the registered mutators the options name, or why Pest cannot make mutants with one. */
+    /**
+     * The bridges to the registered mutators the options name, or why Pest
+     * cannot make mutants with one, read from Pest's own mutators only once
+     * asked for, so a run Pest's processes cannot start never loads them.
+     */
     public function bridges(): Bridges
     {
-        return $this->bridges;
+        $enabled = Enabled::named(BuiltinRunner::Pest, ...$this->mutators);
+
+        return $enabled instanceof CannotJudge ? Bridges::refusing($enabled) : Bridges::to($enabled);
     }
 
     /** Whether a run is patched, and the group of its canary where it is. */
@@ -121,11 +240,82 @@ final readonly class PestOptions
             : Patching::off();
     }
 
-    /** @param list<string> $classes */
-    private static function bridgesTo(array $classes): Bridges
-    {
-        $enabled = Enabled::named(BuiltinRunner::Pest, ...$classes);
+    /**
+     * The case of an enum an option names, read by the enum, this one where it names none, or why it names no case.
+     *
+     * @template E of NarrowedKillTrust|LongFilter|Duplicates|Preloaded
+     *
+     * @param  E                         $standard
+     * @param  Closure(string): (E|null) $read
+     * @return E|Problem
+     */
+    private static function chosen(
+        Options $options,
+        string $key,
+        NarrowedKillTrust|LongFilter|Duplicates|Preloaded $standard,
+        Closure $read,
+    ): NarrowedKillTrust|LongFilter|Duplicates|Preloaded|Problem {
+        $named = $options->text(Key::of($key));
 
-        return $enabled instanceof CannotJudge ? Bridges::refusing($enabled) : Bridges::to($enabled);
+        return match (true) {
+            $named instanceof Problem => $named,
+            $named instanceof NotGiven => $standard,
+            default => $read($named) ?? Problem::mismatch($key, 'one of its values', sprintf('"%s"', $named)),
+        };
+    }
+
+    /** `trials`, `valueReaders` and `narrow`: the steps of a run the options turn off (ADR-0142). */
+    private static function togglesOf(Options $options): Toggles|Problem
+    {
+        $toggles = Toggles::none();
+
+        foreach (Toggle::cases() as $toggle) {
+            $on = $toggle->isPests() ? $options->flag(Key::of($toggle->key())) : NotGiven::value();
+
+            if ($on instanceof Problem) {
+                return $on;
+            }
+
+            $toggles = $toggles->with($toggle, is_bool($on) ? $on : Absent::setting());
+        }
+
+        return $toggles;
+    }
+
+    /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117). */
+    private static function streamsOf(Options $options): StreamSettings|Problem
+    {
+        $split = $options->object(Key::of(SplitStream::SECTION));
+
+        if (! $split instanceof Options) {
+            return $split instanceof Problem ? $split : StreamSettings::off();
+        }
+
+        $enabled = $split->flag(Key::of(SplitStream::ENABLED));
+        $children = $split->integer(Key::of(SplitStream::CHILDREN));
+        $changeCheck = $split->flag(Key::of(SplitStream::CHANGE_CHECK));
+        $killersFirst = $split->flag(Key::of(SplitStream::KILLERS_FIRST));
+        $killerStreams = $split->flag(Key::of(SplitStream::KILLER_STREAMS));
+        $bootOnce = $split->flag(Key::of(SplitStream::BOOT_ONCE));
+        $reconnect = $split->flag(Key::of(SplitStream::RECONNECT));
+        $standard = SplitStream::of();
+
+        return match (true) {
+            $enabled instanceof Problem => $enabled,
+            $children instanceof Problem => $children,
+            $changeCheck instanceof Problem => $changeCheck,
+            $killersFirst instanceof Problem => $killersFirst,
+            $killerStreams instanceof Problem => $killerStreams,
+            $bootOnce instanceof Problem => $bootOnce,
+            $reconnect instanceof Problem => $reconnect,
+            default => StreamSettings::of(
+                $enabled === true,
+                $children instanceof NotGiven ? $standard->children() : $children,
+                $changeCheck !== false,
+                $killersFirst !== false,
+            )->streamingKillers($killerStreams === true)
+                ->bootingOnce($bootOnce === true)
+                ->reconnecting($reconnect === true),
+        };
     }
 }

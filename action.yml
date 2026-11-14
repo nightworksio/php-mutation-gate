@@ -53,6 +53,17 @@ inputs:
     description: 'true to keep the proof ledger in the Actions cache.'
     required: false
     default: 'true'
+  merged-records:
+    description: >-
+      true to keep each pull request's pass as an artifact, and read it on the push that merged it or a merge
+      group built for it, so that ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers
+      (ADR-0139). The job needs actions: read and pull-requests: read.
+    required: false
+    default: 'false'
+  merged-records-days:
+    description: How many days a pull request's pass stays readable; a merge later than that is judged again.
+    required: false
+    default: '30'
   deliver:
     description: >-
       true to send what a run of the action left: the pull request comment, and a store's ledger where the job's
@@ -67,6 +78,18 @@ inputs:
       the project's composer.json requires nightworksio/mutation-gate and phar where it does not.
     required: false
     default: auto
+  judge:
+    description: >-
+      A judge's PHAR to run in the place of the gate install chooses (ADR-0140), as the reusable workflow's judge job
+      builds or fetches it; where empty, the default, install decides.
+    required: false
+    default: ''
+  watch-jobs:
+    description: >-
+      The names of jobs of this run a shard watches, one per line: once one concluded in failure, the shard starts no
+      further item (ADR-0135). Where empty, the default, it watches none.
+    required: false
+    default: ''
   composer-auth:
     description: >-
       The credentials Composer installs the project's dependencies with, as COMPOSER_AUTH holds them, for a private
@@ -123,6 +146,17 @@ runs:
         fi
         echo "name=${NAMED}" >> "${GITHUB_OUTPUT}"
 
+    - name: Read what the pull requests merged passed
+      if: >-
+        inputs.deliver != 'true' && inputs.merged-records == 'true' && (github.event_name == 'merge_group'
+        || (github.event_name == 'push' && github.ref_name == steps.default.outputs.name))
+      shell: bash
+      env:
+        DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
+        FETCHED: .mutation-gate/fetched
+        GH_TOKEN: ${{ github.token }}
+      run: python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" merged-records
+
     # ADR-0051: the project's copy where it requires the gate, the release's
     # PHAR where it does not, which these two steps fetch and verify before the
     # project's dependencies install, so its code runs while no step holds the
@@ -163,8 +197,8 @@ runs:
         REPORTS: ${{ inputs.reports }}
         CACHE: ${{ inputs.cache }}
         DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
-        INSTALLED_BY: ${{ steps.install.outputs.install }}
-        GATE_PHAR: ${{ steps.phar.outputs.gate }}
+        INSTALLED_BY: ${{ inputs.judge != '' && 'judge' || steps.install.outputs.install }}
+        GATE_PHAR: ${{ inputs.judge != '' && inputs.judge || steps.phar.outputs.gate }}
       run: python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" resolve
 
     # ADR-0007: the Actions cache holds the directory store at its default path
@@ -177,18 +211,29 @@ runs:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
         CACHE: ${{ inputs.cache }}
-        INSTALLED_BY: ${{ steps.install.outputs.install }}
+        INSTALLED_BY: ${{ inputs.judge != '' && 'judge' || steps.install.outputs.install }}
       run: |
         set -euo pipefail
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
         "${GATE}" config:show --format=json --resolved "${arguments[@]}" \
           | python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" config
 
+    # ADR-0140: a judge patches the release of pest-plugin-mutate Composer
+    # installs, in the place of the patch the project's own copy of the gate
+    # applied, where pest.patch is on.
+    - name: Hand Pest to the judge
+      if: inputs.deliver != 'true' && inputs.judge != '' && steps.config.outputs.pest == 'true'
+      shell: bash
+      env:
+        GATE: ${{ steps.resolve.outputs.gate }}
+        PATCH: ${{ steps.config.outputs.pest_patch }}
+      run: bash "${GITHUB_ACTION_PATH}/resources/action/judge-pest.sh" "${GATE}" "${PATCH}"
+
     # ADR-0004: with pest.patch on, a mutation run refuses an unpatched
     # pest-plugin-mutate. The action patches the vendor directory this job
     # installed, so the project's Composer hook is for its runs elsewhere.
     - name: Apply the optional Pest patches
-      if: inputs.deliver != 'true' && steps.config.outputs.pest_patch == 'true'
+      if: inputs.deliver != 'true' && inputs.judge == '' && steps.config.outputs.pest_patch == 'true'
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
@@ -247,6 +292,32 @@ runs:
         key: mutation-gate-phpstan-${{ runner.os }}-${{ runner.arch }}-${{ inputs.php-version }}-${{ github.run_id }}
         restore-keys: mutation-gate-phpstan-${{ runner.os }}-${{ runner.arch }}-${{ inputs.php-version }}-
 
+    # ADR-0134: a job of a plan whose shards pull their work claims its items
+    # as artifacts of the run, through the service only a JavaScript step is
+    # handed the runtime token for. The token goes to the gate alone, in a
+    # file outside the workspace that only its owner reads, which the gate
+    # removes once read, before it runs any test; no step's environment
+    # holds it, and the gate withholds every ACTIONS_ variable from its tests.
+    - name: Hand the gate the artifact service, where the plan's shards pull their work or watch a job
+      if: inputs.deliver != 'true' && inputs.shard != ''
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      env:
+        SERVICE_FILE: ${{ runner.temp }}/mutation-gate-artifact-service.json
+        WATCH_JOBS: ${{ inputs.watch-jobs }}
+      with:
+        script: |
+          const fs = require('fs');
+          const plan = JSON.parse(fs.readFileSync('.mutation-gate/plan.json', 'utf8'));
+          const watches = process.env.WATCH_JOBS.trim() !== '';
+          if (watches || (plan.shards || []).some((shard) => 'worker' in shard)) {
+            const service = {
+              token: process.env.ACTIONS_RUNTIME_TOKEN || '',
+              url: process.env.ACTIONS_RESULTS_URL || '',
+            };
+            fs.writeFileSync(process.env.SERVICE_FILE, JSON.stringify(service), { mode: 0o600, flag: 'w' });
+            fs.chmodSync(process.env.SERVICE_FILE, 0o600);
+          }
+
     # One shard of a plan the reusable workflow made: its result, beside the
     # attempt that wrote it, is the verdict's to judge.
     - name: Run shard ${{ inputs.shard }}
@@ -257,6 +328,8 @@ runs:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
         SHARD: ${{ inputs.shard }}
+        MUTATION_GATE_ARTIFACT_SERVICE: ${{ runner.temp }}/mutation-gate-artifact-service.json
+        MUTATION_GATE_WATCH_JOBS: ${{ inputs.watch-jobs }}
       run: |
         set -uo pipefail
         code=0
@@ -266,6 +339,14 @@ runs:
           echo "${GITHUB_RUN_ATTEMPT}" > ".mutation-gate/results/${SHARD}.attempt"
         fi
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
+
+    # Whatever the shard did, no handoff of the artifact service outlives it.
+    - name: Remove the artifact service's handoff
+      if: always() && inputs.deliver != 'true' && inputs.shard != ''
+      shell: bash
+      env:
+        SERVICE_FILE: ${{ runner.temp }}/mutation-gate-artifact-service.json
+      run: rm -f "${SERVICE_FILE}"
 
     # The whole gate in this job: the plan, each of its shards in turn, then the
     # verdict, the same path the reusable workflow takes across jobs. These
@@ -385,6 +466,22 @@ runs:
       with:
         path: ${{ steps.resolve.outputs.own_dir }}
         key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir)) }}
+
+    # The pass alone, which the push that merges this pull request reads where
+    # this run's cache cannot reach it. A fork's run keeps nothing (ADR-0139).
+    - name: Keep what this pull request passed
+      if: >-
+        inputs.merged-records == 'true' && inputs.deliver != 'true' && inputs.shard == ''
+        && github.event_name == 'pull_request' && steps.verdict.outputs.code == '0'
+        && steps.resolve.outputs.save == 'true'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: mutation-gate-passed
+        path: .mutation-gate/delivery/verdict/passed.ledger.json.gz
+        include-hidden-files: true
+        if-no-files-found: ignore
+        overwrite: true
+        retention-days: ${{ inputs.merged-records-days }}
 
     # The HTML report, unarchived under the name the comment's link finds it
     # by, so the link opens the page itself, uploaded before the job that

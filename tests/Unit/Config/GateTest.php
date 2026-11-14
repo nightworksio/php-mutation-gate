@@ -5,15 +5,18 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Config\Badge;
 use NightWorksIO\MutationGate\Config\Baseline;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Config\CheckTiming;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Comment;
 use NightWorksIO\MutationGate\Config\CostModel;
+use NightWorksIO\MutationGate\Config\Costs;
 use NightWorksIO\MutationGate\Config\Coverage;
 use NightWorksIO\MutationGate\Config\Dashboard;
 use NightWorksIO\MutationGate\Config\Digest;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Floor;
 use NightWorksIO\MutationGate\Config\Gate;
+use NightWorksIO\MutationGate\Config\HeldUnits;
 use NightWorksIO\MutationGate\Config\Ignore;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Load;
@@ -22,6 +25,7 @@ use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Owner;
 use NightWorksIO\MutationGate\Config\Pest;
+use NightWorksIO\MutationGate\Config\PestWorkers;
 use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Preset;
 use NightWorksIO\MutationGate\Config\Proofs;
@@ -133,12 +137,12 @@ it('writes every setting of the configuration reference', function (): void {
                 Reach::lockPackages('pestphp/*'),
                 Reach::wholeChangedTestFiles(),
                 Reach::fixtures('tests/fixtures/*'),
-                Reach::hotPath(0.5),
+                HeldUnits::hotPath(0.5),
                 Shards::seconds(900),
                 Shards::max(8),
-                Shards::secondsPerLine('', 0.3),
-                Shards::secondsPerLine('src', 1),
-                Shards::savingsWindow('14d'),
+                Costs::secondsPerLine('', 0.3),
+                Costs::secondsPerLine('src', 1),
+                Costs::savingsWindow('14d'),
                 CostModel::uses('acme', Option::of('rate', 2)),
                 VersionControl::uses('hg', Option::of('branch', 'tip')),
                 Ci::gitlab(),
@@ -188,10 +192,10 @@ it('writes every setting of the configuration reference', function (): void {
                 Dashboard::repositories('api', 'web'),
                 Pest::patched(),
                 Pest::canary('canary'),
-                Pest::bootingTail(),
-                Pest::cachingInWorkers(),
-                Pest::compilingSchemata(),
-                Pest::bootingMutants(),
+                PestWorkers::bootingTail(),
+                PestWorkers::cachingInWorkers(),
+                PestWorkers::compilingSchemata(),
+                PestWorkers::bootingMutants(),
                 StaticCheck::phpstan(),
                 StaticCheck::config('phpstan.dist.neon'),
                 StaticCheck::seconds(45),
@@ -340,10 +344,10 @@ it('writes each other way to choose an adapter or a word', function (): void {
                 Flaky::confirmingSurvivors(),
                 Ignores::refusingNativeMarkers(),
                 Pest::unpatched(),
-                Pest::tailUnbooted(),
-                Pest::uncachedInWorkers(),
-                Pest::withoutSchemata(),
-                Pest::mutantsUnbooted(),
+                PestWorkers::tailUnbooted(),
+                PestWorkers::uncachedInWorkers(),
+                PestWorkers::withoutSchemata(),
+                PestWorkers::mutantsUnbooted(),
             ),
     ))->toBe([
         'preset' => ['symfony', 'laravel', 'acme'],
@@ -430,19 +434,19 @@ it('names each built-in adapter by a method of its own', function (Closure $gate
         ['staticCheck' => ['tool' => 'none']],
     ],
     'analysis before the tests' => [
-        fn(): Gate => Gate::configure()->with(StaticCheck::beforeTests()),
+        fn(): Gate => Gate::configure()->with(CheckTiming::beforeTests()),
         ['staticCheck' => ['before' => true]],
     ],
     'analysis of the survivors only' => [
-        fn(): Gate => Gate::configure()->with(StaticCheck::beforeTests(), StaticCheck::afterTests()),
+        fn(): Gate => Gate::configure()->with(CheckTiming::beforeTests(), CheckTiming::afterTests()),
         ['staticCheck' => ['before' => false]],
     ],
     'checks weighed against what the ledgers learned' => [
-        fn(): Gate => Gate::configure()->with(StaticCheck::coveringTestsTime(), StaticCheck::learnedTestsTime()),
+        fn(): Gate => Gate::configure()->with(CheckTiming::coveringTestsTime(), CheckTiming::learnedTestsTime()),
         ['staticCheck' => ['testsTime' => 'learned']],
     ],
     'checks weighed against every covering test' => [
-        fn(): Gate => Gate::configure()->with(StaticCheck::coveringTestsTime()),
+        fn(): Gate => Gate::configure()->with(CheckTiming::coveringTestsTime()),
         ['staticCheck' => ['testsTime' => 'covering']],
     ],
     'mago' => [fn(): Gate => Gate::configure()->with(StaticCheck::mago()), ['staticCheck' => ['tool' => 'mago']]],

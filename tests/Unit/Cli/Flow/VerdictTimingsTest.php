@@ -6,21 +6,26 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\RunTimes;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\VerdictTimings;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
+use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
@@ -88,12 +93,12 @@ it('times each shard from its start to its result, with its steps, and the verdi
 
     expect(array_map(static fn(ShardTiming $shard): int => $shard->shard(), $shards))->toBe([1, 2])
         ->and(array_map(static fn(ShardTiming $shard): string => $shard->whole()->start()->value(), $shards))
-        ->toBe(['2026-09-30T12:00:00Z', '2026-09-30T12:00:36Z'])
+        ->toBe(['2026-09-30T12:00:03Z', '2026-09-30T12:00:57Z'])
         ->and(array_map(static fn(StepTime $step): Step => $step->step(), [...$shards[0]->steps()]))->toContain(Step::Mutation)
         ->and($timings->run())->toBe('github:1/1')
         ->and($verdict instanceof Phase ? [$verdict->start()->value(), $verdict->duration()->seconds()] : [])
         ->toBe(['2026-09-30T13:00:00Z', 30.0])
-        ->and($timings->spent()->wall())->toEqual(Seconds::of(3630.0 + 60.0))
+        ->and($timings->spent()->wall())->toEqual(Seconds::of(3627.0 + 60.0))
         ->and($timings->spent()->runner())->toEqual(Seconds::of(30.0 + 60.0 + $spent[0] + 60.0 + $spent[1] + 60.0))
         ->and($timings->spent()->isMeasured())->toBeFalse();
 });
@@ -131,4 +136,32 @@ it('starts a shard the seconds it spent, rounded, before its result was written,
         ->toBe(['2026-09-30T12:00:08Z', '2026-09-30T12:00:57Z'])
         ->and($starts(verdictTimingsWritten('2026-09-30T12:00:10Z', 2.4, '2026-02-30T12:00:00Z', 2.6)))
         ->toBe(['2026-09-30T12:00:08Z', '2026-09-30T13:00:00Z']);
+});
+
+it('takes what the CI\'s API said the jobs took in place of its estimate, with the plan\'s job', function (): void {
+    $now = new DateTimeImmutable('2026-11-07T12:00:00Z');
+    $read = RunTimes::read(Contents::of(
+        '{"wallSeconds": 600, "runnerSeconds": 1500, "plan": {"at": "2026-11-07T11:00:00Z", "seconds": 120}}',
+    ));
+    $results = verdictTimingsWritten('2026-11-07T11:00:10Z', 2.4, '2026-11-07T11:01:00Z', 2.6);
+    $timings = VerdictTimings::of('github:1/1', $results, $now, $now, Seconds::of(60.0), $read);
+
+    expect($timings->spent())->toEqual(RunTime::measured(Seconds::of(600.0), Seconds::of(1_500.0)))
+        ->and($timings->plan())->toEqual(Phase::of(Instant::at(new DateTimeImmutable('2026-11-07T11:00:00Z')), Seconds::of(120.0)));
+});
+
+it('reads nothing of what the jobs took from what cannot be read', function (Contents|Missing $file): void {
+    expect(RunTimes::read($file))->toEqual(NotGiven::value());
+})->with([
+    'a field short' => [fn(): Contents => Contents::of('{"wallSeconds": 60.5}')],
+    'not JSON' => [fn(): Contents => Contents::of('{')],
+    'a plan with no instant' => [fn(): Contents => Contents::of('{"wallSeconds": 1, "runnerSeconds": 1, "plan": {"at": "soon", "seconds": 1}}')],
+    'no file' => [fn(): Missing => Missing::at(RunTimes::file())],
+]);
+
+it('reads the times with no plan where the API named no such job', function (): void {
+    $read = RunTimes::read(Contents::of('{"wallSeconds": 60.5, "runnerSeconds": 90}'));
+
+    expect($read instanceof RunTimes ? [$read->spent(), $read->plan()] : [])
+        ->toEqual([RunTime::measured(Seconds::of(60.5), Seconds::of(90.0)), NotGiven::value()]);
 });

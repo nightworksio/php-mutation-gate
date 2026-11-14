@@ -1,12 +1,16 @@
 """gate_action.py: its deciding half, and the steps that fetch and verify the PHAR, run against fakes of git,
 gh and gpg so no test reaches a real release: python3 -m unittest discover .github/scripts"""
 import hashlib
+from datetime import datetime, timezone
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
+from unittest import mock
 
 import action_script  # puts the action's script on the import path
 import gate_action as action
@@ -28,6 +32,153 @@ FORK = {
     },
     "repository": {"full_name": "octo/gate"},
 }
+
+
+class MergedRecords(unittest.TestCase):
+    def test_takes_the_newest_artifact_of_each_head_of_this_repository_alone(self):
+        def listed(identity, head, repository=7, expired=False):
+            run = {"head_sha": head, "head_repository_id": repository}
+            return {"id": identity, "workflow_run": run, "expired": expired}
+
+        found = action.passed_artifacts(
+            [listed(3, "a"), listed(2, "a"), listed(4, "b", expired=True), listed(5, "c", repository=8), listed(1, "d")],
+            7,
+        )
+
+        self.assertEqual(found, {"a": 3, "d": 1})
+
+    def test_names_only_what_this_repository_merged_into_its_default_branch(self):
+        def pull(number, merged="2026-11-07T10:00:00Z", base="main", repository="octo/gate"):
+            head = {"sha": f"h{number}", "repo": {"full_name": repository}}
+            return {"number": number, "merged_at": merged, "base": {"ref": base}, "head": head}
+
+        pulls = [pull(1), pull(2, merged=None), pull(3, base="next"), pull(4, repository="someone/gate")]
+
+        self.assertEqual(action.merged_heads(pulls, "octo/gate", "main"), [(1, "h1")])
+
+    def test_reads_no_head_from_a_repository_since_deleted(self):
+        gone = {"number": 1, "merged_at": "now", "base": {"ref": "main"}, "head": {"sha": "h", "repo": None}}
+
+        self.assertEqual(action.merged_heads([gone], "octo/gate", "main"), [])
+
+    def test_reads_the_ledger_an_archive_holds_up_to_what_one_pass_can_take(self):
+        def archive(name, size):
+            held = io.BytesIO()
+            with zipfile.ZipFile(held, "w") as opened:
+                opened.writestr(name, b"x" * size)
+            return held.getvalue()
+
+        self.assertEqual(action.passed_ledger(archive(action.PASSED_FILE, 3)), b"xxx")
+        self.assertIsNone(action.passed_ledger(archive(action.PASSED_FILE, action.MOST_PASSED_BYTES + 1)))
+        self.assertIsNone(action.passed_ledger(archive("other", 3)))
+        self.assertIsNone(action.passed_ledger(b"not an archive"))
+
+    def test_keeps_what_it_read_where_a_run_reads_a_pull_requests_ledger(self):
+        answers = {
+            "repos/octo/gate": {"id": 7},
+            f"repos/octo/gate/actions/artifacts?name={action.PASSED_ARTIFACT}&per_page=100": {"artifacts": [
+                {"id": 9, "expired": False, "workflow_run": {"head_sha": "h1", "head_repository_id": 7}},
+            ]},
+            f"repos/octo/gate/commits?sha=tip&per_page={action.PROVING_RANGE}": [{"sha": "tip"}, {"sha": "old"}],
+            "repos/octo/gate/commits/tip/pulls": [{
+                "number": 12,
+                "merged_at": "now",
+                "base": {"ref": "main"},
+                "head": {"sha": "h1", "repo": {"full_name": "octo/gate"}},
+            }],
+            "repos/octo/gate/commits/old/pulls": [],
+        }
+        held = io.BytesIO()
+        with zipfile.ZipFile(held, "w") as opened:
+            opened.writestr(action.PASSED_FILE, b"the pass")
+
+        def ran(command, **_):
+            path = command[2]
+            if path.endswith("/zip"):
+                return subprocess.CompletedProcess(command, 0, held.getvalue(), b"")
+            if path not in answers:
+                return subprocess.CompletedProcess(command, 1, "", "Not Found")
+            return subprocess.CompletedProcess(command, 0, json.dumps(answers[path]), "")
+
+        with tempfile.TemporaryDirectory() as into, mock.patch.object(action.subprocess, "run", ran), mock.patch.dict(
+            os.environ,
+            {
+                "GITHUB_REPOSITORY": "octo/gate",
+                "GITHUB_SHA": "tip",
+                "GITHUB_EVENT_NAME": "push",
+                "FETCHED": into,
+                "DEFAULT_BRANCH": "main",
+            },
+        ):
+            said = action._merged_records()
+            with open(f"{into}/refs/pull/12/ledger.json.gz", "rb") as file:
+                kept = file.read()
+
+        self.assertEqual(said, {"records": "1"})
+        self.assertEqual(kept, b"the pass")
+
+    def test_names_the_pull_request_a_merge_group_was_built_for_and_no_other(self):
+        queue = "refs/heads/gh-readonly-queue/main/pr-42-0123abcd"
+
+        self.assertEqual(action.queued_pull_request(action.MERGE_GROUP, queue), 42)
+        self.assertIsNone(action.queued_pull_request("push", queue))
+        self.assertIsNone(action.queued_pull_request(action.MERGE_GROUP, "refs/heads/main"))
+
+    def test_reads_a_merge_groups_pull_request_and_fetches_its_head(self):
+        answers = {
+            "repos/octo/gate": {"id": 7},
+            f"repos/octo/gate/actions/artifacts?name={action.PASSED_ARTIFACT}&per_page=100": {"artifacts": [
+                {"id": 9, "expired": False, "workflow_run": {"head_sha": "h42", "head_repository_id": 7}},
+            ]},
+            "repos/octo/gate/pulls/42": {"number": 42, "head": {"sha": "h42"}},
+        }
+        held = io.BytesIO()
+        with zipfile.ZipFile(held, "w") as opened:
+            opened.writestr(action.PASSED_FILE, b"the ledger")
+        fetched = []
+
+        def ran(command, **_):
+            if command[0] == "git":
+                fetched.append(command[-1])
+                return subprocess.CompletedProcess(command, 0, b"", b"")
+            path = command[2]
+            if path.endswith("/zip"):
+                return subprocess.CompletedProcess(command, 0, held.getvalue(), b"")
+            if path not in answers:
+                return subprocess.CompletedProcess(command, 1, "", "Not Found")
+            return subprocess.CompletedProcess(command, 0, json.dumps(answers[path]), "")
+
+        with tempfile.TemporaryDirectory() as into, mock.patch.object(action.subprocess, "run", ran), mock.patch.dict(
+            os.environ,
+            {
+                "GITHUB_REPOSITORY": "octo/gate",
+                "GITHUB_SHA": "group",
+                "GITHUB_EVENT_NAME": action.MERGE_GROUP,
+                "GITHUB_REF": "refs/heads/gh-readonly-queue/main/pr-42-0123abcd",
+                "FETCHED": into,
+                "DEFAULT_BRANCH": "main",
+            },
+        ):
+            said = action._merged_records()
+            with open(f"{into}/refs/pull/42/ledger.json.gz", "rb") as file:
+                kept = file.read()
+
+        self.assertEqual(said, {"records": "1"})
+        self.assertEqual(kept, b"the ledger")
+        self.assertEqual(fetched, ["h42"])
+
+    def test_warns_and_reads_none_where_github_does_not_answer(self):
+        def ran(command, **_):
+            return subprocess.CompletedProcess(command, 1, "", "Bad credentials")
+
+        with tempfile.TemporaryDirectory() as into, mock.patch.object(action.subprocess, "run", ran), mock.patch.dict(
+            os.environ,
+            {"GITHUB_REPOSITORY": "octo/gate", "GITHUB_SHA": "tip", "FETCHED": into, "DEFAULT_BRANCH": "main"},
+        ), mock.patch("builtins.print") as printed:
+            said = action._merged_records()
+
+        self.assertEqual(said, {"records": "0"})
+        self.assertIn("::warning::", printed.call_args.args[0])
 
 
 class Refusal(unittest.TestCase):
@@ -211,38 +362,7 @@ class Ledgers(unittest.TestCase):
         self.assertFalse(action.cache_prefix("refs/heads/main2").startswith(action.cache_prefix("refs/heads/main")))
 
 
-class Installed(unittest.TestCase):
-    def test_the_package_itself_runs_its_own_bin(self):
-        self.assertEqual(action.binary({"name": "nightworksio/mutation-gate"}), "bin/mutation-gate")
-        self.assertEqual(action.binary({"name": "acme/shop"}), "vendor/bin/mutation-gate")
-
-    def test_a_line_is_the_major_or_while_it_is_0_the_major_and_minor(self):
-        self.assertEqual(action.line_of("v0.1.0"), "0.1")
-        self.assertEqual(action.line_of("0.12.3"), "0.12")
-        self.assertEqual(action.line_of("v1.4.0"), "1")
-        self.assertEqual(action.line_of("2.0.0"), "2")
-
-    def test_accepts_the_same_line_and_a_development_version(self):
-        for installed in ("0.1.0", "v0.1.7", "dev-main", "0.1.x-dev"):
-            self.assertIsNone(action.version_refusal(installed, "0.1"))
-        self.assertIsNone(action.version_refusal("1.4.0", "1"))
-
-    def test_reads_the_gates_version_from_what_composer_installed(self):
-        installed = {"packages": [{"name": "acme/other", "version": "2.0.0"}, {"name": action.GATE, "version": "v0.1.3"}]}
-        self.assertEqual(action.installed_version(installed), "v0.1.3")
-        self.assertEqual(action.installed_version({"packages": [{"name": "acme/other", "version": "2.0.0"}]}), "")
-        self.assertEqual(action.installed_version({}), "")
-        self.assertEqual(action.installed_version({"packages": {"name": action.GATE}}), "")
-        self.assertEqual(action.installed_version({"packages": [{"name": action.GATE, "version": 1}]}), "")
-
-    def test_refuses_a_project_that_does_not_install_the_gate(self):
-        self.assertIn("does not install", action.version_refusal("", "0.1"))
-
-    def test_refuses_another_line(self):
-        self.assertIn("^0.1", action.version_refusal("0.2.0", "0.1"))
-        self.assertIn("1.0.0", action.version_refusal("1.0.0", "0.1"))
-        self.assertIn("2.0.0", action.version_refusal("2.0.0", "1"))
-
+class Store(unittest.TestCase):
     def test_the_default_store_is_the_directory_at_its_default_path(self):
         self.assertTrue(action.keeps_default_store({}))
         self.assertTrue(action.keeps_default_store({"proofs": {"store": {"use": "directory"}}}))
@@ -250,7 +370,6 @@ class Installed(unittest.TestCase):
         self.assertFalse(
             action.keeps_default_store({"proofs": {"store": {"use": "directory", "with": {"path": "ledgers"}}}})
         )
-
 
     def test_reads_the_copy_of_a_ledger_the_config_names_and_the_newest_where_it_names_none(self):
         self.assertEqual(action.copies({}), "newest")
@@ -324,52 +443,6 @@ class InfectionPatch(unittest.TestCase):
             action.infection_patched(127, "")
 
 
-class Stale(unittest.TestCase):
-    def test_reads_each_shard_job_s_latest_attempt_by_its_number_under_the_calling_job_s_name(self):
-        jobs = [
-            {"name": "mutation / shard 3 (src, part 3 of 12)", "run_attempt": 2},
-            {"name": "mutation / shard 3 (src, part 3 of 12)", "run_attempt": 1},
-            {"name": "shard 12 (plugins/default/src)", "run_attempt": 1},
-            {"name": "mutation / verdict", "run_attempt": 2},
-            {"name": "mutation / reshard 4 (src)", "run_attempt": 2},
-            {"name": "mutation / shard 5 (src)", "run_attempt": "2"},
-            "mutation / shard 6 (src)",
-        ]
-
-        self.assertEqual(action.shard_attempts(jobs), {"3": 2, "12": 1})
-
-    def test_counts_no_job_a_re_run_kept_from_an_earlier_attempt_which_started_before_it_was_created(self):
-        jobs = [
-            {
-                "name": "mutation / shard 1 (src, part 1 of 20)",
-                "run_attempt": 2,
-                "created_at": "2026-11-03T05:15:02Z",
-                "started_at": "2026-11-03T04:17:08Z",
-            },
-            {
-                "name": "mutation / shard 4 (src, part 4 of 20)",
-                "run_attempt": 2,
-                "created_at": "2026-11-03T05:15:03Z",
-                "started_at": "2026-11-03T05:15:07Z",
-            },
-        ]
-
-        self.assertEqual(action.shard_attempts(jobs), {"4": 2})
-        self.assertEqual(action.stale({"1": 1, "4": 2}, action.shard_attempts(jobs)), [])
-
-    def test_names_each_shard_whose_result_an_attempt_before_its_job_s_latest_run_wrote(self):
-        written = {"10": 1, "2": 1, "3": 2, "4": 0, "7": 1}
-        latest = {"10": 2, "2": 1, "3": 2, "4": 1}
-
-        self.assertEqual(action.stale(written, latest), ["4", "10"])
-
-    def test_says_which_attempt_ran_the_shard_again_and_which_wrote_the_result_left(self):
-        why = action.stale_text("4", 1, 2)
-
-        self.assertIn("Shard 4 ran again in attempt 2 and wrote no result", why)
-        self.assertIn("the result attempt 1 wrote is not judged", why)
-
-
 class Keep(unittest.TestCase):
     def test_keys_the_kept_files_by_the_scope_s_prefix_and_their_digest_and_names_none_where_none_is_kept(self):
         kept = {"ledger.json.gz": b"ledger", "coverage.json.gz": b"map"}
@@ -429,248 +502,3 @@ class Outputs(unittest.TestCase):
         written = action.output_lines({"plan": "{\n}"})
         self.assertTrue(written.startswith("plan<<EOF_"))
         self.assertIn("\n{\n}\n", written)
-
-
-if __name__ == "__main__":
-    unittest.main()
-
-
-# What `git ls-remote --tags` lists: a release tag, annotated, with the commit
-# it points at; the line's tag at the same commit; and a release at another.
-LISTED = (
-    f"{'1' * 40}\trefs/tags/v0.1.0\n"
-    f"{'a' * 40}\trefs/tags/v0.1.1\n"
-    f"{'2' * 40}\trefs/tags/v0.1.1^{{}}\n"
-    f"{'2' * 40}\trefs/tags/v0.1\n"
-    f"{'3' * 40}\trefs/heads/main\n"
-)
-
-# gpg's status lines for a good signature by the release key, and by another.
-GOOD = (
-    f"[GNUPG:] GOODSIG B757A4B1136116D2 NightWorksIO Releases\n"
-    f"[GNUPG:] VALIDSIG {action.RELEASE_FINGERPRINT} 2026-10-31 1793106457 0 4 0 22 10 00 {action.RELEASE_FINGERPRINT}\n"
-)
-OTHER = GOOD.replace(action.RELEASE_FINGERPRINT, "F" * 40)
-
-
-class Install(unittest.TestCase):
-    def test_auto_runs_the_project_s_copy_where_it_requires_the_gate_and_the_phar_where_it_does_not(self):
-        for manifest in ({"require": {action.GATE: "^0.1"}}, {"require-dev": {action.GATE: "^0.1"}}, {"name": action.GATE}):
-            self.assertEqual("composer", action.install("auto", manifest))
-        self.assertEqual("phar", action.install("auto", {"require-dev": {"phpunit/phpunit": "^13"}}))
-
-    def test_composer_and_phar_are_as_asked(self):
-        self.assertEqual("composer", action.install("composer", {}))
-        self.assertEqual("phar", action.install("phar", {"require": {action.GATE: "^0.1"}}))
-
-    def test_refuses_a_way_it_does_not_know(self):
-        with self.assertRaises(action.Refused) as refused:
-            action.install("docker", {})
-        self.assertIn("auto, composer or phar, not docker", str(refused.exception))
-
-
-class ReleaseTag(unittest.TestCase):
-    def test_the_ref_is_github_s_or_the_last_part_of_the_path_it_fetched_the_action_into(self):
-        self.assertEqual("v0.1", action.action_ref("v0.1", "/runner/_actions/nightworksio/php-mutation-gate/main"))
-        self.assertEqual("v0.1.1", action.action_ref("", "/runner/_actions/nightworksio/php-mutation-gate/v0.1.1/"))
-
-    def test_reads_each_tag_s_commit_an_annotated_tag_by_the_commit_it_points_at(self):
-        self.assertEqual(
-            {"v0.1.0": "1" * 40, "v0.1.1": "2" * 40, "v0.1": "2" * 40},
-            action.remote_tags(LISTED),
-        )
-
-    def test_names_the_release_a_release_tag_a_line_s_tag_or_a_commit_names(self):
-        tags = action.remote_tags(LISTED)
-        self.assertEqual("v0.1.0", action.release_tag("v0.1.0", tags))
-        self.assertEqual("v0.1.1", action.release_tag("v0.1", tags))
-        self.assertEqual("v0.1.1", action.release_tag("2" * 40, tags))
-
-    def test_names_the_highest_release_at_one_commit(self):
-        self.assertEqual("v0.1.10", action.release_tag("4" * 40, {"v0.1.9": "4" * 40, "v0.1.10": "4" * 40}))
-
-    def test_refuses_a_ref_that_is_no_release_s_tag_or_commit(self):
-        tags = action.remote_tags(LISTED)
-        for ref in ("main", "3" * 40, "v0.2.0", "v0.2", ""):
-            with self.subTest(ref=ref), self.assertRaises(action.Refused) as refused:
-                action.release_tag(ref, tags)
-            self.assertIn("is no release's tag or commit", str(refused.exception))
-            self.assertIn(f"or require {action.GATE} with Composer, and the action runs that copy.", str(refused.exception))
-
-
-class Signature(unittest.TestCase):
-    def test_accepts_a_good_signature_by_the_release_key(self):
-        self.assertTrue(action.signed_by(GOOD, action.RELEASE_FINGERPRINT))
-
-    def test_refuses_a_signature_by_another_key_a_bad_one_and_one_by_an_expired_key(self):
-        self.assertFalse(action.signed_by(OTHER, action.RELEASE_FINGERPRINT))
-        self.assertFalse(action.signed_by(GOOD.replace("GOODSIG", "BADSIG"), action.RELEASE_FINGERPRINT))
-        self.assertFalse(action.signed_by(GOOD.replace("GOODSIG", "EXPKEYSIG"), action.RELEASE_FINGERPRINT))
-        self.assertFalse(action.signed_by(GOOD.splitlines()[0], action.RELEASE_FINGERPRINT))
-
-
-class PharRunner(unittest.TestCase):
-    def test_the_phar_refuses_pest_which_only_the_composer_package_runs(self):
-        self.assertIn("composer require --dev", action.phar_refusal({"runner": {"use": "pest"}}, "phar"))
-
-    def test_runs_every_other_runner_and_pest_from_the_project_s_copy(self):
-        self.assertIsNone(action.phar_refusal({"runner": {"use": "infection"}}, "phar"))
-        self.assertIsNone(action.phar_refusal({"runner": {"use": "pest"}}, "composer"))
-
-
-# Fakes of the commands the PHAR steps run, each doing what its environment
-# says: git lists LISTED, gh downloads a release and verifies its attestation,
-# gpg imports the key and prints the status lines in STATUS.
-FAKE_GIT = """#!/bin/sh
-[ -n "${GIT_FAILS}" ] && { echo "could not resolve host" >&2; exit 128; }
-printf '%s' "${LISTED}"
-"""
-
-FAKE_GH = """#!/bin/sh
-case "$*" in
-  "release download"*)
-    [ -n "${DOWNLOAD_FAILS}" ] && { echo "release not found" >&2; exit 1; }
-    while [ "$#" -gt 0 ]; do [ "$1" = "--dir" ] && dir="$2"; shift; done
-    echo phar > "${dir}/mutation-gate.phar"; echo signature > "${dir}/mutation-gate.phar.asc" ;;
-  "attestation verify"*)
-    echo "$*" > "${ASKED}"
-    [ -n "${UNATTESTED}" ] && { echo "no attestations found" >&2; exit 1; }
-    exit 0 ;;
-esac
-"""
-
-FAKE_GPG = """#!/bin/sh
-case "$*" in
-  *--verify*) cat "${STATUS}" ;;
-esac
-"""
-
-
-def faked(directory: str) -> str:
-    """A directory of the fake commands, for PATH."""
-    found = os.path.join(directory, "bin")
-    os.makedirs(found)
-    for name, script in (("git", FAKE_GIT), ("gh", FAKE_GH), ("gpg", FAKE_GPG)):
-        with open(os.path.join(found, name), "w", encoding="utf-8") as file:
-            file.write(script)
-        os.chmod(os.path.join(found, name), 0o755)
-    return found
-
-
-def step(subcommand: str, directory: str, manifest: dict, stdin: str = "", **env: str) -> tuple[int, dict, str]:
-    """A subcommand run in a project of this composer.json: its exit code, its outputs and what it said."""
-    with open(os.path.join(directory, "composer.json"), "w", encoding="utf-8") as file:
-        json.dump(manifest, file)
-    outputs = os.path.join(directory, "outputs")
-    status = os.path.join(directory, "status")
-    with open(status, "w", encoding="utf-8") as file:
-        file.write(env.pop("status", GOOD))
-    ran = subprocess.run(
-        [sys.executable, action_script.PATH, subcommand],
-        cwd=directory,
-        input=stdin,
-        env={
-            **os.environ,
-            "PATH": f"{faked(directory)}{os.pathsep}{os.environ['PATH']}",
-            "GITHUB_OUTPUT": outputs,
-            "GITHUB_EVENT_NAME": "pull_request",
-            "RUNNER_TEMP": directory,
-            "LISTED": LISTED,
-            "STATUS": status,
-            "ASKED": os.path.join(directory, "asked"),
-            **env,
-        },
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=60,
-    )
-    written = {}
-    if os.path.isfile(outputs):
-        with open(outputs, encoding="utf-8") as file:
-            written = dict(line.split("=", 1) for line in file.read().splitlines() if "=" in line)
-    return ran.returncode, written, ran.stderr
-
-
-NOT_REQUIRED = {"require-dev": {"phpunit/phpunit": "^13"}}
-
-
-class InstallStep(unittest.TestCase):
-    def test_runs_the_project_s_copy_where_it_requires_the_gate(self):
-        with tempfile.TemporaryDirectory() as directory:
-            code, outputs, _ = step("install", directory, {"require-dev": {action.GATE: "^0.1"}}, INSTALL="auto")
-
-            self.assertEqual((0, {"install": "composer"}), (code, outputs))
-
-    def test_names_the_release_of_the_ref_the_action_is_pinned_to_where_it_does_not(self):
-        with tempfile.TemporaryDirectory() as directory:
-            code, outputs, said = step("install", directory, NOT_REQUIRED, INSTALL="auto", GITHUB_ACTION_REF="v0.1")
-
-            self.assertEqual((0, {"install": "phar", "tag": "v0.1.1"}), (code, outputs), said)
-
-    def test_refuses_where_the_release_tags_cannot_be_listed(self):
-        with tempfile.TemporaryDirectory() as directory:
-            code, _, said = step("install", directory, NOT_REQUIRED, INSTALL="phar", GITHUB_ACTION_REF="v0.1", GIT_FAILS="1")
-
-            self.assertEqual(2, code)
-            self.assertIn(f"::error::The tags of {action.RELEASES} could not be listed: could not resolve host", said)
-
-
-class PharStep(unittest.TestCase):
-    def test_names_the_downloaded_phar_once_its_signature_and_attestation_hold(self):
-        with tempfile.TemporaryDirectory() as directory:
-            code, outputs, said = step("phar", directory, NOT_REQUIRED, TAG="v0.1.1")
-
-            self.assertEqual(0, code, said)
-            self.assertTrue(outputs["gate"].endswith(f"/{action.PHAR}"))
-            self.assertTrue(os.access(outputs["gate"], os.X_OK))
-            with open(os.path.join(directory, "asked"), encoding="utf-8") as file:
-                asked = file.read().split()
-            self.assertEqual(["--repo", action.RELEASES, "--signer-workflow", action.RELEASE_WORKFLOW], asked[3:7])
-            self.assertEqual(["--source-ref", "refs/tags/v0.1.1"], asked[7:9])
-
-    def test_runs_nothing_whose_signature_is_not_the_release_key_s(self):
-        with tempfile.TemporaryDirectory() as directory:
-            code, outputs, said = step("phar", directory, NOT_REQUIRED, TAG="v0.1.1", status=OTHER)
-
-            self.assertEqual((2, {}), (code, outputs))
-            self.assertIn(f"The PHAR of v0.1.1 is not signed by the release key {action.RELEASE_FINGERPRINT}", said)
-            self.assertFalse(os.path.exists(os.path.join(directory, "asked")))
-
-    def test_runs_nothing_that_carries_no_attestation_of_the_release_workflow(self):
-        with tempfile.TemporaryDirectory() as directory:
-            code, outputs, said = step("phar", directory, NOT_REQUIRED, TAG="v0.1.1", UNATTESTED="1")
-
-            self.assertEqual((2, {}), (code, outputs))
-            self.assertIn(f"carries no attestation of {action.RELEASE_WORKFLOW}, so it is not run: no attestations found", said)
-
-    def test_refuses_where_the_release_cannot_be_downloaded(self):
-        with tempfile.TemporaryDirectory() as directory:
-            code, _, said = step("phar", directory, NOT_REQUIRED, TAG="v0.1.1", DOWNLOAD_FAILS="1")
-
-            self.assertEqual(2, code)
-            self.assertIn("The PHAR of v0.1.1 could not be downloaded: release not found", said)
-
-
-class PharRun(unittest.TestCase):
-    def test_runs_the_phar_where_the_project_installs_no_gate(self):
-        with tempfile.TemporaryDirectory() as directory:
-            code, outputs, said = step("resolve", directory, NOT_REQUIRED, INSTALLED_BY="phar", GATE_PHAR="/tmp/gate.phar")
-
-            self.assertEqual(0, code, said)
-            self.assertEqual("/tmp/gate.phar", outputs["gate"])
-
-    def test_the_project_s_copy_is_still_held_to_the_action_s_line(self):
-        with tempfile.TemporaryDirectory() as directory:
-            code, _, said = step("resolve", directory, NOT_REQUIRED, INSTALLED_BY="composer")
-
-            self.assertEqual(2, code)
-            self.assertIn(f"The project does not install {action.GATE}", said)
-
-    def test_refuses_pest_under_the_phar_before_anything_runs(self):
-        with tempfile.TemporaryDirectory() as directory:
-            pest = json.dumps({"runner": {"use": "pest"}})
-            code, _, said = step("config", directory, NOT_REQUIRED, stdin=pest, INSTALLED_BY="phar")
-
-            self.assertEqual(2, code)
-            self.assertIn("so the PHAR cannot run it", said)

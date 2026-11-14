@@ -34,6 +34,16 @@ final readonly class Twins
     {
     }
 
+    /**
+     * Every mutant judged by its own run, as `mutants.duplicates: judge-each` asks (ADR-0137).
+     *
+     * @param list<MadeMutant> $made
+     */
+    public static function none(array $made): self
+    {
+        return new self($made, []);
+    }
+
     /** @param list<MadeMutant> $made in the order the engine made them */
     public static function of(array $made): self
     {
@@ -121,8 +131,8 @@ final readonly class Twins
     /** A twin, judged as the first whose mutated file it leaves: its status, killers, limits and why. */
     private function judgedAs(MadeMutant $twin, Mutant $first): Mutant
     {
-        $limit = $first->limit();
-        $need = $first->unmutatedNeed();
+        $limit = $first->stop()->limit();
+        $need = $first->stop()->need();
         $reason = $first->reason();
         $judged = Mutant::of(
             $twin->id(),

@@ -5,31 +5,28 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
-use function array_flip;
-use function array_key_exists;
-use function array_map;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Coverage\Admission;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
-use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
-use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Hold\Additions;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\Role;
 use NightWorksIO\MutationGate\Core\Test\Suites;
-use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * What of a coverage map the suites the config lists may judge (ADR-0002,
@@ -48,11 +45,12 @@ final readonly class SuiteCoverage
         private Suite $suite,
         private Paths $testFiles,
         private Additions $additions,
+        private int $level,
     ) {
     }
 
-    /** The coverage the inventory's suites may judge. */
-    public static function of(Adapters $adapters, Inventory $inventory): self
+    /** The coverage the inventory's suites may judge, its admitted map packed at this level. */
+    public static function of(Adapters $adapters, Inventory $inventory, int $level = Gzip::LEVEL): self
     {
         $files = Paths::none();
 
@@ -60,7 +58,7 @@ final readonly class SuiteCoverage
             $files = $file->role() === Role::TestCase ? $files->with($file->fingerprint()->path()) : $files;
         }
 
-        return new self($adapters, $inventory->suite, $files, $inventory->additions);
+        return new self($adapters, $inventory->suite, $files, $inventory->additions, $level);
     }
 
     /** A run of the whole suite under coverage: of the holding suites too, where something is held from them. */
@@ -87,17 +85,34 @@ final readonly class SuiteCoverage
      */
     public function admitted(CoverageMap $map): CoverageMap|CannotJudge
     {
-        $others = $this->testFiles->without($this->judging($this->testFiles));
+        $admission = count($this->others()) === 0 ? NotGiven::value() : $this->admission(MapOutline::of($map));
+
+        return match (true) {
+            $admission instanceof Admission => $admission->applied($map),
+            $admission instanceof CannotJudge => $admission,
+            default => $map,
+        };
+    }
+
+    /**
+     * What of a map the listed suites admit, by its outline: the tests of
+     * the test files no suite that judges every unit holds leave it, each
+     * staying on the files a hold from the holding suites holds; none where
+     * every test file is in such a suite, and the map is admitted whole; or
+     * why it cannot be judged.
+     */
+    public function admission(MapOutline $outline): Admission|CannotJudge|NotGiven
+    {
+        $others = $this->others();
 
         if (count($others) === 0) {
-            return $map;
+            return NotGiven::value();
         }
 
-        $leaving = $this->adapters->runner->testsIn($others, $map);
-        $admitted = $leaving instanceof TestIds ? $this->kept($map, $leaving) : $leaving;
-        $unrun = $admitted instanceof CoverageMap ? $this->additions->unrunIn($admitted) : $admitted;
+        $leaving = $this->adapters->runner->testsIn($others, $outline->map());
+        $unrun = $leaving instanceof TestIds ? $this->additions->unrunBy($outline) : $leaving;
 
-        return $unrun instanceof CannotJudge ? $unrun : $admitted;
+        return $unrun instanceof CannotJudge ? $unrun : Admission::of($this->additions->staying($leaving, $outline));
     }
 
     /**
@@ -119,12 +134,18 @@ final readonly class SuiteCoverage
         $admitted = $map instanceof CoverageMap ? $this->admitted($map) : $map;
         $written = $admitted instanceof CoverageMap ? $this->adapters->project->write(
             CoverageMapFile::in(Workspace::admittedCoverage()),
-            Contents::of(CoverageMapFile::encode($admitted, Unplaced::map())),
+            Contents::of(CoverageMapFile::encode($admitted, Unplaced::map(), level: $this->level)),
         ) : $admitted;
 
         return $written instanceof CannotJudge
             ? $written
             : $request->reusingCoverage(Handed::maps(Workspace::admittedCoverage(), Workspace::admittedCoverage()));
+    }
+
+    /** The test files no suite that judges every unit holds. */
+    private function others(): Paths
+    {
+        return $this->testFiles->without($this->judging($this->testFiles));
     }
 
     /** Of some test files, those a suite whose tests judge every unit holds. */
@@ -144,78 +165,5 @@ final readonly class SuiteCoverage
     private function holdsAny(Paths $files): bool
     {
         return array_any([...$files], fn(Path $file): bool => $this->additions->holds($file));
-    }
-
-    /**
-     * The map, less these tests but on the lines of what one holds: each
-     * test it keeps on some line, and each it never named, keeps its time.
-     */
-    private function kept(CoverageMap $map, TestIds $leaving): CoverageMap
-    {
-        $lines = [];
-        $onLines = [];
-        $holding = [];
-        $leavingIds = array_flip(array_map(static fn(TestId $test): string => $test->value(), [...$leaving]));
-
-        foreach ($map->lines() as $line) {
-            $file = $line->file()->value();
-
-            if (! array_key_exists($file, $holding)) {
-                $holding[$file] = $this->additions->on($line->file());
-            }
-
-            $staying = $this->staying($line, $leavingIds, $holding[$file]);
-            $lines[] = CoveredLine::of($line->file(), $line->line(), ...$staying);
-            $onLines += array_flip($staying);
-        }
-
-        $kept = CoverageMap::of(...$lines)->timedEach(...$this->timed($map, $leaving, $onLines));
-
-        foreach ($map->methods() as $file => $methods) {
-            $kept = $kept->executing($file, ...$methods);
-        }
-
-        return $kept->loading($map->loaded());
-    }
-
-    /**
-     * @param  array<string, int> $leaving the tests leaving, by id
-     * @return list<string>       the tests of a line that stay: those not leaving, and those that hold what they run
-     */
-    private function staying(CoveredLine $line, array $leaving, Additions $holding): array
-    {
-        $staying = [];
-
-        foreach ($line as $test) {
-            if (array_key_exists($test, $leaving) && ! $holding->adds(TestId::of($test), $line->file())) {
-                continue;
-            }
-
-            $staying[] = $test;
-        }
-
-        return $staying;
-    }
-
-    /**
-     * @param  array<array-key, int> $onLines the tests kept on some line, by id
-     * @return list<TimedTest>       how long each test that stays took, where the map timed it
-     */
-    private function timed(CoverageMap $map, TestIds $leaving, array $onLines): array
-    {
-        $timed = [];
-
-        foreach ($map->tests() as $test) {
-            $duration = $map->durationOf($test);
-            $stays = ! $leaving->has($test) || array_key_exists($test->value(), $onLines);
-
-            if (! $stays || ! $duration instanceof Seconds) {
-                continue;
-            }
-
-            $timed[] = TimedTest::of($test->value(), $duration->seconds());
-        }
-
-        return $timed;
     }
 }

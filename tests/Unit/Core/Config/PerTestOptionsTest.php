@@ -28,6 +28,6 @@ it('reads the standard where the flows write nothing, and says why where an opti
 it('carries each test\'s own limit within the bounds the flows write, and says why where it cannot be read', function (): void {
     $triage = Triage::of(limit: Seconds::of(7.0), most: Seconds::of(90.0), perTest: 4, testFloor: Seconds::of(2));
 
-    expect(BoundsOptions::read(Configs::options(Json::object(...BoundsOptions::of($triage))->line())))->toEqual($triage->bounds())
+    expect(BoundsOptions::read(Configs::options(Json::object(...BoundsOptions::of($triage))->line())))->toEqual($triage->limits()->bounds())
         ->and(BoundsOptions::read(Configs::options('{"testMultiple": "four"}')))->toBeInstanceOf(Problem::class);
 });

@@ -45,6 +45,20 @@ final readonly class PlanMade
         return new self($this->plan, $this->coverage, $this->unread, array_values($lines));
     }
 
+    /**
+     * This plan, made without a fresh map: briefed so, which its shards and
+     * its verdict read, and saying how its map was read (ADR-0135).
+     */
+    public function plannedEarly(CoverageMeasured $early): self
+    {
+        return new self(
+            $this->plan->briefed($this->plan->briefing()->plannedEarly()),
+            $early->said(),
+            $this->unread,
+            $this->learned,
+        );
+    }
+
     /** @return list<string> a line for each limit the plan learned */
     public function learned(): array
     {

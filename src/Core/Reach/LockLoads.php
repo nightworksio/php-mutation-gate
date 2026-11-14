@@ -40,7 +40,7 @@ final readonly class LockLoads
      */
     public static function of(Listed $packages, CoverageMap $map): self
     {
-        $tests = $map->loaded()->testsLoading($packages);
+        $tests = $map->executed()->loaded()->testsLoading($packages);
         $wanted = [];
 
         foreach ($map->tests() as $place => $test) {
@@ -51,7 +51,7 @@ final readonly class LockLoads
 
         $files = [];
 
-        foreach ($map->placedLines() as $line) {
+        foreach ($map->lineTests()->placedLines() as $line) {
             if (array_any([...$line], static fn(int $place): bool => array_key_exists($place, $wanted))) {
                 $files[] = $line->file();
             }

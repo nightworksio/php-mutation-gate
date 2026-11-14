@@ -48,7 +48,7 @@ it('reads the window a reporter\'s options hold, the standard one where they hol
 
 it('reads a window as a config writes it, and says why it reads no other', function (): void {
     expect(SavingsWindow::parse('36h'))->toEqual(SavingsWindow::of(Seconds::of(129_600.0)))
-        ->and(SavingsWindow::parse('a month'))->toEqual(CannotJudge::because('"a month" is not a duration. Write it as 90s, 15m, 1h30m or 7d.'));
+        ->and(SavingsWindow::parse('a month'))->toEqual(CannotJudge::because('"a month" is not a duration. Write it as 50ms, 90s, 15m, 1h30m or 7d.'));
 });
 
 it('lays itself beneath the options of the summary and the badge only, under what they say', function (string $use, string $written): void {

@@ -38,7 +38,7 @@ $imported = static function (string $mutators, bool $installed = true, int $days
 /** @return list<array{string, string}> each entry an import writes, as its path and the mutator it names */
 $entries = static fn(Import $import): array => array_map(
     static fn(Ignored $entry): array => $entry instanceof IgnoredPattern ? [$entry->path()->value(), $entry->mutator()] : [],
-    [...$import->layer()->ignores()->entries()],
+    [...$import->layer()->judging()->ignores()->entries()],
 );
 
 it('makes a pattern over a class, or a method or line of it, an entry for the class\'s file with a reason to rewrite and an end', function () use ($imported): void {
@@ -116,7 +116,7 @@ it('says why each pattern maps to no entry', function (Unmapped $why, string $sa
 
 it('ends what it imports as many days on as it is told', function () use ($imported): void {
     $import = $imported('{"Plus": {"ignore": ["Acme\\\\Money"]}}', days: 10);
-    $entries = [...$import->layer()->ignores()->entries()];
+    $entries = [...$import->layer()->judging()->ignores()->entries()];
 
     expect($entries[0]->expires())->toEqual(Day::of('2026-10-10'));
 });

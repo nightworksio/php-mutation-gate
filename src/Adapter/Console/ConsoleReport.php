@@ -42,12 +42,15 @@ use Symfony\Component\Console\Output\OutputInterface;
  * command, under the owner group of their files where the project has a
  * CODEOWNERS, the ignored mutants with their reasons, the mutants proven
  * equivalent, the floors that can rise, the failures and warnings, and last
- * what the run took and saved.
+ * what the run took and saved. A quick round of `watch` heads it as no
+ * verdict.
  *
  * @internal
  */
 final readonly class ConsoleReport implements Configurable, Reporter
 {
+    /** A line the gate says on the console, after its name. */
+    public const string JUDGED = 'mutation-gate: %s';
     private const string RAISE = 'Raise them with %s, and commit the baseline.';
 
     /** A floor that can rise: what it is of, and what to. */
@@ -56,13 +59,24 @@ final readonly class ConsoleReport implements Configurable, Reporter
     /** How many units the run judged, and where each one's results came from. */
     private const string UNITS = '%d %s: %d run, %d proved, %d carried.';
 
-    private function __construct(private OutputInterface $output)
+    private const string QUICK = <<<'SAID'
+        mutation-gate: quick, not a verdict: covering tests only, no static check.
+        `mutation-gate pre-push` gives the verdict.
+        SAID;
+
+    private function __construct(private OutputInterface $output, private bool $quick = false)
     {
     }
 
     public static function to(OutputInterface $output): self
     {
         return new self($output);
+    }
+
+    /** The report of a quick round of `watch`, which never says it passed or failed (ADR-0146). */
+    public static function quick(OutputInterface $output): self
+    {
+        return new self($output, quick: true);
     }
 
     public static function fromOptions(Options $options): self
@@ -74,7 +88,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
     {
         $overview = Overview::of($verdict);
         $lines = [
-            sprintf('mutation-gate: %s', $verdict->judgement()->value),
+            $this->quick ? self::QUICK : sprintf(self::JUDGED, $verdict->judgement()->value),
             ...$verdict->wasCutShort() ? [SetText::CUT_SHORT] : [],
             SetText::project($overview->score(), $verdict->trees()->standing()),
             ...$verdict->trees()->sample()->isDrawn() ? [SetText::SAMPLED] : [],

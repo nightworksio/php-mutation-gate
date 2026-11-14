@@ -63,6 +63,7 @@ use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\CostModel;
+use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
@@ -71,6 +72,7 @@ use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
+use NightWorksIO\MutationGate\Tests\Fakes\MapEngineFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
@@ -224,6 +226,7 @@ final readonly class Flows
             self::given(Narrowing::class, Narrowing::none(), $ports),
             self::given(Prover::class, Prover::of(PHP_BINARY, Root::of($project)->at(Path::of('.mutation-gate/equivalence')), ProcessCount::of(2), disabled: false), $ports),
             self::given(ConfigReads::class, ConfigReads::none(), $ports),
+            self::given(MapEngine::class, new MapEngineFake(), $ports),
         );
     }
 

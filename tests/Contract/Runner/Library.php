@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Project as InfectionProject;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
 use NightWorksIO\MutationGate\Adapter\Native\ProcessShell as NativeShell;
 use NightWorksIO\MutationGate\Adapter\Native\Project as NativeProject;
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
@@ -281,7 +282,7 @@ final class Library
      */
     public static function infection(Seconds $most): self
     {
-        return self::infectionWithin(LimitBounds::between(Triage::standard()->limit(), $most));
+        return self::infectionWithin(LimitBounds::between(Triage::standard()->limits()->limit(), $most));
     }
 
     /** The Infection adapter over its installed library, keeping each mutant's limit within these bounds. */
@@ -325,7 +326,7 @@ final class Library
      */
     public static function phpunit(): self
     {
-        return self::phpunitWithin(Triage::standard()->bounds(), 'phpunit');
+        return self::phpunitWithin(Triage::standard()->limits()->bounds(), 'phpunit');
     }
 
     /** The PHPUnit runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
@@ -373,7 +374,7 @@ final class Library
      */
     public static function phpspec(): self
     {
-        return self::phpspecWithin(Triage::standard()->bounds(), 'phpspec');
+        return self::phpspecWithin(Triage::standard()->limits()->bounds(), 'phpspec');
     }
 
     /** The PhpSpec runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
@@ -424,7 +425,7 @@ final class Library
      */
     public static function codeception(): self
     {
-        return self::codeceptionWithin(Triage::standard()->bounds(), 'codeception');
+        return self::codeceptionWithin(Triage::standard()->limits()->bounds(), 'codeception');
     }
 
     /** The Codeception runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
@@ -474,7 +475,7 @@ final class Library
      */
     public static function testo(): self
     {
-        return self::testoWithin(Triage::standard()->bounds(), 'testo');
+        return self::testoWithin(Triage::standard()->limits()->bounds(), 'testo');
     }
 
     /** The Testo runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
@@ -534,7 +535,7 @@ final class Library
         return self::pestRooted(
             $root,
             $patching,
-            Triage::standard()->bounds(),
+            Triage::standard()->limits()->bounds(),
             sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched'),
         );
     }
@@ -555,6 +556,16 @@ final class Library
             $runner === 'testo' && self::isTestoInstalled() => self::testo(),
             default => Assert::markTestSkipped(sprintf('the runner contracts job for %s installs its library', $runner)),
         };
+    }
+
+    /** Pest's patch applied to the library, which only the runner contracts job installs: the test is skipped elsewhere. */
+    public static function patched(): void
+    {
+        if (! self::isInstalled()) {
+            Assert::markTestSkipped('the runner contracts job installs the fixture library');
+        }
+
+        Assert::assertIsString(Patch::applyIn(self::vendor(), new PackageDirectory()));
     }
 
     public static function isInstalled(): bool

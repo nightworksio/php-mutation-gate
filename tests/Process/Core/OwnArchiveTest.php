@@ -67,13 +67,13 @@ it('judges an Infection project that installs no copy of the gate, killing every
         ->and(is_array($report) && is_array($report['counts']) ? $report['counts']['killed'] : 0)->toBeGreaterThan(0);
 })->group('phar');
 
-it('refuses the Pest runner, which only the Composer package can run', function () use ($archive, $project): void {
+it('refuses the Pest runner where the project\'s Pest lists no copy of the gate\'s plugin', function () use ($archive, $project): void {
     $root = $project();
     file_put_contents(sprintf('%s/mutation-gate.json', $root), '{"runner": "pest"}');
     $run = $archive($root, 'run');
 
     expect($run->getExitCode())->toBe(2)
-        ->and($run->getErrorOutput())->toContain('Pest runs the gate\'s plugin, which only the Composer package installs: composer require --dev nightworksio/mutation-gate -W');
+        ->and($run->getErrorOutput())->toContain('Pest finds the gate\'s plugin only by a name its list holds, and the project\'s lists no copy\'s: composer require --dev nightworksio/mutation-gate -W.');
 })->group('phar');
 
 it('names itself as it was started in the hook it installs, from the project\'s root', function () use ($project): void {

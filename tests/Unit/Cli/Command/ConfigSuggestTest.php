@@ -169,3 +169,16 @@ it('says why the config cannot be read, and exits 2', function () use ($suggesti
     expect($printed->code)->toBe(2)
         ->and($printed->errors)->toContain('budget');
 });
+
+it('warns aside where a pull request and the default branch resolve a keyed setting differently', function () use ($suggesting): void {
+    $project = FlowCommands::project('"contexts": {"pr": {"timeouts": {"seconds": 5}}}');
+
+    $ran = FlowCommands::run($suggesting(Ledger::empty(), $project));
+
+    expect($ran->errors)->toBe(<<<'SAID'
+        Warning: a pull request and the default branch resolve timeouts.seconds differently,
+        so a pull request takes none of the default branch's proofs of what it reaches. Set them alike for pr and main.
+
+        SAID)
+        ->and($ran->output)->toBe(sprintf("%s\n", SuggestedConfig::NONE));
+});

@@ -57,6 +57,9 @@ final readonly class LedgerFile
     /** The ledger's name, in whatever directory or bucket keeps it. */
     public const string NAME = 'ledger.json.gz';
 
+    /** The file a passing run of a pull request leaves beside its ledger, holding its ledger again (ADR-0139). */
+    public const string PASSED_FILE = 'passed.ledger.json.gz';
+
     /** The list a ledger's killed mutants and its kill history point into by index. */
     public const string TESTS = 'tests';
 
@@ -187,9 +190,11 @@ final readonly class LedgerFile
 
         $runs = self::passedIn($file);
         $lastRun = LastRunRecord::read($file->field(LastRunRecord::SECTION));
+        $runs = $lastRun instanceof LastRun ? $runs->lastRunAt($lastRun) : $runs;
+        $judged = JudgedRecord::read($file->field(JudgedRecord::SECTION));
 
         return Ledger::empty()
-            ->withRuns($lastRun instanceof LastRun ? $runs->lastRunAt($lastRun) : $runs)
+            ->withRuns($judged instanceof Judged ? $runs->judging($judged) : $runs)
             ->withBases(self::basesIn($file))
             ->withTimings(Timings::of(...array_merge(...$timings)))
             ->withLearned(AnalysersRecord::read($file->field(AnalysersRecord::SECTION)))

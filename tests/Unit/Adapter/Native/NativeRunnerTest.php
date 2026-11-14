@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Native\Command;
 use NightWorksIO\MutationGate\Core\Native\Outcome;
 use NightWorksIO\MutationGate\Core\Native\Variable;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
@@ -45,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -233,6 +235,14 @@ it('measures coverage, reads a map handed on, and names the test files that judg
         ->toEqual(Paths::of(Path::of('tests/MoneyTest.php')))
         ->and($map instanceof CoverageMap ? $runner->judges(Path::of('src/Tax.php'), $map) : $map)->toEqual(Paths::none())
         ->and($missing)->toBeInstanceOf(CannotJudge::class);
+});
+
+it('names the PHP report a coverage run this job started left, as its framework writes it', function (): void {
+    $project = phpUnitRunnerProject();
+    $report = phpUnitRunner($project, phpUnitAnswering($project))->report(CoverageRan::in(Path::of('build/suite')));
+
+    expect($report instanceof RanReport ? $report->file() : $report)
+        ->toBe(sprintf('%s/build/suite/coverage.php', $project->root()));
 });
 
 it('names the tests of a map whose classes a test file declares, or that its gone file held', function (): void {

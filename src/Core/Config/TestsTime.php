@@ -20,8 +20,8 @@ enum TestsTime: string
     public function php(): string
     {
         return match ($this) {
-            self::Learned => 'StaticCheck::learnedTestsTime()',
-            self::Covering => 'StaticCheck::coveringTestsTime()',
+            self::Learned => 'CheckTiming::learnedTestsTime()',
+            self::Covering => 'CheckTiming::coveringTestsTime()',
         };
     }
 }

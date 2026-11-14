@@ -63,11 +63,11 @@ describe('Settings', function (): void {
         $settings = Configs::settings(['runner' => 'pest']);
         $floors = $settings->floors();
 
-        expect([...$settings->extensions()])->toBe([])
+        expect([...$settings->setup()->extensions()])->toBe([])
             ->and([...$settings->presets()])->toBe([])
             ->and($settings->runner()->choice())
-            ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true}')))
-            ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
+            ->toEqual(Choice::of('pest', Configs::options(SettingsCases::PEST_DEFAULTS)))
+            ->and($settings->setup()->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
             ->and($floors->trees())->toEqual(Absent::setting())
             ->and($floors->newCode())->toEqual(Floor::of(100))
             ->and($floors->security())->toEqual(Undeclared::floor())
@@ -76,7 +76,7 @@ describe('Settings', function (): void {
             ->and($floors->improvement())->toBe(Improvement::Require)
             ->and([...$settings->reach()->packages()])->toBe([])
             ->and([...$settings->reach()->everything()])->toBe([])
-            ->and($settings->reach()->hotPaths()->share())->toBe(0.8)
+            ->and($settings->reach()->held()->hotPaths()->share())->toBe(0.8)
             ->and($settings->shards()->seconds())->toEqual(Seconds::of(600))
             ->and($settings->shards()->max())->toBe(20)
             ->and(iterator_to_array($settings->shards()->costs()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2])
@@ -84,11 +84,11 @@ describe('Settings', function (): void {
             ->and($settings->ci()->defaultBranch())->toEqual(Absent::setting())
             ->and($settings->ci()->check())->toBe('mutation / verdict')
             ->and($settings->ci()->trustsMergedPullRequests())->toBeFalse()
-            ->and($settings->ci()->gitlabTemplate())->toEqual(Path::of('.gitlab/mutation-gate.yml'))
-            ->and($settings->ci()->buildkiteStep()->json()->line())->toBe('{}')
-            ->and($settings->ci()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
-            ->and($settings->ci()->bitbucketDefinition())->toEqual(Path::of('bitbucket-pipelines.yml'))
-            ->and($settings->ci()->jenkinsDefinition())->toEqual(Path::of('Jenkinsfile'))
+            ->and($settings->ci()->pipelines()->gitlabTemplate())->toEqual(Path::of('.gitlab/mutation-gate.yml'))
+            ->and($settings->ci()->pipelines()->buildkiteStep()->json()->line())->toBe('{}')
+            ->and($settings->ci()->pipelines()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
+            ->and($settings->ci()->pipelines()->bitbucketDefinition())->toEqual(Path::of('bitbucket-pipelines.yml'))
+            ->and($settings->ci()->pipelines()->jenkinsDefinition())->toEqual(Path::of('Jenkinsfile'))
             ->and($settings->runner()->withhold())->toEqual(Withheld::nothing())
             ->and($settings->runner()->memory())->toEqual(MemoryCap::standard())
             ->and($settings->runner()->workers())->toBe(Workers::Fork)
@@ -97,16 +97,16 @@ describe('Settings', function (): void {
             ->and($settings->proofs()->write())->toBe(Writing::Auto)
             ->and($settings->triage()->budget())->toEqual(Unlimited::time())
             ->and($settings->triage()->timeouts())->toBe(TimeoutMode::Confirm)
-            ->and($settings->triage()->limit())->toEqual(Seconds::of(10))
-            ->and($settings->triage()->confirmSurvivors())->toBeTrue()
+            ->and($settings->triage()->limits()->limit())->toEqual(Seconds::of(10))
+            ->and($settings->triage()->flaky()->confirmSurvivors())->toBeTrue()
             ->and([...$settings->ignores()->entries()])->toBe([])
             ->and($settings->ignores()->maxDays())->toEqual(Absent::setting())
             ->and($settings->ignores()->native())->toBe(NativeMarkers::Refuse)
             ->and([...$settings->reports()])->toBe([])
             ->and([...$settings->publishing()->colors()])
             ->toBe(['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60])
-            ->and($settings->effective()->pest()->patch())->toBeFalse()
-            ->and($settings->effective()->pest()->canary())->toEqual(Group::named('mutation-canary'))
+            ->and($settings->effective()->running()->pest()->patch())->toBeFalse()
+            ->and($settings->effective()->running()->pest()->canary())->toEqual(Group::named('mutation-canary'))
             ->and($settings->staticCheck()->tool())->toEqual(Choice::of('auto', Configs::options('{}')))
             ->and($settings->staticCheck()->config())->toEqual(Absent::setting())
             ->and($settings->staticCheck()->seconds())->toEqual(Seconds::of(60))
@@ -122,15 +122,15 @@ describe('Settings', function (): void {
         $proofs = $settings->proofs();
         $triage = $settings->triage();
 
-        expect([...$settings->extensions()])->toBe(['Acme\\GateSlack\\SlackExtension'])
+        expect([...$settings->setup()->extensions()])->toBe(['Acme\\GateSlack\\SlackExtension'])
             ->and([...$settings->presets()])->toBe(['laravel', 'acme'])
             ->and($settings->runner()->choice())->toEqual(Choice::of('infection', Configs::options('{}')))
             ->and($settings->runner()->withhold())->toEqual(Withheld::of('DEPLOY_*', 'COMPOSER_AUTH'))
             ->and($settings->runner()->memory())->toEqual(MemoryCap::of(512, MemoryUnit::Megabytes))
             ->and($settings->runner()->workers())->toBe(Workers::Fresh)
-            ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":["app","lib"]}')))
-            ->and([...$settings->mutators()->sets()])->toEqual([Name::of('acme'), Name::of('acme-auth')])
-            ->and([...$settings->mutators()->except()])->toBe(['acme/RemoveAudit'])
+            ->and($settings->setup()->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":["app","lib"]}')))
+            ->and([...$settings->setup()->mutators()->sets()])->toEqual([Name::of('acme'), Name::of('acme-auth')])
+            ->and([...$settings->setup()->mutators()->except()])->toBe(['acme/RemoveAudit'])
             ->and(array_map(
                 static fn(DeclaredTree $tree): array => [$tree->path()->value(), $tree->declared()],
                 $trees instanceof Absent ? [] : [...$trees],
@@ -147,7 +147,7 @@ describe('Settings', function (): void {
             ->and($floors->improvement())->toBe(Improvement::Report)
             ->and([...$settings->reach()->packages()])->toEqual([Glob::of('packages/*')])
             ->and([...$settings->reach()->everything()])->toEqual([Glob::of('config/**'), Glob::of('routes/**')])
-            ->and($settings->reach()->hotPaths()->share())->toBe(1.0)
+            ->and($settings->reach()->held()->hotPaths()->share())->toBe(1.0)
             ->and($settings->shards()->seconds())->toEqual(Seconds::of(900))
             ->and($settings->shards()->max())->toBe(8)
             ->and(iterator_to_array($settings->shards()->costs()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.25, 'src/Legacy' => 2.0])
@@ -156,11 +156,11 @@ describe('Settings', function (): void {
             ->and($ci->defaultBranch())->toBe('trunk')
             ->and($ci->check())->toBe('gate / verdict')
             ->and($ci->trustsMergedPullRequests())->toBeTrue()
-            ->and($ci->gitlabTemplate())->toEqual(Path::of('.gitlab/gate.yml'))
-            ->and($ci->buildkiteStep()->json()->line())->toBe('{"agents":{"queue":"mutation"}}')
-            ->and($ci->buildkiteDefinition())->toEqual(Path::of('.buildkite/mutation.yml'))
-            ->and($ci->bitbucketDefinition())->toEqual(Path::of('ci/bitbucket.yml'))
-            ->and($ci->jenkinsDefinition())->toEqual(Path::of('ci/Jenkinsfile'))
+            ->and($ci->pipelines()->gitlabTemplate())->toEqual(Path::of('.gitlab/gate.yml'))
+            ->and($ci->pipelines()->buildkiteStep()->json()->line())->toBe('{"agents":{"queue":"mutation"}}')
+            ->and($ci->pipelines()->buildkiteDefinition())->toEqual(Path::of('.buildkite/mutation.yml'))
+            ->and($ci->pipelines()->bitbucketDefinition())->toEqual(Path::of('ci/bitbucket.yml'))
+            ->and($ci->pipelines()->jenkinsDefinition())->toEqual(Path::of('ci/Jenkinsfile'))
             ->and($proofs->store())->toEqual(Choice::of(
                 's3',
                 Configs::options('{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com","insecureEndpoint":false}'),
@@ -169,13 +169,13 @@ describe('Settings', function (): void {
             ->and($proofs->write())->toBe(Writing::Never)
             ->and($settings->triage()->budget())->toEqual(Seconds::of(5400))
             ->and($triage->timeouts())->toBe(TimeoutMode::Unjudged)
-            ->and($triage->limit())->toEqual(Seconds::of(30))
-            ->and($triage->confirmSurvivors())->toBeFalse()
+            ->and($triage->limits()->limit())->toEqual(Seconds::of(30))
+            ->and($triage->flaky()->confirmSurvivors())->toBeFalse()
             ->and($settings->ignores()->maxDays())->toBe(90)
             ->and($settings->ignores()->native())->toBe(NativeMarkers::Allow)
             ->and([...$settings->publishing()->colors()])->toBe(['green' => 95])
-            ->and($settings->effective()->pest()->patch())->toBeTrue()
-            ->and($settings->effective()->pest()->canary())->toEqual(Group::named('canary'))
+            ->and($settings->effective()->running()->pest()->patch())->toBeTrue()
+            ->and($settings->effective()->running()->pest()->canary())->toEqual(Group::named('canary'))
             ->and($settings->staticCheck()->tool())->toEqual(Choice::of('phpstan', Configs::options('{}')))
             ->and($settings->staticCheck()->config())->toEqual(Path::of('phpstan.dist.neon'))
             ->and($settings->staticCheck()->seconds())->toEqual(Seconds::of(45))
@@ -260,20 +260,24 @@ describe('Settings', function (): void {
             '{"ci":{"azure":{"definition":"azure-pipelines.yml"},"bitbucket":{"definition":"bitbucket-pipelines.yml"},'
             . '"buildkite":{"definition":".buildkite/pipeline.yml","step":{}},'
             . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
-            . '"extensions":[],"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
-            . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","patch":false,"schemata":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
-            . '"runner":{"memory":"1G","pathRules":"partitioned","use":"pest","withhold":[],"workers":"fork"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
-            . '"timeouts":{"learned":{"least":2.0,"most":10.0,"percentile":0.99},"most":300,"multiple":3,"perTest":3,"seconds":10,"startUp":"5s","testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
+            . '"controls":{"kills":true,"memory":true},'
+            . '"extensions":[],"flaky":{"confirmSurvivors":true,"killControls":"order"},"holds":{"coverage":"measure"},"mutants":{"duplicates":"judge-once"},"mutators":{"except":[],"sets":[]},"packages":[],'
+            . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","longFilter":"files","narrow":true,"narrowedKills":"vouch","patch":false,"preloaded":"fresh","schemata":true,"trials":true,"valueReaders":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
+            . '"runner":{"memory":"1G","pathRules":"partitioned","use":"pest","withhold":[],"workers":"fork"},"splitStream":{"bootOnce":false,"changeCheck":true,"children":1,"enabled":false,"killerStreams":false,"killersFirst":true,"reconnect":false,"sharding":"tests"},"staticCheck":{"after":true,"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
+            . '"timeouts":{"learned":{"least":2.0,"most":10.0,"percentile":0.99},"most":300,"multiple":3,"parts":true,"perTest":3,"seconds":10,"startUp":"5s","startUpMultiple":3,"testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
         )->and(Configs::settings(SettingsCases::EVERYTHING)->canonical())->toBe(
             '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
             . '"buildkite":{"definition":".buildkite/mutation.yml","step":{"agents":{"queue":"mutation"}}},'
             . '"gitlab":{"template":".gitlab/gate.yml"},"jenkins":{"definition":"ci/Jenkinsfile"}},'
-            . '"extensions":["Acme\\\\GateSlack\\\\SlackExtension"],"flaky":{"confirmSurvivors":false},'
+            . '"controls":{"kills":true,"memory":true},'
+            . '"extensions":["Acme\\\\GateSlack\\\\SlackExtension"],"flaky":{"confirmSurvivors":false,"killControls":"order"},'
+            . '"holds":{"coverage":"measure"},"mutants":{"duplicates":"judge-once"},'
             . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
-            . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","patch":true,"schemata":false,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
+            . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","longFilter":"files","narrow":true,"narrowedKills":"vouch","patch":true,"preloaded":"fresh","schemata":false,"trials":true,"valueReaders":true,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
             . '"runner":{"memory":"512M","pathRules":"partitioned","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
-            . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
-            . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"learned":{"least":3,"most":8,"percentile":0.9},"most":120,"multiple":3,"perTest":false,"seconds":30,"startUp":"9s","testFloor":2,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
+            . '"splitStream":{"bootOnce":false,"changeCheck":false,"children":2,"enabled":true,"killerStreams":false,"killersFirst":false,"reconnect":false,"sharding":"source"},'
+            . '"staticCheck":{"after":true,"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
+            . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"learned":{"least":3,"most":8,"percentile":0.9},"most":120,"multiple":3,"parts":true,"perTest":false,"seconds":30,"startUp":"9s","startUpMultiple":3,"testFloor":2,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
             . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
             . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
             . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',
@@ -396,6 +400,21 @@ describe('Settings', function (): void {
 
         expect($chosen(4))->not->toBe($chosen(8));
     })->with(['runner', 'treeSource']);
+
+    it('splits streams under the patched Pest runner where splitStream.enabled says so, checking no mutant before its tests unless told to', function (): void {
+        $split = ['runner' => 'pest', 'pest' => ['patch' => true], 'splitStream' => ['enabled' => true]];
+        $checked = [...$split, 'staticCheck' => ['before' => true]];
+        $unsplit = ['runner' => 'pest', 'pest' => ['patch' => true]];
+        $infection = ['runner' => 'infection', 'pest' => ['patch' => true], 'splitStream' => ['enabled' => true]];
+
+        expect(array_map(
+            static fn(array $config): array => [
+                Configs::settings($config)->effective()->running()->pest()->splits(Configs::settings($config)->runner()->choice()),
+                Configs::settings($config)->staticCheck()->before(),
+            ],
+            [$split, $checked, $unsplit, $infection],
+        ))->toBe([[true, false], [true, true], [false, true], [false, true]]);
+    });
 
     it('keys a tree with no exclude as one with an empty exclude', function (): void {
         $tree = static fn(array $tree): string => Configs::settings(['runner' => 'pest', 'trees' => [$tree]])->canonical();

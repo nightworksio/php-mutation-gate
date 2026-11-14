@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: composer phar
+# Usage: composer phar | composer phar:judge
 #
 # The gate's PHAR, built into build/mutation-gate.phar as a release builds it
 # (ADR-0022): Box, at the release pinned here and run only once it matches
@@ -7,8 +7,13 @@
 # commit's own time and in one order, so one commit builds one archive. The
 # archive's version is the one Composer gives the checkout: the tag the
 # commit is at, or its branch.
+#
+# With --judge, the judge's PHAR, built into build/mutation-gate-judge.phar
+# from a copy of the tree and its vendor directory in build/judge, every class
+# of the gate's under a namespace of its own (ADR-0140).
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
+checkout="${root}"
 box_version=4.7.0
 box_digest=3d390eeaec33288098fe83f8a54c60cc575cb6be295f38ff4482b4b4f26f8d52
 box="${root}/build/box-${box_version}.phar"
@@ -29,10 +34,22 @@ if [ "${digest}" != "${box_digest}" ]; then
   echo "Box ${box_version} does not match its pinned digest, so it is not run: ${digest}" >&2
   exit 1
 fi
-BOX_TIMESTAMP=$(git -C "${root}" log -1 --format=%cI) BOX_ROOT="${root}" php -r '
+if [ "${1:-}" = "--judge" ]; then
+  root="${checkout}/build/judge"
+  rm -rf "${root}"
+  mkdir -p "${root}"
+  git -C "${checkout}" ls-files -z --cached --others --exclude-standard | tar -C "${checkout}" --null -T - -cf - | tar -xf - -C "${root}"
+  cp -R "${checkout}/vendor" "${root}/vendor"
+  python3 "${checkout}/scripts/judge/scope.py" "${root}"
+  config="${root}/box.json"
+fi
+BOX_TIMESTAMP=$(git -C "${checkout}" log -1 --format=%cI) BOX_ROOT="${root}" php -r '
   $config = json_decode((string) file_get_contents(getenv("BOX_ROOT") . "/box.json.dist"), true, flags: JSON_THROW_ON_ERROR);
   $config["base-path"] = getenv("BOX_ROOT");
   $config["timestamp"] = getenv("BOX_TIMESTAMP");
   echo json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), "\n";
 ' > "${config}"
 php "${box}" compile --no-interaction --sort-compiled-files --config "${config}"
+if [ "${root}" != "${checkout}" ]; then
+  mv "${root}/build/mutation-gate-judge.phar" "${checkout}/build/mutation-gate-judge.phar"
+fi

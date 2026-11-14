@@ -8,15 +8,18 @@
     "packages": "pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage",
     "support": [
       "tests/Support/Bucket.php",
+      "tests/Support/Checkout.php",
       "tests/Support/Cloud.php",
       "tests/Support/Clustered.php",
       "tests/Support/Configs.php",
+      "tests/Support/CoverageReports.php",
       "tests/Support/Ended.php",
       "tests/Support/Environment.php",
       "tests/Support/FixedTokens.php",
       "tests/Support/Fixture.php",
       "tests/Support/Fixtures.php",
       "tests/Support/Flows.php",
+      "tests/Support/Gunzipped.php",
       "tests/Support/HandedMaps.php",
       "tests/Support/InfectionSource.php",
       "tests/Support/Judged.php",
@@ -52,7 +55,8 @@
       "tests/Support/Source.php",
       "tests/Support/StoppedClock.php",
       "tests/Support/Tree.php",
-      "tests/Support/Verdicts.php"
+      "tests/Support/Verdicts.php",
+      "tests/Support/VouchedMaps.php"
     ]
   },
   "infection-13": {

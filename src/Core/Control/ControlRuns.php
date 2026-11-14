@@ -37,6 +37,12 @@ final readonly class ControlRuns
         return new self($those->runs + $this->runs);
     }
 
+    /** Whether these hold what a control found: one they hold as never run found nothing. */
+    public function holds(Control $control): bool
+    {
+        return $this->of($control)->end() !== ControlEnd::Unrun;
+    }
+
     /** What a control found; never run, where these hold nothing for it. */
     public function of(Control $control): ControlRun
     {

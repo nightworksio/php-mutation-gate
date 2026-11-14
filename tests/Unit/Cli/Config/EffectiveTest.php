@@ -30,10 +30,12 @@ use NightWorksIO\MutationGate\Core\Config\Publishing;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -44,6 +46,7 @@ use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\SettingsCases;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 afterEach(function (): void {
@@ -69,7 +72,7 @@ $shown = static fn(Settings|Invalid|CannotJudge $settings): array => $settings i
 
 it('keeps a preset\'s mutator sets offered, so a run skips one nothing registers', function () use ($effective, $nothing): void {
     $settings = $effective(Tree::at('tests/Fixtures/Projects/Laravel'))->settings($nothing());
-    $offered = $settings instanceof Settings ? $settings->mutators()->offering(Name::of('laravel')) : $settings;
+    $offered = $settings instanceof Settings ? $settings->setup()->mutators()->offering(Name::of('laravel')) : $settings;
 
     expect($offered)->toBeInstanceOf(PresetSet::class)
         ->and($offered instanceof PresetSet ? [$offered->preset()->value(), $offered->package()] : $offered)
@@ -87,8 +90,8 @@ it('finds the preset and the runner of a project with no config', function () us
         'preset' => 'laravel',
         'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
-        'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'], 'lockMoves' => 'everything', 'changedTests' => 'narrow', 'fixtures' => []],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'], 'lockMoves' => 'everything', 'changedTests' => 'narrow', 'fixtures' => [], 'defaultBranchSince' => 'judged'],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true, 'headroom' => TimeoutHeadroom::STANDARD, 'startUpMultiple' => MutantLimit::FACTOR, 'parts' => true],
     ]);
 });
 
@@ -104,9 +107,9 @@ it('lays the config file over its presets, and the command line over both', func
         'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
-        'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**'], 'lockMoves' => 'everything', 'changedTests' => 'narrow', 'fixtures' => []],
+        'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**'], 'lockMoves' => 'everything', 'changedTests' => 'narrow', 'fixtures' => [], 'defaultBranchSince' => 'judged'],
         'budget' => '5m',
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true, 'headroom' => TimeoutHeadroom::STANDARD, 'startUpMultiple' => MutantLimit::FACTOR, 'parts' => true],
         'reports' => [
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'json', 'path' => 'build/mutation.json'],
@@ -130,7 +133,7 @@ it('finds the runner of a config that only says what it withholds', function () 
 
     expect($runner instanceof ChosenRunner ? [$runner->choice(), $runner->withhold()] : $runner)
         ->toEqual([
-            Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true}')),
+            Choice::of('pest', Configs::options(SettingsCases::PEST_DEFAULTS)),
             Withheld::of('DEPLOY_*'),
         ]);
 });
@@ -161,6 +164,7 @@ it('applies a list of presets in order, the later winning', function () use (
             'lockMoves' => 'everything',
             'changedTests' => 'narrow',
             'fixtures' => [],
+            'defaultBranchSince' => 'judged',
         ],
     ]);
 });
@@ -177,10 +181,10 @@ it('gives a library listed after a framework its own timeout and floor', functio
 
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 10, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'timeouts' => ['seconds' => 10, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true, 'headroom' => TimeoutHeadroom::STANDARD, 'startUpMultiple' => MutantLimit::FACTOR, 'parts' => true],
     ])->and($shown($effective($project)->settings($framework)))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 30, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'timeouts' => ['seconds' => 30, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true, 'headroom' => TimeoutHeadroom::STANDARD, 'startUpMultiple' => MutantLimit::FACTOR, 'parts' => true],
     ]);
 });
 
@@ -196,7 +200,7 @@ it('chooses the library preset for a project without composer.json', function ()
         'preset' => 'library',
         'runner' => ['use' => 'infection', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => []]],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true, 'headroom' => TimeoutHeadroom::STANDARD, 'startUpMultiple' => MutantLimit::FACTOR, 'parts' => true],
     ]);
 });
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Cost;
 
 use function array_key_exists;
-use function array_replace;
 use function array_sum;
 use function count;
 
@@ -68,17 +67,29 @@ final readonly class MutantTimes
         $location = $mutant->location();
 
         foreach ($coverage->testsCovering($location->file(), $location->start(), $location->last()) as $test) {
-            $took = $coverage->durationOf($test);
+            $took = $coverage->durations()->of($test);
             $standIn += $took instanceof Seconds ? $took->seconds() : 0.0;
         }
 
         return $standIn;
     }
 
-    /** These times, and those of another shard's mutants. */
+    /**
+     * These times, and those of another shard's mutants, a mutant both timed
+     * taking the time of both, as shards that each judge it by a part of the
+     * test files spend it (ADR-0117).
+     */
     public function and(self $other): self
     {
-        return new self(array_replace($this->times, $other->times));
+        $times = $this->times;
+
+        foreach ($other->times as $id => $took) {
+            $times[$id] = array_key_exists($id, $times)
+                ? Seconds::of($times[$id]->seconds() + $took->seconds())
+                : $took;
+        }
+
+        return new self($times);
     }
 
     /** The time a mutant took; none for one the shard did not run. */

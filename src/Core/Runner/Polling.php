@@ -42,6 +42,19 @@ final readonly class Polling
         return $seconds instanceof Seconds ? $seconds : self::interval();
     }
 
+    /**
+     * The wait a warm worker and its client were told, in
+     * `ChildVariable::WarmWait` and `ChildVariable::Poll`: `local.childWait`
+     * in the local loop, which a wake cuts short, or `runner.poll`, or the
+     * standard (ADR-0120).
+     */
+    public static function warm(string|false $warm, string|false $poll): Seconds
+    {
+        $told = ToldSeconds::read($warm);
+
+        return $told instanceof Seconds ? $told : self::told($poll);
+    }
+
     public static function moment(): Seconds
     {
         return Seconds::of(self::MOMENT);

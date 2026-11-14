@@ -266,3 +266,23 @@ it('reaches the units whose files a glob matches, and the packages the glob can 
         ->and(Reach::nothing(Packages::of(Trees::of()))->andSinceLedger($everywhere, Revision::ref('abc'))->reaches(Unit::file(Path::of('a/Legacy/B.php'))))
         ->toBeTrue();
 });
+
+it('reaches those of the units a judged run left open that a change since the last pass reaches, saying so', function () use ($nothing, $said): void {
+    $sincePassed = $nothing()->files(Paths::of(Path::of('src/Money.php'), Path::of('src/Tax.php')), Reason::that('changed'));
+    $open = Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php'));
+
+    $reach = $nothing()->andOpenSince($sincePassed, $open, Revision::ref('passed'));
+
+    expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Tax.php'))))->toBeFalse()
+        ->and($reach->reaches(Unit::file(Path::of('src/Held.php'))))->toBeFalse()
+        ->and($said($reach))->toBe(["On the default branch since its last pass, at passed,\na change reaches 1 of the units its last judged run left open."])
+        ->and($nothing()->andOpenSince($nothing(), $open, Revision::ref('passed')))->toEqual($nothing());
+});
+
+it('names a judged run where the default branch\'s change is read since it', function () use ($nothing, $said): void {
+    $since = $nothing()->files(Paths::of(Path::of('src/Money.php')), Reason::that('src/Money.php changed'));
+
+    expect($said($nothing()->andSinceLedger($since, Revision::ref('judged'), judged: true)))
+        ->toBe(['On the default branch since its last judged run, at judged: src/Money.php changed']);
+});

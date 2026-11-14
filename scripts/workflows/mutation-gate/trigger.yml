@@ -70,12 +70,39 @@ on:
         description: Keep the proof ledger in the Actions cache.
         type: boolean
         default: true
+      merged-records:
+        description: >-
+          Keep each pull request's pass as an artifact, and read it on the push that merged it or a merge
+          group built for it, so that ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers
+          (ADR-0139).
+        type: boolean
+        default: false
+      merged-records-days:
+        description: How many days a pull request's pass stays readable; a merge later than that is judged again.
+        type: number
+        default: 30
       coverage:
         description: >-
           An artifact of this run that holds map.json.gz, the map `mutation-gate coverage --into` wrote in the job
           that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
         type: string
         default: ''
+      early-only:
+        description: >-
+          Whether the plan plans nothing, and says why, where a full split-stream run cannot start without a fresh
+          map, leaving the run to a caller that hands one (ADR-0135).
+        type: boolean
+        default: false
+      watch-jobs:
+        description: >-
+          The names of jobs of the calling run, one per line, such as those that run the fast gates; once one concluded
+          in failure, a shard starts no further item (ADR-0135). Where empty, the default, no shard watches a job.
+        type: string
+        default: ''
+      download-timeout:
+        description: How many minutes each artifact download may take before it is tried once again.
+        type: number
+        default: 2
       plan-timeout:
         description: How many minutes the plan job may take, which runs the suite under coverage.
         type: number
@@ -96,6 +123,14 @@ on:
         description: The branch publish writes the badge and the trend to, and the verdict reads the last trend from.
         type: string
         default: mutation-gate
+      judge:
+        description: >-
+          What judges the run, where it is not the gate the project installs (ADR-0140). For the gate's own repository:
+          merge-base, the gate built at the commit the change branched from, or at its base, or else the newest signed
+          release's. For any repository: release, the newest signed release's; or a commit or tag of the gate's
+          repository, built. Empty, the default, runs the project's own copy.
+        type: string
+        default: ''
       runs-on:
         description: 'The runner the plan, the shards, the survivors and the verdict run on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must all have, such as ["self-hosted", "linux"].'
         type: string
@@ -156,6 +191,19 @@ on:
       plan:
         description: 'JSON: the plan, as plan --ci=json prints it.'
         value: ${{ jobs.plan.outputs.plan }}
+      waits:
+        description: >-
+          true where the plan, asked with early-only, planned nothing because the run cannot start without a fresh
+          map; a caller that hands one runs it (ADR-0135).
+        value: ${{ jobs.plan.outputs.waits }}
+      early:
+        description: true where the run was planned without a fresh map (ADR-0135).
+        value: ${{ jobs.plan.outputs.early }}
+      suite:
+        description: >-
+          true where the run was planned without a fresh map and its verdict left how the suite ran in its streams, with
+          the map they recorded, as the artifact mutation-gate-suite (ADR-0135).
+        value: ${{ jobs.verdict.outputs.suite }}
 
 permissions: {}
 
@@ -175,5 +223,9 @@ env:
   DELIVERY: .mutation-gate/delivery
   # Where the plan finds the map another job of the run handed over, as the `coverage` input names it.
   HANDED: .mutation-gate/handed
+  # Where the verdict keeps the error lines of each cancelled or failed job's log, a file a job by its id.
+  ERRORS: .mutation-gate/errors
+  # Where each job that runs the gate finds the judge's PHAR, where `judge` names one (ADR-0140).
+  JUDGE: .mutation-gate/judge/mutation-gate-judge.phar
 
 jobs:

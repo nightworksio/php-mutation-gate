@@ -33,11 +33,11 @@ $registry = static fn(RunOn|CannotTell $run): Extensions => Extensions::of(Origi
 /** The contexts of a run the fake plan says this of, in CI or not, with these settings over the fake plan. */
 $contexts = static fn(
     RunOn|CannotTell $run,
-    bool $inCi = true,
-    array $config = [],
-    ?CommandLine $given = null,
+    bool $inCi,
+    array $config,
+    CommandLine $given,
 ): ContextChain|Invalid|CannotJudge => new RunContext(Variables::of($inCi ? ['CI' => 'true'] : []))->chain(
-    $given ?? CommandLine::nothing(),
+    $given,
     static fn(): Settings => Configs::settings(['runner' => 'pest', 'ci' => ['plan' => 'fake', ...$config]]),
     $registry($run),
 );
@@ -48,7 +48,7 @@ it('tells the contexts of a run from the environment and what the CI plan says o
     array $config,
     string $spelt,
 ) use ($contexts): void {
-    $chain = $contexts($run, $inCi, $config);
+    $chain = $contexts($run, $inCi, $config, CommandLine::nothing());
 
     expect($chain instanceof ContextChain ? $chain->spelt() : $chain)->toBe($spelt);
 })->with([
@@ -85,6 +85,7 @@ it('puts the run in the context --context names, whatever the environment says',
     $pullRequest = $contexts(
         CannotTell::because('A fake run.'),
         inCi: false,
+        config: [],
         given: CommandLine::nothing()->defaultingTo(Context::PullRequest),
     );
 

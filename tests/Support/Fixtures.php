@@ -241,6 +241,7 @@ final readonly class Fixtures
             self::inTheCore('C5', 'PlantedElse', "if (PHP_VERSION_ID > 0) {\n        return 1;\n    } else {\n        return 0;\n    }", 'int', 'C5 — no `else`'),
             self::inTheCore('C5', 'PlantedSwitch', "switch (PHP_VERSION_ID) {\n        default:\n            return 1;\n    }", 'int', 'ergebnis.noSwitch'),
             self::inTheCore('C6', 'PlantedSwallow', "try {\n        return intdiv(1, 1);\n    } catch (\\DivisionByZeroError) {\n    }\n\n    return 0;", 'int', 'C6 —'),
+            self::inTheCore('C6', 'PlantedBroadCatch', "try {\n        return intdiv(1, 1);\n    } catch (\\Throwable) {\n        return 0;\n    }", 'int', 'C6 — this catch catches Throwable'),
             self::inTheCore('C7', 'PlantedEmpty', 'return empty($_SERVER);', 'bool', 'C7 —'),
             self::inTheCore('C8', 'PlantedNullsafe', 'return (new \\ArrayObject())?->count() ?? 0;', 'int', 'C8 —'),
             self::inTheCore('C9', 'PlantedNestedTernary', 'return PHP_VERSION_ID > 1 ? 1 : (PHP_VERSION_ID > 0 ? 0 : 1);', 'int', 'C9 — a ternary inside a ternary'),
@@ -587,7 +588,7 @@ final readonly class Fixtures
                     expect($started)->toBeFloat();
                 });
                 PHP, 'keeps every test file inert as it loads'),
-            Fixture::edit('G11', 'mutation-gate.json', "\"path\": \"src\",\n", "\"path\": \"src\",\n            \"floor\": 50,\n", 'keeps the package\'s own floors in its baseline alone, where none went down', 'declares a floor the baseline should hold'),
+            Fixture::edit('G11', 'mutation-gate.json', "\"path\": \"src\"\n", "\"path\": \"src\",\n            \"floor\": 50\n", 'keeps the package\'s own floors in its baseline alone, where none went down', 'declares a floor the baseline should hold'),
         ];
     }
 
@@ -606,8 +607,8 @@ final readonly class Fixtures
     {
         return [
             Fixture::edit('V1', '.github/gates.json', '"scope": {', '"scoped": {', 'has an entry in gates.json for every CI job', 'scope has no entry'),
-            Fixture::edit('V2', '.github/workflows/pr.yml', "        run: python3 .github/scripts/gate_summary.py commitlint\n", "        run: echo\n", 'leaves evidence from every CI job', 'commitlint does not end by explaining its failure'),
-            Fixture::edit('V2', '.github/workflows/hygiene.yml', "        run: python3 .github/scripts/gate_summary.py hygiene/actionlint\n", "        run: echo\n", 'leaves evidence from every CI job', 'hygiene/actionlint does not end by explaining its failure'),
+            Fixture::edit('V2', '.github/workflows/pr.yml', "        run: python3 .github/scripts/gate_summary.py pr\n", "        run: echo\n", 'leaves evidence from every CI job', 'pr does not end by explaining its failure'),
+            Fixture::edit('V2', '.github/workflows/hygiene.yml', "        run: python3 .github/scripts/gate_summary.py hygiene/tools\n", "        run: echo\n", 'leaves evidence from every CI job', 'hygiene/tools does not end by explaining its failure'),
             Fixture::edit('V3', '.github/gates.json', '"typo": "A word typos', '"typing": "A word typos', 'explains every rule the recorded evidence names', 'typos: typo'),
             Fixture::edit('V4', '.github/bot/rules/pint.json', '"says": "All classes must be final', '"says": "Every class is final', 'holds the generated rule tables to what the locked tools say', 'pint.json is not what the locked tool says'),
             Fixture::edit('V5', '.github/workflows/bot-commands.yml', "        run: python3 .github/scripts/bot_command.py docs\n", "        run: python3 .github/scripts/bot_command.py docs \"\${{ github.event.comment.body }}\"\n", 'runs no pull request content where it can write', 'bot-commands.yml: docs runs'),

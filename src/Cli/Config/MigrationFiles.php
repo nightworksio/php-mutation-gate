@@ -117,7 +117,7 @@ final readonly class MigrationFiles
 
         return match (true) {
             is_string($named) => $file->path(Path::of($named)),
-            $layer instanceof Layer => $layer->floors()->baseline(),
+            $layer instanceof Layer => $layer->judging()->floors()->baseline(),
             default => Floors::standard()->baseline(),
         };
     }

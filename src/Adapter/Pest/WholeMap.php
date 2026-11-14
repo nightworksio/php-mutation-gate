@@ -45,7 +45,11 @@ final readonly class WholeMap
         }
 
         $whole = $handed->whole();
-        $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in($this->project, $whole);
+        $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in(
+            $this->project,
+            $whole,
+            $this->remembered->vouching(),
+        );
         $map = $this->remembered->map($whole, $reading);
 
         return $map instanceof CannotJudge ? $map : new HandedOver($map, $this->project);
@@ -53,20 +57,30 @@ final readonly class WholeMap
 
     /**
      * The scan of the codebase that finds the tests that read the values a
-     * run's files declare: made once for the whole map and those files where
-     * the run opened on its shard's own map, and afresh from the run's own
-     * coverage otherwise.
+     * run's files declare: made once for the whole map where the run opened
+     * on its shard's own map, each later chunk adding the files it mutates
+     * that the scan did not read, under `pest.shardScan`; once for the whole
+     * map and the chunk's own files where that is off; and afresh from the
+     * run's own coverage otherwise.
      */
-    public function selector(MutationRequest $request, Covering $reading, CoverageMap|Unshared $shared): Selector
-    {
+    public function selector(
+        MutationRequest $request,
+        Covering $reading,
+        CoverageMap|Unshared $shared,
+        bool $perShard,
+    ): Selector {
         $handed = $request->coverage();
         $cases = $request->narrowing()->testCases();
         $scanning = fn(): Selector => Selector::over($this->project, $reading, $request->files(), $cases);
-        $files = PathList::of($request->files())->joined(self::BETWEEN);
+        $files = $perShard ? '' : PathList::of($request->files())->joined(self::BETWEEN);
         $key = static fn(Handed $whole): string => sprintf('%s%s%s', $whole->whole()->value(), self::BETWEEN, $files);
 
-        return $shared instanceof CoverageMap && $handed instanceof Handed
-            ? $this->remembered->selector($key($handed), $scanning)
-            : $scanning();
+        if (! $shared instanceof CoverageMap || ! $handed instanceof Handed) {
+            return $scanning();
+        }
+
+        $scan = $this->remembered->selector($key($handed), $scanning);
+
+        return $perShard ? $scan->alsoOver($request->files()) : $scan;
     }
 }

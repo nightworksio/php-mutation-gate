@@ -99,8 +99,8 @@ it('writes a shard\'s map: only its files, and every test with its seconds', fun
     $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123'), Path::of('src/Gone.php'))), Unplaced::map()), HandedMaps::limits());
 
     expect($shard instanceof CoverageMap ? $shard->files() : Paths::none())->toEqual(Paths::of(Path::of('123')))
-        ->and($shard instanceof CoverageMap ? $shard->durationOf(TestId::of('MoneyTest::adds')) : null)->toEqual(Seconds::of(0.25))
-        ->and($shard instanceof CoverageMap ? $shard->durationOf(TestId::of('IdleTest::waits')) : null)->toEqual(Seconds::of(1.5));
+        ->and($shard instanceof CoverageMap ? $shard->durations()->of(TestId::of('MoneyTest::adds')) : null)->toEqual(Seconds::of(0.25))
+        ->and($shard instanceof CoverageMap ? $shard->durations()->of(TestId::of('IdleTest::waits')) : null)->toEqual(Seconds::of(1.5));
 });
 
 it('cannot judge by a file that is not a map it writes', function (string $bytes) use ($makeUnreadable): void {
@@ -204,17 +204,17 @@ it('keeps a shard\'s files\' executed methods, and reads a map without methods a
     $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123'))), Unplaced::map()), HandedMaps::limits());
     $whole = CoverageMapFile::decode($written($file()), HandedMaps::limits());
 
-    expect($shard instanceof CoverageMap ? $shard->methods()->paths() : $shard)->toEqual(Paths::none())
-        ->and($whole instanceof CoverageMap ? $whole->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $whole)->toEqual(ExecutedMethods::none());
+    expect($shard instanceof CoverageMap ? $shard->executed()->methods()->paths() : $shard)->toEqual(Paths::none())
+        ->and($whole instanceof CoverageMap ? $whole->executed()->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $whole)->toEqual(ExecutedMethods::none());
 });
 
 it('drops a method that is not well formed and keeps the rest', function (mixed $method) use ($file, $written): void {
     $kept = ['name' => 'add', 'start' => 10, 'end' => 13];
     $map = CoverageMapFile::decode($written([...$file(), 'methods' => ['src/Money.php' => [$method, $kept], 'src/Other.php' => 'none']]), HandedMaps::limits());
 
-    expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $map)
+    expect($map instanceof CoverageMap ? $map->executed()->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $map)
         ->toEqual(ExecutedMethods::of(ExecutedMethod::of('add', 10, 13)))
-        ->and($map instanceof CoverageMap ? $map->methods()->at(Path::of('src/Other.php'), ExecutedMethods::none()) : $map)->toEqual(ExecutedMethods::none());
+        ->and($map instanceof CoverageMap ? $map->executed()->methods()->at(Path::of('src/Other.php'), ExecutedMethods::none()) : $map)->toEqual(ExecutedMethods::none());
 })->with([
     'no name' => [['start' => 1, 'end' => 2]],
     'an empty name' => [['name' => '', 'start' => 1, 'end' => 2]],
@@ -228,7 +228,7 @@ it('drops a method that is not well formed and keeps the rest', function (mixed 
 it('reads a method of one line', function () use ($file, $written): void {
     $map = CoverageMapFile::decode($written([...$file(), 'methods' => ['src/Money.php' => [['name' => 'one', 'start' => 1, 'end' => 1]]]]), HandedMaps::limits());
 
-    expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $map)
+    expect($map instanceof CoverageMap ? $map->executed()->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $map)
         ->toEqual(ExecutedMethods::of(ExecutedMethod::of('one', 1, 1)));
 });
 
@@ -241,8 +241,8 @@ it('writes each line no test ran with no tests, and reads it back as one', funct
 
     expect($json)->toContain('"src/Money.php":{"12":[0,1],"3":[0],"4":[]}')
         ->and($json)->toContain('"src/Gone.php":{"2":[]}')
-        ->and($read instanceof CoverageMap ? [...$read->lineSets(Path::of('src/Money.php'))->missed()] : $read)->toEqual([Line::of(4)])
-        ->and($read instanceof CoverageMap ? [...$read->lineSets(Path::of('src/Gone.php'))->missed()] : $read)->toEqual([Line::of(2)]);
+        ->and($read instanceof CoverageMap ? [...$read->lineTests()->setsOn(Path::of('src/Money.php'))->missed()] : $read)->toEqual([Line::of(4)])
+        ->and($read instanceof CoverageMap ? [...$read->lineTests()->setsOn(Path::of('src/Gone.php'))->missed()] : $read)->toEqual([Line::of(2)]);
 });
 
 it('keeps a map with where it was measured and each test file\'s entry key, and reads all three back as data', function () use ($map): void {
@@ -338,13 +338,13 @@ it('keeps what the tests loaded in a map cut to some files, and reads no test pa
 
     expect(Decoded::at(Gunzipped::of(CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Gone.php'))), Unplaced::map())), 'loads'))
         ->toBe([[[0, ['acme/one'], false]]])
-        ->and($read instanceof CoverageMap ? $read->loaded() : $read)->toEqual($map->loaded());
+        ->and($read instanceof CoverageMap ? $read->executed()->loaded() : $read)->toEqual($map->executed()->loaded());
 });
 
 it('reads a test whose load says nothing of the processes it started as starting one', function (): void {
     $text = (string) json_encode(['format' => 1, 'tests' => [['id' => 'A::a']], 'files' => new stdClass(), 'loads' => [[[0, ['acme/one']]]]]);
     $read = CoverageMapFile::decode(Gzip::pack($text), HandedMaps::limits());
 
-    expect($read instanceof CoverageMap ? $read->loaded() : $read)
+    expect($read instanceof CoverageMap ? $read->executed()->loaded() : $read)
         ->toEqual(LoadedPackages::of(ProcessLoads::of(TestLoad::of('A::a', 'acme/one')->startingProcesses())));
 });

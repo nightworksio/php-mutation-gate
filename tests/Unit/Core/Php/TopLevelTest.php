@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\Names;
+use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Core\Php\SignificantTokens;
 use NightWorksIO\MutationGate\Core\Php\TopLevel;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 describe('TopLevel', function (): void {
     $top = static fn(string $code): TopLevel => TopLevel::of(array_values(array_filter(
@@ -177,4 +181,24 @@ describe('TopLevel', function (): void {
             ->and(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $file->running()))
             ->toBe(["echo greet ( 'you' ) ;"]);
     });
-})->group('holds:src/Core/Php/TopLevel.php');
+
+    it('reads what a file declares from its code as a whole reading of the file does, for every fixture of the suite', function (): void {
+        $read = 0;
+
+        foreach ([...Tree::filesUnder('tests/Fixtures'), ...Tree::filesUnder('tests/Contract')] as $file) {
+            $code = Contents::of(sprintf('%s', file_get_contents(Tree::at($file))));
+            $read++;
+
+            expect(TopLevel::read($code)->declares())->toEqual(PhpFile::read($code)->declares(), $file);
+        }
+
+        expect($read)->toBeGreaterThan(200);
+    });
+
+    it('reads a file\'s significant tokens: none of its tags, whitespace or comments', function (): void {
+        $tokens = SignificantTokens::of(Contents::of("<?php // note\n/** doc */\n\$a = 1; ?>\ntext"));
+
+        expect(array_map(static fn(PhpToken $token): string => $token->text, $tokens))
+            ->toBe(['$a', '=', '1', ';', 'text']);
+    });
+})->group('holds:src/Core/Php/TopLevel.php', 'holds:src/Core/Php/SignificantTokens.php');

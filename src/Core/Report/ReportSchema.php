@@ -20,8 +20,8 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Outcome;
 use NightWorksIO\MutationGate\Core\Matrix\Standing;
+use NightWorksIO\MutationGate\Core\Mutant\MergedParts;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
-use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\RejectionRecord;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -296,7 +296,7 @@ final readonly class ReportSchema
     {
         $listed = self::listOf(self::TEXT);
         $record = self::object([
-            'status' => self::oneOf(...MutantStatus::cases()),
+            'status' => self::oneOf(...MergedParts::statuses()),
             'run' => self::TEXT,
             'scope' => self::TEXT,
             'at' => self::INSTANT,
@@ -481,7 +481,7 @@ final readonly class ReportSchema
             'mutator' => self::TEXT,
             'family' => self::oneOf(...MutatorFamily::cases()),
             'diff' => self::TEXT,
-            'status' => self::oneOf(...MutantStatus::cases()),
+            'status' => self::oneOf(...MergedParts::statuses()),
             'judgement' => self::oneOf(...MutantJudgement::cases()),
             'reason' => self::TEXT,
             MutantRecord::REJECTION => self::object([

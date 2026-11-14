@@ -623,6 +623,57 @@ def artifacts(lines: list[str], action: str) -> list[str]:
     return found
 
 
+class Trust(unittest.TestCase):
+    def test_only_the_verdict_job_computes_a_verdict(self):
+        computing = sorted(
+            name for name, lines in jobs(WORKFLOW).items() if any('"${GATE}" verdict --plan=' in line for line in lines)
+        )
+
+        self.assertEqual(["verdict"], computing)
+
+    def test_a_shard_job_reads_only_contents_and_holds_no_token(self):
+        lines = job(WORKFLOW, "shard")
+        permissions = block(lines, lines.index("    permissions:"))
+
+        self.assertEqual(["    permissions:", "      contents: read"], permissions)
+        self.assertEqual([], [line for line in lines if "github.token" in line or "GH_TOKEN" in line])
+
+    def test_the_verdict_takes_from_the_shards_only_their_results_and_writes_its_delivery_itself(self):
+        found = steps(job(WORKFLOW, "verdict"))
+        downloads = [one for one in found if "actions/download-artifact@" in one[0]]
+        landing = {
+            name.split(": ", 1)[1]: next(line.split(": ", 1)[1] for line in one if line.lstrip().startswith("path: "))
+            for one in downloads
+            for name in one
+            if name.lstrip().startswith(("name: ", "pattern: "))
+        }
+        verdict = step(job(WORKFLOW, "verdict"), "Verdict")
+
+        self.assertEqual(".mutation-gate/results", landing["mutation-gate-result-${{ needs.plan.outputs.attempt }}-*"])
+        self.assertFalse([path for path in landing.values() if path in ("${{ env.DELIVERY }}", ".mutation-gate/publish")])
+        self.assertFalse([name for name in landing if name.startswith("mutation-gate-verdict-")])
+        self.assertLess(
+            script(verdict).index('rm -rf "${DELIVERY}"'),
+            script(verdict).index('"${GATE}" verdict --plan='),
+        )
+
+    def test_deliver_hands_the_registry_token_only_off_pull_requests(self):
+        held = [line.strip() for line in job(WORKFLOW, "deliver") if "MUTATION_GATE_REGISTRY_TOKEN:" in line]
+
+        self.assertEqual(
+            ["MUTATION_GATE_REGISTRY_TOKEN: ${{ github.event_name != 'pull_request' && github.token || '' }}"], held
+        )
+
+    def test_only_the_watch_job_reads_the_run_s_jobs_for_the_shards_and_it_runs_none_of_the_project_s_code(self):
+        lines = job(WORKFLOW, "watch")
+        permissions = block(lines, lines.index("    permissions:"))
+
+        self.assertEqual(["    permissions:", "      contents: read", "      actions: read"], permissions)
+        self.assertFalse(runs_project_code(lines))
+        self.assertIn('run: python3 "${GATE_ACTION}/resources/action/gate_action.py" watch', [line.strip() for line in lines])
+        self.assertFalse(any("github-token" in line or "github:" in line for line in lines_of(ACTION)))
+
+
 class Attempts(unittest.TestCase):
     def test_every_artifact_one_job_hands_another_is_named_with_the_attempt_its_writer_gives(self):
         # A run whose jobs are all run again keeps the artifacts every earlier
@@ -633,7 +684,7 @@ class Attempts(unittest.TestCase):
         keyed_by = {}
         for name, lines in found.items():
             for written in artifacts(lines, "upload"):
-                if not written.startswith("mutation-gate-") or written == "mutation-gate-reports":
+                if not written.startswith("mutation-gate-") or written in ("mutation-gate-reports", "mutation-gate-passed", "mutation-gate-suite"):
                     continue
                 key = KEYED.match(written)
                 with self.subTest(job=name, artifact=written):
@@ -747,8 +798,8 @@ class Runner(unittest.TestCase):
                 lines for lines in jobs(path).values()
                 if any("uses: ./.github/workflows/mutation-gate.yml" in line for line in lines)
             ]
-            self.assertEqual(len(calls), 1, path)
-            named |= {line.strip() for line in calls[0] if line.strip().startswith("runs-on:")}
+            self.assertTrue(calls, path)
+            named |= {line.strip() for call in calls for line in call if line.strip().startswith("runs-on:")}
 
         self.assertEqual(named, {"runs-on: ubuntu-24.04-arm"})
 

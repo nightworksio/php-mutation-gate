@@ -36,14 +36,14 @@ it('lays the run\'s comment under a comment reporter\'s own with.comment, and le
 
 it('reads how the survivors are listed, and refuses those keys under any other list', function (): void {
     $shows = Configs::settings(['runner' => 'pest', 'comment' => ['survivors' => ['lines' => 'all', 'detail' => 'row']]])
-        ->effective()->reports()->comment()->shows();
+        ->effective()->output()->reports()->comment()->shows();
 
     expect([$shows->lines(), $shows->detail()])->toBe([Lines::All, Detail::Row])
         ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'comment' => ['security' => ['lines' => 'all']]])))->not->toBe([]);
 });
 
 it('takes an empty list of open sections, and refuses an empty list of states or occasions', function (): void {
-    $folded = Configs::settings(['runner' => 'pest', 'comment' => ['open' => []]])->effective()->reports()->comment()->shows();
+    $folded = Configs::settings(['runner' => 'pest', 'comment' => ['open' => []]])->effective()->output()->reports()->comment()->shows();
 
     expect($folded->isOpen(Section::Verdict))->toBeFalse()
         ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'comment' => ['states' => []]])))->not->toBe([])

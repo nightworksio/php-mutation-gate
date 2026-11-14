@@ -23,7 +23,6 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
@@ -92,6 +91,7 @@ final readonly class ContentKeys
         private Fingerprints $code,
         private SourceReach $reach,
         private Fingerprints $keyed,
+        private Digest $reads,
     ) {
     }
 
@@ -108,9 +108,10 @@ final readonly class ContentKeys
     ): self {
         $context = Digest::hashing();
         self::hashMutationReads($context, $gate, $config, $runner, $analyser, $installed);
+        $reads = Digest::finished(hash_copy($context));
         $mutation = hash_copy($context);
-        hash_update($mutation, self::framed('definitions'));
-        self::hashFingerprintsIn($mutation, $source->definitions());
+        hash_update($mutation, KeyFields::framed('definitions'));
+        KeyFields::fingerprints($mutation, $source->definitions());
         hash_update($mutation, self::testFiles('always', $tests->inEveryKey(), $tests));
         self::hashCodeIn($context, $reach->guarded($source), $source->ci());
         hash_update($context, self::testFiles('always', $tests->inEveryKey(), $tests));
@@ -122,7 +123,28 @@ final readonly class ContentKeys
             $source->outside(),
             $reach,
             $source->files(),
+            $reads,
         );
+    }
+
+    /**
+     * The digest of the first five inputs alone, which every key of a base
+     * holds and which reads no coverage map: where no proof shares it, no key
+     * of the run can match one (ADR-0135).
+     *
+     * @param string $config the settings that affect results, as their canonical form writes them (ADR-0007)
+     */
+    public static function readsOf(
+        Digest $gate,
+        string $config,
+        Identity $runner,
+        AnalyserIdentity|NoAnalyser $analyser,
+        Digest $installed,
+    ): Digest {
+        $context = Digest::hashing();
+        self::hashMutationReads($context, $gate, $config, $runner, $analyser, $installed);
+
+        return Digest::finished($context);
     }
 
     /**
@@ -155,11 +177,13 @@ final readonly class ContentKeys
      * is the first five inputs, the files that define the runner and what of
      * the test directories every key reads; the source of each of these
      * units; and each file of test cases, with the support it reads outside
-     * what every key reads.
+     * what every key reads. Beside them, the digest of the first five inputs
+     * alone, which reads no coverage map, so a plan can tell without one that
+     * no proof shares its base (ADR-0135).
      */
     public function digestsOf(Units $units): Digests
     {
-        $digests = Digests::of($this->mutation);
+        $digests = Digests::of($this->mutation)->withReads($this->reads);
 
         foreach ($units as $unit) {
             $digests = $digests->withSource($unit->path(), $this->sourceOf($unit));
@@ -235,18 +259,6 @@ final readonly class ContentKeys
         return Keys::none()->and(...$keys);
     }
 
-    /** Fields as a key reads them, each written with its length in bytes before it, so no two lists write alike. */
-    public static function framed(string ...$fields): string
-    {
-        $framed = '';
-
-        foreach ($fields as $field) {
-            $framed .= sprintf("%d:%s\n", Bytes::length($field), $field);
-        }
-
-        return $framed;
-    }
-
     /**
      * The digest of the files outside the test directories a unit's key reads
      * on its own (item 11): what it reaches, or every file the map observes
@@ -269,22 +281,22 @@ final readonly class ContentKeys
         Digest $installed,
     ): void {
         $semantics = sprintf('%d', VerdictCode::SEMANTICS);
-        hash_update($context, self::framed(self::FORMAT, 'gate', $semantics, $gate->value()));
-        hash_update($context, self::framed('config', $config, 'runner', $runner->runner()));
-        self::hashVersionsIn($context, $runner);
-        hash_update($context, self::framed($runner->platform()->value()));
+        hash_update($context, KeyFields::framed(self::FORMAT, 'gate', $semantics, $gate->value()));
+        hash_update($context, KeyFields::framed('config', $config, 'runner', $runner->runner()));
+        KeyFields::versions($context, $runner);
+        hash_update($context, KeyFields::framed($runner->platform()->value()));
         $checked = $analyser instanceof AnalyserIdentity
             ? [$analyser->analyser(), $analyser->version(), $analyser->config()->value()]
             : [StaticCheck::NONE];
-        hash_update($context, self::framed('analyser', ...$checked));
-        hash_update($context, self::framed('installed', $installed->value()));
+        hash_update($context, KeyFields::framed('analyser', ...$checked));
+        hash_update($context, KeyFields::framed('installed', $installed->value()));
     }
 
     /** The files that define the runner, every file outside the test directories that is no PHP, and the CI. */
     private static function hashCoverageReadsIn(HashContext $context, Source $source): void
     {
-        hash_update($context, self::framed('coverage', 'definitions'));
-        self::hashFingerprintsIn($context, $source->definitions());
+        hash_update($context, KeyFields::framed('coverage', 'definitions'));
+        KeyFields::fingerprints($context, $source->definitions());
         $other = array_filter([...$source->files()], static fn(Fingerprint $file): bool => ! $file->path()->isPhp());
         self::hashCodeIn($context, Fingerprints::of(...$other), $source->ci());
     }
@@ -292,49 +304,12 @@ final readonly class ContentKeys
     /** Every file outside the test directories, and every CI definition that runs the gate. */
     private static function hashCodeIn(HashContext $context, Fingerprints $files, CiDefinitions $ci): void
     {
-        hash_update($context, self::framed('files'));
-        self::hashFingerprintsIn($context, $files);
-        hash_update($context, self::framed('ci', sprintf('%d', count($ci))));
+        hash_update($context, KeyFields::framed('files'));
+        KeyFields::fingerprints($context, $files);
+        hash_update($context, KeyFields::framed('ci', sprintf('%d', count($ci))));
 
         foreach ($ci as $definition) {
-            hash_update($context, self::framed($definition->path()->value(), $definition->asItRuns()));
-        }
-    }
-
-    private static function hashVersionsIn(HashContext $context, Identity $runner): void
-    {
-        $versions = [];
-        $packages = [];
-
-        foreach ($runner->versions() as $version) {
-            $versions[$version->package()] = $version;
-            $packages[] = $version->package();
-        }
-
-        sort($packages, SORT_STRING);
-        hash_update($context, self::framed(sprintf('%d', count($packages))));
-
-        foreach ($packages as $package) {
-            $version = $versions[$package];
-            hash_update($context, self::framed($version->package(), $version->version(), $version->reference()));
-        }
-    }
-
-    private static function hashFingerprintsIn(HashContext $context, Fingerprints $fingerprints): void
-    {
-        $digests = [];
-        $paths = [];
-
-        foreach ($fingerprints as $fingerprint) {
-            $digests[$fingerprint->path()->value()] = $fingerprint->digest()->value();
-            $paths[] = $fingerprint->path()->value();
-        }
-
-        sort($paths, SORT_STRING);
-        hash_update($context, self::framed(sprintf('%d', count($paths))));
-
-        foreach ($paths as $path) {
-            hash_update($context, self::framed($path, $digests[$path]));
+            hash_update($context, KeyFields::framed($definition->path()->value(), $definition->asItRuns()));
         }
     }
 
@@ -348,8 +323,8 @@ final readonly class ContentKeys
         $digest = $this->code->digestOf($unit->path());
         $own = $digest instanceof Digest ? [Fingerprint::of($unit->path(), $digest)] : [];
         $context = Digest::hashing();
-        hash_update($context, self::framed('source', $unit->path()->value()));
-        self::hashFingerprintsIn($context, Fingerprints::of(...$inside, ...$own));
+        hash_update($context, KeyFields::framed('source', $unit->path()->value()));
+        KeyFields::fingerprints($context, Fingerprints::of(...$inside, ...$own));
 
         return Digest::finished($context);
     }
@@ -374,7 +349,7 @@ final readonly class ContentKeys
     {
         $values = array_map(static fn(Path $path): string => $path->value(), [...$judges->inByteOrder()]);
 
-        return Digest::sha256Of(self::framed(...$values))->value();
+        return Digest::sha256Of(KeyFields::framed(...$values))->value();
     }
 
     /** Files of the test directories, each by its digest, in byte order, framed as a key reads them. */
@@ -389,11 +364,11 @@ final readonly class ContentKeys
         }
 
         sort($values, SORT_STRING);
-        $read = self::framed($section, sprintf('%d', count($values)));
+        $read = KeyFields::framed($section, sprintf('%d', count($values)));
 
         foreach ($values as $value) {
             $digest = $tests->digestOf($paths[$value]);
-            $read .= self::framed($value, $digest instanceof Digest ? $digest->value() : Missing::DIGESTED);
+            $read .= KeyFields::framed($value, $digest instanceof Digest ? $digest->value() : Missing::DIGESTED);
         }
 
         return $read;
@@ -414,7 +389,7 @@ final readonly class ContentKeys
      */
     private function keyReading(string $base, array $read, Unit $unit, CoverageMap $coverage, SetDigests $sets): Digest
     {
-        $lines = $coverage->lineSets($unit->path());
+        $lines = $coverage->lineTests()->setsOn($unit->path());
         $fields = [
             self::FORMAT,
             $base,
@@ -430,7 +405,7 @@ final readonly class ContentKeys
             $fields[] = $sets->digestOf($set);
         }
 
-        return Digest::sha256Of(self::framed(...$fields));
+        return Digest::sha256Of(KeyFields::framed(...$fields));
     }
 
 

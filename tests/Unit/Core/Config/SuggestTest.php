@@ -13,21 +13,21 @@ use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('suggests changes by default, and none where suggest.enabled is false, laying a later layer\'s over an earlier one\'s', function (): void {
-    expect(Layer::standard()->reports()->suggest()->enabled())->toBeTrue()
-        ->and(Configs::valid(['suggest' => ['enabled' => false]])->reports()->suggest()->enabled())->toBeFalse()
-        ->and(Configs::valid(['suggest' => ['enabled' => true]])->reports()->suggest()->enabled())->toBeTrue()
-        ->and(Layer::of(Reports::suggesting(Suggest::of(enabled: false)))->over(Layer::of(Reports::suggesting(Suggest::of(enabled: true))))->reports()->suggest()->enabled())->toBeTrue()
-        ->and(Layer::of(Reports::suggesting(Suggest::of(enabled: false)))->over(Layer::of(Reports::suggesting(Suggest::of(idleJudged: 3))))->reports()->suggest()->enabled())->toBeFalse()
+    expect(Layer::standard()->output()->reports()->suggest()->enabled())->toBeTrue()
+        ->and(Configs::valid(['suggest' => ['enabled' => false]])->output()->reports()->suggest()->enabled())->toBeFalse()
+        ->and(Configs::valid(['suggest' => ['enabled' => true]])->output()->reports()->suggest()->enabled())->toBeTrue()
+        ->and(Layer::of(Reports::suggesting(Suggest::of(enabled: false)))->over(Layer::of(Reports::suggesting(Suggest::of(enabled: true))))->output()->reports()->suggest()->enabled())->toBeTrue()
+        ->and(Layer::of(Reports::suggesting(Suggest::of(enabled: false)))->over(Layer::of(Reports::suggesting(Suggest::of(idleJudged: 3))))->output()->reports()->suggest()->enabled())->toBeFalse()
         ->and(Configs::problems(Configs::layer(['suggest' => ['enabled' => 'no']]))[0] ?? '')->toStartWith('suggest.enabled: ');
 });
 
 it('notes an empty tests.holding by default, and not where suggest.emptyHolding or suggest.enabled is false, laying a later layer\'s over an earlier one\'s', function (): void {
-    expect(Layer::standard()->reports()->suggest()->emptyHolding())->toBeTrue()
-        ->and(Configs::valid(['suggest' => ['emptyHolding' => false]])->reports()->suggest()->emptyHolding())->toBeFalse()
-        ->and(Configs::valid(['suggest' => ['emptyHolding' => true]])->reports()->suggest()->emptyHolding())->toBeTrue()
-        ->and(Configs::valid(['suggest' => ['enabled' => false, 'emptyHolding' => true]])->reports()->suggest()->emptyHolding())->toBeFalse()
-        ->and(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: false)))->over(Layer::of(Reports::suggesting(Suggest::of(idleJudged: 3))))->reports()->suggest()->emptyHolding())->toBeFalse()
-        ->and(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: false)))->over(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: true))))->reports()->suggest()->emptyHolding())->toBeTrue()
+    expect(Layer::standard()->output()->reports()->suggest()->emptyHolding())->toBeTrue()
+        ->and(Configs::valid(['suggest' => ['emptyHolding' => false]])->output()->reports()->suggest()->emptyHolding())->toBeFalse()
+        ->and(Configs::valid(['suggest' => ['emptyHolding' => true]])->output()->reports()->suggest()->emptyHolding())->toBeTrue()
+        ->and(Configs::valid(['suggest' => ['enabled' => false, 'emptyHolding' => true]])->output()->reports()->suggest()->emptyHolding())->toBeFalse()
+        ->and(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: false)))->over(Layer::of(Reports::suggesting(Suggest::of(idleJudged: 3))))->output()->reports()->suggest()->emptyHolding())->toBeFalse()
+        ->and(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: false)))->over(Layer::of(Reports::suggesting(Suggest::of(emptyHolding: true))))->output()->reports()->suggest()->emptyHolding())->toBeTrue()
         ->and(Configs::problems(Configs::layer(['suggest' => ['emptyHolding' => 'no']]))[0] ?? '')->toStartWith('suggest.emptyHolding: ');
 });
 
@@ -53,7 +53,7 @@ it('writes suggest.enabled where a layer sets it, and the builder calls for it, 
 });
 
 it('suggests by default from 500 judged mutants, no survivors and 5% of the time, 80% of 50 mutants ignored, and 3 timeouts', function (): void {
-    $suggest = Layer::standard()->reports()->suggest();
+    $suggest = Layer::standard()->output()->reports()->suggest();
 
     expect([$suggest->idleJudged(), $suggest->idleSurvivors(), $suggest->ignoredMutants(), $suggest->timeoutCluster()])->toBe([500, 0, 50, 3])
         ->and([$suggest->idleShare(), $suggest->ignoredShare()])->toEqual([Percentage::parse(5), Percentage::parse(80)]);
@@ -64,13 +64,13 @@ it('reads every suggest key a config writes, the rest at their defaults, and lay
         'idle' => ['judged' => 100, 'survivors' => 1, 'share' => 2.5],
         'ignored' => ['share' => 90, 'mutants' => 10],
         'timeouts' => ['cluster' => 5],
-    ]])->reports()->suggest();
+    ]])->output()->reports()->suggest();
     $laid = Layer::of(Reports::suggesting(Suggest::of(idleJudged: 100, timeoutCluster: 4)))
         ->over(Layer::of(Reports::suggesting(Suggest::of(timeoutCluster: 6))))
-        ->reports()
+        ->output()->reports()
         ->suggest();
 
-    $alone = Configs::valid(['suggest' => ['timeouts' => ['cluster' => 6]]])->reports()->suggest();
+    $alone = Configs::valid(['suggest' => ['timeouts' => ['cluster' => 6]]])->output()->reports()->suggest();
 
     expect([$read->idleJudged(), $read->idleSurvivors(), $read->ignoredMutants(), $read->timeoutCluster()])->toBe([100, 1, 10, 5])
         ->and([$alone->idleJudged(), $alone->ignoredMutants(), $alone->timeoutCluster()])->toBe([500, 50, 6])
@@ -110,7 +110,7 @@ it('builds every suggest key from the PHP builder', function (): void {
         ->with(SuggestBuilder::ignoredShare(70))
         ->with(SuggestBuilder::ignoredMutants(5))
         ->with(SuggestBuilder::timeoutCluster(9)));
-    $suggest = $settings->effective()->reports()->suggest();
+    $suggest = $settings->effective()->output()->reports()->suggest();
 
     expect([$suggest->idleJudged(), $suggest->idleSurvivors(), $suggest->ignoredMutants(), $suggest->timeoutCluster()])->toBe([10, 2, 5, 9])
         ->and([$suggest->idleShare(), $suggest->ignoredShare()])->toEqual([Percentage::parse(1), Percentage::parse(70)]);

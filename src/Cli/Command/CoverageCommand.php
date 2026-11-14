@@ -7,22 +7,30 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use function is_string;
 
 use NightWorksIO\MutationGate\Cli\ExitCode;
+use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Flow\CoverageEntries;
 use NightWorksIO\MutationGate\Cli\Flow\CoverageMeasured;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Measuring;
+use NightWorksIO\MutationGate\Cli\Flow\ReportConversion;
 use NightWorksIO\MutationGate\Cli\Flow\SuiteCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Verb;
+use NightWorksIO\MutationGate\Core\Written;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -90,9 +98,14 @@ final readonly class CoverageCommand
         OutputInterface $output,
     ): int {
         $adapters = $composed->adapters;
-        $inventory = Inventory::of($adapters, $composed->settings);
+        $conversion = $ran instanceof CoverageRan ? ReportConversion::started($adapters, $ran) : NotGiven::value();
+        [$inventory, $read] = self::inventoried($adapters, $composed->settings, $conversion, $ran);
         $suites = match (true) {
-            $inventory instanceof Inventory => SuiteCoverage::of($adapters, $inventory),
+            $inventory instanceof Inventory => SuiteCoverage::of(
+                $adapters,
+                $inventory,
+                $composed->settings->proofs()->coverageCompressionLevel(),
+            ),
             $ran instanceof CoverageRan => $inventory,
             default => NotGiven::value(),
         };
@@ -106,15 +119,23 @@ final readonly class CoverageCommand
         $measured = $ran instanceof CoverageRan
             ? $ran
             : $kept->forRun($inventory, $entries, KeptCoverage::built(), ownMap: false, suites: $suites);
-        $map = $measured instanceof CoverageMeasured
-            ? $kept->mapOf($measured, $suites)
-            : self::admitted($adapters->runner->coverage($measured), $suites);
-        $keys = $map instanceof CoverageMap ? KeptCoverage::keysOf($entries, $map) : NotGiven::value();
         $file = CoverageMapFile::in($into);
         $at = Measuring::now($adapters);
-        $written = $map instanceof CoverageMap
-            ? $adapters->project->write($file, Contents::of(CoverageMapFile::encode($map, $at, $keys)))
-            : $map;
+        $converted = $conversion instanceof ReportConversion
+            ? $conversion->written($suites, $entries, $file, $at)
+            : $conversion;
+        $written = $converted instanceof Written || $converted instanceof CannotJudge
+            ? $converted
+            : self::writtenByGate(
+                $adapters,
+                $kept,
+                self::measuredOrRead($adapters, $measured, $read),
+                $suites,
+                $entries,
+                $file,
+                $at,
+                $composed->settings->proofs()->coverageCompressionLevel(),
+            );
 
         if ($written instanceof CannotJudge) {
             return Failed::because($output, $written);
@@ -124,6 +145,68 @@ final readonly class CoverageCommand
         $output->writeln($written->said(), OutputInterface::OUTPUT_RAW);
 
         return ExitCode::Passed->value;
+    }
+
+    /**
+     * What the run finds, its listings running while the run's report is
+     * read where no engine converts it; and that report, read, where it is.
+     *
+     * @return array{Inventory|CannotJudge, CoverageMap|CannotJudge|NotGiven}
+     */
+    private static function inventoried(
+        Adapters $adapters,
+        Settings $settings,
+        ReportConversion|NotWritten|NotGiven $conversion,
+        CoverageRan|NotGiven $ran,
+    ): array {
+        $started = Inventory::startedForKeys($adapters, $settings);
+
+        if ($started instanceof CannotJudge) {
+            return [$started, NotGiven::value()];
+        }
+
+        $read = $conversion instanceof NotWritten && $ran instanceof CoverageRan
+            ? $adapters->runner->coverage($ran)
+            : NotGiven::value();
+
+        return [$started(), $read];
+    }
+
+    /** The map as measuring it measured it; else the run's report, read where it was not read already. */
+    private static function measuredOrRead(
+        Adapters $adapters,
+        CoverageRan|CoverageMeasured $measured,
+        CoverageMap|CannotJudge|NotGiven $read,
+    ): CoverageMeasured|CoverageMap|CannotJudge {
+        return match (true) {
+            $measured instanceof CoverageMeasured => $measured,
+            $read instanceof NotGiven => $adapters->runner->coverage($measured),
+            default => $read,
+        };
+    }
+
+    /**
+     * The map the gate builds and writes itself, admitted as the suites
+     * admit it, with each test file's entry key; or why it cannot be.
+     */
+    private static function writtenByGate(
+        Adapters $adapters,
+        KeptCoverage $kept,
+        CoverageMeasured|CoverageMap|CannotJudge $measured,
+        SuiteCoverage|NotGiven $suites,
+        CoverageEntries|CannotJudge|NotGiven $entries,
+        Path $file,
+        MeasuredAt|Unplaced $at,
+        int $level,
+    ): Written|CannotJudge {
+        $map = $measured instanceof CoverageMeasured
+            ? $kept->mapOf($measured, $suites)
+            : self::admitted($measured, $suites);
+        $keys = $map instanceof CoverageMap ? CoverageEntries::keysOver($entries, $map) : NotGiven::value();
+
+        return $map instanceof CoverageMap
+            ? $adapters->project->write($file, Contents::of(CoverageMapFile::encode($map, $at, $keys, $level)))
+            : $map;
     }
 
     /** What measuring the map said, aside, where it measured it and said anything. */

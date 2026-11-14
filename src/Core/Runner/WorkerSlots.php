@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function array_fill;
 use function array_map;
+use function array_slice;
 
 use IteratorAggregate;
 
@@ -39,10 +41,53 @@ final readonly class WorkerSlots implements IteratorAggregate
             ));
     }
 
+    /**
+     * The places a pool's processes run side by side in, in a run named by
+     * this token, numbered after any taken beside.
+     */
+    public static function inPool(Pool $pool, string $run): self
+    {
+        return self::numberedAfter($pool->takenBeside(), $pool->processes(), $run);
+    }
+
+    /**
+     * The places for this many processes, numbered after this many places a
+     * run beside them holds, in a run that names itself by a token of its
+     * own; as {@see of()} where none is held beside them.
+     */
+    public static function numberedAfter(int $after, ProcessCount $processes, string $run): self
+    {
+        $count = $processes->count();
+
+        return $after <= 0
+            ? self::of($processes, $run)
+            : new self(array_map(
+                static fn(int $number): WorkerSlot => WorkerSlot::of($number, $run),
+                range($after + 1, $after + $count),
+            ));
+    }
+
+    /**
+     * Places for this many processes side by side, each telling its process
+     * nothing, as the one place of a runner that runs one at a time does.
+     *
+     * @param positive-int $count
+     */
+    public static function untold(int $count): self
+    {
+        return new self(array_fill(0, $count, WorkerSlot::alone()));
+    }
+
     /** The one place of a runner that runs one process at a time. */
     public static function alone(): self
     {
         return new self([WorkerSlot::alone()]);
+    }
+
+    /** The first this many of these places, or all of them where there are fewer. */
+    public function atMost(ProcessCount $count): self
+    {
+        return new self(array_slice($this->slots, 0, $count->count()));
     }
 
     /** @return Traversable<int, WorkerSlot> */

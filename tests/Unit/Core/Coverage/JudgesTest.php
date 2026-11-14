@@ -76,3 +76,12 @@ it('keeps a covered file judged again where it was first judged', function (): v
     expect($judges->filesRunBy(Path::of('tests/MoneyTest.php')))->toEqual(Paths::of(Path::of('src/Money.php'), Path::of('src/Ledger.php'), Path::of('123')))
         ->and($judges->filesRunBy(Path::of('tests/LedgerTest.php')))->toEqual(Paths::none());
 });
+
+it('names every test file that still runs a covered file, never one a later judging took every file from', function (): void {
+    $judges = Judges::none()
+        ->judging(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/LedgerTest.php')))
+        ->judging(Path::of('src/Clock.php'), Paths::of(Path::of('tests/ClockTest.php')))
+        ->judging(Path::of('src/Money.php'), Paths::of(Path::of('tests/LedgerTest.php')));
+
+    expect($judges->testFiles())->toEqual(Paths::of(Path::of('tests/LedgerTest.php'), Path::of('tests/ClockTest.php')));
+});

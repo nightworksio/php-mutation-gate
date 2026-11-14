@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
+use NightWorksIO\MutationGate\Core\Config\DefaultBranchSince;
 use NightWorksIO\MutationGate\Core\Config\FailFast;
 use NightWorksIO\MutationGate\Core\Config\LockMoveReach;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * What decides what a change reaches (ADR-0005): `packages`, `reach.everything`, `reach.lockPackages`,
- * `reach.changedTests`, `reach.fixtures`, `holds.hotPath`, `run.full`, `run.failFast`, `run.failFastWaits`.
+ * `reach.changedTests`, `reach.fixtures`, `reach.lockMoves`, `reach.defaultBranchSince`, `run.full`, `run.failFast`,
+ * `run.failFastWaits`. How held units are read is HeldUnits'.
  */
 final readonly class Reach implements Setting
 {
@@ -73,18 +75,6 @@ final readonly class Reach implements Setting
         return new self(Json::at('reach.fixtures', Json::items(...$globs)));
     }
 
-    /** `holds.hotPath`: the share of the suite past which code nothing holds is warned about. */
-    public static function hotPath(int|float $share): self
-    {
-        return new self(Json::at('holds.hotPath', $share));
-    }
-
-    /** `holds.fewestTests`: the fewest tests a suite holds for a file to read as hot, 20 by default. */
-    public static function hotPathFewestTests(int $tests): self
-    {
-        return new self(Json::at('holds.fewestTests', $tests));
-    }
-
     /** `run.full`, `true`: a run given neither `--full` nor `--changed-since` considers every unit. */
     public static function fullByDefault(): self
     {
@@ -128,6 +118,30 @@ final readonly class Reach implements Setting
     public static function failFastWaitingOn(string ...$outcomes): self
     {
         return new self(Json::at('run.failFastWaits', Json::items(...$outcomes)));
+    }
+
+    /**
+     * `reach.defaultBranchSince`, `judged`: the default branch's changes are read since its last judged run, as by
+     * default.
+     */
+    public static function sinceJudged(): self
+    {
+        return new self(Json::at('reach.defaultBranchSince', DefaultBranchSince::Judged->value));
+    }
+
+    /**
+     * `reach.defaultBranchSince`, `judged-off-branch`: so off the default branch; a push to it reads since its last
+     * pass.
+     */
+    public static function sinceJudgedOffBranch(): self
+    {
+        return new self(Json::at('reach.defaultBranchSince', DefaultBranchSince::JudgedOffBranch->value));
+    }
+
+    /** `reach.defaultBranchSince`, `passed`: the default branch's changes are read since its last pass. */
+    public static function sincePassed(): self
+    {
+        return new self(Json::at('reach.defaultBranchSince', DefaultBranchSince::Passed->value));
     }
 
     public function written(): Json

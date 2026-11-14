@@ -99,6 +99,24 @@ it('makes shards larger rather than cut more of them than the most there may be'
     ]);
 });
 
+it('cuts every shard the most there may be allows, however far one unit\'s estimate is past a share', function () use ($weighed, $makeSrc, $shards): void {
+    $units = array_map(static fn(int $at): Weighed => $weighed(sprintf('src/U%03d.php', $at), 600.0), range(1, 36));
+    $work = Workload::of($weighed('src/A.php', 28949.0), ...$units);
+
+    expect($shards(Cut::bySize(600, Seconds::of(0.0), 10)->cut($work, $makeSrc())))->toHaveCount(10);
+});
+
+it('cuts more shards where a shard\'s size would not fit its job, up to the most there may be', function () use ($weighed, $makeSrc, $shards): void {
+    $units = array_map(static fn(int $at): Weighed => $weighed(sprintf('src/U%02d.php', $at), 100.0), range(1, 40));
+    $work = Workload::of(...$units);
+    $cut = Cut::bySize(4000, Seconds::of(10.0), 10);
+
+    expect($shards($cut->cut($work, $makeSrc())))->toHaveCount(1)
+        ->and($shards($cut->withinJobLimit(Seconds::of(1010.0))->cut($work, $makeSrc())))->toHaveCount(4)
+        ->and($shards($cut->withinJobLimit(Seconds::of(1010.0))->atMost(2)->opening(Seconds::of(0.0))->cut($work, $makeSrc())))->toHaveCount(2)
+        ->and($shards(Cut::exactly(1)->withinJobLimit(Seconds::of(1010.0))->cut($work, $makeSrc())))->toHaveCount(1);
+});
+
 it('stops growing once the shards fit the most there may be exactly', function () use ($weighed, $makeSrc, $shards): void {
     $src = $makeSrc();
 
@@ -322,4 +340,72 @@ it('never cuts a package into shards that would each cost less than twice their 
 it('cuts no shard to a target where there is no work', function (): void {
     expect(Cut::toTarget(Seconds::of(600.0), Seconds::of(60.0), 20)->cut(Workload::of(), Trees::none()))
         ->toHaveCount(0);
+});
+
+it('gives each shard every unit of its package and its own part of the test files where it cuts the test files', function () use (
+    $weighed,
+    $makeSrc,
+    $shards,
+): void {
+    $cut = Cut::bySize(600, Seconds::of(0.0), 20)->cuttingTestFiles()->cut(
+        Workload::of($weighed('src/B.php', 900.0), $weighed('src/A.php', 900.0)),
+        $makeSrc(),
+    );
+    $parts = $cut instanceof Shards
+        ? array_map(
+            static fn(Shard $shard): array => [$shard->testPart()->number(), $shard->testPart()->parts()],
+            iterator_to_array($cut, preserve_keys: false),
+        )
+        : [];
+
+    expect($shards($cut))->toBe([
+        [1, 'src, part 1 of 3', 600.0, '.', ['src/A.php', 'src/B.php']],
+        [2, 'src, part 2 of 3', 600.0, '.', ['src/A.php', 'src/B.php']],
+        [3, 'src, part 3 of 3', 600.0, '.', ['src/A.php', 'src/B.php']],
+    ])->and($parts)->toBe([[1, 3], [2, 3], [3, 3]]);
+});
+
+it('cuts the test files into as many parts as the shards asked for, and keeps doing so at a learned most', function () use (
+    $weighed,
+    $makeSrc,
+): void {
+    $parts = static fn(Shards|CannotJudge $cut): array => $cut instanceof Shards
+        ? array_map(
+            static fn(Shard $shard): array => [$shard->testPart()->number(), $shard->testPart()->parts()],
+            iterator_to_array($cut, preserve_keys: false),
+        )
+        : [];
+    $work = Workload::of($weighed('src/A.php', 100.0));
+
+    expect($parts(Cut::exactly(2)->cuttingTestFiles()->cut($work, $makeSrc())))->toBe([[1, 2], [2, 2]])
+        ->and($parts(Cut::bySize(10, Seconds::of(0.0), 20)->cuttingTestFiles()->atMost(3)->opening(Seconds::of(0.0))->cut($work, $makeSrc())))
+        ->toBe([[1, 3], [2, 3], [3, 3]])
+        ->and($parts(Cut::bySize(10, Seconds::of(0.0), 20)->cut($work, $makeSrc())))->toBe([[1, 1]]);
+});
+
+it('cuts a pulling run into items of about the item\'s length, consecutive items listed for one shard', function () use ($weighed, $makeSrc): void {
+    $work = Workload::of(
+        $weighed('src/A.php', 300.0),
+        $weighed('src/B.php', 300.0),
+        $weighed('src/C.php', 300.0),
+        $weighed('src/D.php', 300.0),
+    );
+    $cut = Cut::bySize(600, Seconds::of(0.0), 20)->pulling(Seconds::of(300.0))->cut($work, $makeSrc());
+    $items = $cut instanceof Shards ? array_map(
+        static fn(Shard $item): array => [$item->id()->number(), $item->worker()->number(), $item->isPulled()],
+        iterator_to_array($cut, preserve_keys: false),
+    ) : $cut;
+
+    expect($items)->toBe([[1, 1, true], [2, 1, true], [3, 2, true], [4, 2, true]]);
+});
+
+it('spreads a pulling run\'s items over the count of shards asked for', function () use ($weighed, $makeSrc): void {
+    $work = Workload::of($weighed('src/A.php', 300.0), $weighed('src/B.php', 300.0), $weighed('src/C.php', 300.0));
+    $cut = Cut::exactly(3)->pulling(Seconds::of(100.0))->cut($work, $makeSrc());
+    $workers = $cut instanceof Shards ? array_map(
+        static fn(Shard $item): int => $item->worker()->number(),
+        iterator_to_array($cut, preserve_keys: false),
+    ) : $cut;
+
+    expect($workers)->toBe([1, 2, 3]);
 });

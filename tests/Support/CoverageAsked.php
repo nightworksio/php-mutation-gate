@@ -24,8 +24,10 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\LeavesPhpReport;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -40,10 +42,11 @@ use NightWorksIO\MutationGate\Port\Runner;
 
 /**
  * A runner that answers every coverage request so, or each run of some test
- * files as it is told to, keeping each request it was asked, and answers the
- * rest as another runner does.
+ * files as it is told to, keeping each request it was asked, names the PHP
+ * report a run left where it is told one, and answers the rest as another
+ * runner does.
  */
-final class CoverageAsked implements Runner
+final class CoverageAsked implements LeavesPhpReport, Runner
 {
     /** @var list<CoverageRun|CoverageRead|CoverageRan> */
     private array $asked = [];
@@ -52,10 +55,27 @@ final class CoverageAsked implements Runner
 
     private CannotJudge|NotGiven $placing;
 
+    private RanReport|NotGiven $report;
+
     public function __construct(private readonly Runner $runner, private readonly CoverageMap|CannotJudge $answer)
     {
         $this->files = $answer;
         $this->placing = NotGiven::value();
+        $this->report = NotGiven::value();
+    }
+
+    /** This runner, naming this as the PHP report every run left. */
+    public function reporting(RanReport $report): self
+    {
+        $runner = clone $this;
+        $runner->report = $report;
+
+        return $runner;
+    }
+
+    public function report(CoverageRan $ran): RanReport|NotGiven
+    {
+        return $this->report;
     }
 
     /** This runner, which cannot tell which tests a file holds, for this reason. */

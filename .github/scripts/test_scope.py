@@ -19,9 +19,9 @@ def pull(*paths: str) -> dict[str, str]:
 
 
 # The jobs that judge the program, in ci.yml's order.
-PROGRAM = ["alone", "guards", "checks", "tests", "lowest", "phar", "mutation"]
-NOTHING = {"jobs": "[]", "runners": "[]", "warm": "false", "hooks": "false"}
-EVERYTHING = {"jobs": json.dumps(list(scope.GATED)), "runners": json.dumps(list(scope.RUNNERS)), "warm": "true", "hooks": "true"}
+PROGRAM = ["alone", "guards", "checks", "tests", "lowest", "phar"]
+NOTHING = {"jobs": "[]", "runners": "[]", "warm": "false", "hooks": "false", "builds": "false"}
+EVERYTHING = {"jobs": json.dumps(list(scope.GATED)), "runners": json.dumps(list(scope.RUNNERS)), "warm": "true", "hooks": "true", "builds": "true"}
 
 
 class Outputs(unittest.TestCase):
@@ -59,7 +59,7 @@ class Outputs(unittest.TestCase):
 
     def test_runs_the_suites_and_the_self_gate_for_the_action_and_the_reusable_workflow(self):
         for path in ("action.yml", ".github/workflows/mutation-gate.yml"):
-            self.assertEqual(pull(path), {**NOTHING, "jobs": '["alone", "tests", "mutation"]'}, path)
+            self.assertEqual(pull(path), {**NOTHING, "jobs": '["alone", "tests"]'}, path)
 
     def test_runs_no_php_gate_for_another_gate_s_own_file(self):
         for path in ("typos.toml", "lychee.toml", ".markdownlint.jsonc", "cliff.toml", "bench/jwt.sh"):
@@ -68,14 +68,34 @@ class Outputs(unittest.TestCase):
             self.assertEqual(pull(path), {**NOTHING, "jobs": '["image"]'}, path)
         self.assertEqual(pull("sonar-project.properties"), {**NOTHING, "jobs": '["tests"]'})
 
+    def test_runs_only_outbreak_s_gates_and_builds_for_its_rust_tree_and_its_workflow(self):
+        for path in ("outbreak/crates/outbreak-map/src/map.rs", "outbreak/Cargo.lock", "outbreak/fuzz/fuzz_targets/map.rs", ".github/workflows/outbreak.yml"):
+            self.assertEqual(pull(path), {**NOTHING, "jobs": '["outbreak"]', "builds": "true"}, path)
+
+    def test_runs_outbreak_s_boundary_beside_the_php_gates_for_the_php_the_binary_talks_to(self):
+        for path in (
+            "src/Port/MapEngine.php",
+            "src/Adapter/Outbreak/Outbreak.php",
+            "src/Core/Coverage/VouchedRead.php",
+            "src/Core/Runner/RanReport.php",
+            "tests/Contract/MapEngine/MapEngineTest.php",
+            "tests/Fixtures/CoverageReports/timed/coverage.php",
+        ):
+            found = pull(path)
+            self.assertIn("outbreak", ran(found), path)
+            self.assertEqual(found["builds"], "false", path)
+            self.assertIn("tests", ran(found), path)
+        unrelated = pull("src/Core/Report/Overview.php")
+        self.assertNotIn("outbreak", ran(unrelated))
+        self.assertEqual(unrelated["builds"], "false")
+
     def test_runs_every_program_job_for_the_program_and_the_hook_managers_outside_the_suites(self):
         found = pull("src/Core/Report/Overview.php")
-        self.assertEqual(ran(found), [*PROGRAM[:6], "end-to-end", "mutation"])
+        self.assertEqual(ran(found), [*PROGRAM[:6], "end-to-end"])
         self.assertEqual((found["runners"], found["warm"], found["hooks"]), ("[]", "false", "true"))
         for path in ("tests/Unit/Core/Report/OverviewTest.php", "phpstan.neon", "mutation-gate.json"):
             found = pull(path)
             self.assertEqual(ran(found)[:6], PROGRAM[:6], path)
-            self.assertIn("mutation", ran(found), path)
         self.assertEqual(pull("tests/Unit/Core/Report/OverviewTest.php")["hooks"], "false")
 
     def test_runs_only_the_legs_whose_adapter_or_fixture_changed(self):
@@ -130,7 +150,7 @@ class Outputs(unittest.TestCase):
             self.assertEqual(found["warm"], "true", path)
 
     def test_runs_every_leg_but_no_warm_workers_for_how_the_legs_run_the_contract_suite(self):
-        for path in ("phpunit.xml", ".github/scripts/legs.json"):
+        for path in ("phpunit.xml", ".github/scripts/legs.json", ".github/scripts/leg.sh"):
             found = pull(path)
             self.assertEqual(legs(found), sorted(scope.RUNNERS), path)
             self.assertEqual(found["warm"], "false", path)
@@ -174,6 +194,11 @@ class TheImage(unittest.TestCase):
         for path in scope.IMAGE:
             self.assertIn("image", ran(pull(path)), path)
         self.assertNotIn("image", ran(pull("src/Core/Plan/Cut.php")))
+
+    def test_builds_the_phar_where_the_program_or_its_own_workflow_changed(self):
+        self.assertEqual(ran(pull(scope.PHAR)), ["phar"])
+        self.assertIn("phar", ran(pull("src/Core/Plan/Cut.php")))
+        self.assertNotIn("phar", ran(pull(".github/workflows/image.yml")))
 
 
 class TheWorkflowAgrees(unittest.TestCase):
@@ -272,7 +297,7 @@ class Scripts(unittest.TestCase):
         legs_only = pull(".github/scripts/leg_support.py")
         self.assertEqual((ran(legs_only), legs(legs_only)), (["runner-contracts"], sorted(scope.RUNNERS)))
         evidence = pull(".github/scripts/evidence.py")
-        self.assertEqual(ran(evidence), [job for job in scope.GATED if job not in ("mutation", "image")])
+        self.assertEqual(ran(evidence), [job for job in scope.GATED if job not in ("image", "outbreak")])
         self.assertEqual((evidence["warm"], evidence["hooks"]), ("true", "true"))
 
 
@@ -407,6 +432,32 @@ MACOS_JOB = """  # The suite on macOS, the other platform the gate supports for 
         if: failure()
         run: python3 .github/scripts/gate_summary.py macos
 """
+
+
+
+class Streams(unittest.TestCase):
+    def test_streams_where_a_context_lets_a_full_run_start_early(self):
+        for config in (
+            {"splitStream": {"enabled": True}},
+            {"splitStream": {"enabled": True, "sharding": "tests", "early": "always"}},
+            {"splitStream": {"sharding": "tests"}, "contexts": {"main": {"splitStream": {"enabled": True}}}},
+            {"contexts": {"pr": {"splitStream": {"enabled": True, "early": "unproven-only"}}}},
+        ):
+            self.assertTrue(scope.streams(config), config)
+
+    def test_no_streams_where_none_can_start_early(self):
+        for config in (
+            {},
+            [],
+            {"splitStream": {"enabled": False}},
+            {"splitStream": {"enabled": True, "sharding": "source"}},
+            {"splitStream": {"enabled": True, "early": "never"}},
+            {"splitStream": {"enabled": True, "early": "never"}, "contexts": {"main": {"splitStream": {"children": 2}}}},
+        ):
+            self.assertFalse(scope.streams(config), config)
+
+    def test_the_own_config_is_read_or_streams_to_be_safe(self):
+        self.assertIn(scope.own_streams(), ("true", "false"))
 
 
 if __name__ == "__main__":

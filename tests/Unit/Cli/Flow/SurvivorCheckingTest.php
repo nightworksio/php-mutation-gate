@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Checked;
+use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\Stopwatch;
 use NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking;
-use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
@@ -73,7 +73,7 @@ function checkedSurvivor(Mutants $mutants, string $file): Mutant
 /** Where a survivor's mutated code is read for its check. */
 function checkedAt(Mutant $mutant): string
 {
-    return Workspace::checkedMutant($mutant->id())->value();
+    return CheckedFiles::mutant($mutant->id())->value();
 }
 
 /** The analyser the checks run: named fake, at 1.0.0. */
@@ -262,7 +262,7 @@ it('reads what a printed survivor declares against its file printed, not as the 
     $mutants = Flows::mutantsOf('src/Money.php');
     $survivor = checkedSurvivor($mutants, 'src/Money.php');
     $checker = checkedByOneReadingDependents($project, [
-        Workspace::checkedOriginal($survivor->id())->value() => checkedOriginals(),
+        CheckedFiles::original($survivor->id())->value() => checkedOriginals(),
         checkedAt($survivor) => checkedOriginals(),
     ]);
     $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [Revision::workingTree()->name() => $files]);
@@ -350,8 +350,8 @@ it('judges printed survivors against their originals printed the same way, each 
     $printed = ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')));
     $new = Finding::error(Path::of('src/Money.php'), 'new', 'New.');
     $checker = checkedBy($project, [
-        Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
-        Workspace::checkedOriginal($held->id())->value() => Findings::none(),
+        CheckedFiles::original($money->id())->value() => checkedOriginals(),
+        CheckedFiles::original($held->id())->value() => Findings::none(),
         checkedAt($money) => Findings::of($new),
         checkedAt($again) => checkedOriginals(),
     ]);
@@ -359,8 +359,8 @@ it('judges printed survivors against their originals printed the same way, each 
     $checked = checking($project, $checker, $printed, Unlimited::time())->checked($mutants->with($again), MutantIds::none());
 
     expect($checker->asked())->toBe([
-        ['src/Money.php', Workspace::checkedOriginal($money->id())->value(), '<?php // printed'],
-        ['src/Held.php', Workspace::checkedOriginal($held->id())->value(), '<?php // printed'],
+        ['src/Money.php', CheckedFiles::original($money->id())->value(), '<?php // printed'],
+        ['src/Held.php', CheckedFiles::original($held->id())->value(), '<?php // printed'],
         ['src/Money.php', checkedAt($money), '<?php // mutant'],
         ['src/Money.php', checkedAt($again), '<?php // mutant'],
     ])
@@ -400,8 +400,8 @@ it('starts as many checks as the time left has room for, each as long as the run
     $checker = checkedBy($project, [
         checkedAt($money) => checkedOriginals(),
         checkedAt($held) => checkedOriginals(),
-        Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
-        Workspace::checkedOriginal($held->id())->value() => checkedOriginals(),
+        CheckedFiles::original($money->id())->value() => checkedOriginals(),
+        CheckedFiles::original($held->id())->value() => checkedOriginals(),
     ]);
     $runner = $printed
         ? ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')))
@@ -447,7 +447,7 @@ it('checks a printed file\'s first survivor where the time left has room for exa
     $mutants = Flows::mutantsOf('src/Money.php');
     $money = checkedSurvivor($mutants, 'src/Money.php');
     $checker = checkedBy($project, [
-        Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
+        CheckedFiles::original($money->id())->value() => checkedOriginals(),
         checkedAt($money) => checkedOriginals(),
     ]);
     $printed = ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')));
@@ -458,7 +458,7 @@ it('checks a printed file\'s first survivor where the time left has room for exa
     checking($project, $checker, $printed, $deadline, $clock)->checked($mutants, MutantIds::none());
 
     expect(array_map(static fn(array $check): string => $check[1], $checker->asked()))->toBe([
-        Workspace::checkedOriginal($money->id())->value(),
+        CheckedFiles::original($money->id())->value(),
         checkedAt($money),
     ]);
 });
@@ -469,7 +469,7 @@ it('needs room for one check alone for a printed file\'s later survivors, whose 
     $money = checkedSurvivor($mutants, 'src/Money.php');
     $again = checkedAgain($money);
     $checker = checkedBy($project, [
-        Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
+        CheckedFiles::original($money->id())->value() => checkedOriginals(),
         checkedAt($money) => checkedOriginals(),
         checkedAt($again) => checkedOriginals(),
     ]);
@@ -482,7 +482,7 @@ it('needs room for one check alone for a printed file\'s later survivors, whose 
     checking($project, $checker, $printed, $deadline, $clock)->checked($mutants->with($again), MutantIds::none());
 
     expect(array_map(static fn(array $check): string => $check[1], $checker->asked()))->toBe([
-        Workspace::checkedOriginal($money->id())->value(),
+        CheckedFiles::original($money->id())->value(),
         checkedAt($money),
         checkedAt($again),
     ]);

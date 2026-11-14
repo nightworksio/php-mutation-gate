@@ -56,6 +56,7 @@
             <exclude>tests/Contract/Runner/constants</exclude>
             <exclude>tests/Contract/Runner/interceptor</exclude>
             <exclude>tests/Contract/Runner/twins</exclude>
+            <exclude>tests/Contract/Runner/streamed</exclude>
             <exclude>tests/Contract/Runner/phpunit-fixture</exclude>
             <exclude>tests/Contract/Runner/phpspec-fixture</exclude>
             <exclude>tests/Contract/Runner/codeception-fixture</exclude>

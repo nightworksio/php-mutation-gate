@@ -24,13 +24,24 @@ final readonly class Settings
     {
     }
 
+    /** `extensions`, `preset`, `runner`, `treeSource`, `paths` and `mutators`: what the gate is set up with. */
+    public function setup(): Setup
+    {
+        return $this->layer->setup();
+    }
+
     /** The settings every layer laid over another makes, or every problem that remains once they are laid. */
     public static function settled(Layer $layer, DateTimeImmutable $now): self|Invalid
     {
         $runner = $layer->setup()->runner();
-        $late = $layer->ignores()->late($now);
-        $settled = Layer::standard()->over($layer);
-        $unbounded = $settled->triage()->refusal();
+        $late = $layer->judging()->ignores()->late($now);
+        $settled = Layer::standard()->over(
+            $runner instanceof Choice && $layer->running()->pest()->splits($runner)
+                ? Layer::of(StaticCheck::of(before: false))->over($layer)
+                : $layer,
+        );
+        $unbounded = $settled->judging()->triage()->refusal();
+        $running = $settled->running();
         $paths = $settled->setup()->paths()->unbounded($settled);
         $problems = [
             ...$runner instanceof Choice
@@ -45,7 +56,9 @@ final readonly class Settings
             ? new self(
                 $settled,
                 ChosenRunner::of(
-                    $settled->pest()->beneath($runner),
+                    $settled->judging()->mutants()->beneath($running->toggles()->beneath(
+                        $running->shards()->outbreak()->beneath($running->pest()->beneath($runner)),
+                    )),
                     $layer->setup()->runnerLayer()->withhold(),
                     $settled->setup()->runnerLayer()->memory(),
                     $settled->setup()->runnerLayer()->workers(),
@@ -53,12 +66,6 @@ final readonly class Settings
                 ),
             )
             : Invalid::because(...$problems);
-    }
-
-    /** @return Listed<string> the extension classes the config loads, beside those Composer names */
-    public function extensions(): Listed
-    {
-        return $this->layer->setup()->extensions();
     }
 
     /** @return Listed<string> the presets applied, in order */
@@ -75,73 +82,68 @@ final readonly class Settings
         return $this->runner;
     }
 
-    public function treeSource(): Choice
-    {
-        return $this->layer->setup()->treeSource();
-    }
-
     public function floors(): Floors
     {
-        return $this->layer->floors();
+        return $this->layer->judging()->floors();
     }
 
     public function reach(): Reach
     {
-        return $this->layer->reach();
+        return $this->layer->judging()->reach();
     }
 
     public function shards(): Shards
     {
-        return $this->layer->shards();
+        return $this->layer->running()->shards();
     }
 
     public function ci(): Ci
     {
-        return $this->layer->ci();
+        return $this->layer->running()->ci();
     }
 
     public function proofs(): Proofs
     {
-        return $this->layer->proofs();
+        return $this->layer->output()->proofs();
     }
 
     public function triage(): Triage
     {
-        return $this->layer->triage();
+        return $this->layer->judging()->triage();
     }
 
     public function ignores(): Ignores
     {
-        return $this->layer->ignores();
+        return $this->layer->judging()->ignores();
     }
 
     /** @return Listed<Report> the reports the config asks for */
     public function reports(): Listed
     {
-        return $this->layer->reports()->reports();
+        return $this->layer->output()->reports()->reports();
     }
 
     /** `badge` and `dashboard`: the badge's colours, and which repositories an organisation's dashboard shows. */
     public function publishing(): Publishing
     {
-        return $this->layer->publishing();
+        return $this->layer->output()->publishing();
     }
 
     /** Which static analyser rejects a mutant before its tests run, and with which config (ADR-0020). */
     public function staticCheck(): StaticCheck
     {
-        return $this->layer->staticCheck();
+        return $this->layer->running()->staticCheck();
     }
 
-    /** The registered mutators a run makes mutants with besides its runner's own (ADR-0021). */
-    public function mutators(): Mutators
+    /** Which steps of a run are on or off (ADR-0112, ADR-0142). */
+    public function toggles(): Toggles
     {
-        return $this->layer->setup()->mutators();
+        return $this->layer->running()->toggles();
     }
 
     public function local(): Local
     {
-        return $this->layer->local();
+        return $this->layer->running()->local();
     }
 
     /** The effective config: every setting with its value, which reads back into these settings. */

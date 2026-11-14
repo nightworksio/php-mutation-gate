@@ -10,7 +10,7 @@ privately, as [SECURITY.md](SECURITY.md) says, and everyone here keeps the
 - **PHP 8.4 or later, with pcov.** The coverage gate runs under pcov.
 - **`composer install`.** It sets `core.hooksPath` to `.githooks` and runs
   `bin/mutation-gate pest:patch`.
-- **Python 3** runs the scripts under `.github/scripts`, the action's script under
+- **Python 3** runs the scripts under `.github/scripts`, the action's scripts under
   `resources/action`, and their tests.
 - **Node** runs markdownlint, locked in `.github/bot/markdownlint`, and builds
   the docs site, locked in `.site` (ADR-0038).
@@ -33,16 +33,18 @@ is mechanical, the command that makes it. This prints the one for `checks`:
 jq -r '.gates.checks.reproduce' .github/gates.json
 ```
 
+A job that runs several tools, as `hygiene/tools` does, holds a line for each.
+
 Before each push, run the entries for what you changed:
 
 | You changed | Run |
 |-------------|-----|
-| anything | `hygiene/typos` and `hygiene/lines` |
+| anything | `typos` and `python3 .github/scripts/line_cap.py --root .` |
 | PHP, `composer.json`, `phpstan.neon`, `phpstan/layers.neon`, `rector.php` or `pint.json` | `checks` and `rules`, and the tests of the code you changed: `vendor/bin/pest <test files>` |
-| Markdown | `hygiene/markdown` and `hygiene/links` |
+| Markdown | the markdownlint line of `hygiene/tools` and `lychee --config lychee.toml .` |
 | `ARCHITECTURE.md`, `.docs/reference/`, `.docs/guide/ci/` or `.docs/guide/troubleshooting.md` | the Markdown entries, and `composer test`, because tests read them |
 | `.docs/`, `.site/`, `README.md` or what prints a link into the docs | `site/build` |
-| a workflow | `hygiene/actionlint` and `hygiene/zizmor` |
+| a workflow | `actionlint` and `zizmor .` |
 | `.github/scripts` or `resources/action` | `scripts` |
 
 `tests/Unit` mirrors `src`, so the tests of `src/Core/Plan/Cut.php` are in
@@ -96,7 +98,7 @@ MySQL for `pinkary`.
   title, is `type(scope): subject`. The type is one of `feat`, `fix`, `docs`,
   `refactor`, `test`, `chore`, `ci`, `perf`, `build`, `style` and `revert`.
   The scope is optional and lowercase, and a `!` before the colon marks a
-  breaking change. `commitlint` checks them.
+  breaking change. `pr` checks them.
 - **The title and body become the commit on `main`.** `main` takes only
   squash merges, whose subject is the pull request's title and whose message
   is its body.

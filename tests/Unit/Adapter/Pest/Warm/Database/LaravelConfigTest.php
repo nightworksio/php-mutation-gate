@@ -49,3 +49,8 @@ it('searches no schemas a PostgreSQL config names by neither a list nor text', f
         Connection::of(Driver::Postgres, 'pgsql:host=db;port=5432;dbname=testing', '', '', [], []),
     );
 });
+
+it('names the database a connection\'s config names, as it names it, and none where it names none', function (): void {
+    expect(LaravelConfig::database(['driver' => 'mysql', 'database' => 'shop_test']))->toBe('shop_test')
+        ->and(LaravelConfig::database(['driver' => 'mysql']))->toBe('');
+});

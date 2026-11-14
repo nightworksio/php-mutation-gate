@@ -13,6 +13,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\OwnScript;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use const PHP_BINARY;
 
@@ -63,7 +64,7 @@ final class Pool
 
         if (! array_key_exists($seat->pid(), self::$started)) {
             Schemata::leftIn($directory);
-            self::$started[$seat->pid()] = self::started($seat);
+            self::$started[$seat->pid()] = self::isKept($seat) || self::started($seat);
         }
 
         return self::$started[$seat->pid()]
@@ -95,10 +96,30 @@ final class Pool
             ...OwnScript::PestWorker->started(),
             $seat->directory(),
             strval($seat->place()),
-            strval(getmypid()),
+            self::parent(),
         ];
         $worker = proc_open($command, [], $pipes, null, $startingWith === [] ? null : [...getenv(), ...$startingWith]);
 
         return is_resource($worker) && proc_close($worker) === 0;
+    }
+
+    /**
+     * Whether the place's worker was kept from an earlier chunk of the shard
+     * and still runs, where the gate keeps the shard's workers.
+     */
+    private static function isKept(Seat $seat): bool
+    {
+        return is_string(getenv(GateVariable::WarmKeeper->value)) && PidFile::isRunning($seat->pid());
+    }
+
+    /**
+     * The process a worker lives as long as: the gate that keeps the shard's
+     * workers, where it does; this process otherwise.
+     */
+    private static function parent(): string
+    {
+        $keeper = getenv(GateVariable::WarmKeeper->value);
+
+        return is_string($keeper) && WholeNumber::isDigits($keeper) ? $keeper : strval(getmypid());
     }
 }

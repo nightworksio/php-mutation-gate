@@ -50,6 +50,9 @@ parameters:
             message: "B2 — randomness is a hidden input, and a plan cut from it differs between two runners that must cut the same shards. Nothing in src draws a random number (B2)."
             allowIn:
                 - tests/*
+                # A split stream's directory and a database copied for a child are named so no other local user can
+                # guess them and plant one there first; the name reaches nothing a plan is cut from (ADR-0117).
+                - src/Adapter/Pest/Split/Unguessable.php
         -
             function:
                 - 'random_int()'
@@ -202,6 +205,10 @@ parameters:
                 # zlib raises a broken stream as a warning as well as answering false; the handler that keeps the
                 # warning from the run's output is restored before inflate_add's answer is returned.
                 - src/Core/Format/Gzip.php
+                # A split stream's change check runs a pure expression's mutated code under a handler that keeps its
+                # warnings from the run's output, and counts one as a change; it is restored before the answer is read
+                # (ADR-0117).
+                - src/Adapter/Pest/Split/Unchanged.php
                 # preg_match raises a pattern PCRE cannot compile as a warning as well as answering false; the handler
                 # that keeps the warning from the run's output is restored before the answer is returned.
                 - src/Core/Test/Filter.php
@@ -215,6 +222,10 @@ parameters:
                 # restored before the answer is read (ADR-0078).
                 - src/Adapter/Serve/Connection.php
                 - src/Adapter/Serve/Listener.php
+                # stream_select raises a pause a wake's own signal cut short as a warning as well as answering false;
+                # the handler that keeps it from a warm worker's or its client's output is restored before the pause
+                # ends (ADR-0120).
+                - src/Adapter/Pest/Warm/Wake.php
                 # proc_open raises a program that cannot start as a warning as well as answering false; the handler
                 # that keeps it from the run's output is restored before the answer is read.
                 - src/Adapter/Zstd/ZstdProgram.php
@@ -254,6 +265,17 @@ parameters:
                     name: 'option'
                     typeString: "'log_errors'|'error_log'"
 
+        # --- the local loop's own priority ------------------------------------------
+        # The extension keys each entry by its call, so this entry replaces the dangerous set's own for
+        # proc_nice() and keeps its message everywhere else.
+        -
+            function: 'proc_nice()'
+            message: 'changes the priority of the current process'
+            allowIn:
+                # watch and serve lower their own priority on Windows to the class local.windowsClass names, which
+                # every process they start inherits; they never raise it (ADR-0120).
+                - src/Adapter/Local/OwnPriority.php
+
         # --- a signal of no effect, and a run's own ending ---------------------------
         # The extension keys each entry by its call, so this entry replaces the dangerous set's own for
         # posix_kill() and keeps its message everywhere else.
@@ -276,6 +298,15 @@ parameters:
                 # A client of `mutation-gate serve`, and its daemon, ask whether the process at the other end of the
                 # socket is one this user may signal, with signal 0, which tells and sends nothing (ADR-0078).
                 - src/Adapter/Serve/ServeSocket.php
+                # A process a split stream forked ends itself by the signal that says how its test ended (ADR-0117).
+                - src/Adapter/Pest/Split/OwnEnd.php
+                # A split stream stops a child that runs past its limit (ADR-0117).
+                - src/Adapter/Pest/Split/Children.php
+                # watch halts the batch running in its own process with SIGUSR2 once a save moves one of its units
+                # (ADR-0146).
+                - src/Adapter/Process/Halting.php
+                # The served projects of the tests stop the daemons they started.
+                - tests/Support/ServedProjects.php
 
         # --- base64 of what holds no secret ------------------------------------------
         # The extension keys each entry by its call, so this entry replaces the timing-safe set's own for
@@ -364,6 +395,9 @@ parameters:
                 # A warm worker's child reads and sets RefreshDatabase's static state, by name, since the gate does
                 # not require Laravel (ADR-0023).
                 - src/Adapter/Pest/Warm/Database/Laravel.php
+                # A split stream's change check reads what a pure expression's closure captured, and refuses one that
+                # reaches an object, whose methods the operators could run (ADR-0117).
+                - src/Adapter/Pest/Split/Unchanged.php
 
     disallowedSuperglobals:
         # --- B6: the environment, read the other way -----------------------------
@@ -386,6 +420,12 @@ parameters:
                 # A program a run starts inherits what `$_ENV` holds over this process's own environment, as
                 # Symfony's Process hands it on, and as a dotenv loader that fills only `$_ENV` expects.
                 - src/Adapter/Process/Running.php
+                # A split stream reads the command line its runner's process was started with, which Pest's
+                # worker processes hold in `$_SERVER['argv']` alone (ADR-0117).
+                - src/Adapter/Pest/Split/RunnerFiles.php
+                # Laravel reads its base path from `$_ENV` or `$_SERVER`, where a split stream points it at the
+                # bootstrap that hands a test the application booted once (ADR-0117).
+                - src/Adapter/Pest/Split/Zygote.php
 
     disallowedConstants:
         # --- B3: the standard streams are files ----------------------------------

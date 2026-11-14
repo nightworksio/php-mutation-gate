@@ -38,6 +38,9 @@ enum RecordField: string
     /** How many: the mutants Pest made, or the tests a mutant's own process ran. */
     case Count = 'count';
 
+    /** How many of a count were alike. */
+    case Alike = 'alike';
+
     /** The opening run's seconds. */
     case Opening = 'opening';
 

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -42,7 +43,7 @@ afterEach(function (): void {
 
 $at = static fn(): Instant => Instant::at(new DateTimeImmutable('2026-10-09T08:00:00Z'));
 
-$passed = static fn(): Passed => Passed::of(Revision::ref('passed'), 'mutation / verdict', 1)->passedAt($at());
+$passed = static fn(): Passed => Passed::of(Revision::ref('passed'), 'mutation / verdict', 1)->passedAt($at())->judgedBy(GateRelease::of(Flows::setup()->gate));
 
 /** A plan over a project, made since a ref or a full one, where only this file changed since the commit that passed on `main`. */
 $plan = static function (string $project, string $changed, Mode $mode, object ...$ports) use ($passed): Plan|CannotJudge {

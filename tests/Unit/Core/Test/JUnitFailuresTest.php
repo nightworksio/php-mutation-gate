@@ -62,3 +62,17 @@ it('names none where the log names no failure, is not JUnit, or is empty, and re
         ->and($unread)->toBe([])
         ->and($raised)->toBe([]);
 });
+
+it('counts the test cases a log names and those that passed, neither failed, errored nor skipped, and none of a log it cannot read', function (): void {
+    $log = sprintf('<?xml version="1.0"?><testsuites><testsuite name="T">%s</testsuite></testsuites>', <<<'XML'
+        <testcase name="it passes" file="tests/A.php::it passes" class="Tests\A"/>
+        <testcase name="it fails" file="tests/A.php::it fails" class="Tests\A"><failure>x</failure></testcase>
+        <testcase name="it errs" file="tests/A.php::it errs" class="Tests\A"><error>x</error></testcase>
+        <testcase name="it waits" file="tests/A.php::it waits" class="Tests\A"><skipped/></testcase>
+        <testcase name="it passes too" file="tests/A.php::it passes too" class="Tests\A"><system-out>x</system-out></testcase>
+        XML);
+
+    expect([JUnitFailures::cases($log), JUnitFailures::passed($log)])->toBe([5, 2])
+        ->and([JUnitFailures::cases(log: false), JUnitFailures::passed(log: false), JUnitFailures::cases(''), JUnitFailures::cases('<testsuites/>')])
+        ->toBe([0, 0, 0, 0]);
+});

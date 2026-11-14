@@ -10,8 +10,6 @@ use function array_keys;
 use Closure;
 
 use function count;
-use function file_get_contents;
-use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
@@ -20,14 +18,16 @@ use NightWorksIO\MutationGate\Core\Analysis\PreCheckable;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheckables;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
+use NightWorksIO\MutationGate\Core\Analysis\Rejections;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\ProvesBeforeRun;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
@@ -43,9 +43,15 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * waits, the hand-off offers each covered mutant that is no twin to the
  * pre-checker, as Pest prints it, behind its covering tests' own time, and
  * writes the verdicts file the plugin waits for: the mutated copy of each
- * mutant rejected, whose run Pest then skips. It writes the file however the
- * checks end, so Pest never waits on a check that failed. A mutant and its
- * twins share their copy, and so their rejection.
+ * mutant rejected, whose run Pest then skips. Before that, where
+ * `outbreak.so` loads, every planned mutant that is no twin is compiled
+ * beside its original (ADR-0130): one proven equivalent is skipped the same
+ * way and never offered to the pre-checker, and under
+ * `mutants.duplicates: judge-once` one that compiles as a mutant made before
+ * it at the same lines does is skipped, and judged as that one's twin
+ * (ADR-0137). It writes the file however the checks end, so Pest never waits
+ * on a check that failed. A mutant and its twins share their copy, and so
+ * their rejection.
  *
  * @internal
  */
@@ -53,6 +59,9 @@ final class HandOff implements ProcessWatch
 {
     /** @var array<string, Rejection> each rejection, by the mutated copy of the mutant it rejected */
     private array $rejected = [];
+
+    /** What the hand-off proved of the run's mutants before they ran, once it has. */
+    private ProvenMutants $proven;
 
     private bool $handed = false;
 
@@ -65,13 +74,24 @@ final class HandOff implements ProcessWatch
         private readonly Closure $covering,
         private readonly Bridges $bridges,
         private readonly Subsumption|NotGiven $held = new NotGiven(),
+        private readonly ProvesBeforeRun|NotGiven $equivalence = new NotGiven(),
+        private readonly bool $duplicatesOnce = true,
     ) {
+        $this->proven = ProvenMutants::none();
     }
 
-    /** Whether a run hands its mutants off: to a pre-checker, or to be held back by which subsumes which. */
-    public static function isWanted(PreChecker $checker, Subsumption|NotGiven $held): bool
-    {
-        return ! $checker instanceof NoPreCheck || $held instanceof Subsumption;
+    /**
+     * Whether a run hands its mutants off: to a pre-checker, to be held back
+     * by which subsumes which, or to be proven equivalent before they run.
+     */
+    public static function isWanted(
+        PreChecker $checker,
+        Subsumption|NotGiven $held,
+        ProvesBeforeRun|NotGiven $equivalence = new NotGiven(),
+    ): bool {
+        return ! $checker instanceof NoPreCheck
+            || $held instanceof Subsumption
+            || $equivalence instanceof ProvesBeforeRun;
     }
 
     public function look(): void
@@ -90,10 +110,17 @@ final class HandOff implements ProcessWatch
         $held = [];
 
         try {
+            $this->proven = $this->equivalence instanceof ProvesBeforeRun
+                ? ProvenMutants::among($records, $this->project, $this->equivalence, $this->duplicatesOnce)
+                : ProvenMutants::none();
             $held = $this->heldBack($records);
             $this->rejected = $this->checker instanceof NoPreCheck ? [] : $this->checked($records);
         } finally {
-            Verdicts::write(Verdicts::beside($this->results), array_keys($this->rejected), $held);
+            Verdicts::write(
+                Verdicts::beside($this->results),
+                [...$this->proven->copies(), ...array_keys($this->rejected)],
+                $held,
+            );
         }
     }
 
@@ -103,6 +130,22 @@ final class HandOff implements ProcessWatch
         $copy = $mutant->mutated()->value();
 
         return array_key_exists($copy, $this->rejected) ? $this->rejected[$copy] : NotGiven::value();
+    }
+
+    /** What proved a planned mutant equivalent before it ran; nothing where nothing did. */
+    public function equivalenceOf(PlannedMutant $mutant): Reason|NotGiven
+    {
+        return $this->proven->equivalenceOf($mutant);
+    }
+
+    /**
+     * A planned mutant as the run judges it: the twin of the mutant made
+     * before it that compiles as it does, served as that one's copy, where it
+     * is a duplicate; as it is otherwise.
+     */
+    public function judgedAs(PlannedMutant $mutant): PlannedMutant
+    {
+        return $this->proven->judgedAs($mutant);
     }
 
     public function progress(): string
@@ -135,10 +178,12 @@ final class HandOff implements ProcessWatch
             $tests = $covering->testsCovering($mutant->file(), $mutant->start(), $mutant->end());
             $gate = $this->unrun($ids[$at], $mutant);
             $file = $gate->location()->file()->value();
-            $prints[$file] ??= $this->printOf($gate);
-            $checkable = $this->checkable($prints[$file], $mutant);
+            $prints[$file] ??= Printed::at($this->project, $gate->location()->file());
+            $checkable = Printed::served($prints[$file], $mutant);
 
-            if ($mutant->isTwin() || count($tests) === 0 || ! $checkable instanceof Checkable) {
+            $offerable = ! $mutant->isTwin() && ! $this->proven->decides($mutant) && count($tests) > 0;
+
+            if (! $offerable || ! $checkable instanceof Checkable) {
                 continue;
             }
 
@@ -146,7 +191,18 @@ final class HandOff implements ProcessWatch
             $copies[$gate->id()->value()] = $mutant->mutated()->value();
         }
 
-        $rejections = $this->checker->rejected(PreCheckables::of(...$offered), $this->side);
+        return $this->byCopy($this->checker->rejected(PreCheckables::of(...$offered), $this->side), $offered, $copies);
+    }
+
+    /**
+     * What rejected each of these offered mutants, by its mutated copy.
+     *
+     * @param  list<PreCheckable>    $offered
+     * @param  array<string, string> $copies  each offered mutant's mutated copy, by the gate's id of it
+     * @return array<string, Rejection>
+     */
+    private function byCopy(Rejections $rejections, array $offered, array $copies): array
+    {
         $rejected = [];
 
         foreach ($offered as $offer) {
@@ -204,29 +260,6 @@ final class HandOff implements ProcessWatch
             MutantStatus::Unjudged,
             Unmeasured::duration(),
         );
-    }
-
-    /** A mutant's file as Pest prints it, or why it cannot be printed. */
-    private function printOf(Mutant $mutant): Contents|CannotJudge
-    {
-        $file = $mutant->location()->file();
-        $written = file_get_contents($this->project->absolute($file));
-
-        return is_string($written) ? Printed::of(Contents::of($written), $file) : CannotJudge::because($file->value());
-    }
-
-    /** A mutant as the analyser reads it: the mutated copy Pest serves, judged against the print of its file. */
-    private function checkable(Contents|CannotJudge $print, PlannedMutant $mutant): Checkable|CannotJudge
-    {
-        if ($print instanceof CannotJudge) {
-            return $print;
-        }
-
-        $copy = file_get_contents($mutant->mutated()->value());
-
-        return is_string($copy)
-            ? Checkable::printed($print, Contents::of($copy))
-            : CannotJudge::because($mutant->mutated()->value());
     }
 
     private function seconds(Seconds|Unmeasured $took): Seconds

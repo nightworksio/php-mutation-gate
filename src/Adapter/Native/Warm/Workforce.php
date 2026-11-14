@@ -10,6 +10,7 @@ use function array_search;
 use function array_slice;
 use function array_unique;
 use function array_values;
+use function count;
 use function getmypid;
 use function hrtime;
 use function is_file;
@@ -30,6 +31,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
@@ -129,7 +131,8 @@ final readonly class Workforce
         Seconds|Unlimited $deadline,
         array $positions,
     ): WarmEnds {
-        $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
+        $booted = $request->pool()->slotsFor(ProcessCount::atLeastOne(count($positions)));
+        $slots = WorkerSlots::of($booted, strval(getmypid()));
         $commands = [];
 
         foreach (array_keys([...$slots]) as $place) {

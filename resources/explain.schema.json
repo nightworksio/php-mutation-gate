@@ -99,6 +99,7 @@
                                     "ignored-by-marker",
                                     "skipped",
                                     "out-of-memory",
+                                    "equivalent",
                                     "fails-unmutated"
                                 ]
                             },
@@ -337,6 +338,7 @@
                                         "ignored-by-marker",
                                         "skipped",
                                         "out-of-memory",
+                                        "equivalent",
                                         "fails-unmutated"
                                     ]
                                 },

@@ -154,7 +154,7 @@ final readonly class KillMatrix
     /** How long a test runs on its own, as the coverage run measured it. */
     public function secondsOf(TestId $test): Seconds|Unmeasured
     {
-        return $this->coverage->durationOf($test);
+        return $this->coverage->durations()->of($test);
     }
 
     /** Every test that covers the mutant, and every test its record names as a killer. */
@@ -237,7 +237,9 @@ final readonly class KillMatrix
             MutantStatus::Uncovered,
             MutantStatus::Unjudged,
             MutantStatus::IgnoredByMarker,
-            MutantStatus::Skipped => Outcome::NotRun,
+            MutantStatus::Equivalent,
+            MutantStatus::Skipped,
+            MutantStatus::NotReached => Outcome::NotRun,
         };
     }
 

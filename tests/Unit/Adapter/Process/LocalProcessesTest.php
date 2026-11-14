@@ -6,12 +6,16 @@ use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Process\Saying;
 use NightWorksIO\MutationGate\Cli\SystemClock;
+use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\GaugeFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 
@@ -54,10 +58,62 @@ it('says once a minute, on the clock it says by, which process runs longest and 
         }
     };
 
-    new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::to($file), new TickingClock('2026-10-26T10:00:00Z', 30)))
+    new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::to($file), new TickingClock('2026-10-26T10:00:00Z', 30), GaugeFake::silent()))
         ->run(ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', 'usleep(300000);'), $watch);
     $said = is_file($file) ? explode("\n", (string) file_get_contents($file)) : [];
 
     expect($said[0])->toStartWith('mutation-gate: 0 of 1 processes ended, 1 running; the longest for ')
         ->and($said[0])->toEndWith(sprintf('%s -r usleep(300000);; halfway', PHP_BINARY));
+});
+
+it('starts a test process that sees neither the runtime token, the artifact service, nor its handoff, whatever the gate inherited', function (): void {
+    $handed = [
+        'ACTIONS_RUNTIME_TOKEN' => 'runtime-token',
+        'ACTIONS_RESULTS_URL' => 'https://results.example/',
+        'MUTATION_GATE_ARTIFACT_SERVICE' => '/runner/temp/mutation-gate-artifact-service.json',
+    ];
+
+    foreach ($handed as $name => $value) {
+        putenv(sprintf('%s=%s', $name, $value));
+    }
+
+    $inherited = getenv();
+    $seen = 'echo json_encode([getenv("ACTIONS_RUNTIME_TOKEN"), getenv("ACTIONS_RESULTS_URL"), getenv("MUTATION_GATE_ARTIFACT_SERVICE"), getenv("PATH") !== false]);';
+    $ran = new LocalProcesses(new SystemClock())->run(
+        ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', $seen)
+            ->with(EnvironmentRead::of(Withholding::of(Withheld::standard()->and(Withheld::otherRuns()), $inherited))),
+    );
+
+    foreach (array_keys($handed) as $name) {
+        putenv($name);
+    }
+
+    expect($inherited)->toHaveKey('ACTIONS_RUNTIME_TOKEN')
+        ->and($ran->succeeded())->toBeTrue()
+        ->and(trim($ran->printed()))->toBe('[false,false,false,true]');
+});
+
+it('starts a process that holds an empty pipe where the gate holds a file open for writing', function (): void {
+    $file = sprintf('%s/held.log', Scratch::directory());
+    $held = fopen($file, 'wb');
+    $inode = fileinode($file);
+    $descriptors = scandir('/dev/fd');
+    $number = current(array_filter(
+        is_array($descriptors) ? $descriptors : [],
+        static fn(string $descriptor): bool => is_file(sprintf('/dev/fd/%s', $descriptor))
+            && fileinode(sprintf('/dev/fd/%s', $descriptor)) === $inode,
+    ));
+    $seen = sprintf(
+        '$stream = fopen("php://fd/%s", "rb"); echo json_encode([fstat($stream)["mode"] & 0170000, stream_get_contents($stream)]);',
+        $number,
+    );
+    $ran = new LocalProcesses(new SystemClock())->run(ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', $seen));
+
+    if (is_resource($held)) {
+        fclose($held);
+    }
+
+    expect($number)->toBeString()
+        ->and($ran->succeeded())->toBeTrue($ran->output())
+        ->and(trim($ran->printed()))->toBe('[4096,""]');
 });

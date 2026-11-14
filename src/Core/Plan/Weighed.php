@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -23,6 +24,17 @@ final readonly class Weighed
     public static function of(Unit $unit, Package $package, Estimated $estimated): self
     {
         return new self($unit, $package, $estimated);
+    }
+
+    /**
+     * The unit, weighed for a shard whose tests are one of this many parts of
+     * the test files: its cost shared alike among the parts, on the same basis.
+     */
+    public function sharedAmong(TestPart $part): self
+    {
+        $share = Seconds::of($this->cost()->seconds() / $part->parts());
+
+        return new self($this->unit, $this->package, Estimated::of($share, $this->estimated->basis()));
     }
 
     public function unit(): Unit

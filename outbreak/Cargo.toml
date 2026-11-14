@@ -1,0 +1,47 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+exclude = ["fuzz"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+repository = "https://github.com/nightworksio/php-mutation-gate"
+authors = ["NightWorksIO"]
+publish = false
+
+[workspace.dependencies]
+ext-php-rs = { version = "0.16", features = ["observer"] }
+libc = "0.2"
+kqueue = "1.2"
+rustix = { version = "1", default-features = false, features = ["process", "std"] }
+flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
+sha2 = { version = "0.11", default-features = false }
+ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
+outbreak-cache = { path = "crates/outbreak-cache" }
+outbreak-graph = { path = "crates/outbreak-graph" }
+outbreak-lsp = { path = "crates/outbreak-lsp" }
+outbreak-map = { path = "crates/outbreak-map" }
+outbreak-report = { path = "crates/outbreak-report" }
+outbreak-serve = { path = "crates/outbreak-serve" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+strip = "symbols"

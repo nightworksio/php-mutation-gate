@@ -86,7 +86,7 @@ final readonly class ConfigWriting
             return $text;
         }
 
-        $comment = $import->layer()->floors()->trees() instanceof Absent
+        $comment = $import->layer()->judging()->floors()->trees() instanceof Absent
             ? $destination->format()->commented($trees->lines($file))
             : '';
         $text = sprintf('%s%s', $text, is_string($comment) ? $comment : '');

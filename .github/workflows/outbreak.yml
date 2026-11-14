@@ -1,0 +1,615 @@
+# Outbreak's core, the Rust workspace under outbreak/ (ADR-0118). Its gates
+# hold it to herald's standard: formatting, clippy pedantic with every warning
+# denied on every target, the suite, every line covered, the dependency
+# audits, the oldest supported toolchain, every mutant caught in shards, each
+# parser fuzzed, and the boundary: the PHP contract suite of the map engine
+# run against the binary this commit builds. Its builds make the binary for
+# every platform the package ships it for: Linux, static against musl, on
+# x86_64 and aarch64; macOS on both; and Windows on x86_64. Each answers
+# `outbreak contract` where it is built, and is uploaded as
+# `outbreak-<platform>` with its SHA-256 beside it. outbreak.so, the
+# extension (ADR-0130), is built beside it for each supported PHP minor, and
+# every job that builds the workspace installs PHP's headers and one LLVM's
+# clang and libclang (.github/scripts/libclang.sh), which its bindings are
+# generated with. Its compiling and reading of op arrays and state, and its
+# hooks into the engine, run only inside PHP, so the boundary's contract suite
+# holds them, not the Rust suite's coverage or mutants.
+#
+# ci.yml calls it on every run, with the gates where `what changed` lists
+# `outbreak` (the Rust tree, its workflow, or the PHP the binary talks to),
+# the boundary wherever `tests` runs, since `coverage` merges the boundary's
+# coverage into G7, and the builds where it says `builds` (the Rust tree or
+# its workflow), so `passed` reports on every pull request and main can
+# require it. release.yml calls it for the builds alone, and its draft lays
+# every binary under resources/outbreak with the SHA256SUMS the gate checks
+# each one against. A pull request mutates what its diff touches and fuzzes
+# each target for a minute; main and the night mutate the whole workspace and
+# the night fuzzes for half an hour.
+name: outbreak
+
+on:
+  workflow_call:
+    inputs:
+      gates:
+        description: Whether the Rust gates and the boundary run.
+        type: boolean
+        default: true
+      builds:
+        description: Whether the binary is built for every platform.
+        type: boolean
+        default: true
+      boundary:
+        description: Whether the boundary runs without the Rust gates, for the coverage ci.yml's `coverage` merges.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  PHP_VERSION: '8.5'
+
+defaults:
+  run:
+    working-directory: outbreak
+
+jobs:
+  fmt:
+    name: fmt
+    if: inputs.gates
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: cargo fmt --all --check
+      - run: cargo fmt --all --check --manifest-path fuzz/Cargo.toml
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/fmt
+
+  clippy:
+    name: clippy
+    if: inputs.gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            outbreak/target
+          key: outbreak-clippy-${{ runner.arch }}-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: bash .github/scripts/libclang.sh
+        working-directory: .
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/clippy
+
+  test:
+    name: test
+    if: inputs.gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            outbreak/target
+          key: outbreak-test-${{ runner.arch }}-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: bash .github/scripts/libclang.sh
+        working-directory: .
+      - run: ci/install-tool.sh cargo-nextest
+      - run: cargo nextest run --workspace --locked
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/test
+
+  # Every line of the workspace, the binary's own included: its integration
+  # tests run the binary built for coverage.
+  coverage:
+    name: coverage
+    if: inputs.gates
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            outbreak/target
+          key: outbreak-coverage-${{ runner.arch }}-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: bash .github/scripts/libclang.sh
+        working-directory: .
+      - run: ci/install-tool.sh cargo-nextest
+      - run: ci/install-tool.sh cargo-llvm-cov
+      - run: >-
+          cargo llvm-cov nextest --workspace --locked --fail-under-lines 100 --show-missing-lines
+          --ignore-filename-regex 'crates/outbreak-ext/src/(engine|lib|program|state|value)\.rs'
+      # Every line the report counts unrun, which --show-missing-lines may
+      # not name: the report credits a function with its best instantiation.
+      - name: the lines left unrun
+        if: failure()
+        run: |
+          cargo llvm-cov report --color never --text --show-instantiations \
+            --ignore-filename-regex 'crates/outbreak-ext/src/(engine|lib|program|state|value)\.rs' > "${RUNNER_TEMP}/unrun.txt"
+          python3 ../.github/scripts/unrun_lines.py "${RUNNER_TEMP}/unrun.txt"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: outbreak-coverage-text
+          path: ${{ runner.temp }}/unrun.txt
+          retention-days: 1
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/coverage
+
+  deny:
+    name: deny
+    if: inputs.gates
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: ci/install-tool.sh cargo-deny
+      - run: cargo deny --locked check
+      - run: cargo deny --locked --manifest-path fuzz/Cargo.toml check
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/deny
+
+  audit:
+    name: audit
+    if: inputs.gates
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: ci/install-tool.sh cargo-audit
+      - run: cargo audit --deny warnings
+      - run: cargo audit --deny warnings --file fuzz/Cargo.lock
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/audit
+
+  # The oldest toolchain the workspace promises, `rust-version` in Cargo.toml.
+  # RUSTUP_TOOLCHAIN takes precedence over rust-toolchain.toml, which would
+  # otherwise hand this job the pinned toolchain.
+  msrv:
+    name: msrv
+    if: inputs.gates
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    env:
+      RUSTUP_TOOLCHAIN: "1.95"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: |
+          set -euo pipefail
+          declared=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
+          if [ "$declared" != "$RUSTUP_TOOLCHAIN" ]; then
+            echo "::error::Cargo.toml declares rust-version ${declared}, and this job tests ${RUSTUP_TOOLCHAIN}"
+            exit 1
+          fi
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            outbreak/target
+          key: outbreak-msrv-${{ runner.arch }}-${{ hashFiles('outbreak/Cargo.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: bash .github/scripts/libclang.sh
+        working-directory: .
+      - run: cargo test --workspace --locked
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/msrv
+
+  # Any missed mutant fails its shard.
+  mutants:
+    name: mutants ${{ matrix.shard }}
+    if: inputs.gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+          key: outbreak-mutants-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: php-config, phpize
+      - run: bash .github/scripts/libclang.sh
+        working-directory: .
+      - run: ci/install-tool.sh cargo-nextest
+      - run: ci/install-tool.sh cargo-mutants
+      - env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ strategy.job-total }}
+        run: |
+          set -euo pipefail
+          scope=()
+          if [ "$EVENT" = "pull_request" ]; then
+            git diff "$(git merge-base "$BASE" HEAD)" HEAD -- . > "${RUNNER_TEMP}/change.diff"
+            scope=(--in-diff "${RUNNER_TEMP}/change.diff")
+          fi
+          cargo mutants --workspace --no-shuffle --shard "${SHARD}/${SHARDS}" "${scope[@]}" \
+            --exclude 'crates/outbreak-ext/src/{engine,lib,program,state,value}.rs'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: outbreak-mutants-${{ matrix.shard }}
+          path: outbreak/mutants.out
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/mutants
+
+  # Every parser and decoder: a map's text, a split request, a slice of a map
+  # the slicer takes, which must itself be a map it vouches for, a run's
+  # report, a pack of proofs, a PHP file with a graph request, the daemon's
+  # journal and snapshot, and what the language server reads.
+  fuzz:
+    name: fuzz ${{ matrix.target }}
+    if: inputs.gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # The fuzz harness builds with a sanitizer, which needs nightly. Pinned,
+      # so a nightly that breaks the build is a reviewed bump.
+      RUSTUP_TOOLCHAIN: nightly-2026-10-29
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [map, request, slice, report, pack, graph, journal, lsp]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+      - run: ci/install-tool.sh cargo-fuzz
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: outbreak/fuzz/corpus/${{ matrix.target }}
+          key: outbreak-fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: outbreak-fuzz-corpus-${{ matrix.target }}-
+      - env:
+          TARGET: ${{ matrix.target }}
+          SECONDS_TO_RUN: ${{ github.event_name == 'schedule' && '1800' || '60' }}
+        working-directory: outbreak/fuzz
+        run: cargo fuzz run --target x86_64-unknown-linux-gnu "$TARGET" -- -max_total_time="$SECONDS_TO_RUN" -dict=outbreak.dict
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: outbreak-fuzz-artifacts-${{ matrix.target }}
+          path: outbreak/fuzz/artifacts
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/fuzz
+
+  # The map engine's PHP contract suite and the adapter's own tests, run
+  # against the binary this commit builds: what the binary answers is what
+  # the gate's PHP gives.
+  boundary:
+    name: boundary
+    if: inputs.gates || inputs.boundary
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            outbreak/target
+          key: outbreak-boundary-${{ runner.arch }}-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - run: cargo build --release --locked --package outbreak
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          tools: php-config, phpize
+      - run: bash .github/scripts/libclang.sh
+        working-directory: .
+      - run: cargo build --release --locked --package outbreak-ext
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # The suites run under coverage, which ci.yml's `coverage` merges into
+      # G7 (covered.sh).
+      - working-directory: .
+        env:
+          OUTBREAK_BINARY: ${{ github.workspace }}/outbreak/target/release/outbreak
+          OUTBREAK_EXTENSION: ${{ github.workspace }}/outbreak/target/release/liboutbreak.so
+          COVERED: ${{ github.workspace }}/.coverage/boundary
+        run: >-
+          .github/scripts/covered.sh "${COVERED}" tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph
+          tests/Contract/KeepsProofs tests/Contract/Equivalence tests/Process/Adapter/Outbreak
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-of-boundary
+          path: .coverage/boundary/collected.php
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/boundary
+
+  build:
+    name: build ${{ matrix.platform }}
+    if: inputs.builds
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            target: x86_64-unknown-linux-musl
+            runner: ubuntu-24.04
+            binary: outbreak
+          - platform: linux-aarch64
+            target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+            binary: outbreak
+          - platform: darwin-x86_64
+            target: x86_64-apple-darwin
+            runner: macos-15
+            binary: outbreak
+          - platform: darwin-aarch64
+            target: aarch64-apple-darwin
+            runner: macos-15
+            binary: outbreak
+          - platform: windows-x86_64
+            target: x86_64-pc-windows-msvc
+            runner: windows-2025
+            binary: outbreak.exe
+    defaults:
+      run:
+        shell: bash
+        working-directory: outbreak
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+      - env:
+          TARGET: ${{ matrix.target }}
+        run: rustup target add "${TARGET}"
+      - env:
+          TARGET: ${{ matrix.target }}
+        run: cargo build --release --locked --package outbreak --target "${TARGET}"
+      - name: Answer the contract, and keep the binary with its SHA-256
+        env:
+          TARGET: ${{ matrix.target }}
+          PLATFORM: ${{ matrix.platform }}
+          BINARY: ${{ matrix.binary }}
+        run: |
+          set -euo pipefail
+          built="target/${TARGET}/release/${BINARY}"
+          said="$("${built}" contract)"
+          if [[ "${said}" != *'"outbreak":1'* ]]; then
+            echo "::error::${built} answered ${said}, not contract 1."
+            exit 1
+          fi
+          mkdir -p "dist/${PLATFORM}"
+          cp "${built}" "dist/${PLATFORM}/${BINARY}"
+          cd dist
+          if command -v sha256sum > /dev/null; then
+            sha256sum "${PLATFORM}/${BINARY}" > "${PLATFORM}/SHA256SUM"
+          else
+            shasum -a 256 "${PLATFORM}/${BINARY}" > "${PLATFORM}/SHA256SUM"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: outbreak-${{ matrix.platform }}
+          path: outbreak/dist
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/build
+
+  # outbreak.so (ADR-0130) for each PHP minor the package supports, NTS, on
+  # every platform but Windows, against the oldest glibc the hosted runners
+  # offer. Each loads into its PHP where it is built for the runner's own
+  # architecture, and is uploaded as `outbreak-ext-<platform>-php<minor>`,
+  # laid out as resources/outbreak/<platform>/php<minor>/outbreak.so with its
+  # SHA-256 beside it.
+  extension:
+    name: extension ${{ matrix.platform }} php ${{ matrix.php }}
+    if: inputs.builds
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+        platform: [linux-x86_64, linux-aarch64, darwin-x86_64, darwin-aarch64]
+        include:
+          - platform: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            library: liboutbreak.so
+            loads: true
+          - platform: linux-aarch64
+            target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04-arm
+            library: liboutbreak.so
+            loads: true
+          - platform: darwin-x86_64
+            target: x86_64-apple-darwin
+            runner: macos-15
+            library: liboutbreak.dylib
+            loads: false
+          - platform: darwin-aarch64
+            target: aarch64-apple-darwin
+            runner: macos-15
+            library: liboutbreak.dylib
+            loads: true
+    defaults:
+      run:
+        shell: bash
+        working-directory: outbreak
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: php-config, phpize
+      - if: runner.os == 'Linux'
+        run: bash .github/scripts/libclang.sh
+        working-directory: .
+      - env:
+          TARGET: ${{ matrix.target }}
+        run: rustup target add "${TARGET}"
+      - env:
+          TARGET: ${{ matrix.target }}
+        run: cargo build --release --locked --package outbreak-ext --target "${TARGET}"
+      - name: Load it, and keep it with its SHA-256
+        env:
+          TARGET: ${{ matrix.target }}
+          PLATFORM: ${{ matrix.platform }}
+          LIBRARY: ${{ matrix.library }}
+          LOADS: ${{ matrix.loads }}
+          PHP: ${{ matrix.php }}
+        run: |
+          set -euo pipefail
+          built="target/${TARGET}/release/${LIBRARY}"
+          if [ "${LOADS}" = "true" ]; then
+            said="$(php -n -d "extension=${PWD}/${built}" -r 'echo function_exists("outbreak_op_arrays") ? outbreak_version() : "missing";')"
+            if [ "${said}" = "missing" ] || [ -z "${said}" ]; then
+              echo "::error::${built} did not load into PHP ${PHP}."
+              exit 1
+            fi
+          fi
+          placed="${PLATFORM}/php${PHP}"
+          mkdir -p "dist/${placed}"
+          cp "${built}" "dist/${placed}/outbreak.so"
+          cd dist
+          if command -v sha256sum > /dev/null; then
+            sha256sum "${placed}/outbreak.so" > "${placed}/SHA256SUM"
+          else
+            shasum -a 256 "${placed}/outbreak.so" > "${placed}/SHA256SUM"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: outbreak-ext-${{ matrix.platform }}-php${{ matrix.php }}
+          path: outbreak/dist
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/extension
+
+  # The check main requires of Outbreak's core: every job this run was asked
+  # for passed. Where it was asked for none it is skipped, which a required
+  # check reads as passed.
+  passed:
+    name: passed
+    needs: [fmt, clippy, test, coverage, deny, audit, msrv, mutants, fuzz, boundary, build, extension]
+    if: ${{ !cancelled() && (inputs.gates || inputs.builds || inputs.boundary) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - name: every job asked for passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          GATES: ${{ inputs.gates }}
+          BUILDS: ${{ inputs.builds }}
+          BOUNDARY: ${{ inputs.boundary }}
+        run: |
+          failed="$(jq -r --argjson gates "${GATES}" --argjson builds "${BUILDS}" --argjson boundary "${BOUNDARY}" \
+            'to_entries[] | select((if .key == "build" or .key == "extension" then $builds elif .key == "boundary" then $gates or $boundary else $gates end) and .value.result != "success")
+              | "\(.key) ended \(.value.result)"' <<< "${NEEDS}")"
+          if [ -n "${failed}" ]; then
+            echo "::error title=outbreak::${failed//$'\n'/; }. Each job's own log says why."
+            exit 1
+          fi
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py outbreak/passed

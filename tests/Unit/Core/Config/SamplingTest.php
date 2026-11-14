@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('samples by default at 95 percent, for 2 points either side, running at least 30 units, from no seed of its own', function (): void {
-    $sampling = Layer::standard()->reach()->sampling();
+    $sampling = Layer::standard()->judging()->reach()->sampling();
 
     expect([$sampling->confidence(), $sampling->margin(), $sampling->minUnits(), $sampling->seed()])
         ->toEqual([Confidence::NinetyFive, 2.0, 30, NotGiven::value()])
@@ -28,12 +28,12 @@ it('samples by default at 95 percent, for 2 points either side, running at least
 it('lays each sampling key a later layer sets over an earlier one\'s, key by key', function (): void {
     $earlier = Layer::of(Reach::of(sampling: Sampling::of(confidence: Confidence::NinetyNine, margin: 1)));
     $later = Layer::of(Reach::of(sampling: Sampling::of(margin: 1.5, minUnits: 50, seed: 'release')));
-    $sampling = $earlier->over($later)->reach()->sampling();
+    $sampling = $earlier->over($later)->judging()->reach()->sampling();
 
     expect([$sampling->confidence(), $sampling->margin(), $sampling->minUnits(), $sampling->seed()])
         ->toEqual([Confidence::NinetyNine, 1.5, 50, 'release'])
-        ->and($earlier->over(Layer::of())->reach()->sampling()->margin())->toBe(1.0)
-        ->and(Layer::of()->over($later)->reach()->sampling()->seed())->toBe('release');
+        ->and($earlier->over(Layer::of())->judging()->reach()->sampling()->margin())->toBe(1.0)
+        ->and(Layer::of()->over($later)->judging()->reach()->sampling()->seed())->toBe('release');
 });
 
 it('writes only the sampling keys a layer sets, and the builder calls for them', function (): void {
@@ -82,7 +82,7 @@ it('refuses a confidence it does not offer, a margin of none or over 10, fewer t
 });
 
 it('samples of its own accord nowhere by default, and would only on a pull request\'s run', function (): void {
-    $sampling = Layer::standard()->reach()->sampling();
+    $sampling = Layer::standard()->judging()->reach()->sampling();
 
     expect($sampling->auto())->toEqual(AutoSample::off())
         ->and([...$sampling->autoRuns()])->toBe([SampledRun::PullRequests])

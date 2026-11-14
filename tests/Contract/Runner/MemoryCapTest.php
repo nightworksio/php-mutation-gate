@@ -136,7 +136,7 @@ $hogged = static function (Library $library, string $hog, string $also = '', str
         static fn(Mutant $mutant): string => sprintf(
             '%s %s',
             $mutant->status()->value,
-            $mutant->limit() instanceof MemoryCap ? $mutant->limit()->written() : 'unlimited',
+            $mutant->stop()->limit() instanceof MemoryCap ? $mutant->stop()->limit()->written() : 'unlimited',
         ),
         iterator_to_array($result->mutants(), preserve_keys: false),
     ) : [$result->why()];
@@ -183,7 +183,7 @@ it('reads an Infection mutant as out of memory with no limit, and so too heavy t
     $hiding = '<php><ini name="display_errors" value="0"/></php></phpunit>';
     file_put_contents($config, str_replace('</phpunit>', $hiding, (string) file_get_contents($config)));
 
-    expect(array_unique($hogged(Library::infectionAt($copy, Triage::standard()->bounds()), 'cap')))
+    expect(array_unique($hogged(Library::infectionAt($copy, Triage::standard()->limits()->bounds()), 'cap')))
         ->toBe(['out-of-memory unlimited']);
 })->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library')->group(...$holds);
 

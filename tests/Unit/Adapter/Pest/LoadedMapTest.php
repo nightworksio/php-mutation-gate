@@ -51,3 +51,9 @@ it('gives every test\'s own time once, and again once it reads another map', fun
         ->and([...$first])->toEqual([TestTime::of(TestId::of('T::a'), Seconds::of(0.25)), TestTime::of(TestId::of('T::c'), Seconds::of(0.5))])
         ->and([...LoadedMap::times()])->toEqual([TestTime::of(TestId::of('T::b'), Seconds::of(1.0))]);
 });
+
+it('gives the seconds of each test the map timed at all, and none of one it ran in no time', function (): void {
+    loadedMapOf(['T::a' => 0.25, 'T::never' => 0.0, 'T::b' => 1.5]);
+
+    expect(LoadedMap::timed())->toBe(['T::a' => 0.25, 'T::b' => 1.5]);
+});

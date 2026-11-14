@@ -119,7 +119,7 @@ final class Running
         try {
             $process = proc_open(
                 $arguments,
-                self::DESCRIPTORS,
+                Unshared::over(self::DESCRIPTORS),
                 $pipes,
                 $command->directory(),
                 self::environment($command->in($slot)->environment()),
@@ -132,6 +132,7 @@ final class Running
             return self::unstarted(sprintf(self::NOT_STARTED, $arguments[0]));
         }
 
+        $pipes = Unshared::kept($pipes, self::DESCRIPTORS);
         fclose($pipes[self::INPUT]);
         unset($pipes[self::INPUT]);
 
@@ -213,6 +214,19 @@ final class Running
             $this->hasStalled($now) => $this->stopped(Ran::silenced(...), $now, $status['pid']),
             default => $this->overranBy($now, $status['pid']),
         };
+    }
+
+    /**
+     * How it ended by a time where it has ended, else stopped then with every
+     * process it started.
+     */
+    public function stop(float $now): Ran
+    {
+        $end = $this->endedBy($now);
+
+        return $end instanceof Ran
+            ? $end
+            : $this->stopped(Ran::stopped(...), $now, proc_get_status($this->process)['pid']);
     }
 
     /**

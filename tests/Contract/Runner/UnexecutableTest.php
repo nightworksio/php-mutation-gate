@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -191,8 +189,8 @@ function unexecutablePaced(Library $library): array
         $result instanceof MutationResult ? [...$result->mutants()] : [],
         static fn(Mutant $mutant): bool => $mutant->location()->start()->number() === 10,
     ));
-    $need = $paced === [] ? Unmeasured::duration() : $paced[0]->unmutatedNeed();
-    $limit = $paced === [] ? Unmeasured::duration() : $paced[0]->limit();
+    $need = $paced === [] ? Unmeasured::duration() : $paced[0]->stop()->need();
+    $limit = $paced === [] ? Unmeasured::duration() : $paced[0]->stop()->limit();
 
     return $paced === [] ? [] : [
         $paced[0]->status(),
@@ -212,7 +210,7 @@ it('records the time a trial\'s tests took on their own, unmutated, so a trial t
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('records the time a trial\'s tests took on their own, unmutated, with patched Pest', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $library = Library::pestWithin(
         Patching::on(Library::canary()),
         LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)),

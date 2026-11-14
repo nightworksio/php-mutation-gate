@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
@@ -61,11 +62,13 @@ final readonly class Observed
     public function of(CommandLine $given): Observations
     {
         $settings = $this->effective->settings($given);
+        $written = $this->effective->written($given);
         $observed = Observations::none()
             ->in($this->run)
             ->withSettings($settings)
             ->withPhp($this->phpOf($settings))
             ->withFiles(Files::in($this->project)->of($settings));
+        $observed = $written instanceof Layer ? $observed->withWritten($written) : $observed;
         $installed = $this->detected->installed();
         $observed = $installed instanceof Installed
             ? $observed->withRunners($this->runnersIn($installed, $settings, $given))
@@ -155,7 +158,7 @@ final readonly class Observed
 
     private function trees(Settings $settings): Trees|Invalid|CannotJudge
     {
-        $source = new Chosen($this->extensions)->treeSource($settings->treeSource());
+        $source = new Chosen($this->extensions)->treeSource($settings->setup()->treeSource());
 
         return $source instanceof Invalid || $source instanceof CannotJudge
             ? $source

@@ -18,8 +18,10 @@ use function is_string;
 use function mb_strlen;
 use function mb_substr;
 
+use NightWorksIO\MutationGate\Core\File\FileDescriptor;
 use NightWorksIO\MutationGate\Core\File\FileMode;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\SocketStreams;
 use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use function realpath;
@@ -43,14 +45,6 @@ use function str_starts_with;
  */
 final readonly class BootCheck
 {
-    /** Where the system lists a process's open files by their numbers. */
-    private const string OPEN_FILES = '/dev/fd';
-
-
-
-    /** The resource type of PHP's streams. */
-    private const string STREAM = 'stream';
-
     private const string SOCKETS
         = 'The boot left %d socket open once %s ran, which every forked child would share, so each mutant ran fresh.';
 
@@ -81,14 +75,14 @@ final readonly class BootCheck
     public static function of(
         array $mutated,
         Boot $boot,
-        string $openFiles = self::OPEN_FILES,
+        string $openFiles = FileDescriptor::LISTED,
         int $held = 0,
     ): self {
         return new self($mutated, $boot, $openFiles, $held);
     }
 
     /** How many sockets the process holds open now, beyond its standard streams, which a boot is measured from. */
-    public static function open(string $openFiles = self::OPEN_FILES): int
+    public static function open(string $openFiles = FileDescriptor::LISTED): int
     {
         if (! is_dir($openFiles)) {
             return self::socketStreams();
@@ -147,7 +141,7 @@ final readonly class BootCheck
     /** How many of PHP's own stream resources are sockets. */
     private static function socketStreams(): int
     {
-        return SocketStreams::among(get_resources(self::STREAM));
+        return SocketStreams::among(get_resources(SocketStreams::STREAM));
     }
 
     /** @return list<string> each file the run mutates that the process has loaded */

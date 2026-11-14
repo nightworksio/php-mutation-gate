@@ -201,6 +201,13 @@ it('keeps what a program printed before it was seen to end', function () use ($s
     expect($running->endedBy(0.0))->toEqual(Ran::exited(0, 'done', 'done')->took(Seconds::of(0.0)));
 })->group(...$holds);
 
+it('stops nothing of a program that ended before its stop, saying how it ended', function () use ($started): void {
+    $running = $started('echo "done";');
+    Running::awaitAny(Seconds::of(0.5));
+
+    expect($running->stop(0.0))->toEqual(Ran::exited(0, 'done', 'done')->took(Seconds::of(0.0)));
+})->group(...$holds);
+
 it('ends at once a program its tree\'s stop missed, whatever other signal it catches', function () use ($started): void {
     $running = $started('pcntl_async_signals(true); pcntl_signal(8, static function (): void {}); pcntl_signal(10, static function (): void {}); echo "up"; $end = microtime(true) + 2; while (microtime(true) < $end) { usleep(10000); }');
     Running::awaitAny(Seconds::of(0.5));

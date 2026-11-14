@@ -101,7 +101,7 @@ without a repository, a runner or a CI.
 | **C3** | Every thrown exception is the package's own | phpstan `disallowed-calls` on the bare exceptions' constructors |
 | **C4** | No `@` suppression | phpstan: ergebnis `NoErrorSuppressionRule` |
 | **C5** | `match`, never `switch`; and no `else` | phpstan: ergebnis `NoSwitchRule` + `disallowedControlStructures` |
-| **C6** | No empty catch, and no `Throwable` or `Exception` caught without rethrowing | phpstan: own rule |
+| **C6** | No empty catch, and no `Throwable` or `Exception` caught without rethrowing, except where a file boots a project's own application (`allowIn`) | phpstan: own rule |
 | **C7** | No `empty()` | phpstan: own rule |
 | **C8** | No `?->` in the core | phpstan: own rule, scoped by path |
 | **C9** | No nested ternary, and no `??` on an array subscript outside the tests | phpstan: own rule |
@@ -185,7 +185,7 @@ osv-scanner, which read the repository rather than the code.
 | **G4** | No dev dependency is reachable from `src`, and every dependency is used | `composer-dependency-analyser` |
 | **G5** | One assertion idiom: Pest's `expect()`, never PHPUnit's `assert*` | arch: over the text of every test |
 | **G6** | No committed `->only()`, and no `->skip()` without the reason | arch: over the text of every test |
-| **G7** | Every line of `src` and of each plugin's `src` is covered | ci: `pest --coverage --min=100` |
+| **G7** | Every line of `src` and of each plugin's `src` is covered, but the files `scripts/coverage-exemptions.php` names | ci: the `coverage` job, by `scripts/process-coverage.php` |
 | **G8** | Every mutant of `src` and of each plugin's `src` is killed, or its tree holds the floor `mutation-gate.baseline.json` records | ci: the `mutation` job, the package's own gate through its reusable workflow and action |
 | **G9** | A diagnostic fails the run, and no setting exempts one | arch: the settings, read out of `phpunit.xml` |
 | **G10** | Every test file is inert: loading it runs nothing, so a mutant's narrowed run need not load it (ADR-0004) | arch: every test file, read as the Pest adapter reads it |

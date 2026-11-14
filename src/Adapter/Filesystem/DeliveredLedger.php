@@ -75,6 +75,12 @@ final readonly class DeliveredLedger implements EncodesLedgers, ProofStore
             : NotWritten::because($written->why());
     }
 
+    /** The entries of a verdict's proofs left beside the delivery for `deliver` to push, with their request. */
+    public function cache(Contents $request, Contents $entries): Written|CannotJudge
+    {
+        return $this->delivery->cache($request, $entries);
+    }
+
     public function companion(Scope $scope, Companion $companion): Contents|Missing|CannotJudge
     {
         return $this->read->companion($scope, $companion);

@@ -2,34 +2,15 @@
     "$schema": "resources/mutation-gate.schema.json",
     "runner": {
         "use": "pest",
-        "memory": "2G"
+        "memory": "3G"
+    },
+    "ci": {
+        "check": "mutation verdict",
+        "trustMergedPullRequests": true
     },
     "trees": [
         {
-            "path": "src",
-            "exclude": [
-                "src/Adapter/Pest/Bridged.php",
-                "src/Adapter/Pest/Grouping/HoldsGroups.php",
-                "src/Adapter/Pest/Order/Option.php",
-                "src/Adapter/Pest/Order/Reordering.php",
-                "src/Adapter/Pest/Order/Seed.php",
-                "src/Adapter/Pest/Plugin.php",
-                "src/Adapter/Pest/Recording/Guard.php",
-                "src/Adapter/Pest/Recording/Killers.php",
-                "src/Adapter/Pest/Recording/LastError.php",
-                "src/Adapter/Pest/Recording/Naming.php",
-                "src/Adapter/Pest/Recording/OnFailed.php",
-                "src/Adapter/Pest/Recording/Placed.php",
-                "src/Adapter/Pest/Recording/RanTests.php",
-                "src/Adapter/Pest/Recording/ReplayStop.php",
-                "src/Adapter/Pest/Recording/TimedTests.php",
-                "src/Adapter/Pest/SchemaSwitch.php",
-                "src/Adapter/Pest/ServedClasses.php",
-                "src/Adapter/Native/MutantFile.php",
-                "src/Adapter/Runtime/ForkedChild.php",
-                "src/Cli/PestPlugin.php",
-                "src/Core/Mutant/OrderDigest.php"
-            ]
+            "path": "src"
         },
         {
             "path": "plugins/default/src"
@@ -50,6 +31,7 @@
     "reach": {
         "everything": [
             "src/Adapter/Pest/Warm/**",
+            "src/Adapter/Pest/ByName.php",
             "src/Adapter/Pest/Recording/**",
             "src/Adapter/Pest/Grouping/**",
             "src/Adapter/Pest/Order/**",
@@ -77,6 +59,7 @@
             "tests/Contract/Runner/phpunit-fixture",
             "tests/Contract/Runner/reach",
             "tests/Contract/Runner/stall",
+            "tests/Contract/Runner/streamed",
             "tests/Contract/Runner/testo-fixture",
             "tests/Contract/Runner/twins",
             "tests/Contract/StaticChecker/fixture",

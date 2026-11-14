@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_map;
 use function array_slice;
+use function is_array;
+use function is_int;
 use function is_string;
 use function max;
 
+use NightWorksIO\MutationGate\Core\Config\KillControl;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -39,6 +45,38 @@ final readonly class PrefixReplay
         private string $key,
         private Seconds|Unmeasured $limit,
     ) {
+    }
+
+    /**
+     * The replay of a kill's own run, where its records say its order and how
+     * it started; none under `flaky.killControls: alone` where it loaded every
+     * test file, which leaves it to its kill control.
+     */
+    public static function ofRun(
+        Mutant $mutant,
+        OwnRun $run,
+        string $copy,
+        Seconds|Unmeasured $limit,
+        Project $project,
+        KillControl $control,
+    ): self|NotGiven {
+        if ($control === KillControl::Alone && $run->narrowedTo() === []) {
+            return NotGiven::value();
+        }
+
+        $files = Paths::of(...array_map($project->relative(...), $run->narrowedTo()));
+        $prefix = $run->prefix($files);
+        $key = $prefix instanceof Prefix ? $prefix->key() : NotGiven::value();
+        $reach = $run->reach();
+        $arguments = $run->arguments();
+
+        return is_string($key)
+            && is_int($reach)
+            && $reach > 0
+            && is_array($arguments)
+            && $arguments !== []
+            ? self::of($mutant->location()->file(), $copy, $arguments, $files, $reach, $key, $limit)
+            : NotGiven::value();
     }
 
     /**

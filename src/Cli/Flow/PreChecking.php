@@ -197,8 +197,8 @@ final class PreChecking implements PreChecker
         $id = $mutant->mutant()->id();
         $file = $mutant->mutant()->location()->file();
         $text = $mutant->checkable()->mutant();
-        $written = $this->adapters->project->write(Workspace::checkedMutant($id), $text);
-        $check = MutantCheck::of($file, Workspace::checkedMutant($id))
+        $written = $this->adapters->project->write(CheckedFiles::mutant($id), $text);
+        $check = MutantCheck::of($file, CheckedFiles::mutant($id))
             ->within($this->perCheck)
             ->withholding($this->adapters->withheld);
 

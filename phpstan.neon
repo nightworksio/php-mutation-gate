@@ -13,6 +13,7 @@ includes:
     - vendor/spaze/phpstan-disallowed-calls/disallowed-non-timing-safe-calls.neon
     - vendor/shipmonk/phpstan-rules/rules.neon
     - phpstan/layers.neon
+    - phpstan/values.neon
 
 parameters:
     level: max
@@ -47,20 +48,25 @@ parameters:
             - tests/Contract/Runner/constants
             - tests/Contract/Runner/interceptor
             - tests/Contract/Runner/twins
+            - tests/Contract/Runner/streamed
             - tests/Contract/Runner/phpunit-fixture
             - tests/Contract/Runner/phpspec-fixture
             - tests/Contract/Runner/codeception-fixture
             - tests/Contract/Runner/testo-fixture
             - tests/Contract/StaticChecker/fixture
             - tests/Fixtures/Archive
+            - tests/Fixtures/CoverageReports
 
     # Pest's own annotation, corrected. See the stub.
     stubFiles:
         - phpstan/DescribeCall.stub
         - phpstan/Pcntl.stub
+        - phpstan/Pcov.stub
         - phpstan/TestCall.stub
-    # PHP's zstd extension, which the gate uses where it is loaded and which is not loaded where it is analysed.
+    # PHP's zstd extension and outbreak.so, which the gate uses where they are loaded and which are not loaded where
+    # it is analysed.
     scanFiles:
+        - phpstan/Outbreak.stub
         - phpstan/Zstd.stub
 
     # There is no `ignoreErrors` and no baseline. A rule that is wrong somewhere
@@ -108,6 +114,9 @@ parameters:
             # A setting read as a type its definition does not make is a
             # mistake in the code that asked.
             - NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting
+            # A split stream's directory the gate cannot make as its own, which
+            # another local user may have planted, ends the run: nobody answers it.
+            - NightWorksIO\MutationGate\Adapter\Pest\Split\UnmadeDirectory
             # An option read that the command does not define is a mistake in the
             # code that reads it, never something a caller can answer.
             - Symfony\Component\Console\Exception\InvalidArgumentException
@@ -165,9 +174,12 @@ parameters:
             enabled: false
 
 services:
-    # C6
+    # C6, with the files that boot a project's own application and turn its every failure into an outcome.
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoBroadCatchRule
+        arguments:
+            allowIn:
+                - src/Adapter/Pest/Split/Zygote.php # a failed boot falls back to a fresh run per test
         tags:
             - phpstan.rules.rule
     # C7
@@ -202,6 +214,9 @@ services:
                 - src/Adapter/Serve/Connection.php # PHP's sockets are resources, which have no native type
                 - src/Adapter/Serve/Listener.php # PHP's sockets are resources, which have no native type
                 - src/Adapter/Zstd/ZstdProgram.php # proc_open answers a process resource, which has no native type
+                - src/Adapter/Pest/SchemaSwitch.php # a schema's value site carries whatever its expression evaluates to
+                - src/Adapter/Pest/Split/StreamRun.php # a schema's value site carries whatever its expression evaluates to
+                - src/Adapter/Pest/Split/Unchanged.php # a schema's value site carries whatever its expression evaluates to
             decoders:
                 - src/Core/Format/Node.php
                 - src/Core/Format/Json.php
@@ -217,9 +232,16 @@ services:
                 - src/Adapter/Codeception/Extension.php # Codeception hands an extension its settings and options untyped
                 - src/Adapter/Codeception/Told.php # Codeception hands an extension its settings untyped
                 - src/Adapter/Testo/GateConfig.php # a project's testo.php returns whatever its code returns
+                - src/Adapter/Pest/Split/Zygote.php # a project's bootstrap/app.php returns whatever its code returns
                 - src/Adapter/Pest/Warm/Database/Laravel.php # Laravel's container hands its services untyped
+                - src/Adapter/Pest/Split/Reconnect/LaravelDatabases.php # Laravel's container hands its services untyped
+                - src/Adapter/Pest/ByName.php # a framework the gate does not require answers its calls untyped
                 - src/Adapter/Pest/Warm/Database/LaravelConfig.php # Laravel holds a connection's config untyped
                 - src/Adapter/Pest/Warm/Database/PdoStatements.php # PDO hands a row's values untyped
+                - src/Adapter/Pest/Split/StreamPlanFile.php # a split stream's plan, as JSON Pest's own process wrote
+                - src/Adapter/Pest/Split/PlannedSites.php # a split stream's plan's sites, as JSON Pest's own process wrote
+                - src/Adapter/Pest/Split/StreamRead.php # a line of a split stream's results, as JSON a stream wrote
+                - src/Adapter/Pest/Split/RecordedLine.php # a line of a split stream's recorded lines, as JSON a stream wrote
                 - tests/Support/Bucket.php
                 - tests/Support/Cloud.php # Symfony's MockHttpClient hands a responder request options untyped
                 - tests/Support/Commands.php
@@ -245,543 +267,11 @@ services:
                 - src/Adapter/Infection/OwnConfig.php # infection.json's sections
                 - src/Adapter/Pest/Families.php # Pest's mutator names
                 - src/Core/File/Glob.php # the glob grammar
+                - src/Adapter/Outbreak/Platform.php # PHP's names of OS families and machines
+                - src/Adapter/PhpStan/PhpIni.php # PHP's names of machines, and PHPStan's of its turbo builds' platforms
                 - src/Core/Assertion/AssertionTable.php # PHPUnit's assertions and Pest's expectations
             # Closed sets still to become enums, by the builder whose area holds them.
             awaiting: []
-        tags:
-            - phpstan.rules.rule
-    # D9, with the constants whose value only coincides with another's.
-    -
-        class: NightWorksIO\MutationGate\PHPStan\Collectors\ConstantValues
-        tags:
-            - phpstan.collector
-    -
-        class: NightWorksIO\MutationGate\PHPStan\Rules\OneHomePerValueRule
-        arguments:
-            # Constants whose value only coincides with another's, meaning something else.
-            coincidences:
-                'NightWorksIO\MutationGate\Core\Runner\RunnerPace':
-                    - RECYCLE_AFTER # runs a batch holds for each place, not a span id's length
-                    - WARM_SLACK # how long a warm worker runs past the end, not a network read's limit
-                'NightWorksIO\MutationGate\Core\Proof\LimitHistory':
-                    - KILLS # the newest kills a learned multiple is read from, not a message's length
-                    - RUNS # the newest runs a learned most shards is read from, not a count of presets
-                'NightWorksIO\MutationGate\Cli\Command\ServeCommand':
-                    - STOP # serve's --stop option, not run.failFast's stop
-                'NightWorksIO\MutationGate\Core\Report\Page\Headline':
-                    - SAMPLED # the page's word for a sampled run, not a comment toggle
-                'NightWorksIO\MutationGate\Core\Comment\Cap':
-                    - FALLEN # files that fell a comment lists, not the riskiest units ranked
-                'NightWorksIO\MutationGate\Core\Proof\TallyRecord':
-                    - MUTANTS # a ledger tally's count of mutants, not the kill history's section
-                    - KILLED # a ledger tally's count of kills, not a judgement
-                    - SURVIVED # a ledger tally's count of survivors, not a judgement
-                    - IGNORED # a ledger tally's count of ignored mutants, not a judgement
-                'NightWorksIO\MutationGate\Core\Report\MutatorReport':
-                    - NAMES # the name columns of the mutator table, not a timeout's multiple
-                    - COSTLIEST # mutators a summary names, not shipped presets
-                    - GAP # the space between two columns of a table, not an indent
-                    - HEADINGS # the headings of the mutator table, not adapter kinds
-                'NightWorksIO\MutationGate\Core\Config\Suggest':
-                    - IDLE_JUDGED # mutants judged before a mutator can be idle, not trend points kept
-                    - IDLE_SHARE # a percent of every mutator's time, not a ranking's length
-                    - IGNORED_MUTANTS # mutants made before a mutator can be noisy, not a pre-check's size
-                    - TIMEOUT_CLUSTER # timeouts that make a directory slow, not letters per edit
-                'NightWorksIO\MutationGate\Core\Suggest\SlowDirectories':
-                    - RAISED # how many times its timeout a slow directory gets, not an exit code
-                'NightWorksIO\MutationGate\Cli\Doctor\Doctoring':
-                    - 'YES' # doctor's option that applies fixes unasked, not a switch's spelling
-                'NightWorksIO\MutationGate\Core\Doctor\Fix\PhpUnitXml':
-                    - INDENT # one level of a PHPUnit config's XML when it shows none, not a report's indent
-                'NightWorksIO\MutationGate\Core\Doctor\GatePins':
-                    - USE_AT # a CI step's action at its commit, not a package at its version
-                'NightWorksIO\MutationGate\Core\Config\HeatmapRows':
-                    - FILES # files a dashboard summary lists, not shipped presets
-                'NightWorksIO\MutationGate\Core\Proof\FunctionsRecord':
-                    - FIELD # a proof's field naming its unit's functions, not the kill history's section
-                    - SPAN # the items of a function's span, not letters per edit
-                'NightWorksIO\MutationGate\Core\Report\HeatmapMarkdown':
-                    - FUNCTIONS # functions a comment's row names, not letters per edit
-                    - CHANGED # a score with its change, not a trial's verdict with its reason
-                'NightWorksIO\MutationGate\Core\Hint\Attempts':
-                    - ARITHMETIC # PHP's arithmetic operators, power among them, not a glob's any depth
-                'NightWorksIO\MutationGate\Cli\Command\LedgerOption':
-                    - LEDGER # the option that names a ledger file, not the workspace directory
-                'NightWorksIO\MutationGate\Core\Verb':
-                    - Mutators # the mutators command, not the ledger's list of mutator names
-                'NightWorksIO\MutationGate\Cli\Init\InitQuestions':
-                    - NONE # init's answer of no CI, not a hook setup's or a status
-                'NightWorksIO\MutationGate\Core\Native\Launched':
-                    - SET # a launcher's long option given its value, not one of PHP's ini settings
-                'NightWorksIO\MutationGate\Core\Hook\HookRecipe':
-                    - ACTION # a key of CaptainHook's config, not hook's argument
-                'NightWorksIO\MutationGate\Core\GateCommand':
-                    - PHP # the program a shell runs a PHP file with, not the config format
-                'NightWorksIO\MutationGate\Cli\Command\HookFrameworkFiles':
-                    - HOOK # init's option that sets hooks up, not the hook command
-                'NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase':
-                    - BASELINE # the database a warm worker copies, not the baseline command
-                'NightWorksIO\MutationGate\Core\Runner\CoverageRun':
-                    - OWN_DIRECTORY # the workspace directory a coverage run writes, not the coverage command
-                'NightWorksIO\MutationGate\Core\Push\PreCommitPush':
-                    - LINE # git's four fields of a pushed ref, not a proof's run
-                'NightWorksIO\MutationGate\Core\Migration\UnifiedDiff':
-                    - CONTEXT # unchanged lines shown around a change, not letters per edit
-                'NightWorksIO\MutationGate\Core\Php\Spec':
-                    - EXTENDS # tokens past a class keyword, not an argument's place or an exit code
-                'NightWorksIO\MutationGate\Core\Format\JsonIndent':
-                    - STANDARD # a JSON file's level when it shows none, not a report's indent
-                'NightWorksIO\MutationGate\Core\Config\Sampling':
-                    - MARGIN # points either side a sampled tree's interval is sized for, not work per overhead
-                    - MIN_UNITS # units a sampled stratum runs at least, not days or a preset's list
-                'NightWorksIO\MutationGate\Core\Config\Definition\SamplingKeys':
-                    - WIDEST # points either side a sampled tree's interval may be sized for, not days or presets
-                'NightWorksIO\MutationGate\Core\Sample\Confidence':
-                    - Ninety # a confidence in percent, not days an imported ignore lasts
-                'NightWorksIO\MutationGate\Core\Plan\SampleRecord':
-                    - MUTANTS # an unsampled unit's estimated mutants, not a proof's killed mutants
-                'NightWorksIO\MutationGate\Core\Runner\Workers':
-                    - Mutants # runner.workers forking only the mutants, not a record's mutants
-                'NightWorksIO\MutationGate\Core\Config\Local':
-                    - SERVE_REQUEST # seconds a client may take to send its request
-                    - TRIAGE_FEWEST # the fewest runs that can disagree, not an exit code or an argument
-                    - SERVE_IDLE_MINUTES # how long a daemon idles, not how many presets ship
-                'NightWorksIO\MutationGate\Adapter\Serve\Connection':
-                    - PEER_PROCESS # the levels and options of the platforms' sockets, not exit codes
-                'NightWorksIO\MutationGate\Core\Runner\MaxRss':
-                    - RECORDED # a warm child's end's field for its memory, not a briefing's peak
-                'NightWorksIO\MutationGate\Core\Config\Pruning':
-                    - WINDOW # judged mutants a mutator's window holds, not trend entries kept
-                    - AUDIT_DAYS # days a pruned result may be carried, not a run status
-                'NightWorksIO\MutationGate\Adapter\GitHub\Organisation':
-                    - PER_PAGE # GitHub's most repositories on one page, not hundredths of a percent
-                    - MOST_PAGES # pages of repositories a dashboard reads, not checks a mutator's rate is learned from
-                'NightWorksIO\MutationGate\Core\Delivery\DeliveryFile':
-                    - LEDGER_KEY # a key of the delivery, not the workspace's directory
-                    - OTLP # a key of the delivery, not the reporter's name
-                'NightWorksIO\MutationGate\Adapter\Process\Running':
-                    - DESCRIPTORS # proc_open's descriptor kinds, not a record's field
-                    - ERRORS # the standard error stream's file number, not an argument's place or an exit code
-                'NightWorksIO\MutationGate\Core\Runner\Polling':
-                    - MOMENT # seconds a closing process is given to be seen to end, not a check's least limit
-                'NightWorksIO\MutationGate\Core\Proof\PassedRecord':
-                    - COMMIT # a field of a passed commit's record, not of a proof's digests
-                    - CHECK # a field of a passed commit's record, not of the last run's
-                'NightWorksIO\MutationGate\Core\Native\Command':
-                    - WRITING # the shell's flag that takes its script, not git's flag that takes a setting
-                'NightWorksIO\MutationGate\Core\Php\ReachedFiles':
-                    - BIT # each bit of a byte by its place, not an exit code, a status or a length
-                'NightWorksIO\MutationGate\Adapter\PhpSpec\CommandLine':
-                    - RUN # PhpSpec's own command and options, not a record's field or a verdict's origin
-                    - STOP # PhpSpec's option, spelt as PHPUnit's is
-                'NightWorksIO\MutationGate\Adapter\Codeception\CommandLine':
-                    - RUN # Codeception's own command and options, not a record's field or a verdict's origin
-                'NightWorksIO\MutationGate\Adapter\Testo\Launch':
-                    - RUN # Testo's own command, not a record's field or a verdict's origin
-                'NightWorksIO\MutationGate\Adapter\PhpSpec\Selecting':
-                    - FIRST # a maintainer's priority above PhpSpec's own, not a poll's microseconds
-                'NightWorksIO\MutationGateLaravel\Mutators\FirstOrFailToFirst':
-                    - FORGIVING # Eloquent's method that forgives a missing row, not when the comment mentions an owner
-                'NightWorksIO\MutationGate\Core\ThisPackage':
-                    - OWN # directories from this file up to the package's own, not an exit code
-                'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
-                    - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
-                'NightWorksIO\MutationGate\Core\Verdict\Doomed':
-                    - STOPPED # what a shard did once its run could not pass, not a recorded event
-                'NightWorksIO\MutationGate\Core\Config\DigestRows':
-                    - TESTS # the covering tests the digest names, not the ranking's top
-                'NightWorksIO\MutationGate\Core\Cost\SavingsWindow':
-                    - STANDARD_DAYS # the days what the gate saved is counted over, not a preset's value
-                'NightWorksIO\MutationGate\Core\Dashboard\DashboardPage':
-                    - SAVED_IN # the time saved in a window, not the runs a triage gave in a time
-                'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
-                    - STANDARD # runs of no test the plan times
-                'NightWorksIO\MutationGate\Core\Composer\ManifestKey':
-                    - Require # composer.json's list of packages to run, not an include or an improvement's kind
-                    - Description # composer.json's description of the package, not a test's
-                    - Support # composer.json's links for help, not a test file's role
-                    - Time # composer.json's release date, not a test's seconds
-                'NightWorksIO\MutationGate\Core\Cost\Step':
-                    - Coverage # the step that readies coverage, not the directory a coverage run writes in
-                'NightWorksIO\MutationGate\Core\Plan\StepsRecord':
-                    - SECONDS # a key of a shard result's step, not of Pest's records
-                    - COUNT # a key of a shard result's step, not of Pest's records or an uncovered count
-                'NightWorksIO\MutationGate\Core\Telemetry\Metrics':
-                    - SHARD # the phase a shard's whole duration is named by, not the run command's option
-                'NightWorksIO\MutationGate\Core\Report\JsonReport':
-                    - FORMAT # the json report's version, not an exit code or an argument's place
-                'NightWorksIO\MutationGate\Core\Report\Commented':
-                    - MOST # entries a list of the pull request comment shows, not commits a range proves
-                'NightWorksIO\MutationGate\Core\Report\Page\PageShows':
-                    - STANDARD_FILES # files the HTML report's overview lists, not a seed's first byte
-                    - FILES # the html reporter's option, not a record's or a manifest's files
-                    - SURVIVORS # the html reporter's option, not a comment section or a chat's option
-                'NightWorksIO\MutationGate\Core\Report\Page\Survivors':
-                    - SHOWN # survivors the HTML report's overview lists, not a dependent's cap
-                'NightWorksIO\MutationGate\Core\Report\Page\Origin':
-                    - SHORT # characters of a commit's id the reports show, not a mutant id's length
-                'NightWorksIO\MutationGate\Core\Report\Term':
-                    - Mutant # the guide's section on a mutant, not a doomed record's key
-                    - Floor # the guide's section on a floor, not a manifest's key
-                'NightWorksIO\MutationGate\Core\Report\Digest\MutantDetail':
-                    - DIFF_LINE # a diff line set in below the digest's, not a found tree's list item
-                    - DIFF # the word that opens a mutant's diff in its detail, not a record's field
-                'NightWorksIO\MutationGate\Core\Format\ShortEscape':
-                    - Backslash # the character visible text escapes, not a namespace's separator
-                'NightWorksIO\MutationGate\Core\Report\Digest\Scores':
-                    - KINDS # what the digest calls each list of sets, not a gate method or a doomed unit
-                'NightWorksIO\MutationGate\Core\Config\BuiltinReporter':
-                    - Digest # the digest reporter's name, not a plan file's digest
-                'NightWorksIO\MutationGate\Cli\Command\DigestCommand':
-                    - SURVIVORS # digest's option of how many survivors it lists, not a step or a stage
-                    - DETAIL # the digest command's option, not a comment key
-                    - TESTS # the digest command's option of how many tests it names, not a reporter or a digest kind
-                'NightWorksIO\MutationGate\Core\Verdict\BaselineState':
-                    - Missing # a baseline file holding no floor for a scored set, not a file's missing digest
-                'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
-                    - KILO # bytes in a kilobyte, as PHP counts one
-                'NightWorksIO\MutationGate\Core\Runner\DisplayWord':
-                    - Stdout # PHP's display_errors value, not init's --stdout option
-                'NightWorksIO\MutationGate\Core\Runner\OnSwitch':
-                    - 'True' # a word PHP reads as on, not a JSON value
-                'NightWorksIO\MutationGate\Core\Runner\ErrorDisplay':
-                    - STDERR # PHP's number for display_errors=stderr
-                'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
-                    - UNRELEASED # the package's own branch, in a link to its guide
-                'NightWorksIO\MutationGate\Core\Matrix\MatrixRecord':
-                    - FIELD # the plan's and a proof's field, not Azure's output variable
-                'NightWorksIO\MutationGate\Core\Php\OwnMember':
-                    - PARENT # PHP's keyword, not php-parser's attribute
-                'NightWorksIO\MutationGate\Core\Assertion\AssertionScan':
-                    - CALL_OPENS # tokens from what a link is chained to, to its call's bracket
-                'NightWorksIO\MutationGate\Adapter\GitHub\StickyComment':
-                    - PAGE # comments a page
-                    - PAGES # pages read
-                'NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestThread':
-                    - PAGE # notes a page
-                    - PAGES # pages read
-                'NightWorksIO\MutationGate\Adapter\Azure\PullRequestThread':
-                    - TRIES # threads tried
-                'NightWorksIO\MutationGate\Adapter\Azure\ThreadStatus':
-                    - Closed # Azure Repos' number for a closed thread
-                'NightWorksIO\MutationGate\Adapter\Buildkite\BuildAnnotation':
-                    - NOT_A_PULL_REQUEST # what Buildkite says of a build no pull request began
-                'NightWorksIO\MutationGate\Core\Config\LearnedBounds':
-                    - LEAST # a multiple of a test's own time
-                    - MOST # a multiple of a test's own time
-                'NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestThread':
-                    - PAGE # comments a page
-                    - PAGES # pages read
-                    - TRIES # comments tried
-                'NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights':
-                    - MOST # annotations a report holds
-                    - BATCH # annotations a request posts
-                'NightWorksIO\MutationGate\Adapter\Bitbucket\InsightAnnotation':
-                    - SUMMARY # characters of a summary
-                    - DETAILS # characters of the details
-                'NightWorksIO\MutationGate\Core\Alert\PostLimits':
-                    - STANDARD_TIMEOUT # seconds a post may take, not a daemon's start-up wait
-                    - STANDARD_LONGEST_WAIT # seconds a Retry-After is waited, not a probe's limit
-                    - TIMEOUT # a chat reporter's option, not a mutant's outcome
-                'NightWorksIO\MutationGate\Core\Http\Reply':
-                    - FORBIDDEN # an HTTP status
-                    - SERVER # an HTTP status
-                    - REDIRECT # an HTTP status
-                    - ANSWER # characters of an answer repeated
-                'NightWorksIO\MutationGate\Core\Alert\AlertShape':
-                    - STANDARD_SURVIVORS # survivors an alert names, not a ranking's top
-                    - SURVIVORS # a chat reporter's option, not a comment section or the html reporter's option
-                'NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks':
-                    - MANY # the plural a sentence counts, not the delivery's stage
-                'NightWorksIO\MutationGate\Core\Alert\DiscordMessage':
-                    - TITLE # characters Discord shows of a title
-                'NightWorksIO\MutationGate\Core\Config\Shards':
-                    - MOST # shards
-                'NightWorksIO\MutationGate\Core\Config\Triage':
-                    - TIMEOUT # seconds a mutant may run
-                    - MOST # seconds a mutant may run
-                'NightWorksIO\MutationGate\Core\Config\Canonical':
-                    - EACH # how a list's entries are named in a setting's path
-                'NightWorksIO\MutationGate\Core\Config\Proofs':
-                    - PATH # the directory store's option
-                'NightWorksIO\MutationGate\Core\Config\StaticCheck':
-                    - OPCACHE_BATCH # programs one opcache child compiles, not a percentage
-                    - OPCACHE_LIMIT # one opcache child's limit, not a network read's
-                    - AUTO # the analyser zero-config finds, not a proof-writing mode
-                    - NONE # no analyser, not a mutator family or a Pest status
-                'NightWorksIO\MutationGate\Core\Format\Bytes':
-                    - PER_MEGABYTE # bytes in a megabyte
-                    - PER_MEBIBYTE # bytes in PHP's M, not GitHub's summary cap
-                'NightWorksIO\MutationGate\Core\Proof\LedgerMemory':
-                    - PER_BYTE # bytes of memory per byte of ledger
-                'NightWorksIO\MutationGate\Core\Format\Lenient':
-                    - NOTHING # JSON's value for nothing, not the PHP literal a mutator writes
-                'NightWorksIO\MutationGate\Adapter\Infection\OwnConfig':
-                    - FRAMEWORK # Infection's name for PHPUnit
-                    - TOOLS # infection.json's sections, not the analysers the gate runs
-                'NightWorksIO\MutationGate\Adapter\Infection\Invocation':
-                    - CONFIG # the file the gate writes and names with --configuration, not one Infection looks for
-                'NightWorksIO\MutationGate\Adapter\Infection\Silenced':
-                    - FIELDS # the fields of a silence record, not a ranking's top
-                'NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug':
-                    - CHEAP # Xdebug's modes, not the Infection adapter's directory
-                'NightWorksIO\MutationGate\Adapter\Pest\Registration':
-                    - WITH # Pest's method that hands a test its dataset, not the PHP builder's
-                'NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Choice':
-                    - BOUND # test files a fallback holds
-                'NightWorksIO\MutationGate\Cli\Command\CiRequest':
-                    - CI # an option of init, not the shipped CI templates
-                'NightWorksIO\MutationGate\Core\Assertion\AssertionTable':
-                    - PHPUNIT_CASE # PHPUnit's assertions
-                    - PEST_SUBJECTS # Pest's expectations
-                'NightWorksIO\MutationGate\Core\Composer\GateEntry':
-                    - EXTENSIONS # a key under a manifest's extra, not the PHP builder's method
-                'NightWorksIO\MutationGate\Core\Composer\Installed':
-                    - ORIGINS # Composer's kinds of source reference
-                'NightWorksIO\MutationGate\Core\Report\Problems':
-                    - GROUPS # groups of a problem matcher's pattern
-                'NightWorksIO\MutationGate\Core\Report\BadgeColors':
-                    - DEFAULTS # scores in percent
-                'NightWorksIO\MutationGate\Core\Test\TestsDirectory':
-                    - CONVENTIONAL # the tests' directory
-                'NightWorksIO\MutationGate\Core\Hold\HotPaths':
-                    - SMALLEST_SUITE # tests
-                'NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan':
-                    - HIDDEN_JOB # a job name
-                    - TRUSTED_SOURCES # GitLab's CI_PIPELINE_SOURCE values, not another CI's event names
-                'NightWorksIO\MutationGate\Adapter\Filesystem\Resources':
-                    - PACKAGE_ROOT # directories up to the package
-                'NightWorksIO\MutationGate\Core\Hint\Hint':
-                    - NAMED # names a hint gives
-                'NightWorksIO\MutationGate\Adapter\GitHub\Annotations':
-                    - PER_LEVEL # annotations GitHub shows
-                'NightWorksIO\MutationGate\Adapter\Pest\PestTimeLimit':
-                    - EXTRA_SHARE # a share of Pest's opening time
-                    - LEAST_EXTRA # Pest's least extra time
-                'NightWorksIO\MutationGate\Adapter\Psalm\Report':
-                    - FINISHED # Psalm's exits, not the gate's own
-                    - ERROR # Psalm's severity, not a JUnit outcome
-                'NightWorksIO\MutationGate\Adapter\Psalm\LanguageServer':
-                    - PHP # the protocol's language identifier, not a config format
-                'NightWorksIO\MutationGate\Core\Runner\TighterSilence':
-                    - FLOOR # seconds of a silence limit's floor, not a seed's step
-                'NightWorksIO\MutationGate\Core\Runner\PerTestLimit':
-                    - MULTIPLE # how many times its own time one test may run
-                    - FLOOR # the seconds one test may always run
-                'NightWorksIO\MutationGate\Core\Runner\MutantLimit':
-                    - START_UP # the time a mutant's run allows PHPUnit to start
-                    - FACTOR # a mutant limit's multiple of its tests' time
-                    - INFECTION_FACTOR # Infection's mutant limit's multiple of its tests' time
-                'NightWorksIO\MutationGate\Core\Proof\LedgerRetention':
-                    - BASES # bases kept
-                    - PROOFS # proofs kept
-                'NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig':
-                    - INDENT # spaces
-                    - NESTED # levels
-                'NightWorksIO\MutationGate\Adapter\Neon\NeonConfig':
-                    - INDENT # a NEON indent
-                'NightWorksIO\MutationGate\Adapter\Pest\Diff':
-                    - INDENT # a line of Pest's diff
-                'NightWorksIO\MutationGate\Adapter\Native\MutantFile':
-                    - PROTOCOL # the file:// stream protocol
-                'NightWorksIO\MutationGate\Mutator\Literals':
-                    - 'TRUE' # PHP's constant, not Infection's setting
-                'NightWorksIO\MutationGate\Mutator\Tag':
-                    - SECURITY # a tag a mutator carries, not the config section of the same name
-                'NightWorksIO\MutationGate\Core\Proof\RunProfileRecord':
-                    - SECURITY # a field of the plan and ledger files, not the config section of the same name
-                    - SUITE # a field of the plan and ledger files, not the command-line option of the same name
-                'NightWorksIO\MutationGate\Core\Change\Parents':
-                    - OF_A_MERGE # the parents of a merge commit, not an exit code or an argument's position
-                'NightWorksIO\MutationGate\Core\Mutant\EvidenceRecord':
-                    - PREFIX # a kill's prefix in a shard result, not a store's key prefix
-                    - AT # a prefix's position, not when a proof was established
-                    - CODE # a process's exit code, not an analyser finding's code
-                    - KEY # a prefix's key, not a Buildkite step's key
-                    - ENDED # a field of a shard result, not the event of a Pest results file
-                    - SIGNALLED # a field of a shard result, not a field of a Pest results file
-                    - FATAL # a field of a shard result, not the event of a Pest results file
-                'NightWorksIO\MutationGate\Adapter\Pest\Project':
-                    - ORDER # the workspace directory of the plugin's orders, not a field of a Pest results file
-                'NightWorksIO\MutationGate\Core\Proof\ProofRecord':
-                    - AT # when a run was, not where a killer stood in a Pest results file
-                'NightWorksIO\MutationGate\Core\Mutant\Prefix':
-                    - KEPT # hex digits of a prefix's key, not a mutant id's length
-                'NightWorksIO\MutationGate\Core\Format\Secrets':
-                    - SHORTEST # characters a withheld value needs to be screened for, not a seed's first byte
-                    - GROUP_BYTES # bytes base64 encodes as one group, not the letters one edit of a name may change
-                    - GROUP_CHARACTERS # characters base64 writes one group as, not a mutant record's status column
-                'NightWorksIO\MutationGate\Core\Proof\LastRunRecord':
-                    - COMMIT # the ledger's last run's field, not the commit a plan's digests were taken at
-                    - TREE # the ledger's last run's field, not the tree floor a survivor dooms a run by
-                'NightWorksIO\MutationGate\Core\Plan\DoomedRecord':
-                    - STOPPED # whether a doomed shard stopped, not a recorded test's event
-                    - TREE # the shard result's field naming a tree, not the tree floor a survivor dooms a run by
-                    - FLOOR # the shard result's field holding a floor, not a gate manifest's key
-                'NightWorksIO\MutationGate\Core\Plan\Batching':
-                    - CHUNK_MINUTES # minutes of expected work a chunk holds, not an argument's position or an exit code
-                'NightWorksIO\MutationGate\Core\Report\SuiteText':
-                    - SHOWN_FROM # the fewest suites a report shows, not an argument's position or an exit code
-                'NightWorksIO\MutationGate\Core\Report\JUnit':
-                    - SECURITY # the name of the security sets' JUnit suite, not the config section
-                    - FLOOR # the name of a floor's JUnit test case, not a manifest key
-                'NightWorksIO\MutationGateLaravel\LaravelSet':
-                    - NAME # a mutator set's name, not the preset that turns it on
-                'NightWorksIO\MutationGateSymfony\SymfonySet':
-                    - NAME # a mutator set's name, not the preset that turns it on
-                'NightWorksIO\MutationGateSecurity\SecuritySet':
-                    - NAME # a mutator set's name, not the tag its mutators carry
-                'NightWorksIO\MutationGateLaravel\Mutators\UnwrapCacheRemember':
-                    - CALLBACK # where Cache::remember() takes its callback
-                'NightWorksIO\MutationGateDefault\Calls':
-                    - VALUE # the name of a parameter the mutant's code declares
-                'NightWorksIO\MutationGate\Core\Proof\LedgerFile':
-                    - FORMAT # a format version
-                    - EARLIER # the format version before the one written
-                    - SECONDS # a field of the ledger
-                    - RUNNER # a field of the ledger
-                    - TESTS # a field of the ledger
-                    - PASSED # a field of the ledger
-                'NightWorksIO\MutationGate\Core\Analysis\RejectionLength':
-                    - CODE # characters of a recorded rejection's code
-                'NightWorksIO\MutationGate\Core\Proof\AnalysersRecord':
-                    - SECONDS # a field of the ledger's analysers section
-                    - MUTATORS # a field of the ledger's analysers section
-                'NightWorksIO\MutationGate\Cli\Flow\CheckRoom':
-                    - WITH_ITS_PRINT # the checks a printed file's first survivor needs
-                'NightWorksIO\MutationGate\Core\Plan\SurvivorChecksRecord':
-                    - FILE # a field of a shard result
-                'NightWorksIO\MutationGate\Core\Format\Fit':
-                    - SHOWN # how many names a shortened list shows
-                'NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Evidence':
-                    - KEPT # characters of a line a run printed
-                'NightWorksIO\MutationGate\Core\Mutant\DiffPatch':
-                    - NO_NEWLINE # a unified diff's note on a missing line break
-                'NightWorksIO\MutationGate\Core\Mutant\MutantRecord':
-                    - SECONDS # a field of a shard result
-                    - MUTATOR # a field of a shard result
-                    - ID # a field of a shard result
-                    - STATUS # a field of a shard result
-                    - END # a field of a shard result
-                    - DIFF # a field of a shard result
-                    - FILE # a field of a shard result
-                'NightWorksIO\MutationGate\Core\Mutant\RejectionRecord':
-                    - CODE # a field of a rejection, not the exit code a Pest results file records
-                'NightWorksIO\MutationGate\Core\Proof\PlacedRankings':
-                    - FIELDS # the fields of a placed ranking, not letters per edit
-                'NightWorksIO\MutationGate\Core\Time\Seconds':
-                    - MILLISECOND_DIGITS # the decimals of a millisecond, not letters per edit
-                'NightWorksIO\MutationGate\Core\Sample\AutoSample':
-                    - 'OFF' # sampling.auto's word for never, not run.failFast's; quoted, as NEON reads a bare OFF as false
-                'NightWorksIO\MutationGate\Core\Proof\LedgerCodec':
-                    - LEVEL # the level a ledger is packed at, not gzip's highest
-                'NightWorksIO\MutationGate\Adapter\Zstd\ZstdProgram':
-                    - PROGRAM # the program's name, not proofs.compression's word for it
-                'NightWorksIO\MutationGate\Core\Format\Gzip':
-                    - MOST # gzip's highest level, not a signal
-                'NightWorksIO\MutationGate\Adapter\Infection\Results':
-                    - MUTATOR # a field of Infection's log
-                'NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile':
-                    - SECONDS # a field of the coverage map file, not of Pest's results file
-                'NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming':
-                    - PREFIX # PHPUnit's prefix of a test method
-                'NightWorksIO\MutationGate\Core\Php\Codebase':
-                    - STEPS # declarations followed
-                'NightWorksIO\MutationGate\Core\Php\Tokens':
-                    - ARGUMENT # tokens after a call's name
-                'NightWorksIO\MutationGate\Core\Php\StaticReads':
-                    - CLOSE # tokens after a call's name
-                'NightWorksIO\MutationGate\Core\Php\Reflections':
-                    - LITERAL # tokens after a class literal's name
-                'NightWorksIO\MutationGate\Adapter\Infection\Setup':
-                    - TESTS # a key of the runner's options
-                    - MUTATORS # a key of the runner's options
-                'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':
-                    - TESTS # a key of the runner's options
-                    - MUTATORS # a key of the runner's options
-                'NightWorksIO\MutationGate\Adapter\Native\NativeOptions':
-                    - TESTS # a key of the runner's options
-                    - MUTATORS # a key of the runner's options
-                'NightWorksIO\MutationGate\Core\Config\BoundsOptions':
-                    - TIMEOUT # a key of the runner's options
-                'NightWorksIO\MutationGate\Adapter\Filesystem\ReportPath':
-                    - KEY # a key of a report's entry
-                'NightWorksIO\MutationGate\Core\Composer\Manifest':
-                    - PATH # a kind of Composer repository
-                'NightWorksIO\MutationGate\Core\Baseline\BaselineFile':
-                    - FLOOR # a field of the baseline
-                'NightWorksIO\MutationGate\Core\Test\TestNamesRecord':
-                    - ROW # a test names record's field, not a comment's detail
-                    - FILE # a field of the plan's test names
-                'NightWorksIO\MutationGate\Core\Unit\UnitRecord':
-                    - PATH # a field of a unit's record
-                'NightWorksIO\MutationGate\Core\Plan\EstimateRecord':
-                    - OPENING # a field of a planned shard
-                'NightWorksIO\MutationGate\Cli\Console':
-                    - DEFAULT # the default command
-                'NightWorksIO\MutationGate\Core\Report\Stryker':
-                    - LANGUAGE # Stryker's name for the language
-                    - THRESHOLDS # Stryker's own scores in percent
-                'NightWorksIO\MutationGate\Core\Report\AffectedText':
-                    - OWN # a listed test file and one of its reasons, not a config problem
-                'NightWorksIO\MutationGate\Core\Coverage\MeasuredAt':
-                    - COMMIT # a field of the coverage map, not of a proof's digests
-                'NightWorksIO\MutationGate\Cli\Command\FlowOptions':
-                    - COVERAGE # an option of the gate's commands
-                    - FULL # an option of the gate's commands
-                    - KILL_MATRIX # an option of the gate's commands, not the report's name
-                    - SECURITY # an option of the gate's commands, not the config section of the same name
-                    - SUITE # an option of the gate's commands, not the plan file's field of the same name
-                    - SAMPLE # an option of the gate's commands, not the plan file's field of the same name
-                    - PLAN # an option of the gate's commands, not the plan command
-                'NightWorksIO\MutationGate\Cli\Command\TriageCommand':
-                    - ORDER # an option of triage, not the Pest plugin's directory of orders
-                'NightWorksIO\MutationGate\Core\Ci\DefaultBranch':
-                    - FALLBACK # the project's default branch when none is configured or detected
-                'NightWorksIO\MutationGate\Core\Plan\PlanFile':
-                    - BASE # a field of the plan
-                    - PROVED # a field of the plan
-                    - CARRIED # a field of the plan
-                    - CHANGED # a field of the plan
-                    - UNTESTED # a field of the plan, not Pest's status of the same name
-                    - DIGEST # a field of the plan, not the digest command
-                'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
-                    - NOTES # a shard result's section, not the comment's
-                    - FLAKY # a field of a shard result
-                    - UNJUDGED # a field of a shard result
-                    - MEASURED # a field of a shard result
-                'NightWorksIO\MutationGate\Core\Time\Budgets':
-                    - PRE_PUSH_MINUTES # a budget, in minutes
-                'NightWorksIO\MutationGate\Core\Runner\ProcessTable':
-                    - LOWEST # the lowest process id that names one process, not an exit code or an argument
-                'NightWorksIO\MutationGate\Core\Runner\Headroom':
-                    - TIMES # times a suite's peak memory a cap holds
-                'NightWorksIO\MutationGate\Extension\LibraryChange':
-                    - FIRST_METHOD_LINE # a line of the runner contract's library, not a cluster id's length
-                    - LARGE_LINE # a line of the runner contract's library, not a span id's length
-                'NightWorksIO\MutationGate\Extension\ProofStoreContract':
-                    - LEDGER # what a failure calls the ledger, not the workspace's directory
-                    - LEDGER_REQUEST # the pull request a contract writes to, not a mutant id's length
-                    - MAIN # the branch no check writes to, not the default branch's context
-                'NightWorksIO\MutationGate\Extension\Checks\RunnerCoverage':
-                    - AT_ONCE # test files measured again at once, not an argument's place or an exit code
-            # Constants still to refer to their value's one home, by the builder whose area holds them.
-                'NightWorksIO\MutationGate\Cli\Command\SharedRecheck':
-                    - SHARE # survivors' option naming its share of the re-check, not a suggestion's share of time
-                'NightWorksIO\MutationGate\Core\Config\SurvivorsFirst':
-                    - BUDGET_MINUTES # the minutes a re-check spends by default, not a proving range's commits
-                    - MOST_SHARDS # the most jobs a re-check is shared among, not its default budget
-                    - SHARDS # the jobs a re-check is shared among by default, not a mutant's status code
-                'NightWorksIO\MutationGate\Core\Recheck\RecheckJobs':
-                    - SETUP_MINUTES # the minutes a re-check job takes to set up, not shipped presets
-                'NightWorksIO\MutationGate\Core\Recheck\RecheckShare':
-                    - RAN # a share's files run again, not a recorded event
-                    - MUTANTS # a share's mutants made, not the kill history's section
-            awaiting:
-                'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
-                    - OWN # owner: flows (Workspace::root())
-                'NightWorksIO\MutationGate\Cli\Console':
-                    - NAME # owner: flows (ThisPackage::NAME)
         tags:
             - phpstan.rules.rule
     # D12, with the methods whose parameters take prose, a key or an outside
@@ -802,10 +292,14 @@ services:
                     - text # keys: GitHub's API answers
                     - number # keys: GitHub's API answers
                     - items # keys: GitHub's API answers
+                'NightWorksIO\MutationGate\Adapter\Pest\ByName':
+                    - called # vocabulary: a framework's methods, called by their names
                 'NightWorksIO\MutationGate\Core\CannotJudge':
                     - because # prose: why a verdict cannot be given
                 'NightWorksIO\MutationGate\Core\Change\CannotTell':
                     - because # prose: why what changed cannot be told
+                'NightWorksIO\MutationGate\Core\NotWritten':
+                    - because # prose: why something was not written
                 'NightWorksIO\MutationGate\Core\Ci\Variables':
                     - has # vocabulary: a CI's environment variables
                     - valueOf # vocabulary: a CI's environment variables
@@ -813,14 +307,22 @@ services:
                     - optional # keys: a config's settings
                     - required # keys: a config's settings
                     - section # keys: a config's sections
+                'NightWorksIO\MutationGate\Core\Config\Definition\ToggleFields':
+                    - in # keys: a config's sections
                 'NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting':
                     - as # prose: the type a setting was read as
                 'NightWorksIO\MutationGate\Core\Config\Definition\Text':
                     - of # prose: what a setting holds
                 'NightWorksIO\MutationGate\Core\Config\Key':
                     - of # keys: an adapter's options
+                'NightWorksIO\MutationGate\Core\File\Path':
+                    - of # vocabulary: the names of files and directories
+                'NightWorksIO\MutationGate\Core\Config\PhpCalls':
+                    - duration # vocabulary: the builder's calls a layer is written back as
+                    - flag # vocabulary: the builder's calls a layer is written back as
                 'NightWorksIO\MutationGate\Core\Config\Problem':
                     - at # keys and prose: a setting's path, and what is wrong with it
+                    - mismatch # prose: what a setting should hold
                 'NightWorksIO\MutationGate\Core\Format\Json':
                     - at # keys: a setting's path
                 'NightWorksIO\MutationGate\Core\Format\Member':

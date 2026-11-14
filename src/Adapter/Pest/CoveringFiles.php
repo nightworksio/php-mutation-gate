@@ -75,6 +75,54 @@ final class CoveringFiles
     }
 
     /**
+     * These test files, and every other test file this process loaded, each
+     * with what it needs and no test the map knows of it: the files a stream
+     * of a run planned without a fresh map runs, whose map may not know a
+     * new file (ADR-0135).
+     *
+     * @param  array<string, array{files: list<string>, tests: list<string>}> $units
+     * @return array<string, array{files: list<string>, tests: list<string>}>
+     */
+    public static function everyCase(array $units): array
+    {
+        $loaded = self::loaded();
+
+        foreach ($loaded->caseFiles() as $file) {
+            $units[$file] ??= ['files' => $loaded->needs($file), 'tests' => []];
+        }
+
+        return $units;
+    }
+
+    /**
+     * The test files a split stream of these tests runs (ADR-0117), by the
+     * file that declares each test's class: that file and every file it
+     * needs, as a narrowed run would load them, with the tests it declares;
+     * none where a test's class is not loaded.
+     *
+     * @param  list<string>                                          $tests by their ids in Pest's coverage map
+     * @return array<string, array{files: list<string>, tests: list<string>}>
+     */
+    public static function streamed(array $tests): array
+    {
+        $loaded = self::loaded();
+        $units = [];
+
+        foreach ($tests as $test) {
+            $file = $loaded->fileOf(self::classOf($test));
+
+            if ($file === '') {
+                return [];
+            }
+
+            $units[$file] ??= ['files' => $loaded->needs($file), 'tests' => []];
+            $units[$file]['tests'][] = $test;
+        }
+
+        return $units;
+    }
+
+    /**
      * Those of these tests the run of the mutant with this mutated copy runs
      * where its filter is left out: each whose class a file it loads
      * declares, or every one where it loads every test file.

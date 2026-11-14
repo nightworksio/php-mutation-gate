@@ -10,9 +10,10 @@ use NightWorksIO\MutationGate\Core\Format\Json;
  * One layer of config, as a preset, a config file or the command line
  * writes it (ADR-0002), in parts listed in the order the configuration
  * reference lists their keys: each part holds what the layer sets, and
- * leaves the rest to an earlier layer or to its default. Layers are laid in
- * order, later winning, and the settings are the last one laid over every
- * default.
+ * leaves the rest to an earlier layer or to its default. Beside its setup,
+ * a layer reads its parts in three views: what is judged, how a run goes,
+ * and what a run leaves behind. Layers are laid in order, later winning,
+ * and the settings are the last one laid over every default.
  */
 final readonly class Layer
 {
@@ -42,6 +43,8 @@ final readonly class Layer
             Pest::standard(),
             StaticCheck::standard(),
             Local::standard(),
+            Toggles::standard(),
+            Mutants::standard(),
             Contexts::standard(),
         ));
     }
@@ -63,6 +66,8 @@ final readonly class Layer
             Pest::none(),
             StaticCheck::none(),
             Local::none(),
+            Toggles::none(),
+            Mutants::none(),
             Contexts::none(),
         ));
 
@@ -91,64 +96,39 @@ final readonly class Layer
         return $this->parts->php($origin);
     }
 
-    public function floors(): Floors
+    /** What decides what is judged and how a result counts. */
+    public function judging(): JudgingParts
     {
-        return $this->parts->part(Floors::class);
+        return new JudgingParts(
+            $this->parts->part(Floors::class),
+            $this->parts->part(Reach::class),
+            $this->parts->part(Triage::class),
+            $this->parts->part(Ignores::class),
+            $this->parts->part(Mutants::class),
+        );
     }
 
-    public function reach(): Reach
+    /** What decides how a run goes. */
+    public function running(): RunningParts
     {
-        return $this->parts->part(Reach::class);
+        return new RunningParts(
+            $this->parts->part(Shards::class),
+            $this->parts->part(Ci::class),
+            $this->parts->part(Local::class),
+            $this->parts->part(Pest::class),
+            $this->parts->part(StaticCheck::class),
+            $this->parts->part(Toggles::class),
+        );
     }
 
-    public function shards(): Shards
+    /** What decides what a run leaves behind. */
+    public function output(): OutputParts
     {
-        return $this->parts->part(Shards::class);
-    }
-
-    public function ci(): Ci
-    {
-        return $this->parts->part(Ci::class);
-    }
-
-    public function proofs(): Proofs
-    {
-        return $this->parts->part(Proofs::class);
-    }
-
-    public function triage(): Triage
-    {
-        return $this->parts->part(Triage::class);
-    }
-
-    public function ignores(): Ignores
-    {
-        return $this->parts->part(Ignores::class);
-    }
-
-    public function reports(): Reports
-    {
-        return $this->parts->part(Reports::class);
-    }
-
-    public function publishing(): Publishing
-    {
-        return $this->parts->part(Publishing::class);
-    }
-
-    public function pest(): Pest
-    {
-        return $this->parts->part(Pest::class);
-    }
-
-    public function staticCheck(): StaticCheck
-    {
-        return $this->parts->part(StaticCheck::class);
-    }
-
-    public function local(): Local
-    {
-        return $this->parts->part(Local::class);
+        return new OutputParts(
+            $this->parts->part(Reports::class),
+            $this->parts->part(Publishing::class),
+            $this->parts->part(Proofs::class),
+        );
     }
 
     /**

@@ -1048,6 +1048,7 @@
                             "ignored-by-marker",
                             "skipped",
                             "out-of-memory",
+                            "equivalent",
                             "fails-unmutated"
                         ]
                     },
@@ -1455,6 +1456,8 @@
                                             "enum": [
                                                 "held coverage",
                                                 "coverage",
+                                                "value reader coverage",
+                                                "value readers",
                                                 "preparing",
                                                 "mutation",
                                                 "reading",
@@ -1465,6 +1468,7 @@
                                                 "equivalence",
                                                 "survivors",
                                                 "controls",
+                                                "heavy parts",
                                                 "static check"
                                             ]
                                         },

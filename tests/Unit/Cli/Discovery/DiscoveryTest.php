@@ -144,6 +144,24 @@ it('registers what the gate\'s own manifest declares, as first-party, where the 
         ->and($runs($discovery->extensions(firstPartyOnly: true), 'fake'))->toBeFalse();
 });
 
+it('takes the first-party packages\' extensions from the archive alone, where the project installs or is a copy of the gate', function () use ($manifest, $runs): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'app/composer.json', (string) json_encode($manifest(ThisPackage::COMPOSER, ['NightWorksIO\\MutationGate\\Cli\\NotTheArchives'])));
+    Scratch::write($project, 'app/vendor/composer/installed.json', (string) json_encode(['packages' => [
+        $manifest(FirstPartyPackage::DefaultSet->value, ['NightWorksIO\\MutationGateDefault\\NotTheArchives']),
+        $manifest('acme/fake', [ExtensionFake::class]),
+    ]]));
+    Scratch::write($project, 'archive/composer.json', (string) json_encode($manifest(ThisPackage::COMPOSER, [FirstParty::class])));
+    $discovery = new Discovery(
+        Directory::at(sprintf('%s/app', $project)),
+        Directory::at(sprintf('%s/app/vendor', $project)),
+        Directory::at(sprintf('%s/archive', $project)),
+    );
+
+    expect($runs($discovery->extensions(firstPartyOnly: false), 'pest'))->toBeTrue()
+        ->and($runs($discovery->extensions(firstPartyOnly: false), 'fake'))->toBeTrue();
+});
+
 it('cannot judge the gate\'s own manifest it cannot read', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, 'composer.json', '{}');

@@ -13,8 +13,6 @@ namespace NightWorksIO\MutationGate\Core\Config;
  * neither, so changing it re-runs nothing. One that affects the results of
  * the units a `paths` entry matches is in those units' keys alone, and a
  * change to it reaches only them (ADR-0074).
- *
- * @internal
  */
 enum Effect: string
 {

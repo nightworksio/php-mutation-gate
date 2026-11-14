@@ -64,6 +64,8 @@ final class Records
 
     /** How a record is named. */
     private const string RECORD = 'the record';
+    /** @var array{int, int}|NotGiven */
+    private array|NotGiven $forkStates;
 
     /** @var list<PlannedMutant> in the order the plugin wrote them, which is the order it writes them finished */
     private array $planned = [];
@@ -97,6 +99,7 @@ final class Records
         $this->opening = Unmeasured::duration();
         $this->orders = new PlannedOrders();
         $this->runs = new OwnRuns();
+        $this->forkStates = NotGiven::value();
     }
 
     public static function in(string $file): self|CannotJudge
@@ -236,6 +239,17 @@ final class Records
     }
 
     /**
+     * How many forks of the run's split streams read their state in parent
+     * and child, and how many found it alike (H5); none where none counted.
+     *
+     * @return array{int, int}|NotGiven
+     */
+    public function forkStates(): array|NotGiven
+    {
+        return $this->forkStates;
+    }
+
+    /**
      * Reads one line: the last may be cut short, or empty after the file's
      * final newline, and is then no record; any other must be one.
      *
@@ -254,29 +268,39 @@ final class Records
         }
 
         $record = Node::decode($line, named: self::RECORD);
-        $event = $record->field(RecordField::Event->value);
+        $field = $record->field(RecordField::Event->value);
+        $event = RecordEvent::tryFrom($field->text());
 
-        match (RecordEvent::tryFrom($event->text())) {
+        match ($event) {
             RecordEvent::Planned, RecordEvent::Twin => $this->withPlanned($record),
             RecordEvent::Made => $this->withMade($record),
-            RecordEvent::Outcome => $this->withOutcome($record),
+            RecordEvent::ForkStates => $this->forkStates = [
+                $record->field(RecordField::Count->value)->integer(),
+                $record->field(RecordField::Alike->value)->integer(),
+            ],
+            RecordEvent::Outcome => $this->outcomes[$record->field(RecordField::Id->value)->text()][]
+                = $this->statusIn($record),
             RecordEvent::Finished => $this->withFinished($record),
             RecordEvent::Killed => $this->runs->killed($record),
             RecordEvent::Errored => $this->runs->errored($record),
             RecordEvent::Exhausted => $this->runs->exhausted($record),
             RecordEvent::Fatal => $this->runs->fatal($record),
-            RecordEvent::Preloaded => $this->runs->preloaded($record),
+            RecordEvent::Preloaded,
+            RecordEvent::Unfiltered,
+            RecordEvent::Streamed,
+            RecordEvent::Unreached,
+            RecordEvent::OwnedPart,
+            RecordEvent::OtherPart => $this->runs->marked($record, $event),
             RecordEvent::Narrowed => $this->runs->narrowed($record),
             RecordEvent::Limited => $this->runs->limited($record),
-            RecordEvent::Unfiltered => $this->runs->unfiltered($record),
             RecordEvent::Silent => $this->runs->silent($record),
             RecordEvent::Ran => $this->runs->ran($record),
             RecordEvent::Arguments => $this->runs->startedWith($record),
             RecordEvent::Ordered => $this->orders->ordered($record),
-            RecordEvent::Stopped => throw NotInShape::at($event->at(), 'an event of a mutation run, not a replay\'s'),
+            RecordEvent::Stopped => throw NotInShape::at($field->at(), 'an event of a mutation run, not a replay\'s'),
             RecordEvent::Ended => $this->runs->ended($record),
             RecordEvent::End => $this->ended = true,
-            null => throw NotInShape::at($event->at(), 'an event the plugin writes'),
+            null => throw NotInShape::at($field->at(), 'an event the plugin writes'),
         };
     }
 
@@ -353,12 +377,6 @@ final class Records
         $opening = $record->field(RecordField::Opening->value);
         $this->opening = $opening->isPresent() ? Seconds::of($opening->number()) : Unmeasured::duration();
         $this->made = $record->field(RecordField::Count->value)->integer() === count($this->planned);
-    }
-
-    /** @throws NotInShape */
-    private function withOutcome(Node $record): void
-    {
-        $this->outcomes[$record->field(RecordField::Id->value)->text()][] = $this->statusIn($record);
     }
 
     /** @throws NotInShape */

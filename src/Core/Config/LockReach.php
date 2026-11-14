@@ -50,6 +50,12 @@ final readonly class LockReach
         );
     }
 
+    /** `reach.lockMoves`: what a move reaches; `everything` unless a layer says. */
+    public function moves(): LockMoveReach
+    {
+        return $this->moves instanceof LockMoveReach ? $this->moves : LockMoveReach::Everything;
+    }
+
     /** What a move decides: every package; those the config names; or none alone, a move reaching what loaded it. */
     public function deciding(): DecidingPackages
     {

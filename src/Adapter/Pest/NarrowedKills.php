@@ -15,9 +15,9 @@ use function count;
 use function explode;
 use function implode;
 use function is_array;
-use function is_int;
 use function is_string;
 
+use NightWorksIO\MutationGate\Core\Config\KillControl;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -32,11 +32,12 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
- * The kills of a run in which each mutant's own run loaded only the test
- * files its covering tests need, as far as its records can vouch for them. A
- * kill is doubtful where no test is named as the killer, or where the records
- * cannot be read. Any other kill of a narrowed own run stands only where the
- * replay of its run vouches for it, where its order is known (see
+ * The kills of a run, as far as each own run's records can vouch for them,
+ * whether it loaded only the test files its covering tests need or every one.
+ * A kill is doubtful where no test is named as the killer, or where the
+ * records cannot be read. Any other kill stands only where the replay of its
+ * run vouches for it, where its order is known, unless `flaky.killControls:
+ * alone` leaves a run that loaded every file to its kill control (see
  * PrefixReplay), or else where its control passes: the tests of the files it
  * loaded, loaded alone, with the file it changes served unmutated through
  * Pest's override as the mutant's copy was (see Control). A kill only tests
@@ -82,8 +83,12 @@ final readonly class NarrowedKills
     ) {
     }
 
-    public static function in(MutationResult $result, string $results, Project $project): self
-    {
+    public static function in(
+        MutationResult $result,
+        string $results,
+        Project $project,
+        KillControl $control = KillControl::Order,
+    ): self {
         $recorded = RecordedKills::of(Records::in($results));
         $doubtful = [];
         $narrowed = [];
@@ -99,7 +104,7 @@ final readonly class NarrowedKills
             }
 
             [$run, $copy, $limit] = $vouched;
-            $replay = self::replayOf($mutant, $run, $copy, $limit, $project);
+            $replay = PrefixReplay::ofRun($mutant, $run, $copy, $limit, $project, $control);
 
             if ($replay instanceof PrefixReplay) {
                 $planned = $run->planned(Paths::of(...array_map($project->relative(...), $run->narrowedTo())));
@@ -239,35 +244,5 @@ final readonly class NarrowedKills
         }
 
         return [$replays, $replayed, $errored, $planned];
-    }
-
-    /**
-     * The replay of a kill's narrowed own run, where its order is known: the
-     * key of that order, how far it went, and the arguments it started with.
-     */
-    private static function replayOf(
-        Mutant $mutant,
-        OwnRun $run,
-        string $copy,
-        Seconds|Unmeasured $limit,
-        Project $project,
-    ): PrefixReplay|NotGiven {
-        if ($run->narrowedTo() === []) {
-            return NotGiven::value();
-        }
-
-        $files = Paths::of(...array_map($project->relative(...), $run->narrowedTo()));
-        $prefix = $run->prefix($files);
-        $key = $prefix instanceof Prefix ? $prefix->key() : NotGiven::value();
-        $reach = $run->reach();
-        $arguments = $run->arguments();
-
-        return is_string($key)
-            && is_int($reach)
-            && $reach > 0
-            && is_array($arguments)
-            && $arguments !== []
-            ? PrefixReplay::of($mutant->location()->file(), $copy, $arguments, $files, $reach, $key, $limit)
-            : NotGiven::value();
     }
 }

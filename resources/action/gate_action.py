@@ -6,16 +6,30 @@ Usage:
   gate_action.py install   how the gate is installed, `install`: from the project's
                            Composer packages, or the release's PHAR, whose `tag`
                            it names from the ref the action is pinned to
-  gate_action.py phar      downloads that release's PHAR, verifies its signature
-                           and its attestation, and names it as `gate`
+  gate_action.py phar      downloads that release's PHAR, or ASSET where it names
+                           the judge's, verifies its signature and its
+                           attestation, and names it as `gate`
+  gate_action.py judge     what builds the run's judge, JUDGE (ADR-0140): the
+                           `commit` to build it from, or `release`, the newest
+                           release's judge, with its `tag`; where it refuses,
+                           it names why as `refused` before it exits 2
   gate_action.py resolve   the run's scope, ledger cache, gate binary and options:
                            `plan_options` adds the mode's to `options`
+  gate_action.py run-times writes what the jobs JOBS lists took to RUN_TIMES, for
+                           the verdict to read; where it lists none it writes
+                           nothing, and the verdict estimates
   gate_action.py config    from the effective config on stdin: whether it keeps
                            its ledger in the default directory, which copy of a
                            ledger it reads, whether deliver keeps the ledger in
                            the cache after the store, from STORE and ON_DEFAULT,
-                           whether it runs Pest with the optional patches, and
+                           whether it runs Pest, and with the optional patches, and
                            whether it runs Infection
+  gate_action.py merged-records  on a push to the default branch, into FETCHED, the
+                           ledger each pull request merged into the last commits
+                           left with its pass, read from its run's artifact, and
+                           its head fetched; on a merge group, its pull
+                           request's: `records`, how many it read; what it
+                           cannot read costs a run
   gate_action.py infection what `infection:patch` exited with, CODE, and said,
                            in the file SAID: a warning where the release runs
                            unpatched, a refusal where it could not be patched
@@ -24,6 +38,14 @@ Usage:
                            removes each shard's result an earlier attempt wrote
                            than its job's latest run, saying so, and every
                            attempt file beside the results
+  gate_action.py ended     from the run's jobs, JOBS, the error lines of their
+                           logs, ERRORS, one file a job, and the results,
+                           RESULTS: writes how each shard job that left no
+                           result ended beside where its result would be
+  gate_action.py watch     reads the run's jobs, JOBS, until one WATCH_JOBS names
+                           concluded in failure, naming it as `stopped` in
+                           what an artifact's name may hold, or until none of
+                           them can fail any more (ADR-0135)
   gate_action.py keep      copies the ledger and the coverage map the verdict
                            left in FROM into OWN, the scope's directory the
                            Actions cache keeps, and names the `key` they are
@@ -32,13 +54,17 @@ Usage:
 
 Every subcommand reads GitHub's environment and writes `key=value` lines to
 $GITHUB_OUTPUT, or refuses with exit code 2 and says why; `stale` writes no
-output.
+output, nor does `ended`.
 
 Two halves: the functions below `main` read the environment and files, and
-the ones above decide from what they read. The deciding half is what
-.github/scripts/test_gate_action.py tests.
+the ones above decide from what they read, with installs.py, which decides how
+the gate is installed, and run_jobs.py, which decides from the run's jobs. The
+deciding half is what .github/scripts/test_gate_action.py, test_installs.py and
+test_run_jobs.py test.
 """
+from datetime import datetime, timezone
 import hashlib
+import io
 import json
 import os
 import re
@@ -46,9 +72,54 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import zipfile
 
-# Each value below that the gate also holds is tied to the gate's own by
-# tests/Arch/TheActionScriptAgreesWithTheGateTest.php.
+from installs import (
+    COMPOSER,
+    GATE,
+    INSTALLED,
+    JUDGE_BUILD,
+    JUDGE_INSTALL,
+    JUDGE_OWN_HISTORY,
+    JUDGE_PHAR,
+    JUDGE_RELEASE,
+    JUDGE_SIGNATURE,
+    PHAR,
+    PHAR_INSTALL,
+    RELEASE_FINGERPRINT,
+    RELEASE_KEY_FILE,
+    RELEASE_WORKFLOW,
+    RELEASES,
+    SIGNATURE,
+    TAGS,
+    action_ref,
+    binary,
+    install,
+    installed_version,
+    release_tag,
+    remote_tags,
+    signed_by,
+    version_refusal,
+)
+from refused import Refused
+from run_jobs import (
+    ATTEMPT,
+    ENDED,
+    WATCH_EVERY_SECONDS,
+    WATCH_UNLISTED_SECONDS,
+    endings,
+    run_times,
+    shard_attempts,
+    stale,
+    stale_text,
+    watch_settled,
+    watched_failure,
+    watched_names,
+)
+
+# Each value of the action's scripts that the gate also holds is tied to the
+# gate's own by tests/Arch/TheActionScriptAgreesWithTheGateTest.php.
 
 # The events that run the default branch's workflow with a token or a cache
 # that can write, over content a pull request supplies (ADR-0019). The gate
@@ -83,8 +154,6 @@ TOGETHER = "together"
 # and its kept coverage map, by the names the directory store reads.
 KEPT = frozenset({"ledger.json.gz", "coverage.json.gz"})
 
-GATE = "nightworksio/mutation-gate"
-
 # The word the config names the Pest runner by, under `runner.use`; its
 # options sit under the same word.
 PEST = "pest"
@@ -92,44 +161,11 @@ PEST = "pest"
 # The word the config names the Infection runner by, under `runner.use`.
 INFECTION = "infection"
 
-# What Composer installed into a project, where the gate reads its own version.
-INSTALLED = "vendor/composer/installed.json"
-
 # The action's own release line, which the installed gate must share: its
 # major, or its major and minor while the major is 0, as Composer's caret
 # reads a version. The release pull request of a new line moves it
 # (release.py).
 LINE = "0.1"
-
-# How the action may install the gate (ADR-0051): `auto` takes the project's
-# Composer copy where it requires the gate, and the release's PHAR where not.
-COMPOSER = "composer"
-PHAR_INSTALL = "phar"
-INSTALLS = frozenset({"auto", COMPOSER, PHAR_INSTALL})
-
-# The repository each release is published from, whose release workflow signs
-# and attests its PHAR (ADR-0022), and that workflow.
-RELEASES = "nightworksio/php-mutation-gate"
-RELEASE_WORKFLOW = f"{RELEASES}/.github/workflows/release.yml"
-
-# The fingerprint of the key that signs each release's PHAR, as README.md and
-# SECURITY.md name it, and the key itself, beside this script.
-RELEASE_FINGERPRINT = "5EAA6082E57FF4C542A2EA66B757A4B1136116D2"
-RELEASE_KEY_FILE = "release-key.asc"
-
-# A release's PHAR and its detached signature, as the release names them.
-PHAR = "mutation-gate.phar"
-SIGNATURE = "mutation-gate.phar.asc"
-
-# A release's tag, a release line's tag, and a commit, as a ref may name them.
-RELEASE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
-LINE_TAG = re.compile(r"^v\d+(?:\.\d+)?$")
-COMMIT = re.compile(r"^[0-9a-f]{40}$")
-
-# How `git ls-remote --tags` names a tag, and the commit an annotated one
-# points at.
-TAGS = "refs/tags/"
-PEELED = "^{}"
 
 EXIT_CODES = {0: "passed", 1: "failed", 2: "cannot-judge"}
 
@@ -144,19 +180,18 @@ ACTION_REPORTS = {
     "html": "html:.mutation-gate/action/html",
     "digest": "digest:.mutation-gate/action/mutation-gate-digest.txt",
 }
-
-# A shard job's name as GitHub lists it, which holds the shard's number: the
-# reusable workflow names it `shard <number> (<label>)`, after the calling
-# job's name.
-SHARD_JOB = re.compile(r"(?:^| / )shard (\d+) \(")
-
-# The file beside a shard's result that holds the attempt whose job wrote it.
-ATTEMPT = ".attempt"
-
-
-class Refused(Exception):
-    """Why the gate must not run, said to the person reading the job's log."""
-
+# The artifact a passing pull request's verdict leaves, and the file it holds:
+# its scope's ledger as the verdict wrote it, with its pass (ADR-0139).
+PASSED_ARTIFACT = "mutation-gate-passed"
+PASSED_FILE = "passed.ledger.json.gz"
+# The name a ledger file has, under its scope's directory.
+LEDGER_FILE = "ledger.json.gz"
+# The commits a run looks back over: as far as the gate's proving range reads.
+PROVING_RANGE = 20
+# The most a ledger the gate writes packs into: LedgerLimits::PACKED.
+MOST_PASSED_BYTES = 11000000
+# A merge queue's branch, which names the pull request a merge group was built for.
+QUEUE_BRANCH = re.compile(r"^gh-readonly-queue/.+/pr-(\d+)-[0-9a-f]+$")
 
 def refusal(event: str) -> str | None:
     """Why the gate refuses to run under an event, or nothing where it may."""
@@ -265,6 +300,39 @@ def ledgers(event: str, ref: str, payload: dict, default_branch: str, cache: boo
     }
 
 
+def passed_artifacts(listed: list[dict], repository_id: int) -> dict[str, int]:
+    """The newest artifact of each commit, by its run's head, from the listing newest first: this repository's alone."""
+    found: dict[str, int] = {}
+    for artifact in listed:
+        run = artifact.get("workflow_run") or {}
+        head = run.get("head_sha", "")
+        same_repository = run.get("head_repository_id") == repository_id
+        if head and same_repository and not artifact.get("expired", True):
+            found.setdefault(head, artifact["id"])
+    return found
+
+
+def merged_heads(pulls: list[dict], repository: str, default_branch: str) -> list[tuple[int, str]]:
+    """Each pull request of this repository merged into its default branch, with its head."""
+    return [
+        (pull["number"], pull["head"]["sha"])
+        for pull in pulls
+        if pull.get("merged_at")
+        and pull["base"]["ref"] == default_branch
+        and (pull["head"].get("repo") or {}).get("full_name") == repository
+    ]
+
+
+def passed_ledger(archive: bytes) -> bytes | None:
+    """The ledger an artifact's archive holds; none where it holds none, or one too large to be of one pass."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(archive)) as opened:
+            held = opened.getinfo(PASSED_FILE)
+            return opened.read(held) if held.file_size <= MOST_PASSED_BYTES else None
+    except (KeyError, zipfile.BadZipFile):
+        return None
+
+
 def kept_key(prefix: str, kept: dict[str, bytes]) -> str:
     """The cache key a scope's kept files are saved under: its prefix and their digest; none where none is kept."""
     if not kept:
@@ -275,93 +343,32 @@ def kept_key(prefix: str, kept: dict[str, bytes]) -> str:
     return prefix + digest.hexdigest()
 
 
-def binary(root_manifest: dict) -> str:
-    """The gate the project runs: its own `bin/` for the package itself, its vendor's otherwise."""
-    return "bin/mutation-gate" if root_manifest.get("name") == GATE else "vendor/bin/mutation-gate"
+def judge_candidates(judge: str, event: str, payload: dict, repository: str, default_branch: str) -> tuple[list[list[str]], bool]:
+    """The commits a run's judge may be built from, the first that can build one taken, each as the revisions
+    it is: one, or two whose merge base it is; and whether the newest release's judge is taken where none
+    builds one.
 
-
-def line_of(version: str) -> str:
-    """A version's release line: its major, or its major and minor while the major is 0."""
-    parts = version.lstrip("v").split(".")
-    return parts[0] if parts[0] != "0" else ".".join(parts[:2])
-
-
-def installed_version(installed: dict) -> str:
-    """The gate's version as Composer installed it, from installed.json; nothing where it is not installed."""
-    packages = installed.get("packages")
-    for package in packages if isinstance(packages, list) else []:
-        if isinstance(package, dict) and package.get("name") == GATE and isinstance(package.get("version"), str):
-            return package["version"]
-    return ""
-
-
-def version_refusal(installed: str, line: str) -> str | None:
-    """Why the installed gate is not of the action's release line, or nothing where it is."""
-    if not installed:
-        return f"The project does not install {GATE}: require {GATE} ^{line}."
-    if installed.startswith("dev-") or installed.endswith("-dev"):
-        return None
-    if line_of(installed) != line:
-        return (
-            f"This action is mutation-gate {line}.x, and the project installs {installed}. "
-            f"Pin the action to the tag of the installed version's line, or require {GATE} ^{line}."
-        )
-    return None
-
-
-def requires_gate(manifest: dict) -> bool:
-    """Whether a project's composer.json requires the gate, or is the gate."""
-    required = {**(manifest.get("require") or {}), **(manifest.get("require-dev") or {})}
-    return manifest.get("name") == GATE or GATE in required
-
-
-def install(asked: str, manifest: dict) -> str:
-    """How the gate is installed: `composer` or `phar`, as asked, or by whether the project requires it."""
-    if asked not in INSTALLS:
-        raise Refused(f"install is auto, composer or phar, not {asked}.")
-    if asked != "auto":
-        return asked
-    return COMPOSER if requires_gate(manifest) else PHAR_INSTALL
-
-
-def action_ref(ref: str, path: str) -> str:
-    """The ref the action is pinned to: GitHub's, or the last part of the path GitHub fetched the action into."""
-    return ref or path.rstrip("/").rsplit("/", 1)[-1]
-
-
-def remote_tags(listed: str) -> dict[str, str]:
-    """Each tag `git ls-remote --tags` lists, with the commit it points at."""
-    tags = {}
-    for line in listed.splitlines():
-        commit, _, name = line.partition("\t")
-        if name.startswith(TAGS):
-            tag = name[len(TAGS):]
-            peeled = tag.endswith(PEELED)
-            tag = tag.removesuffix(PEELED)
-            tags[tag] = commit if peeled or tag not in tags else tags[tag]
-    return tags
-
-
-def release_tag(ref: str, tags: dict[str, str]) -> str:
-    """The release whose PHAR the action runs: the one its ref names, a release tag, a line's tag or a commit."""
-    commit = ref if COMMIT.match(ref) else tags.get(ref) if RELEASE_TAG.match(ref) or LINE_TAG.match(ref) else None
-    releases = [tag for tag, at in tags.items() if RELEASE_TAG.match(tag) and at == commit]
-    if commit is None or not releases:
+    The change's own history is the gate's, so only its repository names `merge-base`. A change is a pull
+    request's head from its base, a merge group's HEAD from its base, and any other run's HEAD from the default
+    branch, whose merge base on the default branch is the commit itself. `merge-base` builds where it branched,
+    then its base, then takes the newest release (ADR-0140).
+    """
+    if judge == JUDGE_RELEASE:
+        return [], True
+    if judge not in JUDGE_OWN_HISTORY:
+        return [[judge]], False
+    if repository != RELEASES:
         raise Refused(
-            f"The action runs the gate's PHAR from the release it is pinned to, and {ref or 'its ref'} is no release's "
-            f"tag or commit. Pin it to a release, as {RELEASES}@<commit> # v{LINE}.<patch>, "
-            f"or require {GATE} with Composer, and the action runs that copy."
+            f"judge: {judge} builds the gate from its own history, so only {RELEASES} names it. "
+            f"Name {JUDGE_RELEASE}, or a commit or tag of {RELEASES}."
         )
-    return max(releases, key=lambda tag: tuple(int(part) for part in RELEASE_TAG.match(tag).groups()))
-
-
-def signed_by(status: str, fingerprint: str) -> bool:
-    """Whether gpg's status lines say a good signature, by the key with this fingerprint, that has not expired."""
-    lines = [line.split() for line in status.splitlines()]
-    good = any(fields[:2] == ["[GNUPG:]", "GOODSIG"] for fields in lines)
-    return good and any(
-        fields[:2] == ["[GNUPG:]", "VALIDSIG"] and fingerprint in fields[2:3] + fields[11:12] for fields in lines
-    )
+    pull_request = payload.get("pull_request") or {}
+    group = payload.get(MERGE_GROUP) or {}
+    base, head = {
+        "pull_request": ((pull_request.get("base") or {}).get("sha", ""), (pull_request.get("head") or {}).get("sha", "")),
+        MERGE_GROUP: (group.get("base_sha", ""), "HEAD"),
+    }.get(event, (f"origin/{default_branch}", "HEAD"))
+    return [[base, head], [base]], True
 
 
 def phar_refusal(config: dict, installed_by: str) -> str | None:
@@ -392,18 +399,32 @@ def keeps_after_store(chosen: str, store: str, on_default_branch: bool) -> bool:
     return chosen == TOGETHER and store != "" and on_default_branch
 
 
-def patches_pest(config: dict) -> bool:
-    """Whether the effective config runs Pest with the optional patches on (ADR-0004).
+def runs_pest(config: dict) -> bool:
+    """Whether the effective config runs Pest, by its `runner.use`."""
+    return (config.get("runner") or {}).get("use") == PEST
 
-    The effective config names its runner under `runner.use`.
-    """
-    runner = (config.get("runner") or {}).get("use")
-    return runner == PEST and (config.get(PEST) or {}).get("patch") is True
+
+def patches_pest(config: dict) -> bool:
+    """Whether the effective config runs Pest with the optional patches on (ADR-0004)."""
+    return runs_pest(config) and (config.get(PEST) or {}).get("patch") is True
 
 
 def fail_fast(config: dict) -> str:
     """What a pull request's shard does once it cannot pass: `run.failFast`, `mark` where the config names none."""
     return (config.get("run") or {}).get("failFast") or MARK
+
+
+def cache_store(config: dict) -> str:
+    """Where `outbreak cache` keeps its packs under the action: `outbreak.cache.store`, `auto` being `oci` where a
+    registry is named and `actions` otherwise, and `none` where Outbreak is off (ADR-0131)."""
+    outbreak = config.get("outbreak") or {}
+    cache = outbreak.get("cache") or {}
+    store = cache.get("store") or "auto"
+    if outbreak.get("enabled") is False or store == "none":
+        return "none"
+    if store == "auto":
+        return "oci" if cache.get("registry") else "actions"
+    return store if store != "oci" or cache.get("registry") else "none"
 
 
 def patches_infection(config: dict) -> bool:
@@ -419,40 +440,6 @@ def infection_patched(code: int, said: str) -> str | None:
     if code == UNSUPPORTED_RELEASE:
         return f"Infection runs unpatched, with its own limit for each mutant: {said}"
     raise Refused(said or f"infection:patch exited {code}.")
-
-
-def shard_attempts(jobs: list) -> dict[str, int]:
-    """The attempt of each shard job's latest run, by the shard's number, from the run's jobs as GitHub lists them.
-
-    A re-run lists the jobs it kept under its own attempt, each created anew and started when its earlier
-    attempt started, so a job that started before it was created ran in an earlier attempt and counts for none.
-    """
-    latest: dict[str, int] = {}
-    for job in jobs:
-        named = SHARD_JOB.search(str(job.get("name", ""))) if isinstance(job, dict) and not kept(job) else None
-        attempt = job.get("run_attempt") if named else None
-        if named and isinstance(attempt, int):
-            latest[named.group(1)] = max(attempt, latest.get(named.group(1), 0))
-    return latest
-
-
-def kept(job: dict) -> bool:
-    """Whether a re-run listed this job as kept from an earlier attempt: it started before it was created."""
-    started, created = job.get("started_at"), job.get("created_at")
-    return isinstance(started, str) and isinstance(created, str) and started < created
-
-
-def stale(written: dict[str, int], latest: dict[str, int]) -> list[str]:
-    """The shards whose result an earlier attempt wrote than their job's latest run: that run wrote none."""
-    return sorted((shard for shard, attempt in written.items() if attempt < latest.get(shard, 0)), key=int)
-
-
-def stale_text(shard: str, written: int, latest: int) -> str:
-    """Why a shard's result is not judged."""
-    return (
-        f"Shard {shard} ran again in attempt {latest} and wrote no result, so the result attempt {written} "
-        "wrote is not judged, and the verdict finds none for it."
-    )
 
 
 def command_text(text: str) -> str:
@@ -511,14 +498,20 @@ def main(argv: list[str]) -> int:
         "guard": _guard,
         "install": _install,
         "phar": _phar,
+        "judge": _judge,
         "resolve": _resolve,
         "config": _config,
         "infection": _infection,
         "outputs": _outputs,
         "keep": _keep,
+        "run-times": _run_times,
+        "merged-records": _merged_records,
+        "watch": _watch,
     }
     if len(argv) == 2 and argv[1] == "stale":
         return _stale()
+    if len(argv) == 2 and argv[1] == "ended":
+        return _ended()
     if len(argv) != 2 or argv[1] not in commands:
         print(__doc__, file=sys.stderr)
         return 2
@@ -528,6 +521,24 @@ def main(argv: list[str]) -> int:
         print(f"::error::{refused}", file=sys.stderr)
         return 2
     return 0
+
+
+def _watch() -> dict[str, str]:
+    names = watched_names(os.environ.get("WATCH_JOBS", ""))
+    started = time.monotonic()
+    while names:
+        listed = _ran(
+            ["gh", "api", "--paginate", f"{os.environ['JOBS']}?per_page=100", "--jq", ".jobs[]"],
+            "The run's jobs could not be listed",
+        )
+        jobs = [json.loads(line) for line in listed.splitlines() if line.strip()]
+        failed = watched_failure(jobs, names)
+        if failed:
+            return {"stopped": failed}
+        if watch_settled(jobs, names, time.monotonic() - started > WATCH_UNLISTED_SECONDS):
+            break
+        time.sleep(WATCH_EVERY_SECONDS)
+    return {}
 
 
 def _guard() -> dict[str, str]:
@@ -546,16 +557,17 @@ def _install() -> dict[str, str]:
     listed = _ran(
         ["git", "ls-remote", "--tags", f"https://github.com/{RELEASES}"], f"The tags of {RELEASES} could not be listed"
     )
-    return {"install": PHAR_INSTALL, "tag": release_tag(ref, remote_tags(listed))}
+    return {"install": PHAR_INSTALL, "tag": release_tag(ref, remote_tags(listed), LINE)}
 
 
 def _phar() -> dict[str, str]:
     tag = os.environ["TAG"]
+    asset, signed = (JUDGE_PHAR, JUDGE_SIGNATURE) if os.environ.get("ASSET") == JUDGE_PHAR else (PHAR, SIGNATURE)
     directory = tempfile.mkdtemp(prefix="mutation-gate-", dir=os.environ["RUNNER_TEMP"])
-    phar = os.path.join(directory, PHAR)
-    signature = os.path.join(directory, SIGNATURE)
+    phar = os.path.join(directory, asset)
+    signature = os.path.join(directory, signed)
     download = ["gh", "release", "download", tag, "--repo", RELEASES, "--dir", directory]
-    _ran([*download, "--pattern", PHAR, "--pattern", SIGNATURE], f"The PHAR of {tag} could not be downloaded")
+    _ran([*download, "--pattern", asset, "--pattern", signed], f"The PHAR of {tag} could not be downloaded")
     home = tempfile.mkdtemp(prefix="gnupg-", dir=os.environ["RUNNER_TEMP"])
     key = os.path.join(os.path.dirname(os.path.abspath(__file__)), RELEASE_KEY_FILE)
     _ran(["gpg", "--homedir", home, "--batch", "--quiet", "--import", key], "The release key could not be read")
@@ -572,14 +584,72 @@ def _phar() -> dict[str, str]:
     return {"gate": phar}
 
 
+def _run_times() -> dict[str, str]:
+    jobs = _json_list(os.environ.get("JOBS", ""))
+    times = run_times(jobs, datetime.now(timezone.utc))
+    if times is None:
+        print("::notice::The list of this run's jobs says nothing of what they took, so the verdict estimates it.", file=sys.stderr)
+        return {}
+    with open(os.environ.get("RUN_TIMES", ""), "w", encoding="utf-8") as file:
+        json.dump(times, file)
+    return {}
+
+
+def _json_list(path: str) -> list[dict]:
+    """The objects of a JSON list in a file; none where there is no such file."""
+    if not os.path.isfile(path):
+        return []
+    with open(path, encoding="utf-8") as file:
+        loaded = json.load(file)
+    return [item for item in loaded if isinstance(item, dict)] if isinstance(loaded, list) else []
+
+
+def _judge() -> dict[str, str]:
+    try:
+        return _judge_build()
+    except Refused as refused:
+        _write({"refused": str(refused)})
+        raise
+
+
+def _judge_build() -> dict[str, str]:
+    judge = os.environ.get("JUDGE", "")
+    candidates, release = judge_candidates(
+        judge,
+        os.environ.get("GITHUB_EVENT_NAME", ""),
+        _payload(),
+        os.environ.get("GITHUB_REPOSITORY", ""),
+        os.environ.get("DEFAULT_BRANCH", ""),
+    )
+    if candidates == [[judge]] and os.environ.get("GITHUB_REPOSITORY", "") != RELEASES:
+        _ran(
+            ["git", "fetch", "--quiet", "--depth=1", f"https://github.com/{RELEASES}", judge],
+            f"{judge} could not be fetched from {RELEASES}",
+        )
+        candidates = [["FETCH_HEAD"]]
+    for revisions in candidates:
+        commit = _commit(revisions)
+        if commit and _holds(commit, JUDGE_BUILD):
+            return {"commit": commit}
+    if not release:
+        raise Refused(f"{judge} builds no judge: it holds no {JUDGE_BUILD}, which builds one.")
+    tag = _ran(
+        ["gh", "release", "view", "--repo", RELEASES, "--json", "tagName", "--jq", ".tagName"],
+        f"No release of {RELEASES} could be found to judge with",
+    ).strip()
+    return {"release": "true", "tag": tag}
+
+
 def _resolve() -> dict[str, str]:
     _guard()
     event = os.environ.get("GITHUB_EVENT_NAME", "")
     ref = os.environ.get("GITHUB_REF", "")
     payload = _payload()
     manifest = _json_file("composer.json")
-    phar = os.environ.get("INSTALLED_BY") == PHAR_INSTALL
+    phar = os.environ.get("INSTALLED_BY") in (PHAR_INSTALL, JUDGE_INSTALL)
     gate = os.environ.get("GATE_PHAR", "") if phar else binary(manifest)
+    if os.environ.get("INSTALLED_BY") == JUDGE_INSTALL and os.path.isfile(gate):
+        os.chmod(gate, 0o755)
     why = None if phar or gate.startswith("bin/") else version_refusal(installed_version(_installed()), LINE)
     if why is not None:
         raise Refused(why)
@@ -620,9 +690,11 @@ def _config() -> dict[str, str]:
         "after_store": "true"
         if keeps_after_store(copies(config), os.environ.get("STORE", ""), os.environ.get("ON_DEFAULT") == "true")
         else "false",
+        "pest": "true" if runs_pest(config) else "false",
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
         "fail_fast": fail_fast(config),
+        "cache_store": cache_store(config),
         "action_reports": json.dumps(action_reports(config)),
     }
 
@@ -658,6 +730,24 @@ def _stale() -> int:
     return 0
 
 
+def _ended() -> int:
+    with open(os.environ["JOBS"], encoding="utf-8") as file:
+        listed = json.load(file)
+    results, logged = os.environ["RESULTS"], os.environ["ERRORS"]
+    errors = {}
+    for name in os.listdir(logged) if os.path.isdir(logged) else []:
+        job, extension = os.path.splitext(name)
+        if extension == ".txt" and job.isdigit():
+            with open(os.path.join(logged, name), encoding="utf-8", errors="replace") as file:
+                errors[int(job)] = file.read()
+    os.makedirs(results, exist_ok=True)
+    for shard, ended in endings(listed if isinstance(listed, list) else [], errors).items():
+        if not os.path.isfile(os.path.join(results, shard + ".json")):
+            with open(os.path.join(results, shard + ENDED), "w", encoding="utf-8") as file:
+                json.dump(ended, file)
+    return 0
+
+
 def _keep() -> dict[str, str]:
     source, own = os.environ["FROM"], os.environ["OWN"]
     os.makedirs(own, exist_ok=True)
@@ -668,6 +758,76 @@ def _keep() -> dict[str, str]:
             with open(os.path.join(own, name), "rb") as file:
                 kept[name] = file.read()
     return {"key": kept_key(os.environ["PREFIX"], kept)}
+
+
+def _merged_records() -> dict[str, str]:
+    repository, into = os.environ["GITHUB_REPOSITORY"], os.environ["FETCHED"]
+    default_branch = os.environ["DEFAULT_BRANCH"]
+    try:
+        records = _read_records(repository, default_branch, into)
+    except (Refused, subprocess.TimeoutExpired, ValueError, KeyError, TypeError) as unread:
+        print(f"::warning::No pull request's pass was read, so this push is judged without any: {unread}")
+        records = 0
+    return {"records": str(records)}
+
+
+def queued_pull_request(event: str, ref: str) -> int | None:
+    """The pull request a merge group was built for, by its queue branch; none for any other run."""
+    branch = ref.removeprefix("refs/heads/")
+    queued = QUEUE_BRANCH.match(branch) if event == MERGE_GROUP else None
+    return int(queued.group(1)) if queued else None
+
+
+def _read_records(repository: str, default_branch: str, into: str) -> int:
+    asked = f"repos/{repository}"
+    identity = _api_json(asked)["id"]
+    listed = _api_json(f"{asked}/actions/artifacts?name={PASSED_ARTIFACT}&per_page=100")["artifacts"]
+    artifacts = passed_artifacts(listed, identity)
+    queued = queued_pull_request(os.environ.get("GITHUB_EVENT_NAME", ""), os.environ.get("GITHUB_REF", ""))
+    merged = (
+        [(queued, _api_json(f"{asked}/pulls/{queued}")["head"]["sha"])]
+        if queued is not None
+        else _merged_since(asked, repository, default_branch)
+    )
+    records = 0
+    for number, head in merged:
+        if head in artifacts:
+            records += _kept_record(asked, artifacts[head], number, into)
+            _fetched(head)
+    return records
+
+
+def _merged_since(asked: str, repository: str, default_branch: str) -> list[tuple[int, str]]:
+    commits = _api_json(f"{asked}/commits?sha={os.environ['GITHUB_SHA']}&per_page={PROVING_RANGE}")
+    merged: list[tuple[int, str]] = []
+    for commit in commits:
+        merged += merged_heads(_api_json(f"{asked}/commits/{commit['sha']}/pulls"), repository, default_branch)
+    return merged
+
+
+def _fetched(head: str) -> None:
+    """A pull request's judged head, fetched so a delta from it can be read; nothing where it cannot be."""
+    subprocess.run(
+        ["git", "fetch", "--no-tags", "--depth=1", "origin", head], capture_output=True, check=False, timeout=120
+    )
+
+
+def _kept_record(asked: str, artifact: int, number: int, into: str) -> int:
+    fetched = subprocess.run(
+        ["gh", "api", f"{asked}/actions/artifacts/{artifact}/zip"], capture_output=True, check=False, timeout=120
+    )
+    ledger = passed_ledger(fetched.stdout) if fetched.returncode == 0 else None
+    if ledger is None:
+        return 0
+    directory = f"{into}/refs/pull/{number}"
+    os.makedirs(directory, exist_ok=True)
+    with open(f"{directory}/{LEDGER_FILE}", "wb") as file:
+        file.write(ledger)
+    return 1
+
+
+def _api_json(path: str) -> dict | list:
+    return json.loads(_ran(["gh", "api", path], "GitHub did not answer"))
 
 
 def _attempt(path: str) -> int:
@@ -722,6 +882,19 @@ def _parents() -> list[str]:
         ["git", "rev-list", "--parents", "-n", "1", "HEAD"], capture_output=True, text=True, check=False, timeout=60
     )
     return listed.stdout.split() if listed.returncode == 0 else []
+
+
+def _commit(revisions: list[str]) -> str:
+    """The commit one revision names, or the merge base of two; none where git cannot say, as in a shallow clone."""
+    command = ["git", "merge-base", *revisions] if len(revisions) > 1 else ["git", "rev-parse", "--verify", "--quiet", f"{revisions[0]}^{{commit}}"]
+    named = subprocess.run(command, capture_output=True, text=True, check=False, timeout=60)
+    return named.stdout.strip() if named.returncode == 0 else ""
+
+
+def _holds(commit: str, path: str) -> bool:
+    """Whether a commit holds a file at a path."""
+    held = subprocess.run(["git", "cat-file", "-e", f"{commit}:{path}"], capture_output=True, check=False, timeout=60)
+    return held.returncode == 0
 
 
 def _installed() -> dict:

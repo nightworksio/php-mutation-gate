@@ -39,7 +39,7 @@ final readonly class LedgerSize
     public static function in(Observations $observed): Findings
     {
         $ledgers = $observed->ledgers();
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $limits = $settings instanceof Settings
             ? LedgerLimits::kept($settings->proofs()->retained())
             : LedgerLimits::standard();

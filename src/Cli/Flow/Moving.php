@@ -8,10 +8,13 @@ use function array_filter;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
@@ -32,23 +35,18 @@ final readonly class Moving
     ) {
     }
 
-    /** What moved of a kept map, as the project's test files stand; or why their tests are unknown. */
-    public static function of(CoverageEntries $entries, KeptMap $kept): self|CannotJudge
-    {
+    public static function of(
+        CoverageEntries $entries,
+        KeptMap $kept,
+        QuickCoverage|NotGiven $quick = new NotGiven(),
+    ): self|CannotJudge {
         $map = $kept->map();
-        $executed = ExecutedFiles::in($map);
+        $outline = MapOutline::of($map);
         $files = $entries->testFiles();
-        $moved = [];
+        $moved = self::movedSince($kept, $entries, $quick, $map, $outline);
 
-        foreach ($files as $file) {
-            $key = $entries->keyOf($file, $map, $executed);
-
-            if ($key instanceof CannotJudge) {
-                return $key;
-            }
-
-            $was = $kept->keys()->keyOf($file);
-            $moved = $was instanceof Digest && $was->value() === $key->value() ? $moved : [...$moved, $file];
+        if ($moved instanceof CannotJudge) {
+            return $moved;
         }
 
         $gone = array_filter([...$kept->keys()->files()], static fn(Path $file): bool => ! $files->has($file));
@@ -96,5 +94,40 @@ final readonly class Moving
     public function total(): int
     {
         return $this->total;
+    }
+
+    /**
+     * What moved of a kept map, as the project's test files stand, of which
+     * a quick round measures again only what it says (ADR-0146); or why
+     * their tests are unknown.
+     */
+    /**
+     * Each test file whose key moved from the kept map's, where a quick round measures it.
+     *
+     * @return list<Path>|CannotJudge
+     */
+    private static function movedSince(
+        KeptMap $kept,
+        CoverageEntries $entries,
+        QuickCoverage|NotGiven $quick,
+        CoverageMap $map,
+        MapOutline $outline,
+    ): array|CannotJudge {
+        $moved = [];
+
+        foreach ($entries->testFiles() as $file) {
+            $key = $entries->keyOf($file, $map, $outline);
+
+            if ($key instanceof CannotJudge) {
+                return $key;
+            }
+
+            $was = $kept->keys()->keyOf($file);
+            $unchanged = $was instanceof Digest && $was->value() === $key->value();
+            $measured = ! $quick instanceof QuickCoverage || $quick->measures($file, $was instanceof Digest);
+            $moved = $unchanged || ! $measured ? $moved : [...$moved, $file];
+        }
+
+        return $moved;
     }
 }

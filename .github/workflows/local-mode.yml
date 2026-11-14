@@ -1,0 +1,154 @@
+# The local loop on a pinned project (ADR-0120, ADR-0146): lcobucci/jwt,
+# prepared as bench/jwt.sh prepares it for the benchmark, with the gate from
+# this checkout.
+#
+# - local mode: a whole `run` at half the machine's cores, outside any CI as
+#   on a developer's machine, ends within ten minutes. PMG's own run on what
+#   this change touched follows it, and its outcome goes to the step summary
+#   alone.
+# - local loop: a `watch` round that starts from a map carried from an
+#   earlier measure (`--from-map`), after one source line changed, is quick
+#   under `local.cpu: balanced` and ends within ten minutes, outside any CI
+#   as on a developer's machine; it prints its whole report.
+name: local mode
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PHP_VERSION: '8.5'
+  JWT: ${{ github.workspace }}/../jwt
+  # The most seconds either job's timed command may take.
+  MOST_SECONDS: 600
+
+jobs:
+  local-mode:
+    name: local mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: pcntl, sodium
+          # jwt's tests expect assertions to run, as a development PHP has them.
+          ini-values: zend.assertions=1
+      - name: the project at its pinned commit, prepared
+        run: bench/prepare.sh jwt "${JWT}"
+      - name: a whole run at half the cores
+        working-directory: ${{ env.JWT }}
+        run: |
+          half=$(( $(nproc) / 2 > 0 ? $(nproc) / 2 : 1 ))
+          jq --argjson processes "${half}" '.runner.processes = $processes' bench-phpunit.json > bench-local.json
+          cp bench-baseline.json mutation-gate.baseline.json
+          started=${SECONDS}
+          status=0
+          timeout "${MOST_SECONDS}" env -u CI -u GITHUB_ACTIONS -u GITHUB_EVENT_NAME -u GITHUB_EVENT_PATH \
+            -u GITHUB_BASE_REF -u GITHUB_HEAD_REF \
+            vendor/bin/mutation-gate run --no-interaction --config=bench-local.json || status=$?
+          took=$(( SECONDS - started ))
+          echo "local mode: \`run\` on lcobucci/jwt at ${half} processes took ${took} s and ended ${status}." >> "${GITHUB_STEP_SUMMARY}"
+          if [ "${status}" -eq 124 ]; then
+            echo "::error title=local mode::A whole run at ${half} processes took more than ${MOST_SECONDS} s."
+          fi
+          exit "${status}"
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        if: ${{ !cancelled() }}
+      - name: this change's own run, reported
+        if: ${{ !cancelled() }}
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          status=0
+          timeout "${MOST_SECONDS}" bin/mutation-gate run --no-interaction --changed-since="${BASE}" > "${RUNNER_TEMP}/own.txt" 2>&1 || status=$?
+          {
+            echo "### The gate's own run on what this change touched, which fails nothing"
+            echo
+            echo "It ended ${status}."
+            echo
+            echo '```'
+            tail -n 40 "${RUNNER_TEMP}/own.txt"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py local-mode
+
+  local-loop:
+    name: local loop
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: pcntl, sodium
+          # jwt's tests expect assertions to run, as a development PHP has them.
+          ini-values: zend.assertions=1
+      - name: the project at its pinned commit, prepared
+        run: bench/prepare.sh jwt "${JWT}"
+      - name: a map measured on the committed project
+        working-directory: ${{ env.JWT }}
+        run: |
+          jq '.local.cpu = "balanced"' bench-phpunit.json > bench-local.json
+          env -u CI -u GITHUB_ACTIONS -u GITHUB_EVENT_NAME -u GITHUB_EVENT_PATH -u GITHUB_BASE_REF -u GITHUB_HEAD_REF \
+            vendor/bin/mutation-gate coverage --no-interaction --config=bench-local.json --into=.mutation-gate/carried
+      - name: one quick round after a source line changed
+        working-directory: ${{ env.JWT }}
+        run: |
+          file=src/Validation/Constraint/IdentifiedBy.php
+          sed -i "s/if (! \$token->isIdentifiedBy(\$this->id)) {/if (\$token->isIdentifiedBy(\$this->id) === false) {/" "${file}"
+          if git diff --quiet -- "${file}"; then
+            echo "::error title=local loop::The pinned line of ${file} is not there to change."
+            exit 1
+          fi
+          started=${SECONDS}
+          status=0
+          timeout "${MOST_SECONDS}" env -u CI -u GITHUB_ACTIONS -u GITHUB_EVENT_NAME -u GITHUB_EVENT_PATH \
+            -u GITHUB_BASE_REF -u GITHUB_HEAD_REF \
+            vendor/bin/mutation-gate watch --no-interaction --config=bench-local.json \
+            --rounds=1 --from-map=.mutation-gate/carried --whole-report || status=$?
+          took=$(( SECONDS - started ))
+          echo "local loop: a round from the carried map took ${took} s and ended ${status}." >> "${GITHUB_STEP_SUMMARY}"
+          if [ "${status}" -eq 124 ]; then
+            echo "::error title=local loop::A quick round from a carried map took more than ${MOST_SECONDS} s."
+          fi
+          exit "${status}"
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py local-loop
+
+  # The jobs' evidence, gathered into the one artifact the bot reads (ADR-0019).
+  local-evidence:
+    name: local evidence
+    needs: [local-mode, local-loop]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: ./.github/actions/evidence # zizmor: ignore[self-repository]
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py local-evidence

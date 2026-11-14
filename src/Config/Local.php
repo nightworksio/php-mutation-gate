@@ -77,6 +77,42 @@ final readonly class Local implements Setting
         return new self(Json::at('local.serveRequest', $duration));
     }
 
+    /** `local.rounds`: how many rounds `watch` runs before it ends (ADR-0146). */
+    public static function rounds(int $rounds): self
+    {
+        return new self(Json::at('local.rounds', $rounds));
+    }
+
+    /** `local.fromMap`: the directory of a map `coverage --into` wrote, the first round of `watch` measures against. */
+    public static function fromMap(string $directory): self
+    {
+        return new self(Json::at('local.fromMap', $directory));
+    }
+
+    /** `local.quick`, as by default: each round of `watch` is quick, advisory and keyed apart (ADR-0146). */
+    public static function quickRounds(): self
+    {
+        return new self(Json::at('local.quick', value: true));
+    }
+
+    /** `local.quick` off: each round of `watch` measures, checks and judges as `run` does. */
+    public static function fullRounds(): self
+    {
+        return new self(Json::at('local.quick', value: false));
+    }
+
+    /** `local.cancelByUnit`, as by default: a save drops only the work of the units it moved (ADR-0146). */
+    public static function cancellingByUnit(): self
+    {
+        return new self(Json::at('local.cancelByUnit', value: true));
+    }
+
+    /** `local.cancelByUnit` off: a save stops the round of `watch` before its next batch. */
+    public static function cancellingByRound(): self
+    {
+        return new self(Json::at('local.cancelByUnit', value: false));
+    }
+
     /** `triage.fewest`: the fewest runs `triage --repeat` takes; 2. */
     public static function triageFewest(int $runs): self
     {

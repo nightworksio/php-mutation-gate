@@ -1,0 +1,267 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Core\Config;
+
+use function is_int;
+
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
+
+use function sprintf;
+
+/**
+ * Whether a patched Pest run judges its mutants in split streams, and how
+ * (ADR-0117): `splitStream`, which the `Pest` part holds, as only the Pest
+ * runner splits its streams.
+ */
+final readonly class SplitStream
+{
+    /** The key, and the Pest runner's option, that says whether a run splits its streams. */
+    public const string ENABLED = 'enabled';
+
+    /** The key, and the Pest runner's option, that says how many children a stream holds at once. */
+    public const string CHILDREN = 'children';
+
+    /** The key, and the Pest runner's option, that says whether a stream forks only where a mutant changes a value. */
+    public const string CHANGE_CHECK = 'changeCheck';
+
+    /** The key, and the Pest runner's option, that says whether a stream forks first at each mutant's likely killer. */
+    public const string KILLERS_FIRST = 'killersFirst';
+
+    /** The key whose `true` has a first-pass stream run only the killers of its mutants (ADR-0136). */
+    public const string KILLER_STREAMS = 'killerStreams';
+
+    /** The key whose `true` has a stream boot a framework's application once and fork each test from it. */
+    public const string BOOT_ONCE = 'bootOnce';
+
+    /** The key whose `true` has a child reconnect to its own copy of each database a test holds open (ADR-0147). */
+    public const string RECONNECT = 'reconnect';
+
+    /** The key of which full runs plan without a fresh map (ADR-0135). */
+    public const string EARLY = 'early';
+
+    /** The key that says what a run that splits its streams cuts its shards by. */
+    public const string SHARDING = 'sharding';
+
+    /** The section the keys are in, and the Pest runner's option that holds them. */
+    public const string SECTION = 'splitStream';
+
+    private const int CHILDREN_AT_ONCE = 1;
+
+    private function __construct(
+        private bool|Absent $enabled,
+        private int|Absent $children,
+        private bool|Absent $changeCheck,
+        private bool|Absent $killersFirst,
+        private StreamSharding|Absent $sharding,
+        private bool|Absent $killerStreams,
+        private SplitEarly|Absent $early = new Absent(),
+        private bool|Absent $bootOnce = new Absent(),
+        private bool|Absent $reconnect = new Absent(),
+    ) {
+    }
+
+    public static function of(
+        bool|Absent $enabled = new Absent(),
+        int|Absent $children = new Absent(),
+        bool|Absent $changeCheck = new Absent(),
+        bool|Absent $killersFirst = new Absent(),
+        StreamSharding|Absent $sharding = new Absent(),
+        bool|Absent $killerStreams = new Absent(),
+        SplitEarly|Absent $early = new Absent(),
+        bool|Absent $bootOnce = new Absent(),
+        bool|Absent $reconnect = new Absent(),
+    ): self {
+        return new self(
+            $enabled,
+            $children,
+            $changeCheck,
+            $killersFirst,
+            $sharding,
+            $killerStreams,
+            $early,
+            $bootOnce,
+            $reconnect,
+        );
+    }
+
+    /** Every key at the value it takes when every layer leaves it out. */
+    public static function standard(): self
+    {
+        $none = self::of();
+
+        return self::of(
+            $none->enabled(),
+            $none->children(),
+            $none->changeCheck(),
+            $none->killersFirst(),
+            $none->sharding(),
+            $none->killerStreams(),
+            $none->early(),
+            $none->bootOnce(),
+            $none->reconnect(),
+        );
+    }
+
+    /** This, with what a later layer sets laid over it, key by key. */
+    public function over(self $later): self
+    {
+        return new self(
+            Absent::laid($this->enabled, $later->enabled),
+            Absent::laid($this->children, $later->children),
+            Absent::laid($this->changeCheck, $later->changeCheck),
+            Absent::laid($this->killersFirst, $later->killersFirst),
+            Absent::laid($this->sharding, $later->sharding),
+            Absent::laid($this->killerStreams, $later->killerStreams),
+            Absent::laid($this->early, $later->early),
+            Absent::laid($this->bootOnce, $later->bootOnce),
+            Absent::laid($this->reconnect, $later->reconnect),
+        );
+    }
+
+    /** `splitStream.enabled`: whether a patched run judges its mutants in split streams; false by default. */
+    public function enabled(): bool
+    {
+        return $this->enabled === true;
+    }
+
+    /** `splitStream.children`: the most children a stream holds at once; 1 by default. */
+    public function children(): int
+    {
+        return is_int($this->children) ? $this->children : self::CHILDREN_AT_ONCE;
+    }
+
+    /**
+     * `splitStream.changeCheck`: whether a stream forks a pure expression's
+     * mutant only where it changes the value; true by default.
+     */
+    public function changeCheck(): bool
+    {
+        return $this->changeCheck !== false;
+    }
+
+    /**
+     * `splitStream.killersFirst`: whether a stream forks each mutant first at
+     * the test the ledger last saw kill it; true by default.
+     */
+    public function killersFirst(): bool
+    {
+        return $this->killersFirst !== false;
+    }
+
+    /** `splitStream.sharding`: what a run that splits its streams cuts its shards by; test files by default. */
+    public function sharding(): StreamSharding
+    {
+        return $this->sharding instanceof StreamSharding ? $this->sharding : StreamSharding::Tests;
+    }
+
+    /**
+     * `splitStream.killerStreams`: whether a first-pass stream runs only the
+     * tests the ledger names as killers of its mutants (ADR-0136); off
+     * by default.
+     */
+    public function killerStreams(): bool
+    {
+        return $this->killerStreams === true;
+    }
+
+    /**
+     * `splitStream.bootOnce`: whether a stream boots the application of a
+     * framework it recognises once, and forks each test from it, its
+     * mutants' children forking from that test's own process; off by
+     * default. A mutant whose site runs while the application boots streams
+     * in a second pass that boots it in every test.
+     */
+    public function bootOnce(): bool
+    {
+        return $this->bootOnce === true;
+    }
+
+    /**
+     * `splitStream.reconnect`: whether a test that holds a connection of the
+     * application's own to a database, outside a transaction and with no
+     * state its session keeps, still forks, each child reconnecting to its
+     * own copy of that database (ADR-0147); off by default.
+     */
+    public function reconnect(): bool
+    {
+        return $this->reconnect === true;
+    }
+
+    /**
+     * `splitStream.early`: which full split-stream runs plan without a fresh
+     * coverage map (ADR-0135); `no-match` by default. It is in no key, and
+     * not in the runner's option.
+     */
+    public function early(): SplitEarly
+    {
+        return $this->early instanceof SplitEarly ? $this->early : SplitEarly::NoMatch;
+    }
+
+    /** The Pest runner's `splitStream` option: every key at the value it takes. */
+    public function option(): Member
+    {
+        $option = Json::object(
+            Member::of(self::ENABLED, $this->enabled()),
+            Member::of(self::CHILDREN, $this->children()),
+            Member::of(self::CHANGE_CHECK, $this->changeCheck()),
+            Member::of(self::KILLERS_FIRST, $this->killersFirst()),
+            Member::of(self::KILLER_STREAMS, $this->killerStreams()),
+            Member::of(self::BOOT_ONCE, $this->bootOnce()),
+            Member::of(self::RECONNECT, $this->reconnect()),
+        );
+
+        return Member::of(self::SECTION, $option);
+    }
+
+    /** The `splitStream` member a config writes; nothing where no key is set. */
+    public function written(): Member
+    {
+        $sharding = $this->sharding instanceof StreamSharding ? $this->sharding->value : $this->sharding;
+        $written = Json::object(
+            Member::of(self::ENABLED, $this->enabled),
+            Member::of(self::CHILDREN, $this->children),
+            Member::of(self::CHANGE_CHECK, $this->changeCheck),
+            Member::of(self::KILLERS_FIRST, $this->killersFirst),
+            Member::of(self::SHARDING, $sharding),
+            Member::of(self::KILLER_STREAMS, $this->killerStreams),
+            Member::of(self::EARLY, $this->early instanceof SplitEarly ? $this->early->value : $this->early),
+            Member::of(self::BOOT_ONCE, $this->bootOnce),
+            Member::of(self::RECONNECT, $this->reconnect),
+        );
+
+        return Member::unlessEmpty(self::SECTION, $written);
+    }
+
+    /** The PHP builder's calls for the keys set. */
+    public function php(): PhpCalls
+    {
+        return PhpCalls::inWith(
+            ...$this->switched($this->enabled, 'SplitStream::on()', 'SplitStream::off()'),
+            ...is_int($this->children) ? [sprintf('SplitStream::children(%d)', $this->children)] : [],
+            ...$this->switched($this->changeCheck, 'SplitStream::checkingChanges()', 'SplitStream::forkingUnchecked()'),
+            ...$this->switched($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'),
+            ...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : [],
+            ...$this->switched($this->killerStreams, 'SplitStream::killerStreams()', 'SplitStream::wholeFirstPass()'),
+            ...$this->early instanceof SplitEarly ? [$this->early->php()] : [],
+            ...$this->switched($this->bootOnce, 'SplitStream::bootOnce()', 'SplitStream::bootPerTest()'),
+            ...$this->switched($this->reconnect, 'SplitStream::reconnect()', 'SplitStream::connectionsFallBack()'),
+        );
+    }
+
+    /**
+     * The call that sets a switch as a layer sets it, on or off; none where the layer leaves it.
+     *
+     * @return list<string>
+     */
+    private function switched(bool|Absent $value, string $on, string $off): array
+    {
+        return match ($value) {
+            true => [$on],
+            false => [$off],
+            default => [],
+        };
+    }
+}

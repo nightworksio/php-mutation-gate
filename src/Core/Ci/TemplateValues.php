@@ -20,7 +20,7 @@ use function strtr;
  * What `init --ci` fills into a CI definition's template (ADR-0015), each
  * where the template writes `%%<name>%%`: the PHP version, the default
  * branch, the gate's pin, version and container image, the runner, the
- * check to require, the file of the gate's jobs the CI's own definition
+ * check to require, the schedule of the full run, the file of the gate's jobs the CI's own definition
  * pulls in, where it has one, the variables the S3 store reads, what holds
  * the proof store's keys on Bitbucket and Jenkins, and the variables the
  * GitLab and Bitbucket comments read their tokens from. A template lands in YAML, Groovy and shell
@@ -40,6 +40,9 @@ final readonly class TemplateValues
     /** A runner, by its name or by a class, whose namespace is spelt with backslashes. */
     private const string RUNNER = '#^[A-Za-z0-9._\\\\-]+$#D';
 
+    /** Five cron fields, of digits and `*`, `,`, `/` and `-`. */
+    private const string CRON = '#^[0-9*,/-]+( [0-9*,/-]+){4}$#D';
+
     private const string UNSAFE = '%s "%s" cannot go into a CI definition, where a shell or YAML reads it as code. %s';
 
     /** @param array<string, string> $values by the placeholder each replaces */
@@ -55,11 +58,13 @@ final readonly class TemplateValues
         string $runner,
         string $check,
         Path|NotGiven $included,
+        string $schedule,
     ): self|CannotJudge {
         $gitlabFix = 'Set ci.gitlab.template to a path of letters, digits and ._/-.';
         $checked = [
             ['The default branch', $branch, self::NAME, 'Set ci.defaultBranch to a name of letters, digits and ._/-.'],
             ['The runner', $runner, self::RUNNER, 'Choose a runner by a name of letters, digits and ._-.'],
+            ['The schedule', $schedule, self::CRON, 'Set ci.schedule to five fields of digits and *,/-.'],
             ['The check', $check, self::CHECK, 'Set ci.check to a name of letters, digits, spaces and ._/-.'],
             ...$included instanceof Path
                 ? [['The file', $included->value(), self::NAME, $gitlabFix]]
@@ -80,6 +85,7 @@ final readonly class TemplateValues
             '%%image%%' => $gate->image(),
             '%%runner%%' => $runner,
             '%%check%%' => $check,
+            '%%schedule%%' => $schedule,
             '%%s3%%' => implode(' ', [...BuiltinStore::S3->variables()]),
             '%%keys%%' => CiTemplate::keyHolder(),
             '%%gitlabToken%%' => GateSecret::GitLabComment->value,

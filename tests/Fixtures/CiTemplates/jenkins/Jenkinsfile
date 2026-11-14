@@ -23,7 +23,7 @@
 pipeline {
   agent { label '<agents with PHP 8.5 and pcov>' }
   triggers {
-    cron(env.BRANCH_NAME == 'trunk' ? 'H 3 * * 1,4' : '')
+    cron(env.BRANCH_NAME == 'trunk' ? '0 3 * * 1' : '')
   }
   environment {
     MUTATION_GATE_DEFAULT_BRANCH = 'trunk'

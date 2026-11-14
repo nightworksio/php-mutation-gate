@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Names;
-use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Core\Php\TopLevel;
 
 /**
  * The test files that declare some test classes. PHPUnit loads a test class
@@ -72,7 +72,7 @@ final readonly class TestClassFiles
     /** These, with each class wanted that a file's code declares and no earlier file did found in the file. */
     public function readIn(Path $file, Contents $code): self
     {
-        $declared = PhpFile::read($code)->declares();
+        $declared = TopLevel::read($code)->declares();
         $found = $this->found;
 
         foreach ($this->mayDeclare($file) ? $this->wanted[$file->stem()] : [] as $class) {

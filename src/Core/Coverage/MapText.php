@@ -52,7 +52,7 @@ final readonly class MapText
 
         $files = [];
 
-        foreach ($map->placedLines() as $line) {
+        foreach ($map->lineTests()->placedLines() as $line) {
             $files[$line->file()->value()][$line->line()] = [...$line];
         }
 
@@ -103,7 +103,7 @@ final readonly class MapText
 
         $loads = [];
 
-        foreach ($map->loaded()->processes() as $process) {
+        foreach ($map->executed()->loaded()->processes() as $process) {
             $tests = [];
 
             foreach ($process->tests() as $test) {
@@ -125,7 +125,7 @@ final readonly class MapText
     {
         $methods = [];
 
-        foreach ($map->methods() as $file => $executed) {
+        foreach ($map->executed()->methods() as $file => $executed) {
             foreach ($executed as $method) {
                 $methods[$file->value()][] = [
                     'name' => $method->name(),
@@ -141,7 +141,7 @@ final readonly class MapText
     /** @return TestRecord */
     private static function test(TestId $test, CoverageMap $map): array
     {
-        $seconds = $map->durationOf($test);
+        $seconds = $map->durations()->of($test);
 
         return $seconds instanceof Seconds
             ? ['id' => $test->value(), CoverageMapFile::SECONDS => $seconds->seconds()]

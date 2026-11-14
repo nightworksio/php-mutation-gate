@@ -40,7 +40,7 @@ final readonly class PestMutateUntested
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $runners = $observed->runners();
         $pest = $settings instanceof Settings
             && $settings->runner()->choice()->use()->value() === BuiltinRunner::Pest->value;

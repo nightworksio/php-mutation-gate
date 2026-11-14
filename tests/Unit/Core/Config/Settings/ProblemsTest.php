@@ -84,7 +84,7 @@ it('refuses a timeouts.most under timeouts.seconds, however the layers lay them'
 it('takes a timeouts.most equal to timeouts.seconds', function (): void {
     $settings = Configs::settings(['runner' => 'pest', 'timeouts' => ['seconds' => 30, 'most' => 30]]);
 
-    expect($settings->triage()->bounds())
+    expect($settings->triage()->limits()->bounds())
         ->toEqual(
             LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))
                 ->tighterFor(TighterSilence::standard())
@@ -126,7 +126,7 @@ it('takes the ends of every range', function (): void {
     ]);
 
     expect($settings->floors()->newCode())->toEqual(Floor::of(0))
-        ->and($settings->reach()->hotPaths()->share())->toBe(0.0)
+        ->and($settings->reach()->held()->hotPaths()->share())->toBe(0.0)
         ->and([...$settings->publishing()->colors()])->toBe(['green' => 100, 'red' => 0])
         ->and($settings->ignores()->maxDays())->toBe(1);
 });
@@ -178,9 +178,9 @@ it('keeps each path of the tree source\'s fallback once, as the effective config
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['./app/', 'app', 'lib']]],
     ]);
 
-    expect($settings->treeSource()->options()->written()->line())->toBe('{"fallback":["app","lib"]}')
-        ->and(Configs::settings(Configs::effective($settings))->treeSource())
-        ->toEqual($settings->treeSource());
+    expect($settings->setup()->treeSource()->options()->written()->line())->toBe('{"fallback":["app","lib"]}')
+        ->and(Configs::settings(Configs::effective($settings))->setup()->treeSource())
+        ->toEqual($settings->setup()->treeSource());
 });
 
 it('refuses a floor of 0 without the reason it needs', function (): void {
@@ -435,9 +435,9 @@ it('refuses a Buildkite step whose command is not text, or a list of text, at th
 });
 
 it('reads each test\'s own limit from the config, off where it says false', function (): void {
-    expect(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => 5, 'testFloor' => 2]])->triage()->bounds()->perTest())
+    expect(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => 5, 'testFloor' => 2]])->triage()->limits()->bounds()->perTest())
         ->toEqual(PerTestLimit::of(5, Seconds::of(2.0)))
-        ->and(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => false]])->triage()->bounds()->perTest())
+        ->and(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => false]])->triage()->limits()->bounds()->perTest())
         ->toEqual(PerTestLimit::off());
 });
 

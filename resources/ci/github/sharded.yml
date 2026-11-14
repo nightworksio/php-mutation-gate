@@ -14,7 +14,7 @@ on:
   push:
     branches: ['%%branch%%']
   schedule:
-    - cron: '0 3 * * 1,4'
+    - cron: '%%schedule%%'
 
 permissions:
   contents: read

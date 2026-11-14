@@ -210,6 +210,7 @@ function ciTemplateRendered(CiTemplate $template): string
         'pest',
         Ci::none()->check(),
         CiTemplate::included(BuiltinCiPlan::from($ci), Ci::none()),
+        Ci::none()->schedule(),
     );
     $text = (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value)));
 
@@ -328,7 +329,7 @@ it('refuses a value a shell or YAML would read as code, from whichever setting i
     string $check,
     string $why,
 ): void {
-    expect(TemplateValues::of('8.5', $branch, GatePin::unknown(), $runner, $check, Path::of($template)))
+    expect(TemplateValues::of('8.5', $branch, GatePin::unknown(), $runner, $check, Path::of($template), '0 3 * * 1'))
         ->toEqual(CannotJudge::because(sprintf(
             '%s cannot go into a CI definition, where a shell or YAML reads it as code. %s',
             ...explode(' | ', $why),
@@ -344,12 +345,12 @@ it('refuses a value a shell or YAML would read as code, from whichever setting i
 ]);
 
 it('takes a runner a class names, and a check with spaces', function (): void {
-    expect(TemplateValues::of('8.5', 'release/2.x', GatePin::unknown(), '\\Acme\\Runner', 'mutation / verdict', Path::of('ci/gate.yml')))
+    expect(TemplateValues::of('8.5', 'release/2.x', GatePin::unknown(), '\\Acme\\Runner', 'mutation / verdict', Path::of('ci/gate.yml'), '0 3 * * 1'))
         ->toBeInstanceOf(TemplateValues::class);
 });
 
 it('leaves the file of the gate\'s jobs unchecked and unfilled where the CI\'s definition is one file', function (): void {
-    $values = TemplateValues::of('8.5', 'main', GatePin::unknown(), 'pest', 'c', NotGiven::value());
+    $values = TemplateValues::of('8.5', 'main', GatePin::unknown(), 'pest', 'c', NotGiven::value(), '0 3 * * 1');
 
     expect($values)->toBeInstanceOf(TemplateValues::class)
         ->and($values instanceof TemplateValues ? $values->rendered('%%included%% %%runner%%') : '')->toBe('%%included%% pest');
@@ -580,4 +581,14 @@ it('runs Jenkins\' verdict in post, always, and binds the keys there alone, on t
 it('names the credentials that hold the keys on Jenkins\' page', function (): void {
     expect((string) file_get_contents(Schema::at('.docs/guide/ci/jenkins.md')))
         ->toContain(sprintf('the credentials `%s`', CiTemplate::keyHolder()));
+});
+
+it('fills in the schedule of the full run, and refuses one a shell or YAML would read as more than text', function (): void {
+    $values = TemplateValues::of('8.5', 'main', GatePin::unknown(), 'pest', 'c', NotGiven::value(), '15 4 * * 0');
+
+    expect($values instanceof TemplateValues ? $values->rendered('%%schedule%%') : '')->toBe('15 4 * * 0')
+        ->and(TemplateValues::of('8.5', 'main', GatePin::unknown(), 'pest', 'c', NotGiven::value(), "0 3 * * 1'; rm"))
+        ->toBeInstanceOf(CannotJudge::class)
+        ->and(TemplateValues::of('8.5', 'main', GatePin::unknown(), 'pest', 'c', NotGiven::value(), '0 3 * *'))
+        ->toBeInstanceOf(CannotJudge::class);
 });

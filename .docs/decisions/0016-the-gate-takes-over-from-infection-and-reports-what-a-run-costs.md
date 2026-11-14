@@ -417,9 +417,10 @@ Operating the gate raises four needs its reports do not yet meet.
       seconds after the shard began that it started (`since`), the seconds
       it took, and, where it handled more than one, how many (`count`). The
       steps are one closed set, whichever runner runs: `held coverage`,
-      `coverage`, `preparing`, `mutation`, `reading`, `trial coverage`,
-      `trials`, `baselines`, `confirmation`, `retry`, `equivalence`,
-      `survivors`, `controls` and `static check`. A step with nothing to do
+      `coverage`, `value reader coverage`, `value readers`, `preparing`,
+      `mutation`, `reading`, `trial coverage`, `trials`, `baselines`,
+      `confirmation`, `equivalence`, `survivors`, `controls`, `heavy parts`
+      and `static check`. A step with nothing to do
       is not named.
     - Each runner names the steps of its own run on the `MutationResult` it
       returns, timed on its own clock from when the run began, and the

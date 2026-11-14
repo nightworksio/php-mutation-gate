@@ -23,4 +23,7 @@ final readonly class FileMode
 
     /** The bits that let a file's group or others read, write or enter it. */
     public const int OTHERS = 0o077;
+
+    /** A file everyone may read and run, and its owner alone write: a git hook, or a binary the package ships. */
+    public const int RUNNABLE = 0o755;
 }

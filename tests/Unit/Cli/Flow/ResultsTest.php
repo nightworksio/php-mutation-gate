@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -39,6 +41,9 @@ use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -128,6 +133,54 @@ it('cannot judge a shard that left no result, naming every one that left none', 
             A shard that crashed, was cancelled or never started leaves none. Run them again.
             SAID));
 });
+
+it('names how the CI said each job ended of a shard that left no result, and what leaves none of the rest', function (): void {
+    $project = Flows::project();
+    $one = Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(2.0), 'money'));
+    Scratch::write($project, '.mutation-gate/results/1.ended.json', '{"how": "shutdown", "job": "https://ci.example/job/1"}');
+
+    expect(Results::read($one, Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shard 1 (money) left no result at .mutation-gate/results/1.json, so its mutants cannot be judged.
+            Shard 1 (money): its runner received a shutdown signal, which stopped the job: https://ci.example/job/1. Run it again.
+            SAID))
+        ->and(Results::read(Planned::twoShards(), Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shards 1 (money), 2 (held) left no result in .mutation-gate/results, so their mutants cannot be judged.
+            Shard 1 (money): its runner received a shutdown signal, which stopped the job: https://ci.example/job/1.
+            A shard that crashed, was cancelled or never started leaves none. Run them again.
+            SAID));
+});
+
+it('names a shard the CI cancelled once another failed apart from the one whose runner it lost', function (): void {
+    $project = Flows::project();
+    Scratch::write($project, '.mutation-gate/results/1.ended.json', '{"how": "cancelled", "after": 2}');
+    Scratch::write($project, '.mutation-gate/results/2.ended.json', '{"how": "lost"}');
+
+    expect(Results::read(Planned::twoShards(), Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shards 1 (money), 2 (held) left no result in .mutation-gate/results, so their mutants cannot be judged.
+            Shard 1 (money): the CI cancelled it once shard 2 failed, as fail-fast cancels the other shards.
+            Shard 2 (held): its runner lost contact with the CI, as a runner starved of memory or CPU does. Run them again.
+            SAID));
+});
+
+it('reads an ending it cannot read as one the CI never said', function (string $said): void {
+    $project = Flows::project();
+    $one = Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(2.0), 'money'));
+    Scratch::write($project, '.mutation-gate/results/1.ended.json', $said);
+
+    expect(Results::read($one, Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shard 1 (money) left no result at .mutation-gate/results/1.json, so its mutants cannot be judged.
+            A shard that crashed, was cancelled or never started leaves none. Run it again.
+            SAID));
+})->with([
+    'not JSON' => ['not JSON'],
+    'an ending it does not know' => ['{"how": "evicted"}'],
+    'no ending' => ['{"job": "https://ci.example/job/1"}'],
+    'an address that is no text' => ['{"how": "lost", "job": 7}'],
+]);
 
 it('cannot judge a result that cannot be read, and says too which shards left none', function (): void {
     $project = Flows::project();
@@ -318,7 +371,7 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
 
 /** A shard's result of a plan, written where the verdict reads it: its units, the units it left, and its doom. */
 $left = static function (string $project, Plan $plan, int $shard, Units $left, Doomed|Undoomed $doomed): void {
-    $planned = $plan->shard(ShardId::of($shard));
+    $planned = $plan->shards()->numbered(ShardId::of($shard));
     $result = ShardResult::of(
         $plan->digest(),
         ShardId::of($shard),
@@ -424,4 +477,79 @@ it('still cannot judge a result that cannot be read, beside a doomed shard', fun
 
     expect(Results::read($plan, Workspace::results(), Directory::at($project)))
         ->toEqual(CannotJudge::because('A shard result cannot be read: the file.format is missing.'));
+});
+
+/** Two items, money listed for job 1 and held for job 2, of a plan whose shards pull their work. */
+$pulledPlan = static fn(): Plan => Planned::of(
+    Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(2.0), 'money')
+        ->workedBy(ShardId::of(1)),
+    Shard::of(ShardId::of(2), Package::at(Path::root()), Units::of(Planned::held()), Seconds::of(1.0), 'held')
+        ->workedBy(ShardId::of(2)),
+);
+
+/** An item's result as a job wrote it: every mutant killed, or each as the fixture runner judges it. */
+$pulledResult = static function (string $project, Plan $plan, int $item, int $job, MutantStatus $status): void {
+    $planned = $plan->shards()->numbered(ShardId::of($item));
+    $mutants = Mutants::of(...array_map(
+        static fn(Mutant $mutant): Mutant => $status === MutantStatus::Survived
+            ? $mutant
+            : Mutant::of($mutant->id(), $mutant->nativeId(), $mutant->location(), $mutant->mutation(), MutantStatus::Killed, $mutant->duration())
+                ->killedBy(TestIds::of(TestId::of('MoneyTest::adds'))),
+        [...Flows::mutantsOf('src/Money.php')],
+    ));
+    $result = ShardResult::of(
+        $plan->digest(),
+        ShardId::of($item),
+        $planned instanceof Shard ? $plan->keys()->of($planned->units()) : Keys::none(),
+        MutationResult::of($mutants, 0),
+        Measurement::of(Seconds::of(1.0), 'fake', Instant::at(new DateTimeImmutable('2026-10-07T12:00:00Z'))),
+    );
+    Scratch::write($project, sprintf('.mutation-gate/results/%d.by-%d.json', $item, $job), ShardResultFile::encode($result));
+};
+
+it('reads one result for every item of a pulling plan, whichever job left it, or cannot judge an item none left', function (bool $judged, int ...$written) use ($pulledPlan, $pulledResult): void {
+    $project = Flows::project();
+    $plan = $pulledPlan();
+
+    foreach (array_chunk($written, 2) as [$item, $job]) {
+        $pulledResult($project, $plan, $item, $job, MutantStatus::Killed);
+    }
+
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($results instanceof Results ? array_map(static fn(array $read): int => $read[1]->shard()->number(), $results->shards()) : $judged)
+        ->toBe($judged ? [1, 2] : false);
+})->with([
+    'each by its own job' => [true, 1, 1, 2, 2],
+    'each by the other job' => [true, 1, 2, 2, 1],
+    'one item by both jobs' => [true, 1, 1, 1, 2, 2, 2],
+    'every item by every job' => [true, 1, 1, 1, 2, 2, 1, 2, 2],
+    'an item by no job' => [false, 1, 1, 1, 2],
+    'nothing' => [false],
+]);
+
+it('takes an item\'s own job\'s result first, and counts each mutant another job judged otherwise as flaky', function () use ($pulledPlan, $pulledResult): void {
+    $project = Flows::project();
+    $plan = $pulledPlan();
+    $pulledResult($project, $plan, 1, 1, MutantStatus::Killed);
+    $pulledResult($project, $plan, 1, 2, MutantStatus::Survived);
+    $pulledResult($project, $plan, 2, 2, MutantStatus::Killed);
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+    $first = $results instanceof Results ? $results->shards()[0][1] : $results;
+
+    $otherwise = array_filter([...Flows::mutantsOf('src/Money.php')], static fn(Mutant $mutant): bool => $mutant->status() !== MutantStatus::Killed);
+
+    expect($otherwise)->not->toBe([])
+        ->and($first instanceof ShardResult ? count($first->flaky()) : $first)->toBe(count($otherwise))
+        ->and($results instanceof Results ? count($results->shards()[1][1]->flaky()) : $results)->toBe(0);
+});
+
+it('holds the held units its shards\' holding tests miss, and those the verdict found missed beside them', function () use ($ran): void {
+    $results = $ran(Flows::project(), ScriptedRunner::fixture());
+    $kernel = NotCovered::because(Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')), 'Missed 48.');
+    $http = NotCovered::because(Unit::held(Path::of('src/Http'), Group::named('holds:src/Http')), 'Missed all.');
+    $missing = $results instanceof Results ? $results->missing(HeldMisses::of($kernel))->missing(HeldMisses::of($http))->misses() : HeldMisses::none();
+
+    expect($results instanceof Results ? count($results->misses()) : -1)->toBe(0)
+        ->and([...$missing])->toEqual([$kernel, $http]);
 });

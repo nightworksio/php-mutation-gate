@@ -13,23 +13,18 @@ $holds = [
     'holds:src/Adapter/Runtime/ChildMemory.php',
 ];
 
-// The child holds random bytes, which a memory compressor cannot shrink as
-// it can a run of one byte, so the pages stay resident under memory
-// pressure. It holds twice the margin the peak is asked to clear above this
-// process's own, so a peak short of everything it held still clears it.
 it('counts the memory of a process it waited for, rather than its own', function (): void {
-    $margin = 64 * 1024 * 1024;
-    $usage = getrusage();
-    $own = MaxRss::bytes(is_array($usage) && is_int($usage['ru_maxrss']) ? $usage['ru_maxrss'] : 0, PHP_OS_FAMILY);
+    $held = 128 * 1024 * 1024;
     $block = 1024 * 1024;
-    $blocks = intdiv($own + 2 * $margin, $block) + 1;
-    $holding = sprintf('$held = str_repeat(random_bytes(%d), %d);', $block, $blocks);
+    $holding = sprintf('$held = str_repeat(random_bytes(%d), %d);', $block, intdiv($held, $block));
     new Process([PHP_BINARY, '-d', 'memory_limit=-1', '-r', $holding])->mustRun();
+    $before = MaxRss::held(childMemoryOwnUsage());
     $peak = new ChildMemory()->peak();
-    $cleared = MemoryCap::of($own + $margin, MemoryUnit::Bytes);
+    $after = MaxRss::held(childMemoryOwnUsage());
 
     expect($peak)->toBeInstanceOf(MemoryCap::class)
-        ->and($peak instanceof MemoryCap && $cleared->isExceededBy($peak))->toBeTrue();
+        ->and($peak instanceof MemoryCap && MemoryCap::of(intdiv($held, 4), MemoryUnit::Bytes)->isExceededBy($peak))->toBeTrue()
+        ->and($peak instanceof MemoryCap && $peak->bytes() >= MaxRss::bytes($before, PHP_OS_FAMILY) && $peak->bytes() <= MaxRss::bytes($after, PHP_OS_FAMILY))->toBeFalse();
 })->group(...$holds);
 
 it('counts none in a process that has waited for none', function (): void {
@@ -40,3 +35,18 @@ it('counts none in a process that has waited for none', function (): void {
 
     expect($peak->mustRun()->getOutput())->toBe(NotGiven::class);
 })->group(...$holds);
+
+/**
+ * @return array<string, int>
+ */
+function childMemoryOwnUsage(): array
+{
+    $usage = getrusage();
+    $counted = [];
+
+    foreach (is_array($usage) ? $usage : [] as $name => $count) {
+        $counted = is_string($name) && is_int($count) ? [...$counted, $name => $count] : $counted;
+    }
+
+    return $counted;
+}

@@ -154,7 +154,7 @@ final readonly class ConfigLoaderContract
         $file = $this->file($name, $project);
         $read = $this->loader->load($file);
         $path = $read instanceof Layer
-            ? $read->proofs()->store()->options()->path(Key::of('path'))
+            ? $read->output()->proofs()->store()->options()->path(Key::of('path'))
             : $this->said($read);
         $named = match (true) {
             $path instanceof Path => $path->value(),

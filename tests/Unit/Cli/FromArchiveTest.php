@@ -6,14 +6,23 @@ use NightWorksIO\MutationGate\Cli\FromArchive;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
     Scratch::sweep();
 });
 
+/** The gate's own autoload, as its manifest declares it. */
+$gate = ['psr-4' => ['NightWorksIO\\MutationGate\\' => 'src/']];
+
 $installing = static fn(string ...$packages): string => (string) json_encode(['packages' => array_map(
-    static fn(string $name): array => ['name' => $name, 'version' => '1.0.0', 'type' => 'library'],
+    static fn(string $name): array => [
+        'name' => $name,
+        'version' => '1.0.0',
+        'type' => 'library',
+        'autoload' => $name === ThisPackage::COMPOSER ? $gate : [],
+    ],
     $packages,
 )]);
 
@@ -50,6 +59,27 @@ it('refuses a project that installs the gate with Composer', function () use ($i
     expect(new FromArchive(OwnArchive::at('/opt/mutation-gate.phar'), $project)->refusing())->toEqual(CannotJudge::because(
         'This project installs the gate with Composer, and two copies cannot coexist: run vendor/bin/mutation-gate.',
     ));
+});
+
+it('refuses the gate\'s own repository, whose autoloader declares the archive\'s classes', function () use ($gate, $installing): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'composer.json', (string) json_encode(['name' => ThisPackage::COMPOSER, 'autoload' => $gate]));
+    Scratch::write($project, 'vendor/composer/installed.json', $installing('phpunit/phpunit'));
+
+    expect(new FromArchive(OwnArchive::at('/opt/mutation-gate.phar'), $project)->refusing())->toEqual(CannotJudge::because(
+        'This project is the gate, whose classes the archive\'s would clash with: run bin/mutation-gate, or a judge\'s archive.',
+    ));
+});
+
+it('runs beside a copy of the gate whose classes are not the archive\'s own, as a judge\'s scoped classes are not', function (): void {
+    $project = Scratch::directory();
+    $elsewhere = ['psr-4' => ['Acme\\Gate\\' => 'src/']];
+    Scratch::write($project, 'composer.json', (string) json_encode(['name' => ThisPackage::COMPOSER, 'autoload' => $elsewhere]));
+    Scratch::write($project, 'vendor/composer/installed.json', (string) json_encode(['packages' => [
+        ['name' => ThisPackage::COMPOSER, 'version' => '1.0.0', 'type' => 'library', 'autoload' => $elsewhere],
+    ]]));
+
+    expect(new FromArchive(OwnArchive::at('/opt/mutation-gate.phar'), $project)->refusing())->toEqual(NotGiven::value());
 });
 
 it('refuses an archive PHP would read its path as ini syntax in', function (string $file): void {

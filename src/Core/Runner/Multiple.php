@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function ceil;
 use function max;
 use function min;
 
@@ -33,6 +34,12 @@ final readonly class Multiple
     public function isStandard(): bool
     {
         return $this->times === (float) MutantLimit::FACTOR;
+    }
+
+    /** This multiple, raised to the whole number at or above it. */
+    public function roundedUp(): self
+    {
+        return new self(ceil($this->times));
     }
 
     /** This multiple, raised to the least and lowered to the most. */

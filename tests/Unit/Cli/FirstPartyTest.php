@@ -22,7 +22,9 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\StrykerReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
@@ -42,8 +44,12 @@ use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
+use NightWorksIO\MutationGate\Adapter\Native\PestPlacements;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
-use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Opcache\PrintedDeclarations;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
+use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
+use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
@@ -53,11 +59,13 @@ use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Adapter\Runtime\SystemGauge;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Cli\PestPlugin;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
@@ -210,14 +218,28 @@ it('registers Pest as a runner, in the vendor directory Composer installed the p
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('pest'), Options::none()))
-        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()));
+        ->toEqual(PestOptions::runner(
+            Options::none(),
+            ComposerVendor::of('.'),
+            new CapDirectory(),
+            new PackageDirectory(),
+            new LocalProcesses(
+                new SystemClock(),
+                Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.')),
+            ),
+            NotGiven::value(),
+            PestPlugin::class,
+            Outbreak::beneath(Options::none(), (string) getcwd(), Resources::at(Shipped::Outbreak)),
+            ShippedExtension::beneath(Options::none(), Resources::at(Shipped::Outbreak), new PrintedDeclarations()),
+            new PestPlacements(),
+        ));
 });
 
 it('registers the PHPUnit runner, in the vendor directory Composer installed the project into, from the options the flows write', function () use (
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('phpunit'), Options::none()))
-        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpUnit, NativePhpUnit::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()))))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpUnit, NativePhpUnit::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.')))))
         ->and(Lookup::in($registry())->runner(Name::of('phpunit'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 
@@ -225,7 +247,7 @@ it('registers the PhpSpec runner, in the vendor directory Composer installed the
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('phpspec'), Options::none()))
-        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpSpec, NativePhpSpec::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()))))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpSpec, NativePhpSpec::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.')))))
         ->and(Lookup::in($registry())->runner(Name::of('phpspec'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 
@@ -233,7 +255,7 @@ it('registers the Codeception runner, in the vendor directory Composer installed
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('codeception'), Options::none()))
-        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::Codeception, NativeCodeception::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()))))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::Codeception, NativeCodeception::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.')))))
         ->and(Lookup::in($registry())->runner(Name::of('codeception'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 
@@ -241,7 +263,7 @@ it('registers the Testo runner, in the vendor directory Composer installed the p
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('testo'), Options::none()))
-        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::Testo, NativeTesto::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()))))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::Testo, NativeTesto::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.')))))
         ->and(Lookup::in($registry())->runner(Name::of('testo'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 

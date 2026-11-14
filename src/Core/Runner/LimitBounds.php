@@ -35,29 +35,32 @@ final readonly class LimitBounds
         private Seconds $floor,
         private Seconds $most,
         private TighterSilence $tighter,
-        private Seconds|Unmeasured $startUp,
+        private StartUpAllowance $startUp,
         private Multiple|Learned $multiple,
         private Seconds|Learned $learnedFloor,
         private PerTestLimit $perTest,
-        private float $unmeasuredStartUp,
     ) {
     }
 
-    /** Between these, a run being allowed this many seconds to start in where nothing measured its start-up. */
+    /**
+     * Between these, a run being allowed this many seconds to start in where
+     * nothing measured its start-up, and this many times its measured
+     * start-up where something did.
+     */
     public static function between(
         Seconds $floor,
         Seconds $most,
         float $unmeasuredStartUp = MutantLimit::START_UP,
+        float $startUpMultiple = MutantLimit::FACTOR,
     ): self {
         return new self(
             $floor,
             $most,
             TighterSilence::none(),
-            Unmeasured::duration(),
+            StartUpAllowance::of($unmeasuredStartUp, $startUpMultiple),
             Multiple::standard(),
             Seconds::of(0.0),
             PerTestLimit::off(),
-            $unmeasuredStartUp,
         );
     }
 
@@ -72,7 +75,6 @@ final readonly class LimitBounds
             $this->multiple,
             $this->learnedFloor,
             $this->perTest,
-            $this->unmeasuredStartUp,
         );
     }
 
@@ -83,11 +85,10 @@ final readonly class LimitBounds
             $this->floor,
             $this->most,
             $this->tighter,
-            $startUp,
+            $this->startUp->measuredAs($startUp),
             $this->multiple,
             $this->learnedFloor,
             $this->perTest,
-            $this->unmeasuredStartUp,
         );
     }
 
@@ -102,7 +103,6 @@ final readonly class LimitBounds
             $this->multiple,
             Learned::Learned,
             $this->perTest,
-            $this->unmeasuredStartUp,
         );
     }
 
@@ -117,7 +117,6 @@ final readonly class LimitBounds
             $multiple,
             $this->learnedFloor,
             $this->perTest,
-            $this->unmeasuredStartUp,
         );
     }
 
@@ -156,7 +155,6 @@ final readonly class LimitBounds
             $this->multiple,
             $this->learnedFloor,
             $perTest,
-            $this->unmeasuredStartUp,
         );
     }
 
@@ -166,16 +164,10 @@ final readonly class LimitBounds
         return $this->perTest;
     }
 
-    /** How long a run of no test took to start on this machine, or that nothing measured it. */
-    public function startUp(): Seconds|Unmeasured
+    /** What a mutant's run is allowed to start in: the measured start-up, `timeouts.startUp` and its multiple. */
+    public function startUp(): StartUpAllowance
     {
         return $this->startUp;
-    }
-
-    /** What a run is allowed to start in where nothing measured its start-up: `timeouts.startUp`. */
-    public function unmeasuredStartUp(): Seconds
-    {
-        return Seconds::of($this->unmeasuredStartUp);
     }
 
     /**
@@ -185,11 +177,15 @@ final readonly class LimitBounds
      */
     public function silenceOf(RunnerMutatorName $mutator): self
     {
-        return self::between($this->tighter->floorOf($mutator, $this->floor()), $this->most)
-            ->tighterFor($this->tighter)
-            ->startingIn($this->startUp)
-            ->multipliedBy($this->multiple)
-            ->watchingEachTest($this->perTest);
+        return new self(
+            $this->tighter->floorOf($mutator, $this->floor()),
+            $this->most,
+            $this->tighter,
+            $this->startUp,
+            $this->multiple,
+            Seconds::of(0.0),
+            $this->perTest,
+        );
     }
 
     /** The mutators whose silence limit has a lower floor. */
@@ -200,16 +196,13 @@ final readonly class LimitBounds
 
     /**
      * `timeouts.seconds`: the least any mutant is allowed, and what one whose
-     * tests are not timed is; learned, the standard multiple of the measured
-     * start-up, at least a second and at most the most.
+     * tests are not timed is; learned, `timeouts.startUpMultiple` times the
+     * measured start-up, at least a second and at most the most.
      */
     public function floor(): Seconds
     {
-        return $this->learnedFloor instanceof Learned && $this->startUp instanceof Seconds
-            ? Seconds::of(min(
-                max(self::LEAST_LEARNED_FLOOR, MutantLimit::FACTOR * $this->startUp->seconds()),
-                $this->most->seconds(),
-            ))
+        return $this->learnedFloor instanceof Learned && $this->startUp->measured() instanceof Seconds
+            ? Seconds::of(min(max(self::LEAST_LEARNED_FLOOR, $this->startUp->allowed()), $this->most->seconds()))
             : $this->floor;
     }
 
@@ -230,7 +223,6 @@ final readonly class LimitBounds
             $this->multiple,
             $this->learnedFloor,
             $this->perTest,
-            $this->unmeasuredStartUp,
         );
     }
 

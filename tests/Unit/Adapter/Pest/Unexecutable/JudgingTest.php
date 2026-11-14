@@ -103,7 +103,7 @@ it('judges each uncovered mutant on a line that is not executable by the tests t
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate', 'unread', 'internal', 'other']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php', 'tests/MoneySpec.php']));
-    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of(judgingResult('rate', 'unread', 'internal', 'other'), $money, $results, judgingScan($at, $results));
+    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of(judgingResult('rate', 'unread', 'internal', 'other'), $money, $results, judgingScan($at, $results));
 
     expect(judgingOutcomes($judged))->toBe([
         'rate' => 'killed',
@@ -111,7 +111,7 @@ it('judges each uncovered mutant on a line that is not executable by the tests t
         'internal' => 'killed',
         'other' => 'uncovered',
     ])->and($judged instanceof MutationResult ? $judged->skipped() : -1)->toBe(2)
-        ->and($judged instanceof MutationResult ? array_map(static fn(Mutant $mutant): mixed => $mutant->limit(), [...$judged->mutants()]) : [])
+        ->and($judged instanceof MutationResult ? array_map(static fn(Mutant $mutant): mixed => $mutant->stop()->limit(), [...$judged->mutants()]) : [])
         ->toEqual(array_fill(0, 4, Unmeasured::duration()));
 });
 
@@ -123,7 +123,7 @@ it('leaves beside each kill a trial made with no killer named how its run ended,
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate', 'unread', 'internal', 'other']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php', 'tests/MoneySpec.php']));
-    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of(judgingResult('rate', 'unread', 'internal', 'other'), $money, $results, judgingScan($at, $results));
+    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of(judgingResult('rate', 'unread', 'internal', 'other'), $money, $results, judgingScan($at, $results));
     $evidence = $judged instanceof MutationResult ? $judged->evidence() : Evidences::none();
     $endings = [];
 
@@ -155,7 +155,7 @@ it('runs every judging of a mutant by reference under the run\'s memory cap, and
     });
     $scan = MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), MemoryScan::directoryBeside($results));
 
-    new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of(
+    new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of(
         judgingResult('internal'),
         $money->cappedAt(MemoryCap::of(256, MemoryUnit::Megabytes)),
         $results,
@@ -176,7 +176,7 @@ it('cannot judge a mutant by reference where the memory cap cannot be written', 
     $results = Unexecutables::run($at, ['internal']);
     mkdir(sprintf('%s/%s', MemoryScan::directoryBeside($results), MemoryCap::FILE), recursive: true);
 
-    expect(new Judging($at, new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')), new CapDirectory(), Triage::standard()->bounds())->of(
+    expect(new Judging($at, new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')), new CapDirectory(), Triage::standard()->limits()->bounds())->of(
         judgingResult('internal'),
         $money->cappedAt(MemoryCap::standard()),
         $results,
@@ -207,7 +207,7 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
         'MUTATION_GATE_GUARD' => sprintf('%s/.mutation-gate/pest/trials/0/guard.json', $at->root()),
     ]);
 
-    new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of(judgingResult('internal'), $money, $results, judgingScan($at, $results));
+    new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of(judgingResult('internal'), $money, $results, judgingScan($at, $results));
 
     expect($shell->commands())->toEqual([
         $served('InternalSpec', 10.0, $unmutated),
@@ -244,7 +244,7 @@ it('lets the tests that read an ambiguous value kill it whatever the fallback ho
         $at,
         new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, array_values($killing))),
         new CapDirectory(),
-        Triage::standard()->bounds(),
+        Triage::standard()->limits()->bounds(),
     )->of(judgingResult('rate'), $money, $results, judgingScan($at, $results));
 
     expect(judgingOutcomes($judged('tests/MoneySpec.php')))->toBe(['rate' => 'killed'])
@@ -260,7 +260,7 @@ it('judges a mutant of a statement\'s first line by the tests that run its other
         $at,
         new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, array_values($killing))),
         new CapDirectory(),
-        Triage::standard()->bounds(),
+        Triage::standard()->limits()->bounds(),
     )->of(
         MutationResult::of(Mutants::of(...array_map(MatchHeads::mutant(...), ['head', 'arm', 'flat', 'inner'])), 0),
         $band,
@@ -286,11 +286,11 @@ it('gives a mutant that timed out the limit its run was allowed: five seconds an
         $judged = new Judging($at, $shell, new CapDirectory(), $bounds)->of(judgingResult('rate'), $money, $results, judgingScan($at, $results));
         $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
 
-        return array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->limit()], $mutants);
+        return array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->stop()->limit()], $mutants);
     };
 
     expect($limits(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0))))->toEqual([[MutantStatus::TimedOut, Seconds::of(5.0 + 3 * 0.1)]])
-        ->and($limits(Triage::standard()->bounds()))->toEqual([[MutantStatus::TimedOut, Seconds::of(10.0)]])
+        ->and($limits(Triage::standard()->limits()->bounds()))->toEqual([[MutantStatus::TimedOut, Seconds::of(10.0)]])
         ->and($limits(LimitBounds::between(Seconds::of(1.0), Seconds::of(5.2))))->toEqual([[MutantStatus::TimedOut, Seconds::of(5.2)]]);
 });
 
@@ -300,10 +300,10 @@ it('skips a mutant whose tests on their own run out of its limit, giving it that
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate']);
     $shell = new ShellFake(static fn(): Ran => Ran::stopped('')->took(Seconds::of(10.1)));
-    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of(judgingResult('rate'), $money, $results, judgingScan($at, $results));
+    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of(judgingResult('rate'), $money, $results, judgingScan($at, $results));
     $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
 
-    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->limit(), $mutant->reason()], $mutants))
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->stop()->limit(), $mutant->reason()], $mutants))
         ->toEqual([[MutantStatus::Skipped, Seconds::of(10.0), Unreported::reason()]])
         ->and($shell->commands())->toHaveCount(1);
 });
@@ -325,7 +325,7 @@ it('judges only the uncovered mutants of a run, and keeps each mutant Pest judge
     );
     $run = MutationResult::of(Mutants::of($survived, Unexecutables::mutant('rate')), 0);
 
-    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of($run, $money, $results, judgingScan($at, $results))))
+    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of($run, $money, $results, judgingScan($at, $results))))
         ->toBe(['internal' => 'survived', 'rate' => 'killed']);
 });
 
@@ -338,10 +338,10 @@ it('judges nothing without the mutated copy, and leaves the rest of a run as it 
     $killed = judgingResult('rate');
     $settled = MutationResult::of(Mutants::none(), 0);
 
-    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of($killed, $money, $results, judgingScan($at, $results))))
+    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of($killed, $money, $results, judgingScan($at, $results))))
         ->toBe(['rate' => 'unjudged mutated file missing'])
-        ->and(new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of($settled, $money, $results, judgingScan($at, $results)))->toBe($settled)
-        ->and(new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of($killed, MutationRequest::of(Paths::none(), Filter::matching('A')), $results, judgingScan($at, $results)))
+        ->and(new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of($settled, $money, $results, judgingScan($at, $results)))->toBe($settled)
+        ->and(new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of($killed, MutationRequest::of(Paths::none(), Filter::matching('A')), $results, judgingScan($at, $results)))
         ->toBe($killed)
         ->and($shell->commands())->toBe([]);
 });
@@ -354,7 +354,7 @@ it('judges nothing of a mutant whose original file is gone', function () use ($m
     unlink(sprintf('%s/src/Money.php', $at->root()));
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of(judgingResult('rate'), $money, $results, judgingScan($at, $results))))
+    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of(judgingResult('rate'), $money, $results, judgingScan($at, $results))))
         ->toBe(['rate' => 'unjudged mutated file missing'])
         ->and($shell->commands())->toBe([]);
 });
@@ -367,7 +367,7 @@ it('leaves unjudged a mutant of a file that no longer parses, so cannot be print
     Scratch::write($at->root(), 'src/Money.php', "<?php\nfinal class Money {\n");
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of(judgingResult('rate'), $money, $results, judgingScan($at, $results))))
+    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())->of(judgingResult('rate'), $money, $results, judgingScan($at, $results))))
         ->toBe(['rate' => 'unjudged src/Money.php does not parse, so its mutant cannot be printed as Pest prints it: Syntax error, unexpected EOF on line 3'])
         ->and($shell->commands())->toBe([]);
 });
@@ -388,11 +388,11 @@ it('gives a mutant that timed out the time its tests took on their own, unmutate
 
         return $before === 0 ? Ran::finished(succeeded: true, output: '') : Ran::stopped('');
     });
-    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())
+    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds())
         ->of(judgingResult('rate'), $money, $results, judgingScan($at, $results));
     $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
 
-    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->limit(), $mutant->unmutatedNeed()], $mutants))
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->stop()->limit(), $mutant->stop()->need()], $mutants))
         ->toEqual([[MutantStatus::TimedOut, Seconds::of(10.0), Seconds::of(0.5)]]);
 });
 

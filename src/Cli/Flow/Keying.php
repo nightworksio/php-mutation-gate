@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Local\LocalLoop;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
@@ -31,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -57,6 +59,7 @@ final readonly class Keying
         Suite $suite,
         MapJudges $judges,
         SuiteNames|CannotJudge|NotGiven $names = new NotGiven(),
+        Multiple|NotGiven $learned = new NotGiven(),
     ): self|CannotJudge {
         $map = $judges->map();
         $identity = $adapters->runner->identity($adapters->withheld);
@@ -72,7 +75,7 @@ final readonly class Keying
             ? new self(
                 ContentKeys::of(
                     InstalledVerdictCode::installed()->of($identity->runner()),
-                    self::config($settings, $adapters->narrowing),
+                    self::config($settings, $adapters->narrowing, $learned, $adapters->loop),
                     $identity,
                     self::analyser($adapters),
                     $setup->installed,
@@ -115,6 +118,27 @@ final readonly class Keying
                 Source::of($suite->outside(), $definitions, self::exceptions($adapters, $settings, $setup)),
             ),
         };
+    }
+
+    /**
+     * The digest of the run's first five inputs alone, which reads no
+     * coverage map (ADR-0135); or why it cannot be read.
+     */
+    public static function readsOf(
+        Adapters $adapters,
+        Settings $settings,
+        Setup $setup,
+        Multiple|NotGiven $learned = new NotGiven(),
+    ): Digest|CannotJudge {
+        $identity = $adapters->runner->identity($adapters->withheld);
+
+        return $identity instanceof CannotJudge ? $identity : ContentKeys::readsOf(
+            InstalledVerdictCode::installed()->of($identity->runner()),
+            self::config($settings, $adapters->narrowing, $learned, $adapters->loop),
+            $identity,
+            self::analyser($adapters),
+            $setup->installed,
+        );
     }
 
     /** The base every key of the run is built on. */
@@ -179,22 +203,30 @@ final readonly class Keying
     }
 
     /**
-     * The config as it affects results (ADR-0007), and what a
-     * narrowed run is narrowed to, the mutators it makes mutants with and the
-     * suite whose tests judge them, so its proofs never stand in for a whole
-     * unit's (ADR-0021, ADR-0025).
+     * The config as it affects results (ADR-0007); what a narrowed run is
+     * narrowed to, the mutators it makes mutants with and the suite whose
+     * tests judge them, so its proofs never stand in for a whole unit's
+     * (ADR-0021, ADR-0025); the `timeouts.multiple` a plan learned, which
+     * is what its mutants ran under (ADR-0108); and whether a quick round of
+     * `watch` judged them, so no other run takes its proofs (ADR-0146).
      */
-    private static function config(Settings $settings, Narrowing $narrowing): string
-    {
+    private static function config(
+        Settings $settings,
+        Narrowing $narrowing,
+        Multiple|NotGiven $learned = new NotGiven(),
+        LocalLoop|NotGiven $loop = new NotGiven(),
+    ): string {
         $suite = $narrowing->suite();
+        $beside = [
+            ...$narrowing->isNone() ? [] : ['mutators' => [...$narrowing->mutators()]],
+            ...$suite instanceof SuiteName ? ['suite' => $suite->value()] : [],
+            ...$learned instanceof Multiple ? ['learnedMultiple' => $learned->times()] : [],
+            ...$loop instanceof LocalLoop && $loop->isQuick() ? ['quick' => true] : [],
+        ];
 
-        return $narrowing->isNone()
+        return $beside === []
             ? $settings->canonical()
-            : JsonText::encode([
-                'config' => $settings->canonical(),
-                'mutators' => [...$narrowing->mutators()],
-                ...$suite instanceof SuiteName ? ['suite' => $suite->value()] : [],
-            ]);
+            : JsonText::encode(['config' => $settings->canonical(), ...$beside]);
     }
 
     /**

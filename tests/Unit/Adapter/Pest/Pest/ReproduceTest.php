@@ -58,11 +58,11 @@ it('reproduces a mutant in one run of its file with only its mutator, by the tes
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named(PestCases::RUN_PLUS)))
         ->withholding(Withheld::of('DEPLOY_*'));
 
-    $reproduced = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    $reproduced = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->reproduce(Reproducible::of(PestCases::mutant()), MutationRequest::of(Paths::none(), $holding)->withholding(Withheld::of('DEPLOY_*')), Seconds::of(20.0));
 
     expect($reproduced instanceof Reproduction ? [$reproduced->mutant(), $reproduced->printed()] : $reproduced)->toEqual([PestCases::mutant(), '  Mutations: 1 tested'])
-        ->and($shell->commands())->toEqual([PestCases::invocation($at)->mutation($request, $holding, PestCases::results($at))]);
+        ->and($shell->commands())->toEqual([PestCases::invocation($at)->mutation($request, $holding, PestCases::results($at))->with(PestCases::DRIVERS_OFF)]);
 });
 
 it('reproduces a mutant under the cap its request carries, as the run it came from', function (): void {
@@ -70,7 +70,7 @@ it('reproduces a mutant under the cap its request carries, as the run it came fr
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
     $request = MutationRequest::of(Paths::none(), WholeSuite::tests())->cappedAt(MemoryCap::of(256, MemoryUnit::Megabytes));
 
-    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->reproduce(Reproducible::of(PestCases::mutant()), $request, Seconds::of(20.0));
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->reproduce(Reproducible::of(PestCases::mutant()), $request, Seconds::of(20.0));
 
     expect(array_map(static fn(Command $command): mixed => $command->environment()[MemoryCap::SCAN_DIR] ?? null, $shell->commands()))
         ->toBe([MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), MemoryScan::directoryBeside(PestCases::results($at)))]);
@@ -81,7 +81,7 @@ it('reproduces a mutant patched Pest allows no more than the most it is given, a
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
     $request = MutationRequest::of(Paths::none(), WholeSuite::tests());
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->reproduce(Reproducible::of(PestCases::mutant()), $request, Seconds::of(20.0));
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->reproduce(Reproducible::of(PestCases::mutant()), $request, Seconds::of(20.0));
 
     expect(array_map(static fn(Command $command): array => [
         $command->environment()['MUTATION_GATE_MUTANT_FLOOR'] ?? null,
@@ -96,7 +96,7 @@ it('says Pest made no mutant with the id where the run no longer makes it', func
     $change = Mutation::of(PestCases::RUN_PLUS, MutatorFamily::Arithmetic, '-gone');
     $gone = Mutant::of(MutantId::hash(Path::of('src/Money.php'), PestCases::RUN_PLUS, '-gone', 0), 'n9', $place, $change, MutantStatus::Survived, Unmeasured::duration());
 
-    $reproduced = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    $reproduced = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->reproduce(Reproducible::of($gone), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(20.0));
 
     expect($reproduced instanceof Reproduction ? $reproduced->mutant() : $reproduced)
@@ -106,7 +106,7 @@ it('says Pest made no mutant with the id where the run no longer makes it', func
 it('cannot judge a reproduction whose run failed', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
 
-    $reproduced = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    $reproduced = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->reproduce(Reproducible::of(PestCases::mutant()), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(20.0));
 
     expect($reproduced)->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
@@ -116,7 +116,7 @@ it('mutates nothing, and runs nothing, where no file is asked for', function ():
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $request = MutationRequest::of(Paths::none(), WholeSuite::tests());
 
-    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request))
+    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request))
         ->toEqual(MutationResult::of(Mutants::none(), 0))
         ->and($shell->commands())->toBe([]);
 });
@@ -126,14 +126,14 @@ it('mutates nothing, and runs nothing, where Pest runs none of the mutators a re
     $bridges = Bridges::to(Enabled::of(MutatorSet::of(AcmePlusToMinus::class)));
     $request = PestCases::money()->narrowedTo(PestCases::money()->files(), Narrowing::none()->toMutators(Mutators::named('default/UnwrapHtmlspecialchars')));
 
-    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), bridges: $bridges)->mutate($request))
+    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), bridges: $bridges)->mutate($request))
         ->toEqual(MutationResult::of(Mutants::none(), 0))
         ->and($shell->commands())->toBe([]);
 });
 
 it('refuses a path with a comma, which Pest\'s lists of paths split on', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
-    $pest = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
     $asked = MutationRequest::of(Paths::of(Path::of('src/a,b.php')), WholeSuite::tests());
     $leftOut = PestCases::money()->leavingOut(Paths::of(Path::of('src/c,d.php'), Path::of('src/e.php')));
 
@@ -149,7 +149,7 @@ it('cannot judge a run whose earlier results cannot be removed', function (): vo
     mkdir(PestCases::results($at), recursive: true);
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money()))->toEqual(CannotJudge::because(sprintf(
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money()))->toEqual(CannotJudge::because(sprintf(
         'An earlier run left %s or the map beside it, and the gate cannot remove them.',
         PestCases::results($at),
     )))->and($shell->commands())->toBe([]);
@@ -173,7 +173,7 @@ it('removes an earlier coverage run\'s map, log and test times before it measure
         return Ran::finished(succeeded: true, output: '');
     });
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->coverage($request))->toEqual(CannotJudge::because(
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->coverage($request))->toEqual(CannotJudge::because(
         sprintf('There is no coverage map at %s/coverage.php, so no test runs any line.', $directory),
     ))->and($seen)->toBe([false, false, false]);
 });
@@ -184,7 +184,7 @@ it('cannot measure coverage where an earlier map cannot be removed', function ()
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->coverage($request))->toEqual(CannotJudge::because(sprintf(
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->coverage($request))->toEqual(CannotJudge::because(sprintf(
         'An earlier run left %s/.mutation-gate/coverage/coverage.php or its JUnit log, '
         . 'and the gate cannot remove them.',
         $at->root(),
@@ -195,7 +195,7 @@ it('finds every @pest-mutate-ignore in the files asked for, running nothing', fu
     $at = PestCases::project();
     Scratch::write($at->root(), 'src/Money.php', "<?php\n\n// @pest-mutate-ignore\n");
     $shell = ShellFake::answering(Ran::stopped(''));
-    $markers = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->markers(Paths::of(Path::of('src')));
+    $markers = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->markers(Paths::of(Path::of('src')));
 
     expect(array_map(static fn(Marker $marker): string => $marker->where(), iterator_to_array($markers, preserve_keys: false)))
         ->toBe(['src/Money.php:3'])

@@ -35,8 +35,8 @@ final readonly class SonarDrops
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
-        $trees = $observed->trees();
+        $settings = $observed->config()->settings();
+        $trees = $observed->config()->trees();
         $sources = $observed->files()->services()->sonarSources();
 
         return $settings instanceof Settings && self::reportsTo($settings) && $trees instanceof Trees

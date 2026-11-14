@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+function outbreak_op_arrays(string $file): ?string
+{
+}
+
+function outbreak_state_watch(string $skipping): ?int
+{
+}
+
+function outbreak_state_digest(int $slot): ?string
+{
+}
+
+function outbreak_version(): string
+{
+}
+
+/**
+ * @param  list<list<int>> $ignored
+ * @return list<int>
+ */
+function outbreak_descriptors(array $ignored = []): array
+{
+}
+
+function outbreak_touches_start(string $root): void
+{
+}
+
+function outbreak_touched(): bool
+{
+}
+
+function outbreak_lines_start(): bool
+{
+}
+
+/** @return array<string, list<int>> */
+function outbreak_lines_stop(): array
+{
+}
+
+function outbreak_steps(): ?int
+{
+}
+
+function outbreak_steps_share(int $slots): bool
+{
+}
+
+function outbreak_steps_limit(int $slot, int $most): bool
+{
+}
+
+function outbreak_steps_bind(int $slot): bool
+{
+}

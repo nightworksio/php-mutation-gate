@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Rector\CodeQuality\Rector\Ternary\ArrayKeyExistsTernaryThenValueToCoalescingRector;
 use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\Config\RectorConfig;
 use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
@@ -44,10 +45,14 @@ return RectorConfig::configure()
             __DIR__ . '/tests/Unit/Core/Stub/TestFileTest.php',
             // A warm worker's child reads Laravel's testing by its names, and the gate requires no Laravel (A1).
             __DIR__ . '/src/Adapter/Pest/Warm/Database/Laravel.php',
+            // A JUnit log names the fixture's test class as Pest writes it, a class the package never loads.
+            __DIR__ . '/tests/Unit/Adapter/Pest/FreshRunsTest.php',
         ],
         // Pest binds a closure in a dataset to the test case before calling it,
         // and the closure of a static method cannot be bound.
         ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [__DIR__ . '/tests'],
+        // It writes `??` on an array subscript, which C9 refuses.
+        ArrayKeyExistsTernaryThenValueToCoalescingRector::class,
         // The runner contract suite's fixture is a project of its own, written as a user's library is.
         __DIR__ . '/tests/Contract/Runner/fixture',
         __DIR__ . '/tests/Contract/Runner/infection-fixture',
@@ -60,13 +65,17 @@ return RectorConfig::configure()
         __DIR__ . '/tests/Contract/Runner/constants',
         __DIR__ . '/tests/Contract/Runner/interceptor',
         __DIR__ . '/tests/Contract/Runner/twins',
+        __DIR__ . '/tests/Contract/Runner/streamed',
         __DIR__ . '/tests/Contract/Runner/phpunit-fixture',
         __DIR__ . '/tests/Contract/Runner/phpspec-fixture',
         __DIR__ . '/tests/Fixtures/Archive',
+        // Each report is php-code-coverage's own output, byte for byte, which the readers are held to.
+        __DIR__ . '/tests/Fixtures/CoverageReports',
         __DIR__ . '/tests/Contract/Runner/codeception-fixture',
         __DIR__ . '/tests/Contract/Runner/testo-fixture',
         // The static checker contract suite's fixture holds mutants, which are wrong on purpose.
         __DIR__ . '/tests/Contract/StaticChecker/fixture',
     ])
     ->withImportNames(importShortClasses: false)
+    ->withPHPStanConfigs([__DIR__ . '/phpstan/rector.neon'])
     ->withCache(__DIR__ . '/.rector-cache');

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
+use Closure;
+
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -31,7 +33,9 @@ use function sprintf;
  * and is read only by the job that wrote it.
  *
  * Reading keeps each well-formed entry and drops anything else, never
- * repairing it. A file that is not such a map cannot be judged by.
+ * repairing it. A file that is not such a map cannot be judged by. Where an
+ * engine vouches that a text holds nothing to drop, it is built straight from
+ * its decoded text, into the same map (ADR-0118).
  *
  * @internal the shape of the coverage file the plan hands each shard
  *
@@ -81,27 +85,28 @@ final readonly class CoverageMapFile
     }
 
     /**
-     * A map as the gate writes it, with where it was measured, which a map
-     * of some files alone does not say, and each test file's entry key where
-     * the map is one a store keeps. A map's tables, read once, write it and
+     * A map as the gate writes it, packed at this level, with where it was
+     * measured, which a map of some files alone does not say, and each test
+     * file's entry key where the map is one a store keeps. A map's tables, read once, write it and
      * each of its files alone as its map would.
      */
     public static function encode(
         CoverageMap|MapText $map,
         MeasuredAt|Unplaced $at,
         EntryKeys|NotGiven $keys = new NotGiven(),
+        int $level = Gzip::LEVEL,
     ): string {
-        return Gzip::pack(($map instanceof MapText ? $map : MapText::of($map))->written($at, $keys));
+        return Gzip::packAt(($map instanceof MapText ? $map : MapText::of($map))->written($at, $keys), $level);
     }
 
     /**
      * A map a store keeps, packed within its limits; or why it is not kept:
      * it is past either.
      */
-    public static function keeping(KeptMap $kept, MapLimits $limits): string|CannotJudge
+    public static function keeping(KeptMap $kept, MapLimits $limits, int $level = Gzip::LEVEL): string|CannotJudge
     {
         $text = MapText::of($kept->map())->written($kept->measuredAt(), $kept->keys());
-        $bytes = Gzip::pack($text);
+        $bytes = Gzip::packAt($text, $level);
 
         return $limits->admits($text, $bytes)
             ? $bytes
@@ -111,10 +116,16 @@ final readonly class CoverageMapFile
     /**
      * A map a store kept, read within its limits as data, never run: the map,
      * where it was measured, and each test file's entry key, each malformed
-     * entry dropped; or why it cannot be read.
+     * entry dropped; or why it cannot be read. A text the engine asked vouches
+     * for is built straight from its decoded text.
+     *
+     * @param (Closure(string): MapVouch)|NotGiven $vouching
      */
-    public static function kept(string $bytes, MapLimits $limits): KeptMap|CannotJudge
-    {
+    public static function kept(
+        string $bytes,
+        MapLimits $limits,
+        Closure|NotGiven $vouching = new NotGiven(),
+    ): KeptMap|CannotJudge {
         $json = Gzip::unpackAtMost($bytes, self::NAMED, $limits->unpacked());
 
         if (! is_string($json)) {
@@ -124,17 +135,36 @@ final readonly class CoverageMapFile
         $file = Node::decode($json);
 
         return self::isThisFormat($file)
-            ? KeptMap::of(MapFileRead::read($file), MeasuredAt::readIn($file), EntryKeys::readIn($file))
+            ? KeptMap::of(
+                self::vouchOf($json, $vouching) === MapVouch::Vouched
+                    ? VouchedRead::read($json)
+                    : MapFileRead::read($file),
+                MeasuredAt::readIn($file),
+                EntryKeys::readIn($file),
+            )
             : CannotJudge::because(self::UNREADABLE);
     }
 
-    /** The map some bytes hold, read within these limits; or why none is read. */
-    public static function decode(string $bytes, HandoffLimits $limits): CoverageMap|CannotJudge
-    {
+    /**
+     * The map some bytes hold, read within these limits; or why none is read.
+     * A text the engine asked vouches for is built straight from its decoded
+     * text.
+     *
+     * @param (Closure(string): MapVouch)|NotGiven $vouching
+     */
+    public static function decode(
+        string $bytes,
+        HandoffLimits $limits,
+        Closure|NotGiven $vouching = new NotGiven(),
+    ): CoverageMap|CannotJudge {
         $json = $limits->inflated($bytes);
 
         if ($json instanceof TooLarge) {
             return CannotJudge::because($json->why());
+        }
+
+        if (is_string($json) && self::vouchOf($json, $vouching) === MapVouch::Vouched) {
+            return VouchedRead::read($json);
         }
 
         $file = $json instanceof CannotJudge ? $json : Node::decode($json);
@@ -142,6 +172,17 @@ final readonly class CoverageMapFile
         return $file instanceof Node && self::isThisFormat($file)
             ? MapFileRead::read($file)
             : CannotJudge::because(self::UNREADABLE);
+    }
+
+    /**
+     * Whether a map's text is vouched for: by the engine asked, where one is;
+     * by none otherwise. A vouched text is a map of this format.
+     *
+     * @param (Closure(string): MapVouch)|NotGiven $vouching
+     */
+    private static function vouchOf(string $json, Closure|NotGiven $vouching): MapVouch
+    {
+        return $vouching instanceof Closure ? $vouching($json) : MapVouch::Unvouched;
     }
 
     private static function isThisFormat(Node $file): bool

@@ -82,8 +82,8 @@ final readonly class PrintBaselines
             }
 
             $id = $mutant->mutant()->id();
-            $prints[$file->value()] = $this->check($file, Workspace::checkedOriginal($id), $original);
-            $written[$file->value()] = Workspace::checkedAsWritten($id);
+            $prints[$file->value()] = $this->check($file, CheckedFiles::original($id), $original);
+            $written[$file->value()] = CheckedFiles::asWritten($id);
         }
 
         $answers = $this->analysed($prints, $side);

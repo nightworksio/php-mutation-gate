@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
+use function implode;
 use function intval;
 
 use NightWorksIO\MutationGate\Core\Analysis\DependentCap;
@@ -29,6 +30,10 @@ use function sprintf;
  */
 final readonly class StaticCheck implements Part
 {
+    public const string SECTION = 'staticCheck';
+
+    public const string TOOL = 'tool';
+
     /** The analyser zero-config finds: the first installed and configured, or none. */
     public const string AUTO = 'auto';
 
@@ -51,6 +56,7 @@ final readonly class StaticCheck implements Part
         private Seconds|Absent $opcacheLimit,
         private int|Absent $dependents,
         private int|Absent $preCheckAfter,
+        private Json|Absent $php,
     ) {
     }
 
@@ -64,6 +70,7 @@ final readonly class StaticCheck implements Part
         Seconds|Absent $opcacheLimit = new Absent(),
         int|Absent $dependents = new Absent(),
         int|Absent $preCheckAfter = new Absent(),
+        Json|Absent $php = new Absent(),
     ): self {
         return new self(
             $tool,
@@ -75,6 +82,7 @@ final readonly class StaticCheck implements Part
             $opcacheLimit,
             $dependents,
             $preCheckAfter,
+            $php,
         );
     }
 
@@ -96,6 +104,7 @@ final readonly class StaticCheck implements Part
             opcacheLimit: $none->opcacheLimit(),
             dependents: $none->dependents(),
             preCheckAfter: $none->preCheckAfter(),
+            php: $none->phpIni(),
         );
     }
 
@@ -113,8 +122,25 @@ final readonly class StaticCheck implements Part
                 Absent::laid($this->opcacheLimit, $later->opcacheLimit),
                 Absent::laid($this->dependents, $later->dependents),
                 Absent::laid($this->preCheckAfter, $later->preCheckAfter),
+                Absent::laid($this->php, $later->php),
             )
             : $this;
+    }
+
+    /**
+     * `staticCheck.php`: the ini settings each of the analyser's checks runs under, which change none of its
+     * findings: pcov and Xdebug off, opcache on with a file cache alone and no timestamp checks, where no layer
+     * says (ADR-0020).
+     */
+    public function phpIni(): Json
+    {
+        return $this->php instanceof Json ? $this->php : Json::object(
+            Member::of('pcov.enabled', '0'),
+            Member::of('xdebug.mode', 'off'),
+            Member::of('opcache.enable_cli', '1'),
+            Member::of('opcache.file_cache_only', '1'),
+            Member::of('opcache.validate_timestamps', '0'),
+        );
     }
 
     /** `staticCheck.tool`: the analyser chosen, `auto` where no layer chooses one. */
@@ -140,7 +166,9 @@ final readonly class StaticCheck implements Part
 
     /**
      * `staticCheck.before`: whether a mutant is also checked before its tests
-     * where that pays; yes by default (ADR-0077).
+     * where that pays; yes by default (ADR-0077), and no by default where the
+     * run splits its streams, as a kill there costs less than a check
+     * (ADR-0117).
      */
     public function before(): bool
     {
@@ -184,9 +212,9 @@ final readonly class StaticCheck implements Part
     public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
-            'staticCheck',
+            self::SECTION,
             Json::object(
-                Member::of('tool', $this->tool instanceof Choice ? $this->tool->written() : $this->tool),
+                Member::of(self::TOOL, $this->tool instanceof Choice ? $this->tool->written() : $this->tool),
                 Member::of('config', $this->config instanceof Path ? $origin->written($this->config) : $this->config),
                 Member::of('seconds', WholeSeconds::written($this->seconds)),
                 Member::of('before', $this->before),
@@ -196,6 +224,7 @@ final readonly class StaticCheck implements Part
                 ),
                 Member::of('dependents', $this->dependents),
                 Member::of('preCheckAfter', $this->preCheckAfter),
+                Member::of('php', $this->php),
                 Member::unlessEmpty(
                     'opcache',
                     Json::object(
@@ -219,17 +248,28 @@ final readonly class StaticCheck implements Part
             ...$this->seconds instanceof Seconds
                 ? [sprintf('StaticCheck::seconds(%d)', intval($this->seconds->seconds()))]
                 : [],
-            ...$this->before === true ? ['StaticCheck::beforeTests()'] : [],
-            ...$this->before === false ? ['StaticCheck::afterTests()'] : [],
+            ...$this->before === true ? ['CheckTiming::beforeTests()'] : [],
+            ...$this->before === false ? ['CheckTiming::afterTests()'] : [],
             ...$this->testsTime instanceof TestsTime ? [$this->testsTime->php()] : [],
             ...$this->learningPhp(),
+            ...$this->php instanceof Json
+                ? [sprintf('StaticCheck::php(%s)', implode(', ', PhpOptions::of($this->php)))]
+                : [],
+            ...$this->opcachePhp(),
+        ]);
+    }
+
+    /** @return list<string> the builder's calls for `staticCheck.opcacheBatch` and `staticCheck.opcacheLimit` */
+    private function opcachePhp(): array
+    {
+        return [
             ...$this->opcacheBatch instanceof Absent
                 ? []
                 : [sprintf('StaticCheck::opcacheBatch(%d)', $this->opcacheBatch)],
             ...$this->opcacheLimit instanceof Seconds
                 ? [sprintf('StaticCheck::opcacheLimit(%s)', PhpCalls::literal($this->opcacheLimit->written()))]
                 : [],
-        ]);
+        ];
     }
 
     /** @return list<string> the builder's calls for `staticCheck.dependents` and `staticCheck.preCheckAfter` */
@@ -241,7 +281,7 @@ final readonly class StaticCheck implements Part
                 : [sprintf('StaticCheck::dependents(%d)', $this->dependents)],
             ...$this->preCheckAfter instanceof Absent
                 ? []
-                : [sprintf('StaticCheck::preCheckAfter(%d)', $this->preCheckAfter)],
+                : [sprintf('CheckTiming::preCheckAfter(%d)', $this->preCheckAfter)],
         ];
     }
 

@@ -6,10 +6,13 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_diff;
 use function array_map;
+use function array_values;
+use function in_array;
 use function is_array;
 use function is_int;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
@@ -39,6 +42,7 @@ final readonly class OwnRun
      * @param list<string>          $loaded
      * @param list<string>|NotGiven            $arguments
      * @param array{int, string}|NotGiven      $ordered   how many tests it was to run, and the digest of their order
+     * @param list<RecordEvent>                $marks     what the plugin marked of it
      */
     private function __construct(
         private array $killers,
@@ -50,8 +54,8 @@ final readonly class OwnRun
         private Places $places,
         private Ended|NotGiven $ended,
         private array|NotGiven $arguments,
-        private bool $unfiltered = false,
         private array|NotGiven $ordered = new NotGiven(),
+        private array $marks = [],
     ) {
     }
 
@@ -99,8 +103,8 @@ final readonly class OwnRun
             $places,
             $ended,
             $this->arguments,
-            $this->unfiltered,
             $this->ordered,
+            $this->marks,
         );
     }
 
@@ -122,13 +126,17 @@ final readonly class OwnRun
             $this->places,
             $this->ended,
             $arguments,
-            $this->unfiltered,
             $this->ordered,
+            $this->marks,
         );
     }
 
-    /** This run, with its filter left out by a patched run, so it ran every test it loaded. */
-    public function unfiltered(): self
+    /**
+     * This run, with what the plugin marked of it: that a patched run left its filter out, so it ran every test it
+     * loaded, that a split stream judged its mutant, or that the run's part of the test files left it to another or
+     * judged it by its own covering tests (ADR-0117).
+     */
+    public function marked(RecordEvent ...$marks): self
     {
         return new self(
             $this->killers,
@@ -140,9 +148,15 @@ final readonly class OwnRun
             $this->places,
             $this->ended,
             $this->arguments,
-            unfiltered: true,
-            ordered: $this->ordered,
+            $this->ordered,
+            array_values($marks),
         );
+    }
+
+    /** Whether the plugin marked this run with this event. */
+    public function isMarked(RecordEvent $event): bool
+    {
+        return in_array($event, $this->marks, strict: true);
     }
 
     /**
@@ -162,8 +176,8 @@ final readonly class OwnRun
             $this->places,
             $this->ended,
             $this->arguments,
-            $this->unfiltered,
             is_int($tests) && is_string($order) ? [$tests, $order] : NotGiven::value(),
+            $this->marks,
         );
     }
 
@@ -189,7 +203,7 @@ final readonly class OwnRun
      */
     public function loadedUnfiltered(): array|NotGiven
     {
-        return $this->unfiltered ? $this->loaded : NotGiven::value();
+        return $this->isMarked(RecordEvent::Unfiltered) ? $this->loaded : NotGiven::value();
     }
 
     /**

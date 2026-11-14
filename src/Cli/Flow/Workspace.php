@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace as GateDirectory;
-use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Recheck\ShareOf;
 
@@ -30,6 +29,34 @@ final readonly class Workspace
     public static function coverage(): Path
     {
         return Path::of(sprintf('%s/coverage', GateDirectory::root()->value()));
+    }
+
+    /** Where a shard's split streams record the lines each test executed, in a run planned without a fresh map. */
+    public static function recording(ShardId $shard): Path
+    {
+        return Path::of(sprintf('%s/recorded/shard-%d', GateDirectory::root()->value(), $shard->number()));
+    }
+
+    /** Where a shard leaves the map its streams recorded, in a directory of results (ADR-0135). */
+    public static function recorded(Path $results, ShardId $shard): Path
+    {
+        return Path::of(sprintf('%s/%d.recorded.json.gz', $results->value(), $shard->number()));
+    }
+
+    /** Where a shard leaves how its tests ran in its streams, in a directory of results (ADR-0135). */
+    public static function streamedSuite(Path $results, ShardId $shard): Path
+    {
+        return Path::of(sprintf('%s/%d.suite.json', $results->value(), $shard->number()));
+    }
+
+    /**
+     * The directory the verdict leaves how the suite ran in a run's streams
+     * in, with the map they recorded, for a job that runs the suite to take
+     * the streamed suites from (ADR-0135).
+     */
+    public static function suite(): Path
+    {
+        return Path::of(sprintf('%s/suite', GateDirectory::root()->value()));
     }
 
     /** The directory of the coverage map the plan hands one shard: the lines of that shard's files alone. */
@@ -69,41 +96,19 @@ final readonly class Workspace
         return Path::of(sprintf('%s/coverage/admitted', GateDirectory::root()->value()));
     }
 
+    /**
+     * The directory the map engine writes the map of a run's report into,
+     * which the gate then writes where it was asked (ADR-0119).
+     */
+    public static function convertedCoverage(): Path
+    {
+        return Path::of(sprintf('%s/converted', GateDirectory::root()->value()));
+    }
+
     /** Where the tests that hold a shard's units leave the map of their run on their own. */
     public static function heldCoverage(ShardId $shard): Path
     {
         return Path::of(sprintf('%s/held/shard-%d', GateDirectory::root()->value(), $shard->number()));
-    }
-
-    /** Where static analysis reads a survivor's mutated code, for its one check. */
-    public static function checkedMutant(MutantId $mutant): Path
-    {
-        return Path::of(sprintf('%s/staticcheck/mutants/%s.php', GateDirectory::root()->value(), $mutant->value()));
-    }
-
-    /**
-     * Where static analysis reads a survivor's original printed as its runner
-     * prints its mutants, for the check that it analyses as the file does.
-     */
-    public static function checkedOriginal(MutantId $mutant): Path
-    {
-        return Path::of(sprintf('%s/staticcheck/originals/%s.php', GateDirectory::root()->value(), $mutant->value()));
-    }
-
-    /**
-     * Where static analysis reads a survivor's original as it is written,
-     * beside its print, for the check that the print analyses as the file
-     * does read from there.
-     */
-    public static function checkedAsWritten(MutantId $mutant): Path
-    {
-        return Path::of(sprintf('%s/staticcheck/written/%s.php', GateDirectory::root()->value(), $mutant->value()));
-    }
-
-    /** Where survivors and their originals are compiled, to prove a survivor equivalent. */
-    public static function equivalence(): Path
-    {
-        return Path::of(sprintf('%s/equivalence', GateDirectory::root()->value()));
     }
 
     /** Where the verdict keeps the JSON report of the last run, which `digest` renders. */
@@ -121,6 +126,18 @@ final readonly class Workspace
     public static function result(Path $results, ShardId $shard): Path
     {
         return Path::of(sprintf('%s/%d.json', $results->value(), $shard->number()));
+    }
+
+    /** Where a job of a run whose shards pull their work leaves an item's result, among results (ADR-0134). */
+    public static function pulled(Path $results, ShardId $item, ShardId $job): Path
+    {
+        return Path::of(sprintf('%s/%d.by-%d.json', $results->value(), $item->number(), $job->number()));
+    }
+
+    /** Where the CI says how a shard's job ended, in a directory of results, where the shard left no result. */
+    public static function ended(Path $results, ShardId $shard): Path
+    {
+        return Path::of(sprintf('%s/%d.ended.json', $results->value(), $shard->number()));
     }
 
     /** Where each share of a re-check of the last run's survivors leaves what it made (ADR-0106). */

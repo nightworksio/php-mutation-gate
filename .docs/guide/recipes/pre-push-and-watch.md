@@ -15,6 +15,24 @@ nothing and never blocks a commit: it prints each reached tree's score change
 from the local ledger. To see survivors in your editor, see
 [editors](editors.md).
 
+`watch` shares the machine you work on. By default it runs half the logical
+cores, at most eight, at utility priority (`local.cpu`), and one worker at
+background priority on battery or in Low Power Mode (`local.onBattery`). It
+looks for a change as soon as `outbreak serve` tells of one, and through
+`git status` every two seconds at the latest (`local.watchPoll`), and prints
+what each batch judged as it ends, before the round's verdict. `run`,
+`pre-push` and CI run as many workers as `runner.*` says; a `pre-push` the
+daemon serves runs at the daemon's priority. Every key is in the
+[config](../../reference/configuration.md#every-key).
+
+While `outbreak serve` runs, `watch` hands it the proofs each round makes
+and writes the local ledger once it stops. A `pre-push` meanwhile takes
+those proofs from the daemon where its keys match them, which a quick
+round's never do (`local.quick`).
+
+On Windows, run the gate inside WSL2: the gate does not support Windows
+itself, and WSL2 runs it as Linux does, split streams included.
+
 ## Hook managers
 
 A project that runs its hooks through CaptainHook, GrumPHP or the

@@ -13,12 +13,15 @@
         "tests/Contract/Runner/constants",
         "tests/Contract/Runner/interceptor",
         "tests/Contract/Runner/twins",
+        "tests/Contract/Runner/streamed",
         "tests/Contract/StaticChecker/fixture",
-        "tests/Fixtures/Archive"
+        "tests/Fixtures/Archive",
+        "tests/Fixtures/CoverageReports"
     ],
     "notPath": [
-        "#(^|/)(Contract/)?(Runner/)?(fixture|infection-fixture|crash|reach|stall|heavy|hang|override|constants|interceptor|twins)/#",
-        "#(^|/)(Fixtures/)?Archive/#"
+        "#(^|/)(Contract/)?(Runner/)?(fixture|infection-fixture|crash|reach|stall|heavy|hang|override|constants|interceptor|twins|streamed)/#",
+        "#(^|/)(Fixtures/)?Archive/#",
+        "#(^|/)(Fixtures/)?CoverageReports/#"
     ],
     "rules": {
         "declare_strict_types": true,

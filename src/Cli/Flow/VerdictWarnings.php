@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\LooseValues;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -27,8 +29,9 @@ use function sprintf;
  * that nothing holds, where the gate suggests changes (ADR-0104), or why the
  * kill matrix holds killers alone; why the tests go by their ids; and the suites
  * whose tests the gate runs none of, as they serve the application from another
- * process; and, unless `suggest.emptyHolding` is off, what `tests.holding`
- * written as an empty list leaves unjudged (ADR-0116).
+ * process; unless `suggest.emptyHolding` is off, what `tests.holding`
+ * written as an empty list leaves unjudged (ADR-0116); and, unless
+ * `suggest.looseValues` is off, each loose value in force (ADR-0142).
  *
  * @internal
  */
@@ -61,9 +64,10 @@ final readonly class VerdictWarnings
     /** Every warning of a verdict over these trees, from the plan, what the shards warn of, and the map it read. */
     public function of(Plan $plan, TreeVerdicts $verdicts, Warnings $shards, CoverageMap|CannotJudge $map): Warnings
     {
+        $suggests = $this->settings->effective()->output()->reports()->suggest()->enabled();
         $raised = match (true) {
             $map instanceof CannotJudge => $shards->with(Warning::noting(sprintf(self::NO_MATRIX, $map->why()))),
-            $this->settings->effective()->reports()->suggest()->enabled() => $this->hotPathsIn($plan, $map, $shards),
+            $suggests => $this->hotPathsIn($plan, $map, $shards),
             default => $shards,
         };
 
@@ -102,6 +106,7 @@ final readonly class VerdictWarnings
             ? $warnings
             : $warnings->with(Warning::noting(sprintf(self::ELSEWHERE, implode(', ', $elsewhere))));
         $warnings = $this->holdsNone() ? $warnings->with(Warning::noting(self::HOLDS_NONE)) : $warnings;
+        $warnings = $this->looseIn($warnings);
         $names = $plan->names();
         $warnings = $names instanceof CannotJudge
             ? $warnings->with(Warning::noting(sprintf(self::UNNAMED, $names->why())))
@@ -124,6 +129,22 @@ final readonly class VerdictWarnings
     }
 
     /**
+     * These warnings, and a note of each loose value in force (ADR-0142), unless `suggest.looseValues` or
+     * `suggest.enabled` is off.
+     */
+    private function looseIn(Warnings $warnings): Warnings
+    {
+        $noted = $this->settings->effective()->output()->reports()->suggest()->enabled()
+            && $this->settings->toggles()->on(Toggle::SuggestLooseValues);
+
+        foreach ($noted ? LooseValues::in($this->settings) : [] as $loose) {
+            $warnings = $warnings->with(Warning::noting($loose->noted()));
+        }
+
+        return $warnings;
+    }
+
+    /**
      * Whether `tests.holding` is written as an empty list while `tests.suites`
      * names the suites that judge, and the verdict notes what that means.
      */
@@ -133,7 +154,7 @@ final readonly class VerdictWarnings
 
         return $suites->holdsNone()
             && ! $suites->everyUnit()->isAll()
-            && $this->settings->effective()->reports()->suggest()->emptyHolding();
+            && $this->settings->effective()->output()->reports()->suggest()->emptyHolding();
     }
 
     /**
@@ -149,7 +170,7 @@ final readonly class VerdictWarnings
             $units = [...$units, ...$shard->units()];
         }
 
-        foreach ($this->settings->reach()->hotPaths()->in($map, Units::of(...$units)) as $hot) {
+        foreach ($this->settings->reach()->held()->hotPaths()->in($map, Units::of(...$units)) as $hot) {
             $warnings = $warnings->with($hot);
         }
 

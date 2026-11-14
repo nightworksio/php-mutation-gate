@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Request;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Passing;
 use NightWorksIO\MutationGate\Tests\Support\Pauses;
@@ -186,7 +187,7 @@ it('prints what its worker\'s child printed, on the stream it printed it on, as 
         exit(3);
         PHP), '--bail', '--filter=adds');
     $left = glob(sprintf('%s/1.*', $directory));
-    WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($directory)));
+    WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($directory)), Seconds::of(5.0));
 
     expect($before['out'])->toBe('printed before')
         ->and($answered)->toBe([

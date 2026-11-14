@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Report\Page\PageShows;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Report\ReportTests;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -197,7 +198,6 @@ final readonly class Builtins
                 BuiltinReporter::Console,
                 BuiltinReporter::GitHubAnnotations,
                 BuiltinReporter::GitHubSummary,
-                BuiltinReporter::Json,
                 BuiltinReporter::JUnit,
                 BuiltinReporter::Sarif,
                 BuiltinReporter::Stryker,
@@ -216,6 +216,10 @@ final readonly class Builtins
                 Json::object(Member::of(AlertOption::SecretEnv->value, GateSecret::WebhookSecret->value)),
                 Field::optional(AlertOption::SecretEnv->value, $variable, $judges),
             ),
+            BuiltinReporter::Json->value => Section::options(
+                Json::object(),
+                Field::optional(ReportTests::OPTION, Enumerated::of(ReportTests::cases()), $judges),
+            ),
             BuiltinReporter::Html->value => Section::options(
                 Json::object(),
                 Field::optional(PageShows::FILES, Integer::atLeast(0), $judges),
@@ -224,6 +228,7 @@ final readonly class Builtins
             BuiltinReporter::Otlp->value => Section::options(
                 Json::object(),
                 Field::optional('endpoint', Url::https(), $judges),
+                Field::optional(PostLimits::TIMEOUT, Duration::written(), $judges),
             ),
             BuiltinReporter::Problems->value => Section::options(
                 Json::object(),

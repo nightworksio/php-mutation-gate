@@ -76,7 +76,7 @@ final readonly class EntryKeying
 
         $read = $this->reached->from(...$from);
         $context = Digest::hashing();
-        hash_update($context, ContentKeys::framed(self::FORMAT, $this->base->value(), sprintf('%d', count($read))));
+        hash_update($context, KeyFields::framed(self::FORMAT, $this->base->value(), sprintf('%d', count($read))));
 
         foreach ($read as $path) {
             hash_update(
@@ -93,6 +93,6 @@ final readonly class EntryKeying
     {
         $digest = $files->digestOf(Path::of($path));
 
-        return ContentKeys::framed($path, $digest instanceof Missing ? Missing::DIGESTED : $digest->value());
+        return KeyFields::framed($path, $digest instanceof Missing ? Missing::DIGESTED : $digest->value());
     }
 }

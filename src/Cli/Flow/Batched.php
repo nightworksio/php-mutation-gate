@@ -32,7 +32,10 @@ use Psr\Clock\ClockInterface;
  * Invoking); under `mark` the first such survivor is noted and the batches run
  * on (ADR-0103). A batch the runner
  * cannot judge once the time is up is unjudged, as is every unit no batch
- * took.
+ * took. What each batch judged is told as it ends (ADR-0120). Where a
+ * change cancels by unit, the units it moved leave the queue unjudged, and a
+ * batch it halts is told of to no one and leaves every unit of it unjudged,
+ * whatever its stopped processes came to (ADR-0146).
  *
  * @internal
  */
@@ -42,9 +45,11 @@ final readonly class Batched
         private Invoking $invoking,
         private ClockInterface $clock,
         private Deadline|Unlimited $deadline,
+        private Deadline|Unlimited $fittedTo,
         private Interruption $interruption,
         private Doom|Undoomed $doom,
         private bool $stops,
+        private BatchEnds $ends = new BatchEnds(),
     ) {
     }
 
@@ -58,28 +63,63 @@ final readonly class Batched
     {
         $spent = Spent::none();
         $left = $this->left();
-        $batch = $this->batchOf($batching, $queue, $left);
         $watch = DoomWatch::from($this->doom, $this->clock, $this->stops);
 
-        while ($batch->count() > 0) {
-            $request = $requestFor($batch);
-            $invoked = $this->invoking->invoked($this->within($request, $left));
+        while (true) {
+            $kept = $this->interruption->kept($queue);
+            $spent = $spent->leaving($this->unitsOf($queue)->except($this->unitsOf($kept)));
+            $queue = $kept;
+            $batch = $watch->stopsAfter($spent) ? Units::none() : $this->batchOf($batching, $queue, $left);
+
+            if ($batch->count() === 0) {
+                break;
+            }
+
+            $spent = $this->ran($batch, $spent, $watch, $requestFor($batch), $left);
             $queue = array_slice($queue, $batch->count());
-            $spent = match (true) {
-                ! $invoked instanceof CannotJudge => $watch->after($spent, $batch, $invoked),
-                $this->isOver() => $spent->leaving($batch),
-                default => $invoked,
-            };
 
             if ($spent instanceof CannotJudge) {
                 return $spent;
             }
 
             $left = $this->left();
-            $batch = $watch->stopsAfter($spent) ? Units::none() : $this->batchOf($batching, $queue, $left);
         }
 
-        return $spent->leaving(Units::of(...array_map(static fn(Weighed $weighed): Unit => $weighed->unit(), $queue)));
+        return $spent->leaving($this->unitsOf($queue));
+    }
+
+    /** What the batches came to once this batch ran, or the cannot judge of it the runner could not judge in time. */
+    private function ran(
+        Units $batch,
+        Spent $spent,
+        DoomWatch $watch,
+        MutationRequest $request,
+        Seconds|Unlimited $left,
+    ): Spent|CannotJudge {
+        $halt = $this->interruption->halting($batch);
+        $invoked = $this->invoking->invoked($this->within($request, $left));
+        $halted = $halt instanceof BatchHalt && $halt->disarmed();
+
+        if (! $halted) {
+            $this->ends->ended($invoked);
+        }
+
+        return match (true) {
+            $halted => $spent->leaving($batch),
+            ! $invoked instanceof CannotJudge => $watch->after($spent, $batch, $invoked),
+            $this->isOver() => $spent->leaving($batch),
+            default => $invoked,
+        };
+    }
+
+    /**
+     * The units of these.
+     *
+     * @param list<Weighed> $weighed
+     */
+    private function unitsOf(array $weighed): Units
+    {
+        return Units::of(...array_map(static fn(Weighed $one): Unit => $one->unit(), $weighed));
     }
 
     /** The time left before the deadline, or no limit where the run has none. */
@@ -101,12 +141,16 @@ final readonly class Batched
     }
 
     /**
-     * The next batch that fits, or none once the run is interrupted.
+     * The next batch whose estimate fits a budget's time left, or none once
+     * the run is interrupted. `shards.jobLimit` turns no unit away on its
+     * estimate: a unit starts, and the runner stops at the limit.
      *
      * @param list<Weighed> $queue
      */
     private function batchOf(Batching $batching, array $queue, Seconds|Unlimited $left): Units
     {
-        return $this->interruption->arrived() ? Units::none() : $batching->next($queue, $left);
+        $fitted = $this->fittedTo instanceof Deadline ? $left : $this->fittedTo;
+
+        return $this->interruption->arrived() ? Units::none() : $batching->next($queue, $fitted);
     }
 }

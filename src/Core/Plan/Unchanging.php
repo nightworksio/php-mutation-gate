@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Ignored;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
@@ -24,7 +25,8 @@ use function sprintf;
 /**
  * Whether the verdict of the newest commit of a run's scope whose verdict
  * passed stands for what is there now, so a plan need run nothing: it passed
- * under the run's own check, its record says when, every path the change
+ * under the run's own check, its record says when, the release of the gate
+ * that judged it is the one that runs now, every path the change
  * since it touched, as it is and as it was, is no PHP file and lies outside
  * every directory of tests, none decides how the gate runs (ADR-0005, rule
  * 1) or is the baseline, and no ignore that applied when it passed has
@@ -42,6 +44,10 @@ final readonly class Unchanging
 
     public const string DECIDES = '%s decides how the gate runs.';
 
+    public const string OTHER_GATE = '%s passed under the gate %s, and %s runs now.';
+
+    public const string NO_GATE = 'The ledger does not say which release of the gate passed %s.';
+
     private const string NO_TIME
         = 'The ledger does not say when %s passed, so whether an ignore expired since cannot be told.';
 
@@ -49,14 +55,37 @@ final readonly class Unchanging
 
     private const string TESTS = '%s is in a directory of tests.';
 
-    private function __construct(private Layout $layout, private Packages $packages, private Path $baseline)
-    {
+    private function __construct(
+        private Layout $layout,
+        private Packages $packages,
+        private Path $baseline,
+        private GateRelease $gate,
+    ) {
     }
 
-    /** Judged against the files this layout names, in these packages, with the baseline at this path. */
-    public static function within(Layout $layout, Packages $packages, Path $baseline): self
+    /**
+     * Judged against the files this layout names, in these packages, with the
+     * baseline at this path, by this release of the gate.
+     */
+    public static function within(Layout $layout, Packages $packages, Path $baseline, GateRelease $gate): self
     {
-        return new self($layout, $packages, $baseline);
+        return new self($layout, $packages, $baseline, $gate);
+    }
+
+    /**
+     * Why a commit that passed under another release of the gate than this
+     * one, or an unrecorded one, stands for nothing; none where neither.
+     */
+    public static function otherGate(Passed $passed, GateRelease $gate): Reason|NotGiven
+    {
+        $named = $passed->commit()->name();
+
+        return match (true) {
+            ! $passed->gate()->isRecorded() => Reason::that(sprintf(self::NO_GATE, $named)),
+            ! $passed->gate()->standsUnder($gate)
+                => Reason::that(sprintf(self::OTHER_GATE, $named, $passed->gate()->value(), $gate->value())),
+            default => NotGiven::value(),
+        };
     }
 
     /**
@@ -96,11 +125,13 @@ final readonly class Unchanging
     private function standing(Passed $base, Instant $at, Changes|CannotTell $changes, string $check): Unchanged|Reason
     {
         $touched = $changes instanceof Changes ? $this->touched($changes) : Reason::that($changes->why());
+        $gate = self::otherGate($base, $this->gate);
 
         return match (true) {
             $base->check() !== $check => Reason::that(
                 sprintf(self::OTHER_CHECK, $base->commit()->name(), $base->check(), $check),
             ),
+            $gate instanceof Reason => $gate,
             $touched instanceof Reason => $touched,
             default => Unchanged::since($base, $at),
         };

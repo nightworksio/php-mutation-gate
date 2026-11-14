@@ -9,40 +9,24 @@
       "evidence": "none",
       "why": "It decides which gates run and checks nothing itself."
     },
-    "commitlint": {
-      "check": "commitlint",
-      "checks": "Every commit subject, and the pull request title, is conventional: type(scope): subject.",
-      "reproduce": "python3 .github/scripts/commit_lint.py origin/main HEAD --title \"<the pull request title>\"",
+    "pr": {
+      "check": "pr",
+      "checks": "Every commit subject, and the pull request title, is conventional: type(scope): subject. The pull request's body: every Spec: line names a decision in .docs/decisions, and a breaking title (feat!:) has a Migration section.",
+      "reproduce": "python3 .github/scripts/commit_lint.py origin/main HEAD --title \"<the pull request title>\"\nPR_TITLE=\"<the title>\" PR_BODY=\"<the body>\" python3 .github/scripts/pr_text.py origin/main HEAD",
       "evidence": [
-        {"step": "check", "tool": "commitlint", "raw": "evidence/raw/commitlint.json"}
+        {"step": "commitlint", "tool": "commitlint", "raw": "evidence/raw/commitlint.json"},
+        {"step": "description", "tool": "description", "raw": "evidence/raw/description.json"}
       ],
       "rules": {
         "commitlint": "The check could not read the commits.",
         "conventional-subject": "A commit subject is not conventional. Reword it as type(scope): subject, with a type from feat, fix, docs, refactor, test, chore, ci, perf, build, style or revert.",
-        "conventional-title": "The pull request title is not conventional. A squash merge makes it the subject of the commit on main, so write it as type(scope): subject."
-      }
-    },
-    "description": {
-      "check": "description",
-      "checks": "The pull request's body: every Spec: line names a decision in .docs/decisions, and a breaking title (feat!:) has a Migration section.",
-      "reproduce": "PR_TITLE=\"<the title>\" PR_BODY=\"<the body>\" python3 .github/scripts/pr_text.py origin/main HEAD",
-      "evidence": [
-        {"step": "check", "tool": "description", "raw": "evidence/raw/description.json"}
-      ],
-      "rules": {
+        "conventional-title": "The pull request title is not conventional. A squash merge makes it the subject of the commit on main, so write it as type(scope): subject.",
         "description": "The check could not read the pull request's changes.",
         "unknown-spec": "A Spec: line names a number that is no decision in .docs/decisions. The body becomes main's commit message, so it names only decisions that exist.",
         "missing-migration": "The title marks a breaking change, and the body has no Migration section saying what a user changes. Add a ## Migration section.",
         "suggest-title": "A conventional title for these changes starts like this.",
         "suggest-spec": "These changes touch paths that belong to these decisions. Name the one this pull request follows with a Spec: line."
       }
-    },
-    "pr-evidence": {
-      "check": "pr evidence",
-      "checks": "It gathers the pr workflow's evidence into the one artifact the bot reads.",
-      "reproduce": "Nothing to reproduce",
-      "evidence": "none",
-      "why": "It holds the other jobs' evidence and checks nothing itself."
     },
     "scripts": {
       "check": "scripts",
@@ -147,19 +131,33 @@
     },
     "tests": {
       "check": "tests and coverage",
-      "checks": "The suite, with every line of src covered (G7).",
+      "checks": "The suite under coverage, collected for `coverage`, and its network group.",
       "reproduce": "composer test:coverage && composer test:network",
       "troubleshooting": "no-coverage-driver",
       "evidence": [
         {"step": "suite", "tool": "pest", "raw": "coverage/junit.xml"},
-        {"step": "suite", "tool": "coverage", "raw": "coverage/clover.xml"},
         {"step": "network", "tool": "pest", "raw": "evidence/raw/tests-network.xml"}
       ],
       "rules": {
         "pest": "The suite did not run to the end, so it wrote no log of its tests.",
         "failure": "A test's expectation failed.",
+        "error": "A test threw before it could finish."
+      }
+    },
+    "coverage": {
+      "check": "coverage",
+      "checks": "Every line of src run (G7): the suite's coverage with the lines of the processes its tests start, Pest's highest runner contract leg's and Outbreak's boundary's, merged, with only the files scripts/coverage-exemptions.php names exempt.",
+      "reproduce": "composer test:report, which holds the suite's own coverage to the floor; the runner contract's and the boundary's join it in CI alone",
+      "troubleshooting": "no-coverage-driver",
+      "evidence": [
+        {"step": "runner", "tool": "pest", "raw": "evidence/raw/pest-highest.xml"},
+        {"step": "merge", "tool": "coverage", "raw": "coverage/clover.xml"}
+      ],
+      "rules": {
+        "pest": "The runner contract's Pest leg did not run to the end, so it wrote no log of its tests.",
+        "failure": "A test's expectation failed.",
         "error": "A test threw before it could finish.",
-        "coverage": "The suite did not run to the end, so it wrote no coverage report.",
+        "coverage": "A run whose coverage is merged did not leave it, so no merged report was written.",
         "uncovered": "No test runs this line. Every line of src is covered: add the test that runs it, or remove the line."
       }
     },
@@ -177,8 +175,8 @@
         "error": "A test threw against the lowest dependencies: a lower bound in composer.json no longer works."
       }
     },
-    "phar": {
-      "check": "phar",
+    "phar/phar": {
+      "check": "phar / phar",
       "checks": "The gate's PHAR builds as a release builds it, says its version, prints the committed config schema, judges an Infection project that installs no copy of the gate, and refuses the Pest runner, on the PHP it is built with and on the lowest PHP the package supports.",
       "reproduce": "composer phar && composer install --working-dir=tests/Fixtures/Archive && vendor/bin/pest --group=phar",
       "evidence": [
@@ -200,8 +198,8 @@
     },
     "runner-contract": {
       "check": "runner contract",
-      "checks": "One leg of runner contracts: one runner's contracts, Pest's, Infection's with PHPUnit 13 or 12, PHPUnit's, PhpSpec's, Codeception's or the analysers', at one resolution of its fixture, the highest its committed lock holds or the lowest the package supports.",
-      "reproduce": "vendor/bin/pest --testsuite=Contract with the leg's --filter, after installing the leg's fixture as the job does (composer install for the locked highest, composer update --prefer-lowest for the lowest); ANALYSER_CONTRACTS=1 for the analysers",
+      "checks": "One runner's two legs of runner contracts: its contracts, Pest's, Infection's with PHPUnit 13 or 12, PHPUnit's, PhpSpec's, Codeception's or the analysers', at each resolution of its fixture, the highest its committed lock holds and the lowest the package supports.",
+      "reproduce": ".github/scripts/leg.sh <runner> <highest or lowest>, which empties tests/Contract of what is untracked and installs the leg's fixture (composer install for the locked highest, composer update --prefer-lowest for the lowest); ANALYSER_CONTRACTS=1 for the analysers",
       "evidence": "none",
       "why": "Each leg leaves its log and its suite's outcome to runner contracts, which reads them as its evidence and is the check main requires."
     },
@@ -258,6 +256,119 @@
         "not-run": "A step never ran, because a command before it failed: the step's log says which."
       }
     },
+    "outbreak/fmt": {
+      "check": "outbreak / fmt",
+      "checks": "The formatting of Outbreak's Rust workspace and of its fuzz targets, by rustfmt (ADR-0118).",
+      "reproduce": "cd outbreak && cargo fmt --all --check && cargo fmt --all --check --manifest-path fuzz/Cargo.toml",
+      "fix": "cd outbreak && cargo fmt --all && cargo fmt --all --manifest-path fuzz/Cargo.toml",
+      "evidence": "none",
+      "why": "Cargo's log, which the job shows, names the file and line of each failure, as rustc and its tools write them."
+    },
+    "outbreak/clippy": {
+      "check": "outbreak / clippy",
+      "checks": "Clippy over every target of Outbreak's workspace, pedantic, with unwrap, expect, panic, indexing, todo and unimplemented denied and every warning an error (ADR-0118).",
+      "reproduce": "cd outbreak && cargo clippy --workspace --all-targets --locked -- -D warnings",
+      "evidence": "none",
+      "why": "Cargo's log, which the job shows, names the file and line of each failure, as rustc and its tools write them."
+    },
+    "outbreak/test": {
+      "check": "outbreak / test",
+      "checks": "The suite of Outbreak's workspace, its binary's included (ADR-0118).",
+      "reproduce": "cd outbreak && cargo nextest run --workspace --locked",
+      "evidence": "none",
+      "why": "Cargo's log, which the job shows, names the file and line of each failure, as rustc and its tools write them."
+    },
+    "outbreak/coverage": {
+      "check": "outbreak / coverage",
+      "checks": "Every line of Outbreak's workspace is run by its suite, by llvm-cov (ADR-0118).",
+      "reproduce": "cd outbreak && cargo llvm-cov nextest --workspace --locked --fail-under-lines 100 --show-missing-lines",
+      "evidence": "none",
+      "why": "llvm-cov's report, which the job shows, names each line no test ran."
+    },
+    "outbreak/deny": {
+      "check": "outbreak / deny",
+      "checks": "What Outbreak's workspace and fuzz targets depend on: advisories, licenses, sources, duplicates and banned crates, by cargo-deny (ADR-0118).",
+      "reproduce": "cd outbreak && cargo deny --locked check && cargo deny --locked --manifest-path fuzz/Cargo.toml check",
+      "evidence": "none",
+      "why": "cargo-deny's log, which the job shows, names each crate and the check it fails."
+    },
+    "outbreak/audit": {
+      "check": "outbreak / audit",
+      "checks": "Every crate Outbreak's locks install, against the RustSec advisories, by cargo-audit (ADR-0118).",
+      "reproduce": "cd outbreak && cargo audit --deny warnings && cargo audit --deny warnings --file fuzz/Cargo.lock",
+      "evidence": "none",
+      "why": "cargo-audit's log, which the job shows, names each crate and its advisory."
+    },
+    "outbreak/msrv": {
+      "check": "outbreak / msrv",
+      "checks": "Outbreak's workspace builds and passes on the oldest toolchain its Cargo.toml promises (ADR-0118).",
+      "reproduce": "cd outbreak && RUSTUP_TOOLCHAIN=1.95 cargo test --workspace --locked",
+      "evidence": "none",
+      "why": "Cargo's log, which the job shows, names the file and line of each failure, as rustc and its tools write them."
+    },
+    "outbreak/mutants": {
+      "check": "outbreak / mutants ${{ matrix.shard }}",
+      "checks": "Every mutant cargo-mutants makes of Outbreak's workspace is caught by its suite, in shards: on a pull request those of its diff, elsewhere every one (ADR-0118).",
+      "reproduce": "cd outbreak && cargo mutants --workspace --no-shuffle",
+      "evidence": "none",
+      "why": "cargo-mutants' log, which the job shows, names each missed mutant, and its mutants.out is uploaded where a shard fails."
+    },
+    "outbreak/fuzz": {
+      "check": "outbreak / fuzz ${{ matrix.target }}",
+      "checks": "Each of Outbreak's parsers, fuzzed: a map's text, a split request, a slice, which must itself be a map it vouches for, a run's report, a pack of proofs with a cache request, a PHP file with a graph request, and the daemon's journal and snapshot (ADR-0118).",
+      "reproduce": "cd outbreak/fuzz && cargo +nightly fuzz run <map|request|slice|report|pack|graph|journal> -- -max_total_time=60 -dict=outbreak.dict",
+      "evidence": "none",
+      "why": "libFuzzer's log, which the job shows, holds the panic, and the input that failed is uploaded as the target's artifact."
+    },
+    "outbreak/boundary": {
+      "check": "outbreak / boundary",
+      "checks": "The map engine's, the proof cache's, the static graph's and the daemon's PHP contract suites, the equivalence contract suite against outbreak.so, and the Outbreak adapter's process tests, run against the binary and the extension this commit builds: what they answer is what the gate's PHP gives (ADR-0118, ADR-0130, ADR-0131, ADR-0132, ADR-0133).",
+      "reproduce": "cd outbreak && cargo build --release --package outbreak --package outbreak-ext && cd .. && OUTBREAK_BINARY=$PWD/outbreak/target/release/outbreak OUTBREAK_EXTENSION=$PWD/outbreak/target/release/liboutbreak.so vendor/bin/pest tests/Contract/MapEngine tests/Contract/ProofCache tests/Contract/Graph tests/Contract/KeepsProofs tests/Contract/Equivalence tests/Process/Adapter/Outbreak",
+      "evidence": "none",
+      "why": "Pest's log, which the job shows, names each test that failed and the difference it found."
+    },
+    "outbreak/build": {
+      "check": "outbreak / build ${{ matrix.platform }}",
+      "checks": "Outbreak's core builds for every platform the package ships it for, and each binary answers its contract (ADR-0118).",
+      "reproduce": "cd outbreak && cargo build --release --locked --package outbreak --target <target> && target/<target>/release/outbreak contract",
+      "evidence": "none",
+      "why": "Each platform's leg runs on a runner of its own, and cargo's log, which the job shows, names what failed to build."
+    },
+    "outbreak/extension": {
+      "check": "outbreak / extension ${{ matrix.platform }} php ${{ matrix.php }}",
+      "checks": "outbreak.so builds for every platform and PHP minor the package ships it for, and loads into that PHP where the runner's architecture is the platform's (ADR-0130).",
+      "reproduce": "cd outbreak && cargo build --release --locked --package outbreak-ext --target <target> && php -n -d extension=$PWD/target/<target>/release/liboutbreak.so -r 'echo outbreak_version();'",
+      "evidence": "none",
+      "why": "Each leg runs on a runner of its own, and cargo's log, which the job shows, names what failed to build or load."
+    },
+    "outbreak/passed": {
+      "check": "outbreak / passed",
+      "checks": "Every job of Outbreak's core this run was asked for passed: its gates where what changed lists outbreak, its builds where it says builds. Skipped where it was asked for none, so it reports on every pull request and main can require it (ADR-0118).",
+      "reproduce": "Each failed job's own entry: outbreak/fmt, outbreak/clippy, outbreak/test, outbreak/coverage, outbreak/deny, outbreak/audit, outbreak/msrv, outbreak/mutants, outbreak/fuzz, outbreak/boundary or outbreak/build",
+      "evidence": "none",
+      "why": "It reads only the results of the jobs it needs and names each that did not pass; their own logs say why."
+    },
+    "local-mode": {
+      "check": "local mode",
+      "checks": "A whole run of the gate on lcobucci/jwt, prepared as bench/jwt.sh prepares it, at half the machine's cores, ends within ten minutes (ADR-0120); the gate's own run on what the change touched follows it, and only says what it found.",
+      "reproduce": "bench/prepare.sh jwt <dir>, then in <dir>: timeout 600 vendor/bin/mutation-gate run --config=<bench-phpunit.json with runner.processes at half the cores>",
+      "evidence": "none",
+      "why": "Its only measure is the time the run took, which the step summary and the job's log hold."
+    },
+    "local-loop": {
+      "check": "local loop",
+      "checks": "A round of watch on lcobucci/jwt that starts from a map coverage --into carried, after one source line changed, ends within ten minutes under local.cpu balanced (ADR-0146).",
+      "reproduce": "bench/prepare.sh jwt <dir>, then in <dir>: vendor/bin/mutation-gate coverage --into=.mutation-gate/carried, change a line of src, timeout 600 vendor/bin/mutation-gate watch --rounds=1 --from-map=.mutation-gate/carried",
+      "evidence": "none",
+      "why": "Its only measure is the time the round took, which the step summary and the job's log hold."
+    },
+    "local-evidence": {
+      "check": "local evidence",
+      "checks": "It gathers the local jobs' evidence into the one artifact the bot reads.",
+      "reproduce": "Nothing to reproduce",
+      "evidence": "none",
+      "why": "It holds the local jobs' evidence and checks nothing itself."
+    },
     "runner-canary": {
       "check": "runner canary",
       "checks": "Every day, ADR-0004's Runner contract suite and ADR-0020's StaticChecker contract suite against the newest releases of Pest, Infection, PHPUnit, PhpSpec, Codeception, Testo, Mago, PHPStan and Psalm, the pinned pest-plugin-mutate, Infection and Testo freed from the package's pin; then that composer.json takes each pinned release that passed, and that doctor counts it as tested (ADR-0017, ADR-0041). It is not required: a new release reds it alone.",
@@ -295,6 +406,13 @@
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },
+    "mutation/judge": {
+      "check": "mutation / judge",
+      "checks": "The gate that judges the run, built under a namespace of its own at the commit the change branched from, or the newest release's where no commit builds one (ADR-0140); it runs where the workflow's judge input names one.",
+      "reproduce": "composer phar:judge",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
     "mutation/plan": {
       "check": "mutation / plan",
       "checks": "G8: what a change reaches, the units a proof or a carried result already settles, and the shards the rest is cut into, by the gate over its own src.",
@@ -313,6 +431,13 @@
       "check": "mutation / shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})",
       "checks": "G8: one shard of the plan, each of its mutants run against the tests that reach it.",
       "reproduce": "bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id> --results=.mutation-gate/results",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/watch": {
+      "check": "mutation / watch",
+      "checks": "On a run that names `watch-jobs`, it watches those jobs of the calling run and, once one concluded in failure, tells every shard to start no further item (ADR-0135).",
+      "reproduce": "WATCH_JOBS=<names> GH_TOKEN=<token> JOBS=repos/<owner>/<repo>/actions/runs/<run>/attempts/<attempt>/jobs python3 resources/action/gate_action.py watch",
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },
@@ -358,6 +483,97 @@
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },
+    "mutation-early/fetch": {
+      "check": "mutation-early / fetch",
+      "checks": "The default branch's ledger, read with a key that reads nothing else, in a job that runs none of the project's code; it runs where the repository variable MUTATION_GATE_STORE names a store.",
+      "reproduce": "bin/mutation-gate fetch",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/judge": {
+      "check": "mutation-early / judge",
+      "checks": "The gate that judges the run, built under a namespace of its own at the commit the change branched from, or the newest release's where no commit builds one (ADR-0140); it runs where the workflow's judge input names one.",
+      "reproduce": "composer phar:judge",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/plan": {
+      "check": "mutation-early / plan",
+      "checks": "G8: what a change reaches, the units a proof or a carried result already settles, and the shards the rest is cut into, by the gate over its own src.",
+      "reproduce": "bin/mutation-gate plan --ci=json",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/deliver-plan": {
+      "check": "mutation-early / deliver plan",
+      "checks": "The pull request comment's planned state the plan left, posted from the gate's own installation.",
+      "reproduce": "bin/mutation-gate deliver --from=.mutation-gate/delivery/planned",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/shard": {
+      "check": "mutation-early / shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})",
+      "checks": "G8: one shard of the plan, each of its mutants run against the tests that reach it.",
+      "reproduce": "bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id> --results=.mutation-gate/results",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/watch": {
+      "check": "mutation-early / watch",
+      "checks": "On a run that names `watch-jobs`, it watches those jobs of the calling run and, once one concluded in failure, tells every shard to start no further item (ADR-0135).",
+      "reproduce": "WATCH_JOBS=<names> GH_TOKEN=<token> JOBS=repos/<owner>/<repo>/actions/runs/<run>/attempts/<attempt>/jobs python3 resources/action/gate_action.py watch",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/survivors": {
+      "check": "mutation-early / survivors ${{ matrix.share }}",
+      "checks": "G3: on a pull request, one share of the last run's survivors run again beside the shards, within survivorsFirst.budget, a signal the verdict does not judge.",
+      "reproduce": "bin/mutation-gate survivors --plan=.mutation-gate/plan.json --share=<i> --of=<n>",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/survivors-report": {
+      "check": "mutation-early / survivors report",
+      "checks": "G3: what the survivors' shares made, paired with the survivors they were taken for, a share that left nothing read as not reached, and the comment's survivors re-checked state left for deliver-survivors.",
+      "reproduce": "bin/mutation-gate survivors --plan=.mutation-gate/plan.json --from=.mutation-gate/survivors --of=<n>",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/deliver-survivors": {
+      "check": "mutation-early / deliver survivors",
+      "checks": "The pull request comment's survivors re-checked state the survivors report left, written over its planned state alone, from the gate's own installation.",
+      "reproduce": "bin/mutation-gate deliver --from=.mutation-gate/delivery/survivors",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/verdict": {
+      "check": "mutation-early / verdict",
+      "checks": "G8: every tree at or above the floor mutation-gate.baseline.json records for it, over the shards' results and the proofs the plan used.",
+      "reproduce": "bin/mutation-gate run",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/deliver": {
+      "check": "mutation-early / deliver",
+      "checks": "What the verdict left: the comment, and on a trusted run of the default branch the ledger, the alerts and the trace, sent from the gate's own installation.",
+      "reproduce": "bin/mutation-gate deliver --from=.mutation-gate/delivery/verdict",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/publish": {
+      "check": "mutation-early / publish",
+      "checks": "The badge and trend of the default branch, published to the mutation-gate branch.",
+      "reproduce": "Nothing to reproduce: it runs on the default branch only",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-verdict": {
+      "check": "mutation verdict",
+      "checks": "The mutation verdict main requires, whichever caller of the reusable workflow ran: mutation-early's where it planned the run without a fresh map, else mutation's, which ran with the map tests and coverage wrote (ADR-0135).",
+      "reproduce": "bin/mutation-gate run",
+      "evidence": "none",
+      "why": "It reads the two callers' verdict outputs alone; each caller's own jobs leave their evidence."
+    },
     "sonar": {
       "check": "sonarcloud",
       "checks": "SonarCloud's analysis of the reports tests and coverage wrote.",
@@ -385,12 +601,24 @@
       "evidence": "none",
       "why": "It holds the other jobs' evidence and checks nothing itself."
     },
-    "hygiene/actionlint": {
-      "check": "hygiene / actionlint",
-      "checks": "The workflows, by actionlint and the shellcheck it runs over their scripts.",
-      "reproduce": "actionlint",
+    "hygiene/tools": {
+      "check": "hygiene / tools",
+      "checks": "The workflows, by actionlint and the shellcheck it runs over their scripts. The workflows and dependabot.yml, audited by zizmor for the ways a workflow is attacked. The spelling of every file, by typos. That no tracked file is over 1,000 lines, by .github/scripts/line_cap.py: lockfiles, images and fonts are not counted, and a file scripts/generated.py registers is held to the cap through its sources. Every link in the Markdown, by lychee. No secret anywhere in the history, by gitleaks. No known vulnerability in what the lock files install, by osv-scanner. The Markdown, by markdownlint with .markdownlint.jsonc, the depth cap of the vendored braces its globs go through, and the ADRs the site builds its index of.",
+      "reproduce": "actionlint\nzizmor .\ntypos\npython3 .github/scripts/line_cap.py --root .\nlychee --config lychee.toml .\ngitleaks git --redact .\nosv-scanner scan source --recursive .\nnpm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \"**/*.md\" && node --test .github/bot/markdownlint/braces.test.mjs && python3 .github/scripts/decisions_index.py validate",
+      "fix": "zizmor --fix=safe .\nnpm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --fix \"**/*.md\"",
       "evidence": [
-        {"step": "actionlint", "tool": "actionlint", "raw": "evidence/raw/actionlint.json"}
+        {"step": "actionlint", "tool": "actionlint", "raw": "evidence/raw/actionlint.json"},
+        {"step": "zizmor", "tool": "zizmor", "raw": "evidence/raw/zizmor.json"},
+        {"step": "typos", "tool": "typos", "raw": "evidence/raw/typos.jsonl"},
+        {"step": "lines", "tool": "lines", "raw": "evidence/raw/lines.txt"},
+        {"step": "lychee", "tool": "lychee", "raw": "evidence/raw/lychee.json"},
+        {"step": "gitleaks", "tool": "gitleaks", "raw": "evidence/raw/gitleaks.json"},
+        {"step": "freshness", "tool": "gitleaks-freshness"},
+        {"step": "osv-scanner", "tool": "osv-scanner", "raw": "evidence/raw/osv-scanner.json"},
+        {"step": "markdownlint", "tool": "markdownlint", "raw": "evidence/raw/markdownlint.json"},
+        {"step": "table", "tool": "markdownlint-table"},
+        {"step": "braces", "tool": "braces-cap"},
+        {"step": "decisions", "tool": "decisions-index"}
       ],
       "rules": {
         "actionlint": "actionlint did not run to the end.",
@@ -412,18 +640,7 @@
         "job-needs": "A job needs a job that does not exist, or the needs form a loop.",
         "deprecated-commands": "A step uses a workflow command GitHub has retired.",
         "env-var": "An environment variable's name is not valid.",
-        "config": "actionlint's own configuration is not valid."
-      }
-    },
-    "hygiene/zizmor": {
-      "check": "hygiene / zizmor",
-      "checks": "The workflows and dependabot.yml, audited by zizmor for the ways a workflow is attacked.",
-      "reproduce": "zizmor .",
-      "fix": "zizmor --fix=safe .",
-      "evidence": [
-        {"step": "zizmor", "tool": "zizmor", "raw": "evidence/raw/zizmor.json"}
-      ],
-      "rules": {
+        "config": "actionlint's own configuration is not valid.",
         "zizmor": "zizmor did not run to the end.",
         "adhoc-packages": "A step installs a package outside a lock file, so what it installs can change between runs.",
         "anonymous-definition": "A workflow or action has no name.",
@@ -465,87 +682,22 @@
         "unsound-condition": "An if: is always true because of how it is written, such as text around a ${{ }}.",
         "unsound-contains": "contains() is called on text where a list was meant, so a substring passes.",
         "unsound-ternary": "An a && b || c expression gives c when b is empty or false.",
-        "use-trusted-publishing": "A release publishes with a long-lived token where trusted publishing works."
-      }
-    },
-    "hygiene/typos": {
-      "check": "hygiene / typos",
-      "checks": "The spelling of every file, by typos.",
-      "reproduce": "typos",
-      "evidence": [
-        {"step": "typos", "tool": "typos", "raw": "evidence/raw/typos.jsonl"}
-      ],
-      "rules": {
+        "use-trusted-publishing": "A release publishes with a long-lived token where trusted publishing works.",
         "typos": "typos did not run to the end.",
-        "typo": "A word typos knows as a misspelling. Its correction is proposed, not applied: inside an identifier, the corrected word can be wrong."
-      }
-    },
-    "hygiene/lines": {
-      "check": "hygiene / lines",
-      "checks": "That no tracked file is over 1,000 lines, by .github/scripts/line_cap.py: lockfiles, images and fonts are not counted, and a file scripts/generated.py registers is held to the cap through its sources.",
-      "reproduce": "python3 .github/scripts/line_cap.py --root .",
-      "evidence": [
-        {"step": "lines", "tool": "lines", "raw": "evidence/raw/lines.txt"}
-      ],
-      "rules": {
+        "typo": "A word typos knows as a misspelling. Its correction is proposed, not applied: inside an identifier, the corrected word can be wrong.",
         "lines": "The line cap did not run to the end, as where git could not list the tree.",
-        "over-cap": "A tracked file over 1,000 lines. Split it by what it holds; a generated file is split where it is generated, or registered in scripts/generated.py with the sources it is read through."
-      }
-    },
-    "hygiene/links": {
-      "check": "hygiene / links",
-      "checks": "Every link in the Markdown, by lychee.",
-      "reproduce": "lychee --config lychee.toml .",
-      "evidence": [
-        {"step": "lychee", "tool": "lychee", "raw": "evidence/raw/lychee.json"}
-      ],
-      "rules": {
+        "over-cap": "A tracked file over 1,000 lines. Split it by what it holds; a generated file is split where it is generated, or registered in scripts/generated.py with the sources it is read through.",
         "lychee": "lychee did not run to the end, or found no link where there are some.",
-        "broken-link": "A link answers 404 or 410, points at a file that is not there, or timed out."
-      }
-    },
-    "hygiene/markdown": {
-      "check": "hygiene / markdown",
-      "checks": "The Markdown, by markdownlint with .markdownlint.jsonc, the depth cap of the vendored braces its globs go through, and the ADRs the site builds its index of.",
-      "reproduce": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \"**/*.md\" && node --test .github/bot/markdownlint/braces.test.mjs && python3 .github/scripts/decisions_index.py validate",
-      "fix": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --fix \"**/*.md\"",
-      "evidence": [
-        {"step": "markdownlint", "tool": "markdownlint", "raw": "evidence/raw/markdownlint.json"},
-        {"step": "table", "tool": "markdownlint-table"},
-        {"step": "braces", "tool": "braces-cap"},
-        {"step": "decisions", "tool": "decisions-index"}
-      ],
-      "rules": {
+        "broken-link": "A link answers 404 or 410, points at a file that is not there, or timed out.",
+        "gitleaks": "gitleaks did not run to the end.",
+        "gitleaks-freshness": "The pinned gitleaks is more than 30 days behind its latest release, so it misses rules the latest has. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml.",
+        "secret": "gitleaks finds a secret committed here. Revoke it first, then remove it from the history; deleting the file in a later commit leaves it readable.",
+        "osv-scanner": "osv-scanner did not run to the end.",
+        "vulnerability": "A package a lock file installs has a known vulnerability. Raise it to a release the advisory says is fixed.",
         "markdownlint": "markdownlint did not run to the end.",
         "braces-cap": "The vendored braces in .github/bot/markdownlint/vendor/braces does not refuse a pattern nested past its depth cap, micromatch does not resolve it, or it expands a pattern differently from braces 3.0.3. Run npm ci --prefix .github/bot/markdownlint && node --test .github/bot/markdownlint/braces.test.mjs.",
         "markdownlint-table": ".github/bot/rules/markdownlint.json is not what the locked markdownlint says of its rules. Run node .github/bot/markdownlint/rules.mjs > .github/bot/rules/markdownlint.json and commit it.",
         "decisions-index": "An ADR cannot be read as one, two ADR files take one number, or .docs/decisions/README.md holds an index between its markers, which the site builds. Run python3 .github/scripts/decisions_index.py validate, which says which."
-      }
-    },
-    "security/gitleaks": {
-      "check": "security / gitleaks",
-      "checks": "No secret anywhere in the history, by gitleaks.",
-      "reproduce": "gitleaks git --redact .",
-      "evidence": [
-        {"step": "gitleaks", "tool": "gitleaks", "raw": "evidence/raw/gitleaks.json"},
-        {"step": "freshness", "tool": "gitleaks-freshness"}
-      ],
-      "rules": {
-        "gitleaks": "gitleaks did not run to the end.",
-        "gitleaks-freshness": "The pinned gitleaks is more than 30 days behind its latest release, so it misses rules the latest has. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml.",
-        "secret": "gitleaks finds a secret committed here. Revoke it first, then remove it from the history; deleting the file in a later commit leaves it readable."
-      }
-    },
-    "security/osv-scanner": {
-      "check": "security / osv-scanner",
-      "checks": "No known vulnerability in what the lock files install, by osv-scanner.",
-      "reproduce": "osv-scanner scan source --recursive .",
-      "evidence": [
-        {"step": "osv-scanner", "tool": "osv-scanner", "raw": "evidence/raw/osv-scanner.json"}
-      ],
-      "rules": {
-        "osv-scanner": "osv-scanner did not run to the end.",
-        "vulnerability": "A package a lock file installs has a known vulnerability. Raise it to a release the advisory says is fixed."
       }
     },
     "site/build": {

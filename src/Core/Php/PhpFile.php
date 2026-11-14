@@ -53,19 +53,12 @@ final readonly class PhpFile
 
     public static function read(Contents $contents): self
     {
-        $tokens = [];
-
-        foreach (PhpToken::tokenize($contents->text()) as $token) {
-            if (! $token->isIgnorable() && ! $token->is(T_CLOSE_TAG)) {
-                $tokens[] = $token;
-            }
-        }
-
+        $tokens = SignificantTokens::of($contents);
         $top = TopLevel::of($tokens);
         $scope = $top->scope();
 
         return new self(
-            Names::of(...array_map($scope->declared(...), $top->declared())),
+            $top->declares(),
             self::mentionedIn($tokens, $scope),
             self::quotedIn($tokens),
             self::constantsIn($tokens),
@@ -250,10 +243,10 @@ final readonly class PhpFile
      */
     private static function defines(array $tokens, int $at): bool
     {
-        return ltrim(mb_strtolower($tokens[$at]->text), '\\') === 'define'
-            && array_key_exists($at + 2, $tokens)
+        return array_key_exists($at + 2, $tokens)
             && $tokens[$at + 1]->is('(')
-            && $tokens[$at + 2]->is(T_CONSTANT_ENCAPSED_STRING);
+            && $tokens[$at + 2]->is(T_CONSTANT_ENCAPSED_STRING)
+            && ltrim(mb_strtolower($tokens[$at]->text), '\\') === 'define';
     }
 
     /** A name without its namespace. */

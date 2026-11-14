@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Serve\DaemonStart;
 use NightWorksIO\MutationGate\Adapter\Serve\Listener;
 use NightWorksIO\MutationGate\Adapter\Serve\ServeSocket;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Appeared;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -58,6 +61,19 @@ it('starts none where one already listens, or where the socket is not the user\'
         ->and(file_exists('argv'))->toBeFalse();
 });
 
+it('keeps the gate\'s directory a run made, open to others under the umask, to the user alone, and starts the daemon there', function () use ($standIn): void {
+    $project = ServedProjects::entered();
+    rmdir('.mutation-gate');
+    $umask = umask(0o022);
+    Directory::at($project)->write(Path::of('.mutation-gate/ledger.json'), Contents::of('{}'));
+    umask($umask);
+    $made = fileperms('.mutation-gate') & 0o777;
+    $script = $standIn($project, "\$s = stream_socket_server('unix://.mutation-gate/serve.sock');\nsleep(2);");
+
+    expect($made)->toBe(0o755)
+        ->and(new DaemonStart(ServedProjects::socket(), Seconds::of(5.0))->started($script, $project))->toBeTrue()
+        ->and(fileperms('.mutation-gate') & 0o777)->toBe(0o700);
+});
 
 it('starts the daemon with its input, output and errors on the null device, so it prints nothing where it was started', function () use ($standIn): void {
     $project = ServedProjects::entered();

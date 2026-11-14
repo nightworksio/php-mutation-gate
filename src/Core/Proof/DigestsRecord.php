@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
 
@@ -27,8 +28,14 @@ use stdClass;
  *
  * @phpstan-type ByPathWritten array<string, string>|stdClass
  * @phpstan-type CommitWritten array{commit?: string}
- * @phpstan-type RunWritten array{mutation: string, sources: ByPathWritten, tests: ByPathWritten, commit?: string}
- * @phpstan-type ProofWritten array{source: string, mutation: int, tests: list<int>, commit?: int}
+ * @phpstan-type RunWritten array{
+ *     mutation: string,
+ *     reads?: string,
+ *     sources: ByPathWritten,
+ *     tests: ByPathWritten,
+ *     commit?: string,
+ * }
+ * @phpstan-type ProofWritten array{source: string, mutation: int, reads?: int, tests: list<int>, commit?: int}
  */
 final readonly class DigestsRecord
 {
@@ -52,6 +59,7 @@ final readonly class DigestsRecord
     {
         return [
             DigestKind::Mutation->value => $digests->mutation()->value(),
+            ...self::readsOf($digests->reads()),
             self::SOURCES => self::byPath($digests->sources()),
             DigestKind::Test->value => self::byPath($digests->tests()),
             ...self::commit($digests->commit()),
@@ -62,6 +70,8 @@ final readonly class DigestsRecord
     public static function readRun(Node $record): Digests
     {
         $digests = Digests::of(self::digestIn($record->field(DigestKind::Mutation->value)));
+        $reads = $record->field(DigestKind::Reads->value);
+        $digests = $reads->isPresent() ? $digests->withReads(self::digestIn($reads)) : $digests;
 
         foreach ($record->field(self::SOURCES)->entries() as $unit => $digest) {
             $digests = $digests->withSource(Path::of(sprintf('%s', $unit)), self::digestIn($digest));
@@ -86,10 +96,12 @@ final readonly class DigestsRecord
         }
 
         $commit = $inputs->commit();
+        $reads = $inputs->reads();
 
         return [
             DigestKind::Source->value => $inputs->source()->value(),
             DigestKind::Mutation->value => $table->mutation($inputs->mutation()),
+            ...$reads instanceof Digest ? [DigestKind::Reads->value => $table->mutation($reads)] : [],
             DigestKind::Test->value => $tests,
             ...$commit instanceof Revision ? [self::COMMIT => $table->commit($commit)] : [],
         ];
@@ -108,9 +120,18 @@ final readonly class DigestsRecord
             $inputs = $inputs->withTest($file, $digest);
         }
 
+        $reads = $record->field(DigestKind::Reads->value);
+        $inputs = $reads->isPresent() ? $inputs->withReads($table->mutationAt($reads)) : $inputs;
+
         $commit = $record->field(self::COMMIT);
 
         return $commit->isPresent() ? $inputs->takenAt($table->commitAt($commit)) : $inputs;
+    }
+
+    /** @return array{reads?: string} the field of the first five inputs' digest, where the run took it */
+    private static function readsOf(Digest|NotGiven $reads): array
+    {
+        return $reads instanceof Digest ? [DigestKind::Reads->value => $reads->value()] : [];
     }
 
     /**

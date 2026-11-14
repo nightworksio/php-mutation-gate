@@ -9,9 +9,12 @@ use function array_key_exists;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
+use NightWorksIO\MutationGate\Core\Config\MergedTrust;
+use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -19,6 +22,9 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Port\ChangeSource;
@@ -33,12 +39,14 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * that head, the branch was up to date and its run judged exactly the tree
  * that landed, so those commits reach nothing and only what is uncommitted
  * counts; and so where a commit is a merge group's whose verdict passed on
- * it. On a merge group, `GITHUB_REF` names the pull request it was built
- * for, and the group reaches nothing where its tree is that pull request's
- * head, whose verdict passed there (ADR-0022, ADR-0049). A range of more
- * commits than the proving range holds, or one commit it cannot prove, is
- * read from the other source whole. Where the checkout stands, and what
- * changed from a commit itself, the other source says.
+ * it. Under `delta`, a landed tree that differs reaches what changed from the
+ * head the pull request's verdict judged (ADR-0139). On a merge group,
+ * `GITHUB_REF` names the pull request it was built for, and the group reaches
+ * nothing where its tree is that pull request's head, whose verdict passed
+ * there (ADR-0022, ADR-0049). A range of more commits than the proving range
+ * holds, or one commit it cannot prove, is read from the other source whole.
+ * Where the checkout stands, and what changed from a commit itself, the other
+ * source says.
  *
  * @internal
  */
@@ -85,15 +93,41 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
         return new self($source, $queued instanceof QueueBranch ? $heads->inGroupFor($queued->pullRequest()) : $heads);
     }
 
-    /** This source, reading each pull request's own ledger from this store. */
-    public function trusting(ProofStore $ledgers): self
+    /** This source, reading each pull request's own ledger from this store, and taking from it what these allow. */
+    public function trusting(ProofStore $ledgers, MergedTrust $trust, OwnScopeTrust $ownScope): self
     {
-        return new self($this->source, $this->heads->trusting($ledgers));
+        return new self($this->source, $this->heads->trusting($ledgers, $trust, $ownScope));
     }
 
+    /**
+     * The change since a base: none of the commits proved, where all are; from the judged head of the oldest pull
+     * request whose landed tree differs, under `delta`, or since the base where that head cannot be read.
+     */
     public function changesSince(Revision $base): Changes|CannotTell
     {
-        return $this->source->changesSince($this->heads->provedSince($base) ? $this->heads->head() : $base);
+        $merged = $this->heads->since($base);
+        $from = $merged->from();
+
+        if (! $merged->isProved()) {
+            return $this->source->changesSince($base);
+        }
+
+        $changes = $from instanceof Revision
+            ? $this->source->changesFrom($from)
+            : $this->source->changesSince($this->heads->head());
+
+        return $changes instanceof CannotTell ? $this->source->changesSince($base) : $changes;
+    }
+
+    /**
+     * The results the pull requests merged since the default branch's last pass carry, where every commit since
+     * is proved; for a merge group, those of its pull request.
+     */
+    public function carriedOnto(Ledger $defaultBranch): Proofs
+    {
+        $passed = $defaultBranch->runs()->passed();
+
+        return $this->heads->since($passed instanceof Passed ? $passed->commit() : $this->heads->head())->carried();
     }
 
     public function changesFrom(Revision $commit): Changes|CannotTell
@@ -114,6 +148,11 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
     public function fingerprints(): Fingerprints|CannotTell
     {
         return $this->source->fingerprints();
+    }
+
+    public function lookedSince(Looked $then): Looked|CannotTell
+    {
+        return $this->source->lookedSince($then);
     }
 
     public function listed(Paths $paths): Paths|CannotTell

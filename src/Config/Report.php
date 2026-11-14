@@ -15,9 +15,10 @@ final readonly class Report
     {
     }
 
-    public static function json(string $path): self
+    /** The gate's own JSON report, with its options: `tests`, `all`, `killers` or `none`. */
+    public static function json(string $path, Option ...$options): self
     {
-        return self::writing(BuiltinReporter::Json->value, $path);
+        return self::writing(BuiltinReporter::Json->value, $path, ...$options);
     }
 
     public static function junit(string $path): self

@@ -23,6 +23,10 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\RunAccount;
+use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -31,8 +35,10 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanSavings;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -47,6 +53,7 @@ use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Carrying;
 use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
@@ -108,7 +115,8 @@ final readonly class Judging
     private const string VANISHED = <<<'SAID'
         The ledger no longer holds a proof the plan took, so these units cannot be judged:
         %s
-        A proof pruned, or a cache replaced, between the plan and the verdict does this. Plan the run again.
+        A proof pruned, a cache replaced or `outbreak serve` gone between the plan and the verdict does this.
+        Plan the run again.
         SAID;
 
     public function __construct(
@@ -159,10 +167,17 @@ final readonly class Judging
         $now = $this->setup->clock->now();
         $run = RunName::of($this->adapters->environment, Instant::at($now), $plan->base())->id();
         $setup = VerdictTimings::setupOn($this->adapters->environment, $this->settings->shards()->setup());
-        $timings = VerdictTimings::of($run, $results, $began, $now, $setup);
+        $timings = VerdictTimings::of(
+            $run,
+            $results,
+            $began,
+            $now,
+            $setup,
+            RunTimes::read($this->adapters->project->read(RunTimes::file())),
+        );
         $judged = $this->adapters->changes->judged($plan->commit());
         $verdict = $assessed->verdict->withAccount(
-            $assessed->verdict->account()
+            $this->accounted($plan, $assessed, $timings->spent())
                 ->withTimings($timings)
                 ->withProvenance(VerdictProvenance::of($this->adapters, $this->setup, $this->settings, $judged)),
         );
@@ -172,7 +187,8 @@ final readonly class Judging
             return $recorded;
         }
 
-        $verdict = $verdict->withAccount($this->settings->effective()->reports()->outputs()->said($verdict->account()));
+        $reports = $this->settings->effective()->output()->reports();
+        $verdict = $verdict->withAccount($reports->outputs()->said($verdict->account()));
         $report = EncodedReport::of($verdict);
         $reported = new Judged(
             $verdict,
@@ -197,7 +213,7 @@ final readonly class Judging
      */
     private function kept(Ledgers $ledgers): array
     {
-        $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup)->keep($ledgers->access());
+        $kept = new KeptMaps($this->adapters, $this->settings)->keep($ledgers->access());
 
         return match (true) {
             $kept instanceof Written => [$kept->said()],
@@ -238,7 +254,10 @@ final readonly class Judging
             $this->settings->proofs()->taken(),
         );
         $kind = $plan->briefing()->profile();
-        $proving = $ledgers->proving($plan->considered()->proved(), $plan->keys(), $plan->base(), $kind);
+        $cached = new CachedPacks($this->adapters, $this->settings)->read(Standing::planned($plan), $plan->base());
+        $served = ServedProofs::read($this->adapters, $this->settings->proofs()->taken(), $ledgers, $plan->keys());
+        $proving = $ledgers->caching($cached->serving($served))
+            ->proving($plan->considered()->proved(), $plan->keys(), $plan->base(), $kind);
         $carrying = $ledgers->considering(
             $plan->considered()->carried(),
             Reach::nothing(Packages::of($trees)),
@@ -259,6 +278,7 @@ final readonly class Judging
             $uncovered,
             $this->settings->triage()->timeouts(),
             $ignoring,
+            $this->settings->triage()->headroom(),
         );
         $judge = $this->adapters->isSecurityOnly() ? $judge->onlyMadeBy($this->adapters->security) : $judge;
         $sample = $plan->considered()->sample();
@@ -270,7 +290,12 @@ final readonly class Judging
             $ledgers->defaultBranch()->proofs(),
             $ledgers->own()->proofs(),
         ));
-        $map = new Handoff($this->adapters->project, Handoff::limits())->forVerdict();
+        $map = new Handoff(
+            $this->adapters->project,
+            Handoff::limits(),
+            $this->adapters->maps,
+            $this->settings->proofs()->coverageCompressionLevel(),
+        )->forVerdict();
         $stop = $results->stopped();
         $commits = ChangesSince::commitsOf($results->unjudged()->and($stop->units()), $newest, $plan->base());
         $since = new Since($this->adapters, $this->settings)->of(...$commits);
@@ -297,6 +322,7 @@ final readonly class Judging
         }
 
         $refused = $unfloored > 0 && $this->adapters->environment->inCi();
+        $suggests = $this->settings->effective()->output()->reports()->suggest()->enabled();
         $unrun = $this->missed($results->misses())
             ->and($unjudged->failures($this->setup->command))
             ->and($stop->failures());
@@ -312,7 +338,7 @@ final readonly class Judging
             $security,
             $ledgers->unread()
                 ->and($results->warnings())
-                ->and($results->savings()->warnings($this->settings->effective()->reports()->suggest()->enabled()))
+                ->and($results->savings()->warnings($suggests))
                 ->and($results->checks()->warnings())
                 ->and($since->warnings())
                 ->and($ignoring->warnings())
@@ -335,7 +361,7 @@ final readonly class Judging
             $pruning->audit(),
             $fresh,
         ))->withTallies($ledgers->defaultBranch()->learned()->tallies())->withHeatmap(
-            new Heating($this->adapters->project, $this->settings->effective()->reports()->heatmap())
+            new Heating($this->adapters->project, $this->settings->effective()->output()->reports()->heatmap())
                 ->of($verdicts, $judged, $judge, $ledgers->defaultBranch()->proofs()),
         ));
 
@@ -343,8 +369,9 @@ final readonly class Judging
             $results->wereCutShort() ? $verdict->cutShort() : $verdict,
             $baseline,
             $ledgers,
-            $proving->ownScopeProofs() + $carrying->ownScopeProofs(),
+            $proving->ownScopeUnits()->and($carrying->ownScopeUnits()),
             $refused,
+            $map,
         );
     }
 
@@ -534,7 +561,8 @@ final readonly class Judging
     private function matrixOf(Plan $plan, CoverageMap|CannotJudge $map): KillMatrix
     {
         $names = $plan->names();
-        $matrix = KillMatrix::of($plan->briefing()->matrix(), $map instanceof CoverageMap ? $map : CoverageMap::of())
+        $kind = $plan->briefing()->profile()->matrix();
+        $matrix = KillMatrix::of($kind, $map instanceof CoverageMap ? $map : CoverageMap::of())
             ->cannotBeFull($this->adapters->runner->behaviour()->whyNotFull())
             ->grouping($this->adapters->suite->suites());
 
@@ -548,21 +576,21 @@ final readonly class Judging
         Verdict $verdict,
         JudgedCommit|CannotTell $judged,
     ): string|CannotJudge {
-        $ownScopeProofs = $assessed->ownScopeProofs;
         $at = Instant::at($this->setup->clock->now());
         $run = RunName::of($this->adapters->environment, $at, $plan->base())->profiled($plan->briefing()->profile());
         $unjudged = $verdict->trees()->mutants()->counts()->number(MutantJudgement::Unjudged);
+        $passing = Passed::of($plan->commit(), $this->settings->ci()->check(), 0)
+            ->takingOwnScope($assessed->ownScopeUnits)
+            ->passedAt($at)
+            ->judgedBy(GateRelease::of($this->setup->gate));
         $passed = match (true) {
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),
             $unjudged > 0 => CannotTell::because(self::UNJUDGED),
             $verdict->trees()->sample()->isDrawn() => CannotTell::because(self::SAMPLED),
             $this->adapters->isSecurityOnly() => CannotTell::because(self::SECURITY_ONLY),
             $this->adapters->isSuiteOnly() => CannotTell::because(self::SUITE_ONLY),
-            $plan->briefing()->isOnOwnScopeCoverage()
-                => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)
-                    ->passedAt($at)
-                    ->onOwnScopeCoverage(),
-            default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)->passedAt($at),
+            $plan->briefing()->isOnOwnScopeCoverage() => $passing->onOwnScopeCoverage(),
+            default => $passing,
         };
         $lastRun = $judged instanceof JudgedCommit
             ? LastRun::of($judged, $this->settings->ci()->check(), $plan->briefing()->profile())
@@ -577,6 +605,8 @@ final readonly class Judging
                 $passed,
                 $lastRun,
                 $verdict->account()->timings(),
+                $assessed->map,
+                $at,
             );
 
         return match (true) {
@@ -584,5 +614,24 @@ final readonly class Judging
             $written instanceof CannotJudge => $written,
             default => $written->why(),
         };
+    }
+
+    /** The account of a verdict, with what the run cost and saved, and on the default branch the trend before it. */
+    private function accounted(Plan $plan, Assessed $assessed, RunTime $spent): RunAccount
+    {
+        $timings = $assessed->ledgers->timings();
+        $costs = $this->adapters->costs;
+
+        return TrendBefore::on(
+            PlanSavings::of(
+                $plan,
+                $timings,
+                static fn(Unit $unit): Estimated => $costs->cost($unit, $timings, FirstRun::unmeasured()),
+                $this->settings->shards()->setup(),
+            )->into($assessed->verdict->account(), $spent, $this->settings->shards()->costs()->perRunnerMinute()),
+            $plan->runOn(),
+            $this->adapters->project,
+            $this->reporting->publishedIn(),
+        );
     }
 }

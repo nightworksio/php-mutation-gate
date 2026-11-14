@@ -17,6 +17,7 @@ enum Verb: string
     case Triage = 'triage';
     case Watch = 'watch';
     case Serve = 'serve';
+    case Lsp = 'lsp';
     case Digest = 'digest';
     case Migrate = 'migrate';
     case Coverage = 'coverage';

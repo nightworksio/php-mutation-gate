@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_all;
+use function array_diff;
 use function array_filter;
 use function array_intersect;
 use function array_key_exists;
@@ -66,6 +67,9 @@ final class ServedClasses
     /** @var array<string, string> the file served in place of each original this process serves, by its real path */
     private static array $serving = [];
 
+    /** @var array<string, string> the real path of each original this process serves, by its served file's real path */
+    private static array $originals = [];
+
     /** Serves a copy in place of the original, where both are there and the original is such a class file. */
     public static function serve(string $original, string $copy): bool
     {
@@ -88,7 +92,15 @@ final class ServedClasses
     /** Forgets that this process serves a copy in place of an original, as a test that served one does once done. */
     public static function forget(string $original): void
     {
-        unset(self::$serving[(string) realpath($original)]);
+        $path = (string) realpath($original);
+        self::$originals = array_diff(self::$originals, [$path]);
+        unset(self::$serving[$path]);
+    }
+
+    /** The original a file this process serves stands in for, by its real path; the file itself for any other. */
+    public static function originalOf(string $file): string
+    {
+        return array_key_exists($file, self::$originals) ? self::$originals[$file] : $file;
     }
 
     /** The file this process loads in place of an original: the copy it serves there, or the original itself. */
@@ -178,6 +190,7 @@ final class ServedClasses
         );
 
         self::$serving[$path] = $served;
+        self::$originals[(string) realpath($served)] = $path;
 
         return true;
     }

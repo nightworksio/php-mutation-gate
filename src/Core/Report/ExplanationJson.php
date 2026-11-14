@@ -11,8 +11,6 @@ use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Proof\Recorded;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
-use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
 /**
  * `explain --format=json` (ADR-0014): what the text says, each
@@ -76,7 +74,7 @@ final readonly class ExplanationJson
         $judged = $explanation->mutant();
         $matrix = $explanation->matrix();
         $table = TestTable::over($matrix, $judged);
-        $need = $judged instanceof JudgedMutant ? $judged->mutant()->unmutatedNeed() : Unmeasured::duration();
+        $need = $judged->mutant()->stop()->need();
         $tests = [];
 
         foreach ($table->tests() as $test) {

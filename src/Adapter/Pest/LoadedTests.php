@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_filter;
 use function array_key_exists;
+use function array_unique;
+use function array_values;
 use function file_get_contents;
 use function get_declared_classes;
 use function get_included_files;
@@ -92,6 +94,12 @@ final class LoadedTests
         }
 
         return new self($classes, NamedFiles::read($reads), self::acting($reads, $under));
+    }
+
+    /** @return list<string> every file that declares a loaded test case class, each once */
+    public function caseFiles(): array
+    {
+        return array_values(array_unique(array_values($this->files)));
     }
 
     /** The file that declares a test case class, by its name in lower case; none for a class not loaded. */

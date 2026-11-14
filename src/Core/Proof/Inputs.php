@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * What a proof records of the inputs its result came from, beside its key
@@ -25,6 +26,7 @@ final readonly class Inputs
         private Digest $mutation,
         private ByPath $tests,
         private Revision|Uncommitted $commit,
+        private Digest|NotGiven $reads = new NotGiven(),
     ) {
     }
 
@@ -37,13 +39,31 @@ final readonly class Inputs
     /** These inputs, and a killing test file's digest, with what it reads. */
     public function withTest(Path $file, Digest $digest): self
     {
-        return new self($this->source, $this->mutation, $this->tests->with($file, $digest), $this->commit);
+        return new self(
+            $this->source,
+            $this->mutation,
+            $this->tests->with($file, $digest),
+            $this->commit,
+            $this->reads,
+        );
     }
 
     /** These inputs, taken at this commit from a working tree that held nothing it does not. */
     public function takenAt(Revision $commit): self
     {
-        return new self($this->source, $this->mutation, $this->tests, $commit);
+        return new self($this->source, $this->mutation, $this->tests, $commit, $this->reads);
+    }
+
+    /** These inputs, with the digest of the run's first five inputs alone (ADR-0135). */
+    public function withReads(Digest $reads): self
+    {
+        return new self($this->source, $this->mutation, $this->tests, $this->commit, $reads);
+    }
+
+    /** The digest of the first five inputs alone, by which no key of another base can match; none where unrecorded. */
+    public function reads(): Digest|NotGiven
+    {
+        return $this->reads;
     }
 
     /** The commit these inputs were taken at, or none where the working tree held more. */

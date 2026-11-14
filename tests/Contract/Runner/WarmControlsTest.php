@@ -2,17 +2,16 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Native\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Native\Project;
 use NightWorksIO\MutationGate\Adapter\Native\UnmutatedRuns;
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
@@ -139,7 +138,7 @@ it('finds of patched Pest controls forked from a warm worker what it finds of th
 })->skip(fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the fixture library');
 
 it('finds of patched Pest controls of every test file forked from a booted worker what it finds of them fresh, booting once', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $held = 'P\Tests\HeldSpec::__pest_evaluable_it_doubles_nothing_to_nothing';
     $controls = [
         Control::of(Path::of('src/Held.php'), TestIds::of(TestId::of($held)), Seconds::of(60.0)),
@@ -147,7 +146,7 @@ it('finds of patched Pest controls of every test file forked from a booted worke
         Control::of(Path::of('src/Held.php'), TestIds::of(TestId::of($held)), Seconds::of(0.01)),
         Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts')), Seconds::of(60.0)),
     ];
-    $library = Library::pest(Patching::on(Library::canary())->bootingTail(boots: true));
+    $library = Library::pest(Patching::on(Library::canary())->working(PestWorkers::of(bootTail: true)));
     $loads = sprintf('%s/loads.txt', Scratch::directory());
     $memory = getenv('LIBRARY_MEMORY');
     putenv(sprintf('LIBRARY_MEMORY=%s', $loads));

@@ -10,7 +10,8 @@ use PhpParser\Node\Expr\Variable;
 /** What a method is called on, as a mutator recognises it. */
 final readonly class Receiver
 {
-    private const string THIS = 'this';
+    /** The name of the variable that holds the object a method runs on. */
+    public const string THIS = 'this';
 
     /** Whether an expression is `$this`. */
     public static function isThis(Expr $expression): bool

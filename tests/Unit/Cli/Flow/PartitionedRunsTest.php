@@ -76,7 +76,7 @@ it('runs each group with its own settings and joins what they came to', function
     $outcome = $runs(static fn(Settings $settings, Directory $project): Adapters => Flows::adapters($project->root()->value()))->mutated(
         $groups($paths, 'src/Money.php', 'src/Legacy/A.php', 'src/Gen/B.php'),
         static function (Adapters $adapters, Settings $settings, Shard $shard) use (&$seen, $mutated): Mutated {
-            $seen[] = [$settings->triage()->limit()->seconds(), [...$shard->units()][0]->path()->value()];
+            $seen[] = [$settings->triage()->limits()->limit()->seconds(), [...$shard->units()][0]->path()->value()];
 
             return $mutated($shard);
         },

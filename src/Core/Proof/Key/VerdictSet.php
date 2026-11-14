@@ -16,7 +16,10 @@ use NightWorksIO\MutationGate\Core\File\Glob;
  */
 enum VerdictSet
 {
-    /** What a run records of each mutant, and the values it records them in. */
+    /**
+     * What a run records of each mutant, and the values it records them in;
+     * with the map engine, whose vouch decides how a coverage map is read.
+     */
     case Records;
     /** The engine that makes mutants for a native runner and registered mutators, and the opening it reads after. */
     case Mutators;
@@ -72,6 +75,9 @@ enum VerdictSet
                 'src/Port/Runner.php',
                 'src/Port/Processes.php',
                 'src/Port/StaticChecker.php',
+                'src/Port/MapEngine.php',
+                'src/Adapter/Outbreak/**',
+                'src/Cli/Flow/Vouching.php',
             ],
             self::Mutators => [
                 'src/Mutator/**',
@@ -89,21 +95,32 @@ enum VerdictSet
             ],
             self::Running => [
                 'src/Cli/Flow/Running.php',
+                'src/Cli/Flow/Mutating.php',
+                'src/Cli/Flow/PulledRuns.php',
+                'src/Cli/Flow/PulledItems.php',
+                'src/Cli/Flow/ShardRecording.php',
+                'src/Cli/Flow/ShardDeadline.php',
                 'src/Cli/Flow/PartitionedRuns.php',
                 'src/Cli/Flow/PathGroup.php',
                 'src/Cli/Flow/PathGroups.php',
                 'src/Cli/Flow/Ruling.php',
                 'src/Cli/Flow/RunRequest.php',
                 'src/Cli/Flow/Invoking.php',
+                'src/Cli/Flow/Controlling.php',
+                'src/Cli/Flow/TimeLeft.php',
                 'src/Cli/Flow/PreChecking.php',
                 'src/Cli/Flow/SurvivorChecking.php',
                 'src/Cli/Flow/HeldCoverage.php',
                 'src/Cli/Flow/StartUpTiming.php',
                 'src/Cli/Flow/Wiring.php',
+                'src/Cli/Flow/WiredStore.php',
+                'src/Cli/Flow/ToldRunner.php',
                 'src/Cli/Flow/Invoked.php',
                 'src/Cli/Flow/SurvivorBatch.php',
                 'src/Cli/Flow/Confirmed.php',
+                'src/Cli/Flow/Screened.php',
                 'src/Cli/Flow/Controlled.php',
+                'src/Cli/Flow/StepsOverlap.php',
                 'src/Cli/Flow/Equivalents.php',
                 'src/Cli/Flow/StaticEquivalence.php',
                 'src/Cli/Flow/Mutated.php',
@@ -120,6 +137,7 @@ enum VerdictSet
                 'src/Cli/Flow/AnalyserWarmUp.php',
                 'src/Cli/Flow/Dependents.php',
                 'src/Cli/Flow/Suite.php',
+                'src/Cli/Flow/SuiteCode.php',
                 'src/Cli/Flow/SuiteCoverage.php',
                 'src/Cli/Flow/TestsOfTheSuite.php',
                 'src/Adapter/Project/**',

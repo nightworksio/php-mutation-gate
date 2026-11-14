@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -93,6 +94,48 @@ it('boots mutants\' workers under the patch unless the options turn it off, and 
         ->toEqual(Invalid::because(Problem::at('bootMutants', 'expected true or false, got "yes"')));
 });
 
+it('splits a patched run\'s streams as the options say, and never unpatched or without schemata', function (): void {
+    $variables = static fn(string $options): array => ($read = PestOptions::read(Configs::options($options))) instanceof PestOptions
+        ? [$read->patching()->schemata(), $read->patching()->splitsStreams()]
+        : [];
+
+    expect($variables('{"patch": true, "splitStream": {"enabled": true, "children": 2, "changeCheck": false}}'))->toBe([[
+        'MUTATION_GATE_SCHEMATA' => '1',
+        'MUTATION_GATE_SPLIT' => '1',
+        'MUTATION_GATE_SPLIT_CHILDREN' => '2',
+        'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '0',
+        'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '1',
+        'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '0',
+        'MUTATION_GATE_SPLIT_BOOT_ONCE' => '0',
+        'MUTATION_GATE_SPLIT_RECONNECT' => '0',
+    ], true])
+        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true}}'))->toBe([[
+            'MUTATION_GATE_SCHEMATA' => '1',
+            'MUTATION_GATE_SPLIT' => '1',
+            'MUTATION_GATE_SPLIT_CHILDREN' => '1',
+            'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
+            'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '0',
+            'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '1',
+            'MUTATION_GATE_SPLIT_BOOT_ONCE' => '0',
+            'MUTATION_GATE_SPLIT_RECONNECT' => '0',
+        ], true])
+        ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
+        ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
+        ->and($variables('{"patch": true, "schemata": false, "splitStream": {"enabled": true}}'))->toBe([[], false])
+        ->and($variables('{"patch": false, "splitStream": {"enabled": true}}'))->toBe([[], false]);
+});
+
+it('refuses a splitStream option written as something else', function (string $options, Problem $problem): void {
+    expect(PestOptions::read(Configs::options($options)))->toEqual(Invalid::because($problem));
+})->with([
+    'not an object' => ['{"splitStream": true}', fn(): Problem => Problem::at('splitStream', 'expected an object, got true')],
+    'enabled' => ['{"splitStream": {"enabled": "yes"}}', fn(): Problem => Problem::at('splitStream.enabled', 'expected true or false, got "yes"')],
+    'children' => ['{"splitStream": {"children": "two"}}', fn(): Problem => Problem::at('splitStream.children', 'expected a whole number, got "two"')],
+    'changeCheck' => ['{"splitStream": {"changeCheck": 1}}', fn(): Problem => Problem::at('splitStream.changeCheck', 'expected true or false, got 1')],
+    'killersFirst' => ['{"splitStream": {"killersFirst": 1}}', fn(): Problem => Problem::at('splitStream.killersFirst', 'expected true or false, got 1')],
+    'killerStreams' => ['{"splitStream": {"killerStreams": "on"}}', fn(): Problem => Problem::at('splitStream.killerStreams', 'expected true or false, got "on"')],
+]);
+
 it('stays unpatched when the config says so', function (): void {
     $read = PestOptions::read(Configs::options('{"patch": false, "canary": "smoke"}'));
 
@@ -130,4 +173,19 @@ it('refuses every mutation run where the options name a class that is not a muta
     ))->and(PestOptions::read(Configs::options('{"mutators": "acme"}')))->toEqual(Invalid::because(
         Problem::at('mutators', 'expected a list of text, got "acme"'),
     ));
+});
+
+it('judges a preloaded mutant again in a fresh run unless the options say unjudged, and refuses any other value', function (): void {
+    $preloaded = static fn(string $json): Preloaded|Invalid => ($read = PestOptions::read(Configs::options($json))) instanceof PestOptions
+        ? $read->patching()->steps()->preloaded()
+        : $read;
+
+    expect([$preloaded('{}'), $preloaded('{"preloaded": "unjudged"}'), $preloaded('{"patch": true, "preloaded": "fresh"}')])
+        ->toBe([Preloaded::Fresh, Preloaded::Unjudged, Preloaded::Fresh])
+        ->and($preloaded('{"preloaded": "skip"}'))->toEqual(Invalid::because(Problem::mismatch('preloaded', 'one of its values', '"skip"')));
+});
+
+it('refuses a step of Pest\'s turned on or off as something else', function (): void {
+    expect(PestOptions::read(Configs::options('{"trials": "yes"}')))
+        ->toEqual(Invalid::because(Problem::at('trials', 'expected true or false, got "yes"')));
 });

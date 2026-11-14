@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -71,13 +72,22 @@ final readonly class MutationRun
         private Workforce $workforce,
         private Laps $laps,
         private MutantIds|NotGiven $only = new NotGiven(),
+        private Duplicates $duplicates = Duplicates::JudgeOnce,
     ) {
     }
 
     /** This run, making only the mutants with these ids, as a run again does. */
     public function makingOnly(MutantIds $ids): self
     {
-        return new self($this->project, $this->engine, $this->run, $this->workforce, $this->laps, $ids);
+        return new self(
+            $this->project,
+            $this->engine,
+            $this->run,
+            $this->workforce,
+            $this->laps,
+            $ids,
+            $this->duplicates,
+        );
     }
 
     /**
@@ -98,7 +108,7 @@ final readonly class MutationRun
             return $made;
         }
 
-        $twins = Twins::of($made);
+        $twins = $this->duplicates === Duplicates::JudgeEach ? Twins::none($made) : Twins::of($made);
         $checked = PreChecked::of($twins->first(), $map, $preChecker, $request->pool()->processes());
         $queue = $this->queued(HeldLast::of($checked->left, $request->search()->held()), $request, $map, $bounds, $end);
         $preparing = $this->laps->lap(Step::Preparing, $from, count($made));

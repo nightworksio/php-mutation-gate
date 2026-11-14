@@ -69,6 +69,25 @@ final readonly class Listed implements Countable, IteratorAggregate
         return new self($entries);
     }
 
+    /**
+     * A layer's list laid over an earlier layer's, as {@see and()} joins them; either where the other sets none.
+     *
+     * @template U of object|string|int|float|bool
+     *
+     * @param  self<U>|Absent         $earlier
+     * @param  self<U>|Absent         $later
+     * @param  Closure(U): string     $identity
+     * @return self<U>|Absent
+     */
+    public static function joined(self|Absent $earlier, self|Absent $later, Closure $identity): self|Absent
+    {
+        return match (true) {
+            $later instanceof Absent => $earlier,
+            $earlier instanceof Absent => $later,
+            default => $earlier->and($later, $identity),
+        };
+    }
+
     public function count(): int
     {
         return count($this->entries);

@@ -28,6 +28,9 @@ use function trim;
  */
 final readonly class LaravelConfig
 {
+    /** The key of the database a connection's config names. */
+    public const string DATABASE = 'database';
+
     /** @param array<mixed> $config a connection's config, as Laravel holds it */
     public static function connection(array $config): Connection|NotGiven
     {
@@ -35,7 +38,7 @@ final readonly class LaravelConfig
         $dsn = $driver instanceof Driver ? $driver->dsn(
             self::text($config, 'host'),
             self::text($config, 'port'),
-            self::text($config, 'database'),
+            self::text($config, self::DATABASE),
             self::text($config, 'unix_socket'),
             self::text($config, 'sslmode'),
         ) : NotGiven::value();
@@ -48,6 +51,16 @@ final readonly class LaravelConfig
             self::options(self::entry($config, 'options')),
             $driver === Driver::Postgres ? self::schemas(self::searched($config)) : [],
         ) : NotGiven::value();
+    }
+
+    /**
+     * The database a connection's config names, as it names it; nothing where it names none.
+     *
+     * @param array<mixed> $config
+     */
+    public static function database(array $config): string
+    {
+        return self::text($config, self::DATABASE);
     }
 
     /** @return array<int, int|string|bool> */

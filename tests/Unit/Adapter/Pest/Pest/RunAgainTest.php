@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
@@ -84,7 +85,7 @@ it('runs the mutants again in one run of their files with their mutators, naming
         ->leavingOut(Paths::of(Path::of('src/Held')))
         ->within(Seconds::of(42.0));
     $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), Narrowing::none()->toMutators(Mutators::named(PestCases::RUN_PLUS)));
-    $retried = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    $retried = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->retry($invocation, Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0));
     $notFound = Reason::that('Run again alone, Pest made no mutant with this id.');
 
@@ -93,10 +94,10 @@ it('runs the mutants again in one run of their files with their mutators, naming
         Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())->because($notFound),
         Interpretation::unjudged($elsewhere, $notFound),
     ))->and($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
     ])
         ->and(file_get_contents(sprintf('%s.only', PestCases::results($at))))->toBe("n1\nn9\nn8")
-        ->and(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->retry($invocation, Mutants::none(), Seconds::of(20.0)))
+        ->and(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->retry($invocation, Mutants::none(), Seconds::of(20.0)))
         ->toEqual(Mutants::none());
 });
 
@@ -108,14 +109,14 @@ it('runs mutants again on the canary group, reading the map the planning job han
         : PestCases::killed($command, $at));
     $invocation = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
-    $retried = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->retry($invocation, Mutants::of(PestCases::mutant()), Seconds::of(20.0));
+    $retried = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->retry($invocation, Mutants::of(PestCases::mutant()), Seconds::of(20.0));
 
     expect($retried)->toEqual(Mutants::of(PestCases::mutant()))
         ->and($shell->commands()[1] ?? null)->toEqual(PestCases::invocation($at)->mutation(
             $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named(PestCases::RUN_PLUS))),
             WholeSuite::tests(),
             PestCases::results($at),
-        )->with([
+        )->with(PestCases::DRIVERS_OFF)->with([
             'MUTATION_GATE_SHARED_COVERAGE' => $written,
             'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
             'MUTATION_GATE_CANARY' => 'mutation-canary',
@@ -135,10 +136,10 @@ it('runs a held unit\'s mutant again by the group that holds it, withholding wha
     $invocation = MutationRequest::of(Paths::of(Path::of('src')), $holding)->withholding(Withheld::of('DEPLOY_*'));
     $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named(PestCases::RUN_PLUS)));
 
-    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->retry($invocation, Mutants::of(PestCases::mutant()), Seconds::of(20.0));
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->retry($invocation, Mutants::of(PestCases::mutant()), Seconds::of(20.0));
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, $holding, PestCases::results($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
+        PestCases::invocation($at)->mutation($request, $holding, PestCases::results($at))->with(PestCases::DRIVERS_OFF)->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
     ]);
 });
 
@@ -173,7 +174,7 @@ it('hands each mutant run again its own result, though the mutants run again are
     $b = $survivor('pB', 20, 1);
     $c = $survivor('pC', 30, 2);
 
-    $retried = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->retry(PestCases::money(), Mutants::of($b, $c), Seconds::of(20.0));
+    $retried = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->retry(PestCases::money(), Mutants::of($b, $c), Seconds::of(20.0));
     $by = static fn(Mutants|CannotJudge $mutants): array => $mutants instanceof Mutants ? array_map(
         static fn(Mutant $mutant): array => [$mutant->id()->value(), $mutant->nativeId(), $mutant->status()],
         [...$mutants],
@@ -213,7 +214,7 @@ it('hands each of the mutants that share Pest\'s id the one found again on its o
     );
     $retried = static fn(Mutant ...$asked): array => array_map(
         static fn(Mutant $mutant): array => [$mutant->id()->value(), $mutant->location()->start()->number(), $mutant->status()],
-        [...(($again = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->retry(PestCases::money(), Mutants::of(...$asked), Seconds::of(20.0))) instanceof Mutants ? $again : Mutants::none())],
+        [...(($again = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->retry(PestCases::money(), Mutants::of(...$asked), Seconds::of(20.0))) instanceof Mutants ? $again : Mutants::none())],
     );
     $first = $survivor($one, 0);
     $second = $survivor($two, 1);
@@ -235,9 +236,9 @@ it('runs a mutant a narrowed run killed with no killer again with every test fil
     $at = PestCases::project();
     $shell = PestCases::loadedNothing($at);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
     $narrow = array_map(
-        static fn(Command $command): string|false|null => $command->environment()[GateVariable::Narrow->value] ?? null,
+        static fn(Command $command) => $command->environment()[GateVariable::Narrow->value] ?? null,
         $shell->commands(),
     );
 
@@ -291,7 +292,7 @@ function adapterRanAgain(Project $at, string $results, int $before, bool $killed
 it('gives a kill run again with every test file the evidence of that run, and none of the narrowed run it replaced', function (bool $killedAgain, bool $controlPasses, Evidence $expected): void {
     $at = PestCases::project();
 
-    $result = new Pest($at, adapterEndedTwice($at, $killedAgain, $controlPasses), PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, adapterEndedTwice($at, $killedAgain, $controlPasses), PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
     $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
 
     expect($mutants)->toHaveCount(1)
@@ -306,7 +307,7 @@ it('counts a mutant a run killed only by tests that errored without running it a
     $at = PestCases::project();
     $shell = PestCases::loadedNothing($at, PestRun::errored('n1', PestCases::RUN_ADDS), PestRun::errored('n1', 'T::subtracts'));
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect($result instanceof MutationResult ? array_map(
         static fn(Mutant $mutant): MutantStatus => $mutant->status(),
@@ -319,7 +320,7 @@ it('counts a mutant a narrowed run killed where a test failed, whatever else err
     $at = PestCases::project();
     $shell = PestCases::loadedNothing($at, PestRun::errored('n1', 'T::subtracts'), PestRun::killed('n1', PestCases::RUN_ADDS));
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect($result instanceof MutationResult ? array_map(
         static fn(Mutant $mutant): MutantStatus => $mutant->status(),
@@ -331,7 +332,7 @@ it('counts a mutant a narrowed run killed where a test failed, whatever else err
 it('counts a narrowed kill whose files\' tests pass alone on the unmutated code, running them once however many runs loaded them', function (): void {
     $at = PestCases::project();
     $shell = PestCases::narrowedKill($at, passAlone: true);
-    $pest = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     $first = $pest->mutate(PestCases::money());
     $again = $pest->mutate(PestCases::money());
@@ -351,7 +352,7 @@ it('runs a narrowed kill whose files\' tests fail alone on the unmutated code ag
     $at = PestCases::project();
     $shell = PestCases::narrowedKill($at, passAlone: false);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money()->within(Seconds::of(60.0)));
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money()->within(Seconds::of(60.0)));
 
     expect(PestCases::statuses($result))->toBe([MutantStatus::Survived])
         ->and($shell->commands())->toHaveCount(3);
@@ -361,7 +362,7 @@ it('runs again only the narrowed kill whose own files\' tests fail alone, each s
     $at = PestCases::project();
     $shell = PestCases::narrowedKills($at, PestCases::spec($at));
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect(PestCases::statuses($result))->toBe([MutantStatus::Killed, MutantStatus::Survived])
         ->and($shell->commands())->toHaveCount(4)
@@ -372,7 +373,7 @@ it('runs the tests of every narrowed kill\'s files alone side by side, one place
     $at = PestCases::project();
     $shell = PestCases::narrowedKills($at, PestCases::spec($at));
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
     $baselines = array_values(array_filter(
         $shell->commands(),
         static fn(Command $command): bool => ($command->environment()[GateVariable::Results->value] ?? false) === false,
@@ -396,10 +397,10 @@ it('bounds the run of a narrowed kill\'s files alone, and its run again, by the 
         }
     };
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of(200.0)));
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of(200.0)));
 
     expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $shell->commands()))
-        ->toEqual([Seconds::of(200.0), Seconds::of(90.0), Seconds::of(60.0)]);
+        ->toEqual([Seconds::of(200.0), Seconds::of(100.0), Seconds::of(70.0)]);
 });
 
 it('names the steps a patched run\'s time went to, each timed from when the run began', function (): void {
@@ -414,25 +415,25 @@ it('names the steps a patched run\'s time went to, each timed from when the run 
         }
     };
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), $clock)->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)->mutate(PestCases::money());
     $steps = $result instanceof MutationResult ? array_map(
         static fn(StepTime $step): array => [$step->step(), $step->since()->seconds(), $step->took()->seconds(), $step->count()],
         [...$result->steps()],
     ) : $result;
 
     expect($steps)->toBe([
-        [Step::Mutation, 20.0, 10.0, 1],
-        [Step::Reading, 40.0, 10.0, 1],
-        [Step::TrialCoverage, 60.0, 10.0, 1],
-        [Step::Trials, 80.0, 10.0, 1],
-        [Step::Baselines, 100.0, 10.0, 1],
-        [Step::Confirmation, 120.0, 110.0, 1],
+        [Step::Mutation, 10.0, 10.0, 1],
+        [Step::Reading, 30.0, 10.0, 1],
+        [Step::TrialCoverage, 50.0, 10.0, 1],
+        [Step::Trials, 70.0, 10.0, 1],
+        [Step::Baselines, 90.0, 10.0, 1],
+        [Step::Confirmation, 110.0, 100.0, 1],
     ]);
 });
 
 it('counts the narrowed kills its confirmation runs again with every test file', function (): void {
     $at = PestCases::project();
-    $result = new Pest($at, PestCases::narrowedKills($at), PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, PestCases::narrowedKills($at), PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
     $confirmed = $result instanceof MutationResult ? array_map(
         static fn(StepTime $step): int => $step->count(),
         array_values(array_filter([...$result->steps()], static fn(StepTime $step): bool => $step->step() === Step::Confirmation)),
@@ -453,7 +454,7 @@ it('leaves a narrowed kill unjudged where no time is left to run its files\' tes
         }
     };
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of(10.0)));
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of(10.0)));
 
     expect(PestCases::statuses($result))->toBe([MutantStatus::Unjudged])
         ->and($shell->commands())->toHaveCount(1);
@@ -466,7 +467,7 @@ it('cannot judge a narrowed run whose run again with every test file failed', fu
         ? $loaded->run($command)
         : Ran::finished(succeeded: false, output: 'broken'));
 
-    expect(new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money()))
+    expect(new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money()))
         ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
 });
 
@@ -482,7 +483,7 @@ it('leaves a mutant a narrowed run killed with no killer unjudged where no time 
         }
     };
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of(5.0)));
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of(5.0)));
     $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Unjudged])
@@ -496,7 +497,7 @@ it('runs no mutant again that an unnarrowed run killed with no killer', function
     $at = PestCases::project();
     $shell = PestCases::loadedNothing($at);
 
-    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect($shell->commands())->toHaveCount(1);
 });
@@ -504,7 +505,7 @@ it('runs no mutant again that an unnarrowed run killed with no killer', function
 it('cannot judge a retry whose run failed', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
 
-    $retried = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    $retried = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->retry(PestCases::money(), Mutants::of(PestCases::mutant()), Seconds::of(20.0));
 
     expect($retried)->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
@@ -524,7 +525,7 @@ it('runs a mutant a narrowed run killed with no killer again only while some tim
         }
     };
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of($deadline)));
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of($deadline)));
 
     expect($shell->commands())->toHaveCount($commands);
 })->with([
@@ -536,7 +537,7 @@ it('runs a doubtful kill again forked from warm workers only where runner.worker
     $at = PestCases::project();
     $shell = PestCases::loadedNothing($at);
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), $workers)));
 
     expect(array_map(
@@ -563,9 +564,9 @@ it('leaves what mutants\' workers boot beside the mutants\' run, and what the ta
 
         return $inner->run($command);
     });
-    $patching = PestCases::canary()->bootingTail($tail)->bootingMutants($mutants);
+    $patching = PestCases::canary()->working(PestWorkers::of(bootTail: $tail))->working(PestWorkers::of(bootMutants: $mutants));
 
-    new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), Workers::Fork)));
 
     expect($seen)->toBe($booted);
@@ -586,7 +587,7 @@ it('leaves what opcache keeps out beside every forked run, the mutants\' and the
         return $inner->run($command);
     });
 
-    new Pest($at, $shell, PestCases::canary()->cachingInWorkers($caches), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    new Pest($at, $shell, PestCases::canary()->working(PestWorkers::of(workerOpcache: $caches)), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), Workers::Fork)));
 
     expect($seen)->toBe($kept);

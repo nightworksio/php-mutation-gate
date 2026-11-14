@@ -129,7 +129,12 @@ final readonly class FullRunEstimate
             ...$estimates->summary($composed->adapters->processes(), $shards->target(), $shards->max()),
         ];
 
-        $map = new Handoff($composed->adapters->project, Handoff::limits())->forVerdict();
+        $map = new Handoff(
+            $composed->adapters->project,
+            Handoff::limits(),
+            $composed->adapters->maps,
+            $composed->settings->proofs()->coverageCompressionLevel(),
+        )->forVerdict();
 
         foreach ($map instanceof CoverageMap ? $this->hot($composed, $plan, $map) : [] as $line) {
             $lines[] = $line;
@@ -154,7 +159,7 @@ final readonly class FullRunEstimate
 
         $lines = [];
 
-        foreach ($composed->settings->reach()->hotPaths()->hot($map, $units) as $file) {
+        foreach ($composed->settings->reach()->held()->hotPaths()->hot($map, $units) as $file) {
             $lines[] = HotPaths::said($map, $file);
             $lines[] = HotPaths::holding($file);
         }

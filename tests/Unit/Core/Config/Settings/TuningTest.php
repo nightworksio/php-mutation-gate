@@ -7,12 +7,14 @@ use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Config\Planning;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Retained;
+use NightWorksIO\MutationGate\Core\Config\RunnerPacing;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
 use NightWorksIO\MutationGate\Core\Proof\TimingWeight;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerPace;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -49,12 +51,17 @@ it('reads each key of a planning no layer set at its default', function (): void
 
 it('reads how a runner paces its work, each key at its default where no layer sets it', function () use ($settings): void {
     $standard = $settings()->runner();
-    $set = $settings(['runner' => ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05]])->runner();
+    $set = $settings(['runner' => ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05, 'processes' => 3, 'workerWait' => '20s']])->runner();
 
-    expect($standard->pace())->toEqual(RunnerPace::standard())
+    expect($standard->pace(Seconds::of(5.0)))->toEqual(RunnerPace::standard())
+        ->and($standard->pace(Seconds::of(9.0))->workerWait())->toEqual(Seconds::of(9.0))
         ->and($standard->poll())->toEqual(Seconds::of(0.01))
-        ->and($set->pace())->toEqual(RunnerPace::of(8, Seconds::minutes(2)))
-        ->and($set->poll())->toEqual(Seconds::of(0.05));
+        ->and($standard->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(8))
+        ->and($set->pace(Seconds::of(9.0)))->toEqual(RunnerPace::of(8, Seconds::minutes(2), Seconds::of(20.0)))
+        ->and($set->poll())->toEqual(Seconds::of(0.05))
+        ->and($set->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(3))
+        ->and(RunnerPacing::of(processes: 1)->processes(ProcessCount::of(8)))->toEqual(ProcessCount::single())
+        ->and(RunnerPacing::of(processes: 0)->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(8));
 });
 
 it('reads the remaining keys that tune a run, each at its default where no layer sets it', function () use ($settings): void {
@@ -67,13 +74,13 @@ it('reads the remaining keys that tune a run, each at its default where no layer
         'triage' => ['fewest' => 3],
     ]);
 
-    expect($standard->triage()->bounds()->unmeasuredStartUp())->toEqual(Seconds::of(5.0))
+    expect($standard->triage()->limits()->bounds()->startUp()->unmeasured())->toEqual(Seconds::of(5.0))
         ->and($standard->staticCheck()->opcacheBatch())->toBe(100)
         ->and($standard->staticCheck()->opcacheLimit())->toEqual(Seconds::of(60.0))
         ->and($standard->ignores()->notice())->toBe(14)
-        ->and($standard->local()->watchPoll())->toEqual(Seconds::of(1.0))
+        ->and($standard->local()->watchPoll())->toEqual(Seconds::of(2.0))
         ->and($standard->local()->triageFewest())->toBe(2)
-        ->and($set->triage()->bounds()->unmeasuredStartUp())->toEqual(Seconds::of(9.0))
+        ->and($set->triage()->limits()->bounds()->startUp()->unmeasured())->toEqual(Seconds::of(9.0))
         ->and($set->staticCheck()->opcacheBatch())->toBe(50)
         ->and($set->staticCheck()->opcacheLimit())->toEqual(Seconds::of(30.0))
         ->and($set->ignores()->notice())->toBe(7)
@@ -154,12 +161,12 @@ it('writes each key into a config written as PHP, through the builder that reads
     'proofs.keep.kills' => [['proofs' => ['keep' => ['kills' => 7]]], 'Retention::kills(7)'],
     'proofs.keep.runs' => [['proofs' => ['keep' => ['runs' => 8]]], 'Retention::runs(8)'],
     'proofs.limits.read' => [['proofs' => ['limits' => ['read' => '45s']]], "Retention::read('45s')"],
-    'timeouts.learned.percentile' => [['timeouts' => ['learned' => ['percentile' => 0.9]]], 'Timeouts::learnedPercentile(0.9)'],
-    'timeouts.learned.least' => [['timeouts' => ['learned' => ['least' => 2.5]]], 'Timeouts::learnedLeast(2.5)'],
-    'timeouts.learned.most' => [['timeouts' => ['learned' => ['most' => 8.5]]], 'Timeouts::learnedMost(8.5)'],
+    'timeouts.learned.percentile' => [['timeouts' => ['learned' => ['percentile' => 0.9]]], 'LearnedTimeouts::percentile(0.9)'],
+    'timeouts.learned.least' => [['timeouts' => ['learned' => ['least' => 2.5]]], 'LearnedTimeouts::least(2.5)'],
+    'timeouts.learned.most' => [['timeouts' => ['learned' => ['most' => 8.5]]], 'LearnedTimeouts::most(8.5)'],
     'staticCheck.dependents' => [['staticCheck' => ['dependents' => 30]], 'StaticCheck::dependents(30)'],
-    'staticCheck.preCheckAfter' => [['staticCheck' => ['preCheckAfter' => 40]], 'StaticCheck::preCheckAfter(40)'],
-    'holds.fewestTests' => [['holds' => ['fewestTests' => 9]], 'Reach::hotPathFewestTests(9)'],
+    'staticCheck.preCheckAfter' => [['staticCheck' => ['preCheckAfter' => 40]], 'CheckTiming::preCheckAfter(40)'],
+    'holds.fewestTests' => [['holds' => ['fewestTests' => 9]], 'HeldUnits::fewestTests(9)'],
     'versionControl git, by name' => [['versionControl' => 'git'], 'VersionControl::git()'],
     'versionControl github, by name' => [['versionControl' => 'github'], 'VersionControl::github()'],
     'reach.lockMoves' => [['reach' => ['lockMoves' => 'loaded']], 'Reach::lockMoves(LockMoveReach::Loaded)'],
@@ -167,14 +174,28 @@ it('writes each key into a config written as PHP, through the builder that reads
     'local.serveRequest' => [['local' => ['serveRequest' => '9s']], "Local::serveRequest('9s')"],
     'local.watchPoll' => [['local' => ['watchPoll' => '5s']], "Local::watchPoll('5s')"],
     'triage.fewest' => [['triage' => ['fewest' => 3]], 'Local::triageFewest(3)'],
+    'local.cpu' => [['local' => ['cpu' => 'quiet']], 'LocalWork::cpu(CpuProfile::Quiet)'],
+    'local.workers, a count' => [['local' => ['workers' => 3]], 'LocalWork::workers(3)'],
+    'local.workers, a share' => [['local' => ['workers' => 'all-but-one']], 'LocalWork::workers(WorkerShare::AllButOne)'],
+    'local.priority' => [['local' => ['priority' => 'background']], 'LocalWork::priority(Priority::Background)'],
+    'local.macosClass' => [['local' => ['macosClass' => 'maintenance']], 'LocalWork::macosClass(MacosClass::Maintenance)'],
+    'local.linuxNice' => [['local' => ['linuxNice' => 15]], 'LocalWork::linuxNice(15)'],
+    'local.windowsClass' => [['local' => ['windowsClass' => 'idle']], 'LocalWork::windowsClass(WindowsClass::Idle)'],
+    'local.onBattery' => [['local' => ['onBattery' => 'pause']], 'LocalWork::onBattery(OnBattery::Pause)'],
+    'local.childWait' => [['local' => ['childWait' => '3s']], "LocalWork::childWait('3s')"],
+    'local.watchStatus' => [['local' => ['watchStatus' => false]], 'LocalWork::watchStatus(on: false)'],
+    'local.coverageAlone' => [['local' => ['coverageAlone' => false]], 'LocalWork::coverageAlone(on: false)'],
+    'local.sizedPools' => [['local' => ['sizedPools' => false]], 'LocalWork::sizedPools(on: false)'],
+    'local.listOnce' => [['local' => ['listOnce' => false]], 'LocalWork::listOnce(on: false)'],
+    'local.streamBatches' => [['local' => ['streamBatches' => true]], 'LocalWork::streamBatches(on: true)'],
 ]);
 
 it('writes a runner\'s pace on the runner it chooses, and on the gate where it chooses none', function (array $runner, string $call): void {
     expect(Configs::valid(['runner' => $runner])->php(ProjectRoot::origin())->code())->toContain($call);
 })->with([
     'choosing one' => [
-        ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05],
-        "Runner::pest()->paced(Pace::of(recycleAfter: 8, warmSlack: '2m', poll: 0.05))",
+        ['use' => 'pest', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05, 'processes' => 3],
+        "Runner::pest()->paced(Pace::of(recycleAfter: 8, warmSlack: '2m', poll: 0.05, processes: 3))",
     ],
     'choosing none' => [
         ['recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05],
@@ -206,7 +227,7 @@ it('refuses a tuning key out of its range', function (array $config, string $pro
 
 it('holds the values no config can write to what they must be', function (): void {
     expect(StartUpSamples::of(0)->runs())->toBe(1)
-        ->and(RunnerPace::of(0, Seconds::of(1.0))->recycleAfter())->toBe(1)
+        ->and(RunnerPace::of(0, Seconds::of(1.0), Seconds::of(5.0))->recycleAfter())->toBe(1)
         ->and(Local::of(triageFewest: 1)->triageFewest())->toBe(2);
 });
 
@@ -240,8 +261,8 @@ it('reads how large a suite may name a hot path, the memory doctor wants, and a 
     $set = Configs::settings(['runner' => 'pest', 'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s']])->local();
     $standard = Configs::settings(['runner' => 'pest'])->local();
 
-    expect([$set->memoryHeadroom(), $set->serveRequest()->seconds()])->toBe([3, 9.0])
-        ->and([$standard->memoryHeadroom(), $standard->serveRequest()->seconds()])->toBe([2, 5.0]);
+    expect([$set->memoryHeadroom(), $set->serve()->request()->seconds()])->toBe([3, 9.0])
+        ->and([$standard->memoryHeadroom(), $standard->serve()->request()->seconds()])->toBe([2, 5.0]);
 });
 
 it('refuses a least learned multiple past the most', function (): void {

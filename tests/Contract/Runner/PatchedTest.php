@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+
 use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
@@ -9,13 +10,18 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Adapter\Pest\ReplayRecord;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Cli\Flow\MergedUnits;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Composer\Package;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -26,15 +32,29 @@ use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Shard;
+use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Plan\ShardResult;
+use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Tree\Package as TreePackage;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -150,7 +170,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
         copy(Tree::at(sprintf('tests/Contract/Runner/reach/tests/Reach/%s', $file)), sprintf('%s/%s', $into, $file));
     }
 
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $runner = Library::pest(Patching::on(Library::canary()))->runner();
     $expected = $together ? Library::acting(...array_map(static fn(string $file): string => sprintf('tests/Reach/%s', $file), $files)) : [];
 
@@ -200,7 +220,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
 ])->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('hands each mutant\'s own run the test files its covering tests need as paths, and no other', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $library = Library::pest(Patching::on(Library::canary()));
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
     file_put_contents(
@@ -235,7 +255,7 @@ it('hands each mutant\'s own run the test files its covering tests need as paths
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('vouches for a narrowed kill by its own run, replayed unmutated in the order it took, stopped after its last killer', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $library = Library::pest(Patching::on(Library::canary()));
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/replayed')));
     file_put_contents(
@@ -259,7 +279,7 @@ it('vouches for a narrowed kill by its own run, replayed unmutated in the order 
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('runs again, patched, only the mutants the file it hands over names, on the map the invocation read', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $library = Library::pest(Patching::on(Library::canary()));
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
     file_put_contents(
@@ -294,7 +314,7 @@ it('runs again, patched, only the mutants the file it hands over names, on the m
 // covering tests from php-code-coverage 14.3's map as hit counts rather than test
 // ids, and passes an int to preg_match, a TypeError under every Pest ^5.1.
 it('reports the same four mutants from warm workers, and warns of nothing, with Pest patched', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $library = Library::installed('pest patched');
     $result = $library->mutate(
         'money warm',
@@ -309,8 +329,8 @@ it('reports the same four mutants from warm workers, and warns of nothing, with 
 })->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'warm workers need a PHP that forks')->group(...$holds);
 
 it('reports the same four mutants from warm workers that cache through opcache as from workers that do not', function (bool $caches): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
-    $library = Library::pest(Patching::on(Library::canary())->cachingInWorkers($caches));
+    Library::patched();
+    $library = Library::pest(Patching::on(Library::canary())->working(PestWorkers::of(workerOpcache: $caches)));
     $result = $library->mutate(
         sprintf('money warm %s', $caches ? 'cached' : 'uncached'),
         MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
@@ -330,9 +350,9 @@ it('reports the same four mutants from warm workers that cache through opcache a
 )->group(...$holds);
 
 it('reports the same records for every mutant Pest makes of the library\'s files with schemata as with a copy for each', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $records = static function (bool $compiles): array {
-        $result = Library::pest(Patching::on(Library::canary())->compilingSchemata($compiles))->mutate(
+        $result = Library::pest(Patching::on(Library::canary())->working(PestWorkers::of(schemata: $compiles)))->mutate(
             sprintf('every mutant %s', $compiles ? 'schemata' : 'copies'),
             MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php')), WholeSuite::tests())
                 ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
@@ -349,10 +369,150 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     'the runner contracts job installs the fixture library, and warm workers need a PHP that forks',
 )->group(...$holds);
 
+it('reports the same records for every mutant Pest makes of the library\'s files from split streams as from each mutant\'s own run, the streams judging most', function (bool $changeCheck, bool $killersFirst, bool $killerStreams): void {
+    Library::patched();
+    $run = static fn(StreamSettings $streams): MutationResult|CannotJudge => Library::pest(Patching::on(Library::canary())->splitting($streams))->mutate(
+        sprintf('every mutant, split %s', json_encode($streams->variables())),
+        MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php')), WholeSuite::tests())
+            ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
+    );
+    $own = $run(StreamSettings::off());
+    $split = $run(StreamSettings::of(enabled: true, children: 1, changeCheck: $changeCheck, killersFirst: $killersFirst)
+        ->streamingKillers($killerStreams));
+    $streamed = $split instanceof MutationResult
+        ? array_filter(
+            iterator_to_array($split->mutants(), preserve_keys: false),
+            static fn(Mutant $mutant): bool => $split->evidence()->of($mutant->id())->isStreamed(),
+        )
+        : [];
+
+    expect($split instanceof MutationResult ? Library::records($split->mutants()) : [$split])
+        ->toEqualCanonicalizing($own instanceof MutationResult ? Library::records($own->mutants()) : [$own])
+        ->and($own instanceof MutationResult ? count($own->mutants()) : 0)->toBeGreaterThan(4)
+        ->and(count($streamed) * 2)->toBeGreaterThan($own instanceof MutationResult ? count($own->mutants()) : 0);
+})->with([
+    'checking changes, killers first' => [true, true, false],
+    'forking unchecked, every test alike' => [false, false, false],
+    'killers first, a first pass of killers alone' => [true, true, true],
+])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
+// Every part reads one coverage map, handed over as a plan hands its shards
+// theirs, so each cuts the test files alike.
+it('reports the same records for every mutant Pest makes of the library\'s files from split streams across parts of the test files, merged as the verdict merges them, as from one part', function (int $parts): void {
+    Library::patched();
+    $files = Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php'));
+    $library = Library::pest(Patching::on(Library::canary())->splitting(
+        StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true),
+    ));
+    $handed = Path::of('.mutation-gate/parted');
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handed));
+    file_put_contents(
+        Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in($handed)->value())),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::of(), Unplaced::map()),
+    );
+    $run = static fn(TestPart $part): MutationResult|CannotJudge => $library->mutate(
+        sprintf('every mutant, split, part %d of %d', $part->number(), $part->parts()),
+        MutationRequest::of($files, WholeSuite::tests())
+            ->narrowedTo($files, Narrowing::none()->inTestPart($part))
+            ->across(Pool::of(ProcessCount::of(2), Workers::Fork))
+            ->reusingCoverage(Handed::maps($handed, $handed)),
+    );
+    $whole = $run(TestPart::whole());
+    $shards = [];
+    $read = [];
+
+    $unrun = [];
+    $unreached = 0;
+
+    foreach (range(1, $parts) as $number) {
+        $shard = Shard::of(
+            ShardId::of($number),
+            TreePackage::at(Path::root()),
+            Units::of(Unit::file(Path::of('src/Money.php')), Unit::file(Path::of('src/Shapes.php'))),
+            Seconds::of(1.0),
+            sprintf('src, part %d of %d', $number, $parts),
+        )->inPart(TestPart::of($number, $parts));
+        $mutated = $run($shard->testPart());
+        $shards[] = $shard;
+
+        if (! $mutated instanceof MutationResult) {
+            $unrun[] = $mutated->why();
+
+            continue;
+        }
+
+        $measured = Measurement::of(Seconds::of(1.0), 'pest', Instant::at(new DateTimeImmutable()));
+        $read[] = [$shard, ShardResult::of(Digest::sha256Of('plan'), $shard->id(), Keys::none(), $mutated, $measured), $mutated];
+        $unreached += $mutated->mutants()->counting(MutantStatus::NotReached);
+    }
+
+    $merged = MergedUnits::of(Plan::of(Revision::ref('HEAD'), Digest::sha256Of('base'), Keys::none(), Shards::of(...$shards)), $read);
+    $records = $merged instanceof CannotJudge ? [$merged->why()] : Library::records(Mutants::of(...array_merge(...array_map(
+        static fn(UnitResult $unit): array => [...$unit->mutants()],
+        [...$merged],
+    ))));
+
+    expect($unrun)->toBe([])
+        ->and($records)->toEqualCanonicalizing($whole instanceof MutationResult ? Library::records($whole->mutants()) : [$whole])
+        ->and($whole instanceof MutationResult ? $whole->mutants()->counting(MutantStatus::NotReached) : 1)->toBe(0)
+        ->and($unreached)->toBeGreaterThan(0);
+})->with([
+    'two parts' => [2],
+    'three parts' => [3],
+])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
+it('reports the same records for every mutant Pest makes of the library\'s files from split streams that record each test\'s lines as from each mutant\'s own run, and leaves the lines recorded', function (bool $standsIn): void {
+    Library::patched();
+    $files = Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php'));
+    $streams = StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: false);
+    $library = Library::pest(Patching::on(Library::canary())->splitting($streams));
+    $handed = Path::of('.mutation-gate/recorded-map');
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handed));
+    file_put_contents(
+        Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in($handed)->value())),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::of(), Unplaced::map()),
+    );
+    $into = Scratch::directory();
+    $recorded = $library->mutate(
+        sprintf('every mutant, split, its streams recording %s', $standsIn ? 'standing in' : 'for the map'),
+        MutationRequest::of($files, WholeSuite::tests())
+            ->narrowedTo($files, Narrowing::none()->recordingInto(
+                $standsIn ? LineRecording::standingIn($into) : LineRecording::forTheMap($into),
+            ))
+            ->across(Pool::of(ProcessCount::of(2), Workers::Fork))
+            ->reusingCoverage(Handed::maps($handed, $handed)),
+    );
+    $own = Library::pest(Patching::on(Library::canary()))->mutate(
+        'every mutant, its own run',
+        MutationRequest::of($files, WholeSuite::tests())->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
+    );
+
+    $lines = glob(sprintf('%s/recorded-*.jsonl', $into));
+    $text = implode('', array_map(file_get_contents(...), is_array($lines) ? $lines : []));
+
+    expect($recorded instanceof MutationResult ? Library::records($recorded->mutants()) : [$recorded])
+        ->toEqualCanonicalizing($own instanceof MutationResult ? Library::records($own->mutants()) : [$own])
+        ->and($lines)->not->toBe([])
+        ->and($text)->toContain('/src/Money.php":[')
+        ->and($text)->not->toContain(sprintf('%s.served', Path::PHP));
+})->with([
+    'for a quick round\'s map' => [false],
+    'standing in for the suite\'s coverage report' => [true],
+])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
 it('reports the same records for every mutant Pest makes of the library\'s files from mutants\' workers that boot the project as from workers that do not', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $records = static function (bool $boots): array {
-        $result = Library::pest(Patching::on(Library::canary())->bootingMutants($boots))->mutate(
+        $result = Library::pest(Patching::on(Library::canary())->working(PestWorkers::of(bootMutants: $boots)))->mutate(
             sprintf('every mutant %s', $boots ? 'booted' : 'unbooted'),
             MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php')), WholeSuite::tests())
                 ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),

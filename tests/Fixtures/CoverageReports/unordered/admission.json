@@ -1,0 +1,21 @@
+{
+    "leaving": [
+        "T\\C::c",
+        "T\\B::b",
+        "T\\Untouched::u"
+    ],
+    "holds": [
+        {
+            "path": "src/Mid",
+            "tests": [
+                "T\\B::b"
+            ]
+        },
+        {
+            "path": "src/Zeta.php",
+            "tests": [
+                "T\\C::c"
+            ]
+        }
+    ]
+}

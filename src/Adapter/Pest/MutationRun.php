@@ -4,37 +4,40 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_map;
 use function array_values;
 
 use Closure;
 
 use function count;
+use function dirname;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamReach;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
-use NightWorksIO\MutationGate\Core\Control\ControlEnd;
-use NightWorksIO\MutationGate\Core\Control\ControlRun;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\Preloaded;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Mutant\Mutators;
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Native\MutantPlacement;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PcovReach;
+use NightWorksIO\MutationGate\Core\Runner\RunExtension;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -42,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 use function sprintf;
 
@@ -60,13 +64,6 @@ final readonly class MutationRun
         = 'Pest selects held tests by the holds: groups its plugin adds for #[Holds], not by the filter %s.';
 
     private const string COMMA = "Pest's --path and --ignore split on commas, so Pest cannot mutate %s less %s.";
-
-    /** Why a narrowed run's doubtful kill is unjudged where no time is left to run it again. */
-    private const string NO_TIME_TO_CONFIRM
-        = "Killed where its covering tests' files alone cannot vouch for the kill; no time is left to run them all.";
-
-    /** Why such a mutant is unjudged where the run again made no mutant with its id. */
-    private const string NOT_MADE_TO_CONFIRM = 'Run again with every test file, Pest made no mutant with this id.';
 
     /**
      * @param Closure(Withheld, Suites): (TestListing|CannotJudge) $listing the suites' tests and groups,
@@ -88,6 +85,7 @@ final readonly class MutationRun
         private bool $whole = false,
         private Bridges $bridges = new Bridges(),
         private PreChecker $preChecker = new NoPreCheck(),
+        private RunExtension|NotGiven $extension = new NotGiven(),
     ) {
     }
 
@@ -111,6 +109,7 @@ final readonly class MutationRun
             $this->whole,
             $this->bridges,
             $preChecker,
+            $this->extension,
         );
     }
 
@@ -135,6 +134,7 @@ final readonly class MutationRun
             $this->whole,
             $this->bridges,
             $this->preChecker,
+            $this->extension,
         );
     }
 
@@ -155,6 +155,7 @@ final readonly class MutationRun
             $this->whole,
             $this->bridges,
             $this->preChecker,
+            $this->extension,
         );
     }
 
@@ -178,6 +179,7 @@ final readonly class MutationRun
             whole: true,
             bridges: $this->bridges,
             preChecker: $this->preChecker,
+            extension: $this->extension,
         );
     }
 
@@ -187,7 +189,12 @@ final readonly class MutationRun
      * mutant's own run to the test files its covering tests need, a kill
      * those files alone cannot vouch for (see NarrowedKills) runs again with
      * every test file before it counts, within the time left, or is unjudged
-     * where none is.
+     * where none is; under `pest.narrowedKills: trust` it counts as it is
+     * (ADR-0142). Under `pest.preloaded: fresh`, each mutant its own run left
+     * unjudged as it had loaded the mutant's file first is judged again in a
+     * fresh run (see FreshRuns), its covering tests read off this run's
+     * coverage before a run again replaces it; where that cannot be read, it
+     * stays unjudged.
      */
     public function of(MutationRequest $request): MutationResult|CannotJudge
     {
@@ -203,27 +210,21 @@ final readonly class MutationRun
         }
 
         $laps = Laps::since(fn(): Seconds => Seconds::of($this->clock->seconds()), Seconds::of($started));
-        $from = $laps->now();
-        $shared = $this->shardMap()->of($request);
-        $read = $shared instanceof CoverageMap ? StepTimes::of($laps->lap(Step::Coverage, $from)) : StepTimes::none();
+        $opened = $this->shardMap()->of($request, $laps);
+        $shared = $opened->map();
         $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started, $laps);
-        $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($read);
 
-        return match (true) {
-            $shared instanceof CannotJudge, $result instanceof CannotJudge, ! $this->narrows() => $result,
-            default => $this->vouched($result, $request, $results, $shared, $started, $laps),
-        };
+        return $result instanceof CannotJudge
+            ? $result
+            : $this->judged($result->withStepsBefore($opened->steps()), $request, $results, $shared, $started, $laps);
     }
 
     /**
-     * The result, each narrowed kill whose order is known vouched for by a
-     * replay of its run, unmutated (see PrefixReplays), and unjudged where
-     * the replay does not let it stand; each other narrowed kill its control
-     * cannot vouch for run again with every test file (see NarrowedKills),
-     * with the time each took. The controls of the kills run again are read
-     * off this run's coverage before the run again replaces it.
+     * What a run's mutants come to once its narrowed kills are vouched for,
+     * and each mutant its own run left unjudged as it had loaded the mutant's
+     * file first is judged again in a fresh run.
      */
-    private function vouched(
+    private function judged(
         MutationResult $result,
         MutationRequest $request,
         string $results,
@@ -231,63 +232,42 @@ final readonly class MutationRun
         float $started,
         Laps $laps,
     ): MutationResult|CannotJudge {
-        $kills = NarrowedKills::in($result, $results, $this->project);
-        $from = $laps->now();
-        $replayed = $this->unvouched($kills, $request, $results, $started);
-        $doubtful = $this->doubted($kills, $request, $results, $started, $replayed);
-        $baselines = StepTimes::of($laps->lap(Step::Baselines, $from, $kills->sets()));
-        $controls = Controls::of(
-            $this->project,
-            $this->patching,
-            $doubtful,
-            $request->judgedBy(),
-            fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
-        );
+        $placement = $this->project->placement();
+        $coverage = $placement instanceof MutantPlacement
+            && $this->patching->steps()->preloaded() === Preloaded::Fresh
+            && FreshRuns::findAny($result->mutants())
+            ? $this->coveringOf($shared, $results)
+            : NotGiven::value();
+        $vouched = ! $this->narrows() || $this->patching->steps()->narrowedKills() === NarrowedKillTrust::Trust
+            ? $result
+            : new VouchedKills(
+                $this->project,
+                $this->patching,
+                $this->tail($request),
+                $this->remembered,
+                fn(): Seconds|Unlimited => $this->left($request, $started),
+                fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
+                fn(MutationRequest $again, string ...$natives): MutationResult|CannotJudge => $this->whole()
+                    ->only(...$natives)
+                    ->of($again),
+            )->of($result, $request, $results, $laps);
 
-        $vouched = $result->withMutants(FoundAgain::replacing($result->mutants(), $replayed->unjudged()))
-            ->withSteps($baselines);
-
-        return $this->confirmed($vouched, $request, $results, $started, $controls, $laps);
-    }
-
-    /** What the replays, unmutated, leave of a narrowed run's kills whose order is known (see PrefixReplays). */
-    private function unvouched(
-        NarrowedKills $kills,
-        MutationRequest $request,
-        string $results,
-        float $started,
-    ): ReplayedKills {
-        return $kills->unvouched(
-            /**
-             * @param  non-empty-list<PrefixReplay> $replays
-             * @return list<ReplayVerdict>
-             */
-            fn(array $replays): array => new PrefixReplays($this->project, $this->tail($request), $this->remembered)
-                ->verdicts($replays, $request, $this->left($request, $started), $results),
-        );
-    }
-
-    /** A narrowed run's kills that must run again with every test file before they count. */
-    private function doubted(
-        NarrowedKills $kills,
-        MutationRequest $request,
-        string $results,
-        float $started,
-        ReplayedKills $replayed,
-    ): Mutants {
-        return $kills->doubted(
-            $request->judgedBy(),
-            /**
-             * @param  non-empty-list<Control> $controls
-             * @return list<bool>
-             */
-            fn(array $controls): array => array_map(
-                static fn(ControlRun $run): bool => $run->end() === ControlEnd::Passed,
-                new AloneRuns($this->project, $this->tail($request), $this->remembered)
-                    ->ended($controls, $request, $this->left($request, $started), $results),
-            ),
-            $replayed,
-        );
+        return $vouched instanceof MutationResult && $coverage instanceof Covering
+            ? new FreshRuns(
+                $this->project,
+                $placement,
+                $this->driven(),
+                $this->files,
+                $this->patching,
+                $this->bounds,
+            )->judged(
+                $vouched,
+                $request,
+                $coverage,
+                fn(): Seconds|Unlimited => $this->left($request, $started),
+                $laps,
+            )
+            : $vouched;
     }
 
     /** The coverage this run's mutants were selected by: the map handed over, or the run's own. */
@@ -316,26 +296,19 @@ final readonly class MutationRun
         $bounds = $request->pool()->bounding($this->bounds);
         $from = $laps->now();
         $handOff = $this->handOff($request, $results, $shared);
-        $told = new Told($this->project, $this->patching, $this->only, $this->narrows())
-            ->of($request, $results, $handOff instanceof HandOff, $bounds);
-        $warm = WarmDirectory::made($results);
-
-        if ($this->patching->cachesInWorkers()) {
-            OpcacheBlacklist::of($this->project, $request)->leftIn($warm);
-        }
-
-        WorkerBoot::of($this->project, $this->patching)->leftFor($request, $command, $this->narrows(), $warm);
+        $told = $this->told($request, $results, $handOff, $bounds);
+        $this->warmFor($request, $command, $results);
         $ran = $this->shell->run(
             $command->with($told),
             new MutantsProgress($results, $handOff instanceof HandOff ? $handOff : new Unwatched()),
         );
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
-        $warned = WarmDirectory::cleared($results);
+        $warned = $this->warned($request, $results);
         $coverage = $this->coveringOf($shared, $results);
         $opensOn = $this->patching->opensOn($request->judgedBy(), $shared instanceof CoverageMap);
         $left = fn(): Seconds|Unlimited => $this->left($request, $started);
-        $opening = OpeningIssues::of($this->shell, $this->project, $request, $opensOn, $left, $results);
+        $opening = OpeningIssues::of($this->driven(), $this->project, $request, $opensOn, $left, $results);
         $memory = $request->memory();
         $interpretation = new Interpretation(
             $this->project,
@@ -349,18 +322,77 @@ final readonly class MutationRun
         $result = $interpretation->of($ran, $results, $coverage);
         $reading = $laps->lap(Step::Reading, $from);
 
-        return $result instanceof CannotJudge || $coverage instanceof CannotJudge
-            ? $result
-            : new Trials($this->project, $this->tail($request), $this->files, $bounds, $this->remembered)->of(
-                $result
-                    ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading))
-                    ->withWarnings($warned),
-                $request,
-                $results,
-                $coverage,
-                $shared,
-                $laps,
-            );
+        if ($result instanceof CannotJudge || $coverage instanceof CannotJudge) {
+            return $result;
+        }
+
+        $read = $result
+            ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading))
+            ->withWarnings($warned);
+
+        return $this->patching->steps()->on(Toggle::PestTrials)
+            ? new Trials(
+                $this->project,
+                $this->tail($request),
+                $this->files,
+                $bounds,
+                $this->remembered,
+                $this->patching->steps()->on(Toggle::PestShardScan),
+            )->of($read, $request, $results, $coverage, $shared, $laps)
+            : $read;
+    }
+
+    /**
+     * The variables a run of this request is started with: what it tells the patched plugin, what it tells its
+     * streams of Outbreak's extension, the coverage drivers it turns off, and, where its streams record lines with
+     * pcov, what pcov collects from there.
+     *
+     * @return array<string, string>
+     */
+    private function told(
+        MutationRequest $request,
+        string $results,
+        HandOff|NotGiven $handOff,
+        LimitBounds $bounds,
+    ): array {
+        $recording = $request->narrowing()->recording();
+        $withPcov = ToldExtension::recordsWithPcov($this->extension, $recording);
+
+        return [
+            ...new Told($this->project, $this->patching, $this->only, $this->narrows())
+                ->of($request, $results, $handOff instanceof HandOff, $bounds),
+            ...ToldExtension::of($this->extension, $recording),
+            ...CoverageDrivers::of($this->patching, $withPcov),
+            ...$withPcov ? StreamReach::told(
+                PcovReach::under($this->project->root(), $this->project->vendor())->keeping(Schemata::inVendor()),
+            ) : [],
+        ];
+    }
+
+    /**
+     * The directory the run's warm workers share, made ready for it: what they keep out of opcache, where they
+     * compile through it, and how they boot.
+     */
+    private function warmFor(MutationRequest $request, Command $command, string $results): void
+    {
+        $warm = WarmDirectory::made($results);
+
+        if ($this->patching->cachesInWorkers()) {
+            OpcacheBlacklist::of($this->project, $request)->leftIn($warm);
+        }
+
+        WorkerBoot::of($this->project, $this->patching)->leftFor($request, $command, $this->narrows(), $warm);
+    }
+
+    /**
+     * What the run's warm workers warned of: so far, where a shard's chunks keep them for the next chunk; once they
+     * are cleared, otherwise.
+     */
+    private function warned(MutationRequest $request, string $results): Warnings
+    {
+        return $this->patching->keepsChunkWorkers()
+            ? WarmDirectory::warnedSoFar($results)
+            : WarmDirectory::cleared($results, $request->pool()->pace()->workerWait());
     }
 
     /**
@@ -374,59 +406,29 @@ final readonly class MutationRun
     {
         $held = $request->search()->held();
 
-        return $this->patching->isOn() && HandOff::isWanted($this->preChecker, $held) ? new HandOff(
-            $this->project,
-            $results,
-            $this->preChecker,
-            $request->pool()->processes(),
-            fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
-            $this->bridges,
-            $held,
-        ) : NotGiven::value();
+        $prover = $this->extension instanceof RunExtension
+            ? $this->extension->prover(dirname($results))
+            : NotGiven::value();
+
+        return $this->patching->isOn() && HandOff::isWanted($this->preChecker, $held, $prover)
+            ? new HandOff(
+                $this->project,
+                $results,
+                $this->preChecker,
+                $request->pool()->processes(),
+                fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
+                $this->bridges,
+                $held,
+                $prover,
+                $this->patching->steps()->duplicates() === Duplicates::JudgeOnce,
+            )
+            : NotGiven::value();
     }
 
-    /** Whether each mutant's own run loads only the test files its covering tests need. */
+    /** Whether each mutant's own run loads only the test files its covering tests need, as `pest.narrow` says. */
     private function narrows(): bool
     {
-        return $this->patching->isOn() && ! $this->whole;
-    }
-
-    /**
-     * The result, each doubtful kill run again with every test file, within
-     * the time left since the run began, or unjudged where none is left; a
-     * kill the run again confirms stands only where its control passes.
-     */
-    private function confirmed(
-        MutationResult $result,
-        MutationRequest $request,
-        string $results,
-        float $started,
-        Controls $controls,
-        Laps $laps,
-    ): MutationResult|CannotJudge {
-        $doubtful = $controls->doubtful();
-
-        if (count($doubtful) === 0) {
-            return $result;
-        }
-
-        $from = $laps->now();
-        $left = $this->left($request, $started);
-        $unconfirmed = Reason::that(self::NO_TIME_TO_CONFIRM);
-        $again = $left instanceof Seconds && $left->seconds() <= 0.0
-            ? MutationResult::skippingNone(FoundAgain::among($doubtful, Mutants::none(), $unconfirmed))
-            : $this->whole()->again($doubtful, $this->confirming($request, $left));
-        $runs = new AloneRuns($this->project, $this->tail($request), $this->remembered);
-        $again = $again instanceof CannotJudge
-            ? $again
-            : $again->withMutants(
-                $controls->applied($again->mutants(), $runs, $request, $this->left($request, $started), $results),
-            );
-
-        return $again instanceof CannotJudge ? $again : $result
-            ->withMutants(FoundAgain::replacing($result->mutants(), $again->mutants()))
-            ->withEvidence($again->evidence())
-            ->withSteps(StepTimes::of($laps->lap(Step::Confirmation, $from, count($doubtful))));
+        return $this->patching->isOn() && $this->patching->steps()->on(Toggle::PestNarrow) && ! $this->whole;
     }
 
     /** The time left of the request's deadline since the run began. */
@@ -437,34 +439,6 @@ final readonly class MutationRun
         return $deadline instanceof Seconds
             ? Seconds::of($deadline->seconds() - ($this->clock->seconds() - $started))
             : $deadline;
-    }
-
-    /**
-     * These mutants made again over their files with their mutators, each
-     * matched to the one asked for, with the evidence of each kill.
-     */
-    private function again(Mutants $mutants, MutationRequest $request): MutationResult|CannotJudge
-    {
-        $files = [];
-        $mutators = [];
-        $natives = [];
-
-        foreach ($mutants as $mutant) {
-            $files[] = $mutant->location()->file();
-            $mutators[$mutant->mutation()->mutator()] = $mutant->mutation()->mutator();
-            $natives[] = $mutant->nativeId();
-        }
-
-        $result = $this->only(...$natives)->of(
-            $request->narrowedTo(
-                Paths::of(...$files),
-                $request->narrowing()->toMutators(Mutators::named(...array_values($mutators))),
-            ),
-        );
-
-        return $result instanceof CannotJudge ? $result : MutationResult::skippingNone(
-            FoundAgain::among($mutants, $result->mutants(), Reason::that(self::NOT_MADE_TO_CONFIRM)),
-        )->withEvidence(FoundAgain::evidenceAmong($mutants, $result));
     }
 
     private function commandFor(
@@ -494,16 +468,19 @@ final readonly class MutationRun
         };
     }
 
-    /** The request the doubtful kills run again by: within the time left, in the pool the tail runs in. */
-    private function confirming(MutationRequest $request, Seconds|Unlimited $left): MutationRequest
-    {
-        return ($left instanceof Seconds ? $request->within($left) : $request)->across($request->pool()->tail());
-    }
-
     /** The shell the request's verification tail runs Pest in (see TailShell). */
     private function tail(MutationRequest $request): Shell
     {
-        return TailShell::of($this->shell, $this->project, $this->patching, $request);
+        return DriversSetShell::over(
+            TailShell::of($this->shell, $this->project, $this->patching, $request),
+            CoverageDrivers::of($this->patching, recordsWithPcov: false),
+        );
+    }
+
+    /** The shell the run's other processes start in, with the coverage drivers a mutation run sets (ADR-0147). */
+    private function driven(): Shell
+    {
+        return DriversSetShell::over($this->shell, CoverageDrivers::of($this->patching, recordsWithPcov: false));
     }
 
     private function shardMap(): ShardMap

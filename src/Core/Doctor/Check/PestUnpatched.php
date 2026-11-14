@@ -34,11 +34,11 @@ final readonly class PestUnpatched
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $composer = $observed->files()->composer();
         $patching = $settings instanceof Settings
             && $settings->runner()->choice()->use()->value() === BuiltinRunner::Pest->value
-            && $settings->effective()->pest()->patch();
+            && $settings->effective()->running()->pest()->patch();
 
         return $patching && $composer instanceof ComposerSetup && $composer->pest() === Patched::Missing
             ? Findings::of(Finding::of(

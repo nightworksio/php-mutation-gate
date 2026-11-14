@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\PHPStan\Rules;
 
-use function array_map;
 use function in_array;
 
 use PhpParser\Node;
@@ -75,10 +74,7 @@ final class NoMagicNumberRule implements Rule
     private function literalsIn(array $statements): array
     {
         $finder = new NodeFinder();
-        $positions = array_map(
-            static fn(ArrayDimFetch $fetch): ?Node => $fetch->dim,
-            $finder->findInstanceOf($statements, ArrayDimFetch::class),
-        );
+        $positions = $this->positionsIn($statements);
         $found = [];
 
         foreach ($finder->find($statements, static fn(Node $node): bool => $node instanceof Int_ || $node instanceof Float_) as $literal) {
@@ -88,6 +84,26 @@ final class NoMagicNumberRule implements Rule
         }
 
         return $found;
+    }
+
+    /**
+     * The offsets these statements read an array at, which are positions rather than numbers to name.
+     *
+     * @param array<Node> $statements
+     *
+     * @return list<Node>
+     */
+    private function positionsIn(array $statements): array
+    {
+        $positions = [];
+
+        foreach (new NodeFinder()->findInstanceOf($statements, ArrayDimFetch::class) as $fetch) {
+            if ($fetch->dim instanceof Node) {
+                $positions[] = $fetch->dim;
+            }
+        }
+
+        return $positions;
     }
 
     private function isPlain(Int_|Float_ $literal): bool

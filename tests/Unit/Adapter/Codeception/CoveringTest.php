@@ -59,5 +59,5 @@ it('maps the lines of the project\'s own files each test ran, with its time, as 
         ->and($read instanceof CoverageMap ? $read->files() : $read)->toEqual(Paths::of(Path::of($first), Path::of($second)))
         ->and($read instanceof CoverageMap ? $read->testsCoveringFile(Path::of($first)) : $read)->toEqual(TestIds::of($case))
         ->and($read instanceof CoverageMap ? $read->testsCoveringFile(Path::of($second)) : $read)->toEqual(TestIds::of($method))
-        ->and($read instanceof CoverageMap ? [$read->durationOf($case), $read->durationOf($method)] : $read)->toEqual([Seconds::of(0.25), Seconds::of(0.5)]);
+        ->and($read instanceof CoverageMap ? [$read->durations()->of($case), $read->durations()->of($method)] : $read)->toEqual([Seconds::of(0.25), Seconds::of(0.5)]);
 });

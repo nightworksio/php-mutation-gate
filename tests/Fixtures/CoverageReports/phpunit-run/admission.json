@@ -1,0 +1,14 @@
+{
+    "leaving": [
+        "Tiny\\Tests\\LedgerTest::testTotals",
+        "Tiny\\Tests\\MoneyTest::testAdds"
+    ],
+    "holds": [
+        {
+            "path": "src/Money.php",
+            "tests": [
+                "Tiny\\Tests\\LedgerTest::testTotals"
+            ]
+        }
+    ]
+}

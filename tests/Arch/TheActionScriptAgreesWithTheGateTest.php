@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\TrustedEvent;
 use NightWorksIO\MutationGate\Cli\ExitCode;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace as Results;
+use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -14,6 +16,9 @@ use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Plan\JobEnding;
+use NightWorksIO\MutationGate\Core\Plan\ShardEndRecord;
+use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
@@ -29,23 +34,27 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-// The action's script is Python, so it cannot read the gate's constants; each
-// value it shares with the gate is held here to the gate's own.
+// The action's scripts are Python, so they cannot read the gate's constants;
+// each value they share with the gate is held here to the gate's own.
 
-/** The text of the action's script. */
+/** The text of the action's scripts, each Python file beside gate_action.py. */
 function actionScript(): string
 {
-    return (string) file_get_contents(Tree::at('resources/action/gate_action.py'));
+    $found = glob(Tree::at('resources/action/*.py'));
+    $scripts = $found === false ? [] : $found;
+    sort($scripts);
+
+    return implode("\n", array_map(static fn(string $script): string => (string) file_get_contents($script), $scripts));
 }
 
-/** A string constant of the script, empty where it has none of that name. */
+/** A string constant of the scripts, empty where it has none of that name. */
 function scriptText(string $name): string
 {
     return preg_match(sprintf('/^%s = "(?<value>[^"]*)"$/mu', $name), actionScript(), $found) === 1 ? $found['value'] : '';
 }
 
 /**
- * A frozenset constant of the script, sorted, empty where it has none of that name.
+ * A frozenset constant of the scripts, sorted, empty where it has none of that name.
  *
  * @return list<string>
  */
@@ -71,6 +80,16 @@ function sortedCopy(array $values): array
 
     return $values;
 }
+
+it('writes how a shard\'s job ended where the verdict reads it, in the fields and by the names it reads', function (): void {
+    $ended = Results::ended(Path::of('results'), ShardId::of(4))->value();
+
+    expect(sprintf('results/4%s', scriptText('ENDED')))->toBe($ended)
+        ->and(array_map(scriptText(...), ['SHUTDOWN', 'LOST', 'CANCELLED', 'TIMED_OUT', 'FAILED']))
+        ->toBe(array_map(static fn(JobEnding $how): string => $how->value, JobEnding::cases()))
+        ->and([scriptText('HOW'), scriptText('JOB'), scriptText('AFTER')])
+        ->toBe([ShardEndRecord::HOW, ShardEndRecord::JOB, ShardEndRecord::AFTER]);
+});
 
 it('keeps the ledger where the directory store keeps it by default', function (): void {
     expect(scriptText('LEDGERS'))->toBe(Workspace::ledger()->value());
@@ -169,5 +188,24 @@ it('reads this package\'s effective config of a pull request as the gate prints 
     $variables = ['GITHUB_OUTPUT' => $output, 'CACHE' => 'true'];
     new Process(['python3', 'resources/action/gate_action.py', 'config'], Tree::root(), $variables, $shown->getOutput())->mustRun();
 
-    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest_patch=true\ninfection_patch=false\nfail_fast=cancel\naction_reports=[\"--report=json:.mutation-gate/action/report.json\", \"--report=html:.mutation-gate/action/html\", \"--report=digest:.mutation-gate/action/mutation-gate-digest.txt\"]\n");
+    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest=true\npest_patch=true\ninfection_patch=false\nfail_fast=cancel\ncache_store=actions\naction_reports=[\"--report=json:.mutation-gate/action/report.json\", \"--report=html:.mutation-gate/action/html\", \"--report=digest:.mutation-gate/action/mutation-gate-digest.txt\"]\n");
+});
+
+it('names the files of a pull request\'s pass as the gate does, and looks back as far as the gate proves', function (): void {
+    expect(scriptText('PASSED_FILE'))->toBe(LedgerFile::PASSED_FILE)
+        ->and(scriptText('LEDGER_FILE'))->toBe(LedgerFile::NAME)
+        ->and(preg_match('/^PROVING_RANGE = (?<value>\d+)$/mu', actionScript(), $found) === 1 ? (int) $found['value'] : 0)
+        ->toBe(ProvingRange::standard()->farthest());
+});
+
+it('keeps a pull request\'s pass under the name the script reads it by, and hands the action\'s record to where the gate reads a copy', function (string $file): void {
+    $workflow = (string) file_get_contents(Tree::at($file));
+
+    expect($workflow)->toContain(sprintf('name: %s', scriptText('PASSED_ARTIFACT')))
+        ->and($workflow)->toContain(sprintf('/verdict/%s', LedgerFile::PASSED_FILE));
+})->with(['the action' => ['action.yml'], 'the reusable workflow' => ['.github/workflows/mutation-gate.yml']]);
+
+it('reads a pull request\'s pass in the action into the directory the gate reads a copy from', function (): void {
+    expect((string) file_get_contents(Tree::at('action.yml')))
+        ->toContain(sprintf('FETCHED: %s', Workspace::fetched()->value()));
 });

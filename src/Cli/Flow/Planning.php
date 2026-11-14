@@ -4,45 +4,39 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function count;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\Coverage\Untested;
-use NightWorksIO\MutationGate\Core\File\ByPath;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
-use NightWorksIO\MutationGate\Core\Order\RiskOrder;
+use NightWorksIO\MutationGate\Core\Order\Saved;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
-use NightWorksIO\MutationGate\Core\Plan\Weighed;
-use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
-use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
-use NightWorksIO\MutationGate\Core\Reach\Packages;
-use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Sample\Sample;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Tree\Tree;
-use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
 use function sprintf;
@@ -57,15 +51,15 @@ use function sprintf;
  */
 final readonly class Planning
 {
+    private const string WAITS = <<<'SAID'
+        The run cannot start without a fresh coverage map, and the plan was asked to plan early alone,
+        so it plans nothing: the caller that hands a fresh map runs it (ADR-0135).
+        SAID;
+
     private const string NO_NEW_CODE = <<<'SAID'
         A pull request's or merge group's new code is judged against %s, and git cannot tell what changed since it,
         so no floor for new code can be held. %s
         Fetch it into the checkout before the plan.
-        SAID;
-
-    private const string PACKAGED = <<<'SAID'
-        The package at %s has units to mutate, and the runner runs the suite of the project's root alone,
-        which does not judge another package's code, so their mutants cannot be judged.
         SAID;
 
     private const string NOT_FULL = <<<'SAID'
@@ -80,7 +74,8 @@ final readonly class Planning
      * The plan of a run that records this much of the kill matrix, and how
      * its coverage map was measured, against the map its own scope or the
      * default branch keeps or, for `watch`, against the one its last round
-     * left; or why there is no plan.
+     * left, which a quick round takes the changed files' coverage from
+     * (ADR-0146); or why there is no plan.
      */
     public function plan(
         Mode $mode,
@@ -88,9 +83,11 @@ final readonly class Planning
         Cut $cut,
         MatrixKind $matrix,
         bool $ownMap = false,
+        bool $earlyOnly = false,
+        QuickRound|NotGiven $quick = new NotGiven(),
     ): PlanMade|CannotJudge {
         $inventory = $this->adapters->runner->behaviour()->records($matrix)
-            ? Inventory::of($this->adapters, $this->settings)
+            ? Inventory::forKeys($this->adapters, $this->settings)
             : CannotJudge::because(self::NOT_FULL);
 
         if ($inventory instanceof CannotJudge) {
@@ -107,9 +104,83 @@ final readonly class Planning
         $unchanged = new UnchangedPlan($this->adapters, $this->settings, $this->setup)
             ->of($inventory, $ledgers, $mode, $matrix);
 
-        return $unchanged instanceof PlanMade
-            ? $unchanged
-            : $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap);
+        if ($unchanged instanceof PlanMade) {
+            return $unchanged;
+        }
+
+        $early = $this->early($inventory, $ledgers, $mode, $coverage);
+
+        return match (true) {
+            $early instanceof CoverageMeasured
+                => $this->plannedEarly($inventory, $writing, $mode, $early, $cut, $matrix, $ownMap, $quick),
+            $earlyOnly => $this->waiting($inventory),
+            default => $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap, $quick),
+        };
+    }
+
+    /** The plan of a run that waits for a fresh map, planning nothing: the caller that hands one runs it. */
+    private function waiting(Inventory $inventory): PlanMade
+    {
+        $waits = Plan::of($inventory->standing->head(), Digest::ofNothing(), Keys::none(), Shards::none());
+
+        return PlanMade::of($waits->briefed(Briefing::standard()->waitingForAMap()), self::WAITS);
+    }
+
+    /**
+     * The plan of a run started early against the map it keeps, taking no
+     * proof, since what it runs is judged again once the fresh map is in.
+     */
+    private function plannedEarly(
+        Inventory $inventory,
+        Writing $writing,
+        Mode $mode,
+        CoverageMeasured $early,
+        Cut $cut,
+        MatrixKind $matrix,
+        bool $ownMap,
+        QuickRound|NotGiven $quick,
+    ): PlanMade|CannotJudge {
+        $none = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing, TakenProofs::None);
+        $taking = $mode->takingNone();
+        $made = $this->measured($inventory, $none, $taking, $early->request(), $cut, $matrix, $ownMap, $quick);
+
+        return $made instanceof PlanMade ? $made->plannedEarly($early) : $made;
+    }
+
+    /**
+     * The kept map a full split-stream run plans by without a fresh one,
+     * where `splitStream.early` starts it early (ADR-0135): none handed, the
+     * run full, its streams split by tests, and, under `no-match`, no proof
+     * of the ledgers it reads may share its first five inputs; none where it
+     * waits for a fresh map, or none is kept.
+     */
+    private function early(
+        Inventory $inventory,
+        Ledgers $ledgers,
+        Mode $mode,
+        CoverageRun|CoverageRead $coverage,
+    ): CoverageMeasured|NotGiven {
+        $pest = $this->settings->effective()->running()->pest();
+
+        $splits = $pest->splitsByTests($this->settings->runner()->choice());
+
+        if (! $coverage instanceof CoverageRun || ! $mode->isFull() || ! $splits) {
+            return NotGiven::value();
+        }
+
+        $reads = Keying::readsOf(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            LearnedLimits::of($this->settings, $ledgers)->multiple(),
+        );
+        $match = ! $reads instanceof Digest
+            || $ledgers->own()->proofs()->mayShareReads($reads)
+            || $ledgers->defaultBranch()->proofs()->mayShareReads($reads);
+
+        return $pest->splitStream()->early()->startsEarly($mode->isUnproven(), $match)
+            ? new KeptMaps($this->adapters, $this->settings)->keptAsIs($inventory)
+            : NotGiven::value();
     }
 
     /**
@@ -124,12 +195,13 @@ final readonly class Planning
         Cut $cut,
         MatrixKind $matrix,
         bool $ownMap,
+        QuickRound|NotGiven $quick,
     ): PlanMade|CannotJudge {
-        $suites = SuiteCoverage::of($this->adapters, $inventory);
+        $suites = SuiteCoverage::of($this->adapters, $inventory, $this->settings->proofs()->coverageCompressionLevel());
         $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
         $names = new NameGraph($this->adapters)->named($inventory->suite);
         $entries = $kept->entries($inventory, $names);
-        $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap, $suites);
+        $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap, $suites, $quick);
         $request = $measured->request();
         $map = $kept->mapOf($measured, $suites);
 
@@ -143,19 +215,34 @@ final readonly class Planning
 
         $judges = MapJudges::of($this->adapters->runner, $map);
         $learned = LearnedLimits::of($this->settings, $ledgers);
-        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $judges, $names);
+        $keying = Keying::of(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            $inventory->suite,
+            $judges,
+            $names,
+            $learned->multiple(),
+        );
         $at = Measuring::of($this->adapters, $request);
+        $saved = $quick instanceof QuickRound ? $quick->saved($entries, $judges->map()) : Saved::none();
+
+        if ($saved instanceof CannotJudge) {
+            return $saved;
+        }
+
         $planned = $keying instanceof Keying
             ? $this->planned(
                 $inventory,
                 $ledgers,
-                KeptCoverage::keysOf($entries, $map),
+                CoverageEntries::keysOver($entries, $map),
                 $judges,
                 $at,
                 $keying,
                 $mode,
                 $learned->cut($cut),
                 $matrix,
+                $saved,
             )
             : $keying;
 
@@ -167,7 +254,12 @@ final readonly class Planning
                     $this->adapters->briefing($briefing->standingAs($planned->briefing())),
                 )),
                 $measured->said(),
-            )->without($ledgers->unread())->learning(...$learned->lines())
+            )->without($ledgers->unread())->learning(
+                ...$learned->lines(),
+                ...new CachedPacks($this->adapters, $this->settings)->lines($planned, $ledgers),
+                ...JudgedRun::of($this->adapters->project, OwnArchive::running())
+                    ->lines($this->settings->reach()->everything()),
+            )
             : $planned;
     }
 
@@ -181,10 +273,17 @@ final readonly class Planning
         Mode $mode,
         Cut $cut,
         MatrixKind $matrix,
+        Saved $saved,
     ): Plan|CannotJudge {
         $map = $judges->map();
         $kind = $this->adapters->briefing(Briefing::standard()->recording($matrix))->profile();
-        $base = $mode->changeBase($ledgers, $inventory->standing, $kind, $this->settings->ci()->check());
+        $base = $mode->changeBase(
+            $ledgers,
+            $inventory->standing,
+            $kind,
+            $this->settings->ci()->check(),
+            $this->settings->reach()->defaultBranchSince(),
+        );
         $reached = $base instanceof ChangeBase
             ? Reached::since(
                 $base,
@@ -208,7 +307,12 @@ final readonly class Planning
         $carried = $this->unitsOf($considering->carried());
         $carriedOwn = $carried->within($ownOnly);
         $keys = $keying->keysOf($considering->considered());
-        $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $kind);
+        $cache = new CachedPacks($this->adapters, $this->settings);
+        $cache->pulled($inventory->standing, $keying->base());
+        $taken = $mode->takes($this->settings->proofs()->taken());
+        $served = ServedProofs::read($this->adapters, $taken, $ledgers, $keys);
+        $proving = $ledgers->caching($cache->read($inventory->standing, $keying->base())->serving($served))
+            ->proving($considering->considered(), $keys, $keying->base(), $kind);
         $changed = $this->newCode($inventory->standing, $reached);
         $auto = AutoSampling::of(
             $this->adapters,
@@ -226,22 +330,34 @@ final readonly class Planning
         $toRun = $sample instanceof Sample ? $sample->running($proving->toRun()) : $proving->toRun();
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
             ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
-        $opening = $map->suiteDuration();
-        $firstRun = new FirstRuns($this->adapters, $this->settings->shards()->planning()->startUpSamples())
-            ->measured($map, $ledgers->untimed($toRun, $this->setup->gate));
-        $shards = $this->shardsOf(
+        $opening = $map->durations()->total();
+        $firstRun = new FirstRuns(
+            $this->adapters,
+            $this->settings->shards()->planning()->startUpSamples(),
+            $this->settings->shards()->costs()->firstRunShape(),
+        )
+            ->measured($map, $ledgers->costs($this->setup->gate)->untimed($toRun));
+        $planned = new PlannedShards($this->adapters, $this->settings, $this->setup);
+        $shards = $planned->of(
             $toRun,
             $inventory->trees,
             $ledgers,
             $firstRun,
-            $cut->opening($opening),
-            $this->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun),
+            $cut,
+            $opening,
+            $planned->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun)->saving($saved),
         );
-        $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $digests = $this->committed($now, $inventory->standing->head());
-        $reasons = OwnScopeStanding::said(
-            $reached->reach()->reasons(),
-            $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+        $reasons = KeysApart::said(
+            OwnScopeStanding::said(
+                $reached->reach()->reasons(),
+                $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+            ),
+            $proving->toRun(),
+            $ledgers->defaultBranch(),
+            $kind,
+            $now,
+            $ledgers->readsOwnScope() && $this->settings->effective()->output()->reports()->suggest()->enabled(),
         );
         $standing = new NothingReached($this->adapters, $this->settings, $this->setup)->briefing(
             $shards,
@@ -250,6 +366,7 @@ final readonly class Planning
             $base,
             $kind,
             $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+            count($proving->proved()),
         );
 
         return match (true) {
@@ -282,27 +399,6 @@ final readonly class Planning
     }
 
     /**
-     * The units to run cut into shards, each of the project's root package,
-     * where the runner has no ignore marker in them the config refuses, and
-     * each shard's units the riskiest first, the order a budget runs them in.
-     */
-    private function shardsOf(
-        Units $toRun,
-        Trees $trees,
-        Ledgers $ledgers,
-        FirstRun $firstRun,
-        Cut $cut,
-        RiskOrder $order,
-    ): Shards|CannotJudge {
-        $unmarked = new RunnerMarkers($this->adapters, $this->settings)->refusing($toRun);
-        $shards = $unmarked instanceof Units
-            ? $cut->cut($this->workload($unmarked, $trees, $ledgers, $firstRun), $trees)
-            : $unmarked;
-
-        return $shards instanceof Shards ? $this->rooted($shards, $order) : $shards;
-    }
-
-    /**
      * The run's digests, taken at the commit the checkout is at where the
      * working tree holds nothing that commit does not, as read once every key
      * is built: a change made while they were built and still on disk then
@@ -322,35 +418,6 @@ final readonly class Planning
     }
 
     /**
-     * The order a budget takes these units in, knowing when each of the least
-     * risky last changed; by path among those where git cannot tell. A run
-     * that knows no change, as a full one does not, reaches no unit by one.
-     */
-    private function riskOrder(Reached $reached, Trees $trees, NewestProofs $newest, Units $units): RiskOrder
-    {
-        $order = RiskOrder::of(
-            $reached->changed() instanceof Changes ? $reached->reach() : Reach::nothing(Packages::of($trees)),
-            $newest,
-            MutantTriage::under($this->settings->triage()->timeouts()),
-        );
-        $changed = $this->adapters->changes->lastChanged($order->least($units));
-
-        return $changed instanceof ByPath ? $order->knowing($changed) : $order;
-    }
-
-    /** The shards, each expecting its runner to pay this opening run first. */
-    private function opening(Shards $shards, Seconds $opening): Shards
-    {
-        $opened = [];
-
-        foreach ($shards as $shard) {
-            $opened[] = $shard->estimated($shard->estimate()->opening($opening));
-        }
-
-        return Shards::of(...$opened);
-    }
-
-    /**
      * The plan, once each shard is handed the whole map, the map of its own
      * files and the kill history of their functions. The whole map is where a
      * later local command, such as `pre-commit`, reads it without running the
@@ -364,7 +431,12 @@ final readonly class Planning
         KillHistory $history,
         Subsumption|NotGiven $held,
     ): Plan|CannotJudge {
-        $handed = new Handoff($this->adapters->project, Handoff::limits())
+        $handed = new Handoff(
+            $this->adapters->project,
+            Handoff::limits(),
+            $this->adapters->maps,
+            $this->settings->proofs()->coverageCompressionLevel(),
+        )
             ->write($plan, $map, $history, $at, $keys, $held);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
@@ -395,24 +467,6 @@ final readonly class Planning
     }
 
 
-    /** The shards, each in this order, where each is of the project's root package. */
-    private function rooted(Shards $shards, RiskOrder $order): Shards|CannotJudge
-    {
-        $ordered = Shards::none();
-
-        foreach ($shards as $shard) {
-            $package = $shard->package()->path();
-
-            if (! $package->equals(Path::root())) {
-                return CannotJudge::because(sprintf(self::PACKAGED, $package->value()));
-            }
-
-            $ordered = $ordered->with($shard->ordered($order));
-        }
-
-        return $ordered;
-    }
-
     private function unitsOf(UnitResults $results): Units
     {
         $units = Units::none();
@@ -422,22 +476,5 @@ final readonly class Planning
         }
 
         return $units;
-    }
-
-    /** Each unit to run, in the package its tree is in, weighed by what the cost model expects of it. */
-    private function workload(Units $units, Trees $trees, Ledgers $ledgers, FirstRun $firstRun): Workload
-    {
-        $weighed = [];
-
-        foreach ($units as $unit) {
-            $tree = $trees->holding($unit->path());
-
-            if ($tree instanceof Tree) {
-                $estimated = $ledgers->estimated($this->adapters->costs, $unit, $firstRun, $this->setup->gate);
-                $weighed[] = Weighed::of($unit, $tree->package(), $estimated);
-            }
-        }
-
-        return Workload::of(...$weighed);
     }
 }

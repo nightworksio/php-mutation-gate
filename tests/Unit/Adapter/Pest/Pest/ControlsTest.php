@@ -40,7 +40,7 @@ it('leaves out a kill whose named killer fails as well with the file unmutated, 
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: true);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
     $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
 
     expect(PestCases::statuses($result))->toBe([MutantStatus::FailsUnmutated])
@@ -53,7 +53,7 @@ it('leaves out a kill no test is named for, confirmed again so, whose control fa
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: true, named: false);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect(PestCases::statuses($result))->toBe([MutantStatus::FailsUnmutated])
         ->and(PestCases::controls($shell))->toHaveCount(1);
@@ -63,7 +63,7 @@ it('counts a kill confirmed again whose control passes with the file unmutated, 
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: false, named: $named);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect(PestCases::statuses($result))->toBe([MutantStatus::Killed]);
 })->with([
@@ -75,7 +75,7 @@ it('runs each control with the file the mutant changes served unmutated, the nar
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: true);
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
     [$baseline, $confirmation] = PestCases::controls($shell);
     $printed = Printed::of(Contents::of((string) file_get_contents(sprintf('%s/src/Money.php', $at->root()))), Path::of('src/Money.php'));
     $unmutated = sprintf('%s/.mutation-gate/pest/originals/%s.php', $at->root(), hash('xxh3', $printed instanceof Contents ? $printed->text() : ''));
@@ -83,9 +83,9 @@ it('runs each control with the file the mutant changes served unmutated, the nar
     $judging = Invocation::of($at);
     $log = sprintf('%s/.mutation-gate/pest/alone/junit-0.xml', $at->root());
 
-    expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(PestCases::spec($at))), WholeSuite::tests(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with($served))
+    expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(PestCases::spec($at))), WholeSuite::tests(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with([...$served, ...PestCases::DRIVERS_OFF]))
         ->and($confirmation)->toEqual(
-            $judging->judging(Paths::none(), Selection::of(TestIds::of(TestId::of(PestCases::RUN_ADDS)))->filter(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with($served),
+            $judging->judging(Paths::none(), Selection::of(TestIds::of(TestId::of(PestCases::RUN_ADDS)))->filter(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with([...$served, ...PestCases::DRIVERS_OFF]),
         )
         ->and(file_get_contents($unmutated))->toBe($printed instanceof Contents ? $printed->text() : null);
 });
@@ -94,7 +94,7 @@ it('runs a held unit\'s narrowed kill\'s control by the group that holds it, as 
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: false);
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php')));
 
     expect(PestCases::controls($shell)[0]->arguments())->toContain('holds:src/Money.php');
@@ -104,7 +104,7 @@ it('vouches for a narrowed kill whose order is known by replaying its run unmuta
     $at = PestCases::project();
     $shell = PestCases::replayed($at, $sameOrder);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
     $replays = array_filter(
         $shell->commands(),
         static fn(Command $command): bool => ($command->environment()[GateVariable::StopAfter->value] ?? false) !== false,
@@ -126,7 +126,7 @@ it('runs each run of the tail through the client of a warm worker where runner.w
         default => PestCases::replayed($at, sameOrder: true),
     };
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), $workers)));
     $client = OwnScript::PestClient->started()[0];
     $tail = array_filter($shell->commands(), static fn(Command $command): bool => ! in_array('--mutate', $command->arguments(), strict: true));

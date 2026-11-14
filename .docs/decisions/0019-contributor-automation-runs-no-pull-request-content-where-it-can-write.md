@@ -205,7 +205,8 @@ by probes on 2026-09-30:
      | `checks`: Rector | each file and rule | `composer refactor:fix` |
      | `checks`: PHPStan | `path:line`, identifier, its line and link, or the `ARCHITECTURE.md` row | none |
      | `checks`: normalize, validate | the file | `composer normalize` |
-     | `tests and coverage` | the failing test from JUnit at `path:line`, and uncovered lines of changed files | none |
+     | `tests and coverage` | the failing test from JUnit at `path:line` | none |
+     | `coverage` | uncovered lines of changed files | none |
      | `rules`, `the rules refuse violations` | the rule and its `ARCHITECTURE.md` row | none |
      | `hygiene / typos` | `path:line` and the typo | proposed only; a corrected word inside an identifier can be wrong |
      | `hygiene / markdown` | `path:line` and the rule | `markdownlint-cli2 --fix` |

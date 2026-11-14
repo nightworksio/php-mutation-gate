@@ -10,10 +10,9 @@ use function class_exists;
 use Closure;
 
 use function is_array;
-use function is_callable;
-use function is_object;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Pest\ByName;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use ReflectionProperty;
 
@@ -34,13 +33,13 @@ use function spl_autoload_register;
  */
 final readonly class Laravel
 {
+    /** Laravel's container, by its class's name, which the gate does not require. */
+    public const string CONTAINER = 'Illuminate\Container\Container';
     private const string STATE = 'Illuminate\Foundation\Testing\RefreshDatabaseState';
 
     private const string MIGRATED = 'migrated';
 
     private const string TRANSACTIONS = 'Illuminate\Foundation\Testing\DatabaseTransactionsManager';
-
-    private const string CONTAINER = 'Illuminate\Container\Container';
 
     /** Whether `RefreshDatabase` holds its test database migrated; not where Laravel's testing is not installed. */
     public static function migrated(): bool
@@ -104,11 +103,11 @@ final readonly class Laravel
     /** @return list<mixed> each connection the current application's database manager holds open */
     private static function open(): array
     {
-        $application = self::called(self::CONTAINER, 'getInstance');
-        $manager = self::called($application, 'bound', 'db') === true
-            ? self::called($application, 'make', 'db')
+        $application = ByName::called(self::CONTAINER, 'getInstance');
+        $manager = ByName::called($application, 'bound', 'db') === true
+            ? ByName::called($application, 'make', 'db')
             : null;
-        $open = self::called($manager, 'getConnections');
+        $open = ByName::called($manager, 'getConnections');
 
         return is_array($open) ? array_values($open) : [];
     }
@@ -119,10 +118,10 @@ final readonly class Laravel
      */
     private static function reached(mixed $open): Connection|NotGiven
     {
-        $config = self::called($open, 'getConfig');
+        $config = ByName::called($open, 'getConfig');
         $connection = LaravelConfig::connection(is_array($config) ? $config : []);
 
-        return self::called($open, 'transactionLevel') === 0 ? $connection : NotGiven::value();
+        return ByName::called($open, 'transactionLevel') === 0 ? $connection : NotGiven::value();
     }
 
     /**
@@ -133,13 +132,5 @@ final readonly class Laravel
     private static function loaded(string $name): string|NotGiven
     {
         return class_exists($name) ? $name : NotGiven::value();
-    }
-
-    /** What a method of an object, or a static one of a class, answers; nothing where there is no such method. */
-    private static function called(mixed $on, string $method, mixed ...$arguments): mixed
-    {
-        $callable = [$on, $method];
-
-        return (is_object($on) || is_string($on)) && is_callable($callable) ? $callable(...$arguments) : null;
     }
 }

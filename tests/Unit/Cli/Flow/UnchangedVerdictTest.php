@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -42,7 +43,7 @@ afterEach(function (): void {
 
 $unchanged = static fn(): Unchanged => Unchanged::since(
     Passed::of(Revision::ref(UNCHANGED_VERDICT_BASE), 'mutation / verdict', 2)
-        ->passedAt(Instant::at(new DateTimeImmutable('2026-09-20T10:00:00Z'))),
+        ->passedAt(Instant::at(new DateTimeImmutable('2026-09-20T10:00:00Z')))->judgedBy(GateRelease::of(Flows::setup()->gate)),
     Instant::at(new DateTimeImmutable('2026-09-20T10:00:00Z')),
 );
 
@@ -78,7 +79,7 @@ it('passes, saying why, reports it, and records the commit the plan was made on 
         ->and($judged instanceof Judged ? count($judged->verdict->trees()) : $judged)->toBe(0)
         ->and($judged instanceof Judged ? $judged->said : $judged)->toBe(['Wrote memory:refs/heads/main.', 'Wrote memory.'])
         ->and($reporter->reported)->toHaveCount(1)
-        ->and($runs->passed())->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 2)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))))
+        ->and($runs->passed())->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 2)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate)))
         ->and($runs->lastRun())->toBeInstanceOf(CannotTell::class);
 });
 
