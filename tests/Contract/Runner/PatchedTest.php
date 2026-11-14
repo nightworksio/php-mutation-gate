@@ -40,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
@@ -462,6 +463,38 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     'two parts' => [2],
     'three parts' => [3],
 ])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
+it('reports the same records for every mutant Pest makes of the library\'s files from split streams that record each test\'s lines for a quick round\'s map as from each mutant\'s own run, and leaves the lines recorded', function (): void {
+    Library::patched();
+    $files = Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php'));
+    $streams = StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: false);
+    $library = Library::pest(Patching::on(Library::canary())->splitting($streams));
+    $handed = Path::of('.mutation-gate/recorded-map');
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handed));
+    file_put_contents(
+        Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in($handed)->value())),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::of(), Unplaced::map()),
+    );
+    $into = Scratch::directory();
+    $recorded = $library->mutate(
+        'every mutant, split, its streams recording',
+        MutationRequest::of($files, WholeSuite::tests())
+            ->narrowedTo($files, Narrowing::none()->recordingInto(LineRecording::forTheMap($into)))
+            ->across(Pool::of(ProcessCount::of(2), Workers::Fork))
+            ->reusingCoverage(Handed::maps($handed, $handed)),
+    );
+    $own = Library::pest(Patching::on(Library::canary()))->mutate(
+        'every mutant, its own run',
+        MutationRequest::of($files, WholeSuite::tests())->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
+    );
+
+    expect($recorded instanceof MutationResult ? Library::records($recorded->mutants()) : [$recorded])
+        ->toEqualCanonicalizing($own instanceof MutationResult ? Library::records($own->mutants()) : [$own])
+        ->and(glob(sprintf('%s/recorded-*.jsonl', $into)))->not->toBe([]);
+})->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);
