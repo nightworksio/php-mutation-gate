@@ -234,3 +234,17 @@ it('reads a value in a test file whose tests run no line, where the suite runs i
     expect($choose($cases))->toEqual(Choice::of(selectorTests('MarkedSpec'), Paths::none(), ambiguous: true))
         ->and($choose(TestCases::unknown()))->toEqual(Choice::of(Paths::none(), Paths::none(), ambiguous: true));
 });
+
+it('scans a later chunk\'s mutated files into the codebase it read, and is the same scan where it holds them all', function (): void {
+    $at = MatchHeads::project();
+    $results = MatchHeads::run($at);
+    Scratch::write($at->root(), 'src/Tune.php', "<?php\n\nnamespace App;\n\nfinal class Tune\n{\n    public const int KEY = 1;\n}\n");
+    $tune = Path::of('src/Tune.php');
+    $selector = Selector::over($at, selectorMap($results), Paths::none(), TestCases::unknown());
+    $also = $selector->alsoOver(Paths::of($tune, Path::of('src/Band.php')));
+
+    expect($also)->not->toBe($selector)
+        ->and($also->original($tune))->toBeInstanceOf(Original::class)
+        ->and($also->alsoOver(Paths::of($tune)))->toBe($also)
+        ->and($selector->alsoOver(Paths::of(Path::of('src/Band.php'))))->toBe($selector);
+});
