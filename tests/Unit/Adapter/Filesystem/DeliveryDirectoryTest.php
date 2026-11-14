@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\CachePack;
+use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -292,4 +294,13 @@ it('reads from the store as its codec reads, and writes beside the delivery gzip
         ->and(LedgerDirectory::at($keptRoot)->read(Scope::branch('main')))->toBeInstanceOf(Unreadable::class)
         ->and(str_starts_with((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/ledger.json.gz', $project)), "\x1f\x8b"))->toBeTrue()
         ->and($unencoded->read(Scope::branch('main')))->toEqual(Ledger::empty());
+});
+
+it('leaves the entries of a verdict\'s proofs and their request beside the delivery for deliver to push', function (): void {
+    $project = Scratch::directory();
+    $ledgers = DeliveredLedger::over(new ProofStoreFake(), DeliveryDirectory::of(Directory::at($project), Stage::Verdict));
+
+    expect($ledgers->cache(Contents::of('the request'), Contents::of('the entries')))->toBeInstanceOf(Written::class)
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/%s', $project, CachePack::DELIVERED)))->toBe('the entries')
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/%s', $project, CacheRequest::DELIVERED)))->toBe('the request');
 });

@@ -96,3 +96,10 @@ it('pushes nothing from a request that names no registry, base or class it knows
     'no class' => ['{"registry": "ghcr.io/owner/proofs", "base": "b"}', 'the file.class is missing'],
     'a class it does not know' => ['{"registry": "ghcr.io/owner/proofs", "base": "b", "class": "everyone"}', 'class is not trusted or branch'],
 ]);
+
+it('pulls nothing where the workflow names no registry, or one that is no plain repository', function (string $registry): void {
+    $pulled = CacheDelivery::pulled(Outbreak::none(Scratch::directory()), Variables::of([CacheDelivery::REGISTRY => $registry]));
+
+    expect($pulled)->toBeInstanceOf(NotWritten::class)
+        ->and($pulled instanceof NotWritten ? $pulled->why() : '')->toContain('MUTATION_GATE_REGISTRY');
+})->with(['', 'https://evil.example/steal']);

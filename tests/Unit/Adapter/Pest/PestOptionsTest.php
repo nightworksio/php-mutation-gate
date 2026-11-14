@@ -184,3 +184,8 @@ it('judges a preloaded mutant again in a fresh run unless the options say unjudg
         ->toBe([Preloaded::Fresh, Preloaded::Unjudged, Preloaded::Fresh])
         ->and($preloaded('{"preloaded": "skip"}'))->toEqual(Invalid::because(Problem::mismatch('preloaded', 'one of its values', '"skip"')));
 });
+
+it('refuses a step of Pest\'s turned on or off as something else', function (): void {
+    expect(PestOptions::read(Configs::options('{"trials": "yes"}')))
+        ->toEqual(Invalid::because(Problem::at('trials', 'expected true or false, got "yes"')));
+});
