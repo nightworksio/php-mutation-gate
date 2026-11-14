@@ -44,12 +44,12 @@ it('turns every step on by default, and a step off where its key says, a later l
         $off = Configs::valid([$section => [$key => false]]);
         $on = Configs::valid([$section => [$key => true]]);
 
-        expect(Layer::standard()->toggles()->on($toggle))->toBeTrue($toggle->value)
-            ->and($off->toggles()->on($toggle))->toBeFalse($toggle->value)
-            ->and($on->toggles()->on($toggle))->toBeTrue($toggle->value)
-            ->and($off->over($on)->toggles()->on($toggle))->toBeTrue($toggle->value)
-            ->and($on->over($off)->toggles()->on($toggle))->toBeFalse($toggle->value)
-            ->and($off->over(Layer::of())->toggles()->on($toggle))->toBeFalse($toggle->value)
+        expect(Layer::standard()->running()->toggles()->on($toggle))->toBeTrue($toggle->value)
+            ->and($off->running()->toggles()->on($toggle))->toBeFalse($toggle->value)
+            ->and($on->running()->toggles()->on($toggle))->toBeTrue($toggle->value)
+            ->and($off->over($on)->running()->toggles()->on($toggle))->toBeTrue($toggle->value)
+            ->and($on->over($off)->running()->toggles()->on($toggle))->toBeFalse($toggle->value)
+            ->and($off->over(Layer::of())->running()->toggles()->on($toggle))->toBeFalse($toggle->value)
             ->and(Configs::problems(Configs::layer([$section => [$key => 'no']]))[0] ?? '')->toStartWith(sprintf('%s: ', $toggle->value));
     }
 });

@@ -159,7 +159,7 @@ final readonly class Controlling
             $run,
             $controls,
             $this->settings->triage()->flaky()->killControls(),
-            $this->settings->effective()->pest()->longFilter(),
+            $this->settings->effective()->running()->pest()->longFilter(),
         );
         $memory = MemoryControls::of($outOfMemory, $unfiltered, $this->map, $this->held, $run, $bounds);
         $unnamed = UnnamedKillControls::of($killed, $evidence, $this->map, $this->held, $run, $controls);

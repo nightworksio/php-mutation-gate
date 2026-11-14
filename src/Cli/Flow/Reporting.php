@@ -254,7 +254,7 @@ final readonly class Reporting
                 ? $choice->options()->overPath(Key::of('path'), $path)
                 : $choice->options();
             $use = $choice->use()->value();
-            $shaped = CommentKeys::forReporter($use, $options, $settings->effective()->reports()->comment());
+            $shaped = CommentKeys::forReporter($use, $options, $settings->effective()->output()->reports()->comment());
             $reporters[] = $this->chosen->reporter($this->laid(Choice::of($use, $shaped), $settings), $index);
         }
 
@@ -270,7 +270,7 @@ final readonly class Reporting
             $settings,
         );
 
-        $outputs = $settings->effective()->reports()->outputs();
+        $outputs = $settings->effective()->output()->reports()->outputs();
         $chosen = $this->chosen;
 
         return [
@@ -303,7 +303,7 @@ final readonly class Reporting
                         CommentKeys::forReporter(
                             BuiltinReporter::GitHubComment->value,
                             $none,
-                            $settings->effective()->reports()->comment(),
+                            $settings->effective()->output()->reports()->comment(),
                         ),
                     ),
                 ),

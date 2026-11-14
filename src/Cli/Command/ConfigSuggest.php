@@ -67,7 +67,7 @@ final readonly class ConfigSuggest
             ): int {
                 $composed = $composition->compose($input);
                 $suggests = $composed instanceof Composed
-                    && $composed->settings->effective()->reports()->suggest()->enabled();
+                    && $composed->settings->effective()->output()->reports()->suggest()->enabled();
 
                 return match (true) {
                     ! $composed instanceof Composed => Failed::because($output, $composed),

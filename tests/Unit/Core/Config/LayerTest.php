@@ -127,6 +127,35 @@ it('writes nothing and calls nothing where it sets nothing', function (): void {
 });
 
 it('holds only the parts it is given, each over the none of its kind', function (): void {
-    expect(Configs::decoded(Layer::of(Configs::valid(['runner' => 'pest'])->setup(), Configs::valid(['budget' => '5m'])->triage())))
+    expect(Configs::decoded(Layer::of(Configs::valid(['runner' => 'pest'])->setup(), Configs::valid(['budget' => '5m'])->judging()->triage())))
         ->toBe(['runner' => 'pest', 'budget' => '5m']);
+});
+
+it('reads each part through the view it belongs to', function (): void {
+    $layer = Configs::valid([
+        'newCode' => ['floor' => 90],
+        'budget' => '5m',
+        'shards' => ['seconds' => 120],
+        'reports' => [['use' => 'sarif', 'path' => 'a']],
+    ]);
+    $read = Layer::of(
+        $layer->judging()->floors(),
+        $layer->judging()->triage(),
+        $layer->running()->shards(),
+        $layer->output()->reports(),
+    );
+
+    expect(Configs::decoded($read))->toBe(Configs::decoded($layer))
+        ->and(Configs::decoded(Layer::of(
+            $layer->judging()->reach(),
+            $layer->judging()->ignores(),
+            $layer->judging()->mutants(),
+            $layer->running()->ci(),
+            $layer->running()->local(),
+            $layer->running()->pest(),
+            $layer->running()->staticCheck(),
+            $layer->running()->toggles(),
+            $layer->output()->publishing(),
+            $layer->output()->proofs(),
+        )))->toBe([]);
 });

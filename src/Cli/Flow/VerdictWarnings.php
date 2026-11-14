@@ -64,9 +64,10 @@ final readonly class VerdictWarnings
     /** Every warning of a verdict over these trees, from the plan, what the shards warn of, and the map it read. */
     public function of(Plan $plan, TreeVerdicts $verdicts, Warnings $shards, CoverageMap|CannotJudge $map): Warnings
     {
+        $suggests = $this->settings->effective()->output()->reports()->suggest()->enabled();
         $raised = match (true) {
             $map instanceof CannotJudge => $shards->with(Warning::noting(sprintf(self::NO_MATRIX, $map->why()))),
-            $this->settings->effective()->reports()->suggest()->enabled() => $this->hotPathsIn($plan, $map, $shards),
+            $suggests => $this->hotPathsIn($plan, $map, $shards),
             default => $shards,
         };
 
@@ -133,7 +134,7 @@ final readonly class VerdictWarnings
      */
     private function looseIn(Warnings $warnings): Warnings
     {
-        $noted = $this->settings->effective()->reports()->suggest()->enabled()
+        $noted = $this->settings->effective()->output()->reports()->suggest()->enabled()
             && $this->settings->toggles()->on(Toggle::SuggestLooseValues);
 
         foreach ($noted ? LooseValues::in($this->settings) : [] as $loose) {
@@ -153,7 +154,7 @@ final readonly class VerdictWarnings
 
         return $suites->holdsNone()
             && ! $suites->everyUnit()->isAll()
-            && $this->settings->effective()->reports()->suggest()->emptyHolding();
+            && $this->settings->effective()->output()->reports()->suggest()->emptyHolding();
     }
 
     /**

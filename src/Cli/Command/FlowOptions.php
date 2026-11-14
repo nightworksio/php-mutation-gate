@@ -362,7 +362,7 @@ final readonly class FlowOptions
     /** The cut, cutting the test files across its shards where the run splits its streams by tests (ADR-0117). */
     private static function parting(Cut $cut, Settings $settings): Cut
     {
-        return $settings->effective()->pest()->splitsByTests($settings->runner()->choice())
+        return $settings->effective()->running()->pest()->splitsByTests($settings->runner()->choice())
             ? $cut->cuttingTestFiles()
             : $cut;
     }

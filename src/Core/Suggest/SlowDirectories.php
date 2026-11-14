@@ -112,11 +112,11 @@ final readonly class SlowDirectories
     {
         $files = $this->timedOut[$directory];
         $effective = $settings->effective();
-        $triage = $effective->over($effective->setup()->paths()->for($files[0])->layer())->triage();
+        $triage = $effective->over($effective->setup()->paths()->for($files[0])->layer())->judging()->triage();
         $now = $triage->limits()->limit()->seconds();
         $raised = $now * self::RAISED;
         $most = $triage->limits()->most()->seconds();
-        $bounded = $raised <= min($most, $effective->triage()->limits()->most()->seconds());
+        $bounded = $raised <= min($most, $effective->judging()->triage()->limits()->most()->seconds());
         $timeouts = Triage::of(
             limit: Seconds::of($raised),
             most: $bounded ? Absent::setting() : Seconds::of(max($raised, $most)),

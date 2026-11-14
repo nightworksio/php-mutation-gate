@@ -98,7 +98,7 @@ final readonly class DigestCommand
     {
         $asked = $input->getOption(self::TESTS);
         $configured = $composed instanceof Composed
-            ? $composed->settings->effective()->reports()->digest()->tests()
+            ? $composed->settings->effective()->output()->reports()->digest()->tests()
             : DigestRows::TESTS;
 
         return match (true) {

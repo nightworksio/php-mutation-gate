@@ -155,7 +155,7 @@ final readonly class SurvivorsCommand
         $reporters = $composed->reporting->chosenReporters($composed->settings, $plan->runOn());
 
         return ! $composed->adapters->environment->inCi()
-            || $composed->settings->effective()->reports()->comment()->writes()->writes(State::Rechecked)
+            || $composed->settings->effective()->output()->reports()->comment()->writes()->writes(State::Rechecked)
             && is_array($reporters)
             && array_any(
                 $reporters,

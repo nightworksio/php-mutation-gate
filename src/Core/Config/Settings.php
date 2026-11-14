@@ -34,13 +34,14 @@ final readonly class Settings
     public static function settled(Layer $layer, DateTimeImmutable $now): self|Invalid
     {
         $runner = $layer->setup()->runner();
-        $late = $layer->ignores()->late($now);
+        $late = $layer->judging()->ignores()->late($now);
         $settled = Layer::standard()->over(
-            $runner instanceof Choice && $layer->pest()->splits($runner)
+            $runner instanceof Choice && $layer->running()->pest()->splits($runner)
                 ? Layer::of(StaticCheck::of(before: false))->over($layer)
                 : $layer,
         );
-        $unbounded = $settled->triage()->refusal();
+        $unbounded = $settled->judging()->triage()->refusal();
+        $running = $settled->running();
         $paths = $settled->setup()->paths()->unbounded($settled);
         $problems = [
             ...$runner instanceof Choice
@@ -55,8 +56,8 @@ final readonly class Settings
             ? new self(
                 $settled,
                 ChosenRunner::of(
-                    $settled->mutants()->beneath($settled->toggles()->beneath(
-                        $settled->shards()->outbreak()->beneath($settled->pest()->beneath($runner)),
+                    $settled->judging()->mutants()->beneath($running->toggles()->beneath(
+                        $running->shards()->outbreak()->beneath($running->pest()->beneath($runner)),
                     )),
                     $layer->setup()->runnerLayer()->withhold(),
                     $settled->setup()->runnerLayer()->memory(),
@@ -83,66 +84,66 @@ final readonly class Settings
 
     public function floors(): Floors
     {
-        return $this->layer->floors();
+        return $this->layer->judging()->floors();
     }
 
     public function reach(): Reach
     {
-        return $this->layer->reach();
+        return $this->layer->judging()->reach();
     }
 
     public function shards(): Shards
     {
-        return $this->layer->shards();
+        return $this->layer->running()->shards();
     }
 
     public function ci(): Ci
     {
-        return $this->layer->ci();
+        return $this->layer->running()->ci();
     }
 
     public function proofs(): Proofs
     {
-        return $this->layer->proofs();
+        return $this->layer->output()->proofs();
     }
 
     public function triage(): Triage
     {
-        return $this->layer->triage();
+        return $this->layer->judging()->triage();
     }
 
     public function ignores(): Ignores
     {
-        return $this->layer->ignores();
+        return $this->layer->judging()->ignores();
     }
 
     /** @return Listed<Report> the reports the config asks for */
     public function reports(): Listed
     {
-        return $this->layer->reports()->reports();
+        return $this->layer->output()->reports()->reports();
     }
 
     /** `badge` and `dashboard`: the badge's colours, and which repositories an organisation's dashboard shows. */
     public function publishing(): Publishing
     {
-        return $this->layer->publishing();
+        return $this->layer->output()->publishing();
     }
 
     /** Which static analyser rejects a mutant before its tests run, and with which config (ADR-0020). */
     public function staticCheck(): StaticCheck
     {
-        return $this->layer->staticCheck();
+        return $this->layer->running()->staticCheck();
     }
 
     /** Which steps of a run are on or off (ADR-0112, ADR-0142). */
     public function toggles(): Toggles
     {
-        return $this->layer->toggles();
+        return $this->layer->running()->toggles();
     }
 
     public function local(): Local
     {
-        return $this->layer->local();
+        return $this->layer->running()->local();
     }
 
     /** The effective config: every setting with its value, which reads back into these settings. */

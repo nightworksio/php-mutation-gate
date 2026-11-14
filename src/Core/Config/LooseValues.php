@@ -86,7 +86,7 @@ final readonly class LooseValues implements Countable, IteratorAggregate
         $merged = $ci->mergedTrust();
         $reach = $settings->reach();
         $outbreak = $settings->shards()->outbreak();
-        $pest = $settings->effective()->pest();
+        $pest = $settings->effective()->running()->pest();
         $split = $pest->splitStream();
 
         return new self([

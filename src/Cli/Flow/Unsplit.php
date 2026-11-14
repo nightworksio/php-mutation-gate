@@ -25,7 +25,7 @@ final readonly class Unsplit
 
     public static function warnings(Settings $settings, ShardId $id, bool $forks = true): Warnings
     {
-        $splits = $settings->effective()->pest()->splits($settings->runner()->choice());
+        $splits = $settings->effective()->running()->pest()->splits($settings->runner()->choice());
 
         return $splits && (!$forks || !Forking::isAvailable())
             ? Warnings::of(Warning::that(sprintf(self::SAID, $id->number())))

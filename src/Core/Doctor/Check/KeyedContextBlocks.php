@@ -42,7 +42,7 @@ final readonly class KeyedContextBlocks
         $written = $observed->config()->written();
         $keys = $written instanceof Layer
             && $settings instanceof Settings
-            && $settings->effective()->reports()->suggest()->enabled()
+            && $settings->effective()->output()->reports()->suggest()->enabled()
             ? KeyedContexts::of($written)->keys()
             : [];
 

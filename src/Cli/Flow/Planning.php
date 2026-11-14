@@ -160,7 +160,7 @@ final readonly class Planning
         Mode $mode,
         CoverageRun|CoverageRead $coverage,
     ): CoverageMeasured|NotGiven {
-        $pest = $this->settings->effective()->pest();
+        $pest = $this->settings->effective()->running()->pest();
 
         $splits = $pest->splitsByTests($this->settings->runner()->choice());
 
@@ -357,7 +357,7 @@ final readonly class Planning
             $ledgers->defaultBranch(),
             $kind,
             $now,
-            $ledgers->readsOwnScope() && $this->settings->effective()->reports()->suggest()->enabled(),
+            $ledgers->readsOwnScope() && $this->settings->effective()->output()->reports()->suggest()->enabled(),
         );
         $standing = new NothingReached($this->adapters, $this->settings, $this->setup)->briefing(
             $shards,

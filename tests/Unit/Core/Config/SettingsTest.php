@@ -105,8 +105,8 @@ describe('Settings', function (): void {
             ->and([...$settings->reports()])->toBe([])
             ->and([...$settings->publishing()->colors()])
             ->toBe(['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60])
-            ->and($settings->effective()->pest()->patch())->toBeFalse()
-            ->and($settings->effective()->pest()->canary())->toEqual(Group::named('mutation-canary'))
+            ->and($settings->effective()->running()->pest()->patch())->toBeFalse()
+            ->and($settings->effective()->running()->pest()->canary())->toEqual(Group::named('mutation-canary'))
             ->and($settings->staticCheck()->tool())->toEqual(Choice::of('auto', Configs::options('{}')))
             ->and($settings->staticCheck()->config())->toEqual(Absent::setting())
             ->and($settings->staticCheck()->seconds())->toEqual(Seconds::of(60))
@@ -174,8 +174,8 @@ describe('Settings', function (): void {
             ->and($settings->ignores()->maxDays())->toBe(90)
             ->and($settings->ignores()->native())->toBe(NativeMarkers::Allow)
             ->and([...$settings->publishing()->colors()])->toBe(['green' => 95])
-            ->and($settings->effective()->pest()->patch())->toBeTrue()
-            ->and($settings->effective()->pest()->canary())->toEqual(Group::named('canary'))
+            ->and($settings->effective()->running()->pest()->patch())->toBeTrue()
+            ->and($settings->effective()->running()->pest()->canary())->toEqual(Group::named('canary'))
             ->and($settings->staticCheck()->tool())->toEqual(Choice::of('phpstan', Configs::options('{}')))
             ->and($settings->staticCheck()->config())->toEqual(Path::of('phpstan.dist.neon'))
             ->and($settings->staticCheck()->seconds())->toEqual(Seconds::of(45))
@@ -409,7 +409,7 @@ describe('Settings', function (): void {
 
         expect(array_map(
             static fn(array $config): array => [
-                Configs::settings($config)->effective()->pest()->splits(Configs::settings($config)->runner()->choice()),
+                Configs::settings($config)->effective()->running()->pest()->splits(Configs::settings($config)->runner()->choice()),
                 Configs::settings($config)->staticCheck()->before(),
             ],
             [$split, $checked, $unsplit, $infection],

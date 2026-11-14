@@ -187,7 +187,8 @@ final readonly class Judging
             return $recorded;
         }
 
-        $verdict = $verdict->withAccount($this->settings->effective()->reports()->outputs()->said($verdict->account()));
+        $reports = $this->settings->effective()->output()->reports();
+        $verdict = $verdict->withAccount($reports->outputs()->said($verdict->account()));
         $report = EncodedReport::of($verdict);
         $reported = new Judged(
             $verdict,
@@ -321,6 +322,7 @@ final readonly class Judging
         }
 
         $refused = $unfloored > 0 && $this->adapters->environment->inCi();
+        $suggests = $this->settings->effective()->output()->reports()->suggest()->enabled();
         $unrun = $this->missed($results->misses())
             ->and($unjudged->failures($this->setup->command))
             ->and($stop->failures());
@@ -336,7 +338,7 @@ final readonly class Judging
             $security,
             $ledgers->unread()
                 ->and($results->warnings())
-                ->and($results->savings()->warnings($this->settings->effective()->reports()->suggest()->enabled()))
+                ->and($results->savings()->warnings($suggests))
                 ->and($results->checks()->warnings())
                 ->and($since->warnings())
                 ->and($ignoring->warnings())
@@ -359,7 +361,7 @@ final readonly class Judging
             $pruning->audit(),
             $fresh,
         ))->withTallies($ledgers->defaultBranch()->learned()->tallies())->withHeatmap(
-            new Heating($this->adapters->project, $this->settings->effective()->reports()->heatmap())
+            new Heating($this->adapters->project, $this->settings->effective()->output()->reports()->heatmap())
                 ->of($verdicts, $judged, $judge, $ledgers->defaultBranch()->proofs()),
         ));
 
