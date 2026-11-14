@@ -43,6 +43,8 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
           extensions: pcntl, sodium
+          # jwt's tests expect assertions to run, as a development PHP has them.
+          ini-values: zend.assertions=1
       - name: the project at its pinned commit, prepared
         run: bench/prepare.sh jwt "${JWT}"
       - name: a whole run at half the cores
@@ -95,6 +97,8 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
           extensions: pcntl, sodium
+          # jwt's tests expect assertions to run, as a development PHP has them.
+          ini-values: zend.assertions=1
       - name: the project at its pinned commit, prepared
         run: bench/prepare.sh jwt "${JWT}"
       - name: a map measured on the committed project
