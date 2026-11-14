@@ -11,11 +11,15 @@ it('writes each line a stream records as one line of JSON', function (): void {
         StreamLine::endedChild('m', 'T::one', -1),
         StreamLine::timedOut('m', 'T::ä/b'),
         StreamLine::fallback('T::one'),
+        StreamLine::state('m', 'T::one', child: true, digest: 'd1'),
+        StreamLine::booted('m'),
     ])->toBe([
         "{\"k\":\"parent\",\"t\":\"T::one\",\"p\":true,\"s\":0.5}\n",
         "{\"k\":\"child\",\"m\":\"m\",\"t\":\"T::one\",\"f\":false,\"s\":0.25,\"n\":false}\n",
         "{\"k\":\"exited\",\"m\":\"m\",\"t\":\"T::one\",\"c\":-1}\n",
         "{\"k\":\"timeout\",\"m\":\"m\",\"t\":\"T::ä/b\"}\n",
         "{\"k\":\"fallback\",\"t\":\"T::one\"}\n",
+        "{\"k\":\"state\",\"m\":\"m\",\"t\":\"T::one\",\"c\":true,\"d\":\"d1\"}\n",
+        "{\"k\":\"booted\",\"m\":\"m\"}\n",
     ]);
 });

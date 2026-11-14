@@ -46,3 +46,14 @@ it('reads each project line every test executed in a stream\'s parent, and the t
 it('reads no map where the streams recorded nothing', function (): void {
     expect(RecordedMap::in(Scratch::directory(), Root::of(Scratch::directory())))->toBeInstanceOf(NotGiven::class);
 });
+
+it('removes every file of lines the streams recorded, and nothing else of the directory', function (): void {
+    $directory = Scratch::directory();
+    Scratch::write($directory, 'recorded-1-0.jsonl', '{}');
+    Scratch::write($directory, 'recorded-2-1.jsonl', '{}');
+    Scratch::write($directory, 'kept.json', '{}');
+
+    RecordedMap::cleared($directory);
+
+    expect(glob(sprintf('%s/*', $directory)))->toBe([sprintf('%s/kept.json', $directory)]);
+});

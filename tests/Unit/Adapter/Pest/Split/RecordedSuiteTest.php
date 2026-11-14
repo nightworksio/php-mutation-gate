@@ -80,3 +80,23 @@ it('stands in for nothing where a stream stopped short, a test failed, raised an
 it('reads no suite where the streams recorded nothing', function (): void {
     expect(RecordedSuite::in(Scratch::directory(), Root::of(Scratch::directory())))->toBeInstanceOf(NotGiven::class);
 });
+
+it('reads past a line that says not what it is, a covered line short of a field, and a finished line\'s lines that are no map or no numbers', function () use ($recorded, $ended): void {
+    $project = Scratch::directory();
+    $money = sprintf('%s/src/Money.php', $project);
+    $directory = $recorded(
+        $project,
+        implode("\n", [
+            '{"t":"MoneyTest::unsaid"}',
+            '{"k":"covered","t":"MoneyTest::short","p":true}',
+            '{"k":"finished","l":3}',
+        ]),
+        sprintf('%s%s', StreamLine::covered('MoneyTest::adds', [], $ended(0.5)), sprintf('{"k":"finished","l":{"%s":"none"}}', $money)),
+    );
+    $read = RecordedSuite::in($directory, Root::of($project));
+    $suite = $read instanceof StreamedSuite ? $read : StreamedSuite::none();
+
+    expect($suite->secondsByTest())->toBe(['MoneyTest::adds' => 0.5])
+        ->and($suite->reported())->toBe(['src/Money.php' => []])
+        ->and($suite->ofSuites(['Unit'])->standsIn())->toBeTrue();
+});
