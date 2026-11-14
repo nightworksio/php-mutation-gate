@@ -57,13 +57,19 @@ final readonly class Fetch
         private Installation $installation,
         private Variables $environment,
         private LocatedStore $stores,
+        private string $shipped,
     ) {
     }
 
     /** `fetch` in this process, started from this installation, with the gate's own adapters alone. */
     public static function online(Installation $installation): self
     {
-        return new self($installation, Variables::of(getenv()), LocatedStore::online());
+        return new self(
+            $installation,
+            Variables::of(getenv()),
+            LocatedStore::online(),
+            Resources::at(Shipped::Outbreak),
+        );
     }
 
     /** Whether the command line asks for `fetch`. */
@@ -141,7 +147,7 @@ final readonly class Fetch
      */
     private function packsPulled(string $to): Written|NotWritten
     {
-        $binary = Bundled::in(Resources::at(Shipped::Outbreak));
+        $binary = Bundled::in($this->shipped);
 
         return is_string($binary)
             ? CacheDelivery::pulled(Outbreak::at($binary, $to), $this->environment)

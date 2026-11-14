@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
 use NightWorksIO\MutationGate\Cli\Keyed\Fetch;
 use NightWorksIO\MutationGate\Cli\Keyed\Installation;
 use NightWorksIO\MutationGate\Cli\Keyed\LocatedStore;
@@ -41,7 +42,8 @@ const FETCH_STORE = [
 ];
 
 /**
- * What fetch says, on its output and its errors, and its exit code, run in this project with this store.
+ * What fetch says, on its output and its errors, and its exit code, run in this project with this store, where
+ * no Outbreak binary ships.
  *
  * @param  list<string>          $argv
  * @param  array<string, string> $environment
@@ -53,7 +55,7 @@ function fetchRun(string $project, array $argv, array $environment, ProofStore $
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
     $installation = Installation::of($project, $vendor === '' ? Scratch::directory() : $vendor, $throughComposer);
-    $code = new Fetch($installation, Variables::of($environment), $located)->run(new ArgvInput($argv), $output, $errors);
+    $code = new Fetch($installation, Variables::of($environment), $located, Scratch::directory())->run(new ArgvInput($argv), $output, $errors);
 
     return [$output->fetch(), $errors->fetch(), $code];
 }
@@ -173,4 +175,13 @@ it('starts in this process with the gate\'s own adapters, and refuses before any
 
     expect([$output->fetch(), $errors->fetch(), $code])
         ->toBe(['', "fetch runs from the gate's own installation, never the project's, so it loads none of the project's code.\n", 2]);
+});
+
+it('pulls no proof pack where no binary ships for the machine, and says so', function (): void {
+    $project = Scratch::directory();
+    chdir($project);
+    [$output, , $code] = fetchRun($project, ['mutation-gate', 'fetch'], [...FETCH_STORE, CacheDelivery::REGISTRY => 'ghcr.io/owner/proofs'], new ProofStoreFake()->keeping(Scope::branch('main'), fetchedLedger()));
+
+    expect($code)->toBe(0)
+        ->and($output)->toEndWith("No Outbreak binary ships for this machine, so fetch pulls no proof pack.\n");
 });

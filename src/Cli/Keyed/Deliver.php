@@ -64,13 +64,14 @@ final readonly class Deliver
         private Installation $installation,
         private array $environment,
         private Sending $sending,
+        private string $shipped,
     ) {
     }
 
     /** `deliver` in this process, started from this installation, with the gate's own adapters alone. */
     public static function online(Installation $installation): self
     {
-        return new self($installation, getenv(), Sending::online());
+        return new self($installation, getenv(), Sending::online(), Resources::at(Shipped::Outbreak));
     }
 
     /** Whether the command line asks for `deliver`. */
@@ -165,7 +166,7 @@ final readonly class Deliver
      */
     private function cachePushed(string $from): Written|NotWritten|NotGiven
     {
-        $binary = Bundled::in(Resources::at(Shipped::Outbreak));
+        $binary = Bundled::in($this->shipped);
         $trusted = TrustedRun::scopeIn(Variables::of($this->environment)) instanceof Scope;
 
         return match (true) {
