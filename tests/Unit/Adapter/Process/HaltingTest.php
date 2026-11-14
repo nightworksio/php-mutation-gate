@@ -15,7 +15,7 @@ it('hears the signal sent to this process once listened to, and handles it as be
     $halting->letGo();
 
     expect(pcntl_signal_get_handler(SIGUSR2))->toBe(SIG_DFL);
-})->skip(! Halting::signals(), 'only a PHP with pcntl and posix hears signals');
+})->skip(fn(): bool => ! Halting::signals(), 'only a PHP with pcntl and posix hears signals');
 
 it('hands the signal on to the handler it had before', function (): void {
     $handed = [];
@@ -30,4 +30,4 @@ it('hands the signal on to the handler it had before', function (): void {
 
     expect($heard)->toBeTrue()
         ->and($handed)->toBe([SIGUSR2]);
-})->skip(! Halting::signals(), 'only a PHP with pcntl and posix hears signals');
+})->skip(fn(): bool => ! Halting::signals(), 'only a PHP with pcntl and posix hears signals');

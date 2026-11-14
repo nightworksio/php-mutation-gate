@@ -41,7 +41,7 @@ it('halts the batch from the first look that finds a unit\'s file saved since th
 
     expect($halt->disarmed())->toBeTrue()
         ->and(pcntl_signal_get_handler(SIGALRM))->toBe(SIG_DFL);
-})->skip(! function_exists('pcntl_alarm'), 'a batch is halted only where this PHP has an alarm');
+})->skip(fn(): bool => ! function_exists('pcntl_alarm'), 'a batch is halted only where this PHP has an alarm');
 
 it('lets a batch whose files no save moved run to its end', function (): void {
     $project = Scratch::directory();
@@ -49,7 +49,7 @@ it('lets a batch whose files no save moved run to its end', function (): void {
     alarmed();
 
     expect($halt->disarmed())->toBeFalse();
-})->skip(! function_exists('pcntl_alarm'), 'a batch is halted only where this PHP has an alarm');
+})->skip(fn(): bool => ! function_exists('pcntl_alarm'), 'a batch is halted only where this PHP has an alarm');
 
 it('takes a file it cannot read, as the batch began or at a look, as one unlike any it can', function (): void {
     $project = Scratch::directory();
@@ -58,4 +58,4 @@ it('takes a file it cannot read, as the batch began or at a look, as one unlike 
     alarmed();
 
     expect($halt->disarmed())->toBeTrue();
-})->skip(! function_exists('pcntl_alarm'), 'a batch is halted only where this PHP has an alarm');
+})->skip(fn(): bool => ! function_exists('pcntl_alarm'), 'a batch is halted only where this PHP has an alarm');
