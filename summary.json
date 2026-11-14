@@ -1,10 +1,171 @@
 {
     "format": 1,
     "commit": "5671eaa376729743e9f94369efa6863eb7d8b5cf",
-    "time": "2026-11-13T17:21:19Z",
-    "verdict": "passed",
-    "trees": [],
+    "time": "2026-11-14T11:00:00Z",
+    "verdict": "failed",
+    "score": 99.97,
+    "trees": [
+        {
+            "path": "src",
+            "floor": 100.0,
+            "score": 99.96
+        },
+        {
+            "path": "plugins/default/src",
+            "floor": 100.0,
+            "score": 100.0
+        },
+        {
+            "path": "plugins/laravel/src",
+            "floor": 100.0,
+            "score": 100.0
+        },
+        {
+            "path": "plugins/security/src",
+            "floor": 100.0,
+            "score": 100.0
+        },
+        {
+            "path": "plugins/symfony/src",
+            "floor": 100.0,
+            "score": 100.0
+        }
+    ],
     "newCode": {
         "floor": 100.0
-    }
+    },
+    "mutators": [
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\Logical\\InstanceOfToTrue",
+            "seconds": 94004.30400437208,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\Logical\\InstanceOfToFalse",
+            "seconds": 91323.82282562039,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\ForeachEmptyIterable",
+            "seconds": 62394.25709835578,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\TernaryNegated",
+            "seconds": 60126.865074908055,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\Removal\\RemoveArrayItem",
+            "seconds": 43516.4632391875,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\Number\\DecrementInteger",
+            "seconds": 26796.524520095943,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\Logical\\BooleanAndToBooleanOr",
+            "seconds": 23005.256590218938,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\Array\\UnwrapArrayValues",
+            "seconds": 20199.891046337903,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\Number\\IncrementInteger",
+            "seconds": 19651.036143668076,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\IfNegated",
+            "seconds": 16775.311293613573,
+            "survived": 0,
+            "killRate": 100.0
+        }
+    ],
+    "heatmap": [
+        {
+            "path": "src/Adapter/Process/ProcessTree.php",
+            "score": 50.0,
+            "base": 100.0,
+            "notKilled": 1
+        },
+        {
+            "path": "src/Core/Proof/EncodedLedger.php",
+            "score": 81.81,
+            "base": 100.0,
+            "notKilled": 2
+        },
+        {
+            "path": "src/Adapter/Composer/Disk.php",
+            "score": 94.59,
+            "base": 100.0,
+            "notKilled": 2
+        },
+        {
+            "path": "src/Adapter/Psalm/LanguageServer.php",
+            "score": 94.94,
+            "base": 100.0,
+            "notKilled": 5
+        },
+        {
+            "path": "src/Core/Subsumption/Subsumers.php",
+            "score": 97.77,
+            "base": 100.0,
+            "notKilled": 1
+        },
+        {
+            "path": "src/Adapter/Filesystem/MeasuredCosts.php",
+            "score": 97.82,
+            "base": 100.0,
+            "notKilled": 1
+        },
+        {
+            "path": "src/Adapter/Filesystem/LedgerDirectory.php",
+            "score": 98.57,
+            "base": 100.0,
+            "notKilled": 1
+        },
+        {
+            "path": "src/Cli/Command/WatchCommand.php",
+            "score": 98.59,
+            "base": 100.0,
+            "notKilled": 1
+        },
+        {
+            "path": "plugins/default/src/Argument.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/BitwiseAndToBitwiseOr.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        }
+    ]
 }
