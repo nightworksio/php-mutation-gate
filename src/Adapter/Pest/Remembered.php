@@ -110,6 +110,8 @@ final class Remembered
      */
     public function listing(Withheld $withheld, Suites $suites, Closure $listing): TestListing|CannotJudge
     {
+        $this->forget();
+
         return $this->listed->listing($this->listingKey($withheld), $suites, $listing);
     }
 
@@ -121,6 +123,8 @@ final class Remembered
      */
     public function listings(Withheld $withheld, Closure $starting, Suites ...$suites): PendingListings
     {
+        $this->forget();
+
         return $this->listed->listings($this->listingKey($withheld), $starting, ...$suites);
     }
 
@@ -310,15 +314,16 @@ final class Remembered
         $this->baselines = [];
         $this->replays = [];
         $this->selectors = [];
+        $this->listed->forgetListed();
     }
 
-    /** The digest of the test files `watch` set for this round; nothing outside it. */
     /** What a listing or a naming is kept by: what was withheld and the digest of the test files. */
     private function listingKey(Withheld $withheld): string
     {
         return sprintf(self::KEYED, $withheld->pattern(), $this->testsKey());
     }
 
+    /** The digest of the test files `watch` set for this round; nothing outside it. */
     private function testsKey(): string
     {
         $key = getenv(ChildVariable::TestsKey->value);

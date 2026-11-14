@@ -226,3 +226,27 @@ it('answers each ask afresh where pest.remember is off, keeping nothing from an 
         ->and($mapAgain)->toEqual(CannotJudge::because('read again'))
         ->and($written)->toBe(2);
 });
+
+it('lists each set of suites afresh where pest.remember is off, taking a listing started and not yet taken once', function (): void {
+    $remembered = new Remembered(remembers: false);
+    $starts = new ListingStarts();
+    $asked = 0;
+    $listing = static function () use (&$asked): TestListing {
+        $asked++;
+
+        return TestListing::none();
+    };
+
+    $remembered->listing(Withheld::standard(), Suites::listed('Unit'), $listing);
+    $remembered->listing(Withheld::standard(), Suites::listed('Unit'), $listing);
+    $pending = $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Process'));
+    $taken = $remembered->listing(Withheld::standard(), Suites::listed('Process'), $listing);
+    $started = $pending->taken();
+    $again = $remembered->listings(Withheld::standard(), $starts->starting(), Suites::listed('Process'))->taken();
+
+    expect($asked)->toBe(2)
+        ->and($started)->toBe([$taken])
+        ->and($again)->toEqual([TestListing::of(TestIds::of(TestId::of(Suites::listed('Process')->joined())))])
+        ->and($again[0])->not->toBe($taken)
+        ->and($starts->asked)->toBe([[Suites::listed('Process')->joined()], [Suites::listed('Process')->joined()]]);
+});

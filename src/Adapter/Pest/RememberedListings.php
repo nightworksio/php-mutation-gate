@@ -74,6 +74,15 @@ final class RememberedListings
     }
 
     /**
+     * Every listing taken forgotten, so each set of suites asked after lists
+     * anew; those started and not yet taken are taken by the next ask.
+     */
+    public function forgetListed(): void
+    {
+        $this->listings = [];
+    }
+
+    /**
      * Listings started over these sets of suites, by the number of their start.
      *
      * @param Closure(Suites ...): PendingListings $starting
