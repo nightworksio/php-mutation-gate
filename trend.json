@@ -2902,6 +2902,27 @@
             "verdict": "passed",
             "trees": [],
             "floors": []
+        },
+        {
+            "commit": "5671eaa376729743e9f94369efa6863eb7d8b5cf",
+            "time": "2026-11-14T11:00:00Z",
+            "verdict": "failed",
+            "score": 99.97,
+            "trees": {
+                "src": 99.96,
+                "plugins/default/src": 100.0,
+                "plugins/laravel/src": 100.0,
+                "plugins/security/src": 100.0,
+                "plugins/symfony/src": 100.0
+            },
+            "floors": {
+                "src": 100.0,
+                "plugins/default/src": 100.0,
+                "plugins/laravel/src": 100.0,
+                "plugins/security/src": 100.0,
+                "plugins/symfony/src": 100.0
+            },
+            "runnerSeconds": 39996.138484478
         }
     ]
 }
