@@ -25,7 +25,7 @@ EXPLAIN = Path(".github/bot/explain.json")
 CONFIG = Path(".github/bot/config.json")
 SPEC_MAP = Path(".github/spec-map.json")
 DECISIONS = Path(".docs/decisions")
-TROUBLESHOOTING = Path(".docs/guide/troubleshooting.md")
+TROUBLESHOOTING = Path(".docs/using/troubleshooting.md")
 CLIFF = Path("cliff.toml")
 
 # The tools a table of .github/bot/rules explains.

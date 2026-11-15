@@ -49,7 +49,7 @@ class Judge(unittest.TestCase):
         self.assertTrue(found[0]["detail"].startswith("#538: `phpunit.xml`"))
 
     def test_finds_documentation_alone_that_reached_a_unit_and_passes_one_that_reached_none(self):
-        found = replay.judge(530, ["README.md", ".docs/guide/a.md"], plan(), {"src/B.php", "src/A.php"})
+        found = replay.judge(530, ["README.md", ".docs/using/a.md"], plan(), {"src/B.php", "src/A.php"})
         self.assertEqual(found, [{"path": "", "line": 0, "rule": "documentation-reaches",
                                   "detail": "#530 changed only documentation and reached 2 units, src/A.php, src/B.php first."}])
         self.assertEqual(replay.judge(530, ["README.md"], plan(), set()), [])

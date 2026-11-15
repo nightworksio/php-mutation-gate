@@ -41,7 +41,7 @@ afterEach(function (): void {
 
 /** @return array<string, string> the example of each format, by its format */
 $examples = static function (): array {
-    $reference = (string) file_get_contents(Tree::at('.docs/reference/configuration.md'));
+    $reference = (string) file_get_contents(Tree::at('.docs/using/configuration.md'));
     $section = (string) strstr($reference, '## Every key', before_needle: true);
     preg_match_all('/^```(php|json|yaml|neon)\n(.*?)^```$/ms', $section, $blocks, PREG_SET_ORDER);
     $examples = [];

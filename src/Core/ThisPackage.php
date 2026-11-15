@@ -26,7 +26,7 @@ final readonly class ThisPackage
     /** Its container image, which each release tags with its version (ADR-0022). */
     public const string IMAGE = 'ghcr.io/nightworksio/mutation-gate';
 
-    /** Its documentation site, whose root holds `main`'s pages while no version is tagged (ADR-0038). */
+    /** Its documentation site: a copy for each minor, and `main`'s at `/next` (ADR-0038). */
     public const string SITE = 'https://nightworksio.github.io/php-mutation-gate';
 
     /** Where each of its JSON Schemas is published, by its name, at the tag of its release line. */

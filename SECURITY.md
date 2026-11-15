@@ -24,8 +24,8 @@ security fixes for six months.
 |---------|----------------|
 | `main` (`dev-main`) | yes |
 
-No version is tagged. A fix lands on `main`, and a project requiring
-`dev-main` takes it with `composer update nightworksio/mutation-gate`.
+A fix lands on `main`, and a project requiring `dev-main` takes it with
+`composer update nightworksio/mutation-gate`.
 
 ## Verifying a release
 

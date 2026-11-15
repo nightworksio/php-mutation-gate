@@ -30,16 +30,20 @@ class Outputs(unittest.TestCase):
             self.assertEqual(scope.outputs(event, paths), EVERYTHING)
 
     def test_runs_only_the_site_for_documentation(self):
-        documentation = [".docs/guide/concepts/holding-tests.md", "README.md", "LICENSE", ".github/workflows/pr.yml"]
+        documentation = [".docs/features/holding-tests.md", "README.md", "LICENSE", ".github/workflows/pr.yml"]
         self.assertEqual(pull(*documentation), {**NOTHING, "jobs": '["site"]'})
         self.assertEqual(pull(".site/astro.config.mjs", ".site/package-lock.json"), {**NOTHING, "jobs": '["site"]'})
-        self.assertEqual(pull("CONTRIBUTING.md"), NOTHING)
+        self.assertEqual(pull("CONTRIBUTING.md", "SECURITY.md"), {**NOTHING, "jobs": '["site"]'})
+        self.assertEqual(pull("CODE_OF_CONDUCT.md"), NOTHING)
 
     def test_builds_the_site_where_the_docs_the_site_its_workflows_or_a_printed_link_changed(self):
         built = (
-            ".docs/guide/README.md",
+            ".docs/using/README.md",
             ".site/src/theme.css",
             "README.md",
+            "CONTRIBUTING.md",
+            "ARCHITECTURE.md",
+            "SECURITY.md",
             "src/Core/ThisPackage.php",
             "src/Core/Troubleshooting/Slug.php",
             "src/Core/Report/Term.php",
@@ -49,13 +53,13 @@ class Outputs(unittest.TestCase):
         )
         for path in built:
             self.assertIn("site", ran(pull(path)), path)
-        for path in ("src/Core/Report/Overview.php", "CONTRIBUTING.md", ".github/workflows/pr.yml", "tests/Docs/TroubleshootingTest.php"):
+        for path in ("src/Core/Report/Overview.php", "CODE_OF_CONDUCT.md", ".github/workflows/pr.yml", "tests/Docs/TroubleshootingTest.php"):
             self.assertNotIn("site", ran(pull(path)), path)
 
     def test_runs_the_suites_alone_for_the_documents_they_read(self):
-        for path in (".docs/reference/config.md", ".docs/guide/ci/github.md", ".docs/guide/troubleshooting.md"):
+        for path in (".docs/using/config.md", ".docs/using/ci/github.md", ".docs/using/troubleshooting.md"):
             self.assertEqual([job for job in ran(pull(path)) if job != "site"], ["alone", "tests"], path)
-        self.assertEqual(ran(pull("ARCHITECTURE.md")), ["alone", "guards", "tests"])
+        self.assertEqual(ran(pull("ARCHITECTURE.md")), ["site", "alone", "guards", "tests"])
 
     def test_runs_the_suites_and_the_self_gate_for_the_action_and_the_reusable_workflow(self):
         for path in ("action.yml", ".github/workflows/mutation-gate.yml"):

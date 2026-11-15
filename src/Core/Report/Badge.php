@@ -28,18 +28,19 @@ final readonly class Badge
 
     private const string NO_HISTORY = 'no history yet';
 
-    public static function json(Score|NothingToMutate $score, BadgeColors $colors): string
+    public static function json(Score|NothingToMutate $score, BadgeColors $colors, BadgeLogo $logo): string
     {
         return JsonText::encode([
             'schemaVersion' => 1,
             'label' => 'mutation score',
             'message' => Percent::of($score),
             'color' => $colors->colorOf($score),
+            ...$logo->fields(),
         ]);
     }
 
     /** The mutation time saved in the savings window, or that there is no history yet. */
-    public static function savings(SavedLately|NoHistory $saved): string
+    public static function savings(SavedLately|NoHistory $saved, BadgeLogo $logo): string
     {
         $message = $saved instanceof SavedLately
             ? sprintf(self::SAVED_IN, $saved->saved()->text(), $saved->window()->said())
@@ -50,6 +51,7 @@ final readonly class Badge
             'label' => 'mutation time saved',
             'message' => $message,
             'color' => $saved instanceof SavedLately ? self::SAVED : BadgeColors::NONE,
+            ...$logo->fields(),
         ]);
     }
 }

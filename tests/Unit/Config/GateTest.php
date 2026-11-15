@@ -166,6 +166,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Ignores::within(30),
                 Ignores::allowingNativeMarkers(),
                 Badge::colour('green', 85),
+                Badge::logo('build/logo.svg'),
                 Badge::trendKept(200),
                 Digest::tests(3),
                 Comment::sections(Section::Verdict, Section::Survivors, Section::Trees),
@@ -278,7 +279,7 @@ it('writes every setting of the configuration reference', function (): void {
         ],
         'flaky' => ['confirmSurvivors' => false],
         'survivorsFirst' => ['max' => 5, 'budget' => '45m', 'shards' => 6],
-        'badge' => ['colors' => ['green' => 85], 'trendKept' => 200],
+        'badge' => ['colors' => ['green' => 85], 'logo' => 'build/logo.svg', 'trendKept' => 200],
         'digest' => ['tests' => 3],
         'comment' => [
             'sections' => ['verdict', 'survivors', 'trees'],

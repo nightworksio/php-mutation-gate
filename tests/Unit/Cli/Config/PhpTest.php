@@ -96,7 +96,7 @@ it('writes a config that reads back into the same effective config', function (a
             ['use' => 'Acme\\GateSlack\\SlackReporter', 'with' => ['channel' => '#ci', 'mentions' => ['@ops']]],
             ['use' => 'Acme\\Html\\Reporter', 'path' => 'build/site'],
         ],
-        'badge' => ['colors' => ['green' => 95], 'trendKept' => 200],
+        'badge' => ['colors' => ['green' => 95], 'logo' => false, 'trendKept' => 200],
         'digest' => ['tests' => 3],
         'comment' => [
             'sections' => ['verdict', 'survivors', 'trees'],

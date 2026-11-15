@@ -10,14 +10,15 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 // ADR-0038: every link the gate prints is a page, and a heading on it, that
 // the site builds from `.docs`, and so is every link the README gives into the
-// site. Here each link is mapped back to its file and heading under `.docs`;
-// with SITE_BUILD naming a built site, as `site.yml` sets it, to the built
-// page and its anchor.
+// site. Here each link is mapped back to its file and heading; with SITE_BUILD
+// naming a built site, as `site.yml` sets it, to the built page and its
+// anchor. A link into a copy of the site, `/next/` or a minor's `/X.Y/`, names
+// the page that copy builds from the same file.
 
-/** @return list<string> every link the gate prints into main's pages */
-function printedLinks(): array
+/** @return list<string> every link a gate of this version prints into its copy of the site */
+function printedLinks(string $version = 'dev-main'): array
 {
-    $guide = Guide::unreleased();
+    $guide = Guide::ofInstalled($version);
 
     return [
         ...array_map(static fn(Slug $slug): string => $guide->link($slug), Slug::cases()),
@@ -25,14 +26,14 @@ function printedLinks(): array
     ];
 }
 
-/** @return array{string, string} a printed link's page path on the site, and its anchor */
+/** @return array{string, string} a link's page path on the site, below any copy it names, and its anchor */
 function pageAndAnchor(string $link): array
 {
     expect($link)->toStartWith(sprintf('%s/', ThisPackage::SITE));
 
     [$page, $anchor] = explode('#', substr($link, strlen(ThisPackage::SITE)), 2) + ['', ''];
 
-    return [$page, $anchor];
+    return [(string) preg_replace('#^/(?:next|\d+\.\d+)(?=/)#', '', $page), $anchor];
 }
 
 /** @return list<string> the anchor each heading of a Markdown file gets, on GitHub and on the site */
@@ -46,12 +47,17 @@ function headingAnchors(string $markdown): array
     );
 }
 
-/** The file under `.docs` a page of the site is built from, by the rule the site's loader follows. */
+/** The file a page of the site is built from, by the rule the site's loader follows. */
 function sourceOf(string $page): string
 {
     $path = trim($page, '/');
+    $root = ['contributing' => 'CONTRIBUTING.md', 'contributing/architecture' => 'ARCHITECTURE.md', 'contributing/security' => 'SECURITY.md'];
 
-    return is_file(Tree::at(sprintf('.docs/%s.md', $path))) ? sprintf('.docs/%s.md', $path) : sprintf('.docs/%s/README.md', $path);
+    return match (true) {
+        array_key_exists($path, $root) => $root[$path],
+        is_file(Tree::at(sprintf('.docs/%s.md', $path))) => sprintf('.docs/%s.md', $path),
+        default => sprintf('.docs/%s/README.md', $path),
+    };
 }
 
 /** @return list<string> every link the README gives into the site */
@@ -104,13 +110,23 @@ it('prints links that each name a page with a trailing slash and a heading on it
     }))->toBe([], 'A printed link names no page with a trailing slash, or no heading on it.');
 });
 
-it('prints links to a file and a heading under .docs, by the page each file is built into', function (): void {
-    expect(refused(printedLinks(), inDocs(...)))->toBe([], 'A printed link names no file under .docs, or no heading in it.');
+it('prints links to a file and a heading, by the page each file is built into', function (): void {
+    expect(refused(printedLinks(), inDocs(...)))->toBe([], 'A printed link names no file, or no heading in it.');
 });
+
+it('prints links of a release, a pre-release included, into its minor\'s copy, and of anything else into next', function (string $version, string $copy): void {
+    expect(refused(printedLinks($version), static fn(string $link): bool => str_starts_with($link, sprintf('%s%s/', ThisPackage::SITE, $copy))))
+        ->toBe([], 'A printed link names no page of the copy of the site its version is documented in.')
+        ->and(refused(printedLinks($version), inDocs(...)))->toBe([], 'A printed link names no file, or no heading in it.');
+})->with([
+    'a release' => ['v0.1.0', '/0.1'],
+    'a pre-release' => ['0.2.0-rc.1', '/0.2'],
+    'main' => ['dev-main', '/next'],
+]);
 
 it('links the README into the site, to a file and a heading under .docs for each page', function (): void {
     expect(readmeLinks())->not->toBe([])
-        ->and(refused(readmeLinks(), inDocs(...)))->toBe([], 'A link of the README into the site names no file under .docs, or no heading in it.');
+        ->and(refused(readmeLinks(), inDocs(...)))->toBe([], 'A link of the README into the site names no file, or no heading in it.');
 });
 
 it('prints links, and links the README, to pages and anchors the site build produced', function (): void {
