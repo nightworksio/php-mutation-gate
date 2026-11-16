@@ -46,6 +46,7 @@ final readonly class InfectionSource
         '0.35.7' => '0.35.5',
         '0.35.8' => '0.35.5',
         '0.35.9' => '0.35.9',
+        '0.35.10' => '0.35.9',
     ];
 
     /** The file of include-interceptor the patch changes, relative to its source. */
