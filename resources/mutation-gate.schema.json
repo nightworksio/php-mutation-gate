@@ -4337,6 +4337,10 @@
                 "turbo": {
                     "type": "boolean",
                     "default": true
+                },
+                "warmAtPlan": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -8891,6 +8895,9 @@
                             "type": "boolean"
                         },
                         "turbo": {
+                            "type": "boolean"
+                        },
+                        "warmAtPlan": {
                             "type": "boolean"
                         }
                     },

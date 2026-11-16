@@ -337,7 +337,8 @@ final readonly class SettingsCases
                 "limit": "1m"
             },
             "after": true,
-            "turbo": true
+            "turbo": true,
+            "warmAtPlan": true
         },
         "triage": {
             "fewest": 2

@@ -60,6 +60,9 @@ enum Toggle: string
     /** PHPStan's checks load its turbo extension, where a build of it is shipped for this PHP. */
     case StaticCheckTurbo = 'staticCheck.turbo';
 
+    /** The analyser warms up once, as the plan is made, for every shard to start from (ADR-0164). */
+    case StaticCheckWarmAtPlan = 'staticCheck.warmAtPlan';
+
     /** The section it is written in. */
     public function section(): string
     {
@@ -91,7 +94,8 @@ enum Toggle: string
             self::StaticCheckAfter,
             self::TimeoutsParts,
             self::SuggestLooseValues,
-            self::StaticCheckTurbo => false,
+            self::StaticCheckTurbo,
+            self::StaticCheckWarmAtPlan => false,
         };
     }
 
@@ -108,6 +112,7 @@ enum Toggle: string
     {
         return match ($this) {
             self::StaticCheckTurbo,
+            self::StaticCheckWarmAtPlan,
             self::PestShardScan,
             self::PestReadyAtPlan,
             self::PestLongestFirst,
@@ -154,7 +159,8 @@ enum Toggle: string
             self::PestOverlapSteps,
             self::PestPcovOff,
             self::PestXdebugOff,
-            self::StaticCheckTurbo => false,
+            self::StaticCheckTurbo,
+            self::StaticCheckWarmAtPlan => false,
         };
     }
 
@@ -171,6 +177,7 @@ enum Toggle: string
             self::TimeoutsParts => 'Timeouts::inParts()',
             self::SuggestLooseValues => 'Suggest::looseValuesNoted()',
             self::StaticCheckTurbo => 'StaticCheck::turbo()',
+            self::StaticCheckWarmAtPlan => 'StaticCheck::warmingAtPlan()',
             self::PestShardScan => 'PestSpeedUps::scanningOnceAShard()',
             self::PestReadyAtPlan => 'PestSpeedUps::readyingAtPlan()',
             self::PestLongestFirst => 'PestSpeedUps::longestFirst()',
@@ -194,6 +201,7 @@ enum Toggle: string
             self::TimeoutsParts => 'Timeouts::neverInParts()',
             self::SuggestLooseValues => 'Suggest::looseValuesSilent()',
             self::StaticCheckTurbo => 'StaticCheck::withoutTurbo()',
+            self::StaticCheckWarmAtPlan => 'StaticCheck::warmingInEachShard()',
             self::PestShardScan => 'PestSpeedUps::scanningEachChunk()',
             self::PestReadyAtPlan => 'PestSpeedUps::readyingInEachShard()',
             self::PestLongestFirst => 'PestSpeedUps::inTheirOrder()',

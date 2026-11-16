@@ -37,6 +37,7 @@ $toggles = [
     'pest.pcovOff' => [Toggle::PestPcovOff, static fn(): Setting => PestSpeedUps::pcovOn(), static fn(): Setting => PestSpeedUps::pcovOff()],
     'pest.xdebugOff' => [Toggle::PestXdebugOff, static fn(): Setting => PestSpeedUps::xdebugAsConfigured(), static fn(): Setting => PestSpeedUps::xdebugOff()],
     'staticCheck.turbo' => [Toggle::StaticCheckTurbo, static fn(): Setting => StaticCheckBuilder::withoutTurbo(), static fn(): Setting => StaticCheckBuilder::turbo()],
+    'staticCheck.warmAtPlan' => [Toggle::StaticCheckWarmAtPlan, static fn(): Setting => StaticCheckBuilder::warmingInEachShard(), static fn(): Setting => StaticCheckBuilder::warmingAtPlan()],
 ];
 
 it('turns every step on by default, and a step off where its key says, a later layer\'s over an earlier one\'s', function (): void {
@@ -86,7 +87,7 @@ it('keys none of the speed-ups that change no output, and every check that vouch
     $speedUps = array_values(array_filter(Toggle::cases(), static fn(Toggle $toggle): bool => $toggle->speedsUp()));
 
     expect(array_map(static fn(Toggle $toggle): string => $toggle->value, $speedUps))
-        ->toBe(['pest.shardScan', 'pest.readyAtPlan', 'pest.longestFirst', 'pest.remember', 'pest.overlapSteps', 'pest.pcovOff', 'pest.xdebugOff', 'staticCheck.turbo'])
+        ->toBe(['pest.shardScan', 'pest.readyAtPlan', 'pest.longestFirst', 'pest.remember', 'pest.overlapSteps', 'pest.pcovOff', 'pest.xdebugOff', 'staticCheck.turbo', 'staticCheck.warmAtPlan'])
         ->and(array_filter($speedUps, static fn(Toggle $toggle): bool => $toggle->effect()->isKeyed()))->toBe([])
         ->and(Toggle::ControlsKills->effect()->isKeyed())->toBeTrue();
 });

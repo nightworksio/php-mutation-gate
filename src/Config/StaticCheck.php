@@ -105,6 +105,21 @@ final readonly class StaticCheck implements Setting
         return new self(Json::at('staticCheck.turbo', value: false));
     }
 
+    /**
+     * `staticCheck.warmAtPlan`, `true`: the analyser warms up once, as the plan is made, for every shard to start
+     * from, as by default (ADR-0164).
+     */
+    public static function warmingAtPlan(): self
+    {
+        return new self(Json::at('staticCheck.warmAtPlan', value: true));
+    }
+
+    /** `staticCheck.warmAtPlan`, `false`: each shard's analyser warms up from nothing it was handed. */
+    public static function warmingInEachShard(): self
+    {
+        return new self(Json::at('staticCheck.warmAtPlan', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
 use function getenv;
+use function hash;
+use function implode;
 use function ini_get;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -197,12 +199,14 @@ final readonly class Handoff
         }
 
         $slices = MapSlices::of();
+        $beside = [];
 
         foreach ($plan as $shard) {
             $considered = Units::of(...$considered, ...$shard->units());
             $files = $this->filesOf($shard->units(), $map);
             $slices = $slices->with(MapSlice::of($this->fileOf($shard->id()), $files));
-            $wrote = $this->besideShard($shard, $files, $history, $held);
+            $beside[self::keyOf($files)] ??= self::besideFiles($files, $history, $held);
+            $wrote = $this->besideShard($shard, ...$beside[self::keyOf($files)]);
 
             if ($wrote instanceof CannotJudge) {
                 return $wrote;
@@ -235,13 +239,13 @@ final readonly class Handoff
             ? $this->engine->split(CoverageMapFile::in(Workspace::coverage()), $slices)
             : NotWritten::because(self::NO_ENGINE);
 
+        $encoded = [];
+
         foreach ($split instanceof Written ? [] : $slices as $slice) {
-            $wrote = $this->project->write(
-                $slice->into(),
-                Contents::of(
-                    CoverageMapFile::encode($text->onlyFor($slice->files()), Unplaced::map(), level: $this->level),
-                ),
+            $encoded[self::keyOf($slice->files())] ??= Contents::of(
+                CoverageMapFile::encode($text->onlyFor($slice->files()), Unplaced::map(), level: $this->level),
             );
+            $wrote = $this->project->write($slice->into(), $encoded[self::keyOf($slice->files())]);
 
             if ($wrote instanceof CannotJudge) {
                 return $wrote;
@@ -252,25 +256,40 @@ final readonly class Handoff
     }
 
     /**
-     * What a shard is handed beside its map: the history of its files'
-     * functions, and which mutant subsumes which in them where its run holds
-     * the subsumed back.
+     * What a shard of these files is handed beside its map: the history of
+     * their functions, and which mutant subsumes which in them where its run
+     * holds the subsumed back; written once for every shard of the same files.
+     *
+     * @return array{Contents, Contents|NotGiven}
      */
-    private function besideShard(
-        Shard $shard,
-        Paths $files,
-        KillHistory $history,
-        Subsumption|NotGiven $held,
-    ): Written|CannotJudge {
-        $wrote = $this->project->write(
-            $this->killersOf($shard->id()),
+    private static function besideFiles(Paths $files, KillHistory $history, Subsumption|NotGiven $held): array
+    {
+        return [
             Contents::of(KillHistoryFile::encode($history->onlyIn($files))),
-        );
+            $held instanceof Subsumption ? Contents::of(SubsumptionFile::encode($held->onlyIn($files))) : $held,
+        ];
+    }
 
-        return $wrote instanceof CannotJudge || ! $held instanceof Subsumption ? $wrote : $this->project->write(
-            $this->subsumptionOf($shard->id()),
-            Contents::of(SubsumptionFile::encode($held->onlyIn($files))),
-        );
+    /** What a shard is handed beside its map (see besideFiles), written for it. */
+    private function besideShard(Shard $shard, Contents $killers, Contents|NotGiven $subsumed): Written|CannotJudge
+    {
+        $wrote = $this->project->write($this->killersOf($shard->id()), $killers);
+
+        return $wrote instanceof CannotJudge || ! $subsumed instanceof Contents
+            ? $wrote
+            : $this->project->write($this->subsumptionOf($shard->id()), $subsumed);
+    }
+
+    /** What the same files are known by, wherever they are listed again. */
+    private static function keyOf(Paths $files): string
+    {
+        $listed = [];
+
+        foreach ($files as $file) {
+            $listed[] = $file->value();
+        }
+
+        return hash('xxh128', implode("\n", $listed));
     }
 
     /** The map every shard opens on, where the runner readied one; none left behind of an earlier plan otherwise. */
