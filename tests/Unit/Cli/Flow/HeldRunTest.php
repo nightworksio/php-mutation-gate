@@ -16,9 +16,23 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+
+/** Units held by these tests, one each. */
+function heldBy(Group|Filter ...$tests): Units
+{
+    $units = [];
+
+    foreach (array_values($tests) as $at => $by) {
+        $units[] = Unit::held(Path::of(sprintf('src/Held%d.php', $at)), $by);
+    }
+
+    return Units::of(...$units);
+}
 
 /**
  * What each coverage run a held run asked for loads: its files, or nothing where it loads its suites.
@@ -36,8 +50,7 @@ function heldRunFiles(CoverageAsked $runner): array
 it('runs a group within the test files the runner lists its tests in, and nothing more', function (): void {
     $map = CoverageMap::of()->covered(Path::of('src/Held.php'), Line::of(11), TestId::of('HeldTest::doubles'));
     $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::of())->runningFiles($map);
-    $ran = new HeldRun(Flows::adapters(Flows::project(), [], $runner))
-        ->coverage(Group::named('holds:src/Held.php'), Path::of('held'));
+    $ran = HeldRun::of(Flows::adapters(Flows::project(), [], $runner), heldBy(Group::named('holds:src/Held.php')))->coverage(Group::named('holds:src/Held.php'), Path::of('held'));
 
     expect($ran)->toBe($map)
         ->and(heldRunFiles($runner))->toEqual([Paths::of(Path::of('tests/HeldTest.php'))]);
@@ -45,8 +58,7 @@ it('runs a group within the test files the runner lists its tests in, and nothin
 
 it('runs the group over its suites where its run within its files fails', function (): void {
     $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::of())->runningFiles(CannotJudge::because('a helper is missing'));
-    $ran = new HeldRun(Flows::adapters(Flows::project(), [], $runner))
-        ->coverage(Group::named('holds:src/Held.php'), Path::of('held'));
+    $ran = HeldRun::of(Flows::adapters(Flows::project(), [], $runner), heldBy(Group::named('holds:src/Held.php')))->coverage(Group::named('holds:src/Held.php'), Path::of('held'));
 
     expect($ran)->toEqual(CoverageMap::of())
         ->and(heldRunFiles($runner))->toEqual([Paths::of(Path::of('tests/HeldTest.php')), NotGiven::value()]);
@@ -54,7 +66,7 @@ it('runs the group over its suites where its run within its files fails', functi
 
 it('runs over its suites a group whose tests the runner lists none of, and a filter', function (Group|Filter $tests): void {
     $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::of());
-    new HeldRun(Flows::adapters(Flows::project(), [], $runner))->coverage($tests, Path::of('held'));
+    HeldRun::of(Flows::adapters(Flows::project(), [], $runner), heldBy($tests))->coverage($tests, Path::of('held'));
 
     expect(heldRunFiles($runner))->toEqual([NotGiven::value()]);
 })->with([
@@ -66,7 +78,25 @@ it('runs over its suites a group one of whose tests the runner places in no file
     $listed = TestListing::of(TestIds::of(TestId::of('HeldTest::doubles'), TestId::of('Unnamed::test')))
         ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('HeldTest::doubles'), TestId::of('Unnamed::test')));
     $runner = new CoverageAsked(RunnerFake::ofTheFixture()->listingIn(Suites::all(), $listed), CoverageMap::of());
-    new HeldRun(Flows::adapters(Flows::project(), [], $runner))->coverage(Group::named('holds:src/Held.php'), Path::of('held'));
+    HeldRun::of(Flows::adapters(Flows::project(), [], $runner), heldBy(Group::named('holds:src/Held.php')))->coverage(Group::named('holds:src/Held.php'), Path::of('held'));
 
     expect(heldRunFiles($runner))->toEqual([NotGiven::value()]);
+});
+
+it('finds each group\'s files once for all the units, each run within its own', function (): void {
+    $listed = TestListing::of(TestIds::of(TestId::of('HeldTest::doubles'), TestId::of('MoneyTest::adds')))
+        ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('HeldTest::doubles')))
+        ->grouping(Group::named('holds:src/Money.php'), TestIds::of(TestId::of('MoneyTest::adds')));
+    $runner = new CoverageAsked(RunnerFake::ofTheFixture()->listingIn(Suites::all(), $listed), CoverageMap::of());
+    $runs = HeldRun::of(
+        Flows::adapters(Flows::project(), [], $runner),
+        heldBy(Group::named('holds:src/Held.php'), Group::named('holds:src/Money.php'), Filter::matching('Held')),
+    );
+    $runs->coverage(Group::named('holds:src/Money.php'), Path::of('held'));
+    $runs->coverage(Group::named('holds:src/Held.php'), Path::of('held'));
+
+    expect(heldRunFiles($runner))->toEqual([
+        Paths::of(Path::of('tests/MoneyTest.php')),
+        Paths::of(Path::of('tests/HeldTest.php')),
+    ]);
 });

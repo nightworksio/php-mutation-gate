@@ -72,9 +72,10 @@ final readonly class HeldCoverage
 
         $checks = HeldChecks::none();
         $listing = $this->listingFor($shard->units());
+        $runs = $this->runsOf($shard->units());
 
         foreach ($shard->units() as $unit) {
-            $group = $this->groupOf($unit, $suite, $listing, Workspace::heldCoverage($shard->id()));
+            $group = $this->groupOf($unit, $suite, $listing, $runs, Workspace::heldCoverage($shard->id()));
 
             if ($group instanceof CannotJudge) {
                 return $group;
@@ -119,9 +120,11 @@ final readonly class HeldCoverage
     private function measured(Units $units, CoverageMap $suite): MeasuredHolds
     {
         $measured = MeasuredHolds::of([]);
+        $runs = $this->runsOf($units);
 
         foreach ($units as $unit) {
-            $group = $this->groupOf($unit, $suite, NotGiven::value(), Workspace::heldCoverage(NotGiven::value()));
+            $into = Workspace::heldCoverage(NotGiven::value());
+            $group = $this->groupOf($unit, $suite, NotGiven::value(), $runs, $into);
 
             $measured = match (true) {
                 $group instanceof NotGiven => $measured,
@@ -145,6 +148,12 @@ final readonly class HeldCoverage
         }
 
         return Units::of(...array_values($held));
+    }
+
+    /** The runs of these units' holding tests alone; of none where `holds.coverage` reads the map. */
+    private function runsOf(Units $units): HeldRun
+    {
+        return HeldRun::of($this->adapters, $this->mode === HeldCoverageMode::Map ? Units::none() : $units);
     }
 
     /**
@@ -176,6 +185,7 @@ final readonly class HeldCoverage
         Unit $unit,
         CoverageMap $suite,
         TestListing|CannotJudge|NotGiven $listing,
+        HeldRun $runs,
         Path $into,
     ): CoverageMap|CannotJudge|NotGiven {
         $judgedBy = $unit->judgedBy();
@@ -186,7 +196,7 @@ final readonly class HeldCoverage
 
         $group = $judgedBy instanceof Group && $listing instanceof TestListing
             ? $suite->ranBy($listing->inGroup($judgedBy))
-            : new HeldRun($this->adapters)->coverage($judgedBy, $into);
+            : $runs->coverage($judgedBy, $into);
 
         return $group instanceof CannotJudge
             ? CannotJudge::because(sprintf(self::FAILED, $unit->path()->value(), $group->why()))
