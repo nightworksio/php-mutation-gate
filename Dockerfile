@@ -3,7 +3,7 @@
 # mutation-gate, run in /app. It runs the project's own tests, so a project
 # extends it with the extensions its suite needs. A release builds it from the
 # PHAR composer phar wrote into build/.
-FROM php:8.5-cli@sha256:635a4b998025ab269194639a5549c6fdcd9b4f88ec8cd761b092de8653d40663
+FROM php:8.5-cli@sha256:50956f094e90a716d43bea28087d447555ad80510e386ab8c9c10d8c70d781a9
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends git unzip \
