@@ -416,7 +416,7 @@ it('hands Azure\'s keys to the verdict alone, from the variable group, on a push
 });
 
 it('names every variable the bucket store reads on Azure DevOps\' page, where a fork\'s build drops them', function (): void {
-    $page = (string) file_get_contents(Schema::at('.docs/guide/ci/azure-devops.md'));
+    $page = (string) file_get_contents(Schema::at('.docs/using/ci/azure-devops.md'));
     $named = implode(', ', array_map(static fn(string $variable): string => sprintf('`%s`', $variable), [...BuiltinStore::S3->variables()]));
 
     expect($page)->toContain(sprintf('drop every variable the S3 store reads, %s,', $named));
@@ -528,7 +528,7 @@ it('names in Buildkite\'s pipeline and its page the cluster secrets the verdict 
     $steps = Decoded::at(BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(0), GateCommand::installed()->jobs())->text(), 'steps', 1, 'command');
     preg_match_all('/secret get (\S+)\)/', implode("\n", array_filter(is_array($steps) ? $steps : [], is_string(...))), $secrets);
     $pipeline = ciTemplateRendered(CiTemplate::BuildkitePipeline);
-    $page = (string) file_get_contents(Schema::at('.docs/guide/ci/buildkite.md'));
+    $page = (string) file_get_contents(Schema::at('.docs/using/ci/buildkite.md'));
 
     expect($secrets[1])->toHaveCount(2)
         ->and($pipeline)->toContain(sprintf("      - unset %s\n      - composer install", implode(' ', [...BuiltinStore::S3->variables()])));
@@ -540,7 +540,7 @@ it('names in Buildkite\'s pipeline and its page the cluster secrets the verdict 
 });
 
 it('names the deployment environment that holds the keys on Bitbucket\'s page', function (): void {
-    expect((string) file_get_contents(Schema::at('.docs/guide/ci/bitbucket.md')))
+    expect((string) file_get_contents(Schema::at('.docs/using/ci/bitbucket.md')))
         ->toContain(sprintf('deployment environment `%s`', CiTemplate::keyHolder()));
 });
 
@@ -578,6 +578,6 @@ it('runs Jenkins\' verdict in post, always, and binds the keys there alone, on t
 });
 
 it('names the credentials that hold the keys on Jenkins\' page', function (): void {
-    expect((string) file_get_contents(Schema::at('.docs/guide/ci/jenkins.md')))
+    expect((string) file_get_contents(Schema::at('.docs/using/ci/jenkins.md')))
         ->toContain(sprintf('the credentials `%s`', CiTemplate::keyHolder()));
 });

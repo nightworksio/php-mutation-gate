@@ -28,7 +28,7 @@ class Migration(unittest.TestCase):
 
 class Suggestion(unittest.TestCase):
     def test_the_type_is_what_every_changed_path_shares(self):
-        self.assertEqual(pr_text.suggested_title([".docs/guide/a.md", ".docs/decisions/b.md"]), "docs: ")
+        self.assertEqual(pr_text.suggested_title([".docs/using/a.md", ".docs/decisions/b.md"]), "docs: ")
         self.assertEqual(pr_text.suggested_title(["tests/Unit/ATest.php"]), "test: ")
         self.assertEqual(pr_text.suggested_title([".github/workflows/ci.yml"]), "ci: ")
         self.assertEqual(pr_text.suggested_title(["README.md", "tests/Unit/ATest.php"]), "<type>: ")
@@ -62,8 +62,8 @@ class Globs(unittest.TestCase):
     def test_a_glob_is_read_as_the_config_reads_one(self):
         self.assertTrue(pr_text.glob_pattern("src/Core/**").match("src/Core/Proof/Ledger.php"))
         self.assertTrue(pr_text.glob_pattern("*.md").match("README.md"))
-        self.assertFalse(pr_text.glob_pattern("*.md").match(".docs/guide/a.md"))
-        self.assertTrue(pr_text.glob_pattern("**/*.md").match(".docs/guide/a.md"))
+        self.assertFalse(pr_text.glob_pattern("*.md").match(".docs/using/a.md"))
+        self.assertTrue(pr_text.glob_pattern("**/*.md").match(".docs/using/a.md"))
 
 
 class SpecMap(unittest.TestCase):

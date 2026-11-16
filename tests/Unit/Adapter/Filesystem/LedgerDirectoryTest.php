@@ -168,6 +168,23 @@ it('lists every ledger kept under the directory, in the order of its path, with 
     ))->and(LedgerDirectory::at(sprintf('%s/nowhere', $root))->kept())->toEqual(KeptLedgers::of());
 });
 
+it('lists the ledgers in the order of their paths, whatever order the directory lists them in', function (): void {
+    $root = Scratch::directory();
+    $store = LedgerDirectory::at($root);
+    $written = array_map(static fn(int $number): string => sprintf('branch-%02d', $number * 7 % 25), range(1, 24));
+
+    foreach ($written as $branch) {
+        $store->write(Scope::branch($branch), Ledger::empty());
+    }
+
+    $listed = array_map(static fn(KeptLedger $kept): string => $kept->file()->value(), [...$store->kept()]);
+    $branches = $written;
+    sort($branches);
+    $sorted = array_map(static fn(string $branch): string => sprintf('%s/refs/heads/%s/ledger.json.gz', $root, $branch), $branches);
+
+    expect($listed)->toBe($sorted);
+});
+
 it('keeps a directory from the project inside it, and writes no ledger that leads out of it', function () use ($proved): void {
     $root = Scratch::directory();
     Scratch::write($root, 'project/composer.json', '{}');

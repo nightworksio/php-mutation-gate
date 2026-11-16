@@ -54,6 +54,15 @@ class Rows(unittest.TestCase):
         self.assertEqual(decisions_index.changes(decisions_index.adrs(files), "0001"),
                          "its lock file narrowed by [0002](0002-x.md), [0003](0003-x.md) and [0004](0004-x.md)")
 
+    def test_gives_each_adr_a_line_changes_its_own_clause(self):
+        files = {"0001-a-core.md": adr("0001", "A core"), "0002-floors.md": adr("0002", "Floors only rise"),
+                 "0003-x.md": adr("0003", "X", "**Amends:** [0001](0001-a-core.md): its ports; "
+                                               "[0002](0002-floors.md): its lowering, for sampled runs")}
+        found = decisions_index.adrs(files)
+        self.assertEqual(decisions_index.changes(found, "0001"), "its ports amended by [0003](0003-x.md)")
+        self.assertEqual(decisions_index.changes(found, "0002"),
+                         "its lowering amended by [0003](0003-x.md) for sampled runs")
+
     def test_gives_each_row_its_number_file_title_and_status_with_what_changed_it(self):
         found = decisions_index.rows(decisions_index.adrs(FILES))
         self.assertEqual([row["number"] for row in found], ["0001", "0002", "0003", "0004", "0005"])

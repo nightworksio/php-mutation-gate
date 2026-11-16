@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Publishing;
 use NightWorksIO\MutationGate\Core\Dashboard\RepositoryName;
 use NightWorksIO\MutationGate\Core\Dashboard\Topic;
@@ -23,7 +24,7 @@ use function sprintf;
 final readonly class PublishingKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(): array
+    public static function fields(PathOrigin $origin): array
     {
         $reports = Effect::JudgesOrReportsOnly;
         $topic = Field::optional(
@@ -41,26 +42,31 @@ final readonly class PublishingKeys
         );
 
         $colors = Field::optional('colors', NumberMap::of(Number::percent()), $reports);
+        $logo = Field::optional('logo', FlagOrPath::of($origin), $reports);
         $kept = Field::optional(Trend::KEPT_OPTION, Integer::atLeast(1), $reports);
 
         return [
             Field::section(
                 'badge',
                 Section::of(
-                    static function (Node $badge) use ($colors, $kept): Layer|Invalid {
+                    static function (Node $badge) use ($colors, $logo, $kept): Layer|Invalid {
                         $bands = $colors->read($badge);
+                        $shown = $logo->read($badge);
                         $newest = $kept->read($badge);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Publishing::of(
                                 colors: $bands->value(),
+                                logo: $shown->value(),
                                 trendKept: $newest->value(),
                             )),
                             $bands,
+                            $shown,
                             $newest,
                         );
                     },
                     $colors,
+                    $logo,
                     $kept,
                 ),
             ),

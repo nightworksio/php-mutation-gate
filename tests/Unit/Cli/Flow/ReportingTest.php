@@ -195,6 +195,16 @@ it('hands a listed badge badge.colors, badge.trendKept and the floor for new cod
     )]);
 });
 
+it('draws the badge with the logo the config names, or none', function (bool|string $logo, string $options): void {
+    $settings = Flows::settings(Badge::logo($logo));
+    $chosen = reportersOf($settings, Variables::of(['CI' => 'true']), reportingOnMain());
+
+    expect($chosen)->toEqual([BadgeDirectory::configured(Configs::options($options), new SystemClock())]);
+})->with([
+    'a file' => ['tests/Fixtures/Badge/logo.svg', '{"logo": "tests/Fixtures/Badge/logo.svg"}'],
+    'none' => [false, '{"logo": false}'],
+]);
+
 it('draws the badge into the directory --publish-dir names', function (): void {
     $settings = Flows::settings(Badge::colour('green', 90), Badge::colour('red', 0));
     $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))));

@@ -180,7 +180,7 @@ it('explains every rule the recorded evidence names, and every step that can fai
         }
 
         $slug = $entry['troubleshooting'];
-        $sections = (string) file_get_contents(Tree::at('.docs/guide/troubleshooting.md'));
+        $sections = (string) file_get_contents(Tree::at('.docs/using/troubleshooting.md'));
         $unexplained[] = $slug === '' || str_contains($sections, sprintf("\n## %s\n", $slug)) ? '' : sprintf('%s: no section %s', $gate, $slug);
     }
 

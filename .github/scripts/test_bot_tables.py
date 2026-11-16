@@ -59,7 +59,7 @@ class Main(unittest.TestCase):
         self.assertEqual((says, link), (self.tables.package[architecture][0], f"ARCHITECTURE.md#L{self.tables.package[architecture][1]}"))
 
         says, link = self.tables.explanation("tests", "coverage", "uncovered")
-        self.assertEqual(link, ".docs/guide/troubleshooting.md#no-coverage-driver")
+        self.assertEqual(link, ".docs/using/troubleshooting.md#no-coverage-driver")
 
         says, link = self.tables.explanation("checks", "composer-audit", "advisory")
         self.assertEqual(link, "")

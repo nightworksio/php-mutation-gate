@@ -46,6 +46,7 @@ describe('Settings', function (): void {
         'every setting' => [SettingsCases::EVERYTHING],
         'badge colours of its own' => [['runner' => 'pest', 'badge' => ['colors' => ['green' => 95]]]],
         'no badge colours' => [['runner' => 'pest', 'badge' => ['colors' => []]]],
+        'no badge logo' => [['runner' => 'pest', 'badge' => ['logo' => false]]],
         'a cost per line under one prefix' => [['runner' => 'pest', 'costs' => ['secondsPerLine' => ['src/' => 1]]]],
     ]);
 

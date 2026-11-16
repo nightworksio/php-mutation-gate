@@ -43,11 +43,11 @@ class Headings(unittest.TestCase):
 
 class Search(unittest.TestCase):
     ENTRIES = [
-        (".docs/guide/troubleshooting.md", "Troubleshooting", "troubleshooting"),
-        (".docs/guide/troubleshooting.md", "The floor rose", "the-floor-rose"),
-        (".docs/guide/troubleshooting.md", "The floor rose after a merge", "the-floor-rose-after-a-merge"),
-        (".docs/guide/setup.md", "Install", "install"),
-        (".docs/guide/setup.md", "Floor", "floor"),
+        (".docs/using/troubleshooting.md", "Troubleshooting", "troubleshooting"),
+        (".docs/using/troubleshooting.md", "The floor rose", "the-floor-rose"),
+        (".docs/using/troubleshooting.md", "The floor rose after a merge", "the-floor-rose-after-a-merge"),
+        (".docs/using/setup.md", "Install", "install"),
+        (".docs/using/setup.md", "Floor", "floor"),
     ]
 
     def test_the_headings_most_tokens_name_come_first_and_three_at_most(self):
@@ -69,11 +69,11 @@ class Index(unittest.TestCase):
     def test_it_reads_every_page_under_the_directory_by_its_path(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / ".docs"
-            (root / "guide").mkdir(parents=True)
-            (root / "guide" / "a.md").write_text("# A\n", encoding="utf-8")
+            (root / "using").mkdir(parents=True)
+            (root / "using" / "a.md").write_text("# A\n", encoding="utf-8")
             (root / "b.txt").write_text("# B\n", encoding="utf-8")
 
-            self.assertEqual(bot_docs.index(root), [(".docs/guide/a.md", "A", "a")])
+            self.assertEqual(bot_docs.index(root), [(".docs/using/a.md", "A", "a")])
 
 
 if __name__ == "__main__":

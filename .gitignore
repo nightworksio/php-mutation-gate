@@ -37,4 +37,5 @@ __pycache__/
 
 # What the docs site's build writes (ADR-0038).
 /.site/dist/
+/.site/out/
 /.site/.astro/
