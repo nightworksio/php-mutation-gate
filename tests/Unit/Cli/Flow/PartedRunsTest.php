@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -60,7 +61,7 @@ it('serves each heavy mutant as its runner gives it to a static analyser, and ju
     $rounds = [];
 
     $judged = $parted->judged(Mutants::of(partedRunsHeavy()), $heavy, static function (array $asked) use (&$rounds): array {
-        $rounds[] = array_map(static fn(Control $control): ?Contents => $control->served() instanceof Contents ? $control->served() : null, $asked);
+        $rounds[] = array_map(static fn(Control $control): Contents|NotGiven => $control->served(), $asked);
         $runs = ControlRuns::none();
 
         foreach ($asked as $control) {
@@ -70,7 +71,7 @@ it('serves each heavy mutant as its runner gives it to a static analyser, and ju
         return [$runs, Controls::none()];
     });
 
-    expect($rounds)->toEqual([[$checkable instanceof CannotJudge ? null : $checkable->mutant()], [$checkable instanceof CannotJudge ? null : $checkable->mutant()]])
+    expect($rounds)->toEqual([[$checkable instanceof CannotJudge ? NotGiven::value() : $checkable->mutant()], [$checkable instanceof CannotJudge ? NotGiven::value() : $checkable->mutant()]])
         ->and($judged instanceof Mutants ? array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$judged]) : $judged)
         ->toBe([MutantStatus::Killed])
         ->and($parted->judged(Mutants::of(partedRunsHeavy()), $heavy, static fn(): array => [CannotJudge::because('no runner'), Controls::none()]))

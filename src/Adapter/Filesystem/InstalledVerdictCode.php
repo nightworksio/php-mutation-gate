@@ -6,9 +6,10 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
 use function array_any;
 use function array_filter;
+use function array_key_exists;
+use function array_keys;
 use function array_values;
 
-use Closure;
 use Composer\InstalledVersions;
 
 use function file_get_contents;
@@ -45,29 +46,35 @@ use function str_starts_with;
  */
 final readonly class InstalledVerdictCode
 {
-    /**
-     * @param Closure(string): (string|null) $installPath where a package is installed, by its name; none where it
-     *                                                    is not
-     * @param list<string>                  $packages    every package installed
-     */
-    private function __construct(private Closure $installPath, private array $packages)
+    /** @param array<string, string> $roots where each package installed is, by its name */
+    private function __construct(private array $roots)
     {
     }
 
     /** The gate's code as Composer installed it, beside every other package it installed. */
     public static function installed(): self
     {
-        return new self(InstalledVersions::getInstallPath(...), InstalledVersions::getInstalledPackages());
+        $roots = [];
+
+        foreach (InstalledVersions::getInstalledPackages() as $package) {
+            $root = InstalledVersions::getInstallPath($package);
+
+            if (is_string($root)) {
+                $roots[$package] = $root;
+            }
+        }
+
+        return new self($roots);
     }
 
     /**
-     * The gate's code where these packages are installed, each found by its name at the path the closure gives.
+     * The gate's code where these packages are installed.
      *
-     * @param Closure(string): (string|null) $installPath
+     * @param array<string, string> $roots where each package installed is, by its name
      */
-    public static function at(Closure $installPath, string ...$packages): self
+    public static function at(array $roots): self
     {
-        return new self($installPath, array_values($packages));
+        return new self($roots);
     }
 
     /** The digest of what a run of this runner's proofs depend on. */
@@ -93,7 +100,7 @@ final readonly class InstalledVerdictCode
     private function plugins(): array
     {
         return array_values(array_filter(
-            $this->packages,
+            array_keys($this->roots),
             static fn(string $name): bool => str_starts_with($name, VerdictCode::PLUGINS),
         ));
     }
@@ -107,13 +114,13 @@ final readonly class InstalledVerdictCode
      */
     private function digestsIn(string $package, array $globs): array
     {
-        $root = ($this->installPath)($package);
-        $digests = [];
-        $bases = [];
-
-        if (! is_string($root)) {
+        if (! array_key_exists($package, $this->roots)) {
             return [];
         }
+
+        $root = $this->roots[$package];
+        $digests = [];
+        $bases = [];
 
         foreach ($globs as $glob) {
             $bases[$glob->base()->value()] = $glob->base()->value();

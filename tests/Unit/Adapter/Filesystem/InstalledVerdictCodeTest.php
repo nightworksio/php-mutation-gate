@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\InstalledVerdictCode;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Proof\Key\VerdictCode;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -30,10 +31,7 @@ function installedAt(array $packages): InstalledVerdictCode
         $roots[$name] = $root;
     }
 
-    return InstalledVerdictCode::at(
-        static fn(string $package): ?string => $roots[$package] ?? null,
-        ...array_map(strval(...), array_keys($roots)),
-    );
+    return InstalledVerdictCode::at($roots);
 }
 
 $gate = [
@@ -65,18 +63,13 @@ it('reads the code of each of the gate\'s mutator packages installed, and nothin
     $alone = installedAt([ThisPackage::COMPOSER => $gate])->of('pest');
     $plugin = sprintf('%sacme', VerdictCode::PLUGINS);
     $withPlugin = installedAt([ThisPackage::COMPOSER => $gate, $plugin => ['src/Acme.php' => '<?php // acme']])->of('pest');
-    $notInstalled = InstalledVerdictCode::at(
-        static fn(): ?string => null,
-        ThisPackage::COMPOSER,
-        $plugin,
-    )->of('pest');
 
     expect($withPlugin)->not->toEqual($alone)
         ->and(installedAt([ThisPackage::COMPOSER => $gate, $plugin => ['src/Acme.php' => '<?php // moved']])->of('pest'))
         ->not->toEqual($withPlugin)
         ->and(installedAt([ThisPackage::COMPOSER => $gate, 'acme/other' => ['src/Acme.php' => '<?php // acme']])->of('pest'))
         ->toEqual($alone)
-        ->and($notInstalled)->toEqual(InstalledVerdictCode::at(static fn(): ?string => null)->of('pest'));
+        ->and(InstalledVerdictCode::at([])->of('pest'))->toEqual(Digest::finished(Digest::hashing()));
 });
 
 it('moves with every file of a mutator package, and with the gate\'s own code beside one', function () use ($gate): void {
