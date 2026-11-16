@@ -19,12 +19,27 @@ jobs:
     permissions:
       actions: read
     steps:
-      - name: the newest map CI uploaded
+      - name: the newest map ci.yml uploaded on this repository's own pull request branch
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          BRANCH: feat/all-open-work
         run: |
-          id=$(gh api "repos/${REPO}/actions/artifacts?name=mutation-gate-map&per_page=1" -q '.artifacts[0].id')
+          runs=$(gh api "repos/${REPO}/actions/workflows/ci.yml/runs?branch=${BRANCH}&per_page=30" \
+            --jq ".workflow_runs[] | select(.head_repository.full_name == \"${REPO}\") | .id")
+          id=""
+          for run in ${runs}; do
+            id=$(gh api "repos/${REPO}/actions/runs/${run}/artifacts?name=mutation-gate-map" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id // empty')
+            if [ -n "${id}" ]; then
+              echo "map from run ${run}"
+              break
+            fi
+          done
+          if [ -z "${id}" ]; then
+            echo "::error::No run of ci.yml on ${BRANCH} in ${REPO} holds an unexpired mutation-gate-map."
+            exit 1
+          fi
           gh api "repos/${REPO}/actions/artifacts/${id}/zip" > map.zip
           mkdir -p map && unzip -o map.zip -d map
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
