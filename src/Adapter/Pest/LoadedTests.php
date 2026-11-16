@@ -6,9 +6,12 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_filter;
 use function array_key_exists;
+use function array_unique;
+use function array_values;
 use function file_get_contents;
 use function get_declared_classes;
 use function get_included_files;
+use function getenv;
 use function is_file;
 use function is_string;
 use function is_subclass_of;
@@ -17,9 +20,7 @@ use function mb_strtolower;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\NamedFiles;
-use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use Pest\Support\DatasetInfo;
 use PHPUnit\Framework\TestCase;
 
@@ -60,7 +61,9 @@ final class LoadedTests
 
     /**
      * The files under the test directory this process has loaded, read from
-     * their source, and the test case classes they declare.
+     * their source, each read again only where its text changed since a
+     * process of the run read it (see SuiteReadings), and the test case
+     * classes they declare.
      */
     public static function inThisProcess(string $testDirectory): self
     {
@@ -85,13 +88,28 @@ final class LoadedTests
             }
         }
 
-        $reads = [];
+        $texts = [];
 
         foreach (array_filter(get_included_files(), $inside) as $file) {
-            $reads[$file] = PhpFile::read(Contents::of(sprintf('%s', file_get_contents($file))));
+            $texts[$file] = sprintf('%s', file_get_contents($file));
         }
 
-        return new self($classes, NamedFiles::read($reads), self::acting($reads, $under));
+        $readings = SuiteReadings::beside(getenv(GateVariable::Results->value))->of($texts);
+        $declares = [];
+        $mentions = [];
+
+        foreach ($readings as $file => $reading) {
+            $declares[$file] = $reading->declares;
+            $mentions[$file] = $reading->mentions;
+        }
+
+        return new self($classes, NamedFiles::byName($declares, $mentions), self::acting($readings, $under));
+    }
+
+    /** @return list<string> every file that declares a loaded test case class, each once */
+    public function caseFiles(): array
+    {
+        return array_values(array_unique(array_values($this->files)));
     }
 
     /** The file that declares a test case class, by its name in lower case; none for a class not loaded. */
@@ -119,17 +137,18 @@ final class LoadedTests
      * The files whose loading acts on what other files find, less those Pest
      * loads in every process anyway.
      *
-     * @param  array<string, PhpFile> $reads each loaded test file, read, by its path
-     * @param  string                 $under the test directory, with a trailing slash
+     * @param  array<string, FileReading> $readings each loaded test file's reading, by its path
+     * @param  string                     $under    the test directory, with a trailing slash
      * @return list<string>
      */
-    private static function acting(array $reads, string $under): array
+    private static function acting(array $readings, string $under): array
     {
         $acting = [];
 
-        foreach ($reads as $file => $read) {
-            $booted = self::booted($file, mb_substr($file, mb_strlen($under)));
-            $acting = $booted || Registration::inert($read) ? $acting : [...$acting, $file];
+        foreach ($readings as $file => $reading) {
+            if (! $reading->inert && ! self::booted($file, mb_substr($file, mb_strlen($under)))) {
+                $acting[] = $file;
+            }
         }
 
         return $acting;

@@ -119,8 +119,8 @@ final readonly class Setup implements Part
     {
         return $later instanceof self
             ? new self(
-                $this->joined($this->extensions, $later->extensions),
-                $this->joined($this->presets, $later->presets),
+                Listed::joined($this->extensions, $later->extensions, static fn(string $name): string => $name),
+                Listed::joined($this->presets, $later->presets, static fn(string $name): string => $name),
                 $this->runner->over($later->runner),
                 Absent::laid($this->treeSource, $later->treeSource),
                 $this->mutators->over($later->mutators),
@@ -267,19 +267,5 @@ final readonly class Setup implements Part
                 )),
             )
             : PhpCalls::chosen($source, AdapterBuilder::Source, BuiltinTreeSource::Composer->value);
-    }
-
-    /**
-     * @param  Listed<string>|Absent $earlier
-     * @param  Listed<string>|Absent $later
-     * @return Listed<string>|Absent
-     */
-    private function joined(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
-    {
-        return match (true) {
-            $later instanceof Absent => $earlier,
-            $earlier instanceof Absent => $later,
-            default => $earlier->and($later, static fn(string $name): string => $name),
-        };
     }
 }

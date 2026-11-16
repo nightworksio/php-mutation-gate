@@ -11,9 +11,11 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -54,17 +56,17 @@ it('keeps its shards in the order they came, one per number, numbered from nough
 
     expect($numbers($plan))->toBe([2, 1])
         ->and($plan)->toHaveCount(2)
-        ->and($plan->shard(ShardId::of(2)))->toBe($later);
+        ->and($plan->shards()->numbered(ShardId::of(2)))->toBe($later);
 });
 
 it('answers the shard a job names', function () use ($shard, $planOf): void {
     $second = $shard(2);
 
-    expect($planOf($shard(1), $second)->shard(ShardId::of(2)))->toBe($second);
+    expect($planOf($shard(1), $second)->shards()->numbered(ShardId::of(2)))->toBe($second);
 });
 
 it('cannot judge a shard it does not hold', function () use ($shard, $planOf): void {
-    expect($planOf($shard(1), $shard(2))->shard(ShardId::of(3)))
+    expect($planOf($shard(1), $shard(2))->shards()->numbered(ShardId::of(3)))
         ->toEqual(CannotJudge::because(
             'The plan has no shard 3. It holds 2 shards, so this job was not planned from it.',
         ));
@@ -130,14 +132,36 @@ it('is named by the digest of what its file holds', function () use ($shard, $pl
     expect($plan->digest())->toEqual(PlanFile::digestOf($plan));
 });
 
-it('is followed on the commit it was made on', function () use ($planOf): void {
-    $plan = $planOf();
+it('runs a job a shard where its shards own their parts, and a job a list of items where they pull', function () use ($shard, $planOf): void {
+    $owned = $planOf($shard(1, 'src'), $shard(2, 'lib'));
+    $pulled = $planOf(
+        $shard(1, 'src')->workedBy(ShardId::of(1)),
+        $shard(2, 'src')->workedBy(ShardId::of(1)),
+        $shard(3, 'lib')->workedBy(ShardId::of(2)),
+    );
 
-    expect($plan->forCheckout(Revision::ref('5eeca8f')))->toBe($plan);
+    expect([$owned->shards()->pulls(), PlanJobs::of($owned)])->toBe([false, [1 => ['src'], 2 => ['lib']]])
+        ->and([$pulled->shards()->pulls(), PlanJobs::of($pulled)])->toBe([true, [1 => ['src'], 2 => ['lib']]]);
 });
 
-it('cannot judge a checkout of another commit', function () use ($planOf): void {
-    expect($planOf()->forCheckout(Revision::ref('206b4e0')))->toEqual(CannotJudge::because(
-        "The plan was made on 5eeca8f, and this checkout is 206b4e0.\nRun each shard and the verdict on the commit its plan was made on.",
-    ));
+it('is keyed anew on the base, keys and digests its run built after it ran, keeping everything else', function () use (
+    $shard,
+    $planOf,
+): void {
+    $considered = Considered::everything()->proving(Units::of(Unit::file(Path::of('src/A.php'))));
+    $names = TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'));
+    $plan = $planOf($shard(1))->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')))->considering($considered)->naming($names);
+    $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('9c1e'));
+    $digests = Digests::of(Digest::sha256Of('mutation'));
+    $keyed = $plan->keyedBy(Digest::sha256Of('recorded'), $keys, $digests);
+
+    expect($keyed->base())->toEqual(Digest::sha256Of('recorded'))
+        ->and($keyed->keys())->toBe($keys)
+        ->and($keyed->digests())->toBe($digests)
+        ->and($keyed->commit())->toBe($plan->commit())
+        ->and($keyed->runOn())->toBe($plan->runOn())
+        ->and($keyed->shards())->toBe($plan->shards())
+        ->and($keyed->considered())->toBe($considered)
+        ->and($keyed->names())->toBe($names)
+        ->and($keyed->briefing())->toBe($plan->briefing());
 });

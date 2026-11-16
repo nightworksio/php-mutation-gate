@@ -12,4 +12,13 @@ enum TestOrder: string
 
     /** The runner's own order. */
     case Runner = 'runner';
+
+    /** The builder's call that sets this order. */
+    public function php(): string
+    {
+        return match ($this) {
+            self::KillersFirst => 'Tests::killersFirst()',
+            self::Runner => 'Tests::inRunnerOrder()',
+        };
+    }
 }

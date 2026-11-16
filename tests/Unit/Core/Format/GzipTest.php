@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 /** Bytes that do not compress, the same each run: 32,000 of them. */
 function gzipNoise(): string
@@ -104,4 +105,16 @@ it('raises no warning of a broken stream, which it says it cannot unpack', funct
     expect(Gzip::unpackAtMost(substr_replace(Gzip::pack(str_repeat('abc', 20_000)), str_repeat("\xff", 64), 20, 64), 'the ledger', 1_000_000))
         ->toEqual(CannotJudge::because('the ledger is not a whole gzip stream.'))
         ->and(error_get_last())->toBeNull();
+});
+
+it('unpacks in time linear in the text, however many steps it takes', function (): void {
+    $unpack = static function (int $kibibytes): Closure {
+        $text = implode('', array_map(static fn(int $at): string => hash('sha512', (string) $at, binary: true), range(1, $kibibytes * 16)));
+        $packed = Gzip::pack($text);
+
+        return static fn(): string|CannotJudge|TooLarge => Gzip::unpackAtMost($packed, 'the map', strlen($text));
+    };
+
+    expect($unpack(1)())->toBeString()
+        ->and(Growth::of(256, $unpack))->toBeLessThan(Growth::LINEAR);
 });

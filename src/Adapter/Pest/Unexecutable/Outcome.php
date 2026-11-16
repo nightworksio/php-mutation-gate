@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -67,6 +68,12 @@ final readonly class Outcome
     public static function unjudged(string $reason): self
     {
         return self::bare(MutantStatus::Unjudged, Reason::that($reason));
+    }
+
+    /** Never run against the mutant, because the run's deadline passed before its turn. */
+    public static function outOfTime(): self
+    {
+        return self::bare(MutantStatus::Unjudged, OutOfTime::BeforeRunning->reason());
     }
 
     /** This outcome, of a run that took this long. */

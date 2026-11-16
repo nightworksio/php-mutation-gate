@@ -19,11 +19,11 @@ use function sprintf;
  */
 final readonly class Splicing
 {
-    private function __construct(private string $source, private string $switch)
+    private function __construct(private string $source, private SwitchCall $switch)
     {
     }
 
-    public static function of(string $source, string $switch): self
+    public static function of(string $source, SwitchCall $switch): self
     {
         return new self($source, $switch);
     }

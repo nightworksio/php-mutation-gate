@@ -25,8 +25,8 @@ final readonly class StartUpVariable
      */
     public static function of(LimitBounds $bounds): array
     {
-        $startUp = $bounds->startUp();
-        $unmeasured = $bounds->unmeasuredStartUp()->seconds();
+        $startUp = $bounds->startUp()->measured();
+        $unmeasured = $bounds->startUp()->unmeasured()->seconds();
 
         return [
             ...$startUp instanceof Seconds

@@ -70,7 +70,7 @@ final readonly class MemoryControls implements ControlJudge
         $controls = [];
 
         foreach ($mutants as $mutant) {
-            if ($mutant->status() !== MutantStatus::OutOfMemory || ! $mutant->limit() instanceof MemoryCap) {
+            if ($mutant->status() !== MutantStatus::OutOfMemory || ! $mutant->stop()->limit() instanceof MemoryCap) {
                 continue;
             }
 
@@ -105,7 +105,7 @@ final readonly class MemoryControls implements ControlJudge
     public function judged(Mutant $mutant, ControlRun $run, Control $control): Mutant
     {
         $peak = $run->peak();
-        $need = $peak instanceof MemoryCap ? $peak : $mutant->limit();
+        $need = $peak instanceof MemoryCap ? $peak : $mutant->stop()->limit();
         $why = $run->why();
 
         return match ($run->end()) {

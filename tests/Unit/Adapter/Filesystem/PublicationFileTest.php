@@ -8,6 +8,10 @@ use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+beforeEach(function (): void {
+    Scratch::entered();
+});
+
 afterEach(function (): void {
     Scratch::sweep();
 });

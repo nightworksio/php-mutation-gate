@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Native\MutantFile;
 use NightWorksIO\MutationGate\Adapter\Process\Running;
+use NightWorksIO\MutationGate\Adapter\Process\SessionLeader;
+use NightWorksIO\MutationGate\Core\Config\ProcessHold;
 use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
@@ -12,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\FileWrapper;
+use NightWorksIO\MutationGate\Tests\Support\Orphan;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Started;
 
@@ -201,6 +204,13 @@ it('keeps what a program printed before it was seen to end', function () use ($s
     expect($running->endedBy(0.0))->toEqual(Ran::exited(0, 'done', 'done')->took(Seconds::of(0.0)));
 })->group(...$holds);
 
+it('stops nothing of a program that ended before its stop, saying how it ended', function () use ($started): void {
+    $running = $started('echo "done";');
+    Running::awaitAny(Seconds::of(0.5));
+
+    expect($running->stop(0.0))->toEqual(Ran::exited(0, 'done', 'done')->took(Seconds::of(0.0)));
+})->group(...$holds);
+
 it('ends at once a program its tree\'s stop missed, whatever other signal it catches', function () use ($started): void {
     $running = $started('pcntl_async_signals(true); pcntl_signal(8, static function (): void {}); pcntl_signal(10, static function (): void {}); echo "up"; $end = microtime(true) + 2; while (microtime(true) < $end) { usleep(10000); }');
     Running::awaitAny(Seconds::of(0.5));
@@ -234,3 +244,44 @@ it('waits on as a signal this process catches cuts a wait short, saying nothing 
     expect(error_get_last())->toBeNull()
         ->and($running->endedBy(100.0))->toBeInstanceOf(Ran::class);
 })->skip(fn(): bool => ! function_exists('pcntl_alarm'), 'raising a signal takes pcntl')->group(...$holds);
+
+it('kills, once a program it started in a session of its own ended, a process the program left whose parent ended', function () use ($ended): void {
+    SessionLeader::toldHere(ProcessHold::Require);
+    $directory = Scratch::directory();
+
+    try {
+        $ran = $ended(Started::command(ProcessCommand::of($directory, 'sh', '-c', Orphan::LEFT, PHP_BINARY, Orphan::CODE)));
+    } finally {
+        putenv(SessionLeader::VARIABLE);
+    }
+
+    expect($ran->succeeded())->toBeTrue()
+        ->and(Orphan::isGone($directory))->toBeTrue();
+})->group(...$holds);
+
+it('stops, with a program it started in a session of its own, a process the program left whose parent ended', function (): void {
+    SessionLeader::toldHere(ProcessHold::Require);
+    $directory = Scratch::directory();
+
+    try {
+        $running = Started::command(ProcessCommand::of(
+            $directory,
+            'sh',
+            '-c',
+            sprintf('%s; sleep 20', Orphan::LEFT),
+            PHP_BINARY,
+            Orphan::CODE,
+        )->within(Seconds::of(30.0)));
+
+        for ($look = 0; $look < 250 && ! Orphan::isReady($directory); $look++) {
+            Running::awaitAny(Seconds::of(0.02), $running);
+        }
+
+        $ran = $running->stop(1.0);
+    } finally {
+        putenv(SessionLeader::VARIABLE);
+    }
+
+    expect($ran)->toEqual(Ran::stopped('', '')->took(Seconds::of(1.0)))
+        ->and(Orphan::isGone($directory))->toBeTrue();
+})->group(...$holds);

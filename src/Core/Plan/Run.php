@@ -12,13 +12,15 @@ use Countable;
 use Generator;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Cost\ShardEstimate;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
- * The units one shard mutates, in the order it takes them, and what they
- * cost together. A run of no units is an empty shard.
+ * The units one shard mutates, in the order it takes them, what they cost
+ * together, and the part of the test files whose tests judge them. A run of
+ * no units is an empty shard.
  *
  * @internal
  *
@@ -27,13 +29,22 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 final readonly class Run implements Countable, IteratorAggregate
 {
     /** @param list<Weighed> $units */
-    private function __construct(private array $units)
+    private function __construct(private array $units, private TestPart $part)
     {
     }
 
     public static function of(Weighed ...$units): self
     {
-        return new self(array_values($units));
+        return new self(array_values($units), TestPart::whole());
+    }
+
+    /** These units, each weighed at its share of this part of the test files, which judges them (ADR-0117). */
+    public static function inPart(TestPart $part, Weighed ...$units): self
+    {
+        return new self(
+            array_map(static fn(Weighed $unit): Weighed => $unit->sharedAmong($part), array_values($units)),
+            $part,
+        );
     }
 
     public function cost(): Seconds
@@ -62,7 +73,7 @@ final readonly class Run implements Countable, IteratorAggregate
             Units::of(...array_map(static fn(Weighed $unit): Unit => $unit->unit(), $this->units)),
             $this->cost(),
             $label,
-        )->estimated($estimate);
+        )->estimated($estimate)->inPart($this->part);
     }
 
     public function count(): int

@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ContextChain;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\LooseValues;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Verb;
@@ -31,6 +32,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * four formats, with each context block as the layers write it; or, with
  * `--resolved`, the config of a run in the contexts it is in, whose blocks
  * are laid and dropped, naming those contexts on standard error (ADR-0071).
+ * Each loose value in force is marked on standard error (ADR-0142).
  *
  * @internal
  */
@@ -39,6 +41,8 @@ final readonly class ConfigShow
     private const string RESOLVED = 'resolved';
 
     private const string CONTEXTS = 'Resolved for the contexts %s.';
+
+    private const string LOOSE = 'Loose: %s.';
 
     public static function command(Effective $effective, Formats $formats): Command
     {
@@ -57,9 +61,10 @@ final readonly class ConfigShow
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($effective, $formats): int {
                 $given = CommandLine::from($input);
+                $aside = Aside::of($output);
                 $shown = $input->getOption(self::RESOLVED) === true
-                    ? self::resolved($effective, $formats, $input, $given, Aside::of($output))
-                    : self::shown($formats, $input, $effective->asWritten($given));
+                    ? self::resolved($effective, $formats, $input, $given, $aside)
+                    : self::shown($formats, $input, $effective->asWritten($given), $aside);
 
                 if (! is_string($shown)) {
                     return Failed::because($output, $shown);
@@ -84,7 +89,7 @@ final readonly class ConfigShow
             return $contexts;
         }
 
-        $shown = self::shown($formats, $input, $effective->settings($given));
+        $shown = self::shown($formats, $input, $effective->settings($given), $aside);
 
         if (is_string($shown)) {
             $aside->writeln(sprintf(self::CONTEXTS, $contexts->spelt()));
@@ -93,17 +98,23 @@ final readonly class ConfigShow
         return $shown;
     }
 
+    /** The config as the chosen format writes it, each loose value in force marked aside (ADR-0142). */
     private static function shown(
         Formats $formats,
         InputInterface $input,
         Settings|Invalid|CannotJudge $settings,
+        OutputInterface $aside,
     ): string|Invalid|CannotJudge {
         $chosen = Formats::chosen(CommandText::option($input, FormOption::FORMAT));
 
-        return match (true) {
-            ! $settings instanceof Settings => $settings,
-            $chosen instanceof CannotJudge => $chosen,
-            default => $formats->render($settings->effective(), $chosen, ProjectRoot::origin()),
-        };
+        if (! $settings instanceof Settings || $chosen instanceof CannotJudge) {
+            return $settings instanceof Settings ? $chosen : $settings;
+        }
+
+        foreach (LooseValues::in($settings) as $loose) {
+            $aside->writeln(sprintf(self::LOOSE, $loose->noted()));
+        }
+
+        return $formats->render($settings->effective(), $chosen, ProjectRoot::origin());
     }
 }

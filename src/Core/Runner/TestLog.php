@@ -13,6 +13,7 @@ use function mb_substr;
 use NightWorksIO\MutationGate\Core\Native\Outcome;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 
 use function rawurldecode;
 use function sprintf;
@@ -57,6 +58,18 @@ final readonly class TestLog
         $watch = $silence->tests();
 
         return $watch instanceof TestWatch ? self::of($silence->events(), $watch) : $watch;
+    }
+
+    /**
+     * The test a whole file of test events in this form leaves running at
+     * its end; none where it ends between tests.
+     */
+    public static function runningAtEnd(TestEvents $events, string $written): TestId|NotGiven
+    {
+        return self::of($events, TestWatch::of(PerTestLimit::off(), TestTimes::none()))
+            ->after(sprintf("%s\n", $written), 0.0)
+            ->clock
+            ->running();
     }
 
     /** This log, after these bytes were added to it, read at these seconds of the clock. */

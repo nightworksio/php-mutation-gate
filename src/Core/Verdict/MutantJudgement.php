@@ -38,7 +38,10 @@ enum MutantJudgement: string
     case Ignored = 'ignored';
     /** The runner's own marker or config ignored it, where the config allows that. */
     case IgnoredByMarker = 'ignored-by-marker';
-    /** It survived, and compiles to the same program as the original, so no test can fail on it (ADR-0013). */
+    /**
+     * It compiles to the same program as the original, so no test can fail
+     * on it: proven as it survived (ADR-0013), or before it ran (ADR-0130).
+     */
     case Equivalent = 'equivalent';
 
     /** Its tests fail without it, so nothing judges it, and the run cannot be judged (ADR-0008). */
@@ -48,7 +51,8 @@ enum MutantJudgement: string
      * The judgement a status comes to before any triage: a timeout, or a
      * mutant skipped as too slow to run, is too slow to judge until timeout
      * triage confirms it a kill, and a mutant out of memory is too heavy to
-     * judge until memory triage does.
+     * judge until memory triage does. A shard's not-reached outcome, which the
+     * verdict merges away before it judges, judges nothing.
      */
     public static function reported(MutantStatus $status): self
     {
@@ -59,8 +63,9 @@ enum MutantJudgement: string
             MutantStatus::Uncovered => self::Uncovered,
             MutantStatus::TimedOut => self::TooSlowToJudge,
             MutantStatus::Errored => self::Errored,
-            MutantStatus::Unjudged => self::Unjudged,
+            MutantStatus::Unjudged, MutantStatus::NotReached => self::Unjudged,
             MutantStatus::IgnoredByMarker => self::IgnoredByMarker,
+            MutantStatus::Equivalent => self::Equivalent,
             MutantStatus::Skipped => self::TooSlowToJudge,
             MutantStatus::OutOfMemory => self::TooHeavyToJudge,
             MutantStatus::FailsUnmutated => self::FailsUnmutated,

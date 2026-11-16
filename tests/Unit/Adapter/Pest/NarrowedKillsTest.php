@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\ReplayedKills;
 use NightWorksIO\MutationGate\Adapter\Pest\ReplayVerdict;
+use NightWorksIO\MutationGate\Core\Config\KillControl;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -366,7 +367,7 @@ it('replays the narrowed kills of one order once for each file they change, and 
         ->and($kills->sets())->toBe(3);
 });
 
-it('neither replays nor controls a kill of a run no file narrowed, though its order is known', function () use ($mutant): void {
+it('replays a kill of a run no file narrowed where its order is known, and has no control run it', function () use ($mutant): void {
     $at = PestCases::project();
     $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
     $file = narrowedResults(
@@ -389,7 +390,49 @@ it('neither replays nor controls a kill of a run no file narrowed, though its or
         return [];
     }, $unvouched);
 
-    expect([$asked, $controls, [...$unvouched->unjudged()], [...$doubted], $kills->sets()])->toBe([[], [], [], [], 0]);
+    expect($asked)->toHaveCount(1)
+        ->and($asked[0])->toBeInstanceOf(PrefixReplay::class)
+        ->and($controls)->toBe([])
+        ->and([...$doubted])->toBe([])
+        ->and($unvouched->unjudged())->toHaveCount(1)
+        ->and($kills->sets())->toBe(1);
+});
+
+it('leaves a kill of a run no file narrowed to its control under flaky.killControls alone', function () use ($mutant): void {
+    $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
+    $file = narrowedResults(
+        PestRun::killedAt('native-1', 'T::a', Placed::at(2, $order, 9)),
+        rtrim(RecordLine::arguments(PestRun::mutated('native-1'), ['vendor/bin/pest', '--bail'])),
+        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
+    );
+    $kills = NarrowedKills::in(
+        MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a')), 0),
+        $file,
+        PestCases::project(),
+        KillControl::Alone,
+    );
+
+    expect($kills->sets())->toBe(0);
+});
+
+it('still replays a kill of a narrowed run under flaky.killControls alone, as its replay vouches for the files it left out', function () use ($mutant): void {
+    $at = PestCases::project();
+    $loaded = sprintf('%s/tests/ASpec.php', $at->root());
+    $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
+    $file = narrowedResults(
+        PestRun::killedAt('native-1', 'T::a', Placed::at(2, $order, 9)),
+        PestRun::narrowed('native-1', [$loaded]),
+        rtrim(RecordLine::arguments(PestRun::mutated('native-1'), ['vendor/bin/pest', '--bail', $loaded])),
+        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
+    );
+    $kills = NarrowedKills::in(
+        MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a')), 0),
+        $file,
+        $at,
+        KillControl::Alone,
+    );
+
+    expect($kills->sets())->toBe(1);
 });
 
 it('leaves unjudged the kills a failed assertion made, and doubts those only errors made, of each replay that does not let them stand, past one that does', function () use ($mutant): void {

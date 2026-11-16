@@ -12,7 +12,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 /**
  * A mutant the gate's own engine made (ADR-0023): its id, where it
  * stands, its mutator and diff, and the whole file with it in place, which
- * the override serves in the original's place.
+ * the override serves in the original's place. A mutant the engine made
+ * holds its edit and puts the file together when it is asked for.
  *
  * @internal the engine's own
  */
@@ -22,13 +23,19 @@ final readonly class MadeMutant
         private MutantId $id,
         private Location $location,
         private Mutation $mutation,
-        private Contents $mutated,
+        private Contents|Edit $mutated,
     ) {
     }
 
     public static function of(MutantId $id, Location $location, Mutation $mutation, Contents $mutated): self
     {
         return new self($id, $location, $mutation, $mutated);
+    }
+
+    /** The mutant of an edit, whose file is put together each time it is asked for. */
+    public static function edited(MutantId $id, Location $location, Mutation $mutation, Edit $edit): self
+    {
+        return new self($id, $location, $mutation, $edit);
     }
 
     public function id(): MutantId
@@ -49,6 +56,6 @@ final readonly class MadeMutant
     /** The whole file with the mutant in place. */
     public function mutated(): Contents
     {
-        return $this->mutated;
+        return $this->mutated instanceof Edit ? Contents::of($this->mutated->mutated()) : $this->mutated;
     }
 }

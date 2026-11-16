@@ -15,8 +15,10 @@ use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 it('sends a request\'s method, URL, headers and body, within the limits\' seconds and following no redirect', function (): void {
     $sent = [];
@@ -59,11 +61,17 @@ it('fetches a ledger\'s bytes, an empty ledger where none is there, and why the 
 
 it('stops an answer once its body passes the limits\' bytes', function (): void {
     $progress = new ArrayObject();
-    $client = new MockHttpClient(new MockResponse(str_split(str_repeat('x', 30), 10)))->withOptions([
-        'on_progress' => static function (int $done, int $size, array $info) use ($progress): void {
-            $progress->append($info['canceled'] === true ? 'canceled' : 'streaming');
-        },
-    ]);
+    $client = new MockHttpClient(new MockResponse(str_split(str_repeat('x', 30), 10)));
+
+    try {
+        $client = $client->withOptions([
+            'on_progress' => static function (int $done, int $size, array $info) use ($progress): void {
+                $progress->append($info['canceled'] === true ? 'canceled' : 'streaming');
+            },
+        ]);
+    } catch (TransportExceptionInterface $refused) {
+        $progress->append($refused->getMessage());
+    }
 
     HttpExchange::over($client)->fetch(Request::get('https://ledgers.example/large'), LedgerLimits::of(25, 38_000_000, 60.0), 'gs://ledgers/large');
 
@@ -111,4 +119,19 @@ it('reads no answer past the limits\' bytes, whether a token\'s or a refused wri
         ->toEqual(CannotJudge::because(sprintf('https://token.example %s', $past)))
         ->and(HttpExchange::over($client)->put(Request::put('https://ledgers.example/main', 'bytes'), LedgerLimits::standard(), 'gs://ledgers/main'))
         ->toEqual(NotWritten::because(sprintf('gs://ledgers/main %s', $past)));
+});
+
+it('makes a forked process a client of its own, the default one or one made as the first was', function (): void {
+    $mock = new MockHttpClient(new MockResponse('{}', ['http_code' => 200]));
+    $made = 0;
+    $making = HttpExchange::making(static function () use (&$made): MockHttpClient {
+        $made++;
+
+        return new MockHttpClient(new MockResponse(sprintf('{"made": %d}', $made), ['http_code' => 200]));
+    });
+
+    expect(HttpExchange::over($mock)->forked())->not->toEqual(HttpExchange::over($mock))
+        ->and(HttpExchange::over($mock)->forked())->toEqual(HttpExchange::over(HttpClient::create()))
+        ->and($making->forked()->answer(Request::get('https://token.example/')))->toEqual(Reply::of(200, '', '{"made": 2}'))
+        ->and($made)->toBe(2);
 });

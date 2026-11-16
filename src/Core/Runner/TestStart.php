@@ -24,6 +24,11 @@ final readonly class TestStart
         return new self($test, $at);
     }
 
+    public function test(): TestId
+    {
+        return $this->test;
+    }
+
     /**
      * The test and the limit it has run past at these seconds of the clock,
      * under this watch; none where the test has no limit, or is within it.

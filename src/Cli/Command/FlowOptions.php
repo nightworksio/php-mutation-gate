@@ -90,10 +90,17 @@ final readonly class FlowOptions
 
     private const string OUTPUTS = '--output is console or problems, not "%s".';
 
+    private const string WATCH_OUTPUTS = '--output is console, problems or events, not "%s".';
+
     private const string ONLY_WHAT = '--only takes changed, not "%s".';
 
     private const string MATRIX_SAID = <<<'SAID'
         Record the first test that kills each mutant (first, the default), or every test that does (full)
+        SAID;
+
+    private const string OUTPUT_SAID = <<<'SAID'
+        Print the verdict as console, or as problems: one line per result, for editors;
+        watch also prints events: one line of JSON per judged mutant
         SAID;
 
     private const string MATRIX_WHAT = '--kill-matrix takes first or full, not "%s".';
@@ -190,7 +197,7 @@ final readonly class FlowOptions
             ->addOption(
                 self::OUTPUT,
                 mode: InputOption::VALUE_REQUIRED,
-                description: 'Print the verdict as console, or as problems: one line per result, for editors',
+                description: self::OUTPUT_SAID,
             )
             ->addOption(
                 self::ONLY,
@@ -199,15 +206,17 @@ final readonly class FlowOptions
             );
     }
 
-    /** How the options ask for the verdict to be printed. */
-    public static function printing(InputInterface $input): Printing|CannotJudge
+    /** How the options ask for the verdict to be printed; as events only where the command streams them. */
+    public static function printing(InputInterface $input, bool $events = false): Printing|CannotJudge
     {
         $asked = self::text($input, self::OUTPUT);
         $output = VerdictOutput::tryFrom($asked === '' ? VerdictOutput::Console->value : $asked);
         $only = self::text($input, self::ONLY);
 
         return match (true) {
-            ! $output instanceof VerdictOutput => CannotJudge::because(sprintf(self::OUTPUTS, $asked)),
+            $events && ! $output instanceof VerdictOutput => CannotJudge::because(sprintf(self::WATCH_OUTPUTS, $asked)),
+            ! $output instanceof VerdictOutput,
+            ! $events && $output === VerdictOutput::Events => CannotJudge::because(sprintf(self::OUTPUTS, $asked)),
             $only === '' => Printing::of($output, ProblemsShown::All),
             $only !== ProblemsShown::Changed->value => CannotJudge::because(sprintf(self::ONLY_WHAT, $only)),
             $output !== VerdictOutput::Problems => CannotJudge::because(self::ONLY_WHERE),
@@ -293,7 +302,7 @@ final readonly class FlowOptions
 
         return match (true) {
             $shards === '' => self::configuredCut($settings),
-            WholeNumber::isPositive($shards) => Cut::exactly(intval($shards)),
+            WholeNumber::isPositive($shards) => self::parting(Cut::exactly(intval($shards)), $settings),
             default => CannotJudge::because(sprintf('--shards=%s is not a number of shards.', $shards)),
         };
     }
@@ -308,7 +317,26 @@ final readonly class FlowOptions
             ? Cut::toTarget($target, $shards->setup(), $shards->max())
             : Cut::bySize((int) $shards->seconds()->seconds(), $shards->setup(), $shards->max());
 
-        return $cut->cuttingAt($shards->planning()->cutAt());
+        return self::parting(
+            $cut->cuttingAt($shards->planning()->cutAt())->withinJobLimit($shards->jobLimit()),
+            $settings,
+        );
+    }
+
+    /**
+     * The cut, its shards pulling their work in items of `plan.chunkMinutes`
+     * where `shards.pull` says so and the run is on GitHub Actions, whose
+     * artifacts its shards claim by (ADR-0134).
+     */
+    public static function pulled(Cut|CannotJudge $cut, Composed $composed): Cut|CannotJudge
+    {
+        $shards = $composed->settings->shards();
+
+        return $cut instanceof Cut
+            && $shards->pulling()->pull()->pulls()
+            && $composed->adapters->environment->onGitHubActions()
+            ? $cut->pulling($shards->planning()->chunk())
+            : $cut;
     }
 
     /** The shard `--shard` names, or none, when the CI's environment names it. */
@@ -329,6 +357,14 @@ final readonly class FlowOptions
         $path = self::text($input, $option);
 
         return $path === '' ? $otherwise : Path::of($path);
+    }
+
+    /** The cut, cutting the test files across its shards where the run splits its streams by tests (ADR-0117). */
+    private static function parting(Cut $cut, Settings $settings): Cut
+    {
+        return $settings->effective()->running()->pest()->splitsByTests($settings->runner()->choice())
+            ? $cut->cuttingTestFiles()
+            : $cut;
     }
 
     private static function text(InputInterface $input, string $option): string

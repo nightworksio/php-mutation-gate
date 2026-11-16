@@ -19,8 +19,8 @@ use Pest\Contracts\Plugins\Terminable;
  * made only as the plugin boots, after what it notes PHP had loaded.
  *
  * Pest loads this class before pest-plugin-mutate puts a mutated file in the
- * place of the original, so a mutant of this file would never run, and the
- * gate's own config leaves it out of the trees it mutates.
+ * place of the original, so a mutant of this file is judged again in a fresh
+ * run (ADR-0148).
  *
  * @internal
  */

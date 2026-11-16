@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function chdir;
 use function chmod;
 use function copy;
 use function dirname;
@@ -14,6 +15,7 @@ use FilesystemIterator;
 
 use function fopen;
 use function ftruncate;
+use function getcwd;
 use function is_dir;
 use function mb_strlen;
 use function mb_substr;
@@ -37,18 +39,34 @@ use function unlink;
 
 /**
  * Directories a test writes into, each new and empty, removed by `sweep()`, or,
- * for what a shutdown function writes, once the process has ended.
+ * for what a shutdown function writes, once the process has ended. A test
+ * whose subject writes files can work inside one, so a write a mutant turns
+ * from an absolute path into one relative to the working directory lands
+ * there and is swept with it, never in the repository.
  */
 final class Scratch
 {
     /** @var list<string> */
     private static array $made = [];
 
+    /** The working directory before a test entered a scratch directory, which the sweep returns to. */
+    private static string $left = '';
+
     /** A new, empty directory, by its absolute path. */
     public static function directory(): string
     {
         $root = self::fresh();
         self::$made[] = $root;
+
+        return $root;
+    }
+
+    /** A new, empty directory, made the working directory until the sweep, by its absolute path. */
+    public static function entered(): string
+    {
+        $root = self::directory();
+        self::$left = self::$left === '' ? (string) getcwd() : self::$left;
+        chdir($root);
 
         return $root;
     }
@@ -110,6 +128,11 @@ final class Scratch
     /** Remove every directory made since the last sweep. */
     public static function sweep(): void
     {
+        if (self::$left !== '') {
+            chdir(self::$left);
+            self::$left = '';
+        }
+
         foreach (self::$made as $root) {
             self::remove($root);
         }

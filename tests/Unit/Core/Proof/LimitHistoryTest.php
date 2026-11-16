@@ -18,13 +18,15 @@ $times = static fn(LimitHistory $history): array => array_map(static fn(Multiple
 
 $counts = static fn(LimitHistory $history): array => array_map(static fn(ShardsAtOnce $run): int => $run->count(), [...$history->concurrency()]);
 
-it('learns the multiple 99 in 100 kills took over their tests\' own time, kept between 2 and 10', function (array $kills, float $multiple) use ($killed): void {
+it('learns the multiple 99 in 100 kills took over their tests\' own time, rounded up, kept between 2 and 10', function (array $kills, float $multiple) use ($killed): void {
     expect($killed(...array_values(array_filter($kills, is_float(...))))->multiple(LearnedBounds::standard()))->toEqual(Multiple::of($multiple));
 })->with([
     'a hundred kills, one slow' => [fn(): array => [...array_fill(0, 99, 3.0), 50.0], 3.0],
     'two hundred kills, two slow' => [fn(): array => [...array_fill(0, 198, 4.0), 6.0, 50.0], 4.0],
     'two hundred kills, three slow' => [fn(): array => [...array_fill(0, 197, 4.0), 6.0, 7.0, 50.0], 6.0],
-    'a single kill' => [fn(): array => [5.5], 5.5],
+    'a single kill' => [fn(): array => [5.5], 6.0],
+    'a kill just over a whole number' => [fn(): array => [3.01], 4.0],
+    'a kill just over the most' => [fn(): array => [10.01], 10.0],
     'two kills, the slower first' => [fn(): array => [9.0, 4.0], 9.0],
     'sixty kills, one slow' => [fn(): array => [...array_fill(0, 59, 4.0), 7.0], 7.0],
     'kills quicker than twice their tests' => [fn(): array => [1.1, 1.4], 2.0],

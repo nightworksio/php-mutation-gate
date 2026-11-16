@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_key_exists;
 use function explode;
+use function in_array;
 use function is_array;
 use function is_string;
 
@@ -33,13 +34,16 @@ final class Cloud
     /** @var array<string, array{int, string}> the status and body each named URL answers */
     private array $answers = [];
 
+    /** @var list<string> the URLs no request reaches */
+    private array $unreachable = [];
+
     public function __construct(private readonly int $failing = 0)
     {
     }
 
     public function exchange(): HttpExchange
     {
-        return HttpExchange::over($this->client());
+        return HttpExchange::making($this->client(...));
     }
 
     public function client(): MockHttpClient
@@ -71,11 +75,23 @@ final class Cloud
         return $this;
     }
 
+    /** Reach nothing at this URL: every request to it fails before any answer. */
+    public function unreachable(string $url): self
+    {
+        $this->unreachable[] = $url;
+
+        return $this;
+    }
+
     /** @param array<array-key, mixed> $options */
     private function respond(string $method, string $url, array $options): MockResponse
     {
         $body = is_string($options['body'] ?? null) ? $options['body'] : '';
         $this->requests[] = ['method' => $method, 'url' => $url, 'body' => $body, 'headers' => $this->headers($options)];
+
+        if (in_array($url, $this->unreachable, strict: true)) {
+            return new MockResponse('', ['error' => sprintf('%s cannot be reached.', $url)]);
+        }
 
         $asked = sprintf('%s %s', $method, $url);
         $key = array_key_exists($asked, $this->answers) ? $asked : $url;

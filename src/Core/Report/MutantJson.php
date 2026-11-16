@@ -129,7 +129,7 @@ final readonly class MutantJson
     private static function optional(JudgedMutant|JudgedKill $judged): array
     {
         $duration = $judged->mutant()->duration();
-        $limit = $judged->mutant()->limit();
+        $limit = $judged->mutant()->stop()->limit();
         $cluster = $judged instanceof JudgedMutant ? $judged->cluster() : Unclustered::mutant();
         $finding = $judged instanceof JudgedMutant ? $judged->finding() : NoFinding::survivor();
 

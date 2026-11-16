@@ -30,6 +30,7 @@ use function sprintf;
 
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -43,6 +44,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class PlanCommand
 {
+    /** The option that has a plan plan nothing where the run cannot start without a fresh map (ADR-0135). */
+    public const string EARLY_ONLY = 'early-only';
+
     private const string UNPATCHED = <<<'SAID'
         Pest runs without the gate's patch, so each of the %d shards pays a full opening run under coverage.
         Set pest.patch to true to have every shard reuse the map the plan kept.
@@ -52,6 +56,11 @@ final readonly class PlanCommand
     {
         return DeliverLater::option(FlowOptions::planning(new Command(Verb::Plan->value)))
             ->setDescription('Work out the reach, drop proved units, cut shards and print the plan for a CI')
+            ->addOption(
+                self::EARLY_ONLY,
+                mode: InputOption::VALUE_NONE,
+                description: 'Plan nothing where the run cannot start without a fresh coverage map',
+            )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = DeliverLater::composed(
                     FlowOptions::narrowed($composition->compose($input), $input),
@@ -75,7 +84,7 @@ final readonly class PlanCommand
     public static function planOf(Composed $composed, InputInterface $input): PlanMade|CannotJudge
     {
         $mode = FlowOptions::mode($input, $composed->settings);
-        $cut = FlowOptions::cut($input, $composed->settings);
+        $cut = FlowOptions::pulled(FlowOptions::cut($input, $composed->settings), $composed);
         $matrix = FlowOptions::killMatrix($input);
 
         return match (true) {
@@ -83,7 +92,13 @@ final readonly class PlanCommand
             $cut instanceof CannotJudge => $cut,
             $matrix instanceof CannotJudge => $matrix,
             default => new Planning($composed->adapters, $composed->settings, $composed->setup)
-                ->plan($mode, FlowOptions::coverage($input), $cut, $matrix),
+                ->plan(
+                    $mode,
+                    FlowOptions::coverage($input),
+                    $cut,
+                    $matrix,
+                    earlyOnly: $input->hasOption(self::EARLY_ONLY) && $input->getOption(self::EARLY_ONLY) === true,
+                ),
         };
     }
 
@@ -182,7 +197,12 @@ final readonly class PlanCommand
         $shards = $composed->settings->shards();
         $estimates = PlanEstimates::of($plan, $shards->setup());
 
-        $summary = $estimates->summary($composed->adapters->processes(), $shards->target(), $shards->max());
+        $summary = $estimates->summary(
+            $composed->adapters->processes(),
+            $shards->target(),
+            $shards->max(),
+            $shards->jobLimit(),
+        );
 
         foreach ([...$estimates->lines(), ...$summary] as $line) {
             $aside->writeln($line, OutputInterface::OUTPUT_RAW);

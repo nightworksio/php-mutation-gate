@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Http;
 
+use Closure;
+
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -23,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
 
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TimeoutExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -41,13 +44,35 @@ final readonly class HttpExchange implements Exchange
 {
     private const string UNREAD_ANSWER = '%s answered, and its answer was not read: %s';
 
-    private function __construct(private HttpClientInterface $client, private LedgerLimits $limits)
-    {
+    /** @param (Closure(): HttpClientInterface)|NotGiven $made how a forked process makes a client of its own */
+    private function __construct(
+        private HttpClientInterface $client,
+        private LedgerLimits $limits,
+        private Closure|NotGiven $made,
+    ) {
     }
 
+    /** An exchange over this client; a process forked from this one makes a new default one. */
     public static function over(HttpClientInterface $client): self
     {
-        return new self($client, LedgerLimits::standard());
+        return new self($client, LedgerLimits::standard(), NotGiven::value());
+    }
+
+    /**
+     * An exchange over a client made so, as a process forked from this one makes its own.
+     *
+     * @param Closure(): HttpClientInterface $made
+     */
+    public static function making(Closure $made): self
+    {
+        return new self($made(), LedgerLimits::standard(), $made);
+    }
+
+    public function forked(): self
+    {
+        $client = $this->made instanceof Closure ? ($this->made)() : HttpClient::create();
+
+        return new self($client, $this->limits, $this->made);
     }
 
     public function answer(Request $request): Reply|CannotJudge

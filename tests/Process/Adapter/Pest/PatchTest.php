@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Ending;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
+use NightWorksIO\MutationGate\Adapter\Pest\LongFilterSet;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
@@ -39,7 +40,10 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
             '$passed = class_exists(\\%1$s::class) ? \\%1$s::passable($filter) : strlen($filter) < 100000;',
             Selection::class,
         ))
-        ->and($source($at, 'MutationTest.php'))->toContain("...(\$passed ? [\$filter] : []),\n")
+        ->and($source($at, 'MutationTest.php'))->toContain(sprintf(
+            "...(class_exists(\\%1\$s::class)\n                    ? \\%1\$s::arguments(\$covering, \$filter)\n                    : (\$passed ? [\$filter] : [])),\n",
+            LongFilterSet::class,
+        ))
         ->and($source($at, 'Plugins/Mutate.php'))
         ->toContain("if ((string) getenv('MUTATION_GATE_SHARED_COVERAGE') !== '') {\n")
         ->and($source($at, 'Plugins/Mutate.php'))

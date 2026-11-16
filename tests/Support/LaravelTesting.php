@@ -55,6 +55,21 @@ final readonly class LaravelTesting
         Container::serving(new DatabaseManager(['sqlite' => new Connection(['driver' => 'sqlite', 'database' => $file], $pdo)]));
     }
 
+    /**
+     * An application whose database manager holds a connection of each of
+     * these configs, by its name, not yet connected: the manager.
+     *
+     * @param array<string, array<string, string>> $configs
+     */
+    public static function managing(array $configs): DatabaseManager
+    {
+        self::loaded();
+        $manager = new DatabaseManager(array_map(static fn(array $config): Connection => new Connection($config, pdo: false), $configs));
+        Container::serving($manager);
+
+        return $manager;
+    }
+
     /** No application, and RefreshDatabase not migrated. */
     public static function left(): void
     {

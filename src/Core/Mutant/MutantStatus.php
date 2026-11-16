@@ -27,8 +27,22 @@ enum MutantStatus: string
     /** Its process ran out of the memory `runner.memory` caps it at (ADR-0004). */
     case OutOfMemory = 'out-of-memory';
 
+    /**
+     * `outbreak.so` compiled it to its original's op arrays before any test
+     * ran, so no test ran on it (ADR-0130).
+     */
+    case Equivalent = 'equivalent';
+
     /** Its tests fail without it: the unmutated control that judges it failed (ADR-0008). */
     case FailsUnmutated = 'fails-unmutated';
+
+    /**
+     * No test of the shard's part of the test files covers it, and another
+     * part owns it, where a run cuts its test files across its shards
+     * (ADR-0117): a shard's own outcome, which the verdict merges with every
+     * other part's, never a mutant's final status.
+     */
+    case NotReached = 'not-reached';
 
     /**
      * The status as a run's answer about the mutant: a kill by static
@@ -53,9 +67,11 @@ enum MutantStatus: string
             self::TimedOut,
             self::Errored,
             self::IgnoredByMarker,
+            self::Equivalent,
             self::Skipped,
             self::OutOfMemory,
-            self::FailsUnmutated => false,
+            self::FailsUnmutated,
+            self::NotReached => false,
         };
     }
 

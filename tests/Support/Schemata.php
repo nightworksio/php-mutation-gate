@@ -13,6 +13,7 @@ use function file_put_contents;
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Schema;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Site;
+use NightWorksIO\MutationGate\Mutator\Engine\Schema\SwitchCall;
 use PhpParser\Node;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
@@ -34,12 +35,23 @@ final class Schemata
      *
      * @param Closure(Nodes): list<Site> $sites
      */
-    public static function of(string $code, Closure $sites): Schema
+    public static function of(string $code, Closure $sites, bool $valuing = false): Schema
     {
         $statements = new ParserFactory()->createForNewestSupportedVersion()->parse($code) ?? [];
         new NodeTraverser(new NameResolver(null, ['replaceNodes' => false]), new ParentConnectingVisitor())->traverse($statements);
+        $switch = SwitchCall::of(self::switch());
 
-        return Schema::of($code, self::switch(), ...$sites(new Nodes(array_values(new NodeFinder()->findInstanceOf($statements, Node::class)))));
+        return Schema::of(
+            $code,
+            $valuing ? $switch->valuing(self::valued()) : $switch,
+            ...$sites(new Nodes(array_values(new NodeFinder()->findInstanceOf($statements, Node::class)))),
+        );
+    }
+
+    /** The call a test's schemata switch a pure expression by, where they take both values. */
+    public static function valued(): string
+    {
+        return sprintf("\\%s::value('%s', %%1\$d, fn () => (%%2\$s), fn () => (%%3\$s))", SchemaSwitch::class, self::KEY);
     }
 
     /** The call a test's schemata switch by, `%d` where it takes the id. */

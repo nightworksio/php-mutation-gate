@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
+use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Judging;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
@@ -202,7 +203,7 @@ it('kills a survivor static analysis rejects, and warns once for each reason it 
 
     $answers = new StaticCheckerFake($identity, Findings::none(), array_merge(...array_map(
         static fn(Mutant $mutant): array => [
-            Workspace::checkedMutant($mutant->id())->value() => Findings::of(Finding::error(Path::of('src/Money.php'), 'new', 'New.')),
+            CheckedFiles::mutant($mutant->id())->value() => Findings::of(Finding::error(Path::of('src/Money.php'), 'new', 'New.')),
         ],
         [...$survivor],
     )));

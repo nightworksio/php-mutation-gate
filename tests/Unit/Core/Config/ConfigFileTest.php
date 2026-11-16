@@ -106,8 +106,8 @@ it('hands another adapter its options with their paths named from the file, and 
         'proofs' => ['store' => ['use' => 'Acme\Store', 'with' => ['path' => '../cache', 'up' => '../../cache']]],
         'reports' => [['use' => 'acme', 'path' => 'mutation.json', 'with' => ['into' => '/tmp']]],
     ], $file);
-    $store = $layer instanceof Layer ? $layer->proofs()->store()->options() : $layer;
-    $report = $layer instanceof Layer ? [...$layer->reports()->reports()][0]->reporter()->options() : $layer;
+    $store = $layer instanceof Layer ? $layer->output()->proofs()->store()->options() : $layer;
+    $report = $layer instanceof Layer ? [...$layer->output()->reports()->reports()][0]->reporter()->options() : $layer;
 
     expect($store instanceof Options ? $store->path(Key::of('path')) : $store)->toEqual(Path::of('cache'))
         ->and($store instanceof Options ? $store->path(Key::of('up')) : $store)

@@ -48,6 +48,12 @@ final readonly class PlanEstimates
         Raise shards.target to meet it.
         SAID;
 
+    private const string PAST_THE_LIMIT = <<<'SAID'
+        shards.jobLimit is %s, and at %d %s the longest is expected to take %s.
+        A shard stops at the limit with what it judged, and the run cannot pass on what it left.
+        Raise shards.max, or spend less on the longest shard, to fit it.
+        SAID;
+
     private function __construct(private Plan $plan, private Seconds $setup)
     {
     }
@@ -139,16 +145,22 @@ final readonly class PlanEstimates
     /**
      * What the run is expected to take, in wall time and runner time, and
      * what that rests on; where it rests on a measured first run, how many
-     * mutants each shard's runner is taken to run at once; and where
-     * `shards.target` cannot be met under `shards.max`, a line that says so.
+     * mutants each shard's runner is taken to run at once; where
+     * `shards.target` cannot be met under `shards.max`, a line that says so;
+     * and where the longest shard is expected past `shards.jobLimit`, a line
+     * that says so.
      *
      * @return list<string>
      */
-    public function summary(ProcessCount $processes, Seconds|Absent $target, int $most): array
-    {
+    public function summary(
+        ProcessCount $processes,
+        Seconds|Absent $target,
+        int $most,
+        Seconds|Absent $jobLimit = new Absent(),
+    ): array {
         $lines = [$this->total(), ...$this->assumed($processes)];
 
-        foreach ($this->unmet($target, $most) as $warning) {
+        foreach ($this->unmet($target, $most)->and($this->pastTheLimit($jobLimit)) as $warning) {
             $lines[] = $warning->text();
         }
 
@@ -208,6 +220,23 @@ final readonly class PlanEstimates
         return Warnings::of(Warning::that($shards >= $most
             ? sprintf(self::UNMET, $target->text(), $most, $longest->text())
             : sprintf(self::UNSPLIT, $target->text(), $shards, $shards === 1 ? 'shard' : 'shards', $longest->text())));
+    }
+
+    /** Where the longest shard is expected past the limit its job has, a warning that says so; none where it fits. */
+    private function pastTheLimit(Seconds|Absent $limit): Warnings
+    {
+        $longest = $this->runTime()->wall();
+        $shards = count($this->plan);
+
+        return ! $limit instanceof Seconds || $longest->seconds() <= $limit->seconds()
+            ? Warnings::none()
+            : Warnings::of(Warning::that(sprintf(
+                self::PAST_THE_LIMIT,
+                $limit->text(),
+                $shards,
+                $shards === 1 ? 'shard' : 'shards',
+                $longest->text(),
+            )));
     }
 
     /** A shard's job: its units, its opening run and its setup; no time for a shard of no units. */

@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -41,7 +42,7 @@ function seatsOf(string $beside): array
 
 it('starts one set a worker in each slot, named beside the tail\'s results, and the same set again for the same suites and variables', function (): void {
     $beside = sprintf('%s/tail.jsonl', Scratch::directory());
-    $workers = new TailWorkers(WorkerSlots::of(ProcessCount::of(2), 'run'), $beside, NotGiven::value(), NotGiven::value());
+    $workers = new TailWorkers(WorkerSlots::of(ProcessCount::of(2), 'run'), $beside, NotGiven::value(), NotGiven::value(), Seconds::of(5.0));
 
     try {
         $first = $workers->besideFor(NotGiven::value(), []);
@@ -58,7 +59,7 @@ it('starts one set a worker in each slot, named beside the tail\'s results, and 
 
 it('starts a set of its own, named beside the first by its place, for other suites or other variables', function (): void {
     $beside = sprintf('%s/tail.jsonl', Scratch::directory());
-    $workers = new TailWorkers(WorkerSlots::alone(), $beside, NotGiven::value(), NotGiven::value());
+    $workers = new TailWorkers(WorkerSlots::alone(), $beside, NotGiven::value(), NotGiven::value(), Seconds::of(5.0));
 
     try {
         $named = [
@@ -79,7 +80,7 @@ it('clears what an earlier run left before it starts a set, and every set\'s dir
     $beside = sprintf('%s/tail.jsonl', Scratch::directory());
     $left = WarmDirectory::made($beside);
     file_put_contents(sprintf('%s/stale', $left), 'from before');
-    $workers = new TailWorkers(WorkerSlots::alone(), $beside, NotGiven::value(), NotGiven::value());
+    $workers = new TailWorkers(WorkerSlots::alone(), $beside, NotGiven::value(), NotGiven::value(), Seconds::of(5.0));
     $workers->besideFor(NotGiven::value(), []);
     $workers->besideFor(['Unit'], []);
     $stale = is_file(sprintf('%s/stale', $left));
@@ -94,7 +95,7 @@ it('leaves its blacklist in each set\'s directory where its workers compile thro
     $project = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
     $uncached = OpcacheBlacklist::of($project, MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     $beside = sprintf('%s/tail.jsonl', Scratch::directory());
-    $workers = new TailWorkers(WorkerSlots::alone(), $beside, $project, $uncached);
+    $workers = new TailWorkers(WorkerSlots::alone(), $beside, $project, $uncached, Seconds::of(5.0));
 
     try {
         $workers->besideFor(NotGiven::value(), []);

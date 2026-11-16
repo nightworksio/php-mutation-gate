@@ -35,9 +35,10 @@ final readonly class Tree
         return dirname(__DIR__, 2);
     }
 
+    /** A path relative to the root; in this process's own copy where it lies in a fixture tests write into. */
     public static function at(string $path): string
     {
-        return sprintf('%s/%s', self::root(), $path);
+        return sprintf('%s/%s', self::root(), OwnFixtures::placed($path));
     }
 
     /**
@@ -129,7 +130,7 @@ final readonly class Tree
         $own = [];
 
         foreach ($paths as $path) {
-            if (! str_contains($path, '/vendor/')) {
+            if (! str_contains($path, '/vendor/') && ! OwnFixtures::holds($path)) {
                 $own[] = $path;
             }
         }

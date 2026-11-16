@@ -24,6 +24,7 @@ final readonly class GitHubSettings
         private Listed|CannotTell $required,
         private ForkApproval|CannotTell $forkApproval,
         private Schedule|CannotTell $schedule,
+        private bool $isPublic,
     ) {
     }
 
@@ -34,8 +35,9 @@ final readonly class GitHubSettings
         Listed|CannotTell $required,
         ForkApproval|CannotTell $forkApproval,
         Schedule|CannotTell $schedule,
+        bool $isPublic = false,
     ): self {
-        return new self($repository, $defaultBranch, $required, $forkApproval, $schedule);
+        return new self($repository, $defaultBranch, $required, $forkApproval, $schedule, $isPublic);
     }
 
     /** The repository, as `owner/name`. */
@@ -63,5 +65,11 @@ final readonly class GitHubSettings
     public function schedule(): Schedule|CannotTell
     {
         return $this->schedule;
+    }
+
+    /** Whether GitHub lists the repository as public, which its hosted arm runners are free for. */
+    public function isPublic(): bool
+    {
+        return $this->isPublic;
     }
 }

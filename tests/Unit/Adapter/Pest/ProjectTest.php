@@ -165,3 +165,22 @@ it('cannot name a results file where an earlier run\'s link cannot be removed', 
 
     expect($fresh)->toBeInstanceOf(CannotJudge::class);
 });
+
+it('writes a file of its own in the gate\'s directory, with its directory made, or says it cannot', function () use ($project): void {
+    $at = $project();
+    $written = $at->written('archive/prepend.php', '<?php');
+    mkdir(sprintf('%s/archive/taken.php', $at->workspace()), recursive: true);
+    $long = str_repeat('x', 300);
+    set_error_handler(static fn(): bool => true);
+    $unwritable = $at->written($long, 'text');
+    restore_error_handler();
+
+    expect($written)->toBe(sprintf('%s/archive/prepend.php', $at->workspace()))
+        ->and((string) file_get_contents(sprintf('%s/archive/prepend.php', $at->workspace())))->toBe('<?php')
+        ->and($at->written('archive/taken.php', 'text'))->toBeInstanceOf(CannotJudge::class)
+        ->and($unwritable)->toEqual(CannotJudge::because(sprintf(
+            '%s/%s cannot be written. Make the directory writable.',
+            $at->workspace(),
+            $long,
+        )));
+});

@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Pest\TestSuite;
 
 beforeEach(function (): void {
     GateEnvironment::clear();
@@ -216,14 +217,27 @@ it('narrows a run of a test its class takes from a trait to the class\'s file an
     expect(CoveringFiles::of([sprintf('%s\UsesTraitTest::testIt', $namespace)], '/tmp/mutations/abc'))->toBe($expected);
 });
 
-it('reads the suite from the test directory Pest runs, where none is named', function (Closure $unnamed): void {
+it('reads the suite from the test directory Pest runs, where none is named', function (Closure $unnamed) use ($suite): void {
+    [$namespace, $files, $root] = $suite();
     putenv(sprintf('%s=1', GateVariable::Narrow->value));
     putenv(sprintf('%s=%s/results.jsonl', GateVariable::Results->value, Scratch::directory()));
-    $unnamed();
+    $pest = TestSuite::getInstance();
+    [$rootPath, $testPath] = [$pest->rootPath, $pest->testPath];
+    $pest->rootPath = (string) realpath(dirname($root));
+    $pest->testPath = basename($root);
 
-    // The class Pest builds for this file.
-    expect(CoveringFiles::of(['P\Tests\Unit\Adapter\Pest\CoveringFilesTest::__pest_evaluable_it_reads'], '/tmp/mutations/abc'))
-        ->toContain((string) realpath(__FILE__));
+    try {
+        $unnamed();
+        $read = CoveringFiles::of([sprintf('%s\ChildTest::testIt', $namespace)], '/tmp/mutations/abc');
+    } finally {
+        $pest->rootPath = $rootPath;
+        $pest->testPath = $testPath;
+    }
+
+    $expected = array_map(static fn(string $name): string => $files[$name], ['BaseTest.php', 'ChildTest.php', 'DeclaresTest.php', 'SharesTest.php']);
+    sort($expected);
+
+    expect($read)->toBe($expected);
 })->with([
     'once forgotten' => [static fn() => CoveringFiles::forget()],
     'in a process that has named none' => [static function (): void {
@@ -249,4 +263,27 @@ it('runs, where a mutant\'s filter is left out, each test whose class a file its
 
     expect(CoveringFiles::loading('/tmp/mutations/whole', $tests))->toBe($tests)
         ->and(CoveringFiles::loading('/tmp/mutations/abc', $tests))->toBe($tests);
+});
+
+it('streams the tests of each test file by the file that declares their class, with what it needs, and none where a class is not loaded', function () use ($suite): void {
+    [$namespace, $files] = $suite();
+    $child = sprintf('%s\ChildTest::testIt', $namespace);
+    $alone = sprintf('%s\AloneTest::testIt with data set #0', $namespace);
+    $loaded = LoadedTests::inThisProcess(dirname($files['ChildTest.php'], 2));
+
+    expect(CoveringFiles::streamed([$child, $alone, $child]))->toBe([
+        $files['ChildTest.php'] => ['files' => $loaded->needs($files['ChildTest.php']), 'tests' => [$child, $child]],
+        $files['AloneTest.php'] => ['files' => $loaded->needs($files['AloneTest.php']), 'tests' => [$alone]],
+    ])
+        ->and(CoveringFiles::streamed([$child, 'Never\Loaded::test']))->toBe([]);
+});
+
+it('runs every loaded test file beside the ones a stream holds, each with what it needs and no test the map knows of it', function () use ($suite): void {
+    [$namespace, $files] = $suite();
+    $child = sprintf('%s\ChildTest::testIt', $namespace);
+    $every = CoveringFiles::everyCase([$files['ChildTest.php'] => ['files' => [$files['ChildTest.php']], 'tests' => [$child]]]);
+    $loaded = LoadedTests::inThisProcess(dirname($files['ChildTest.php'], 2));
+
+    expect($every[$files['ChildTest.php']])->toBe(['files' => [$files['ChildTest.php']], 'tests' => [$child]])
+        ->and($every[$files['AloneTest.php']])->toBe(['files' => $loaded->needs($files['AloneTest.php']), 'tests' => []]);
 });

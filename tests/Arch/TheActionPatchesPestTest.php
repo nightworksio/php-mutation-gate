@@ -11,7 +11,8 @@ use NightWorksIO\MutationGate\Tests\Support\WorkflowFile;
 // the action patches the vendor directory its job installed, after installing
 // it and before the gate runs a mutant. The reusable workflow runs mutants in
 // its shard jobs, which run the action, and in its survivors job, which
-// patches as the action does.
+// patches as the action does. Where a judge runs, each hands Pest to the judge
+// instead, which patches the release Composer installs (ADR-0140).
 
 /** How a step's `run` starts the gate's mutation runs. */
 const RUNS_MUTANTS = '"${GATE}" run ';
@@ -22,11 +23,15 @@ const RECHECKS = '"${GATE}" survivors ';
 /** How a step's `run` starts one share of that re-check; sharing it out and reporting the shares run no mutant. */
 const RECHECKS_A_SHARE = '"${GATE}" survivors --plan=.mutation-gate/plan.json --share=';
 
+/** How a step's `run` hands Pest to a judge. */
+const JUDGES = '/resources/action/judge-pest.sh" "${GATE}" "${PATCH}"';
+
 it('patches Pest after installing and before running a mutant, where the config turns the patches on', function (): void {
     $steps = WorkflowFile::at('action.yml')->field('runs')->field('steps');
     $install = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@'));
     $config = WorkflowFile::stepsWhere($steps, 'id', static fn(string $id): bool => $id === 'config');
     $patch = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => $run === '"${GATE}" pest:patch');
+    $judged = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_ends_with($run, JUDGES));
     $mutating = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, RUNS_MUTANTS));
     $rechecking = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, RECHECKS));
 
@@ -36,9 +41,13 @@ it('patches Pest after installing and before running a mutant, where the config 
         ->and($config)->toHaveCount(1)
         ->and($patch)->toHaveCount(1)
         ->and($mutating)->toHaveCount(2)
-        ->and(Lenient::text(Lenient::items($steps)[$patch[0]]->field('if')))->toBe("inputs.deliver != 'true' && steps.config.outputs.pest_patch == 'true'")
+        ->and($judged)->toHaveCount(1)
+        ->and(Lenient::text(Lenient::items($steps)[$patch[0]]->field('if')))->toBe("inputs.deliver != 'true' && inputs.judge == '' && steps.config.outputs.pest_patch == 'true'")
+        ->and(Lenient::text(Lenient::items($steps)[$judged[0]]->field('if')))->toBe("inputs.deliver != 'true' && inputs.judge != '' && steps.config.outputs.pest == 'true'")
         ->and($install[0])->toBeLessThan($config[0])
+        ->and($config[0])->toBeLessThan($judged[0])
         ->and($config[0])->toBeLessThan($patch[0])
+        ->and($mutating[0])->toBeGreaterThan($judged[0])
         ->and($mutating[0])->toBeGreaterThan($patch[0])
         ->and((string) file_get_contents(Tree::at('resources/action/gate_action.py')))
         ->toContain('"pest_patch": "true" if patches_pest(config) else "false"');
@@ -60,14 +69,19 @@ it('runs mutants in the reusable workflow through the action, and in the survivo
     $survivors = $jobs['survivors']->field('steps');
     $install = WorkflowFile::stepsWhere($survivors, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@'));
     $patch = WorkflowFile::stepsWhere($survivors, 'run', static fn(string $run): bool => $run === '"${GATE}" pest:patch');
+    $judged = WorkflowFile::stepsWhere($survivors, 'run', static fn(string $run): bool => str_ends_with($run, JUDGES));
 
-    expect(array_keys($jobs))->toBe(['fetch', 'plan', 'deliver-plan', 'shard', 'survivors', 'survivors-report', 'deliver-survivors', 'verdict', 'deliver', 'publish'])
+    expect(array_keys($jobs))->toBe(['fetch', 'judge', 'plan', 'deliver-plan', 'shard', 'watch', 'survivors', 'survivors-report', 'deliver-survivors', 'verdict', 'deliver', 'publish'])
         ->and($mutating)->toBe([])
         ->and(array_keys(array_filter($throughTheAction)))->toBe(['shard'])
         ->and(array_keys(array_filter($rechecking)))->toBe(['survivors'])
         ->and($patch)->toHaveCount(1)
-        ->and(Lenient::text(Lenient::items($survivors)[$patch[0]]->field('if')))->toBe("steps.config.outputs.pest_patch == 'true'")
+        ->and($judged)->toHaveCount(1)
+        ->and(Lenient::text(Lenient::items($survivors)[$patch[0]]->field('if')))->toBe("inputs.judge == '' && steps.config.outputs.pest_patch == 'true'")
+        ->and(Lenient::text(Lenient::items($survivors)[$judged[0]]->field('if')))->toBe("inputs.judge != '' && steps.config.outputs.pest == 'true'")
+        ->and($install[0])->toBeLessThan($judged[0])
         ->and($install[0])->toBeLessThan($patch[0])
+        ->and($rechecking['survivors'][0])->toBeGreaterThan($judged[0])
         ->and($rechecking['survivors'][0])->toBeGreaterThan($patch[0]);
 });
 

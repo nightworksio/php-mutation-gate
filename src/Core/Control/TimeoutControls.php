@@ -77,11 +77,11 @@ final readonly class TimeoutControls implements ControlJudge
         $controls = [];
 
         foreach ($mutants as $mutant) {
-            $limit = $mutant->limit();
+            $limit = $mutant->stop()->limit();
 
             if ($mutant->status() !== MutantStatus::TimedOut
                 || ! $limit instanceof Seconds
-                || $mutant->unmutatedNeed() instanceof Seconds) {
+                || $mutant->stop()->need() instanceof Seconds) {
                 continue;
             }
 

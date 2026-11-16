@@ -23,11 +23,11 @@ use function sprintf;
 
 /**
  * What the digests of a ledger's proofs share, each written once in the
- * ledger's `inputs` section: every mutation digest, every killing test file
- * with its digest, and every commit digests were taken at. Each proof points
- * into it by index, so a digest many proofs of one run record costs the
- * ledger its bytes once; only the unit's own source digest is written in the
- * proof.
+ * ledger's `inputs` section: every mutation digest and every digest of a
+ * run's first five inputs, every killing test file with its digest, and
+ * every commit digests were taken at. Each proof points into it by index, so
+ * a digest many proofs of one run record costs the ledger its bytes once;
+ * only the unit's own source digest is written in the proof.
  *
  * Reading keeps a list only where every entry of it is well formed, since an
  * index past a dropped one would point at the wrong entry; a proof that
@@ -89,8 +89,10 @@ final readonly class InputsTable
             }
 
             $commit = $inputs->commit();
+            $reads = $inputs->reads();
             $mutation = $inputs->mutation()->value();
             $mutations += [$mutation => $mutation];
+            $mutations += $reads instanceof Digest ? [$reads->value() => $reads->value()] : [];
             $tests += self::testsOf($inputs);
             $commits += $commit instanceof Revision ? [$commit->name() => $commit->name()] : [];
         }

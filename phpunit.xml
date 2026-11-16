@@ -56,6 +56,9 @@
             <exclude>tests/Contract/Runner/constants</exclude>
             <exclude>tests/Contract/Runner/interceptor</exclude>
             <exclude>tests/Contract/Runner/twins</exclude>
+            <exclude>tests/Contract/Runner/streamed</exclude>
+            <exclude>tests/Contract/Runner/spawned</exclude>
+            <exclude>tests/Contract/Runner/*.own-*</exclude>
             <exclude>tests/Contract/Runner/phpunit-fixture</exclude>
             <exclude>tests/Contract/Runner/phpspec-fixture</exclude>
             <exclude>tests/Contract/Runner/codeception-fixture</exclude>
@@ -95,6 +98,12 @@
             <group>phar</group>
         </exclude>
     </groups>
+
+    <!-- Under scripts/coverage.sh, each test is named to the processes it
+         starts, which record their lines as its own. -->
+    <extensions>
+        <bootstrap class="NightWorksIO\MutationGate\Tests\Support\ProcessCoverage\TestNaming"/>
+    </extensions>
 
     <source
         ignoreSuppressionOfDeprecations="true"

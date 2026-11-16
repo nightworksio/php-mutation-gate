@@ -44,6 +44,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     security?: true,
  *     suite?: string,
  *     ownScopeCoverage?: true,
+ *     early?: true,
+ *     waits?: true,
  *     learnedMultiple?: float,
  *     learnedPace?: float,
  *     unchangedSince?: PassedWritten,
@@ -58,6 +60,12 @@ final readonly class BriefingRecord
 
     private const string PACE = 'learnedPace';
 
+    /** Where a plan says it was made without a fresh map (ADR-0135). */
+    private const string EARLY = 'early';
+
+    /** Where a plan says it plans nothing, waiting for a caller that hands a fresh map (ADR-0135). */
+    private const string WAITS = 'waits';
+
     /** @return Written */
     public static function of(Briefing $briefing): array
     {
@@ -70,6 +78,8 @@ final readonly class BriefingRecord
             ...$peak instanceof MemoryCap ? [self::PEAK => $peak->bytes()] : [],
             ...RunProfileRecord::of($briefing->profile()),
             ...$briefing->isOnOwnScopeCoverage() ? [PassedRecord::OWN_SCOPE_COVERAGE => true] : [],
+            ...$briefing->isEarly() ? [self::EARLY => true] : [],
+            ...$briefing->waits() ? [self::WAITS => true] : [],
             ...$multiple instanceof NotGiven ? [] : [self::MULTIPLE => $multiple->times()],
             ...$pace instanceof NotGiven ? [] : [self::PACE => $pace->times()],
             ...$unchanged instanceof Unchanged
@@ -78,11 +88,6 @@ final readonly class BriefingRecord
         ];
     }
 
-    /**
-     * The briefing a plan file holds.
-     *
-     * @throws NotInShape
-     */
     public static function read(Node $file): Briefing
     {
         $peak = $file->field(self::PEAK);
@@ -93,12 +98,9 @@ final readonly class BriefingRecord
         $briefing = RunProfileRecord::isTrue($file->field(PassedRecord::OWN_SCOPE_COVERAGE))
             ? $briefing->onOwnScopeCoverage()
             : $briefing;
-        $multiple = $file->field(self::MULTIPLE);
-        $kills = $multiple->isPresent()
-            ? KillsLearned::none()->allowing(Multiple::of($multiple->number()))
-            : KillsLearned::none();
-        $pace = $file->field(self::PACE);
-        $briefing = $briefing->learning($pace->isPresent() ? $kills->pacing(Multiple::of($pace->number())) : $kills);
+        $briefing = RunProfileRecord::isTrue($file->field(self::EARLY)) ? $briefing->plannedEarly() : $briefing;
+        $briefing = RunProfileRecord::isTrue($file->field(self::WAITS)) ? $briefing->waitingForAMap() : $briefing;
+        $briefing = $briefing->learning(self::killsIn($file));
 
         foreach (StandsBecause::cases() as $because) {
             $unchanged = $file->field($because->value);
@@ -108,6 +110,23 @@ final readonly class BriefingRecord
         }
 
         return $briefing;
+    }
+
+    /**
+     * The briefing a plan file holds.
+     *
+     * @throws NotInShape
+     */
+    /** What a briefing's file says was learned of kills: the multiple a limit allows, and the pace. */
+    private static function killsIn(Node $file): KillsLearned
+    {
+        $multiple = $file->field(self::MULTIPLE);
+        $kills = $multiple->isPresent()
+            ? KillsLearned::none()->allowing(Multiple::of($multiple->number()))
+            : KillsLearned::none();
+        $pace = $file->field(self::PACE);
+
+        return $pace->isPresent() ? $kills->pacing(Multiple::of($pace->number())) : $kills;
     }
 
     /**

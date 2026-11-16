@@ -76,7 +76,7 @@ it('runs PHPUnit under coverage and reads the map it wrote', function (): void {
     $command = $shell->commands()[0];
     $adds = TestId::of('Tests\MoneyTest::testAdds');
 
-    expect($map)->toEqual(CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), $adds)->timed($adds, Seconds::of(0.5)))
+    expect($map)->toEqual(CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(4), $adds)->timed($adds, Seconds::of(0.5)))
         ->and($command->arguments())->toBe([
             PHP_BINARY,
             '-d',
@@ -146,7 +146,7 @@ it('cannot judge a run that failed, saying where the project has none of its fra
 it('reads the map another job handed over, or says there is none', function (): void {
     $project = coverageProject();
     $adds = TestId::of('Tests\MoneyTest::testAdds');
-    $handed = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), $adds)->timed($adds, Seconds::of(0.5));
+    $handed = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(4), $adds)->timed($adds, Seconds::of(0.5));
     $file = $project->absolute(CoverageMapFile::in(Path::of('handed')));
     Scratch::write($project->root(), CoverageMapFile::in(Path::of('handed'))->value(), CoverageMapFile::encode($handed, Unplaced::map()));
     $shell = PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: ''));
@@ -188,7 +188,7 @@ it('reads the report a coverage run this job started itself left in a directory,
     $coverage = new Coverage($project, $shell, new Invocation($project, '/gate/override.php', NativePhpUnit::in($project)), NativePhpUnit::in($project));
 
     expect($coverage->of(CoverageRan::in(Path::of('build/suite'))))
-        ->toEqual(CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), $adds)->timed($adds, Seconds::of(0.5)))
+        ->toEqual(CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(4), $adds)->timed($adds, Seconds::of(0.5)))
         ->and($coverage->of(CoverageRan::in(Path::of('build/none'))))
         ->toEqual(PhpReport::missingAt(sprintf('%s/build/none/coverage.php', $project->root())))
         ->and($shell->commands())->toBe([]);
@@ -228,7 +228,7 @@ it('runs Testo under coverage and reads its XML coverage, timed as the gate\'s p
     $project = coverageProject();
     $adds = TestId::of('Tests\MoneyTest::adds');
     $run = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
-    $covered = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), $adds);
+    $covered = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(4), $adds);
 
     expect(testoCoverage($project, testoMapping($project, timed: true))->of($run))->toEqual($covered->timed($adds, Seconds::of(0.5)))
         ->and(testoCoverage($project, testoMapping($project, timed: false))->of($run))->toEqual($covered);
@@ -261,5 +261,5 @@ it('reads the XML coverage a Testo run this job started itself left in a directo
     $coverage = testoCoverage($project, PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: '')));
 
     expect($coverage->of(CoverageRan::in(Path::of('build/suite'))))
-        ->toEqual(CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('Tests\MoneyTest::adds')));
+        ->toEqual(CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('Tests\MoneyTest::adds')));
 });

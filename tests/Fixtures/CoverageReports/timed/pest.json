@@ -1,0 +1,1 @@
+{"format":1,"tests":[{"id":"T\\A::a","seconds":0.5},{"id":"T\\B::b","seconds":0.125},{"id":"T\\C::c","seconds":0.001},{"id":"T\\Only::timed","seconds":4.25},{"id":"T\\Gone::g","seconds":1.0}],"files":{"src/A.php":{"1":[0],"2":[0,1],"3":[]},"src/B.php":{"4":[2]}},"loads":[[[1,["vendor/a"],false],[0,[],true],[4,[],false]],[[3,["vendor/b","vendor/c"],true],[2,["vendor/a"],true]]]}

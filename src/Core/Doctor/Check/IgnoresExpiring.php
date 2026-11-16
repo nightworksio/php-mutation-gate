@@ -40,7 +40,7 @@ final readonly class IgnoresExpiring
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $run = $observed->run();
 
         if (! $settings instanceof Settings || ! $run instanceof DoctorRun) {

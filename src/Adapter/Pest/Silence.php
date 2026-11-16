@@ -55,7 +55,9 @@ final class Silence
      */
     public static function watch(Process $process, array $tests, string $mutated, string $filter, string $mutator): void
     {
-        $silence = Selection::passable($filter) ? MutantTime::silence($tests, $mutator) : NotGiven::value();
+        $silence = LongFilterSet::selects($tests, $filter)
+            ? MutantTime::silence($tests, $mutator)
+            : NotGiven::value();
         $run = WatchedRun::of($silence, $mutated, MutantTime::watch());
         unset(self::$watched[spl_object_id($process)]);
 

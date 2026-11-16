@@ -34,7 +34,7 @@ final readonly class VerdictRequired
     public static function in(Observations $observed): Findings
     {
         $gitHub = $observed->asked()->gitHub();
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
 
         return $gitHub instanceof GitHubSettings && $settings instanceof Settings
             ? self::of($gitHub, $settings->ci()->check())

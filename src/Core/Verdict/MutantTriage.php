@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * What a mutant a limit stopped comes to: one that ran out of memory as
@@ -19,9 +21,9 @@ final readonly class MutantTriage
     {
     }
 
-    public static function under(TimeoutMode $timeouts): self
+    public static function under(TimeoutMode $timeouts, TimeoutHeadroom|NotGiven $headroom = new NotGiven()): self
     {
-        return new self(TimeoutTriage::under($timeouts), MemoryTriage::standard());
+        return new self(TimeoutTriage::under($timeouts, $headroom), MemoryTriage::standard());
     }
 
     public function judged(Mutant $mutant): MutantJudgement

@@ -110,7 +110,7 @@ final readonly class RunnerMutants
             $ran = $this->library->measures() && $mutant->status() !== MutantStatus::Uncovered;
             $limited = $mutant->status() === MutantStatus::TimedOut;
             $duration = $mutant->duration();
-            $limit = $mutant->limit();
+            $limit = $mutant->stop()->limit();
             $failures = [
                 ...$failures,
                 ...Records::unless(

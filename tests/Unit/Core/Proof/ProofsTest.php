@@ -199,3 +199,14 @@ it('keeps of these proofs those of the source the digests read now, and none whe
     expect($units($proofs->ofSourcesIn($now)))->toBe(['src/A.php'])
         ->and($proofs->ofSourcesIn(Undigested::proof()))->toHaveCount(0);
 });
+
+it('may share a base\'s reads where a proof records the same reads or none, and not where each records others', function () use ($proof): void {
+    $reads = static fn(string $digest): Inputs => Inputs::of(Digest::of('5'), Digest::of('m'))->withReads(Digest::of($digest));
+    $others = Proofs::of($proof('a', 'src/A.php')->withInputs($reads('other')), $proof('b', 'src/B.php')->withInputs($reads('elsewhere')));
+
+    expect($others->mayShareReads(Digest::of('ours')))->toBeFalse()
+        ->and($others->with($proof('c', 'src/C.php')->withInputs($reads('ours')))->mayShareReads(Digest::of('ours')))->toBeTrue()
+        ->and($others->with($proof('c', 'src/C.php')->withInputs(Inputs::of(Digest::of('5'), Digest::of('m'))))->mayShareReads(Digest::of('ours')))->toBeTrue()
+        ->and($others->with($proof('c', 'src/C.php'))->mayShareReads(Digest::of('ours')))->toBeTrue()
+        ->and(Proofs::none()->mayShareReads(Digest::of('ours')))->toBeFalse();
+});

@@ -19,4 +19,9 @@ final readonly class LoadingUnfiltered implements RunSelection
     {
         return $unfiltered instanceof NotGiven ? RunTests::of($judging) : RunTests::loading($judging, $unfiltered);
     }
+
+    public function replaysKills(): bool
+    {
+        return false;
+    }
 }

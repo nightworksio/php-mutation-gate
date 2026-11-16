@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
+use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('writes whether coverage is measured incrementally as the PHP config calls it', function (): void {
@@ -67,4 +68,20 @@ it('reads proofs.compression and proofs.compressionLevel, and refuses a compress
             'proofs.compression: expected "auto", "gzip" or "zstd", got "brotli"',
             'proofs.compressionLevel: expected an integer from 1 to 19, got 20',
         ]);
+});
+
+it('writes whether a run writes proofs, and coverage.compressionLevel, as the PHP config calls them, beside what else it sets', function (): void {
+    $origin = ProjectRoot::origin();
+
+    expect([
+        Proofs::of(write: Writing::Auto)->php($origin),
+        Proofs::of(write: Writing::Never)->php($origin),
+        Proofs::of(incremental: true, coverageLevel: 4)->php($origin),
+        Proofs::of(coverageLevel: 4)->php($origin),
+    ])->toEqual([
+        PhpCalls::inWith('Proofs::writing()'),
+        PhpCalls::inWith('Proofs::readOnly()'),
+        PhpCalls::inWith('Coverage::incremental()', 'Coverage::compressionLevel(4)'),
+        PhpCalls::inWith('Coverage::compressionLevel(4)'),
+    ]);
 });

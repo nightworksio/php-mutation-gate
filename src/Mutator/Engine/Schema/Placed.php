@@ -57,7 +57,7 @@ final readonly class Placed
     }
 
     /** The switch in place of this original code, this site's mutant in force where its id is on. */
-    public function switched(string $switch, string $original): string
+    public function switched(SwitchCall $switch, string $original): string
     {
         return $this->kind->switched($switch, $this->site->id(), $this->mutated, $original);
     }

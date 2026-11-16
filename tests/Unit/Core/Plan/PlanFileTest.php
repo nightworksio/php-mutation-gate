@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
@@ -43,6 +44,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -233,6 +235,30 @@ it('reads back the plan it wrote', function () use ($planWith): void {
     $plan = $planWith('src, part 2 of 2');
 
     expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
+});
+
+it('writes each shard\'s part of the test files where the run cuts them, and reads it back', function (): void {
+    $shard = static fn(int $number): Shard => Shard::of(
+        ShardId::of($number),
+        Package::at(Path::root()),
+        Units::of(Unit::file(Path::of('src/A.php'))),
+        Seconds::of(5.0),
+        sprintf('src, part %d of 2', $number),
+    )->inPart(TestPart::of($number, 2));
+    $plan = Plan::of(
+        Revision::ref(planFileCommit()),
+        Digest::sha256Of('base'),
+        Keys::none()->with(Path::of('src/A.php'), Digest::of('aaa')),
+        Shards::of($shard(1), $shard(2)),
+    )->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
+    $read = PlanFile::decode(PlanFile::encode($plan));
+
+    expect(PlanFile::encode($plan))->toContain('"testPart": 1,')
+        ->and(PlanFile::encode($plan))->toContain('"testPart": 2,')
+        ->and(PlanFile::encode($plan))->toContain('"testParts": 2')
+        ->and($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->digest() : $read)->toEqual($plan->digest())
+        ->and(PlanFile::encode(planFileEmpty()))->not->toContain('testPart');
 });
 
 it('reads back a plan for a detached HEAD, with or without a default branch', function (RunOn $runOn): void {
@@ -517,7 +543,7 @@ it('writes the matrix of a run that records every killer within its digest, and 
     $read = PlanFile::decode($written);
 
     expect($read)->toEqual($plan)
-        ->and($read instanceof Plan ? $read->briefing()->matrix() : $read)->toBe(MatrixKind::Full)
+        ->and($read instanceof Plan ? $read->briefing()->profile()->matrix() : $read)->toBe(MatrixKind::Full)
         ->and($written)->toContain('"matrix": "full"')
         ->and($plan->digest())->not->toEqual($plan->briefed(Briefing::standard())->digest());
 });
@@ -527,7 +553,7 @@ it('reads a plan that holds no matrix as one that records first killers', functi
     $read = PlanFile::decode(PlanFile::encode($plan));
 
     expect(PlanFile::encode($plan))->not->toContain('"matrix"')
-        ->and($read instanceof Plan ? $read->briefing()->matrix() : $read)->toBe(MatrixKind::FirstKiller);
+        ->and($read instanceof Plan ? $read->briefing()->profile()->matrix() : $read)->toBe(MatrixKind::FirstKiller);
 });
 
 it('refuses a plan whose matrix was dropped after it was made, or is not full', function (): void {
@@ -549,7 +575,7 @@ it('writes a run of the security mutators alone within its digest, and reads it 
     $read = PlanFile::decode($written);
 
     expect($read)->toEqual($plan)
-        ->and($read instanceof Plan ? $read->briefing()->isSecurityOnly() : $read)->toBeTrue()
+        ->and($read instanceof Plan ? $read->briefing()->profile()->isSecurityOnly() : $read)->toBeTrue()
         ->and($written)->toContain('"security": true')
         ->and($plan->digest())->not->toEqual(planFileEmpty()->digest())
         ->and(PlanFile::encode(planFileEmpty()))->not->toContain('"security"');
@@ -558,7 +584,7 @@ it('writes a run of the security mutators alone within its digest, and reads it 
 it('reads a plan that holds no security field as one that makes mutants with every mutator', function (): void {
     $read = PlanFile::decode(PlanFile::encode(planFileEmpty()));
 
-    expect($read instanceof Plan ? $read->briefing()->isSecurityOnly() : $read)->toBeFalse();
+    expect($read instanceof Plan ? $read->briefing()->profile()->isSecurityOnly() : $read)->toBeFalse();
 });
 
 it('refuses a plan whose security field is anything but true', function (string $value, string $refusal): void {
@@ -638,7 +664,7 @@ it('writes a run of one suite\'s tests alone within its digest, and reads it bac
     $read = PlanFile::decode($written);
 
     expect($read)->toEqual($plan)
-        ->and($read instanceof Plan ? $read->briefing()->suite() : $read)->toEqual(SuiteName::of('unit'))
+        ->and($read instanceof Plan ? $read->briefing()->profile()->suite() : $read)->toEqual(SuiteName::of('unit'))
         ->and($written)->toContain('"suite": "unit"')
         ->and($plan->digest())->not->toEqual(planFileEmpty()->briefed(Briefing::standard()->securityOnly())->digest())
         ->and(PlanFile::encode(planFileEmpty()))->not->toContain('"suite"');
@@ -647,7 +673,7 @@ it('writes a run of one suite\'s tests alone within its digest, and reads it bac
 it('reads a plan that holds no suite field as one that every test judges', function (): void {
     $read = PlanFile::decode(PlanFile::encode(planFileEmpty()));
 
-    expect($read instanceof Plan ? $read->briefing()->suite() : $read)->toEqual(NotGiven::value());
+    expect($read instanceof Plan ? $read->briefing()->profile()->suite() : $read)->toEqual(NotGiven::value());
 });
 
 it('refuses a plan whose suite field is no suite\'s name', function (string $value, string $refusal): void {
@@ -677,4 +703,26 @@ it('writes what a sampled run\'s sample drew within its digest, and reads it bac
         ->and(PlanFile::decode($written))->toEqual($plan)
         ->and(PlanFile::digestOf($plan)->value())->not->toBe(PlanFile::digestOf($empty)->value())
         ->and(PlanFile::encode($empty))->not->toContain('"sample"');
+});
+
+it('writes the job each item of a pulling plan is listed first for, and reads it back', function (): void {
+    $item = static fn(int $number, int $job): Shard => Shard::of(
+        ShardId::of($number),
+        Package::at(Path::root()),
+        Units::of(Unit::file(Path::of(sprintf('src/%d.php', $number)))),
+        Seconds::of(5.0),
+        'src',
+    )->workedBy(ShardId::of($job));
+    $plan = Plan::of(
+        Revision::ref(planFileCommit()),
+        Digest::sha256Of('base'),
+        Keys::none(),
+        Shards::of($item(1, 1), $item(2, 1), $item(3, 2)),
+    )->on(RunOn::detached(Scope::branch('main')));
+    $read = PlanFile::decode(PlanFile::encode($plan));
+
+    expect(PlanFile::encode($plan))->toContain('"worker": 2')
+        ->and($read)->toEqual($plan)
+        ->and($read instanceof Plan ? [$read->shards()->pulls(), PlanJobs::of($read)] : $read)->toBe([true, [1 => ['src'], 2 => ['src']]])
+        ->and(PlanFile::encode(planFileEmpty()))->not->toContain('worker');
 });

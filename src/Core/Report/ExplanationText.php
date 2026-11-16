@@ -165,8 +165,8 @@ final readonly class ExplanationText
     private static function limited(JudgedMutant|JudgedKill $judged): array
     {
         $mutant = $judged->mutant();
-        $limit = $mutant->limit();
-        $need = $judged instanceof JudgedMutant ? $judged->mutant()->unmutatedNeed() : Unmeasured::duration();
+        $limit = $mutant->stop()->limit();
+        $need = $mutant->stop()->need();
         $ranOut = $mutant->status()->ranOutOfTime() || $mutant->status() === MutantStatus::OutOfMemory;
 
         $said = $need instanceof Seconds ? self::UNMUTATED : self::ALONE;

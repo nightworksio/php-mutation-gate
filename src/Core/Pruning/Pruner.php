@@ -26,11 +26,11 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * Which mutators a run with a base leaves out of which of the units it runs
  * (ADR-0025): the mutators of its runner whose newest
  * judged mutants let nothing through, less those never pruned, in each file
- * whose newest full result is of its code and mutant set as they are now,
- * was made since the audit's start and let nothing through (ADR-0106). A run
- * with no base, a held unit, a unit whose result is older, of other code or
- * holds a survivor, an uncovered or an unjudged mutant, and every unit where
- * pruning is off, run every mutator.
+ * whose newest full result is of its code, mutant set and tests as they are
+ * now (ADR-0108), was made since the audit's start and let nothing through
+ * (ADR-0106). A run with no base, a held unit, a unit whose result is older,
+ * of other code or tests or holds a survivor, an uncovered or an unjudged
+ * mutant, and every unit where pruning is off, run every mutator.
  *
  * @internal
  */
@@ -75,7 +75,11 @@ final readonly class Pruner
         return Pruned::of($mutators, Paths::of(...$files));
     }
 
-    /** Whether a full result is of a unit's code and mutant set as these digests say they are now. */
+    /**
+     * Whether a full result is of a unit's code, mutant set and tests as these
+     * digests say they are now: every test file it records, each that covers
+     * the unit or killed one of its mutants, reads as it did (ADR-0108).
+     */
     public static function stands(Proof $proof, Path $unit, Digests $now): bool
     {
         $inputs = $proof->inputs();
@@ -84,7 +88,22 @@ final readonly class Pruner
         return $inputs instanceof Inputs
             && $source instanceof Digest
             && $source->value() === $inputs->source()->value()
-            && $now->mutation()->value() === $inputs->mutation()->value();
+            && $now->mutation()->value() === $inputs->mutation()->value()
+            && self::testsRead($inputs, $now);
+    }
+
+    /** Whether every test file a result records reads now as it did then. */
+    private static function testsRead(Inputs $inputs, Digests $now): bool
+    {
+        foreach ($inputs->tests() as $file => $then) {
+            $current = $now->testOf($file);
+
+            if (! $current instanceof Digest || $current->value() !== $then->value()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Whether a result holds a mutant that let the change through, which a run judges again rather than carry. */

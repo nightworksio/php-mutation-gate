@@ -15,6 +15,8 @@ use function preg_match;
 /** What a content hashes to: a git blob id, or a SHA-256 the gate took itself. */
 final readonly class Digest
 {
+    /** The hash that tells one text from another within a run, quickly, where nothing relies on it against forgery. */
+    public const string QUICK = 'xxh3';
     private const string ALGORITHM = 'sha256';
 
     /** How the gate spells a SHA-256: in lowercase hex. */

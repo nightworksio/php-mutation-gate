@@ -27,7 +27,6 @@ use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\NodeVisitor\ParentConnectingVisitor;
 use PhpParser\Parser;
 use PhpParser\ParserFactory;
-use PhpParser\PrettyPrinter\Standard;
 use PhpParser\Token;
 
 /**
@@ -83,7 +82,7 @@ final readonly class Source
     {
         $tree = $this->fresh();
         $offers = $this->offers($tree, $offered, ...$mutators);
-        $printer = new Standard();
+        $printer = Printer::of($this->code, $this->statements, $this->tokens);
         $changes = [];
 
         foreach (array_values($mutators) as $at => $mutator) {
@@ -180,7 +179,7 @@ final readonly class Source
      * @param  list<Node>   $tree
      * @return list<Change>
      */
-    private function changeOf(Mutator $mutator, Node $node, array $tree, Offered $offered, Standard $printer): array
+    private function changeOf(Mutator $mutator, Node $node, array $tree, Offered $offered, Printer $printer): array
     {
         $change = $mutator->mutate($node);
 
@@ -188,10 +187,7 @@ final readonly class Source
             return [];
         }
 
-        $printed = $this->printedWith($tree, $node, $change, $offered, $printer);
-        $edit = Edit::of(Line::of($node->getStartLine()), Line::of($node->getEndLine()), $this->code, $printed);
-
-        return [Change::of($mutator, $edit)];
+        return [Change::of($mutator, $this->editWith($tree, $node, $change, $offered, $printer))];
     }
 
     /** Whether a node is a class's method or stands inside one. */
@@ -203,28 +199,22 @@ final readonly class Source
     }
 
     /**
-     * The code printed with a change in the place of the node it was made
-     * for, as the runner would put it; the change's own attributes are as
-     * they were once it is printed.
+     * The edit of a change in the place of the node it was made for, as the
+     * runner would put it; the change's own attributes are as they were once
+     * it is printed.
      *
      * @param list<Node> $tree
      */
-    private function printedWith(
-        array $tree,
-        Node $node,
-        Node|Removal $change,
-        Offered $offered,
-        Standard $printer,
-    ): string {
+    private function editWith(array $tree, Node $node, Node|Removal $change, Offered $offered, Printer $printer): Edit
+    {
         $attributes = $change instanceof Node ? $change->getAttributes() : [];
-        $replaced = [...Replaced::in($node, $offered->replacing($node, $change), ...$tree)];
-        $printed = $printer->printFormatPreserving($replaced, $this->statements, $this->tokens);
+        $edit = $printer->edit($node, $offered->replacing($node, $change), $tree);
 
         if ($change instanceof Node) {
             $change->setAttributes($attributes);
         }
 
-        return $printed;
+        return $edit;
     }
 
     private static function parser(): Parser

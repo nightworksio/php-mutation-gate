@@ -80,12 +80,13 @@ final readonly class ProcessTable
      * on its own: the process frozen first, then each process found under it,
      * listing by listing until a listing finds none it has not frozen, so no
      * process can start another between the listing and the kill; then all of
-     * them killed, deepest first. An id that names no one process stops
-     * nothing.
+     * them killed, deepest first, and then the whole session, which holds
+     * those whose parent ended before them. An id that names no one process
+     * stops nothing.
      *
      * @param Closure(list<string>): string $run runs a command, and answers what it printed
      */
-    public static function stop(int $pid, Closure $run): void
+    public static function stop(int $pid, Closure $run, bool $leads = false): void
     {
         if ($pid < self::LOWEST) {
             return;
@@ -105,6 +106,22 @@ final readonly class ProcessTable
         } while ($fresh !== []);
 
         $run(self::killing(...[...$under, $pid]));
+
+        if ($leads) {
+            $run(self::ending($pid));
+        }
+    }
+
+    /**
+     * The command that kills every process of the session a process led,
+     * which its group shares: those left once it ended, whose parent may
+     * have ended before them. An id that names no one process kills nothing.
+     *
+     * @return list<string>
+     */
+    public static function ending(int $leader): array
+    {
+        return self::grouped(self::KILL, $leader);
     }
 
     /**
@@ -116,6 +133,18 @@ final readonly class ProcessTable
     public static function killing(int ...$pids): array
     {
         return self::signalling(self::KILL, ...$pids);
+    }
+
+    /**
+     * The command that signals every process of the group a process leads,
+     * at once; nothing where its id names no one process.
+     *
+     * @param  list<string> $command
+     * @return list<string>
+     */
+    private static function grouped(array $command, int $leader): array
+    {
+        return $leader < self::LOWEST ? $command : [...$command, '--', sprintf('-%d', $leader)];
     }
 
     /**

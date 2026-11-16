@@ -28,6 +28,12 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.mode', TimeoutMode::Unjudged->value));
     }
 
+    /** `timeouts.headroom`: the share of its limit a timed-out mutant's tests leave unused to be a kill (ADR-0108). */
+    public static function headroom(int|float $share): self
+    {
+        return new self(Json::at('timeouts.headroom', $share));
+    }
+
     /** `timeouts.seconds` */
     public static function seconds(int $seconds): self
     {
@@ -79,28 +85,18 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.perTest', value: false));
     }
 
-    /** `timeouts.learned.percentile`: the share of a ledger's kills a learned multiple covers, 0.99 by default. */
-    public static function learnedPercentile(int|float $share): self
-    {
-        return new self(Json::at('timeouts.learned.percentile', $share));
-    }
-
-    /** `timeouts.learned.least`: the least a learned multiple is, 2 by default. */
-    public static function learnedLeast(int|float $multiple): self
-    {
-        return new self(Json::at('timeouts.learned.least', $multiple));
-    }
-
-    /** `timeouts.learned.most`: the most a learned multiple is, 10 by default. */
-    public static function learnedMost(int|float $multiple): self
-    {
-        return new self(Json::at('timeouts.learned.most', $multiple));
-    }
-
     /** `timeouts.startUp`: what a mutant's run allows for start-up where none was measured. */
     public static function startUp(string $duration): self
     {
         return new self(Json::at('timeouts.startUp', $duration));
+    }
+
+    /**
+     * `timeouts.startUpMultiple`: how many times a run of no test's measured start-up a mutant's run allows to start.
+     */
+    public static function startUpMultiple(int|float $times): self
+    {
+        return new self(Json::at('timeouts.startUpMultiple', $times));
     }
 
     /** `timeouts.testFloor`: the least each test of a run may run, in seconds, where `timeouts.perTest` holds it. */
@@ -122,6 +118,21 @@ final readonly class Timeouts implements Setting
         );
 
         return new self(Json::at('timeouts.tighter', $tighter));
+    }
+
+    /**
+     * `timeouts.parts`, `true`: a mutant whose tests cannot fit `timeouts.most` in one run is judged in parts, as by
+     * default.
+     */
+    public static function inParts(): self
+    {
+        return new self(Json::at('timeouts.parts', value: true));
+    }
+
+    /** `timeouts.parts`, `false`: such a mutant is unjudged rather than judged in parts. */
+    public static function neverInParts(): self
+    {
+        return new self(Json::at('timeouts.parts', value: false));
     }
 
     public function written(): Json

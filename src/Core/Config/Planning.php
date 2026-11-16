@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Plan\Batching;
-use NightWorksIO\MutationGate\Core\Plan\Cut;
+use NightWorksIO\MutationGate\Core\Plan\ShardSizing;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\TimingWeight;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -47,7 +47,7 @@ final readonly class Planning
         return new self(
             Batching::CHUNK_MINUTES,
             ProvingRange::STANDARD,
-            Cut::WORK_PER_OVERHEAD,
+            ShardSizing::WORK_PER_OVERHEAD,
             Timing::NEWEST,
             StartUpSamples::STANDARD,
         );
@@ -81,7 +81,7 @@ final readonly class Planning
     /** `shards.cutAt`: how many times its overhead a shard's share of the cost must be at least. */
     public function cutAt(): float
     {
-        return $this->cutAt instanceof Absent ? Cut::WORK_PER_OVERHEAD : $this->cutAt;
+        return $this->cutAt instanceof Absent ? ShardSizing::WORK_PER_OVERHEAD : $this->cutAt;
     }
 
     /** `timing.newest`: the weight a unit's newest measurement takes in its smoothed timing. */

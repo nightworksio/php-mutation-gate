@@ -40,10 +40,10 @@ final readonly class HotPath
     public static function in(Observations $observed): Findings
     {
         $measured = $observed->asked()->measurement();
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
 
         return $measured instanceof Measurement && $settings instanceof Settings
-            ? self::measured($measured, $settings->reach()->hotPaths())
+            ? self::measured($measured, $settings->reach()->held()->hotPaths())
             : Findings::none();
     }
 
@@ -83,7 +83,7 @@ final readonly class HotPath
         $seconds = 0.0;
 
         foreach ($map->testsCoveringFile($file) as $test) {
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
             $seconds += $duration instanceof Seconds ? $duration->seconds() : 0.0;
         }
 

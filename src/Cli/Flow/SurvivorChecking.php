@@ -35,7 +35,8 @@ use Psr\Clock\ClockInterface;
  * runner prints its mutants is judged against its original printed the same
  * way, which must first analyse as the file itself does. The checks record
  * their time alone (ADR-0020), and each round of them is timed
- * on the shard's stopwatch.
+ * on the shard's stopwatch. Under `staticCheck.after: false` no survivor is
+ * checked.
  *
  * @internal
  */
@@ -48,6 +49,7 @@ final readonly class SurvivorChecking
         private Seconds $perCheck,
         private Stopwatch $stopwatch,
         private AnalyserWarmUp $warmUp = new AnalyserWarmUp(),
+        private bool $after = true,
     ) {
     }
 
@@ -65,7 +67,7 @@ final readonly class SurvivorChecking
         ));
         $checker = $this->adapters->checker;
         $from = $this->stopwatch->now();
-        $checked = $checker instanceof NoAnalyser || $survivors->count() === 0
+        $checked = $checker instanceof NoAnalyser || ! $this->after || $survivors->count() === 0
             ? new Checked($mutants, SurvivorChecks::none(), $survivors, UncheckedIds::none())
             : $this->warmedUp($checker, $mutants, $survivors);
         $this->stopwatch->handled(Step::StaticCheck, $from, $survivors->count());

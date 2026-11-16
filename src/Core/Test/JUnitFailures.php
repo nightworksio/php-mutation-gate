@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Test;
 
+use function array_filter;
+use function count;
+
 use DOMDocument;
 use DOMElement;
 use NightWorksIO\MutationGate\Core\Format\Xml;
@@ -15,7 +18,9 @@ use function str_contains;
 /**
  * The tests a JUnit log PHPUnit or Pest wrote says failed or errored, each as
  * the coverage map names it: what killed a trial's mutant (ADR-0014), or
- * what failed in an unmutated control (ADR-0008). Pest
+ * what failed in an unmutated control (ADR-0008); and how many test cases
+ * it names and how many of them passed, which judge a mutant run again in a
+ * fresh process (ADR-0148). Pest
  * logs a test of its own with `::` in its `file`, under its class without
  * Pest's `P\`, and by its description, of which Pest makes the method
  * `__pest_evaluable_<description>`: every `_` doubled, every space an `_`,
@@ -31,11 +36,46 @@ final readonly class JUnitFailures
     /** How a data set's test is logged: its test, then its data set's number or name. */
     private const string DATA_SET = '/^(?<test>.*) with data set (?:#(?<number>\d+)|"(?<name>.*)")$/sD';
 
+    /** The element a log gives a test case it skipped or marked incomplete. */
+    private const string SKIPPED = 'skipped';
+
     /** The class Pest makes of a test file, by the class the log names. */
     private const string PEST_CLASS = 'P\%s';
 
     /** The tests a log's text says failed or errored, in its order; none where it could not be read. */
     public static function of(string|false $log): TestIds
+    {
+        $failed = [];
+
+        foreach (self::casesIn($log) as $case) {
+            $failed = [...$failed, ...self::failed($case) ? [self::idOf($case)] : []];
+        }
+
+        return TestIds::of(...$failed);
+    }
+
+    /** How many test cases a log's text names; none where it could not be read. */
+    public static function cases(string|false $log): int
+    {
+        return count(self::casesIn($log));
+    }
+
+    /** How many test cases a log's text says passed: neither failed, errored nor skipped. */
+    public static function passed(string|false $log): int
+    {
+        return count(array_filter(
+            self::casesIn($log),
+            static fn(DOMElement $case): bool => ! self::failed($case) && ! self::holds($case, self::SKIPPED),
+        ));
+    }
+
+    /**
+     * The test cases a log's text names, in its order; none where it is not
+     * there, is empty or is not XML.
+     *
+     * @return list<DOMElement>
+     */
+    private static function casesIn(string|false $log): array
     {
         $document = new DOMDocument();
 
@@ -43,13 +83,13 @@ final readonly class JUnitFailures
             $document->loadXML($log, Xml::QUIET);
         }
 
-        $failed = [];
+        $cases = [];
 
         foreach ($document->getElementsByTagName('testcase') as $case) {
-            $failed = [...$failed, ...self::failed($case) ? [self::idOf($case)] : []];
+            $cases[] = $case;
         }
 
-        return TestIds::of(...$failed);
+        return $cases;
     }
 
     /** Whether the log says a test case failed an assertion, or errored. */
@@ -57,6 +97,18 @@ final readonly class JUnitFailures
     {
         foreach ($case->childNodes as $child) {
             if ($child instanceof DOMElement && Defect::names($child->tagName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Whether a test case holds an element of this name. */
+    private static function holds(DOMElement $case, string $name): bool
+    {
+        foreach ($case->childNodes as $child) {
+            if ($child instanceof DOMElement && $child->tagName === $name) {
                 return true;
             }
         }

@@ -98,9 +98,9 @@ final readonly class ProvedKill
         return Unmeasured::duration();
     }
 
-    /** The ledger keeps no limit of a kill. */
-    public function limit(): Unmeasured
+    /** The ledger keeps no limit of a kill, nor what its unmutated code needs. */
+    public function stop(): Stop
     {
-        return Unmeasured::duration();
+        return Stop::unmeasured();
     }
 }

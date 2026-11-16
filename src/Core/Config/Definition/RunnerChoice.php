@@ -59,6 +59,8 @@ final readonly class RunnerChoice implements Shape
         $recycle = Field::optional('recycleAfter', Integer::atLeast(1), $judges);
         $slack = Field::optional('warmSlack', Duration::written(), $judges);
         $poll = Field::optional('poll', Number::aboveAndAtMost(0, Seconds::PER_MINUTE), $judges);
+        $processes = Field::optional('processes', Integer::atLeast(1), $judges);
+        $workerWait = Field::optional('workerWait', Duration::written(), $judges);
 
         return new self(
             Adapter::choosing($builtins),
@@ -74,6 +76,8 @@ final readonly class RunnerChoice implements Shape
                     $recycle,
                     $slack,
                     $poll,
+                    $processes,
+                    $workerWait,
                 ): Setup|Invalid {
                     $named = $use->read($at);
                     $withheld = $withhold->read($at);
@@ -83,6 +87,8 @@ final readonly class RunnerChoice implements Shape
                     $recycled = $recycle->read($at);
                     $slackens = $slack->read($at);
                     $polled = $poll->read($at);
+                    $counted = $processes->read($at);
+                    $waits = $workerWait->read($at);
 
                     return Reading::built(
                         static fn(): Setup|Invalid => self::object(
@@ -93,7 +99,13 @@ final readonly class RunnerChoice implements Shape
                             $capped->value(),
                             $started->value(),
                             $applied->value(),
-                            RunnerPacing::of($recycled->value(), $slackens->value(), $polled->value()),
+                            RunnerPacing::of(
+                                $recycled->value(),
+                                $slackens->value(),
+                                $polled->value(),
+                                $counted->value(),
+                                $waits->value(),
+                            ),
                         ),
                         $named,
                         $with->read($at),
@@ -104,6 +116,8 @@ final readonly class RunnerChoice implements Shape
                         $recycled,
                         $slackens,
                         $polled,
+                        $counted,
+                        $waits,
                     );
                 },
                 $use,
@@ -115,6 +129,8 @@ final readonly class RunnerChoice implements Shape
                 $recycle,
                 $slack,
                 $poll,
+                $processes,
+                $workerWait,
             ),
             $builtins,
         );
@@ -146,6 +162,8 @@ final readonly class RunnerChoice implements Shape
             Member::of('recycleAfter', Integer::atLeast(1)->schema()),
             Member::of('warmSlack', Duration::written()->schema()),
             Member::of('poll', Number::aboveAndAtMost(0, Seconds::PER_MINUTE)->schema()),
+            Member::of('processes', Integer::atLeast(1)->schema()),
+            Member::of('workerWait', Duration::written()->schema()),
         );
 
         return Json::object(Member::of(
@@ -176,6 +194,8 @@ final readonly class RunnerChoice implements Shape
             '.recycleAfter' => Effect::JudgesOrReportsOnly,
             '.warmSlack' => Effect::JudgesOrReportsOnly,
             '.poll' => Effect::JudgesOrReportsOnly,
+            '.processes' => Effect::JudgesOrReportsOnly,
+            '.workerWait' => Effect::JudgesOrReportsOnly,
         ];
     }
 

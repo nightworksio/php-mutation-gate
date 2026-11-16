@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\FirstRunShape;
 use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -66,6 +67,7 @@ it('costs any unit nothing or more, measured or not', function (CostModel $model
         MutantSites::inFile($money, Line::of(3)),
         Seconds::of(1.5),
         ProcessCount::single(),
+        FirstRunShape::standard(),
     );
 
     expect($model->cost(Unit::file($money), $learned, FirstRun::unmeasured())->seconds()->seconds())->toBeGreaterThanOrEqual(0.0)

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -62,8 +63,9 @@ function shapesLines(string $trace): array
 
 /**
  * Runs the fixture's Pest over a holds: group with these arguments, as the
- * gate narrows a run to one, its caches kept out of the library's own, and
- * answers its exit code and what the tests it ran traced.
+ * gate narrows a run to one, its caches kept out of the library's own and
+ * none of the variables a mutant's own run is told, and answers its exit
+ * code and what the tests it ran traced.
  *
  * @return array{int, list<string>}
  */
@@ -79,7 +81,7 @@ function shapesRun(string ...$arguments): array
             PhpUnitOption::caching(sprintf('%s/cache', Scratch::directory())),
         ],
         Tree::at(Library::DIRECTORY),
-        ['LIBRARY_TRACE' => $trace, 'PARATEST' => false, 'TEST_TOKEN' => false, 'UNIQUE_TEST_TOKEN' => false],
+        [...Command::unset(), 'LIBRARY_TRACE' => $trace, 'PARATEST' => false, 'TEST_TOKEN' => false, 'UNIQUE_TEST_TOKEN' => false],
     );
 
     return [$process->run(), shapesLines($trace)];

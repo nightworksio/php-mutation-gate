@@ -20,8 +20,10 @@ use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell as InfectionShell;
 use NightWorksIO\MutationGate\Adapter\Infection\Project as InfectionProject;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
+use NightWorksIO\MutationGate\Adapter\Native\PestPlacements;
 use NightWorksIO\MutationGate\Adapter\Native\ProcessShell as NativeShell;
 use NightWorksIO\MutationGate\Adapter\Native\Project as NativeProject;
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
@@ -43,6 +45,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Native\PlacesMutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -281,7 +285,7 @@ final class Library
      */
     public static function infection(Seconds $most): self
     {
-        return self::infectionWithin(LimitBounds::between(Triage::standard()->limit(), $most));
+        return self::infectionWithin(LimitBounds::between(Triage::standard()->limits()->limit(), $most));
     }
 
     /** The Infection adapter over its installed library, keeping each mutant's limit within these bounds. */
@@ -325,7 +329,7 @@ final class Library
      */
     public static function phpunit(): self
     {
-        return self::phpunitWithin(Triage::standard()->bounds(), 'phpunit');
+        return self::phpunitWithin(Triage::standard()->limits()->bounds(), 'phpunit');
     }
 
     /** The PHPUnit runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
@@ -373,7 +377,7 @@ final class Library
      */
     public static function phpspec(): self
     {
-        return self::phpspecWithin(Triage::standard()->bounds(), 'phpspec');
+        return self::phpspecWithin(Triage::standard()->limits()->bounds(), 'phpspec');
     }
 
     /** The PhpSpec runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
@@ -424,7 +428,7 @@ final class Library
      */
     public static function codeception(): self
     {
-        return self::codeceptionWithin(Triage::standard()->bounds(), 'codeception');
+        return self::codeceptionWithin(Triage::standard()->limits()->bounds(), 'codeception');
     }
 
     /** The Codeception runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
@@ -474,7 +478,7 @@ final class Library
      */
     public static function testo(): self
     {
-        return self::testoWithin(Triage::standard()->bounds(), 'testo');
+        return self::testoWithin(Triage::standard()->limits()->bounds(), 'testo');
     }
 
     /** The Testo runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
@@ -522,6 +526,18 @@ final class Library
         return self::pestAt(Tree::at(self::DIRECTORY), $patching);
     }
 
+    /** The Pest adapter over the installed library, placing mutants as the command line does (ADR-0148, ADR-0150). */
+    public static function pestPlacing(Patching $patching): self
+    {
+        return self::pestRooted(
+            Tree::at(self::DIRECTORY),
+            $patching,
+            Triage::standard()->limits()->bounds(),
+            'pest placing',
+            new PestPlacements(),
+        );
+    }
+
     /** The Pest adapter over the installed library, keeping each mutant's limit within these bounds, by this name. */
     public static function pestWithin(Patching $patching, LimitBounds $kept, string $name): self
     {
@@ -534,7 +550,7 @@ final class Library
         return self::pestRooted(
             $root,
             $patching,
-            Triage::standard()->bounds(),
+            Triage::standard()->limits()->bounds(),
             sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched'),
         );
     }
@@ -555,6 +571,16 @@ final class Library
             $runner === 'testo' && self::isTestoInstalled() => self::testo(),
             default => Assert::markTestSkipped(sprintf('the runner contracts job for %s installs its library', $runner)),
         };
+    }
+
+    /** Pest's patch applied to the library, which only the runner contracts job installs: the test is skipped elsewhere. */
+    public static function patched(): void
+    {
+        if (! self::isInstalled()) {
+            Assert::markTestSkipped('the runner contracts job installs the fixture library');
+        }
+
+        Assert::assertIsString(Patch::applyIn(self::vendor(), new PackageDirectory()));
     }
 
     public static function isInstalled(): bool
@@ -744,11 +770,19 @@ final class Library
         return $tests instanceof Paths ? $tests : throw new RuntimeException($tests->why());
     }
 
-    /** The Pest adapter over the library at a root, keeping each mutant's limit within these bounds, by this name. */
-    private static function pestRooted(string $root, Patching $patching, LimitBounds $kept, string $name): self
-    {
-        $pest = static function (string $root) use ($patching, $kept): Pest {
-            $project = Project::at($root, self::testsIn($root), Path::of('.mutation-gate'), Path::of('vendor'));
+    /**
+     * The Pest adapter over the library at a root, keeping each mutant's limit within these bounds, by this name,
+     * placing mutants where the command line places them.
+     */
+    private static function pestRooted(
+        string $root,
+        Patching $patching,
+        LimitBounds $kept,
+        string $name,
+        PlacesMutants|NotGiven $placing = new NotGiven(),
+    ): self {
+        $pest = static function (string $root) use ($patching, $kept, $placing): Pest {
+            $project = Project::at($root, self::testsIn($root), Path::of('.mutation-gate'), Path::of('vendor'), $placing);
 
             return new Pest($project, new ProcessShell(new LocalProcesses(new SystemClock()), $root), $patching, new CapDirectory(), new PackageDirectory(), $kept);
         };

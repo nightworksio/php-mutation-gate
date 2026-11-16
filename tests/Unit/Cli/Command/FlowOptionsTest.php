@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -63,7 +64,7 @@ it('offers plan\'s options: a ref to change since, a full run, a coverage map, a
         ->and($definition->getOption('coverage')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('shards')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('kill-matrix')->isValueRequired())->toBeTrue()
-        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'unproven', 'sample', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later']);
+        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'unproven', 'sample', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later', 'early-only']);
 });
 
 it('considers what changed since the last commit that passed unless asked otherwise, or run.full asks for every unit', function (array $options, bool $fullByDefault, Mode $mode, bool $full) use (
@@ -124,7 +125,7 @@ it('runs the whole suite under coverage into the workspace, unless a map is name
 it('cuts shards by the config\'s size, setup and most, or into as many as asked', function () use ($given): void {
     $settings = Flows::settings(Shards::seconds(600), Shards::setup('90s'), Shards::max(12));
 
-    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::bySize(600, Seconds::of(90.0), 12))
+    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::bySize(600, Seconds::of(90.0), 12)->withinJobLimit(Seconds::minutes(340)))
         ->and(FlowOptions::cut($given(['--shards' => '3']), $settings))->toEqual(Cut::exactly(3))
         ->and(FlowOptions::cut($given(['--shards' => '12']), $settings))->toEqual(Cut::exactly(12));
 });
@@ -134,7 +135,7 @@ it('cuts shards to the config\'s target wall time, with its setup, unless a coun
 ): void {
     $settings = Flows::settings(Shards::target('20m'), Shards::setup('90s'), Shards::max(12));
 
-    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::toTarget(Seconds::of(1200.0), Seconds::of(90.0), 12))
+    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::toTarget(Seconds::of(1200.0), Seconds::of(90.0), 12)->withinJobLimit(Seconds::minutes(340)))
         ->and(FlowOptions::cut($given(['--shards' => '3']), $settings))->toEqual(Cut::exactly(3));
 });
 
@@ -200,4 +201,16 @@ it('refuses an output it does not print, and --only where it cannot apply', func
     'another choice of results' => [['--output' => 'problems', '--only' => 'all'], '--only takes changed, not "all".'],
     'changed lines without problems' => [['--only' => 'changed'], '--only=changed limits the problems output. Add --output=problems.'],
     'changed lines of the console' => [['--output' => 'console', '--only' => 'changed'], '--only=changed limits the problems output. Add --output=problems.'],
+]);
+
+it('cuts the test files across its shards where the run splits its streams by tests, and its source otherwise', function (string $config, bool $parts) use ($given): void {
+    $settings = Configs::settings($config);
+    $expected = static fn(Cut|CannotJudge $cut): Cut|CannotJudge => $parts && $cut instanceof Cut ? $cut->cuttingTestFiles() : $cut;
+
+    expect(FlowOptions::cut($given([]), $settings))->toEqual($expected(FlowOptions::cut($given([]), Configs::settings('{"runner": "pest"}'))))
+        ->and(FlowOptions::cut($given(['--shards' => '3']), $settings))->toEqual($expected(Cut::exactly(3)));
+})->with([
+    'split by tests' => ['{"runner": "pest", "pest": {"patch": true}, "splitStream": {"enabled": true}}', true],
+    'split by source' => ['{"runner": "pest", "pest": {"patch": true}, "splitStream": {"enabled": true, "sharding": "source"}}', false],
+    'not split' => ['{"runner": "pest", "pest": {"patch": true}}', false],
 ]);

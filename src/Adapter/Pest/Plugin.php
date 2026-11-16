@@ -8,6 +8,7 @@ use function array_values;
 
 use Closure;
 
+use function dirname;
 use function get_declared_classes;
 use function get_included_files;
 use function getenv;
@@ -26,6 +27,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\ReplayStop;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\StartedWith;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamEvents;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
@@ -43,7 +46,8 @@ use function register_shutdown_function;
  * process reads the tests whose issues failed its run. In every Pest
  * run it loads the bridges to the registered mutators where the adapter
  * wrote them, it turns `#[Holds]` into `holds:` groups, it records every
- * mutant's result for the adapter where the adapter asked for it, and it
+ * mutant's result for the adapter where the adapter asked for it, it hands
+ * pest-plugin-mutate how many mutants to run at once (see MutantsAtOnce), and it
  * guards a run the adapter starts on one mutant through Pest's override. Once
  * Pest has made its mutants it writes each one's order, and in a mutant's own
  * process it runs the tests in that order and names the test that killed the
@@ -53,9 +57,8 @@ use function register_shutdown_function;
  * databases from what the worker handed it (see Warm\Database\WarmDatabase).
  *
  * Pest loads this class before pest-plugin-mutate puts a mutated file in the
- * place of the original, so a mutant of this file would never run, and the
- * gate's own config leaves it out of the trees it mutates. The recording is
- * the recorder's.
+ * place of the original, so a mutant of this file is judged again in a fresh
+ * run (ADR-0148). The recording is the recorder's.
  *
  * @internal
  */
@@ -91,6 +94,13 @@ final class Plugin implements Bootable, HandlesArguments
     public function boot(): void
     {
         $loaded = get_included_files();
+        $plan = getenv(GateVariable::SplitPlan->value);
+
+        if (is_string($plan) && $plan !== '' && Stream::from($plan)) {
+            Schemata::servedIn(dirname($plan));
+            StreamEvents::registerIn(Facade::instance());
+        }
+
         WarmDatabase::begun();
         Bridged::load(getenv(GateVariable::Mutators->value));
         HoldsGroups::register(TestSuite::getInstance()->tests);
@@ -101,6 +111,7 @@ final class Plugin implements Bootable, HandlesArguments
         $this->seeder = Seeder::fromEnvironment();
         $this->stop = ReplayStop::fromEnvironment(Facade::instance());
         TimedTests::fromEnvironment();
+        MutantsAtOnce::fromEnvironment();
 
         if ($this->guard instanceof Guard || $this->naming instanceof Naming || $this->killers instanceof Killers) {
             register_shutdown_function($this->finish(...));

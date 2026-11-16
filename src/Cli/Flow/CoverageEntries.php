@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -36,6 +37,24 @@ final readonly class CoverageEntries
     ) {
     }
 
+
+    /**
+     * Each test file's entry key over a map, which the map carries for the
+     * verdict to keep; none where there are no entries or the keys cannot be
+     * told, and the next run measures every test.
+     */
+    public static function keysOver(self|CannotJudge|NotGiven $entries, CoverageMap $map): EntryKeys|NotGiven
+    {
+        return self::keysByOutline($entries, MapOutline::of($map));
+    }
+
+    /** Each test file's entry key by a map's outline, as `keysOver()` tells them. */
+    public static function keysByOutline(self|CannotJudge|NotGiven $entries, MapOutline $outline): EntryKeys|NotGiven
+    {
+        $keys = $entries instanceof self ? $entries->keysOf($outline) : NotGiven::value();
+
+        return $keys instanceof CannotJudge ? NotGiven::value() : $keys;
+    }
     /** The entries of a project's test files, keyed as the project stands; or why they cannot be. */
     public static function of(
         Adapters $adapters,
@@ -84,22 +103,26 @@ final readonly class CoverageEntries
         return $this->adapters->runner->testsIn($files, $map);
     }
 
-    /** The key of a test file's entries, by the files its tests executed in a map; or why its tests are unknown. */
-    public function keyOf(Path $file, CoverageMap $map, ExecutedFiles $executed): Digest|CannotJudge
+    /**
+     * The key of a test file's entries, by the files its tests ran a line of
+     * by a map's outline, its tests told from the map's; or why its tests are
+     * unknown.
+     */
+    public function keyOf(Path $file, CoverageMap $map, MapOutline $outline): Digest|CannotJudge
     {
         $tests = $this->testsIn(Paths::of($file), $map);
 
-        return $tests instanceof TestIds ? $this->keying->keyOf($file, $executed->by($tests)) : $tests;
+        return $tests instanceof TestIds ? $this->keying->keyOf($file, $outline->ranBy($tests)) : $tests;
     }
 
-    /** The key of every test file's entries by a map; or why a file's tests are unknown. */
-    public function keysOf(CoverageMap $map): EntryKeys|CannotJudge
+    /** The key of every test file's entries by a map's outline; or why a file's tests are unknown. */
+    public function keysOf(MapOutline $outline): EntryKeys|CannotJudge
     {
-        $executed = ExecutedFiles::in($map);
+        $map = $outline->map();
         $keys = EntryKeys::none();
 
         foreach ($this->testFiles as $file) {
-            $key = $this->keyOf($file, $map, $executed);
+            $key = $this->keyOf($file, $map, $outline);
 
             if ($key instanceof CannotJudge) {
                 return $key;

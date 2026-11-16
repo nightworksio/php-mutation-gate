@@ -27,7 +27,7 @@ on:
   push:
     branches: [main] # your default branch
   schedule:
-    - cron: '0 3 * * 1,4'
+    - cron: '0 3 * * 1'
 
 permissions:
   contents: read
@@ -84,8 +84,12 @@ jobs:
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
+| `merged-records` | `false`: `true` keeps a passing pull request's pass as an artifact and reads it on the push that merged it, which `ci.trustMergedPullRequests` needs where the Actions cache keeps the ledgers; the job needs `actions: read` and `pull-requests: read` |
+| `merged-records-days` | `30`: how many days that pass stays readable; a merge later than that is judged again |
 | `deliver` | `false`; `true` in a job of its own, after the run's, to send what the run left |
 | `install` | `auto`: the project's own copy where its `composer.json` requires `nightworksio/mutation-gate`, the release's PHAR where it does not; or `composer`, or `phar` |
+| `judge` | none; a judge's PHAR to run in the place of the gate `install` chooses, as the reusable workflow's `judge` job leaves it ([ADR-0140](../../decisions/0140-the-gate-s-own-pull-request-is-judged-by-its-base-s-build.md)) |
+| `prepare` | none; a shell command run right after the project's dependencies install, with no secret, such as an install the tests need besides them ([ADR-0151](../../decisions/0151-a-caller-prepares-what-its-tests-need-besides-the-dependencies.md)) |
 | `composer-auth` | none; the credentials Composer installs the project's dependencies with, as `COMPOSER_AUTH` holds them, for a private repository. Pass a secret: only the install step reads it, and that step runs the project's Composer scripts and plugins, which can read it |
 
 A project that does not require the gate with Composer, such as one whose
@@ -151,7 +155,7 @@ on:
   push:
     branches: [main] # your default branch
   schedule:
-    - cron: '0 3 * * 1,4'
+    - cron: '0 3 * * 1'
 
 permissions:
   contents: read
@@ -178,15 +182,23 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 ```
 
-It takes the action's inputs less `shard`, `deliver`, `install` and
-`composer-auth`, and its own: `coverage`, `runs-on`, `keyed-runs-on`,
-`plan-timeout` (60), `shard-timeout` (360), `verdict-timeout` (30), each in
-minutes, `plan-coverage` (`pcov`), the driver the plan sets up, and
-`publish-branch` (`mutation-gate`), where publish writes the badge and trend.
-It always runs the copy of the gate the project requires with Composer, and
-its `cache` is a boolean, where the action's is the text `true` or `false`.
-Its outputs are
-`verdict`, `scores` and `plan`, and it uploads the reports as the artifact
+It takes the action's inputs less `shard`, `deliver`, `install`,
+`composer-auth` and the action's `judge`, and its own: `coverage`, `judge`,
+`runs-on`, `keyed-runs-on`, `plan-timeout` (60), `shard-timeout` (360),
+`verdict-timeout` (30) and `download-timeout` (2), how long each artifact
+download may take before it is tried once again, each in minutes,
+`plan-coverage` (`pcov`), the driver
+the plan sets up, `publish-branch` (`mutation-gate`), where publish writes
+the badge and trend, `early-only` (`false`), with which the plan plans
+nothing, and says why, where a full split-stream run cannot start without a
+fresh map, and `watch-jobs` (empty), the names of jobs of the calling run,
+one per line, whose failure stops each shard before its next item
+(ADR-0135). It runs the copy of the gate the project requires with
+Composer, or the gate `judge` names (ADR-0140), and its `cache` is a
+boolean, where the action's is the text `true` or `false`.
+Its outputs are `verdict`, `scores`, `plan` and `suite`, true
+where a full early run's streams left how the suite ran in them as the
+artifact `mutation-gate-suite`, and it uploads the reports as the artifact
 `mutation-gate-reports`.
 
 A project whose dependencies come from a private Composer repository passes
@@ -199,6 +211,34 @@ the project's Composer scripts and plugins, which can read it, so give it
 credentials that only read packages
 ([ADR-0029](../../decisions/0029-a-caller-passes-the-store-secrets-by-name.md)).
 With the one-step action, pass it as the input `composer-auth`.
+
+A project whose tests need more than its dependencies, such as a fixture
+project of their own with a `composer.json` of its own, names the command
+that installs it as `prepare`, such as
+`prepare: composer --working-dir=tests/fixture install`. Each job that
+installs the project's dependencies runs it right after them, under
+`bash -euo pipefail`, so any part of it that fails fails the job. It runs
+with no secret, like the tests.
+
+A project whose tests reach a server, such as a database, names the
+containers as `services`, a JSON object in the shape `jobs.<job_id>.services`
+takes, and the `plan`, `shard`, `survivors`, `survivors-report` and `verdict`
+jobs each start them beside it, waiting for each health check
+([ADR-0153](../../decisions/0153-a-caller-starts-the-services-its-tests-reach.md)).
+Pin each image by digest, publish a port the tests know, and hand the
+address on through `prepare`, which writes it where the later steps read
+it:
+
+```yaml
+    with:
+      services: >-
+        {"postgres": {"image": "postgres:17@sha256:<digest>",
+          "env": {"POSTGRES_HOST_AUTH_METHOD": "trust"}, "ports": ["5432:5432"],
+          "options": "--health-cmd=\"pg_isready --username=postgres\" --health-interval=5s --health-retries=30"}}
+      prepare: echo "DATABASE_URL=pgsql://postgres@127.0.0.1:5432/app" >> "$GITHUB_ENV"
+```
+
+Service containers run on Linux runners only.
 
 The `plan`, `shard`, `survivors`, `survivors-report` and `verdict` jobs run on
 `ubuntu-latest` unless `runs-on` names another runner: a label, such as
@@ -216,6 +256,27 @@ Where `runs-on` names such a runner, keep `keyed-runs-on` on a GitHub-hosted
 or an ephemeral one. With the one-step action, the same holds for the
 `deliver` job's `runs-on`: never put it on a persistent runner that runs pull
 requests' code. The one-step action runs on its own job's `runs-on`.
+
+`judge` has another build of the gate judge the run, in the place of the
+project's own copy
+([ADR-0140](../../decisions/0140-the-gate-s-own-pull-request-is-judged-by-its-base-s-build.md)).
+`release` takes the newest signed release's judge, verified by its signature
+and its attestation as the release's PHAR is, and a commit or tag of
+`nightworksio/php-mutation-gate` builds the judge there. Only the gate's own
+repository names `merge-base`, which builds it where the change branched, or
+else at its base, or else takes the newest signed release's. The gate's own CI
+passes `merge-base` on pull requests, and a push is judged by its own build.
+Under a judge, a `reach.everything` glob whose files are all the gate's own
+reaches nothing by itself, since the judge runs in their place; the plan names
+each one it leaves out.
+
+A `judge` job builds it once a run, cached by
+commit, and the plan, shards, survivors and verdict run it. The judge's
+classes sit under a namespace of their own, so it runs beside the project's
+copy, and its Pest plugin takes the place of the copy's in every Pest process.
+It brings the first-party extensions itself; an extension of the project's
+own implements the gate's interfaces, not the judge's, so a project that
+registers one runs without a judge.
 
 By default the `plan` job runs the suite under coverage itself. Where a job of
 yours runs it under coverage already, it can hand its map over instead, so the
@@ -380,6 +441,7 @@ These reporters run on their own under GitHub Actions
   teams without a mention, since that token cannot read an organisation's
   teams; `owners.mention: never` mentions no one
   ([survivors and their owners](../reports.md#survivors-and-their-owners)).
+- **Runner time**: the reusable workflow's verdict reads what each job of its run took, so the headline says exact runner time. The one-step action runs in one job, and reads none, so its headline says `(estimated)`, from the flows' own timings and `shards.setup`.
 - **`badge`**: on the default branch, `badge.json`, `trend.json`, `trend.svg`,
   `savings.json` and `summary.json`, what an organisation's dashboard reads,
   in `--publish-dir` (`.mutation-gate/publish` by default). Publishing that directory is up to your workflow. Published to a
@@ -400,8 +462,11 @@ action's first job above is named so, and the reusable workflow's `verdict` job
 shows as `<calling job> / verdict`. It is the check through which a merged
 pull request's verdict proves its commit, so a job named otherwise needs
 `ci.check` set to its name. The verdict says *cannot judge* (exit code 2)
-when the plan could not judge, or when any planned shard left no result.
-Run it on a schedule as well: the full run, twice a week in the examples.
+when the plan could not judge, or when any planned shard left no result. The
+reusable workflow's verdict then names how each such shard's job ended: its
+runner shut down or lost, cancelled once another shard failed, past its time
+limit, or failed.
+Run it on a schedule as well: the full run, weekly in the examples, which `ci.schedule` sets for `init --ci`. A reusable workflow cannot hold a trigger, so the schedule goes in the workflow that calls it.
 
 ## Merge queues
 
@@ -429,7 +494,8 @@ write their own scope's ledger, two runs are spared
 
 - a group whose commit holds exactly the tree of its pull request's head,
   where that pull request's verdict passed on that head, as its `passed`
-  record says with none of its own proofs used, reaches nothing; and
+  record says, reaches nothing but the units `ci.mergedOwnScopeProofs`
+  leaves to run again; and
 - the push to the default branch after the queue merges reaches nothing for
   a commit on which a group's verdict passed.
 

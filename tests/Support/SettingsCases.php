@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 /** The configs the tests of Settings read: the defaults, and one that writes every setting. */
 final readonly class SettingsCases
 {
+    /** The options the Pest runner reads where a config sets none of them. */
+    public const string PEST_DEFAULTS = '{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "childProcesses": "serve", "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": true}, "outbreak": {"enabled": true, "timeout": 300.0, "equivalence": true, "forkStates": false, "recheckTouchedKills": true, "lines": true, "steps": true, "stepFloor": 10000000, "cache": {"store": "auto", "trust": "default-branch"}}, "duplicates": "judge-once", "trials": true, "valueReaders": true, "narrow": true, "shardScan": true, "longestFirst": true, "remember": true, "overlapSteps": true, "pcovOff": true, "xdebugOff": true}';
+
     /** The effective config of `{"runner": "pest"}`: every other setting at its default. */
     public const string DEFAULTS = <<<'JSON'
     {
@@ -49,11 +52,13 @@ final readonly class SettingsCases
             "everything": [],
             "changedTests": "narrow",
             "fixtures": [],
+            "defaultBranchSince": "judged",
             "lockMoves": "everything"
         },
         "holds": {
             "hotPath": 0.8,
-            "fewestTests": 20
+            "fewestTests": 20,
+            "coverage": "measure"
         },
         "run": {
             "full": false,
@@ -82,13 +87,19 @@ final readonly class SettingsCases
             "max": 20,
             "learnedFrom": "max",
             "setup": "1m",
-            "cutAt": 2.0
+            "cutAt": 2.0,
+            "jobLimit": "5h40m",
+            "pull": "auto",
+            "progress": "3m"
         },
         "costs": {
             "secondsPerLine": {
                 "": 0.2
             },
-            "savingsWindow": "30d"
+            "savingsWindow": "30d",
+            "testsBeforeAKill": 5,
+            "surviving": 0.02,
+            "shardOverhead": 2.5
         },
         "plan": {
             "chunkMinutes": 15,
@@ -98,9 +109,17 @@ final readonly class SettingsCases
             "newest": 0.9,
             "startUpSamples": 3
         },
+        "processes": {
+            "group": "auto",
+            "contain": "auto",
+            "memory": 85,
+            "pids": 8192
+        },
         "ci": {
             "check": "mutation / verdict",
+            "schedule": "0 3 * * 1",
             "trustMergedPullRequests": false,
+            "mergedOwnScopeProofs": "reach",
             "gitlab": {
                 "template": ".gitlab/mutation-gate.yml"
             },
@@ -154,14 +173,17 @@ final readonly class SettingsCases
             }
         },
         "coverage": {
-            "incremental": true
+            "incremental": true,
+            "compressionLevel": 6
         },
         "timeouts": {
             "mode": "confirm",
+            "headroom": 0.1,
             "seconds": 10,
             "most": 300,
             "multiple": 3,
             "startUp": "5s",
+            "startUpMultiple": 3,
             "tighter": {
                 "mutators": [
                     "RemoveArrayItem",
@@ -179,16 +201,19 @@ final readonly class SettingsCases
                 ],
                 "floor": 7
             },
+            "perTest": 3,
+            "testFloor": 3,
             "learned": {
                 "percentile": 0.99,
                 "least": 2.0,
                 "most": 10.0
             },
-            "perTest": 3,
-            "testFloor": 3
+            "heavyFill": true,
+            "parts": true
         },
         "flaky": {
-            "confirmSurvivors": true
+            "confirmSurvivors": true,
+            "killControls": "order"
         },
         "tests": {
             "order": "killers-first"
@@ -221,7 +246,8 @@ final readonly class SettingsCases
             },
             "timeouts": {
                 "cluster": 3
-            }
+            },
+            "looseValues": true
         },
         "heatmap": {
             "files": 10,
@@ -264,7 +290,32 @@ final readonly class SettingsCases
             "bootTail": false,
             "workerOpcache": true,
             "schemata": true,
-            "bootMutants": true
+            "bootMutants": true,
+            "bootChunks": false,
+            "narrowedKills": "vouch",
+            "longFilter": "files",
+            "preloaded": "fresh",
+            "childProcesses": "serve",
+            "trials": true,
+            "valueReaders": true,
+            "narrow": true,
+            "shardScan": true,
+            "longestFirst": true,
+            "remember": true,
+            "overlapSteps": true,
+            "pcovOff": true,
+            "xdebugOff": true
+        },
+        "splitStream": {
+            "enabled": false,
+            "children": 1,
+            "changeCheck": true,
+            "killersFirst": true,
+            "sharding": "tests",
+            "killerStreams": false,
+            "early": "no-match",
+            "bootOnce": false,
+            "reconnect": true
         },
         "staticCheck": {
             "tool": "auto",
@@ -273,10 +324,19 @@ final readonly class SettingsCases
             "testsTime": "learned",
             "dependents": 25,
             "preCheckAfter": 50,
+            "php": {
+                "pcov.enabled": "0",
+                "xdebug.mode": "off",
+                "opcache.enable_cli": "1",
+                "opcache.file_cache_only": "1",
+                "opcache.validate_timestamps": "0"
+            },
             "opcache": {
                 "batch": 100,
                 "limit": "1m"
-            }
+            },
+            "after": true,
+            "turbo": true
         },
         "triage": {
             "fewest": 2
@@ -287,10 +347,29 @@ final readonly class SettingsCases
             "serveIdle": "30m",
             "serveStart": "watch",
             "serveStartWait": "10s",
+            "serveRequest": "5s",
             "inferSubsumed": true,
-            "watchPoll": "1s",
+            "watchPoll": "2s",
             "memoryHeadroom": 2,
-            "serveRequest": "5s"
+            "quick": true,
+            "cancelByUnit": true,
+            "cpu": "balanced",
+            "onBattery": "reduce",
+            "childWait": "1s",
+            "watchStatus": true,
+            "coverageAlone": true,
+            "sizedPools": true,
+            "listOnce": true,
+            "streamBatches": true,
+            "recordLines": true,
+            "siteHits": true
+        },
+        "controls": {
+            "kills": true,
+            "memory": true
+        },
+        "mutants": {
+            "duplicates": "judge-once"
         }
     }
     JSON;
@@ -323,7 +402,8 @@ final readonly class SettingsCases
             'fixtures' => ['tests/fixtures/*'],
         ],
         'holds' => ['hotPath' => 1, 'fewestTests' => 5],
-        'shards' => ['seconds' => 900, 'max' => 8, 'cutAt' => 3.5],
+        'shards' => ['seconds' => 900, 'max' => 8, 'cutAt' => 3.5, 'progress' => '5m'],
+        'processes' => ['group' => 'require', 'contain' => 'off', 'memory' => 70, 'pids' => 2048],
         'plan' => ['chunkMinutes' => 30, 'provingRange' => 5],
         'timing' => ['newest' => 0.5, 'startUpSamples' => 7],
         'triage' => ['fewest' => 3],
@@ -387,6 +467,7 @@ final readonly class SettingsCases
         ],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
+        'splitStream' => ['enabled' => true, 'children' => 2, 'changeCheck' => false, 'killersFirst' => false, 'sharding' => 'source'],
         'staticCheck' => ['dependents' => 9, 'preCheckAfter' => 7, 'tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true, 'opcache' => ['batch' => 50, 'limit' => '30s']],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'sampling' => [
@@ -397,6 +478,6 @@ final readonly class SettingsCases
             'auto' => '2h',
             'autoRuns' => ['pullRequests', 'mergeGroups'],
         ],
-        'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s', 'watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false, 'watchPoll' => '5s'],
+        'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s', 'watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false, 'watchPoll' => '5s', 'cpu' => 'quiet', 'workers' => 3, 'priority' => 'background', 'macosClass' => 'maintenance', 'linuxNice' => 15, 'windowsClass' => 'idle', 'onBattery' => 'pause', 'childWait' => '3s', 'watchStatus' => false, 'coverageAlone' => false, 'sizedPools' => false, 'listOnce' => false, 'streamBatches' => false],
     ];
 }

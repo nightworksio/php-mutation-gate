@@ -94,15 +94,17 @@ final readonly class Control
         RunSelection $run,
         Paths|WholeSuite|NotGiven $unfiltered,
     ): RunTests {
+        return $run->of(self::covering($mutant, $map, $held), $map, $unfiltered);
+    }
+
+    /** The tests covering a mutant's lines as a map names them, and of a held unit only those that hold it. */
+    public static function covering(Mutant $mutant, CoverageMap $map, HeldCovered $held): TestIds
+    {
         $location = $mutant->location();
 
-        return $run->of(
-            $held->judgingAmong(
-                $location->file(),
-                $map->testsCovering($location->file(), $location->start(), $location->last()),
-            ),
-            $map,
-            $unfiltered,
+        return $held->judgingAmong(
+            $location->file(),
+            $map->testsCovering($location->file(), $location->start(), $location->last()),
         );
     }
 

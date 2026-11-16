@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -16,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestCases;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 it('narrows nothing by default: every mutator, judged by every test', function (): void {
@@ -90,4 +92,13 @@ it('runs the holding suites for mutants the whole suite judges through a map a p
         ->and($holding->suitesForMutants(WholeSuite::tests(), Fresh::coverage()))->toEqual(Suites::listed('unit'))
         ->and($holding->suitesForMutants(Filter::matching('/x/'), $handed))->toEqual(Suites::listed('unit', 'process'))
         ->and($holding->toSuite(SuiteName::of('e2e'))->suitesForMutants(Group::named('slow'), $handed))->toEqual(Suites::listed('e2e'));
+});
+
+it('judges by every test file by default, and by the part of them it is told, keeping it however else it narrows', function (): void {
+    $parted = Narrowing::none()->inTestPart(TestPart::of(2, 3));
+
+    expect(Narrowing::none()->testPart())->toEqual(TestPart::whole())
+        ->and($parted->testPart())->toEqual(TestPart::of(2, 3))
+        ->and($parted->toMutators(Mutators::all())->toSuite(SuiteName::of('unit'))->pruning(Pruned::none())->testPart())->toEqual(TestPart::of(2, 3))
+        ->and($parted->amongTestCases(TestCases::unknown())->amongSuites(JudgingSuites::every())->testPart())->toEqual(TestPart::of(2, 3));
 });

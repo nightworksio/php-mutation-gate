@@ -49,9 +49,9 @@ it('measures no start-up until one is laid on it, and keeps one through every ot
         ->upToInstead(Seconds::of(600.0))
         ->silenceOf(RunnerMutatorName::of('RemoveArrayItem'));
 
-    expect($bounds->startUp())->toBeInstanceOf(Unmeasured::class)
-        ->and(LimitBounds::between(Seconds::of(0.0), Seconds::of(30.0))->startUp())->toBeInstanceOf(Unmeasured::class)
-        ->and($measured->startUp())->toEqual(Seconds::of(2.5))
+    expect($bounds->startUp()->measured())->toBeInstanceOf(Unmeasured::class)
+        ->and(LimitBounds::between(Seconds::of(0.0), Seconds::of(30.0))->startUp()->measured())->toBeInstanceOf(Unmeasured::class)
+        ->and($measured->startUp()->measured())->toEqual(Seconds::of(2.5))
         ->and([$measured->floor(), $measured->most()])->toEqual([Seconds::of(7.0), Seconds::of(600.0)]);
 });
 

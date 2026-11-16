@@ -6,11 +6,11 @@ use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
+use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\Dependents;
 use NightWorksIO\MutationGate\Cli\Flow\NameGraph;
 use NightWorksIO\MutationGate\Cli\Flow\PrintBaselines;
 use NightWorksIO\MutationGate\Cli\Flow\WarmedUp;
-use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
@@ -101,7 +101,7 @@ function wiredWarmUp(StaticChecker $checker, Adapters $adapters): WarmedUp
  */
 function wiredAdded(StaticChecker $checker, Adapters $adapters, PreCheckable $survivor, mixed $baseline): array|string
 {
-    $at = Workspace::checkedMutant($survivor->mutant()->id());
+    $at = CheckedFiles::mutant($survivor->mutant()->id());
     $adapters->project->write($at, $survivor->checkable()->mutant());
     $found = $checker->check(MutantCheck::of($survivor->mutant()->location()->file(), $at)->within(Seconds::of(120.0)));
     $adapters->project->remove($at);

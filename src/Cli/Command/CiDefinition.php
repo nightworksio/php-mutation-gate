@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Doctor\Check\ArmRunners;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -60,6 +61,12 @@ final readonly class CiDefinition
 
     private const string GATE_UNPINNED
         = 'Composer did not install the gate here, so the definition names %s: pin the commit of a release.';
+
+    /** The arm runner `init` suggests to a public repository, which keeps `ubuntu-latest` otherwise. */
+    private const string ARM = <<<'SAID'
+        Where the repository is public, pass `runs-on: %s`: GitHub's arm runners are free for it and spend
+        fewer minutes, where every extension the tests need builds on arm (`doctor --online` checks).
+        SAID;
 
     private const string MISSING = 'The template %s is missing from the package. Reinstall it.';
 
@@ -222,6 +229,7 @@ final readonly class CiDefinition
             $settings->runner()->choice()->use()->value(),
             $settings->ci()->check(),
             CiTemplate::included($plan, $settings->ci()),
+            $settings->ci()->schedule(),
         );
     }
 
@@ -245,17 +253,18 @@ final readonly class CiDefinition
                 $this->defaultBranch($settings),
             ),
             ...$this->gate->isKnown() ? [] : [sprintf(self::GATE_UNPINNED, $this->gate->commit())],
+            sprintf(self::ARM, ArmRunners::LABEL),
         ];
         $ci = $settings->ci();
         $unnamed = match ($plan) {
             BuiltinCiPlan::Buildkite => $this->unnamed(
                 'ci.buildkite.definition',
-                $ci->buildkiteDefinition(),
+                $ci->pipelines()->buildkiteDefinition(),
                 CiTemplate::buildkitePipeline(),
             ),
             BuiltinCiPlan::Azure => $this->unnamed(
                 'ci.azure.definition',
-                $ci->azureDefinition(),
+                $ci->pipelines()->azureDefinition(),
                 CiTemplate::azureJobs(),
             ),
             BuiltinCiPlan::GitHub,

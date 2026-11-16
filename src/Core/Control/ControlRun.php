@@ -14,14 +14,16 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * What an unmutated control found (see Control): its tests passed, in the
- * seconds the runner timed them; a test failed; they ran out of its limit;
- * or it never ran, and why.
+ * seconds the runner timed them; a test failed; they ran out of its limit,
+ * with the test it was running where its events tell; or it never ran, and
+ * why.
  */
 final readonly class ControlRun
 {
@@ -34,6 +36,7 @@ final readonly class ControlRun
         private string|NotGiven $why,
         private TestIds $failing,
         private MemoryCap|NotGiven $peak = new NotGiven(),
+        private TestId|NotGiven $stoppedIn = new NotGiven(),
     ) {
     }
 
@@ -88,7 +91,9 @@ final readonly class ControlRun
             MutantStatus::Skipped => self::ranOut(),
             MutantStatus::Uncovered,
             MutantStatus::Unjudged,
-            MutantStatus::IgnoredByMarker => self::unrun($reason instanceof Reason ? $reason->text() : self::NO_ANSWER),
+            MutantStatus::IgnoredByMarker,
+            MutantStatus::Equivalent,
+            MutantStatus::NotReached => self::unrun($reason instanceof Reason ? $reason->text() : self::NO_ANSWER),
         };
     }
 
@@ -112,7 +117,24 @@ final readonly class ControlRun
     /** This run, whose processes held at most this much memory. */
     public function withPeak(MemoryCap $peak): self
     {
-        return new self($this->end, $this->took, $this->why, $this->failing, $peak);
+        return new self($this->end, $this->took, $this->why, $this->failing, $peak, $this->stoppedIn);
+    }
+
+    /**
+     * This run, which stopped while this test ran, where it ran out: the test
+     * its events left running; as it is where it did not run out.
+     */
+    public function stoppedWhile(TestId|NotGiven $test): self
+    {
+        return $this->end === ControlEnd::RanOut
+            ? new self($this->end, $this->took, $this->why, $this->failing, $this->peak, $test)
+            : $this;
+    }
+
+    /** The test it was running as it ran out, where its events named one; none otherwise. */
+    public function stoppedIn(): TestId|NotGiven
+    {
+        return $this->stoppedIn;
     }
 
     /**

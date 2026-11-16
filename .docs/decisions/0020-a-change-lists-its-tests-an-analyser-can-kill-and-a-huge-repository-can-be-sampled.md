@@ -375,7 +375,9 @@ needs remain, and the runners' own behaviour shapes each answer.
       against the time budget (ADR-0008). The run over the originals starts
       only while time is left, and an invocation's survivors are checked in
       turn while the time left has room for their checks, each as long as
-      the run over the originals took, the cores sharing them. A printed
+      the run over the originals took, as many at once as there are cores,
+      round after round, so no check starts that the time left cannot
+      finish. A printed
       file's first survivor needs room for both its checks, the print's and
       the mutant's. A survivor the time left has no room for stays a
       survivor.

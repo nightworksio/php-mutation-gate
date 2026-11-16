@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
@@ -30,21 +34,25 @@ final readonly class Patching
 {
     private function __construct(
         private Group|Unpatched $canary,
-        private bool $bootsTail = false,
-        private bool $caches = true,
-        private bool $compiles = true,
-        private bool $bootsMutants = true,
+        private StreamSettings $streams,
+        private PestSteps $steps,
+        private PestWorkers $workers,
     ) {
     }
 
     public static function off(): self
     {
-        return new self(Unpatched::Vendor);
+        return new self(
+            Unpatched::Vendor,
+            StreamSettings::off(),
+            PestSteps::standard(),
+            PestWorkers::of(bootTail: false, workerOpcache: true, schemata: true, bootMutants: true),
+        );
     }
 
     public static function on(Group $canary): self
     {
-        return new self($canary);
+        return new self($canary, StreamSettings::off(), PestSteps::standard(), self::off()->workers);
     }
 
     public function isOn(): bool
@@ -52,61 +60,103 @@ final readonly class Patching
         return $this->canary instanceof Group;
     }
 
-    /** The same, the tail's workers booting the project where it applies the patch, as `pest.bootTail` says. */
-    public function bootingTail(bool $boots): self
-    {
-        return new self($this->canary, $boots, $this->caches, $this->compiles, $this->bootsMutants);
-    }
-
     /**
-     * The same, its warm workers compiling through opcache where it applies
-     * the patch, as `pest.workerOpcache` says.
+     * The same, its warm workers booting, compiling and serving as these say where it applies the patch, each
+     * where they set it: `pest.bootTail`, `pest.workerOpcache`, `pest.schemata` and `pest.bootMutants`.
      */
-    public function cachingInWorkers(bool $caches): self
+    public function working(PestWorkers $workers): self
     {
-        return new self($this->canary, $this->bootsTail, $caches, $this->compiles, $this->bootsMutants);
+        return new self($this->canary, $this->streams, $this->steps, $this->workers->over($workers));
     }
 
-    /** The same, each file's mutants compiled into a schema where it applies the patch, as `pest.schemata` says. */
-    public function compilingSchemata(bool $compiles): self
+    /** The same, its mutants judged in split streams as `splitStream` says, where it compiles schemata (ADR-0117). */
+    public function splitting(StreamSettings $streams): self
     {
-        return new self($this->canary, $this->bootsTail, $this->caches, $compiles, $this->bootsMutants);
+        return new self($this->canary, $streams, $this->steps, $this->workers);
     }
 
-    /** The same, mutants' workers booting the project where it applies the patch, as `pest.bootMutants` says. */
-    public function bootingMutants(bool $boots): self
+    /** The same, taking these steps (ADR-0138, ADR-0142). */
+    public function stepping(PestSteps $steps): self
     {
-        return new self($this->canary, $this->bootsTail, $this->caches, $this->compiles, $boots);
+        return new self($this->canary, $this->streams, $steps, $this->workers);
+    }
+
+    /** The steps a run takes, and what they say of narrowed kills, long filters and preloaded files (ADR-0142). */
+    public function steps(): PestSteps
+    {
+        return $this->steps;
     }
 
     /**
      * What a run is started with to compile each file's mutants into a schema
-     * (see Schemata); nothing where the project does not apply the patch, or
-     * `pest.schemata` is off.
+     * (see Schemata), and to judge them in split streams where `splitStream`
+     * asks it to (ADR-0117); nothing where the project does not apply the
+     * patch, or `pest.schemata` is off.
      *
      * @return array<string, string>
      */
     public function schemata(): array
     {
-        return $this->isOn() && $this->compiles ? [GateVariable::Schemata->value => '1'] : [];
+        return $this->isOn() && $this->workers->schemata()
+            ? [GateVariable::Schemata->value => '1', ...$this->streams->variables()]
+            : [];
+    }
+
+    /**
+     * What a run is started with, where it applies the patch: so a mutant's covering tests too many for a filter
+     * are selected by their ids under `pest.longFilter: set` (ADR-0138), and so every mutant is judged by its own
+     * run under `mutants.duplicates: judge-each` (ADR-0137); nothing otherwise.
+     *
+     * @return array<string, string>
+     */
+    public function stepVariables(): array
+    {
+        return $this->isOn() ? [
+            ...$this->steps->longFilter() === LongFilter::Set
+                ? [GateVariable::LongFilter->value => LongFilter::Set->value]
+                : [],
+            ...$this->steps->duplicates() === Duplicates::JudgeEach
+                ? [GateVariable::Duplicates->value => Duplicates::JudgeEach->value]
+                : [],
+        ] : [];
+    }
+
+    /** Whether a run judges its mutants in split streams: where it compiles schemata and `splitStream` asks it to. */
+    public function splitsStreams(): bool
+    {
+        return $this->isOn() && $this->workers->schemata() && $this->streams->isOn();
     }
 
     /** Whether the warm workers compile through opcache, keeping out each file the run mutates and copy it serves. */
     public function cachesInWorkers(): bool
     {
-        return $this->isOn() && $this->caches;
+        return $this->isOn() && $this->workers->workerOpcache();
     }
 
     /** Whether the verification tail's workers boot the project before they fork its runs of every test file. */
     public function bootsTail(): bool
     {
-        return $this->isOn() && $this->bootsTail;
+        return $this->isOn() && $this->workers->bootTail();
     }
 
     /** Whether the workers of mutants' own runs boot the project, no test file loaded, before they fork. */
     public function bootsMutants(): bool
     {
-        return $this->isOn() && $this->bootsMutants;
+        return $this->isOn() && $this->workers->bootMutants();
+    }
+
+    /**
+     * Whether a shard's chunks keep their mutants' warm workers for the next
+     * chunk: where `pest.bootChunks` asks and those workers boot nothing of
+     * the project and compile without opcache, so a kept worker is in the
+     * state a fresh one starts in.
+     */
+    public function keepsChunkWorkers(): bool
+    {
+        return $this->isOn()
+            && $this->steps->bootsChunks()
+            && ! $this->workers->bootMutants()
+            && ! $this->workers->workerOpcache();
     }
 
     /**

@@ -1,0 +1,16 @@
+[package]
+name = "outbreak-graph"
+description = "The static graph of a PHP project's sources and tests: which test files can reach a file by the names they use (ADR-0132)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+outbreak-map.workspace = true
+
+[lints]
+workspace = true

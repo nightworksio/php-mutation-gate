@@ -36,7 +36,7 @@ final readonly class ZeroConfig
     /** What zero-config found, or why there is nothing to write: no tree can be found. */
     public static function found(Extensions $extensions, Settings $settings): self|Invalid|CannotJudge
     {
-        $source = new Chosen($extensions)->treeSource($settings->treeSource());
+        $source = new Chosen($extensions)->treeSource($settings->setup()->treeSource());
         $trees = $source instanceof Invalid || $source instanceof CannotJudge ? $source : $source->trees();
 
         return $trees instanceof Trees

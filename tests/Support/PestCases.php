@@ -64,6 +64,9 @@ final readonly class PestCases
 
     public const string RUN_ADDS = 'P\Tests\MoneySpec::__pest_evaluable_it_adds';
 
+    /** What a mutation run and every process it starts set by default: pcov off, and Xdebug's mode off. */
+    public const array DRIVERS_OFF = ['PCOV_ENABLED' => '0', 'XDEBUG_MODE' => 'off'];
+
     /** The list of tests Pest writes for the fixture: two tests, one of them the canary group's. */
     public const string RUN_LISTING = <<<'XML'
         <?xml version="1.0"?>

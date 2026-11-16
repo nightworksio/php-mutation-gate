@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\NeverProved;
 use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -28,7 +29,7 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
  */
 final readonly class Considering
 {
-    private function __construct(private Units $considered, private UnitResults $carried, private int $ownScope)
+    private function __construct(private Units $considered, private UnitResults $carried, private Paths $ownScope)
     {
     }
 
@@ -46,7 +47,7 @@ final readonly class Considering
     ): self {
         $considered = [];
         $carried = [];
-        $ownScope = 0;
+        $ownScope = [];
         $trustedProofs = $defaultBranch->newest();
         $ownProofs = $own->newest();
 
@@ -57,7 +58,9 @@ final readonly class Considering
 
             if (! $reach->reaches($unit) && $newest instanceof Proof) {
                 $carried[] = UnitResult::fromProof($unit, Origin::Carried, $newest);
-                $ownScope += $newest === $trusted ? 0 : 1;
+                if ($newest !== $trusted) {
+                    $ownScope[] = $path;
+                }
 
                 continue;
             }
@@ -65,7 +68,7 @@ final readonly class Considering
             $considered[] = $unit;
         }
 
-        return new self(Units::of(...$considered), UnitResults::of(...$carried), $ownScope);
+        return new self(Units::of(...$considered), UnitResults::of(...$carried), Paths::of(...$ownScope));
     }
 
     public function considered(): Units
@@ -80,6 +83,12 @@ final readonly class Considering
 
     /** How many results it carries come from the run's own scope rather than the default branch's. */
     public function ownScopeProofs(): int
+    {
+        return $this->ownScope->count();
+    }
+
+    /** The units whose results come from the run's own scope rather than the default branch's. */
+    public function ownScopeUnits(): Paths
     {
         return $this->ownScope;
     }

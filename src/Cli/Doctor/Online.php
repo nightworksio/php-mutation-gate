@@ -77,7 +77,7 @@ final readonly class Online
     /** The Azure account that refuses anonymous reads, where the config keeps its proofs in an `azure` store. */
     private function anonymousReads(Observations $observed): AnonymousReadsRefused|NotGiven
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $store = $settings instanceof Settings ? $settings->proofs()->store() : NotGiven::value();
         $azure = $store instanceof Choice && $store->use()->value() === BuiltinStore::Azure->value
             ? ContainerOptions::read($store->options())

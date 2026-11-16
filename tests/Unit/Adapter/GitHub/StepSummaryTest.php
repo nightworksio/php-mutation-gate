@@ -44,15 +44,20 @@ it('says why it wrote none', function () use ($clock): void {
 });
 
 it('reads where to write and the run to link from the environment', function () use ($clock): void {
-    $read = static fn(?string $server, ?string $run): StepSummary => Environment::during(
-        ['GITHUB_STEP_SUMMARY' => '/tmp/summary.md', 'GITHUB_SERVER_URL' => $server, 'GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_RUN_ID' => $run],
+    $read = static fn(string $server, string $run): StepSummary => Environment::during(
+        [
+            'GITHUB_STEP_SUMMARY' => '/tmp/summary.md',
+            'GITHUB_SERVER_URL' => $server === '' ? null : $server,
+            'GITHUB_REPOSITORY' => 'octo/gate',
+            'GITHUB_RUN_ID' => $run === '' ? null : $run,
+        ],
         static fn(): StepSummary => StepSummary::configured(Options::none(), $clock()),
     );
 
-    expect($read(null, '7'))->toEqual(StepSummary::appendingTo('/tmp/summary.md', 'https://github.com/octo/gate/actions/runs/7', $clock()))
+    expect($read('', '7'))->toEqual(StepSummary::appendingTo('/tmp/summary.md', 'https://github.com/octo/gate/actions/runs/7', $clock()))
         ->and($read('https://github.example', '7'))
         ->toEqual(StepSummary::appendingTo('/tmp/summary.md', 'https://github.example/octo/gate/actions/runs/7', $clock()))
-        ->and($read(null, null))->toEqual(StepSummary::appendingTo('/tmp/summary.md', '', $clock()));
+        ->and($read('', ''))->toEqual(StepSummary::appendingTo('/tmp/summary.md', '', $clock()));
 });
 
 it('counts what the default branch saved over the 30 days before its clock', function () use ($clock): void {

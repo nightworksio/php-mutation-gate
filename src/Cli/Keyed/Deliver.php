@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Keyed;
 
 use function getenv;
+use function is_file;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Bundled;
+use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Cli\Command\FlowOptions;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -19,12 +25,17 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
 
@@ -53,13 +64,14 @@ final readonly class Deliver
         private Installation $installation,
         private array $environment,
         private Sending $sending,
+        private string $shipped,
     ) {
     }
 
     /** `deliver` in this process, started from this installation, with the gate's own adapters alone. */
     public static function online(Installation $installation): self
     {
-        return new self($installation, getenv(), Sending::online());
+        return new self($installation, getenv(), Sending::online(), Resources::at(Shipped::Outbreak));
     }
 
     /** Whether the command line asks for `deliver`. */
@@ -84,6 +96,15 @@ final readonly class Deliver
 
         foreach ($sent->said() as $line) {
             $output->writeln($line, OutputInterface::OUTPUT_RAW);
+        }
+
+        $pushed = $this->cachePushed($from);
+
+        if (! $pushed instanceof NotGiven) {
+            $output->writeln(
+                $pushed instanceof Written ? $pushed->said() : $pushed->why(),
+                OutputInterface::OUTPUT_RAW,
+            );
         }
 
         return $sent->exit()->value;
@@ -135,6 +156,30 @@ final readonly class Deliver
             $read instanceof Contents => LedgerFile::read($read->text(), $limits, LedgerCodec::gzipOnly()),
             $read instanceof CannotJudge, $read instanceof TooLarge => $read,
             default => CannotJudge::because(sprintf(Sending::MISSING, LedgerFile::NAME)),
+        };
+    }
+
+    /**
+     * The entries of the proof cache the delivery holds pushed into their
+     * pack by the binary the gate ships (ADR-0131), with the token the job
+     * hands it; or why they were not; nothing where the delivery holds none.
+     */
+    private function cachePushed(string $from): Written|NotWritten|NotGiven
+    {
+        $binary = Bundled::in($this->shipped);
+        $trusted = TrustedRun::scopeIn(Variables::of($this->environment)) instanceof Scope;
+
+        return match (true) {
+            ! is_file(sprintf('%s/%s', $from, CacheRequest::DELIVERED)) => NotGiven::value(),
+            is_string($binary) => CacheDelivery::pushed(
+                Outbreak::at($binary, $from),
+                $from,
+                $trusted,
+                Variables::of($this->environment),
+            ),
+            default => NotWritten::because(
+                'No Outbreak binary ships for this machine, so deliver pushes no proof pack.',
+            ),
         };
     }
 }

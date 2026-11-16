@@ -38,6 +38,10 @@ function withoutRoomToWrite(Closure $write): Written|CannotJudge
 }
 
 describe('Directory', function (): void {
+    beforeEach(function (): void {
+        Scratch::entered();
+    });
+
     afterEach(function (): void {
         Scratch::sweep();
     });

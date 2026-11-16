@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\FirstRunShape;
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\Cost\LinesOfCode;
 use NightWorksIO\MutationGate\Core\Cost\MutantSites;
@@ -77,6 +78,7 @@ function measuredMoneyRun(): FirstRun
         MutantSites::inFile($money, Line::of(3), Line::of(3)),
         Seconds::of(1.5),
         ProcessCount::of(2),
+        FirstRunShape::of(overhead: 1.0),
     );
 }
 

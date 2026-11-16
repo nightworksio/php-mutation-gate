@@ -126,7 +126,9 @@ final readonly class Selecting
         $file = CoverageMapFile::in($directory);
         $limits = Handoff::limits();
         $contents = $this->adapters->project->readAtMost($file, $limits->packed());
-        $map = $contents instanceof Contents ? CoverageMapFile::decode($contents->text(), $limits) : $contents;
+        $map = $contents instanceof Contents
+            ? CoverageMapFile::decode($contents->text(), $limits, Vouching::by($this->adapters->maps))
+            : $contents;
 
         return match (true) {
             $map instanceof CoverageMap => Read::of($map, MeasuredAt::recordedIn($contents->text(), $limits)),
@@ -142,7 +144,7 @@ final readonly class Selecting
         $standing = $inventory->standing;
         $access = Access::of($standing->runOn()->scope(), $standing->defaultBranch(), Writing::Never);
         $mapLimits = MapLimits::kept($this->settings->proofs()->retained());
-        $kept = StoredCoverage::in($this->adapters->proofs, $access, $mapLimits)->map();
+        $kept = StoredCoverage::in($this->adapters->proofs, $access, $mapLimits, $this->adapters->maps)->map();
 
         return match (true) {
             $kept instanceof KeptMap => Read::of($kept->map(), $kept->measuredAt()),

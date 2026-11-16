@@ -77,6 +77,20 @@ it('runs the whole gate when no command is named, beginning with the config', fu
         ->toBe("Both pestphp/pest-plugin-mutate and infection/infection are installed. Choose one: set runner in the config, or pass --runner.\n");
 });
 
+it('gives no command an option the console takes on every command', function () use ($console): void {
+    $clashing = [];
+
+    foreach ($console()->all() as $name => $command) {
+        try {
+            $command->mergeApplicationDefinition();
+        } catch (LogicException $clash) {
+            $clashing[] = sprintf('%s: %s', $name, $clash->getMessage());
+        }
+    }
+
+    expect($clashing)->toBe([]);
+});
+
 it('accepts --no-extensions before any command, as a flag', function () use ($console): void {
     $options = $console()->getDefinition()->getOptions();
 

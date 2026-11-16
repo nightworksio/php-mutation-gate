@@ -1,0 +1,1 @@
+{"format":1,"tests":[{"id":"T\\B::b","seconds":0.125},{"id":"T\\C::c","seconds":0.001},{"id":"T\\Gone::g","seconds":1.0}],"files":{"src/A.php":{"2":[0],"1":[],"3":[]},"src/B.php":{"4":[1]}},"loads":[[[0,["vendor/a"],false],[2,[],false]],[[1,["vendor/a"],true]]]}

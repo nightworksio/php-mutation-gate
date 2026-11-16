@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Serve\ServeFrame;
 use NightWorksIO\MutationGate\Core\Serve\ServeStream;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
+use NightWorksIO\MutationGate\Tests\Support\OutbreakStandIn;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedCommands;
 use NightWorksIO\MutationGate\Tests\Support\ServedProjects;
@@ -154,6 +155,13 @@ it('starts a daemon for watch where none runs and local.serveStart lets it, and 
 
     ServedProjects::left();
     $serving = standInServing('');
+
+    expect($serving->forwarded('watch', new ArgvInput(['gate', 'watch']), new BufferedOutput()))->toBe(7);
+});
+
+it('starts the PHP daemon alone for watch where outbreak serve did not listen in time, and runs in it', function (): void {
+    $binary = OutbreakStandIn::answering('{"outbreak": 1}')->binary();
+    $serving = standInServing(sprintf('"outbreak": {"enabled": true, "binary": "%s", "serve": {"enabled": true}}, "local": {"serveStartWait": "1s"}', $binary));
 
     expect($serving->forwarded('watch', new ArgvInput(['gate', 'watch']), new BufferedOutput()))->toBe(7);
 });

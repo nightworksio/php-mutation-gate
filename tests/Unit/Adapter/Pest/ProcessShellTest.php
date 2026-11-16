@@ -2,18 +2,36 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
+use NightWorksIO\MutationGate\Adapter\Pest\ArchiveLoading;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\GatePlugins;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Cli\PestPlugin;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Tests\Fakes\ProcessesFake;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
 
 it('runs a command through the processes, in its directory, with its environment and deadline, and ends as it ends', function (): void {
     $processes = new ProcessesFake(static fn(): Ran => Ran::exited(3, 'no'));
@@ -56,4 +74,56 @@ it('stops a command at its silence limit where it has one, and only at its deadl
     [$silenced, $plain] = $processes->ran();
 
     expect([$silenced->silence(), $plain->silence(), $silenced->deadline()])->toEqual([$silence, NotGiven::value(), Seconds::of(4.0)]);
+});
+
+it('starts commands side by side through processes that start them, and runs them to their ends at once through others', function (): void {
+    $program = static fn(ProcessCommand $command): Ran => Ran::exited(0, $command->directory());
+    $starting = new ProcessesFake($program);
+    $running = new ProcessesFake($program);
+    $only = new readonly class ($running) implements Processes {
+        public function __construct(private Processes $processes)
+        {
+        }
+
+        public function run(ProcessCommand $command, ProcessWatch $watch = new Unwatched()): Ran
+        {
+            return $this->processes->run($command, $watch);
+        }
+
+        public function sideBySide(WorkerSlots $slots, Seconds|Unlimited $startingWithin, ProcessCommand ...$commands): ProcessEnds
+        {
+            return $this->processes->sideBySide($slots, $startingWithin, ...$commands);
+        }
+    };
+    $command = Command::of(PHP_BINARY, '-v');
+
+    $started = new ProcessShell($starting, '/project')->started(WorkerSlots::alone(), Unlimited::time(), $command, $command);
+    $ran = new ProcessShell($only, '/project')->started(WorkerSlots::alone(), Unlimited::time(), $command, $command);
+
+    expect([...$started->ends()])->toEqual([...$ran->ends()])
+        ->and(array_map(static fn(Ran $end): string => $end->output(), [...$ran->ends()]))->toBe(['/project', '/project'])
+        ->and([$starting->starts(), $running->starts()])->toBe([[2], []])
+        ->and($running->ran())->toEqual($starting->ran());
+});
+
+it('has each command\'s PHP processes load the gate\'s archive first, where it runs from one, in this directory and another', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'vendor/pest-plugins.json', (string) json_encode([PestPlugin::class]));
+    Scratch::write($root, 'composer.json', (string) json_encode([
+        'name' => 'nightworksio/mutation-gate',
+        'autoload' => ['psr-4' => ['NightWorksIO\\MutationGate\\' => 'src/']],
+    ]));
+    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
+    $loading = ArchiveLoading::writtenFor($project, OwnArchive::at('/opt/mutation-gate-judge.phar'), GatePlugins::listedIn($project, new PackageDirectory()), PestPlugin::class);
+    $processes = new ProcessesFake(static fn(): Ran => Ran::exited(0, ''));
+    $shell = new ProcessShell($processes, '/project', $loading instanceof ArchiveLoading ? $loading : NotGiven::value());
+
+    $shell->run(Command::of(PHP_BINARY, '-v'));
+    $shell->in('/elsewhere')->run(Command::of(PHP_BINARY, '-v'));
+    $scanned = MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), sprintf('%s/archive/php', $project->workspace()));
+
+    expect(array_map(
+        static fn(ProcessCommand $ran): string => (string) iterator_to_array($ran->environment(), preserve_keys: true)[MemoryCap::SCAN_DIR],
+        $processes->ran(),
+    ))->toBe([$scanned, $scanned]);
 });

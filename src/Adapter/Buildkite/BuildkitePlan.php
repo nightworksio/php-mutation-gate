@@ -89,7 +89,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
         $many = $commands->texts(Key::of(BuildkiteStep::COMMAND));
 
         return new self(
-            CiJob::of($variables, Paths::of(Ci::none()->buildkiteDefinition())),
+            CiJob::of($variables, Paths::of(Ci::none()->pipelines()->buildkiteDefinition())),
             $step,
             match (true) {
                 is_string($one) => [$one],

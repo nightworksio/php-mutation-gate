@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 use function count;
 use function file_get_contents;
 use function getenv;
+use function implode;
 use function is_file;
 use function json_encode;
 
@@ -25,12 +26,14 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -99,24 +102,16 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         $output = $this->job->variables()->valueOf(self::OUTPUT);
 
         return match (true) {
-            count($plan) > self::MOST_JOBS => CannotJudge::because(sprintf(
+            count(PlanJobs::of($plan)) > self::MOST_JOBS => CannotJudge::because(sprintf(
                 'The plan holds %d shards, and a GitHub matrix runs at most %d jobs. Set shards.max to %d or less.',
-                count($plan),
+                count(PlanJobs::of($plan)),
                 self::MOST_JOBS,
                 self::MOST_JOBS,
             )),
             $output === '' => CannotJudge::because(
                 'GITHUB_OUTPUT is not set, so the plan cannot reach the matrix. Run plan in a GitHub Actions step.',
             ),
-            default => Publication::appended(
-                $output,
-                sprintf(
-                    "shards=%s\nplan=%s\nstands=%s\n",
-                    $this->matrixOf($plan),
-                    PlanListing::inline($plan),
-                    $plan->briefing()->unchanged() instanceof Unchanged ? 'true' : 'false',
-                ),
-            ),
+            default => Publication::appended($output, $this->outputsOf($plan)),
         };
     }
 
@@ -154,6 +149,20 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     public static function withheld(): Withheld
     {
         return Withheld::of('ACTIONS_*', 'GITHUB_TOKEN');
+    }
+
+    /** The plan's step outputs, one `name=value` a line. */
+    private function outputsOf(Plan $plan): string
+    {
+        return sprintf(
+            "shards=%s\nplan=%s\nstands=%s\npulls=%s\nwaits=%s\nearly=%s\n",
+            $this->matrixOf($plan),
+            PlanListing::inline($plan),
+            $plan->briefing()->unchanged() instanceof Unchanged ? 'true' : 'false',
+            $plan->shards()->pulls() ? 'true' : 'false',
+            $plan->briefing()->waits() ? 'true' : 'false',
+            $plan->briefing()->isEarly() ? 'true' : 'false',
+        );
     }
 
     private function runIn(Node|CannotTell $payload, Scope|CannotTell $defaultBranch): RunOn|CannotTell
@@ -267,8 +276,8 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     {
         $matrix = [];
 
-        foreach ($plan as $shard) {
-            $matrix[] = ['id' => $shard->id()->number(), 'label' => $shard->label()];
+        foreach (PlanJobs::of($plan) as $job => $labels) {
+            $matrix[] = ['id' => $job, 'label' => implode(Fit::COMMA, $labels)];
         }
 
         return json_encode($matrix, JsonText::FLAGS);

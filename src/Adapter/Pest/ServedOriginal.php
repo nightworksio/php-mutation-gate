@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 
@@ -65,7 +66,7 @@ final readonly class ServedOriginal
     {
         $original = $project->absolute($file);
         $print = $served->text();
-        $copy = sprintf(self::COPIES, $directory, hash('xxh3', $print));
+        $copy = sprintf(self::COPIES, $directory, hash(Digest::QUICK, $print));
         $copies = $project->directory(Path::of(dirname($copy)));
 
         return is_file($copy) || (is_writable($copies) && file_put_contents($copy, $print) === Bytes::length($print))

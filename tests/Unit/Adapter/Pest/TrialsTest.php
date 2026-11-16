@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 
@@ -35,7 +36,7 @@ it('cannot judge a run\'s trials where the shard was handed no whole map to find
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
-    $trials = new Trials($at, $shell, new CapDirectory(), Triage::standard()->bounds(), new Remembered());
+    $trials = new Trials($at, $shell, new CapDirectory(), Triage::standard()->limits()->bounds(), new Remembered());
 
     expect($trials->of(
         MutationResult::of(Mutants::none(), 0),
@@ -44,6 +45,7 @@ it('cannot judge a run\'s trials where the shard was handed no whole map to find
         new HandedOver($own, $at),
         $own,
         Laps::from(static fn(): Seconds => Seconds::of(0.0)),
+        static fn(): Unlimited => Unlimited::time(),
     ))
         ->toEqual(CoverageMapFile::missingAt($at->absolute(CoverageMapFile::in(Path::of('whole')))))
         ->and($shell->commands())->toBe([]);

@@ -7,15 +7,18 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Flow\EarlyKeys;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\Judging;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\StreamedSuites;
 use NightWorksIO\MutationGate\Cli\Flow\UnchangedVerdict;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -133,13 +136,7 @@ final readonly class VerdictCommand
                 $following->setup,
                 $following->reporting,
             )->of($plan, $unchanged),
-            default => new Judging(
-                $following->adapters,
-                $following->settings,
-                $following->setup,
-                $following->reporting,
-                $heldTo,
-            )->verdict($plan, $read),
+            default => self::judged($following, $plan, $results, $read, $heldTo),
         };
     }
 
@@ -164,5 +161,41 @@ final readonly class VerdictCommand
         $printing->verdict($judged->verdict, $output, $project);
 
         return $judged->exitCode()->value;
+    }
+
+    /**
+     * A plan's results judged; where it was planned early, by the keys the
+     * verdict builds from the map its streams recorded, with the held units
+     * whose holding tests miss what that map shows, and how the suite ran in
+     * its streams left for a job that runs the suite (ADR-0135).
+     */
+    private static function judged(
+        Composed $following,
+        Plan $plan,
+        Path $results,
+        Results $read,
+        HeldTo|NotGiven $heldTo,
+    ): Judged|Invalid|CannotJudge {
+        $map = EarlyKeys::recorded($following, $plan, $results);
+
+        if ($map instanceof CannotJudge) {
+            return $map;
+        }
+
+        $suite = $map instanceof CoverageMap ? StreamedSuites::left($following, $plan, $results, $map) : $map;
+
+        if ($suite instanceof CannotJudge) {
+            return $suite;
+        }
+
+        $keyed = EarlyKeys::of($following, $plan, $map);
+
+        return $keyed instanceof CannotJudge ? $keyed : new Judging(
+            $following->adapters,
+            $following->settings,
+            $following->setup,
+            $following->reporting,
+            $heldTo,
+        )->verdict($keyed, $map instanceof CoverageMap ? $read->missing(EarlyKeys::misses($read, $map)) : $read);
     }
 }

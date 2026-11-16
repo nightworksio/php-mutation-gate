@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
 use NightWorksIO\MutationGate\Core\Coverage\PhpUnitXml;
+use NightWorksIO\MutationGate\Core\Coverage\RecordedBeside;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -30,6 +31,8 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
+use NightWorksIO\MutationGate\Core\Runner\RanReport;
+use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 use function unlink;
 
@@ -58,6 +61,19 @@ final readonly class Coverage
             $request instanceof CoverageRan => $this->reportIn($request->directory()),
             default => $this->measured($request),
         };
+    }
+
+    /** The PHP report a run the project started in this job left; none where the framework writes another. */
+    public function report(CoverageRan $ran): RanReport|NotGiven
+    {
+        return $this->framework->report() === CoverageReport::Php
+            ? RanReport::at(
+                $this->mapIn($ran->directory()),
+                Serializer::SERIALIZATION_FORMAT,
+                RecordedBeside::nothing(),
+                $this->project->relative(...),
+            )
+            : NotGiven::value();
     }
 
     /** The map the gate wrote into a directory of the project, or why there is none to read. */

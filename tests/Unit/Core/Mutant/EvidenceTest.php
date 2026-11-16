@@ -2,18 +2,28 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 $id = static fn(string $mutator): MutantId => MutantId::hash(Path::of('src/Money.php'), $mutator, "@@ @@\n-a\n+b", 0);
 
@@ -190,4 +200,32 @@ it('keeps the test files a run loaded with no filter, or every one, through what
         ->and(Evidence::none()->unfiltered())->toEqual(NotGiven::value())
         ->and(Evidence::none()->loadingUnfiltered(WholeSuite::tests())->unfiltered())->toEqual(WholeSuite::tests())
         ->and($loading->withPrefix(Prefix::at(1))->withEnded(Ended::of(1, signalled: false, printed: ''))->vouched()->unfiltered())->toBe($files);
+});
+
+it('judges a mutant by every covering test unless it says the shard\'s part alone, which it keeps through the rest', function (): void {
+    $shared = Evidence::none()->sharing(TestShare::OtherPart);
+
+    expect(Evidence::none()->share())->toBe(TestShare::All)
+        ->and($shared->share())->toBe(TestShare::OtherPart)
+        ->and($shared->isEmpty())->toBeFalse()
+        ->and($shared->streamed()->vouched()->loadingUnfiltered(WholeSuite::tests())->withEnded(Ended::of(1, signalled: false, printed: ''))->share())
+        ->toBe(TestShare::OtherPart);
+});
+
+it('names those of some mutants judged by a part of the test files alone, and those another part owns', function (): void {
+    $mutant = static fn(string $native): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Minus', $native, 0),
+        $native,
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Minus', MutatorFamily::Arithmetic, ''),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
+    $mutants = Mutants::of($mutant('whole'), $mutant('owned'), $mutant('other'));
+    $evidence = Evidences::none()
+        ->with($mutant('owned')->id(), Evidence::none()->sharing(TestShare::OwnedPart))
+        ->with($mutant('other')->id(), Evidence::none()->sharing(TestShare::OtherPart));
+
+    expect($evidence->judgedInPart($mutants))->toEqual(MutantIds::of($mutant('owned')->id(), $mutant('other')->id()))
+        ->and($evidence->ownedElsewhere($mutants))->toEqual(MutantIds::of($mutant('other')->id()));
 });

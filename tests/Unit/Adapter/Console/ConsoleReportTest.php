@@ -321,3 +321,12 @@ it('says which tests fail without any mutant on a line of its own, the mutants t
             sprintf('      %s', MutantText::heading($failing)),
         ]));
 });
+
+it('heads a quick round\'s report as no verdict, saying where the verdict comes from, never that it passed or failed', function (): void {
+    $output = new BufferedOutput();
+    ConsoleReport::quick($output)->report(Verdicts::failing());
+    $printed = $output->fetch();
+
+    expect($printed)->toStartWith("mutation-gate: quick, not a verdict: covering tests only, no static check.\n`mutation-gate pre-push` gives the verdict.\n")
+        ->and($printed)->not->toContain('mutation-gate: failed');
+});

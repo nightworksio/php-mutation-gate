@@ -37,7 +37,7 @@ final readonly class NativeMarkers
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $markers = $observed->markers();
         $refused = $settings instanceof Settings && $settings->ignores()->native() === Native::Refuse;
 

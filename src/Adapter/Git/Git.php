@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -63,9 +64,12 @@ final readonly class Git implements ChangeSource, Repository
 
     private Objects $objects;
 
-    private function __construct(private Command $git, private Root $directory)
+    private WorkingTree $tree;
+
+    private function __construct(private Command $git, Root $directory)
     {
         $this->objects = new Objects($git);
+        $this->tree = WorkingTree::of($git, $directory);
     }
 
     /** The repository from a directory, git itself never seeing what every run withholds. */
@@ -95,7 +99,7 @@ final readonly class Git implements ChangeSource, Repository
     {
         $resolved = $this->objects->of($commit);
 
-        return $resolved instanceof CannotTell ? $resolved : Changed::from($this->git, $this->workingTree(), $resolved);
+        return $resolved instanceof CannotTell ? $resolved : Changed::from($this->git, $this->tree, $resolved);
     }
 
     public function judged(Revision $commit): JudgedCommit|CannotTell
@@ -119,7 +123,12 @@ final readonly class Git implements ChangeSource, Repository
             ...OutsideTheWorkspace::pathspec(),
         ]);
 
-        return $listed instanceof CannotTell ? $listed : $this->workingTree()->fingerprints(Diff::paths($listed));
+        return $listed instanceof CannotTell ? $listed : $this->tree->fingerprints(Diff::paths($listed));
+    }
+
+    public function lookedSince(Looked $then): Looked|CannotTell
+    {
+        return StatusLook::of($this->git, $this->tree)->since($then, $this->fingerprints(...));
     }
 
     public function listed(Paths $paths): Paths|CannotTell
@@ -177,7 +186,7 @@ final readonly class Git implements ChangeSource, Repository
     public function filesAt(Paths $paths, Revision $revision): ByPath|CannotTell
     {
         if ($revision->isWorkingTree()) {
-            return ByPath::mapping($paths, $this->workingTree()->read(...));
+            return ByPath::mapping($paths, $this->tree->read(...));
         }
 
         $commit = $this->objects->of($revision);
@@ -244,10 +253,5 @@ final readonly class Git implements ChangeSource, Repository
         $url = $this->git->run(['remote', 'get-url', 'origin']);
 
         return $url instanceof CannotTell ? $url : trim($url);
-    }
-
-    private function workingTree(): WorkingTree
-    {
-        return WorkingTree::of($this->git, $this->directory);
     }
 }

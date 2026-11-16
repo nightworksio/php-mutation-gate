@@ -55,7 +55,7 @@ final readonly class Engine
 
         return $source instanceof Unparsable
             ? $this->unparsable($file, $source)
-            : $this->identified($file, $this->changes($source, $code));
+            : $this->identified($file, $this->changes($source));
     }
 
     /**
@@ -79,12 +79,12 @@ final readonly class Engine
      *
      * @return list<array{Mutator, Edit}>
      */
-    private function changes(Source $source, Contents $code): array
+    private function changes(Source $source): array
     {
         $changes = [];
 
         foreach ($source->changes(Offered::Everywhere, ...$this->mutators) as $change) {
-            if ($change->edit()->mutated() !== $code->text()) {
+            if (! $change->edit()->leavesCodeAsItWas()) {
                 $changes[] = [$change->mutator(), $change->edit()];
             }
         }
@@ -121,11 +121,11 @@ final readonly class Engine
             $key = MutantId::firstOf($file, $name, $diff)->value();
             $occurrence = array_key_exists($key, $seen) ? $seen[$key] : 0;
             $seen[$key] = $occurrence + 1;
-            $mutants[] = MadeMutant::of(
+            $mutants[] = MadeMutant::edited(
                 MutantId::hash($file, $name, $diff, $occurrence),
                 Location::of($file, $edit->start(), $edit->end()),
                 Mutation::of($name, $mutator->family(), $diff, $this->hintOf($mutator)),
-                Contents::of($edit->mutated()),
+                $edit,
             );
         }
 

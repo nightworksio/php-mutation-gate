@@ -11,6 +11,7 @@ use function is_int;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\KillControl;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Learned;
 use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
@@ -19,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SuiteLists;
 use NightWorksIO\MutationGate\Core\Config\SurvivorsFirst;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -46,6 +48,7 @@ final readonly class TriageKeys
         $judges = Effect::JudgesOrReportsOnly;
         $results = Effect::AffectsResults;
         $mode = Field::optional('mode', Enumerated::of(TimeoutMode::cases()), $judges);
+        $headroom = Field::optional('headroom', Number::between(0, TimeoutHeadroom::MOST), $judges);
         $seconds = Field::optional('seconds', OrLearned::of(Integer::atLeast(1)), $results);
         $atMost = Field::optional('most', Integer::atLeast(1), $results);
         $multiple = Field::optional('multiple', OrLearned::of(Number::atLeast(1)), $results);
@@ -54,7 +57,11 @@ final readonly class TriageKeys
         $testFloor = Field::optional('testFloor', Integer::atLeast(1), $results);
         $controlMost = Field::optional('controlMost', Integer::atLeast(1), $results);
         $startUp = Field::optional('startUp', Duration::written(), $results);
+        $startUpMultiple = Field::optional('startUpMultiple', Number::atLeast(1), $results);
         $learned = Field::section('learned', self::learned());
+        $heavyFill = Field::optional('heavyFill', Flag::boolean(), $judges);
+        $heavyParts = Field::optional('heavyParts', Integer::atLeast(1), $results);
+        $toggles = ToggleFields::in('timeouts');
 
         return [
             Field::optional(
@@ -70,6 +77,7 @@ final readonly class TriageKeys
                 Section::of(
                     static function (Node $timeouts) use (
                         $mode,
+                        $headroom,
                         $seconds,
                         $atMost,
                         $multiple,
@@ -78,9 +86,15 @@ final readonly class TriageKeys
                         $testFloor,
                         $controlMost,
                         $startUp,
+                        $startUpMultiple,
                         $learned,
+                        $heavyFill,
+                        $heavyParts,
+                        $toggles,
                     ): Layer|Invalid {
+                        $switched = $toggles->read($timeouts);
                         $timedOut = $mode->read($timeouts);
+                        $unused = $headroom->read($timeouts);
                         $limit = $seconds->read($timeouts);
                         $upper = $atMost->read($timeouts);
                         $times = $multiple->read($timeouts);
@@ -89,22 +103,33 @@ final readonly class TriageKeys
                         $least = $testFloor->read($timeouts);
                         $controls = $controlMost->read($timeouts);
                         $starts = $startUp->read($timeouts);
+                        $startTimes = $startUpMultiple->read($timeouts);
                         $bounds = $learned->read($timeouts);
+                        $fills = $heavyFill->read($timeouts);
+                        $cap = $heavyParts->read($timeouts);
 
                         return Reading::built(
-                            static fn(): Layer => Layer::of(Triage::of(
-                                mode: $timedOut->value(),
-                                limit: self::seconds($limit->value()),
-                                most: self::seconds($upper->value()),
-                                tighter: $lower->value(),
-                                multiple: $times->value(),
-                                perTest: $eachTest->value(),
-                                testFloor: self::seconds($least->value()),
-                                controlMost: self::seconds($controls->value()),
-                                startUp: $starts->value(),
-                                learned: $bounds->value(),
-                            )),
+                            static fn(): Layer => Layer::of(
+                                Triage::of(
+                                    mode: $timedOut->value(),
+                                    limit: self::seconds($limit->value()),
+                                    most: self::seconds($upper->value()),
+                                    tighter: $lower->value(),
+                                    multiple: $times->value(),
+                                    perTest: $eachTest->value(),
+                                    testFloor: self::seconds($least->value()),
+                                    controlMost: self::seconds($controls->value()),
+                                    startUp: $starts->value(),
+                                    learned: $bounds->value(),
+                                    heavyFill: $fills->value(),
+                                    heavyParts: $cap->value(),
+                                    headroom: $unused->value(),
+                                    startUpMultiple: $startTimes->value(),
+                                ),
+                                $toggles->set($switched),
+                            ),
                             $timedOut,
+                            $unused,
                             $limit,
                             $upper,
                             $times,
@@ -113,10 +138,15 @@ final readonly class TriageKeys
                             $least,
                             $controls,
                             $starts,
+                            $startTimes,
                             $bounds,
+                            $fills,
+                            $cap,
+                            ...$switched,
                         );
                     },
                     $mode,
+                    $headroom,
                     $seconds,
                     $atMost,
                     $multiple,
@@ -125,16 +155,14 @@ final readonly class TriageKeys
                     $testFloor,
                     $controlMost,
                     $startUp,
+                    $startUpMultiple,
                     $learned,
+                    $heavyFill,
+                    $heavyParts,
+                    ...$toggles->fields(),
                 ),
             ),
-            Field::section(
-                'flaky',
-                Section::single(
-                    Field::optional('confirmSurvivors', Flag::boolean(), $results),
-                    static fn(bool|Absent $confirm): Layer => Layer::of(Triage::of(confirmSurvivors: $confirm)),
-                ),
-            ),
+            Field::section('flaky', self::flaky($results)),
             Field::section('tests', self::tests($results)),
             Field::section('survivorsFirst', self::survivorsFirst($judges)),
         ];
@@ -164,6 +192,36 @@ final readonly class TriageKeys
             $percentile,
             $least,
             $most,
+        );
+    }
+
+    /**
+     * `flaky`: whether each survivor runs once more before it counts, and what
+     * a kill's unmutated control runs (ADR-0008, ADR-0108).
+     *
+     * @return Section<Layer>
+     */
+    private static function flaky(Effect $results): Section
+    {
+        $confirm = Field::optional('confirmSurvivors', Flag::boolean(), $results);
+        $controls = Field::optional('killControls', Enumerated::of(KillControl::cases()), $results);
+
+        return Section::of(
+            static function (Node $flaky) use ($confirm, $controls): Layer|Invalid {
+                $confirming = $confirm->read($flaky);
+                $controlling = $controls->read($flaky);
+
+                return Reading::built(
+                    static fn(): Layer => Layer::of(Triage::of(
+                        confirmSurvivors: $confirming->value(),
+                        killControls: $controlling->value(),
+                    )),
+                    $confirming,
+                    $controlling,
+                );
+            },
+            $confirm,
+            $controls,
         );
     }
 

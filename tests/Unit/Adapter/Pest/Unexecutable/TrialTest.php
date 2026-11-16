@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -95,7 +96,7 @@ function trialJudging(Project $at, string $directory, Paths $tests, WholeSuite|G
         ->judging($tests, $judgedBy, Withheld::standard(), sprintf('--log-junit=%s/junit.xml', $directory));
 }
 
-/** A trial of the whole suite. */
+/** A trial of the whole suite, whose time to start a run in never runs out. */
 function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new WholeSuite(), MatrixKind $matrix = MatrixKind::FirstKiller): Trial
 {
     return new Trial(
@@ -107,6 +108,7 @@ function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new
         $at->root(),
         uncappedScan($at),
         WorkerSlots::alone(),
+        static fn(): Unlimited => Unlimited::time(),
         $matrix,
     );
 }
@@ -130,6 +132,25 @@ it('runs the tests with Pest\'s override serving the mutated copy, and a guard, 
             ]),
         ]);
 });
+
+it('starts no run once the time is out, leaving the mutant unjudged for it, before its tests ran on their own or after', function (int $room, int $ran): void {
+    $at = trialProject();
+    $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
+    $asked = 0;
+    $left = static function () use (&$asked, $room): Seconds {
+        return Seconds::of($asked++ < $room ? 60.0 : 0.0);
+    };
+    $trial = new Trial($at, $shell, Invocation::of($at), new WholeSuite(), Withheld::standard(), $at->root(), uncappedScan($at), WorkerSlots::alone(), $left);
+
+    $outcome = $trial->of(Paths::of(Path::of('tests/MoneySpec.php')), Path::of('src/Money.php'), '/copies/n1.php', Seconds::of(6.0));
+
+    expect($outcome->status())->toBe(MutantStatus::Unjudged)
+        ->and($outcome->reason())->toEqual(OutOfTime::BeforeRunning->reason())
+        ->and(count($shell->commands()))->toBe($ran);
+})->with([
+    'before its tests ran on their own' => [0, 0],
+    'after they passed on their own' => [1, 1],
+]);
 
 it('leaves a mutant the tests pass with alive, and one stopped at its limit timed out', function (): void {
     $at = trialProject();
@@ -479,7 +500,7 @@ it('says a mutant whose run was not timed took no time', function (): void {
 it('writes each run in a directory of its own under one not made yet', function (): void {
     $at = trialProject();
     $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
-    $trial = new Trial($at, $shell, Invocation::of($at), new WholeSuite(), Withheld::standard(), sprintf('%s/trials', $at->root()), uncappedScan($at), WorkerSlots::alone(), MatrixKind::FirstKiller);
+    $trial = new Trial($at, $shell, Invocation::of($at), new WholeSuite(), Withheld::standard(), sprintf('%s/trials', $at->root()), uncappedScan($at), WorkerSlots::alone(), static fn(): Unlimited => Unlimited::time(), MatrixKind::FirstKiller);
 
     expect($trial->of(Paths::of(Path::of('tests/MoneySpec.php')), Path::of('src/Money.php'), '/copies/n1.php', Seconds::of(6.0))->status())
         ->toBe(MutantStatus::Killed)

@@ -33,3 +33,22 @@ it('gives each of several processes a place numbered from one, and one process a
         ['PARATEST' => '1', 'TEST_TOKEN' => '3', 'UNIQUE_TEST_TOKEN' => '3_run', 'LARAVEL_PARALLEL_TESTING' => '1'],
     ])->and($variables([...WorkerSlots::of(ProcessCount::single(), 'run')]))->toBe([[]]);
 });
+
+it('gives several processes side by side places that tell them nothing, as one process alone is told', function (): void {
+    $slots = [...WorkerSlots::untold(2)];
+
+    expect($slots)->toHaveCount(2)
+        ->and(array_map(static fn(WorkerSlot $slot): array => iterator_to_array($slot->variables(), preserve_keys: true), $slots))
+        ->toBe([[], []]);
+});
+
+it('numbers places after those a run beside them holds, so no two processes at once share a token, even one alone', function (): void {
+    $tokens = static fn(WorkerSlots $slots): array => array_map(
+        static fn(WorkerSlot $slot): string|false|null => iterator_to_array($slot->variables(), preserve_keys: true)['TEST_TOKEN'] ?? null,
+        [...$slots],
+    );
+
+    expect($tokens(WorkerSlots::numberedAfter(2, ProcessCount::of(3), 'run')))->toBe(['3', '4', '5'])
+        ->and($tokens(WorkerSlots::numberedAfter(3, ProcessCount::single(), 'run')))->toBe(['4'])
+        ->and($tokens(WorkerSlots::numberedAfter(0, ProcessCount::of(2), 'run')))->toBe(['1', '2']);
+});

@@ -128,8 +128,8 @@ it('leaves a kill from another commit unjudged where what changed since reaches 
 
     expect($verdict->judgement())->toBe(Judgement::Failed)
         ->and(JudgingRuns::texts($verdict->failures()))->toBe([
-            "The time budget left 1 of the mutants of src/Money.php unjudged, so this run cannot pass it.\n"
-            . 'More time judges them: vendor/bin/mutation-gate run --budget=<duration>',
+            "The run's time left 1 of the mutants of src/Money.php unjudged, so this run cannot pass it.\n"
+            . 'More time judges them: vendor/bin/mutation-gate run --budget=<duration>, or a higher shards.jobLimit where a shard stopped at it.',
         ]);
 });
 
@@ -229,8 +229,8 @@ it('never records a pass for a run whose budget left a mutant unjudged', functio
 
     expect($verdict->judgement())->toBe(Judgement::Failed)
         ->and(JudgingRuns::texts($verdict->failures()))->toBe([
-            "The time budget left 1 of the mutants of src/Money.php unjudged, so this run cannot pass it.\n"
-            . 'More time judges them: vendor/bin/mutation-gate run --budget=<duration>',
+            "The run's time left 1 of the mutants of src/Money.php unjudged, so this run cannot pass it.\n"
+            . 'More time judges them: vendor/bin/mutation-gate run --budget=<duration>, or a higher shards.jobLimit where a shard stopped at it.',
         ])
         ->and($trees[0]->counts()->number(MutantJudgement::Unjudged))->toBe(1)
         ->and($trees[0]->raised())->toEqual(Unraised::floor())

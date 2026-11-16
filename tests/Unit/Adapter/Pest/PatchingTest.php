@@ -6,11 +6,18 @@ use NightWorksIO\MutationGate\Adapter\Pest\EveryRow;
 use NightWorksIO\MutationGate\Adapter\Pest\ExactRows;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\PestSteps;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Adapter\Pest\Suite;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\Unpatched;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
+use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -34,43 +41,43 @@ it('is on with the canary group a shard opens on', function (): void {
 });
 
 it('caches in its warm workers where it is on, unless told not to, and keeps the tail\'s boot as it was', function (): void {
-    $on = Patching::on(Group::named('canary'))->bootingTail(boots: true);
+    $on = Patching::on(Group::named('canary'))->working(PestWorkers::of(bootTail: true));
 
     expect([
         $on->cachesInWorkers(),
-        $on->cachingInWorkers(caches: false)->cachesInWorkers(),
-        $on->cachingInWorkers(caches: false)->bootsTail(),
-        $on->cachingInWorkers(caches: false)->bootingTail(boots: true)->cachesInWorkers(),
+        $on->working(PestWorkers::of(workerOpcache: false))->cachesInWorkers(),
+        $on->working(PestWorkers::of(workerOpcache: false))->bootsTail(),
+        $on->working(PestWorkers::of(workerOpcache: false))->working(PestWorkers::of(bootTail: true))->cachesInWorkers(),
         Patching::off()->cachesInWorkers(),
     ])->toBe([true, false, true, false, false]);
 });
 
 it('compiles schemata where it is on, unless told not to, keeping its other settings as they were', function (): void {
-    $on = Patching::on(Group::named('canary'))->bootingTail(boots: true)->cachingInWorkers(caches: false);
+    $on = Patching::on(Group::named('canary'))->working(PestWorkers::of(bootTail: true))->working(PestWorkers::of(workerOpcache: false));
 
     expect([
         $on->schemata(),
-        $on->compilingSchemata(compiles: false)->schemata(),
-        $on->compilingSchemata(compiles: false)->bootsTail(),
-        $on->compilingSchemata(compiles: false)->cachesInWorkers(),
-        $on->compilingSchemata(compiles: false)->bootingTail(boots: false)->schemata(),
-        $on->compilingSchemata(compiles: false)->cachingInWorkers(caches: true)->schemata(),
+        $on->working(PestWorkers::of(schemata: false))->schemata(),
+        $on->working(PestWorkers::of(schemata: false))->bootsTail(),
+        $on->working(PestWorkers::of(schemata: false))->cachesInWorkers(),
+        $on->working(PestWorkers::of(schemata: false))->working(PestWorkers::of(bootTail: false))->schemata(),
+        $on->working(PestWorkers::of(schemata: false))->working(PestWorkers::of(workerOpcache: true))->schemata(),
         Patching::off()->schemata(),
     ])->toBe([['MUTATION_GATE_SCHEMATA' => '1'], [], true, false, [], [], []]);
 });
 
 it('boots mutants\' workers where it is on, unless told not to, keeping its other settings as they were', function (): void {
-    $on = Patching::on(Group::named('canary'))->bootingTail(boots: true)->cachingInWorkers(caches: false)->compilingSchemata(compiles: false);
-    $off = $on->bootingMutants(boots: false);
+    $on = Patching::on(Group::named('canary'))->working(PestWorkers::of(bootTail: true))->working(PestWorkers::of(workerOpcache: false))->working(PestWorkers::of(schemata: false));
+    $off = $on->working(PestWorkers::of(bootMutants: false));
 
     expect([
         $on->bootsMutants(),
         $off->bootsMutants(),
         [$off->bootsTail(), $off->cachesInWorkers(), $off->schemata()],
-        $off->bootingTail(boots: false)->bootsMutants(),
-        $off->cachingInWorkers(caches: true)->bootsMutants(),
-        $off->compilingSchemata(compiles: true)->bootsMutants(),
-        $off->bootingMutants(boots: true)->bootsMutants(),
+        $off->working(PestWorkers::of(bootTail: false))->bootsMutants(),
+        $off->working(PestWorkers::of(workerOpcache: true))->bootsMutants(),
+        $off->working(PestWorkers::of(schemata: true))->bootsMutants(),
+        $off->working(PestWorkers::of(bootMutants: true))->bootsMutants(),
         Patching::off()->bootsMutants(),
     ])->toBe([true, false, [true, false, []], false, false, false, true, false]);
 });
@@ -107,4 +114,35 @@ it('selects exactly a mutant\'s covering rows where the patch is on, and every r
         ->and(Patching::on(Group::named('mutation-canary'))->selection($files))->toEqual(new ExactRows($files))
         ->and(Patching::off()->selecting($covering, Suite::of($covering)))->toEqual(Selection::of($covering))
         ->and(Patching::off()->selection($files))->toEqual(new EveryRow());
+});
+
+it('splits its streams where it is on, compiles schemata and is told to, keeping its other settings as they were', function (): void {
+    $splitting = StreamSettings::of(enabled: true, children: 2, changeCheck: true, killersFirst: true);
+    $on = Patching::on(Group::named('canary'))->working(PestWorkers::of(bootTail: true))->splitting($splitting);
+
+    expect([
+        $on->splitsStreams(),
+        $on->bootsTail(),
+        $on->working(PestWorkers::of(workerOpcache: false))->splitsStreams(),
+        $on->working(PestWorkers::of(schemata: false))->splitsStreams(),
+        $on->working(PestWorkers::of(schemata: false))->schemata(),
+        $on->splitting(StreamSettings::off())->splitsStreams(),
+        $on->working(PestWorkers::of(bootMutants: false))->working(PestWorkers::of(bootTail: false))->splitsStreams(),
+        Patching::off()->splitting($splitting)->splitsStreams(),
+        Patching::off()->splitting($splitting)->schemata(),
+    ])->toBe([true, true, true, false, [], false, true, false, []])
+        ->and($on->schemata())->toBe(['MUTATION_GATE_SCHEMATA' => '1', ...$splitting->variables()]);
+});
+
+it('keeps a shard\'s mutants\' workers for its next chunk only where pest.bootChunks asks and they boot and cache nothing', function (): void {
+    $kept = Patching::on(Group::named('canary'))->working(PestWorkers::of(bootMutants: false))->working(PestWorkers::of(workerOpcache: false));
+    $asking = PestSteps::of(Toggles::none(), NarrowedKillTrust::Vouch, LongFilter::Files, Duplicates::JudgeOnce, bootChunks: true);
+
+    expect([
+        $kept->stepping($asking)->keepsChunkWorkers(),
+        $kept->keepsChunkWorkers(),
+        $kept->working(PestWorkers::of(bootMutants: true))->stepping($asking)->keepsChunkWorkers(),
+        $kept->working(PestWorkers::of(workerOpcache: true))->stepping($asking)->keepsChunkWorkers(),
+        Patching::off()->stepping($asking)->keepsChunkWorkers(),
+    ])->toBe([true, false, false, false, false]);
 });

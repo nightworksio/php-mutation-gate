@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
+use NightWorksIO\MutationGate\Tests\Support\OwnFixtures;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Process\Process;
 
@@ -62,12 +63,13 @@ function filesUnderCache(string $directory): int
 
 /**
  * Every file git lists in the library, tracked or untracked and not ignored,
- * by its contents' digest, the gate's own directory left out, as a content
- * key reads the files of a project (ADR-0007).
+ * as it lists them in the original of the process's copy, by its contents'
+ * digest in the copy, the gate's own directory left out, as a content key
+ * reads the files of a project (ADR-0007).
  */
 function listedIn(string $root): Fingerprints
 {
-    $listing = new Process(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard', ':(exclude).mutation-gate'], $root);
+    $listing = new Process(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard', ':(exclude).mutation-gate'], OwnFixtures::originalOf($root));
     $listing->mustRun();
     $files = Fingerprints::none();
 

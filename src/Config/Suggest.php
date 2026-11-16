@@ -73,6 +73,18 @@ final readonly class Suggest implements Setting
         return new self(Json::at('suggest.timeouts.cluster', $mutants));
     }
 
+    /** `suggest.looseValues`, `true`: the verdict notes each loose value in force (ADR-0142), as it does by default. */
+    public static function looseValuesNoted(): self
+    {
+        return new self(Json::at('suggest.looseValues', value: true));
+    }
+
+    /** `suggest.looseValues`, `false`: the verdict notes no loose value. */
+    public static function looseValuesSilent(): self
+    {
+        return new self(Json::at('suggest.looseValues', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

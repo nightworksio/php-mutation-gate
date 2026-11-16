@@ -1,0 +1,41 @@
+# The gate's hot paths, counted by Tally under CodSpeed's CPU simulation
+# against the numbers and complexity classes in tests/Bench (ADR-0154). The
+# image and the PHP setup stay fixed: the counts are those of this build.
+# Called by ci.yml where a change reaches the program, and nightly.
+name: tally
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  PHP_VERSION: '8.5'
+
+jobs:
+  tally:
+    name: tally
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: posix
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - run: vendor/bin/tally run --output=tmp/tally-results
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: tally-results
+          path: tmp/tally-results
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py tally/tally

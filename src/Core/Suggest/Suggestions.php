@@ -40,7 +40,7 @@ final readonly class Suggestions
     /** @return list<Suggestion> */
     public static function of(MutatorTallies $tallies, NewestProofs $proofs, Settings $settings): array
     {
-        $thresholds = $settings->effective()->reports()->suggest();
+        $thresholds = $settings->effective()->output()->reports()->suggest();
         $tallies = $tallies->under($settings->runner()->name());
         $suggestions = [];
 

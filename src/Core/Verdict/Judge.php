@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
+use NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -66,13 +67,14 @@ final readonly class Judge
         Uncovered $uncovered,
         TimeoutMode $timeouts,
         Ignoring $ignoring,
+        TimeoutHeadroom|NotGiven $headroom = new NotGiven(),
     ): self {
         return new self(
             $trees,
             $baseline,
             $reach,
             $uncovered,
-            MutantTriage::under($timeouts),
+            MutantTriage::under($timeouts, $headroom),
             KillMatrix::none(),
             $ignoring,
             NotGiven::value(),

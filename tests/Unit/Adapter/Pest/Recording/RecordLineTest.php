@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -34,7 +35,7 @@ it('writes each event as one line of JSON, slashes as they are and whole seconds
         RecordLine::killed('/tmp/mutations/a1', "P\\Tests\\MoneySpec::__pest_evaluable_it_adds", Placed::at(2, 'ab', 9)),
         RecordLine::errored('/tmp/mutations/a1', 'T::adds', Placed::unplaced(9)),
         RecordLine::narrowed('/tmp/mutations/a1', ['/p/tests/AddsSpec.php']),
-        RecordLine::preloaded('/tmp/mutations/a1'),
+        RecordLine::marked('/tmp/mutations/a1', RecordEvent::Preloaded),
         RecordLine::ran('/tmp/mutations/a1', 3),
         RecordLine::ordered('/tmp/mutations/a1', 4, 'cd'),
         RecordLine::stopped('/tmp/mutations/a1', 2, 'ab'),

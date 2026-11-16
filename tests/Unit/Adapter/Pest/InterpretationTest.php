@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -44,6 +45,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
@@ -368,6 +371,42 @@ it('leaves unjudged a mutant whose own process had loaded its file before the mu
         ), 0));
 });
 
+it('reads a mutant its shard\'s part of the test files left to another part as not reached, and keeps how much of its covering tests each other part held', function () use (
+    $mutant,
+    $plan,
+    $read,
+): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 12 => [0], 13 => [0], 14 => [0]], []);
+    PestRun::write($results, [
+        $plan($root, 'n1', 'src/Money.php:11', 'ab'),
+        $plan($root, 'n2', 'src/Money.php:12', 'cd'),
+        $plan($root, 'n3', 'src/Money.php:13', 'ef'),
+        $plan($root, 'n4', 'src/Money.php:14', 'amount'),
+        PestRun::made(4),
+        PestRun::marked('n1', RecordEvent::Unreached),
+        PestRun::finished('n1', PestStatus::Untested, 0.0),
+        PestRun::marked('n2', RecordEvent::Streamed),
+        PestRun::marked('n2', RecordEvent::OwnedPart),
+        PestRun::finished('n2', PestStatus::Untested, 0.25),
+        PestRun::marked('n3', RecordEvent::OtherPart),
+        PestRun::finished('n3', PestStatus::Untested, 0.25),
+        PestRun::finished('n4', PestStatus::Untested, 0.25),
+        PestRun::end(),
+    ]);
+    $result = $read($project, Ran::finished(succeeded: true, output: "\n  Mutations: 4 untested\n"), $results);
+    $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
+    $share = static fn(int $at): TestShare => $result instanceof MutationResult
+        ? $result->evidence()->of($mutants[$at]->id())->share()
+        : TestShare::All;
+
+    expect(array_map(static fn(Mutant $judged): MutantStatus => $judged->status(), $mutants))
+        ->toBe([MutantStatus::NotReached, MutantStatus::Survived, MutantStatus::Survived, MutantStatus::Survived])
+        ->and($mutants[0])->toEqual($mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::NotReached))
+        ->and([$share(0), $share(1), $share(2), $share(3)])
+        ->toBe([TestShare::All, TestShare::OwnedPart, TestShare::OtherPart, TestShare::All])
+        ->and($result instanceof MutationResult && $result->evidence()->of($mutants[1]->id())->isStreamed())->toBeTrue();
+});
+
 it('leaves unjudged a survivor whose own processes ran no test, and judges every other as Pest did', function () use (
     $mutant,
     $plan,
@@ -596,4 +635,16 @@ it('gives a bridged mutant its mutator\'s own name, family and hint', function (
         ->toBe('Add a test that checks what is printed.')
         ->and($unbridged instanceof MutationResult ? [...$unbridged->mutants()][0]->mutation()->family() : $unbridged)
         ->toBe(MutatorFamily::Unknown);
+});
+
+it('warns how many forks of its split streams read their state, and how many found it alike, where the run counted them', function () use ($six, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
+    $records = $six($root);
+    $end = array_pop($records);
+    PestRun::write($results, [...$records, rtrim(RecordLine::forkStates(4, 3)), $end]);
+    $result = $read($project, Ran::finished(succeeded: true, output: INTERPRETED_SUMMARY), $results);
+
+    expect($result instanceof MutationResult ? $result->warnings() : $result)->toEqual(Warnings::of(Warning::that(
+        "Split streams read the state 4 forks left in parent and child;\n3 of them found it alike, so the fork changed nothing the call returned or held (outbreak.forkStates).",
+    )));
 });

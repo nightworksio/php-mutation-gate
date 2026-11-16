@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function dirname;
 use function file_exists;
+use function file_put_contents;
 use function glob;
 use function is_array;
 use function is_dir;
@@ -23,6 +24,9 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Native\MutantPlacement;
+use NightWorksIO\MutationGate\Core\Native\PlacesMutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
 
@@ -48,6 +52,9 @@ final readonly class Project
     /** Why a run cannot be told from an earlier one. */
     private const string STALE = 'An earlier run left %s or the map beside it, and the gate cannot remove them.';
 
+    /** Why a file of the adapter's own cannot be written. */
+    private const string UNWRITTEN = '%s cannot be written. Make the directory writable.';
+
     /** Why a run's orders cannot be told from an earlier run's. */
     private const string STALE_ORDER = 'An earlier run left orders in %s, and the gate cannot remove them.';
 
@@ -56,13 +63,23 @@ final readonly class Project
         private Paths $tests,
         private Path $workspace,
         private Path $vendor,
+        private PlacesMutants|NotGiven $placing,
     ) {
     }
 
-    /** The project at a root, as the runner spells it (owner: flows), held as its real path. */
-    public static function at(string $root, Paths $tests, Path $workspace, Path $vendor): self
-    {
-        return new self(Root::of(self::real($root)), $tests, $workspace, $vendor);
+    /**
+     * The project at a root, as the runner spells it (owner: flows), held as
+     * its real path, serving a mutant where this places it from its root,
+     * tests, vendor and gate's directories.
+     */
+    public static function at(
+        string $root,
+        Paths $tests,
+        Path $workspace,
+        Path $vendor,
+        PlacesMutants|NotGiven $placing = new NotGiven(),
+    ): self {
+        return new self(Root::of(self::real($root)), $tests, $workspace, $vendor, $placing);
     }
 
     /** The gate's directory, where the adapter keeps what it writes. */
@@ -77,7 +94,19 @@ final readonly class Project
      */
     public function in(Path $directory, Paths $tests): self
     {
-        return self::at($this->absolute($directory), $tests, $this->workspace, $this->vendor);
+        return self::at($this->absolute($directory), $tests, $this->workspace, $this->vendor, $this->placing);
+    }
+
+    /**
+     * Where the gate's wrapper serves a mutant in the project, the override
+     * among its files, inside the Pest runner's own directory of the gate's
+     * (ADR-0148); none where the project was given no placing.
+     */
+    public function placement(): MutantPlacement|NotGiven
+    {
+        return $this->placing instanceof NotGiven
+            ? $this->placing
+            : $this->placing->placementIn($this->root(), $this->tests, $this->vendor, $this->workspace);
     }
 
     /** The root's real path, as Pest's coverage and the processes it starts take it. */
@@ -161,6 +190,20 @@ final readonly class Project
         $this->directory(Path::of(dirname($file)));
 
         return $this->without($file) ? $file : Leftover::at($file);
+    }
+
+    /**
+     * A file of the adapter's own in the gate's directory, written with its
+     * directory made and in place of a link where one is, never through it;
+     * or why it cannot be.
+     */
+    public function written(string $name, string $contents): string|CannotJudge
+    {
+        $file = $this->fresh($name);
+
+        return is_string($file) && file_put_contents($file, $contents) === false
+            ? CannotJudge::because(sprintf(self::UNWRITTEN, $file))
+            : $file;
     }
 
     /** The directory the plugin writes each mutant's order to, as a run left it. */

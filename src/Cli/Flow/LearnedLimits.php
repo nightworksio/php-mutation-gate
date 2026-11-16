@@ -38,8 +38,10 @@ use function sprintf;
  */
 final readonly class LearnedLimits
 {
-    private const string MULTIPLE
-        = 'timeouts.multiple learned: %s, what %s in 100 of %d kills took over their tests\' time, in place of %d.';
+    private const string MULTIPLE = <<<'SAID'
+        timeouts.multiple learned: %s,
+        rounded up from what %s in 100 of %d kills took over their tests' time, in place of %d.
+        SAID;
 
     private const string MULTIPLE_COLD = 'timeouts.multiple learned: %d, the fixed one: the ledger holds no kill yet.';
 
@@ -48,7 +50,7 @@ final readonly class LearnedLimits
     private const string SHARDS_COLD = 'shards.max learned: %d, the fixed one: the ledger holds no sharded run yet.';
 
     private const string FLOOR
-        = 'timeouts.seconds learned: %d times each shard\'s start-up, at least 1 s; %d s where none is measured.';
+        = 'timeouts.seconds learned: %s times each shard\'s start-up, at least 1 s; %d s where none is measured.';
 
     private const string PACE
         = 'staticCheck.testsTime learned: %s times their tests\' own time, the median of %d kills.';
@@ -68,14 +70,14 @@ final readonly class LearnedLimits
 
     public static function of(Settings $settings, Ledgers $ledgers): self
     {
-        $bounds = $settings->triage()->bounds();
+        $bounds = $settings->triage()->limits()->bounds();
         $kills = $ledgers->own()->learned()->limits()->and($ledgers->defaultBranch()->learned()->limits());
         $runs = $ledgers->defaultBranch()->learned()->limits();
         $statistic = $settings->shards()->learnedFrom();
         $read = $settings->triage()->learned();
         $multiple = $bounds->learnsMultiple() ? self::multipleOf($kills, $read) : NotGiven::value();
         $shards = $statistic instanceof LearnedStatistic ? self::shardsOf($runs, $statistic) : NotGiven::value();
-        $floor = $settings->triage()->limit()->seconds();
+        $floor = $settings->triage()->limits()->limit()->seconds();
         $check = $settings->staticCheck();
         $pacing = $check->before()
             && $check->tool()->use()->value() !== StaticCheck::NONE
@@ -87,7 +89,7 @@ final readonly class LearnedLimits
 
         return new self($multiple, $shards, $pace, [
             ...$bounds->learnsFloor()
-                ? [sprintf(self::FLOOR, MutantLimit::FACTOR, $floor)]
+                ? [sprintf(self::FLOOR, round($bounds->startUp()->multiple(), 2), $floor)]
                 : [],
             ...$bounds->learnsMultiple() ? [self::multipleSaid($kills, $read)] : [],
             ...$statistic instanceof LearnedStatistic ? [self::shardsSaid($runs, $statistic)] : [],
@@ -102,6 +104,12 @@ final readonly class LearnedLimits
         $kills = $this->multiple instanceof NotGiven ? $none : $none->allowing($this->multiple);
 
         return $briefing->learning($this->pace instanceof NotGiven ? $kills : $kills->pacing($this->pace));
+    }
+
+    /** The multiple learned, which every key holds; none where the config has none learned. */
+    public function multiple(): Multiple|NotGiven
+    {
+        return $this->multiple;
     }
 
     /** The cut, at most the shards learned, where they were. */

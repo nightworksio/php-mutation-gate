@@ -10,8 +10,12 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\FetchedCopies;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
+use NightWorksIO\MutationGate\Adapter\GitHub\MergedLedgers;
+use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
+use NightWorksIO\MutationGate\Adapter\Outbreak\HeldLedgers;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -19,8 +23,12 @@ use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Extension\ProofStoreContract;
 use NightWorksIO\MutationGate\Port\ProofStore;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\KeepsProofsFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Bucket;
+use NightWorksIO\MutationGate\Tests\Support\Checkout;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
 use NightWorksIO\MutationGate\Tests\Support\FixedTokens;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -73,8 +81,33 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
+/** The pull requests a push merged, as GitHub's source reads them for a run on main. */
+function mergedPullRequests(): PassedPullRequests
+{
+    $over = PassedPullRequests::over(
+        Checkout::of(ChangeSourceFake::ofTheFixture(), RepositoryFake::onMain(Revision::ref('head'))),
+        new MockHttpClient(),
+        [
+            'GITHUB_REPOSITORY' => 'owner/repo',
+            'GITHUB_SHA' => str_repeat('a', 40),
+            'GITHUB_API_URL' => 'https://api.github.com',
+        ],
+        'mutation-gate',
+    );
+
+    return $over instanceof PassedPullRequests ? $over : throw new LogicException('GitHub\'s source took no run.');
+}
+
 $stores = [
     'the fake' => fn(): ProofStore => new ProofStoreFake(),
+    'the ledgers held for outbreak serve' => fn(): ProofStore => new HeldLedgers(
+        LedgerDirectory::at(Scratch::directory()),
+        KeepsProofsFake::running(),
+    ),
+    'the ledgers a push merged' => fn(): ProofStore => MergedLedgers::over(
+        LedgerDirectory::at(Scratch::directory()),
+        mergedPullRequests(),
+    ),
     'the directory' => fn(): ProofStore => LedgerDirectory::at(Scratch::directory()),
     'the bucket' => fn(): ProofStore => BucketLedger::of(new Bucket()->client(), 'ledgers', 'mutation-gate'),
     'the local ledgers' => fn(): ProofStore => LocalLedgers::of(LedgerDirectory::at(Scratch::directory()), new ProofStoreFake()),

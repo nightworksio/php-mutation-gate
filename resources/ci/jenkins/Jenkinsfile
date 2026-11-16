@@ -23,7 +23,7 @@
 pipeline {
   agent { label '<agents with PHP %%php%% and pcov>' }
   triggers {
-    cron(env.BRANCH_NAME == '%%branch%%' ? 'H 3 * * 1,4' : '')
+    cron(env.BRANCH_NAME == '%%branch%%' ? '%%schedule%%' : '')
   }
   environment {
     MUTATION_GATE_DEFAULT_BRANCH = '%%branch%%'

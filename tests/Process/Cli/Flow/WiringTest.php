@@ -11,9 +11,12 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\MergedHeads;
+use NightWorksIO\MutationGate\Adapter\GitHub\MergedLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\NoLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
@@ -22,21 +25,30 @@ use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
-use NightWorksIO\MutationGate\Adapter\Pest\Pest as PestRunner;
+use NightWorksIO\MutationGate\Adapter\Native\PestPlacements;
+use NightWorksIO\MutationGate\Adapter\Opcache\PrintedDeclarations;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
+use NightWorksIO\MutationGate\Adapter\Outbreak\ShippedExtension;
+use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
+use NightWorksIO\MutationGate\Adapter\Process\KeptLog;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Process\Saying;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Adapter\Runtime\SystemGauge;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Zstd\ZstdHere;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Cores;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
+use NightWorksIO\MutationGate\Cli\PestPlugin;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\CostModel;
+use NightWorksIO\MutationGate\Config\Costs;
+use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
@@ -44,13 +56,15 @@ use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Setting;
-use NightWorksIO\MutationGate\Config\Shards;
+use NightWorksIO\MutationGate\Config\Source as TreeSourceSetting;
 use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Tests as TestsSetting;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\VersionControl;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
+use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -156,6 +170,9 @@ $holds = [
     'holds:src/Cli/Config/PublicBucket.php',
     'holds:src/Cli/Config/Registered.php',
     'holds:src/Cli/FirstParty.php',
+    'holds:src/Cli/Flow/CheckedFiles.php',
+    'holds:src/Cli/Flow/ToldRunner.php',
+    'holds:src/Cli/Flow/WiredStore.php',
     'holds:src/Cli/Flow/Wiring.php',
     'holds:src/Config/Ci.php',
     'holds:src/Config/Proofs.php',
@@ -166,6 +183,19 @@ $holds = [
 afterEach(function (): void {
     Scratch::sweep();
 });
+
+/** The toggles the wiring lays beneath the Pest runner's options where the config sets none: every step on. */
+const WIRED_PEST_TOGGLES = [
+    'trials' => true,
+    'valueReaders' => true,
+    'narrow' => true,
+    'shardScan' => true,
+    'longestFirst' => true,
+    'remember' => true,
+    'overlapSteps' => true,
+    'pcovOff' => true,
+    'xdebugOff' => true,
+];
 
 /** The tokens of every CI the gate knows, past those every run withholds. */
 function wiringEveryCi(): Withheld
@@ -346,7 +376,7 @@ it('opens the store read-only for a CI job without its credentials, reading the 
 ])->group(...$holds);
 
 it('learns costs at the seconds a line the config sets, and at the standard ones otherwise', function (): void {
-    $slow = wiredOf(Flows::settings(Shards::secondsPerLine('src/Slow', 0.5)), Variables::of([]))->costs;
+    $slow = wiredOf(Flows::settings(Costs::secondsPerLine('src/Slow', 0.5)), Variables::of([]))->costs;
     $unset = wiredOf(Flows::settings(), Variables::of([]))->costs;
 
     $slowly = Configs::options('{"secondsPerLine": {"": 0.2, "src/Slow": 0.5}}');
@@ -497,15 +527,18 @@ it('reads changes through GitHub under GitHub Actions, by ci.check, trusting the
     $check = new ReflectionProperty(MergedHeads::class, 'check');
     $ledgers = new ReflectionProperty(MergedHeads::class, 'ledgers');
     $source = new ReflectionProperty(PassedPullRequests::class, 'source');
+    $store = new ReflectionProperty(MergedLedgers::class, 'store');
     $changed = $heads->getValue($adapters->changes);
     $standing = $heads->getValue($adapters->repository);
+    $kept = $adapters->proofs instanceof MergedLedgers ? $store->getValue($adapters->proofs) : $adapters->proofs;
 
     expect($adapters->changes)->toBeInstanceOf(PassedPullRequests::class)
         ->and($adapters->repository)->toBeInstanceOf(PassedPullRequests::class)
         ->and($changed)->toBeInstanceOf(MergedHeads::class)
         ->and($changed instanceof MergedHeads ? $check->getValue($changed) : $changed)->toBe('gate / verdict')
-        ->and($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toBe($adapters->proofs)
-        ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toBe($adapters->proofs)
+        ->and($adapters->proofs)->toBeInstanceOf(MergedLedgers::class)
+        ->and($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toBe($kept)
+        ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toBe($kept)
         ->and($source->getValue($adapters->changes))->toEqual($git);
 })->group(...$holds);
 
@@ -599,7 +632,7 @@ function wiringPhpStanProject(string $include = 'parameters: {}', string $baseli
 /** The local processes the first-party extension hands every runner, saying what runs on the error output. */
 function firstPartyProcesses(): LocalProcesses
 {
-    return new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()));
+    return new LocalProcesses(new SystemClock(), Saying::on(KeptLog::over(ErrorOutputLog::onErrorOutput()), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.')));
 }
 
 /**
@@ -731,9 +764,9 @@ it('tells Infection the bounds of each mutant\'s limit, and that the gate checks
     $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
 
     expect($checked instanceof Adapters ? $checked->runner : $checked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(KeptLog::over(ErrorOutputLog::onErrorOutput()), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.'))), NotGiven::value()))
         ->and($unchecked instanceof Adapters ? $unchecked->runner : $unchecked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(KeptLog::over(ErrorOutputLog::onErrorOutput()), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.'))), NotGiven::value()))
         ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 })->group(...$holds);
 
@@ -826,13 +859,19 @@ it('tells each runner its timeouts and the classes of the registered mutators th
     $phpunit = $wired(Runner::phpunit());
     $native = [...$default instanceof MutatorSet ? $default : [], PlusToMinus::class];
 
-    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
-        Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
+    $options = Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class], ...WIRED_PEST_TOGGLES]));
+
+    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestOptions::runner(
+        $options,
         ComposerVendor::of('.'),
         new CapDirectory(),
         new PackageDirectory(),
         firstPartyProcesses(),
         NotGiven::value(),
+        PestPlugin::class,
+        Outbreak::beneath($options, (string) getcwd(), Resources::at(Shipped::Outbreak)),
+        ShippedExtension::beneath($options, Resources::at(Shipped::Outbreak), new PrintedDeclarations()),
+        new PestPlacements(),
     ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
             Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
@@ -905,13 +944,19 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
     $phpunit = $wired(Runner::phpunit());
     $infection = $wired(Runner::infection());
 
-    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
-        Configs::options($options(...$declared)),
+    $pestOptions = Configs::options((string) json_encode(['timeout' => 45.0, 'tests' => $declared, ...WIRED_PEST_TOGGLES]));
+
+    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestOptions::runner(
+        $pestOptions,
         ComposerVendor::of('.'),
         new CapDirectory(),
         new PackageDirectory(),
         firstPartyProcesses(),
         NotGiven::value(),
+        PestPlugin::class,
+        Outbreak::beneath($pestOptions, (string) getcwd(), Resources::at(Shipped::Outbreak)),
+        ShippedExtension::beneath($pestOptions, Resources::at(Shipped::Outbreak), new PrintedDeclarations()),
+        new PestPlacements(),
     ))
         ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(
             Configs::options($options(...$declared)),
@@ -951,4 +996,35 @@ it('judges by the suites tests.suites lists where the PHPUnit config declares ea
         ->toEqual(CannotJudge::because('tests.suites lists e2e, which names no test suite. The PHPUnit config declares: Unit, Process.'))
         ->and($wiring->adapters(Flows::settings(Runner::pest(), TestsSetting::holding('Proc')), Directory::at($project)))
         ->toEqual(CannotJudge::because('tests.holding lists Proc, which names no test suite. The PHPUnit config declares: Unit, Process.'));
+})->group(...$holds);
+
+it('cannot wire a tree source, a CI plan, a proof store or a repository nothing registers, nor an analyser that refuses its options', function (): void {
+    $wired = static fn(Settings $settings, ?Extensions $registry = null): Adapters|Invalid|CannotJudge => new Wiring($registry ?? Wirings::registry(), Variables::of([]), Wirings::detected())
+        ->adapters($settings, Directory::at(Flows::project()));
+    $changesAlone = Wirings::registry()->withChangeSource(Name::of('hg'), static fn(): ChangeSourceFake => Flows::checkout());
+    $refusing = Wirings::registry()->withStaticChecker(
+        Name::of('picky'),
+        static fn(): Invalid => Invalid::because(Problem::at('level', 'The level is a number.')),
+    );
+
+    expect($wired(Configs::built(Gate::configure()->runner(Runner::uses('fake'))->treeSource(TreeSourceSetting::uses('nowhere')))))
+        ->toEqual(CannotJudge::because('No tree source is registered as "nowhere".'))
+        ->and($wired(Flows::settings(Ci::uses('nowhere'))))->toEqual(CannotJudge::because('No CI plan is registered as "nowhere".'))
+        ->and($wired(Flows::settings(Proofs::uses('nowhere'))))->toEqual(CannotJudge::because('No proof store is registered as "nowhere".'))
+        ->and($wired(Flows::settings(VersionControl::uses('hg')), $changesAlone))->toEqual(CannotJudge::because('No repository is registered as "hg".'))
+        ->and($wired(Flows::settings(StaticCheck::uses('picky')), $refusing))->toEqual(Invalid::because(Problem::at('staticCheck.tool.with.level', 'The level is a number.')));
+})->group(...$holds);
+
+it('names the analyser as it says it is where it cannot say who it is, whatever configuration it resolves', function (): void {
+    $settings = AnalyserSettings::resolved('{"paths": []}', Flows::project());
+    $unnamed = CannotJudge::because('The analyser could not say its version.');
+    $registry = Wirings::registry()->withStaticChecker(
+        Name::of('fake'),
+        static fn(): StaticCheckerFake => new StaticCheckerFake($unnamed, Findings::none(), [], $settings),
+    );
+    $adapters = new Wiring($registry, Variables::of([]), Wirings::detected())
+        ->adapters(Flows::settings(StaticCheck::uses('fake')), Directory::at(Flows::project()));
+
+    expect($settings)->toBeInstanceOf(AnalyserSettings::class)
+        ->and($adapters instanceof Adapters ? $adapters->analyser : $adapters)->toEqual($unnamed);
 })->group(...$holds);

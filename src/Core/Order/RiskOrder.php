@@ -26,7 +26,9 @@ use function usort;
 /**
  * The order a budgeted run takes units in (ADR-0008): by risk,
  * the riskiest first; among the units of least risk, the most recently
- * changed first; and by path between units otherwise tied.
+ * changed first; and by path between units otherwise tied. A quick round of
+ * `watch` takes first the unsettled units a saved test file runs, then the
+ * saved units (ADR-0146).
  */
 final readonly class RiskOrder
 {
@@ -43,12 +45,19 @@ final readonly class RiskOrder
         private NewestProofs $newest,
         private MutantTriage $triage,
         private array $changed,
+        private Saved $saved,
     ) {
     }
 
     public static function of(Reach $reach, NewestProofs $newest, MutantTriage $triage): self
     {
-        return new self($reach, $newest, $triage, []);
+        return new self($reach, $newest, $triage, [], Saved::none());
+    }
+
+    /** This order, taking first what a quick round saved (ADR-0146). */
+    public function saving(Saved $saved): self
+    {
+        return new self($this->reach, $this->newest, $this->triage, $this->changed, $saved);
     }
 
     /**
@@ -64,7 +73,7 @@ final readonly class RiskOrder
             $changed[$path->value()] = $at->value();
         }
 
-        return new self($this->reach, $this->newest, $this->triage, $changed);
+        return new self($this->reach, $this->newest, $this->triage, $changed, $this->saved);
     }
 
     /** How much a unit risks. */
@@ -73,6 +82,8 @@ final readonly class RiskOrder
         $last = $this->newest->of($unit->path());
 
         return match (true) {
+            $this->saved->retests($unit->path()) && $last instanceof Proof && $this->unsettled($last) => Risk::Retested,
+            $this->saved->edits($unit->path()) => Risk::Saved,
             $this->reach->changesLinesOf($unit) => Risk::ChangedLines,
             $last instanceof Proof && $this->unsettled($last) => Risk::Unsettled,
             ! $last instanceof Proof => Risk::NeverMutated,

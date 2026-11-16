@@ -7,6 +7,10 @@ use NightWorksIO\MutationGate\Core\Proof\Key\VerdictCode;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+beforeEach(function (): void {
+    Scratch::entered();
+});
+
 afterEach(function (): void {
     Scratch::sweep();
 });
@@ -66,7 +70,7 @@ it('reads the code of each of the gate\'s mutator packages installed, and nothin
     $plugin = sprintf('%sacme', VerdictCode::PLUGINS);
     $withPlugin = installedAt([ThisPackage::COMPOSER => $gate, $plugin => ['src/Acme.php' => '<?php // acme']])->of('pest');
     $notInstalled = InstalledVerdictCode::at(
-        static fn(): ?string => null,
+        static fn(): null => null,
         ThisPackage::COMPOSER,
         $plugin,
     )->of('pest');
@@ -76,7 +80,7 @@ it('reads the code of each of the gate\'s mutator packages installed, and nothin
         ->not->toEqual($withPlugin)
         ->and(installedAt([ThisPackage::COMPOSER => $gate, 'acme/other' => ['src/Acme.php' => '<?php // acme']])->of('pest'))
         ->toEqual($alone)
-        ->and($notInstalled)->toEqual(InstalledVerdictCode::at(static fn(): ?string => null)->of('pest'));
+        ->and($notInstalled)->toEqual(InstalledVerdictCode::at(static fn(): null => null)->of('pest'));
 });
 
 it('moves with every file of a mutator package, and with the gate\'s own code beside one', function () use ($gate): void {

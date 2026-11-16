@@ -65,7 +65,7 @@ final readonly class Stopped
         return $this->doomed !== [];
     }
 
-    /** The units the doomed shards did not run, then those of the shards that left no result. */
+    /** The units the doomed shards did not run, then those of the shards that left no result, each once. */
     public function units(): Units
     {
         $units = Units::none();
@@ -74,7 +74,7 @@ final readonly class Stopped
             $units = $units->and($left);
         }
 
-        return $units->and($this->cancelled);
+        return $units->and($this->cancelled)->distinct();
     }
 
     /** The survivor the first doomed shard stopped on, which makes the run certain to fail; none where none stopped. */

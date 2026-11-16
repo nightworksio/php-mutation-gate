@@ -41,16 +41,32 @@ final readonly class Deadline
     }
 
     /**
-     * Of this many runs, each of which may take this long, how many fit in
-     * the time left at this moment: none once the deadline has passed, and
-     * otherwise every one where each takes no time.
+     * Of this many runs, each of which may take this long, run this many
+     * side by side, round after round, how many fit in the time left at this
+     * moment: none once the deadline has passed, and otherwise every one
+     * where each takes no time.
+     *
+     * @param positive-int $abreast
      */
-    public function fitting(int $wanted, Seconds $each, DateTimeImmutable $now): int
+    public function fitting(int $wanted, Seconds $each, DateTimeImmutable $now, int $abreast = 1): int
+    {
+        return self::fittingIn($this->left($now), $wanted, $each, $abreast);
+    }
+
+    /**
+     * Of this many runs, each of which may take this long, run this many
+     * side by side, round after round, how many fit in this much time: none
+     * where there is no time, and otherwise every one where each takes no
+     * time.
+     *
+     * @param positive-int $abreast
+     */
+    public static function fittingIn(Seconds $left, int $wanted, Seconds $each, int $abreast = 1): int
     {
         return match (true) {
-            $this->hasPassed($now) => 0,
+            $left->seconds() <= 0.0 => 0,
             $each->seconds() <= 0.0 => $wanted,
-            default => min($wanted, (int) floor($this->left($now)->seconds() / $each->seconds())),
+            default => min($wanted, (int) floor($left->seconds() / $each->seconds()) * $abreast),
         };
     }
 

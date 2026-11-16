@@ -125,7 +125,7 @@ it('records what the process loaded on each line where it watches, and a map tak
     PhpUnitEvents::finished($events);
     $map = TimedTests::onto(CoverageMap::of(), $file);
 
-    expect($map->loaded())->toEqual(LoadedPackages::of(ProcessLoads::of(TestLoad::of(PhpUnitEvents::runningId(), 'acme/one'))))
+    expect($map->executed()->loaded())->toEqual(LoadedPackages::of(ProcessLoads::of(TestLoad::of(PhpUnitEvents::runningId(), 'acme/one'))))
         ->and(TimedTests::in($file))->toHaveCount(1);
 });
 
@@ -136,5 +136,5 @@ it('records nothing of what the process loaded where it does not watch', functio
     PhpUnitEvents::prepared($events);
     PhpUnitEvents::finished($events);
 
-    expect(TimedTests::onto(CoverageMap::of(), $file)->loaded())->toEqual(LoadedPackages::unrecorded());
+    expect(TimedTests::onto(CoverageMap::of(), $file)->executed()->loaded())->toEqual(LoadedPackages::unrecorded());
 });

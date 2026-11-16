@@ -25,7 +25,7 @@ final readonly class Untested
         $untested = Changes::none();
 
         foreach ($changed as $change) {
-            $missed = $map->lineSets($change->path())->missed();
+            $missed = $map->lineTests()->setsOn($change->path())->missed();
             $lines = Lines::none();
 
             foreach ($change->lines() as $line) {

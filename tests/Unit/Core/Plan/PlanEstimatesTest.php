@@ -114,6 +114,12 @@ it('warns where the plan cannot meet shards.target, saying what stops it', funct
             or split a unit, which no cut does.
             Raise shards.target to meet it.
             SAID])
+        ->and($estimates->summary(ProcessCount::of(4), Absent::setting(), 2, Seconds::of(600.0)))->toBe([$total, <<<'SAID'
+            shards.jobLimit is 10m, and at 2 shards the longest is expected to take 14m.
+            A shard stops at the limit with what it judged, and the run cannot pass on what it left.
+            Raise shards.max, or spend less on the longest shard, to fit it.
+            SAID])
+        ->and($estimates->summary(ProcessCount::of(4), Absent::setting(), 2, $estimates->runTime()->wall()))->toBe([$total])
         ->and($estimates->summary(ProcessCount::of(4), $estimates->runTime()->wall(), 2))->toBe([$total])
         ->and($estimates->summary(ProcessCount::of(4), Absent::setting(), 2))->toBe([$total]);
 });

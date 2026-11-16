@@ -13,8 +13,10 @@ use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Access;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
 /**
@@ -36,16 +38,23 @@ final readonly class StoredCoverage
     /**
      * The map kept beside a ledger the run reads, its own scope's first and
      * then the default branch's, where its own scope's cannot be read; none;
-     * or why the default branch's cannot be read.
+     * or why the default branch's cannot be read. A map's text the engine
+     * vouches for is built straight from it (ADR-0118).
      */
-    public static function in(ProofStore $store, Access $access, MapLimits $limits): self
-    {
+    public static function in(
+        ProofStore $store,
+        Access $access,
+        MapLimits $limits,
+        MapEngine|NotGiven $engine = new NotGiven(),
+    ): self {
         $scopes = [...$access->reads()];
         $read = Missing::at(Path::of(Companion::Coverage->value));
 
         foreach ($scopes as $at => $scope) {
             $bytes = $store->companion($scope, Companion::Coverage);
-            $read = $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), $limits) : $bytes;
+            $read = $bytes instanceof Contents
+                ? CoverageMapFile::kept($bytes->text(), $limits, Vouching::by($engine))
+                : $bytes;
             $from = $at === count($scopes) - 1 ? KeptFrom::DefaultBranch : KeptFrom::OwnScope;
 
             if ($read instanceof KeptMap) {

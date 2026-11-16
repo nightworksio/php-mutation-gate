@@ -58,14 +58,15 @@ use function trim;
  *   its class the run selected.
  * - A run stopped at its limit timed out, and so did one stopped at its
  *   silence limit, which says so.
- * - A run that killed it, or errored, whose output holds PHP's fatal error
+ * - A run that killed it whose output holds PHP's fatal error
  *   for exactly the memory cap is out of memory, with the cap; under a cap,
  *   so is one where the framework says its process ended mid-test and PHP's
  *   errors were visibly hidden, as the framework says it hid them or as the
  *   project's config shows them nowhere, with no limit known, which memory
  *   triage never counts as a kill (ADR-0004).
- * - A run that fails before any test started errored: the mutant broke
- *   the framework itself, such as by a fatal error as its file loaded.
+ * - A run that fails before any test started kills it with no test named:
+ *   its ending, such as a fatal error as its file loaded, or an unmutated
+ *   control of its tests vouches for it (ADR-0014, ADR-0108).
  * - A test whose issue failed the run, of a kind the project fails a run
  *   on, where no test failed or errored, kills it where the framework's
  *   recorder names that test, as the PHPUnit runner's extension does
@@ -244,8 +245,11 @@ final readonly class MutantRun
             return Evidence::none();
         }
 
-        $prefix = Recorded::in($prepared->files()->results(), $prepared->covering())->prefix();
-        $evidence = $prefix instanceof Prefix ? Evidence::none()->withPrefix($prefix) : Evidence::none();
+        $recorded = Recorded::in($prepared->files()->results(), $prepared->covering());
+        $prefix = $recorded->prefix();
+        $evidence = $prefix instanceof Prefix
+            ? Evidence::none()->withPrefix($prefix)->takingOrder($recorded->upToLastKiller())
+            : Evidence::none();
 
         return count($judged->killers()) > 0 ? $evidence : $evidence->withEnded(Ended::ofRun($ran));
     }
@@ -272,19 +276,19 @@ final readonly class MutantRun
         return match (true) {
             count($recorded->killers()) > 0 => MutantStatus::Killed,
             $ran->succeeded() => MutantStatus::Survived,
-            ! $recorded->ranAny() => MutantStatus::Errored,
+            ! $recorded->ranAny() => MutantStatus::Killed,
             default => $this->said($this->named(self::NO_KILLER), $ran),
         };
     }
 
     /**
-     * What a run that killed the mutant, or errored, comes to where the
-     * memory cap stopped it: out of memory; any other as it was judged.
+     * What a run that killed the mutant comes to where the memory cap
+     * stopped it: out of memory; any other as it was judged.
      */
     private function weighed(MutantStatus $status, Ran $ran, MemoryCap $cap): MutantStatus
     {
         $output = $ran->output();
-        $died = $status === MutantStatus::Killed || $status === MutantStatus::Errored;
+        $died = $status === MutantStatus::Killed;
         $capped = Exhaustion::isOf(Exhaustion::in($output), $cap)
             || ($cap->caps() && $this->framework->endedHidden($output, $this->display === ErrorDisplay::Nowhere));
 

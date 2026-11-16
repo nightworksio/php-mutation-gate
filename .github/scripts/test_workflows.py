@@ -547,6 +547,102 @@ class ProjectCode(unittest.TestCase):
                 self.assertTrue(any('php "${GATE_ACTION}/bin/mutation-gate"' in line for line in lines))
 
 
+PREPARING = "- name: Prepare what the tests need besides the dependencies"
+
+
+def run_line(of_step: list[str]) -> str:
+    """The one-line command a step runs."""
+    return next(line.strip()[len("run: "):] for line in of_step if line.strip().startswith("run: "))
+
+
+class Prepare(unittest.TestCase):
+    def test_every_job_that_installs_the_project_runs_the_caller_s_command_right_after_with_no_secret(self):
+        preparing = []
+        for name, lines in jobs(WORKFLOW).items():
+            found = steps(lines)
+            for at, one in enumerate(found):
+                if "ramsey/composer-install@" in one[0]:
+                    after = [line.strip() for line in found[at + 1]]
+                    preparing.append(name)
+                    with self.subTest(job=name):
+                        self.assertEqual(PREPARING, after[0])
+                        self.assertIn("if: inputs.prepare != ''", after)
+                        self.assertIn("PREPARE: ${{ inputs.prepare }}", after)
+                        self.assertEqual([], [line for line in after if "secrets." in line or CREDENTIAL.match(line)])
+
+        action_step = next(found for found in steps(job(WORKFLOW, "shard")) if "uses: ./.mutation-gate/workflow" in found[0])
+        self.assertEqual(["plan", "survivors", "survivors-report", "verdict"], preparing)
+        self.assertIn("prepare: ${{ inputs.prepare }}", [line.strip() for line in action_step])
+
+    def test_the_action_runs_it_right_after_the_project_installs_and_never_to_deliver(self):
+        found = steps(lines_of(ACTION))
+        installed = next(at for at, one in enumerate(found) if one[0].strip() == "- name: Install the project's dependencies")
+        after = [line.strip() for line in found[installed + 1]]
+
+        self.assertEqual(PREPARING, after[0])
+        self.assertIn("if: inputs.deliver != 'true' && inputs.prepare != ''", after)
+        self.assertIn("PREPARE: ${{ inputs.prepare }}", after)
+        self.assertEqual([], [line for line in after if "inputs.composer-auth" in line or "github.token" in line])
+
+    def test_runs_the_command_as_a_shell_does_and_fails_the_step_where_any_part_of_it_fails(self):
+        preparing = next(one for one in steps(job(WORKFLOW, "plan")) if one[0].strip() == PREPARING)
+        command = run_line(preparing)
+        self.assertEqual(command, run_line(next(one for one in steps(lines_of(ACTION)) if one[0].strip() == PREPARING)))
+
+        with tempfile.TemporaryDirectory() as directory:
+            def ran(prepare: str) -> int:
+                return subprocess.run(
+                    ["bash", "-e", "-c", command],
+                    cwd=directory,
+                    env={**os.environ, "PREPARE": prepare},
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    check=False,
+                    timeout=60,
+                ).returncode
+
+            self.assertEqual(0, ran('made=tests; mkdir "${made}" && cd "${made}" && printf done > installed'))
+            with open(os.path.join(directory, "tests", "installed"), encoding="utf-8") as file:
+                self.assertEqual("done", file.read())
+            self.assertNotEqual(0, ran("false | true"))
+            self.assertNotEqual(0, ran("false; true"))
+            self.assertNotEqual(0, ran('echo "${UNSET_IN_PREPARE}"'))
+
+
+SERVICES = "services: ${{ fromJSON(inputs.services || '{}') }}"
+
+
+class Services(unittest.TestCase):
+    def test_every_job_that_runs_the_project_s_tests_starts_the_caller_s_services_and_no_other_job_does(self):
+        starting = [name for name, lines in jobs(WORKFLOW).items() if any(line.strip() == SERVICES for line in lines)]
+        running = [name for name, lines in jobs(WORKFLOW).items() if runs_project_code(lines)]
+
+        self.assertEqual(["plan", "shard", "survivors", "survivors-report", "verdict"], starting)
+        self.assertEqual(sorted(running), sorted(starting))
+        self.assertEqual([], [name for name in CREDENTIALED if name in starting])
+
+    def test_the_input_is_a_string_of_json_that_starts_nothing_unless_the_caller_names_it(self):
+        trigger = block(lines_of(WORKFLOW), lines_of(WORKFLOW).index("      services:"))
+        stripped = [line.strip() for line in trigger]
+
+        self.assertIn("type: string", stripped)
+        self.assertIn("default: '{}'", stripped)
+
+    def test_the_gate_s_own_callers_hand_on_the_servers_what_changed_names_and_reach_them_through_prepare(self):
+        ci = jobs(os.path.join(ROOT, ".github", "workflows", "ci.yml"))
+        addresses = 'python3 .github/scripts/servers.py addresses >> "$GITHUB_ENV"'
+
+        for name in ("mutation", "mutation-early"):
+            with self.subTest(caller=name):
+                stripped = [line.strip() for line in ci[name]]
+                self.assertIn("services: ${{ needs.scope.outputs.services }}", stripped)
+                self.assertIn(f"&& {addresses}", stripped)
+        tests = [line.strip() for line in ci["tests"]]
+        self.assertIn("services: ${{ fromJSON(needs.scope.outputs.services || '{}') }}", tests)
+        self.assertIn(f"run: {addresses}", tests)
+        self.assertIn('run: python3 .github/scripts/servers.py services >> "$GITHUB_OUTPUT"', [line.strip() for line in ci["scope"]])
+
+
 class Shards(unittest.TestCase):
     def test_a_shard_job_checks_out_the_one_commit_it_mutates(self):
         checkouts = [found for found in steps(job(WORKFLOW, "shard")) if "actions/checkout@" in found[0]]
@@ -623,6 +719,57 @@ def artifacts(lines: list[str], action: str) -> list[str]:
     return found
 
 
+class Trust(unittest.TestCase):
+    def test_only_the_verdict_job_computes_a_verdict(self):
+        computing = sorted(
+            name for name, lines in jobs(WORKFLOW).items() if any('"${GATE}" verdict --plan=' in line for line in lines)
+        )
+
+        self.assertEqual(["verdict"], computing)
+
+    def test_a_shard_job_reads_only_contents_and_holds_no_token(self):
+        lines = job(WORKFLOW, "shard")
+        permissions = block(lines, lines.index("    permissions:"))
+
+        self.assertEqual(["    permissions:", "      contents: read"], permissions)
+        self.assertEqual([], [line for line in lines if "github.token" in line or "GH_TOKEN" in line])
+
+    def test_the_verdict_takes_from_the_shards_only_their_results_and_writes_its_delivery_itself(self):
+        found = steps(job(WORKFLOW, "verdict"))
+        downloads = [one for one in found if "actions/download-artifact@" in one[0]]
+        landing = {
+            name.split(": ", 1)[1]: next(line.split(": ", 1)[1] for line in one if line.lstrip().startswith("path: "))
+            for one in downloads
+            for name in one
+            if name.lstrip().startswith(("name: ", "pattern: "))
+        }
+        verdict = step(job(WORKFLOW, "verdict"), "Verdict")
+
+        self.assertEqual(".mutation-gate/results", landing["mutation-gate-result-${{ needs.plan.outputs.attempt }}-*"])
+        self.assertFalse([path for path in landing.values() if path in ("${{ env.DELIVERY }}", ".mutation-gate/publish")])
+        self.assertFalse([name for name in landing if name.startswith("mutation-gate-verdict-")])
+        self.assertLess(
+            script(verdict).index('rm -rf "${DELIVERY}"'),
+            script(verdict).index('"${GATE}" verdict --plan='),
+        )
+
+    def test_deliver_hands_the_registry_token_only_off_pull_requests(self):
+        held = [line.strip() for line in job(WORKFLOW, "deliver") if "MUTATION_GATE_REGISTRY_TOKEN:" in line]
+
+        self.assertEqual(
+            ["MUTATION_GATE_REGISTRY_TOKEN: ${{ github.event_name != 'pull_request' && github.token || '' }}"], held
+        )
+
+    def test_only_the_watch_job_reads_the_run_s_jobs_for_the_shards_and_it_runs_none_of_the_project_s_code(self):
+        lines = job(WORKFLOW, "watch")
+        permissions = block(lines, lines.index("    permissions:"))
+
+        self.assertEqual(["    permissions:", "      contents: read", "      actions: read"], permissions)
+        self.assertFalse(runs_project_code(lines))
+        self.assertIn('run: python3 "${GATE_ACTION}/resources/action/gate_action.py" watch', [line.strip() for line in lines])
+        self.assertFalse(any("github-token" in line or "github:" in line for line in lines_of(ACTION)))
+
+
 class Attempts(unittest.TestCase):
     def test_every_artifact_one_job_hands_another_is_named_with_the_attempt_its_writer_gives(self):
         # A run whose jobs are all run again keeps the artifacts every earlier
@@ -633,7 +780,7 @@ class Attempts(unittest.TestCase):
         keyed_by = {}
         for name, lines in found.items():
             for written in artifacts(lines, "upload"):
-                if not written.startswith("mutation-gate-") or written == "mutation-gate-reports":
+                if not written.startswith("mutation-gate-") or written in ("mutation-gate-reports", "mutation-gate-passed", "mutation-gate-suite"):
                     continue
                 key = KEYED.match(written)
                 with self.subTest(job=name, artifact=written):
@@ -747,8 +894,8 @@ class Runner(unittest.TestCase):
                 lines for lines in jobs(path).values()
                 if any("uses: ./.github/workflows/mutation-gate.yml" in line for line in lines)
             ]
-            self.assertEqual(len(calls), 1, path)
-            named |= {line.strip() for line in calls[0] if line.strip().startswith("runs-on:")}
+            self.assertTrue(calls, path)
+            named |= {line.strip() for call in calls for line in call if line.strip().startswith("runs-on:")}
 
         self.assertEqual(named, {"runs-on: ubuntu-24.04-arm"})
 

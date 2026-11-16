@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\PHPStan\Rules;
 
-use function array_any;
 use function count;
 
 use PhpParser\Node;
@@ -19,7 +18,6 @@ use PHPStan\Rules\RuleErrorBuilder;
 
 use function sprintf;
 use function str_contains;
-use function str_ends_with;
 
 /**
  * H3 — a class answers at most twenty questions.
@@ -49,7 +47,7 @@ final readonly class NoManyMethodsRule implements Rule
     /** @return list<IdentifierRuleError> */
     public function processNode(Node $node, Scope $scope): array
     {
-        if (str_contains($scope->getFile(), '/tests/') || $this->isAllowed($scope->getFile())) {
+        if (str_contains($scope->getFile(), '/tests/') || ListedFiles::hold($this->allowIn, $scope->getFile())) {
             return [];
         }
 
@@ -72,10 +70,6 @@ final readonly class NoManyMethodsRule implements Rule
         ];
     }
 
-    private function isAllowed(string $file): bool
-    {
-        return array_any($this->allowIn, static fn(string $allowed): bool => str_ends_with($file, sprintf('/%s', $allowed)));
-    }
 
     private function what(ClassLike $node): string
     {
