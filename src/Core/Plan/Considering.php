@@ -71,6 +71,18 @@ final readonly class Considering
         return new self(Units::of(...$considered), UnitResults::of(...$carried), Paths::of(...$ownScope));
     }
 
+    /** These, considering only the units this reach reaches: a unit with no result to carry is left out. */
+    public function reachedBy(Reach $reach): self
+    {
+        $reached = [];
+
+        foreach ($this->considered as $unit) {
+            $reached = $reach->reaches($unit) ? [...$reached, $unit] : $reached;
+        }
+
+        return new self(Units::of(...$reached), $this->carried, $this->ownScope);
+    }
+
     public function considered(): Units
     {
         return $this->considered;

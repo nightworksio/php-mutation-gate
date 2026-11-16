@@ -29,6 +29,7 @@ final readonly class SpeedUps
         bool|Absent $streamBatches = new Absent(),
         bool|Absent $recordLines = new Absent(),
         bool|Absent $siteHits = new Absent(),
+        bool|Absent $changeOnly = new Absent(),
     ): self {
         return new self([
             LocalSwitch::WatchStatus->value => $watchStatus,
@@ -38,6 +39,7 @@ final readonly class SpeedUps
             LocalSwitch::StreamBatches->value => $streamBatches,
             LocalSwitch::RecordLines->value => $recordLines,
             LocalSwitch::SiteHits->value => $siteHits,
+            LocalSwitch::ChangeOnly->value => $changeOnly,
         ]);
     }
 
@@ -52,6 +54,7 @@ final readonly class SpeedUps
             streamBatches: true,
             recordLines: true,
             siteHits: true,
+            changeOnly: true,
         );
     }
 

@@ -120,7 +120,6 @@ final readonly class Serving
 
     private function request(string $command, ArgvInput $input, OutputInterface $output): ServeRequest
     {
-        $config = $input->getParameterOption('--config', null, onlyParams: true);
         $handed = $input->hasParameterOption(self::STDIN_OPTION, onlyParams: true);
         $stream = $input->getStream();
         $pushed = $command === Hook::PrePush->value && ! $handed
@@ -128,7 +127,7 @@ final readonly class Serving
             : '';
 
         return ServeRequest::running(
-            ServedProject::identity($this->project, is_string($config) ? $config : NotGiven::value()),
+            ServedProject::identity($this->project, $this->config($input)),
             [$this->script, ...$input->getRawTokens()],
             ServedVariables::of(getenv()),
             $pushed,
@@ -151,7 +150,7 @@ final readonly class Serving
         $unserved = $answer instanceof NotGiven || $answer instanceof ServeRefusal;
         $composed = $watch && $unserved ? $this->startable($input) : NotGiven::value();
 
-        return $composed instanceof Composed && $this->started($composed)
+        return $composed instanceof Composed && $this->started($composed, $this->config($input))
             ? $client->answered($request)
             : $answer;
     }
@@ -162,21 +161,30 @@ final readonly class Serving
      * child, where the binary is in use and `outbreak.serve.enabled` is on
      * (ADR-0133), and the PHP daemon alone where that did not listen in time.
      */
-    private function started(Composed $composed): bool
+    private function started(Composed $composed, string|NotGiven $config): bool
     {
         $local = $composed->settings->local();
         $launch = Launch::here()->prefix($local->work());
         $engine = $composed->adapters->maps;
         $served = $engine instanceof Outbreak ? $engine->lines()->serving($launch) : $launch;
 
-        return $this->startedWith($local, $served) || ($served !== $launch && $this->startedWith($local, $launch));
+        return $this->startedWith($local, $served, $config)
+            || ($served !== $launch && $this->startedWith($local, $launch, $config));
     }
 
     /** @param list<string> $launch what goes before the PHP daemon's command line */
-    private function startedWith(Local $local, array $launch): bool
+    private function startedWith(Local $local, array $launch, string|NotGiven $config): bool
     {
         return new DaemonStart(ServeSocket::ofProject(), $local->serve()->startWait(), $launch)
-            ->started($this->script, $this->project);
+            ->started($this->script, $this->project, $config);
+    }
+
+    /** The config file the command names, where it names one. */
+    private function config(InputInterface $input): string|NotGiven
+    {
+        $config = $input->getParameterOption('--config', null, onlyParams: true);
+
+        return is_string($config) ? $config : NotGiven::value();
     }
 
     /**

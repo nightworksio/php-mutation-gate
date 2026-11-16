@@ -342,8 +342,8 @@ final readonly class SettingsCases
             "fewest": 2
         },
         "local": {
-            "watchBudget": "1m",
-            "prePushBudget": "5m",
+            "watchBudget": "30s",
+            "prePushBudget": "2m",
             "serveIdle": "30m",
             "serveStart": "watch",
             "serveStartWait": "10s",
@@ -362,7 +362,8 @@ final readonly class SettingsCases
             "listOnce": true,
             "streamBatches": true,
             "recordLines": true,
-            "siteHits": true
+            "siteHits": true,
+            "changeOnly": true
         },
         "controls": {
             "kills": true,

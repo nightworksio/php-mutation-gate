@@ -4,8 +4,8 @@ The gate can judge your change before CI does: on every save, before every
 push, and as a score change at every commit.
 
 ```sh
-vendor/bin/mutation-gate watch          # re-judges what each save reaches, within 60 seconds
-vendor/bin/mutation-gate hook install   # a pre-push hook: judges the pushed commits within 5 minutes
+vendor/bin/mutation-gate watch          # re-judges what each save reaches, within 30 seconds
+vendor/bin/mutation-gate hook install   # a pre-push hook: judges the pushed commits within 2 minutes
 vendor/bin/mutation-gate hook install --pre-commit   # also shows the score change at each commit
 ```
 
@@ -14,6 +14,12 @@ The time limits are `local.watchBudget` and `local.prePushBudget` in the
 nothing and never blocks a commit: it prints each reached tree's score change
 from the local ledger. To see survivors in your editor, see
 [editors](editors.md).
+
+A round of `watch` is quick (`local.quick`): it judges what the save
+reaches and nothing else, so a one-line change is judged in seconds. A
+unit that no earlier run judged waits for `pre-push`, `run` or CI, unless
+`local.changeOnly` is off. The daemon `watch` starts reads the config file
+`watch` was given with `--config`.
 
 `watch` shares the machine you work on. By default it runs half the logical
 cores, at most eight, at utility priority (`local.cpu`), and one worker at

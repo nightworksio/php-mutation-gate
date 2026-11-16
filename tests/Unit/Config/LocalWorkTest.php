@@ -29,6 +29,7 @@ $calls = [
     'streamBatches' => [static fn(): Setting => LocalWork::streamBatches(on: false), 'local.streamBatches', false, 'streamBatches'],
     'recordLines' => [static fn(): Setting => LocalWork::recordLines(on: false), 'local.recordLines', false, 'recordLines'],
     'siteHits' => [static fn(): Setting => LocalWork::siteHits(on: false), 'local.siteHits', false, 'siteHits'],
+    'changeOnly' => [static fn(): Setting => LocalWork::changeOnly(on: false), 'local.changeOnly', false, 'changeOnly'],
 ];
 
 it('writes each call\'s key, and writes the config back with the same call', function (Closure $call, string $path, string|int|bool $value, string $method): void {

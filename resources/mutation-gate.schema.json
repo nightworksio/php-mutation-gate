@@ -4457,12 +4457,12 @@
                 "watchBudget": {
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
-                    "default": "1m"
+                    "default": "30s"
                 },
                 "prePushBudget": {
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
-                    "default": "5m"
+                    "default": "2m"
                 },
                 "serveIdle": {
                     "type": "string",
@@ -4603,6 +4603,10 @@
                     "default": true
                 },
                 "siteHits": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "changeOnly": {
                     "type": "boolean",
                     "default": true
                 }
@@ -9116,6 +9120,9 @@
                             "type": "boolean"
                         },
                         "siteHits": {
+                            "type": "boolean"
+                        },
+                        "changeOnly": {
                             "type": "boolean"
                         }
                     },

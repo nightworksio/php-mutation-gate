@@ -11,12 +11,14 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\Coverage\Untested;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
@@ -243,6 +245,7 @@ final readonly class Planning
                 $learned->cut($cut),
                 $matrix,
                 $saved,
+                $quick instanceof QuickRound,
             )
             : $keying;
 
@@ -274,6 +277,7 @@ final readonly class Planning
         Cut $cut,
         MatrixKind $matrix,
         Saved $saved,
+        bool $quick,
     ): Plan|CannotJudge {
         $map = $judges->map();
         $kind = $this->adapters->briefing(Briefing::standard()->recording($matrix))->profile();
@@ -304,6 +308,9 @@ final readonly class Planning
             OwnOnly::of($ownOnly, $now),
             $now,
         );
+        $considering = $quick && $this->settings->local()->work()->isOn(LocalSwitch::ChangeOnly)
+            ? $considering->reachedBy($reached->reach())
+            : $considering;
         $carried = $this->unitsOf($considering->carried());
         $carriedOwn = $carried->within($ownOnly);
         $keys = $keying->keysOf($considering->considered());
@@ -331,12 +338,7 @@ final readonly class Planning
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
             ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
         $opening = $map->durations()->total();
-        $firstRun = new FirstRuns(
-            $this->adapters,
-            $this->settings->shards()->planning()->startUpSamples(),
-            $this->settings->shards()->costs()->firstRunShape(),
-        )
-            ->measured($map, $ledgers->costs($this->setup->gate)->untimed($toRun));
+        $firstRun = $this->firstRun($quick, $map, $ledgers->costs($this->setup->gate)->untimed($toRun));
         $planned = new PlannedShards($this->adapters, $this->settings, $this->setup);
         $shards = $planned->of(
             $toRun,
@@ -476,5 +478,18 @@ final readonly class Planning
         }
 
         return $units;
+    }
+
+    /**
+     * What the plan measures of the first run of these units, untimed so
+     * far; nothing in a quick round, whose one shard no estimate cuts.
+     */
+    private function firstRun(bool $quick, CoverageMap $map, Units $untimed): FirstRun
+    {
+        return $quick ? FirstRun::unmeasured() : new FirstRuns(
+            $this->adapters,
+            $this->settings->shards()->planning()->startUpSamples(),
+            $this->settings->shards()->costs()->firstRunShape(),
+        )->measured($map, $untimed);
     }
 }

@@ -114,6 +114,12 @@ final readonly class LocalWork implements Setting
         return new self(Json::at('local.siteHits', $on));
     }
 
+    /** `local.changeOnly`: whether a quick round judges only the units its change reaches; on by default. */
+    public static function changeOnly(bool $on): self
+    {
+        return new self(Json::at('local.changeOnly', $on));
+    }
+
     public function written(): Json
     {
         return $this->json;

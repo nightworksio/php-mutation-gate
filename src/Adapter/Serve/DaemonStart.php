@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Serve;
 
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -30,6 +32,8 @@ final readonly class DaemonStart
 
     private const string OPTION = '--%s';
 
+    private const string CONFIG = '--config=%s';
+
     /** @param list<string> $launch what goes before the daemon's command line: its priority (ADR-0120) */
     public function __construct(private ServeSocket $socket, private Seconds $within, private array $launch = [])
     {
@@ -41,9 +45,10 @@ final readonly class DaemonStart
      * (`local.serveStartWait`), under what it is launched with. The socket's directory is kept to the user
      * alone first, where it is the user's own; none starts where the socket
      * or its directory is not the user's own; a socket file no daemon answers
-     * on is removed before it starts.
+     * on is removed before it starts. A daemon started for a client that
+     * names its config file reads that file, so it serves the client.
      */
-    public function started(string $script, string $directory): bool
+    public function started(string $script, string $directory, string|NotGiven $config): bool
     {
         $this->socket->tightened();
         $running = $this->socket->connected();
@@ -55,7 +60,14 @@ final readonly class DaemonStart
         $this->socket->removed();
         $pipes = [];
         proc_open(
-            [...$this->launch, PHP_BINARY, $script, Verb::Serve->value, sprintf(self::OPTION, self::DETACHED)],
+            [
+                ...$this->launch,
+                PHP_BINARY,
+                $script,
+                Verb::Serve->value,
+                sprintf(self::OPTION, self::DETACHED),
+                ...(is_string($config) ? [sprintf(self::CONFIG, $config)] : []),
+            ],
             [['file', self::NULL_DEVICE, 'r'], ['file', self::NULL_DEVICE, 'w'], ['file', self::NULL_DEVICE, 'w']],
             $pipes,
             $directory,

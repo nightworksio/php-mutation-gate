@@ -30,4 +30,7 @@ enum LocalSwitch: string
 
     /** A quick round places a changed test file by the static graph rather than measuring it (ADR-0147). */
     case SiteHits = 'siteHits';
+
+    /** A quick round judges only the units its change reaches, and none merely because no proof of it stands. */
+    case ChangeOnly = 'changeOnly';
 }
