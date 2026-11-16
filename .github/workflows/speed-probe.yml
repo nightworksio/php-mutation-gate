@@ -12,49 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  map:
-    name: map
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      actions: read
-    steps:
-      - name: the newest map ci.yml uploaded on this repository's own pull request branch
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          BRANCH: feat/all-open-work
-        run: |
-          runs=$(gh api "repos/${REPO}/actions/workflows/ci.yml/runs?branch=${BRANCH}&per_page=30" \
-            --jq ".workflow_runs[] | select(.head_repository.full_name == \"${REPO}\") | .id")
-          trusted=""
-          for run in ${runs}; do
-            id=$(gh api "repos/${REPO}/actions/runs/${run}/artifacts?name=mutation-gate-map" \
-              --jq '[.artifacts[] | select(.expired == false)][0].id // empty')
-            if [ -n "${id}" ]; then
-              trusted=${run}
-              break
-            fi
-          done
-          if [ -z "${trusted}" ]; then
-            echo "::error::No run of ci.yml on ${BRANCH} in ${REPO} holds an unexpired mutation-gate-map."
-            exit 1
-          fi
-          echo "map from run ${trusted}"
-          gh run download "${trusted}" --repo "${REPO}" --name mutation-gate-map --dir map
-          if [ "$(find map -mindepth 1 | wc -l)" -ne 1 ] || [ -L map/map.json.gz ] || [ ! -f map/map.json.gz ]; then
-            echo "::error::The artifact of run ${trusted} is not map.json.gz alone, as a regular file."
-            exit 1
-          fi
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: mutation-gate-map
-          path: map/map.json.gz
-          if-no-files-found: error
-          retention-days: 1
-
   mutation:
-    needs: map
     permissions:
       contents: write
       actions: read
@@ -63,7 +21,6 @@ jobs:
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
     with:
       config: mutation-gate.probe.json
-      coverage: mutation-gate-map
       extensions: zstd
       prepare: >-
         composer --working-dir=tests/Contract/Runner/fixture install --no-interaction --no-progress
