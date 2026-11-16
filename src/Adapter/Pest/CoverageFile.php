@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
 use SebastianBergmann\CodeCoverage\Exception as CoverageFailure;
 use SebastianBergmann\CodeCoverage\Serialization\Unserializer;
 
@@ -93,6 +94,25 @@ final readonly class CoverageFile implements Covering
     }
 
     /**
+     * A map a process loaded already, as `--coverage-php` writes it.
+     *
+     * @param array{
+     *     basePath: string,
+     *     codeCoverage: ProcessedCodeCoverageData,
+     *     testResults: array<string, array{time: float}>,
+     * } $coverage
+     */
+    public static function loaded(array $coverage): self
+    {
+        $data = $coverage['codeCoverage'];
+
+        return new self(
+            ReportedLines::of($coverage['basePath'], $data->testIds(), $data->lineCoverage()),
+            array_map(static fn(array $result): float => $result['time'], $coverage['testResults']),
+        );
+    }
+
+    /**
      * A file's bytes from a byte on.
      *
      * @return Closure(int): string
@@ -115,11 +135,6 @@ final readonly class CoverageFile implements Covering
             return PhpReport::unreadableAt($file, $failure->getMessage());
         }
 
-        $data = $coverage['codeCoverage'];
-
-        return new self(
-            ReportedLines::of($coverage['basePath'], $data->testIds(), $data->lineCoverage()),
-            array_map(static fn(array $result): float => $result['time'], $coverage['testResults']),
-        );
+        return self::loaded($coverage);
     }
 }

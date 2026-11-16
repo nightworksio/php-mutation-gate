@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestTime;
 use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
 
 /**
  * The tests of the coverage map a patched Pest loaded, read in its parent
@@ -35,9 +36,22 @@ final class LoadedMap
     private static array $times = [];
 
     /**
+     * @var list<array{
+     *     basePath: string,
+     *     codeCoverage: ProcessedCodeCoverageData,
+     *     testResults: array<string, array{time: float}>,
+     * }> the map Pest loaded, until it is taken
+     */
+    private static array $loaded = [];
+
+    /**
      * Keeps every test of the coverage map Pest loaded, and its seconds.
      *
-     * @param array{testResults?: array<string, array{time: float}>} $loaded
+     * @param array{
+     *     testResults?: array<string, array{time: float}>,
+     *     basePath?: string,
+     *     codeCoverage?: ProcessedCodeCoverageData,
+     * } $loaded
      */
     public static function remember(array $loaded): void
     {
@@ -45,10 +59,30 @@ final class LoadedMap
         self::$seconds = [];
         self::$suite = [];
         self::$times = [];
+        self::$loaded = array_key_exists('basePath', $loaded) && array_key_exists('codeCoverage', $loaded)
+            ? [[
+                'basePath' => $loaded['basePath'],
+                'codeCoverage' => $loaded['codeCoverage'],
+                'testResults' => $results,
+            ]]
+            : [];
 
         foreach ($results as $test => $result) {
             self::$seconds[$test] = $result['time'];
         }
+    }
+
+    /**
+     * The map Pest loaded, handed once, so what reads it after Pest does not
+     * load a second copy beside Pest's; none where it was taken already, or
+     * Pest loaded none.
+     */
+    public static function taken(): CoverageFile|NotGiven
+    {
+        $loaded = self::$loaded;
+        self::$loaded = [];
+
+        return $loaded === [] ? NotGiven::value() : CoverageFile::loaded($loaded[0]);
     }
 
     /** @return list<string> every test the map ran, by its id */

@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -59,16 +60,21 @@ final readonly class SharedCoverage
 
     /**
      * A map php-code-coverage reads as one it serialized, in the format of the version installed, ending as it ends
-     * one. The serialized map is in base64 inside the nowdoc: base64 holds no line break, so no test name or path in
-     * the map can end the nowdoc and be read as code.
+     * one. The serialized map sits in a file of its own beside it, whose path is in base64 inside the nowdoc: base64
+     * holds no line break, so no path can end the nowdoc and be read as code, and the map is never a literal of the
+     * code, which a process that reads it would hold for as long as it runs.
      */
     private const string MAP = <<<'PHP'
         <?php // phpunit/php-code-coverage serialization format %d
-        return (static fn(string $map): mixed => \unserialize(\base64_decode($map)))(<<<'END_OF_COVERAGE_SERIALIZATION'
+        return (static fn(string $at): mixed => \unserialize((string) \file_get_contents(\base64_decode($at))))(
+        <<<'END_OF_COVERAGE_SERIALIZATION'
         %s
         END_OF_COVERAGE_SERIALIZATION
         );
         PHP;
+
+    /** Where the serialized map sits, beside the map that reads it. */
+    private const string SERIALIZED = '%s.serialized';
 
     /**
      * The map the gate wrote into a directory of the project, built straight from its text where it is vouched for
@@ -143,12 +149,16 @@ final readonly class SharedCoverage
             'testResults' => $results,
         ];
 
-        if ($project->without($target)) {
-            file_put_contents(
-                $target,
-                sprintf(self::MAP, Serializer::SERIALIZATION_FORMAT, base64_encode(serialize($coverage))),
-            );
-        }
+        $serialized = sprintf(self::SERIALIZED, $target);
+        $bytes = serialize($coverage);
+
+        $whole = $project->without($target, $serialized)
+            && file_put_contents($serialized, $bytes) === Bytes::length($bytes);
+
+        $whole ? file_put_contents(
+            $target,
+            sprintf(self::MAP, Serializer::SERIALIZATION_FORMAT, base64_encode($serialized)),
+        ) : null;
     }
 
     /**

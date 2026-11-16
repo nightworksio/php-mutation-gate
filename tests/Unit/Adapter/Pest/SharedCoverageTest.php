@@ -116,7 +116,9 @@ it('leaves out a line no test ran, as php-code-coverage leaves out a line it doe
     SharedCoverage::write(CoverageMap::of(...sharedMap()->lines()), $at, $target);
     SharedCoverage::write(CoverageMap::of(...[...sharedMap()->lines(), CoveredLine::of(Path::of('src/Money.php'), 30)]), $at, $both);
 
-    expect((string) file_get_contents($both))->toBe((string) file_get_contents($target));
+    expect((string) file_get_contents(sprintf('%s.serialized', $both)))
+        ->toBe((string) file_get_contents(sprintf('%s.serialized', $target)))
+        ->and(filesize($both))->toBeLessThan(1024);
 });
 
 it('writes a test name that closes php-code-coverage\'s nowdoc as data, which reads back whole and runs nothing', function (): void {

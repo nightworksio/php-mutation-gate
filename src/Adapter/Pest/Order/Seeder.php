@@ -13,6 +13,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Identities;
+use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -76,7 +77,10 @@ final readonly class Seeder
     /** Writes the order of every mutant of a suite, as the plugin reads it in each mutant's own process. */
     public function seed(MutationSuite $suite): void
     {
-        $coverage = CoverageFile::at(Recorder::coverageBeside($this->results));
+        $loaded = LoadedMap::taken();
+        $coverage = $loaded instanceof CoverageFile
+            ? $loaded
+            : CoverageFile::at(Recorder::coverageBeside($this->results));
 
         if (! $coverage instanceof CoverageFile) {
             return;
