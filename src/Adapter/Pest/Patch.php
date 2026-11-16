@@ -124,6 +124,24 @@ final readonly class Patch
                                 : $parser->parse($contents);
         PHP;
 
+    private const string TAKEN_SHIPS = <<<'PHP'
+                $mutators = $this->filterMutators($mutators, $contents, $parser);
+        PHP;
+
+    private const string TAKEN_BECOMES = <<<'PHP'
+                $mutators = $this->filterMutators($mutators, $contents, $parser);
+
+                {MARK} no attempt is made with a mutator no node of the file can take.
+                $mutators = class_exists(\%1$s::class)
+                    ? \%1$s::taking(
+                        $mutators,
+                        static fn (string $mutator, Node $node): bool => $mutator::can($node), // @phpstan-ignore-line
+                        $parser->parse(...),
+                        $contents,
+                    )
+                    : $mutators;
+        PHP;
+
     private const string PRINTED_SHIPS = <<<'PHP'
                 $parser = PhpParserFactory::make();
                 $orignalAst = $parser->parse($file->getContents());
@@ -750,6 +768,7 @@ final readonly class Patch
             Hunk::in(self::GENERATOR, self::SITED_SHIPS, sprintf(self::SITED_BECOMES, Schemata::class)),
             Hunk::in(self::GENERATOR, self::COMPILED_SHIPS, sprintf(self::COMPILED_BECOMES, Schemata::class)),
             Hunk::in(self::GENERATOR, self::PARSE_SHIPS, sprintf(self::PARSE_BECOMES, ParsedSource::class)),
+            Hunk::in(self::GENERATOR, self::TAKEN_SHIPS, sprintf(self::TAKEN_BECOMES, ParsedSource::class)),
             Hunk::in(self::MUTATION, self::PRINTED_SHIPS, sprintf(self::PRINTED_BECOMES, ParsedSource::class)),
             Hunk::in(self::MUTATION_TEST, self::SWITCHED_SHIPS, sprintf(self::SWITCHED_BECOMES, Schemata::class)),
         ];
