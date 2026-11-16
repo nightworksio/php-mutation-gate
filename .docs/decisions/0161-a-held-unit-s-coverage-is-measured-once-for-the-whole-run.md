@@ -39,6 +39,13 @@ held file and the map are the plan's.
    holds the unit,** as before this decision. `map` is unchanged.
 4. **A run planned without a fresh map measures in its shards,** where the
    streams' recorded map checks the group afterwards (ADR-0135).
+5. **A group's run loads only the test files that declare its tests,** as
+   the runner lists the group and names each test's file, in the runner's
+   own process. The same tests run, and no other: the group still selects
+   them. Where the runner cannot place one of them in a file, or that run
+   fails, the run loads its suites as before. On the gate's own suite one
+   group's run took 2.5 s so, and 20 s across 8 processes over its four
+   suites.
 
 ## Why no verdict moves
 
@@ -52,6 +59,7 @@ the tests that judge the unit's mutants, are what each shard computed.
 |---|---|
 | Keep each item's measure, cached within its shard | A shard still runs every held unit once, and a full run has as many shards as it can start: the measure stays in every shard's time. |
 | Read the group's lines from the map (`map`) | It does not run the group alone, which the check is for (ADR-0142 lists it as loose). |
+| Run every group together in one process | A group's tests would no longer run alone: another group's test could leave the state a line runs under. |
 | A separate artifact beside the plan | The plan already reaches every shard, digested; a second file is a second thing to hand on and check. |
 
 ## Consequences

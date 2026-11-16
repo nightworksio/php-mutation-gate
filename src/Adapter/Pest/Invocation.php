@@ -120,7 +120,7 @@ final readonly class Invocation
                 PhpUnitOption::caching($this->cache),
                 sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
                 sprintf('%s=%s/%s', PhpUnitOption::LogJunit->value, $directory, self::JUNIT),
-                ...$this->covering($request->tests()),
+                ...$this->covering($request),
                 ...PhpUnitOption::inSuites($request->suites()),
             ],
         )->with([GateVariable::TimedTests->value => sprintf('%s/%s', $directory, self::TIMED)]);
@@ -285,8 +285,8 @@ final readonly class Invocation
 
     /**
      * The options that spread a coverage run across its processes, where it
-     * runs no more than one path; none for a run of several test files, or
-     * one that runs in one process.
+     * runs no more than one path; none for a run of several test files, a
+     * group's run within its own test files, or one that runs in one process.
      *
      * @return list<string>
      */
@@ -294,7 +294,7 @@ final readonly class Invocation
     {
         $tests = $request->tests();
 
-        $alone = $tests instanceof TestPaths && count($tests->files()) > 1;
+        $alone = ($tests instanceof TestPaths && count($tests->files()) > 1) || $request->files() instanceof Paths;
 
         return $alone || $request->processes()->count() === 1 ? [] : [
             '--parallel',
@@ -304,21 +304,28 @@ final readonly class Invocation
     }
 
     /**
-     * What narrows a coverage run: a group, a filter, or the test files Pest
-     * runs in place of its suite, as paths from the project's root.
+     * What narrows a coverage run: a group, within its own test files where
+     * the run names them, a filter, or the test files Pest runs in place of
+     * its suite, as paths from the project's root.
      *
      * @return list<string>
      */
-    private function covering(WholeSuite|Group|Filter|TestPaths $tests): array
+    private function covering(CoverageRun $request): array
     {
+        $tests = $request->tests();
+        $within = $request->files();
+
         if (! $tests instanceof TestPaths) {
-            return $this->narrowedTo($tests);
+            return [...$within instanceof Paths ? self::pathsOf($within) : [], ...$this->narrowedTo($tests)];
         }
 
-        return [
-            ...array_map(static fn(Path $file): string => $file->value(), [...$tests->files()]),
-            PhpUnitOption::DoNotFailOnEmptyTestSuite->value,
-        ];
+        return [...self::pathsOf($tests->files()), PhpUnitOption::DoNotFailOnEmptyTestSuite->value];
+    }
+
+    /** @return list<string> these files, as paths from the project's root */
+    private static function pathsOf(Paths $files): array
+    {
+        return array_map(static fn(Path $file): string => $file->value(), [...$files]);
     }
 
     /**

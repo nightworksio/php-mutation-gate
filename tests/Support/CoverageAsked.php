@@ -130,7 +130,9 @@ final class CoverageAsked implements LeavesPhpReport, Runner
     {
         $this->asked[] = $request;
 
-        return $request instanceof CoverageRun && $request->tests() instanceof TestPaths ? $this->files : $this->answer;
+        return $request instanceof CoverageRun && ($request->tests() instanceof TestPaths || $request->files() instanceof Paths)
+            ? $this->files
+            : $this->answer;
     }
 
     public function testsIn(Paths $files, CoverageMap $map): TestIds|CannotJudge

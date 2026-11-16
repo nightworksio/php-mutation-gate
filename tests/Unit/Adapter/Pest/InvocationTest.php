@@ -101,6 +101,24 @@ it('runs one group under coverage, in Pest\'s own process where it is given one'
     ]);
 });
 
+it('runs a group within its own test files in Pest\'s own process, loading no other file', function (): void {
+    $files = Paths::of(Path::of('tests/Unit/HeldSpec.php'), Path::of('tests/Process/HeldSpec.php'));
+    $request = CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('held'))
+        ->across(ProcessCount::of(4))
+        ->within($files);
+    $arguments = invocation()->coverage($request, '/p/held', reach())->arguments();
+
+    expect(array_slice($arguments, -5))->toBe([
+        'tests/Unit/HeldSpec.php',
+        'tests/Process/HeldSpec.php',
+        '--group',
+        'holds:src/Held.php',
+        '--do-not-fail-on-empty-test-suite',
+    ])->and(array_filter($arguments, static fn(string $argument): bool => str_starts_with($argument, '--p')))->toBe([])
+        ->and($request->files())->toBe($files)
+        ->and($request->withholding(Withheld::of('TOKEN'))->amongSuites(Suites::all())->files())->toBe($files);
+});
+
 it('hands every process paratest starts the settings pcov collects with, each quoted for the shell paratest reads them through', function (): void {
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('c'))->across(ProcessCount::of(2));
     $arguments = invocation()->coverage($request, '/p/c', PcovReach::under("/it's here", Path::of('vendor')))->arguments();
