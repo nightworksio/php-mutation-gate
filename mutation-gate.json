@@ -84,6 +84,9 @@
     "pest": {
         "patch": true
     },
+    "splitStream": {
+        "enabled": true
+    },
     "shards": {
         "max": "learned"
     },
