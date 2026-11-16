@@ -136,6 +136,9 @@ enum GateVariable: string
      */
     case SourcePinned = 'MUTATION_GATE_SOURCE_PINNED';
 
+    /** Set where a patched run makes every file's mutants side by side (see SideBySideMutants). */
+    case MakingSideBySide = 'MUTATION_GATE_MAKING_SIDE_BY_SIDE';
+
     /** Set where a patched run compiles each file's mutants into a schema (see Schemata). */
     case Schemata = 'MUTATION_GATE_SCHEMATA';
 

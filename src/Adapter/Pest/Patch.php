@@ -504,8 +504,37 @@ final readonly class Patch
                 {MARK} the file the gate records the run in; none where it records nothing.
                 $recorded = class_exists(\%5$s::class) ? (string) getenv('%6$s') : '';
 
+                {MARK} every file's mutants made side by side, a share for each core, before any is taken.
+                $made = class_exists(\%7$s::class) ? \%7$s::made(
+                    $files,
+                    fn ($file): array|false => ! $this->getConfiguration()->coveredOnly
+                        ? []
+                        : (isset($coveredLines[$file->getRealPath()])
+                            ? array_keys($coveredLines[$file->getRealPath()])
+                            : false),
+                    fn ($file, array $lines): array => $generator->generate(
+                        file: $file,
+                        mutators: $this->getConfiguration()->mutators,
+                        linesToMutate: $lines,
+                        classesToMutate: $this->getConfiguration()->everything
+                            ? []
+                            : $this->getConfiguration()->classes,
+                    ),
+                ) : null;
+
                 foreach ($files as $file) {
                     $linesToMutate = [];
+        PHP;
+
+    private const string MADE_SHIPS = <<<'PHP'
+                    foreach ($generator->generate(
+                        file: $file,
+        PHP;
+
+    private const string MADE_BECOMES = <<<'PHP'
+                    {MARK} a file's mutants are taken as a child made them; any other's are made here.
+                    foreach ($made !== null ? $made->of($file, $linesToMutate) : $generator->generate(
+                        file: $file,
         PHP;
 
     private const string COVERING_SHIPS = <<<'PHP'
@@ -740,8 +769,10 @@ final readonly class Patch
                     GateVariable::Pruned->value,
                     Twins::class,
                     GateVariable::Results->value,
+                    SideBySideMutants::class,
                 ),
             ),
+            Hunk::in(self::TEST_RUNNER, self::MADE_SHIPS, self::MADE_BECOMES),
             Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class, Twins::class)),
             Hunk::in(self::TEST_RUNNER, self::ORDER_SHIPS, sprintf(self::ORDER_BECOMES, Verdicts::class)),
             Hunk::in(self::TEST_RUNNER, self::SPLIT_SHIPS, sprintf(self::SPLIT_BECOMES, Streams::class)),

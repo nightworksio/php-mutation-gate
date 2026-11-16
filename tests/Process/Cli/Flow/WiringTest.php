@@ -185,6 +185,7 @@ const WIRED_PEST_TOGGLES = [
     'narrow' => true,
     'shardScan' => true,
     'readyAtPlan' => true,
+    'makeSideBySide' => true,
     'longestFirst' => true,
     'remember' => true,
     'overlapSteps' => true,

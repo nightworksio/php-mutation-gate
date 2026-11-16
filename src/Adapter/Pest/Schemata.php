@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_flip;
+use function array_intersect_key;
 use function array_key_exists;
+use function array_keys;
 use function array_map;
+use function array_merge;
+use function array_values;
 use function count;
 use function dirname;
 use function file_put_contents;
 use function getenv;
 use function hash;
+use function in_array;
 use function is_dir;
 use function mkdir;
 
@@ -21,6 +27,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node as Decoded;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Schema;
@@ -65,6 +72,10 @@ final class Schemata
 
     /** The file in a run's warm directory that names each file's schema, by the file (ADR-0091). */
     private const string MAP = '%s/schemata.json';
+
+    private const string WRITTEN = 'written';
+
+    private const string SWITCHED = 'switched';
 
     /** @var array<string, list<array{string, Site}>> each mutant's id and site, by the file it mutates */
     private static array $sites = [];
@@ -126,6 +137,53 @@ final class Schemata
             if ($schema->switches($site->id())) {
                 self::$switched[$mutant] = [$path, $site->id()];
             }
+        }
+    }
+
+    /**
+     * The schemata written of these files, and the switch of each mutant they
+     * switch, as another process takes them on (see SideBySideMutants), each
+     * path encoded so bytes that are not UTF-8 are kept.
+     *
+     * @param list<string> $files
+     */
+    public static function keptOf(array $files): Json
+    {
+        $written = array_intersect_key(self::$written, array_flip($files));
+        $switched = [];
+
+        foreach (self::$switched as $mutant => [$path, $id]) {
+            $switched[] = in_array($path, $written, strict: true)
+                ? [Member::of(sprintf('%s', $mutant), Json::items(ByteText::of($path), $id))]
+                : [];
+        }
+
+        return Json::object(
+            Member::of(
+                self::WRITTEN,
+                Json::object(...array_map(
+                    static fn(string $file, string $path): Member
+                        => Member::of(ByteText::of($file), ByteText::of($path)),
+                    array_keys($written),
+                    array_values($written),
+                )),
+            ),
+            Member::of(self::SWITCHED, Json::object(...array_merge(...$switched))),
+        );
+    }
+
+    /** Takes on the schemata, and the switches, another process wrote as {@see keptOf()} gives them. */
+    public static function taking(Decoded $kept): void
+    {
+        foreach ($kept->field(self::WRITTEN)->entries() as $file => $path) {
+            self::$written[ByteText::bytes(sprintf('%s', $file), $path->at())] = ByteText::read($path);
+        }
+
+        foreach ($kept->field(self::SWITCHED)->entries() as $mutant => $switch) {
+            self::$switched[sprintf('%s', $mutant)] = [
+                ByteText::read($switch->items()[0]),
+                $switch->items()[1]->integer(),
+            ];
         }
     }
 

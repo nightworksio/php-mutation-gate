@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Config\PestWorkers;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
@@ -104,8 +105,9 @@ final readonly class Patching
 
     /**
      * What a run is started with, where it applies the patch: so a mutant's covering tests too many for a filter
-     * are selected by their ids under `pest.longFilter: set` (ADR-0138), and so every mutant is judged by its own
-     * run under `mutants.duplicates: judge-each` (ADR-0137); nothing otherwise.
+     * are selected by their ids under `pest.longFilter: set` (ADR-0138), so its mutants are made side by side under
+     * `pest.makeSideBySide` (ADR-0166), and so every mutant is judged by its own run under `mutants.duplicates:
+     * judge-each` (ADR-0137); nothing otherwise.
      *
      * @return array<string, string>
      */
@@ -115,6 +117,7 @@ final readonly class Patching
             ...$this->steps->longFilter() === LongFilter::Set
                 ? [GateVariable::LongFilter->value => LongFilter::Set->value]
                 : [],
+            ...$this->steps->on(Toggle::PestMakeSideBySide) ? [GateVariable::MakingSideBySide->value => '1'] : [],
             ...$this->steps->duplicates() === Duplicates::JudgeEach
                 ? [GateVariable::Duplicates->value => Duplicates::JudgeEach->value]
                 : [],

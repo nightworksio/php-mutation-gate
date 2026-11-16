@@ -4059,6 +4059,10 @@
                     "type": "boolean",
                     "default": true
                 },
+                "makeSideBySide": {
+                    "type": "boolean",
+                    "default": true
+                },
                 "longestFirst": {
                     "type": "boolean",
                     "default": true
@@ -8653,6 +8657,9 @@
                             "type": "boolean"
                         },
                         "readyAtPlan": {
+                            "type": "boolean"
+                        },
+                        "makeSideBySide": {
                             "type": "boolean"
                         },
                         "longestFirst": {

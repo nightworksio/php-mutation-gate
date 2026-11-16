@@ -33,6 +33,7 @@ $toggles = [
     'suggest.looseValues' => [Toggle::SuggestLooseValues, static fn(): Setting => SuggestBuilder::looseValuesSilent(), static fn(): Setting => SuggestBuilder::looseValuesNoted()],
     'pest.shardScan' => [Toggle::PestShardScan, static fn(): Setting => PestSpeedUps::scanningEachChunk(), static fn(): Setting => PestSpeedUps::scanningOnceAShard()],
     'pest.readyAtPlan' => [Toggle::PestReadyAtPlan, static fn(): Setting => PestSpeedUps::readyingInEachShard(), static fn(): Setting => PestSpeedUps::readyingAtPlan()],
+    'pest.makeSideBySide' => [Toggle::PestMakeSideBySide, static fn(): Setting => PestSpeedUps::makingOneAfterAnother(), static fn(): Setting => PestSpeedUps::makingSideBySide()],
     'pest.longestFirst' => [Toggle::PestLongestFirst, static fn(): Setting => PestSpeedUps::inTheirOrder(), static fn(): Setting => PestSpeedUps::longestFirst()],
     'pest.remember' => [Toggle::PestRemember, static fn(): Setting => PestSpeedUps::forgetting(), static fn(): Setting => PestSpeedUps::remembering()],
     'pest.overlapSteps' => [Toggle::PestOverlapSteps, static fn(): Setting => PestSpeedUps::stepByStep(), static fn(): Setting => PestSpeedUps::overlappingSteps()],
@@ -73,7 +74,7 @@ it('hands Pest the toggles it reads among its options, and any other runner none
     $pest = Toggles::of(Toggle::PestTrials, on: false)->beneath(Choice::of(BuiltinRunner::Pest->value, Options::none()));
     $other = Toggles::of(Toggle::PestTrials, on: false)->beneath(Choice::of(BuiltinRunner::PhpUnit->value, Options::none()));
 
-    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true,"shardScan":true,"readyAtPlan":true,"longestFirst":true,"remember":true,"overlapSteps":true,"pcovOff":true,"xdebugOff":true}')
+    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true,"shardScan":true,"readyAtPlan":true,"makeSideBySide":true,"longestFirst":true,"remember":true,"overlapSteps":true,"pcovOff":true,"xdebugOff":true}')
         ->and($other->options()->written()->line())->toBe('{}');
 });
 
@@ -89,7 +90,7 @@ it('keys none of the speed-ups that change no output, and every check that vouch
     $speedUps = array_values(array_filter(Toggle::cases(), static fn(Toggle $toggle): bool => $toggle->speedsUp()));
 
     expect(array_map(static fn(Toggle $toggle): string => $toggle->value, $speedUps))
-        ->toBe(['timeouts.startUpAtPlan', 'pest.shardScan', 'pest.readyAtPlan', 'pest.longestFirst', 'pest.remember', 'pest.overlapSteps', 'pest.pcovOff', 'pest.xdebugOff', 'staticCheck.turbo', 'staticCheck.warmAtPlan'])
+        ->toBe(['timeouts.startUpAtPlan', 'pest.shardScan', 'pest.readyAtPlan', 'pest.makeSideBySide', 'pest.longestFirst', 'pest.remember', 'pest.overlapSteps', 'pest.pcovOff', 'pest.xdebugOff', 'staticCheck.turbo', 'staticCheck.warmAtPlan'])
         ->and(array_filter($speedUps, static fn(Toggle $toggle): bool => $toggle->effect()->isKeyed()))->toBe([])
         ->and(Toggle::ControlsKills->effect()->isKeyed())->toBeTrue();
 });
