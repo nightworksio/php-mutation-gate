@@ -707,7 +707,7 @@
         "lychee": "lychee did not run to the end, or found no link where there are some.",
         "broken-link": "A link answers 404 or 410, points at a file that is not there, or timed out.",
         "gitleaks": "gitleaks did not run to the end.",
-        "gitleaks-freshness": "The pinned gitleaks is more than 30 days behind its latest release, so it misses rules the latest has. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml.",
+        "gitleaks-freshness": "The pinned gitleaks is more than 30 days behind its latest release, so it misses rules the latest has. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/hygiene.yml.",
         "secret": "gitleaks finds a secret committed here. Revoke it first, then remove it from the history; deleting the file in a later commit leaves it readable.",
         "osv-scanner": "osv-scanner did not run to the end.",
         "vulnerability": "A package a lock file installs has a known vulnerability. Raise it to a release the advisory says is fixed.",
