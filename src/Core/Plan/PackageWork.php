@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_filter;
 use function array_map;
+use function array_values;
 use function ceil;
 use function count;
 use function max;
@@ -57,16 +58,30 @@ final readonly class PackageWork
 
     /**
      * Every unit, in path order, in as many runs as asked, each judged by its
-     * own part of the test files and weighed at its share of the cost.
+     * own part of the test files and weighed at its share of the cost; each
+     * held unit, where held units are judged whole, in one run alone, in turn,
+     * weighed whole, its holding tests judging it (ADR-0162).
      *
      * @return list<Run>
      */
-    public function parts(int $count): array
+    public function parts(int $count, bool $heldWhole = true): array
     {
         $parts = [];
+        $shared = array_values(array_filter(
+            $this->units,
+            static fn(Weighed $unit): bool => ! $heldWhole || ! $unit->unit()->isHeld(),
+        ));
+        $held = $heldWhole
+            ? array_values(array_filter($this->units, static fn(Weighed $unit): bool => $unit->unit()->isHeld()))
+            : [];
 
         for ($number = 1; $this->units !== [] && $number <= $count; $number++) {
-            $parts[] = Run::inPart(TestPart::of($number, $count), ...$this->units);
+            $whole = array_values(array_filter(
+                $held,
+                static fn(int $at): bool => $at % $count === $number - 1,
+                ARRAY_FILTER_USE_KEY,
+            ));
+            $parts[] = Run::inPart(TestPart::of($number, $count), ...$shared)->holdingWhole(...$whole);
         }
 
         return $parts;

@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -269,13 +270,26 @@ final readonly class Mutating
 
         foreach ($shard->units() as $unit) {
             $estimated = $costs->estimated($this->adapters->costs, $unit, FirstRun::unmeasured());
-            $one = Weighed::of($unit, $shard->package(), $estimated)->sharedAmong($shard->testPart());
+            $one = Weighed::of($unit, $shard->package(), $estimated)
+                ->sharedAmong($this->partOf($unit->isHeld(), $shard));
             $weighed[] = $controls
                 ? $one->controlledWithin(KillControls::ofFile($unit->path(), $map, $held, $bounds)->limit())
                 : $one;
         }
 
         return $weighed;
+    }
+
+    /**
+     * The part of the test files that judges a unit in this shard: the
+     * shard's own, or every test file for a held unit judged whole in the one
+     * shard that holds it (ADR-0162).
+     */
+    private function partOf(bool $held, Shard $shard): TestPart
+    {
+        return $held && $this->settings->effective()->running()->pest()->splitStream()->sharding()->holdsWhole()
+            ? TestPart::whole()
+            : $shard->testPart();
     }
 
     /**
@@ -303,7 +317,9 @@ final readonly class Mutating
         }
 
         $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
-        $narrowing = $request->narrowing()->pruning($pruned)->inTestPart($shard->testPart());
+        $narrowing = $request->narrowing()
+            ->pruning($pruned)
+            ->inTestPart($this->partOf(! $judgedBy instanceof WholeSuite, $shard));
         $narrowing = match (true) {
             $early => $narrowing->recordingInto(LineRecording::standingIn($this->recording->directory($shard))),
             $this->recording->recordsLines() => $narrowing->recordingInto(

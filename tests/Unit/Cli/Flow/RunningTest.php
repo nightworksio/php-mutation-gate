@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
@@ -285,7 +286,7 @@ it('tells the runner of each invocation the suite\'s files of test cases, a glob
     expect($told)->toBe([true, true]);
 });
 
-it('tells the runner of each invocation the shard\'s part of the test files, held units and the rest alike', function (): void {
+it('tells the runner of each invocation the shard\'s part of the test files, and of a held unit\'s every test file', function (): void {
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
     $shard = static fn(int $number): Shard => Shard::of(
@@ -300,7 +301,7 @@ it('tells the runner of each invocation the shard\'s part of the test files, hel
         ->run(Planned::handedIn($project, Planned::of($shard(1), $shard(2))), ShardId::of(2), Workspace::results());
 
     expect(array_map(static fn(MutationRequest $request): TestPart => $request->narrowing()->testPart(), $runner->requests()))
-        ->toEqual([TestPart::of(2, 2), TestPart::of(2, 2)]);
+        ->toEqual([TestPart::whole(), TestPart::of(2, 2)]);
 });
 
 it('runs the held path by its group, the rest by the suite, on the shard\'s map, secrets withheld', function (): void {
@@ -632,7 +633,8 @@ it('mutates no held unit whose holding tests miss lines of it, and leaves why', 
 
     expect($runner->asked())->toEqual([
         CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
-            ->withholding($adapters->withheld),
+            ->withholding($adapters->withheld)
+            ->within(Paths::of(Path::of('tests/HeldTest.php'))),
     ])
         ->and($result instanceof ShardResult ? [...$result->held()->misses()] : $result)->toEqual([NotCovered::because(
             Planned::held(),
@@ -681,7 +683,8 @@ it('mutates a unit the whole suite judges, though the map reaches none of it, an
 
     expect($runner->asked())->toEqual([
         CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
-            ->withholding($adapters->withheld),
+            ->withholding($adapters->withheld)
+            ->within(Paths::of(Path::of('tests/HeldTest.php'))),
     ])
         ->and($result instanceof ShardResult ? [...$result->held()->misses()] : $result)->toBe([])
         ->and(array_map(static fn(MutationRequest $request): array => [...$request->files()], $scripted->requests()))

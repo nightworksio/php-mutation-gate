@@ -22,6 +22,7 @@ $calls = [
     'reconnect' => [static fn(): Setting => SplitStream::reconnect(), 'splitStream.reconnect', true, 'SplitStream::reconnect'],
     'connectionsFallBack' => [static fn(): Setting => SplitStream::connectionsFallBack(), 'splitStream.reconnect', false, 'SplitStream::connectionsFallBack'],
     'shardingByTests' => [static fn(): Setting => SplitStream::shardingByTests(), 'splitStream.sharding', 'tests', 'SplitStream::shardingByTests'],
+    'shardingByTestsInEveryPart' => [static fn(): Setting => SplitStream::shardingByTestsInEveryPart(), 'splitStream.sharding', 'tests-every-part', 'SplitStream::shardingByTestsInEveryPart'],
     'shardingBySource' => [static fn(): Setting => SplitStream::shardingBySource(), 'splitStream.sharding', 'source', 'SplitStream::shardingBySource'],
     'earlyWhereNothingMatches' => [static fn(): Setting => EarlyStreams::whereNothingMatches(), 'splitStream.early', 'no-match', 'EarlyStreams::whereNothingMatches'],
     'alwaysEarly' => [static fn(): Setting => EarlyStreams::always(), 'splitStream.early', 'always', 'EarlyStreams::always'],

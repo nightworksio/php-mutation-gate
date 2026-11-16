@@ -47,6 +47,12 @@ final readonly class Run implements Countable, IteratorAggregate
         );
     }
 
+    /** This run, with these units too, each weighed whole: held units their holding tests judge (ADR-0162). */
+    public function holdingWhole(Weighed ...$units): self
+    {
+        return new self([...$this->units, ...array_values($units)], $this->part);
+    }
+
     public function cost(): Seconds
     {
         $seconds = 0.0;

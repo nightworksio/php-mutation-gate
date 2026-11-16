@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\PackageWork;
 use NightWorksIO\MutationGate\Core\Plan\Run;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -144,4 +145,19 @@ it('gives every part of the test files every unit, in path order, each at its sh
     expect(pathsOfRuns($parts))->toBe([['A', 'B'], ['A', 'B'], ['A', 'B']])
         ->and(array_map(static fn(Run $run): float => $run->cost()->seconds(), $parts))->toBe([30.0, 30.0, 30.0])
         ->and(PackageWork::of()->parts(3))->toBe([]);
+});
+
+it('gives each held unit whole to one part in turn, and every part every other unit at its share', function () use ($weighed): void {
+    $held = static fn(string $path, float $cost): Weighed => Weighed::of(
+        Unit::held(Path::of($path), Group::named(sprintf('holds:%s', $path))),
+        Package::at(Path::root()),
+        Estimated::of(Seconds::of($cost), CostBasis::Measured),
+    );
+    $parts = PackageWork::of($held('H1', 12.0), $weighed('A', 60.0), $held('H2', 9.0), $held('H3', 6.0))->parts(2);
+    $everyPart = PackageWork::of($held('H1', 12.0), $weighed('A', 60.0))->parts(2, heldWhole: false);
+
+    expect(pathsOfRuns($parts))->toBe([['A', 'H1', 'H3'], ['A', 'H2']])
+        ->and(array_map(static fn(Run $run): float => $run->cost()->seconds(), $parts))->toBe([48.0, 39.0])
+        ->and(pathsOfRuns($everyPart))->toBe([['A', 'H1'], ['A', 'H1']])
+        ->and(array_map(static fn(Run $run): float => $run->cost()->seconds(), $everyPart))->toBe([36.0, 36.0]);
 });

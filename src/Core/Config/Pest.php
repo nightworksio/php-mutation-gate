@@ -191,7 +191,7 @@ final readonly class Pest implements Part
      */
     public function splitsByTests(Choice $runner): bool
     {
-        return $this->splits($runner) && $this->splitStream->sharding() === StreamSharding::Tests;
+        return $this->splits($runner) && $this->splitStream->sharding()->cutsTests();
     }
 
     /** The group of tests that shows the patches work. */

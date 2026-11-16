@@ -108,6 +108,12 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.sharding', 'tests'));
     }
 
+    /** `splitStream.sharding` `tests-every-part`: the same, each held unit judged in every shard by its part. */
+    public static function shardingByTestsInEveryPart(): self
+    {
+        return new self(Json::at('splitStream.sharding', 'tests-every-part'));
+    }
+
     /** `splitStream.sharding` `source`: each shard streams the test files that cover its own part of the source. */
     public static function shardingBySource(): self
     {

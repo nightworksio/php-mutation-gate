@@ -47,6 +47,7 @@ final readonly class Cut
         private ShardSizing $sizing,
         private bool $testParts = false,
         private Seconds|Absent $item = new Absent(),
+        private bool $heldWhole = true,
     ) {
     }
 
@@ -71,31 +72,35 @@ final readonly class Cut
     /** This cut, at most this many shards, as a learned `shards.max` gives; a count asked for is cut as asked. */
     public function atMost(int $most): self
     {
-        return new self($this->sizing->atMost($most), $this->testParts, $this->item);
+        return new self($this->sizing->atMost($most), $this->testParts, $this->item, $this->heldWhole);
     }
 
     /** This cut, making no shard whose share of the cost is below this many times its overhead: `shards.cutAt`. */
     public function cuttingAt(float $times): self
     {
-        return new self($this->sizing->cuttingAt($times), $this->testParts, $this->item);
+        return new self($this->sizing->cuttingAt($times), $this->testParts, $this->item, $this->heldWhole);
     }
 
-    /** This cut, each of a package's shards taking every unit of it and its own part of the test files. */
-    public function cuttingTestFiles(): self
+    /**
+     * This cut, each of a package's shards taking every unit of it and its
+     * own part of the test files; each held unit whole, in one of them alone,
+     * unless held units are cut alike (ADR-0162).
+     */
+    public function cuttingTestFiles(bool $heldWhole = true): self
     {
-        return new self($this->sizing, testParts: true, item: $this->item);
+        return new self($this->sizing, testParts: true, item: $this->item, heldWhole: $heldWhole);
     }
 
     /** This cut, its shards no longer than this while the most there may be leaves room; a count asked for as asked. */
     public function withinJobLimit(Seconds $limit): self
     {
-        return new self($this->sizing->withinJobLimit($limit), $this->testParts, $this->item);
+        return new self($this->sizing->withinJobLimit($limit), $this->testParts, $this->item, $this->heldWhole);
     }
 
     /** This cut, where each shard's runner first spends this long on its opening run. */
     public function opening(Seconds $run): self
     {
-        return new self($this->sizing->opening($run), $this->testParts, $this->item);
+        return new self($this->sizing->opening($run), $this->testParts, $this->item, $this->heldWhole);
     }
 
     /**
@@ -105,7 +110,7 @@ final readonly class Cut
      */
     public function pulling(Seconds $item): self
     {
-        return new self($this->sizing, $this->testParts, $item);
+        return new self($this->sizing, $this->testParts, $item, $this->heldWhole);
     }
 
     public function cut(Workload $work, Trees $trees): Shards|CannotJudge
@@ -148,7 +153,7 @@ final readonly class Cut
     {
         $items = $this->itemsOf($package, $count);
 
-        return $this->testParts ? $package->parts($items) : $package->runs($items);
+        return $this->testParts ? $package->parts($items, $this->heldWhole) : $package->runs($items);
     }
 
     /**
