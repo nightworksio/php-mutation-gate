@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_key_exists;
-use function array_unique;
+use function array_keys;
+use function array_map;
+use function array_merge;
 use function array_values;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
+use Pest\Mutate\MutationTestCollection;
 use Pest\Mutate\Plugins\Mutate;
+
+use function strval;
 
 /**
  * The mutants of a suite a split stream judges (ADR-0117): each one's site,
@@ -80,13 +85,10 @@ final readonly class PlannedMutants
     /** @return list<MutationTest> every mutant of the suite, in the order Pest holds them */
     private static function testsOf(MutationSuite $suite): array
     {
-        $tests = [];
-
-        foreach ($suite->repository->all() as $collection) {
-            $tests = [...$tests, ...$collection->tests()];
-        }
-
-        return $tests;
+        return array_merge(...array_map(
+            static fn(MutationTestCollection $collection): array => array_values($collection->tests()),
+            array_values($suite->repository->all()),
+        ));
     }
 
     /**
@@ -125,14 +127,14 @@ final readonly class PlannedMutants
     {
         $covering = [];
         $file = (string) $test->mutation->file->getRealPath();
+        $lines = array_key_exists($file, $coveredLines) ? $coveredLines[$file] : [];
 
         for ($line = $test->mutation->startLine; $line <= $test->mutation->endLine; $line++) {
-            $tests = array_key_exists($file, $coveredLines) && array_key_exists($line, $coveredLines[$file])
-                ? $coveredLines[$file][$line]
-                : [];
-            $covering = [...$covering, ...$tests];
+            foreach (array_key_exists($line, $lines) ? $lines[$line] : [] as $covered) {
+                $covering[$covered] = true;
+            }
         }
 
-        return array_values(array_unique($covering));
+        return array_map(strval(...), array_keys($covering));
     }
 }
