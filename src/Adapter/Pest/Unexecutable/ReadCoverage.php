@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
+use function array_key_last;
 use function array_map;
 use function array_push;
 use function array_values;
+use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -44,31 +46,54 @@ final readonly class ReadCoverage
     ) {
     }
 
-    /** A map with the lines of each value these files declare covered so, built at once. */
+    /**
+     * A map with the lines of each value these files declare covered so, built at once, the tests each run's test
+     * files hold read once for every value that run judges.
+     */
     public function onto(Paths $files, CoverageMap $map): CoverageMap
     {
+        $declarations = $this->declarationsIn($files);
+        $runs = [];
+        $held = [];
+
+        foreach ($declarations as [$file, $declared]) {
+            $run = $this->selector->choose($declared->symbol(), $file)->oneRun();
+            $runs[] = $run instanceof Paths ? $this->keyOf($run) : '';
+            $held[$runs[array_key_last($runs)]] ??= $run instanceof Paths
+                ? $this->tests->holding($run, $this->map)
+                : TestIds::none();
+        }
+
         $lines = [];
         $timed = [];
 
-        foreach ($files as $file) {
-            $source = $this->codebase->source($file);
-
-            foreach ($source instanceof Source ? ValueDeclarations::in($source) : [] as $declared) {
-                $tests = $this->reading($file, $declared);
-                array_push($lines, ...$this->covered($file, $declared, $tests));
-                $timed += $this->timed($tests, $map);
-            }
+        foreach ($declarations as $at => [$file, $declared]) {
+            $tests = $held[$runs[$at]];
+            array_push($lines, ...$this->covered($file, $declared, $tests));
+            $timed += $this->timed($tests, $map);
         }
 
         return $map->besides(...$lines)->timedEach(...array_values($timed));
     }
 
-    /** The tests one run judges the mutants of one value by; none where no run can. */
-    private function reading(Path $file, ValueDeclaration $declared): TestIds
+    /**
+     * Each value these files declare, with the file that declares it.
+     *
+     * @return list<array{Path, ValueDeclaration}>
+     */
+    private function declarationsIn(Paths $files): array
     {
-        $run = $this->selector->choose($declared->symbol(), $file)->oneRun();
+        $declarations = [];
 
-        return $run instanceof Paths ? $this->tests->holding($run, $this->map) : TestIds::none();
+        foreach ($files as $file) {
+            $source = $this->codebase->source($file);
+
+            foreach ($source instanceof Source ? ValueDeclarations::in($source) : [] as $declared) {
+                $declarations[] = [$file, $declared];
+            }
+        }
+
+        return $declarations;
     }
 
     /**
@@ -107,5 +132,11 @@ final readonly class ReadCoverage
         }
 
         return $lines;
+    }
+
+    /** The files of a run, as one key. */
+    private function keyOf(Paths $run): string
+    {
+        return implode("\n", array_map(static fn(Path $file): string => $file->value(), [...$run]));
     }
 }
