@@ -32,8 +32,6 @@ final readonly class DaemonStart
 
     private const string OPTION = '--%s';
 
-    private const string CONFIG = '--config=%s';
-
     /** @param list<string> $launch what goes before the daemon's command line: its priority (ADR-0120) */
     public function __construct(private ServeSocket $socket, private Seconds $within, private array $launch = [])
     {
@@ -66,7 +64,7 @@ final readonly class DaemonStart
                 $script,
                 Verb::Serve->value,
                 sprintf(self::OPTION, self::DETACHED),
-                ...(is_string($config) ? [sprintf(self::CONFIG, $config)] : []),
+                ...(is_string($config) ? [sprintf('--config=%s', $config)] : []),
             ],
             [['file', self::NULL_DEVICE, 'r'], ['file', self::NULL_DEVICE, 'w'], ['file', self::NULL_DEVICE, 'w']],
             $pipes,

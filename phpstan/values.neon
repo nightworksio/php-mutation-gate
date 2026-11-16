@@ -527,6 +527,7 @@ services:
                     - MEASURED # a field of a shard result
                 'NightWorksIO\MutationGate\Core\Time\Budgets':
                     - PRE_PUSH_MINUTES # a budget, in minutes
+                    - WATCH_SECONDS # a watch round's budget, in seconds, not a probe's limit
                 'NightWorksIO\MutationGate\Core\Runner\ProcessTable':
                     - LOWEST # the lowest process id that names one process, not an exit code or an argument
                 'NightWorksIO\MutationGate\Core\Runner\Headroom':
