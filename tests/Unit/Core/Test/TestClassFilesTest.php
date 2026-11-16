@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Php\TopLevel;
 use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -123,4 +124,14 @@ it('holds the tests of each class a test file declares, or that is named after o
         TestId::of('Tests\Unit\HeldTest::doubles'),
     ))
         ->and($read)->toBe(['tests/Unit/MoneyTest.php', 'tests/Unit/HeldTest.php']);
+});
+
+it('finds a class wanted in the names a file declares, as in the code that declares them', function (): void {
+    $file = Path::of('tests/Unit/MoneyTest.php');
+    $code = Contents::of("<?php\nnamespace Tests\\Unit;\nfinal class MoneyTest {}\n");
+    $wanted = TestClassFiles::wanting(['Tests\Unit\MoneyTest']);
+
+    expect($wanted->readIn($file, TopLevel::read($code)->declares())->byClass())
+        ->toEqual($wanted->readIn($file, $code)->byClass())
+        ->and($wanted->readIn($file, $code)->byClass())->toEqual(['Tests\Unit\MoneyTest' => $file]);
 });

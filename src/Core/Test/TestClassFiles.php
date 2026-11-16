@@ -69,10 +69,13 @@ final readonly class TestClassFiles
         return array_key_exists($file->stem(), $this->wanted);
     }
 
-    /** These, with each class wanted that a file's code declares and no earlier file did found in the file. */
-    public function readIn(Path $file, Contents $code): self
+    /**
+     * These, with each class wanted that a file's code, or the names it
+     * declares, declares and no earlier file did found in the file.
+     */
+    public function readIn(Path $file, Contents|Names $code): self
     {
-        $declared = TopLevel::read($code)->declares();
+        $declared = $code instanceof Names ? $code : TopLevel::read($code)->declares();
         $found = $this->found;
 
         foreach ($this->mayDeclare($file) ? $this->wanted[$file->stem()] : [] as $class) {
@@ -87,7 +90,7 @@ final readonly class TestClassFiles
      * class a file declares, by what it holds, and of each class named after
      * a file that is gone.
      *
-     * @param Closure(Path): (Contents|Missing) $read what a test file holds, or that it is gone
+     * @param Closure(Path): (Contents|Names|Missing) $read what a test file holds or declares, or that it is gone
      */
     public static function held(TestsByClass $tests, Paths $files, Closure $read): TestIds
     {
@@ -96,7 +99,7 @@ final readonly class TestClassFiles
         foreach ($files as $file) {
             $code = $classes->mayDeclare($file) ? $read($file) : NotGiven::value();
             $classes = match (true) {
-                $code instanceof Contents => $classes->readIn($file, $code),
+                $code instanceof Contents, $code instanceof Names => $classes->readIn($file, $code),
                 $code instanceof Missing => $classes->gone($file),
                 default => $classes,
             };

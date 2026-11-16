@@ -15,6 +15,7 @@ use function basename;
 use function dirname;
 use function explode;
 use function file_get_contents;
+use function hash;
 use function implode;
 use function is_array;
 use function is_dir;
@@ -27,6 +28,8 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Php\Names;
+use NightWorksIO\MutationGate\Core\Php\TopLevel;
 use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
@@ -85,6 +88,9 @@ final class TestFiles
     /** @var list<array{CoverageMap, TestsByClass}> the tests of the map last asked about, by class, once read */
     private array $byClass = [];
 
+    /** @var array<string, Names> the names each test file's code declares, by the digest of the code */
+    private array $declared = [];
+
     public function __construct(private readonly Project $project)
     {
     }
@@ -125,7 +131,7 @@ final class TestFiles
     public function holding(Paths $files, CoverageMap $map): TestIds
     {
         $tests = $this->testsOf($map);
-        $placed = TestClassFiles::held($tests, $files, $this->contentsOf(...));
+        $placed = TestClassFiles::held($tests, $files, $this->declaredIn(...));
         $pest = [];
 
         foreach ($files as $file) {
@@ -168,8 +174,8 @@ final class TestFiles
         $pest = [];
 
         foreach ($this->all() as $file) {
-            $code = $declaring->mayDeclare($file) ? $this->contentsOf($file) : Missing::at($file);
-            $declaring = $code instanceof Contents ? $declaring->readIn($file, $code) : $declaring;
+            $code = $declaring->mayDeclare($file) ? $this->declaredIn($file) : Missing::at($file);
+            $declaring = $code instanceof Names ? $declaring->readIn($file, $code) : $declaring;
             $pest = array_key_exists($this->pestClassOf($file), $wanted) ? [...$pest, $file] : $pest;
         }
 
@@ -187,6 +193,24 @@ final class TestFiles
     }
 
     /** What a test file holds, or that it is gone. */
+    /** The names a test file's code declares, each code read once; or that the file is gone. */
+    private function declaredIn(Path $file): Names|Missing
+    {
+        $code = $this->contentsOf($file);
+
+        if (! $code instanceof Contents) {
+            return $code;
+        }
+
+        $key = hash('xxh3', $code->text());
+
+        if (! array_key_exists($key, $this->declared)) {
+            $this->declared[$key] = TopLevel::read($code)->declares();
+        }
+
+        return $this->declared[$key];
+    }
+
     private function contentsOf(Path $file): Contents|Missing
     {
         $disk = $this->project->absolute($file);
