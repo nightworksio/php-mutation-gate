@@ -54,7 +54,11 @@ final readonly class QuickRound
             $tests = $entries->testFiles()->has($path) ? [...$tests, $path] : $tests;
         }
 
-        $retesting = $tests === [] ? TestIds::none() : $entries->testsIn(Paths::of(...$tests), $map);
+        if ($tests === []) {
+            return Saved::of($this->changed, Paths::none());
+        }
+
+        $retesting = $entries->testsIn(Paths::of(...$tests), $map);
 
         return $retesting instanceof TestIds
             ? Saved::of($this->changed, $this->retested($retesting, $map))
@@ -97,12 +101,12 @@ final readonly class QuickRound
         return $tests;
     }
 
-    /** The files a map shows these tests running; none where there are no tests. */
+    /** The files a map shows these tests running. */
     private function retested(TestIds $retesting, CoverageMap $map): Paths
     {
         $retested = Paths::none();
 
-        foreach ($retesting->count() === 0 ? [] : $map->files() as $file) {
+        foreach ($map->files() as $file) {
             $retested = $map->testsCoveringFile($file)->among($retesting)->count() > 0
                 ? $retested->with($file)
                 : $retested;
