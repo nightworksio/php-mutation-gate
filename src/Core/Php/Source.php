@@ -47,7 +47,7 @@ final readonly class Source
         T_NULLSAFE_OBJECT_OPERATOR,
     ];
 
-    /** @param array<string, list<int>> $reflected where it builds each reflection class that can read a constant */
+    /** @param list<ReflectionSite> $reflected where it builds each reflection class that can read a constant */
     private function __construct(
         private Path $path,
         private bool $test,
@@ -64,14 +64,9 @@ final readonly class Source
         $scope = TopLevel::of($significant)->scope();
         $tokens = Tokens::of($significant);
 
-        return new self(
-            $path,
-            $test,
-            $tokens,
-            $scope,
-            Shape::of($tokens, $scope),
-            Reflections::builtIn($tokens, $scope),
-        );
+        $source = new self($path, $test, $tokens, $scope, Shape::of($tokens, $scope), []);
+
+        return new self($path, $test, $tokens, $scope, $source->shape, Reflections::sitesIn($source));
     }
 
     /** A file of the code the tests judge, read. */
@@ -119,10 +114,10 @@ final readonly class Source
     }
 
     /**
-     * Where it builds each reflection class that can read a constant, by the
-     * class in lower case: the token of each name built (see Reflections).
+     * Where it builds each reflection class that can read a constant, with
+     * what its arguments write out (see Reflections).
      *
-     * @return array<string, list<int>>
+     * @return list<ReflectionSite>
      */
     public function reflected(): array
     {

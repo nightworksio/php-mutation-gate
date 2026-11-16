@@ -48,13 +48,32 @@ final readonly class Reflections
         $reflections = new self($symbol, $source, $hierarchy);
         $found = References::none();
 
-        foreach ($source->reflected() as $class => $sites) {
-            foreach ($sites as $at) {
-                $found = $found->and($reflections->built($at, $class));
-            }
+        foreach ($source->reflected() as $site) {
+            $found = $found->and($reflections->built($site));
         }
 
         return $found;
+    }
+
+    /**
+     * Where a file builds a reflection class that can read a constant, each
+     * with what its arguments write out, read once with the file.
+     *
+     * @return list<ReflectionSite>
+     */
+    public static function sitesIn(Source $source): array
+    {
+        $sites = [];
+
+        foreach (self::builtIn($source->tokens(), $source->scope()) as $class => $built) {
+            foreach ($built as $at) {
+                [$reflected, $after] = self::writtenAt($source, $at + Tokens::ARGUMENT);
+                $named = $class === self::CONSTANT ? self::namedAt($source->tokens(), $after) : NotGiven::value();
+                $sites[] = ReflectionSite::of($at, $class, $reflected, $named);
+            }
+        }
+
+        return $sites;
     }
 
     /**
@@ -64,7 +83,7 @@ final readonly class Reflections
      *
      * @return array<string, list<int>>
      */
-    public static function builtIn(Tokens $tokens, Scope $scope): array
+    private static function builtIn(Tokens $tokens, Scope $scope): array
     {
         $built = array_fill_keys(self::CLASSES, []);
 
@@ -89,18 +108,18 @@ final readonly class Reflections
             : Names::of();
     }
 
-    /** What a reflection built at a token reads of the constant. */
-    private function built(int $at, string $class): References
+    /** What a reflection built at a site reads of the constant. */
+    private function built(ReflectionSite $site): References
     {
-        $argument = $at + Tokens::ARGUMENT;
-        [$reflected, $after] = $this->writtenAt($argument);
         $shadowing = Shadowing::byConstant($this->symbol->name());
+        $reflected = $site->reflected();
+        $named = $site->named();
         $reads = $reflected instanceof Names
             ? $this->hierarchy->anyReaches($reflected, $this->symbol->owner(), $shadowing)
-                && ($class !== self::CONSTANT || $this->mayName($after))
+                && ($named instanceof NotGiven || $named === $this->symbol->name())
             : $this->source->namesOf($this->symbol->owner()) !== [];
 
-        return $reads ? References::at(Site::in($this->source, $at)) : References::none();
+        return $reads ? References::at(Site::in($this->source, $site->at())) : References::none();
     }
 
     /**
@@ -109,9 +128,9 @@ final readonly class Reflections
      *
      * @return array{Names|NotGiven, int}
      */
-    private function writtenAt(int $argument): array
+    private static function writtenAt(Source $source, int $argument): array
     {
-        $tokens = $this->source->tokens();
+        $tokens = $source->tokens();
         $literal = $argument + self::LITERAL;
 
         if ($tokens->is($argument, T_CONSTANT_ENCAPSED_STRING) && $tokens->is($argument + 1, ',', ')')) {
@@ -124,10 +143,10 @@ final readonly class Reflections
 
         return match (true) {
             ! $isLiteral => [NotGiven::value(), $argument],
-            OwnMember::isSelf($tokens, $argument) => [$this->source->classAround($argument)->names(), $literal],
-            OwnMember::isParent($tokens, $argument) => [$this->source->classAround($argument)->parents(), $literal],
+            OwnMember::isSelf($tokens, $argument) => [$source->classAround($argument)->names(), $literal],
+            OwnMember::isParent($tokens, $argument) => [$source->classAround($argument)->parents(), $literal],
             $tokens->is($argument, ...Names::TOKENS) => [
-                $this->source->scope()->resolve($tokens->text($argument)),
+                $source->scope()->resolve($tokens->text($argument)),
                 $literal,
             ],
             default => [NotGiven::value(), $argument],
@@ -135,17 +154,16 @@ final readonly class Reflections
     }
 
     /**
-     * Whether the name a reflection of one constant is built with, after the
-     * class argument that ends at a token, is the constant's or not written out.
+     * The name a reflection of one constant is built with, after the class
+     * argument that ends at a token; none where it is not written out.
      */
-    private function mayName(int $end): bool
+    private static function namedAt(Tokens $tokens, int $end): string|NotGiven
     {
-        $tokens = $this->source->tokens();
         $name = $end + 1;
         $written = $tokens->is($end, ',')
             && $tokens->is($name, T_CONSTANT_ENCAPSED_STRING)
             && $tokens->is($name + 1, ')');
 
-        return ! $written || $tokens->unquoted($name) === $this->symbol->name();
+        return $written ? $tokens->unquoted($name) : NotGiven::value();
     }
 }

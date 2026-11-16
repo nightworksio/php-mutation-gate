@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sort;
+use function sprintf;
 
 use Traversable;
 
@@ -96,11 +97,14 @@ final readonly class LineTests
 
         foreach ($covered as $line) {
             foreach ($line as $test) {
-                $tests[] = TestId::of($test);
+                $tests[$test] = true;
             }
         }
 
-        $known = $this->knowing(...$tests);
+        $known = $this->knowing(...array_map(
+            static fn(int|string $test): TestId => TestId::of(sprintf('%s', $test)),
+            array_keys($tests),
+        ));
         $placed = [];
 
         foreach ($covered as $line) {
