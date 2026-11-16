@@ -66,11 +66,10 @@ final readonly class MeasuredHoldsRecord
             $unit = Unit::file(Path::of(sprintf('%s', $path)));
             $tests = $measured->field(self::TESTS);
             $misses = $measured->field(self::MISSES);
-            $ids = array_map(static fn(Node $test): TestId => TestId::of($test->text()), $tests->items());
             $read = $read->with(
                 $unit,
                 match (true) {
-                    $tests->isPresent() => Covered::by($unit, TestIds::of(...$ids)),
+                    $tests->isPresent() => Covered::by($unit, self::testsIn($tests)),
                     $misses->isPresent() => NotCovered::because($unit, $misses->text()),
                     default => CannotJudge::because($measured->field(self::FAILED)->text()),
                 },
@@ -78,5 +77,11 @@ final readonly class MeasuredHoldsRecord
         }
 
         return $read;
+    }
+
+    /** @throws NotInShape */
+    private static function testsIn(Node $tests): TestIds
+    {
+        return TestIds::of(...array_map(static fn(Node $test): TestId => TestId::of($test->text()), $tests->items()));
     }
 }
