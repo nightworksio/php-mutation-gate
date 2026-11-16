@@ -628,13 +628,19 @@ mod tests {
             r#"{"outbreak":1,"kept":1}"#
         );
         drop(stream);
-        thread::sleep(Duration::from_millis(600));
-        let journal = std::fs::metadata(root.join(DIRECTORY).join("journal.bin"))
-            .unwrap()
-            .len();
+        let journal = root.join(DIRECTORY).join("journal.bin");
+        let since = std::time::Instant::now();
+
+        while std::fs::metadata(&journal).unwrap().len() != 0 {
+            assert!(
+                since.elapsed() < Duration::from_secs(5),
+                "the daemon never wrote its snapshot once the client left"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+
         let mut stream = connected(&root);
 
-        assert_eq!(journal, 0);
         assert!(
             serve(&options(root.clone()), 1)
                 .is_err_and(|why| why.starts_with("a daemon already serves"))
