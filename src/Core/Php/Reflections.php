@@ -48,7 +48,7 @@ final readonly class Reflections
         $reflections = new self($symbol, $source, $hierarchy);
         $found = References::none();
 
-        foreach (self::builtIn($source) as $class => $sites) {
+        foreach ($source->reflected() as $class => $sites) {
             foreach ($sites as $at) {
                 $found = $found->and($reflections->built($at, $class));
             }
@@ -64,13 +64,12 @@ final readonly class Reflections
      *
      * @return array<string, list<int>>
      */
-    private static function builtIn(Source $source): array
+    public static function builtIn(Tokens $tokens, Scope $scope): array
     {
-        $tokens = $source->tokens();
         $built = array_fill_keys(self::CLASSES, []);
 
         foreach ($tokens->indicesOf(T_NEW) as $new) {
-            $named = self::namedAfter($source, $new);
+            $named = self::namedAfter($tokens, $scope, $new);
 
             foreach (self::CLASSES as $class) {
                 $built[$class] = $named->meet(Names::of($class)) ? [...$built[$class], $new + 1] : $built[$class];
@@ -81,13 +80,12 @@ final readonly class Reflections
     }
 
     /** What the name right after a `new` and right before a `(` stands for; nothing where there is none. */
-    private static function namedAfter(Source $source, int $new): Names
+    private static function namedAfter(Tokens $tokens, Scope $scope, int $new): Names
     {
-        $tokens = $source->tokens();
         $at = $new + 1;
 
         return $tokens->is($at, ...Names::TOKENS) && $tokens->is($at + 1, '(')
-            ? $source->scope()->resolve($tokens->text($at))
+            ? $scope->resolve($tokens->text($at))
             : Names::of();
     }
 

@@ -47,12 +47,14 @@ final readonly class Source
         T_NULLSAFE_OBJECT_OPERATOR,
     ];
 
+    /** @param array<string, list<int>> $reflected where it builds each reflection class that can read a constant */
     private function __construct(
         private Path $path,
         private bool $test,
         private Tokens $tokens,
         private Scope $scope,
         private Shape $shape,
+        private array $reflected,
     ) {
     }
 
@@ -62,7 +64,14 @@ final readonly class Source
         $scope = TopLevel::of($significant)->scope();
         $tokens = Tokens::of($significant);
 
-        return new self($path, $test, $tokens, $scope, Shape::of($tokens, $scope));
+        return new self(
+            $path,
+            $test,
+            $tokens,
+            $scope,
+            Shape::of($tokens, $scope),
+            Reflections::builtIn($tokens, $scope),
+        );
     }
 
     /** A file of the code the tests judge, read. */
@@ -107,6 +116,17 @@ final readonly class Source
     public function shape(): Shape
     {
         return $this->shape;
+    }
+
+    /**
+     * Where it builds each reflection class that can read a constant, by the
+     * class in lower case: the token of each name built (see Reflections).
+     *
+     * @return array<string, list<int>>
+     */
+    public function reflected(): array
+    {
+        return $this->reflected;
     }
 
     /** What the token at an index stands in. */
