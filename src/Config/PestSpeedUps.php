@@ -8,7 +8,8 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * The speed-ups a Pest run takes, each with its key: how a shard scans and
- * remembers, the order runs side by side start in, whether controls overlap
+ * remembers, where the map it opens on is readied, the order runs side by
+ * side start in, whether controls overlap
  * survivors' runs again, and the coverage drivers a mutation run turns off:
  * keys of `pest`.
  */
@@ -28,6 +29,21 @@ final readonly class PestSpeedUps implements Setting
     public static function scanningEachChunk(): self
     {
         return new self(Json::at('pest.shardScan', value: false));
+    }
+
+    /**
+     * `pest.readyAtPlan`, `true`: the map a patched shard opens on is readied once, as the plan is made, for every
+     * shard, as by default (ADR-0163).
+     */
+    public static function readyingAtPlan(): self
+    {
+        return new self(Json::at('pest.readyAtPlan', value: true));
+    }
+
+    /** `pest.readyAtPlan`, `false`: each shard readies the map it opens on itself. */
+    public static function readyingInEachShard(): self
+    {
+        return new self(Json::at('pest.readyAtPlan', value: false));
     }
 
     /** `pest.longestFirst`, `true`: commands run side by side start the longest-limited first, as by default. */

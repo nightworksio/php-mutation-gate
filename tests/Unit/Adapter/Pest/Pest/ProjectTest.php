@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Pest\ReadersOpening;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Cli\PestPlugin;
@@ -205,19 +206,20 @@ it('is defined by tests/Pest.php and the PHPUnit config in the project\'s root, 
         ->toBe(['tests/Pest.php', 'phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist']);
 });
 
-it('reads holds as it loads them, and patched, raises a limit, has every key read its canary and runs exactly the covering rows; unpatched, raises none and runs every row', function (): void {
+it('reads holds as it loads them, readies the map each shard opens on as the plan is made, and patched, raises a limit, has every key read its canary and runs exactly the covering rows; unpatched, raises none and runs every row', function (): void {
     $canary = Group::named('mutation-canary');
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
-    $patched = new Pest(PestCases::project(), $shell, Patching::on($canary), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
-    $unpatched = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $project = PestCases::project();
+    $patched = new Pest($project, $shell, Patching::on($canary), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $unpatched = new Pest($project, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
     $pest = RunnerBehaviour::standard()
         ->holdingAsLoaded()
         ->runningPerCore()
         ->writingTestsIn(AssertionStyle::Pest);
 
     expect($patched->behaviour()->selection())->toBeInstanceOf(ExactRows::class)
-        ->and($patched->behaviour()->selecting(new EveryRow()))->toEqual($pest->readingInEveryKey($canary)->selecting(new EveryRow()))
-        ->and($unpatched->behaviour())->toEqual($pest->openingEachShard()->selecting(new EveryRow()));
+        ->and($patched->behaviour()->selecting(new EveryRow()))->toEqual($pest->readingInEveryKey($canary)->selecting(new EveryRow())->readyingOpening(new ReadersOpening($project, Patching::on($canary))))
+        ->and($unpatched->behaviour())->toEqual($pest->openingEachShard()->selecting(new EveryRow())->readyingOpening(new ReadersOpening($project, Patching::off())));
 });
 
 it('gives a mutant as an analyser checks it: its diff put onto the file as Pest prints it', function (): void {

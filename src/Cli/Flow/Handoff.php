@@ -82,9 +82,20 @@ final readonly class Handoff
     }
 
     /**
+     * The directory the plan leaves the map every shard opens on in, where
+     * the runner readies it once as the plan is made (ADR-0163).
+     */
+    public static function opened(): Path
+    {
+        return Path::of(sprintf('%s/opened', Workspace::coverage()->value()));
+    }
+
+    /**
      * The whole map, with each test file's entry key where the run keeps
      * one, each shard's map and the history of its files' functions, in the
-     * directory `run` reads them from; and the verdict's map.
+     * directory `run` reads them from; the verdict's map; and the map every
+     * shard opens on, where the runner readied one, none of an earlier plan's
+     * left behind otherwise; nothing where the runner could not ready it.
      */
     public function write(
         Plan $plan,
@@ -93,39 +104,11 @@ final readonly class Handoff
         MeasuredAt|Unplaced $at,
         EntryKeys|NotGiven $keys = new NotGiven(),
         Subsumption|NotGiven $held = new NotGiven(),
+        CoverageMap|NotGiven|CannotJudge $opened = new NotGiven(),
     ): Written|CannotJudge {
-        $written = Written::to(Workspace::coverage()->value());
-        $considered = Units::none();
-        $text = MapText::of($map);
-        $whole = $this->project->write(
-            CoverageMapFile::in(Workspace::coverage()),
-            Contents::of(CoverageMapFile::encode($text, $at, $keys, $this->level)),
-        );
-
-        if ($whole instanceof CannotJudge) {
-            return $whole;
-        }
-
-        $slices = MapSlices::of();
-
-        foreach ($plan as $shard) {
-            $considered = Units::of(...$considered, ...$shard->units());
-            $files = $this->filesOf($shard->units(), $map);
-            $slices = $slices->with(MapSlice::of($this->fileOf($shard->id()), $files));
-            $wrote = $this->besideShard($shard, $files, $history, $held);
-
-            if ($wrote instanceof CannotJudge) {
-                return $wrote;
-            }
-        }
-
-        $considered = Units::of(...$considered, ...$plan->considered()->proved(), ...$plan->considered()->carried());
-        $slices = $slices->with(
-            MapSlice::of(CoverageMapFile::in(Workspace::verdictCoverage()), $this->filesOf($considered, $map)),
-        );
-        $wrote = $this->sliced($text, $slices);
-
-        return $wrote instanceof CannotJudge ? $wrote : $written;
+        return $opened instanceof CannotJudge
+            ? $opened
+            : $this->writing($plan, $map, $history, $at, $keys, $held, $opened);
     }
 
     /** The map the verdict was handed: the lines of every unit the plan considered. */
@@ -191,6 +174,51 @@ final readonly class Handoff
         };
     }
 
+    /** What `write()` writes, once the runner readied the map every shard opens on, or none. */
+    private function writing(
+        Plan $plan,
+        CoverageMap $map,
+        KillHistory $history,
+        MeasuredAt|Unplaced $at,
+        EntryKeys|NotGiven $keys,
+        Subsumption|NotGiven $held,
+        CoverageMap|NotGiven $opened,
+    ): Written|CannotJudge {
+        $written = Written::to(Workspace::coverage()->value());
+        $considered = Units::none();
+        $text = MapText::of($map);
+        $whole = $this->project->write(
+            CoverageMapFile::in(Workspace::coverage()),
+            Contents::of(CoverageMapFile::encode($text, $at, $keys, $this->level)),
+        );
+
+        if ($whole instanceof CannotJudge) {
+            return $whole;
+        }
+
+        $slices = MapSlices::of();
+
+        foreach ($plan as $shard) {
+            $considered = Units::of(...$considered, ...$shard->units());
+            $files = $this->filesOf($shard->units(), $map);
+            $slices = $slices->with(MapSlice::of($this->fileOf($shard->id()), $files));
+            $wrote = $this->besideShard($shard, $files, $history, $held);
+
+            if ($wrote instanceof CannotJudge) {
+                return $wrote;
+            }
+        }
+
+        $considered = Units::of(...$considered, ...$plan->considered()->proved(), ...$plan->considered()->carried());
+        $slices = $slices->with(
+            MapSlice::of(CoverageMapFile::in(Workspace::verdictCoverage()), $this->filesOf($considered, $map)),
+        );
+        $wrote = $this->sliced($text, $slices);
+        $left = $wrote instanceof CannotJudge ? $wrote : $this->opening($opened);
+
+        return $left instanceof CannotJudge ? $left : $written;
+    }
+
     /** A map handed over, read within the limits, built straight from its text where the engine vouches for it. */
     private function decoded(Contents $contents): CoverageMap|CannotJudge
     {
@@ -243,6 +271,19 @@ final readonly class Handoff
             $this->subsumptionOf($shard->id()),
             Contents::of(SubsumptionFile::encode($held->onlyIn($files))),
         );
+    }
+
+    /** The map every shard opens on, where the runner readied one; none left behind of an earlier plan otherwise. */
+    private function opening(CoverageMap|NotGiven $opened): Written|Missing|CannotJudge
+    {
+        $file = CoverageMapFile::in(self::opened());
+
+        return $opened instanceof CoverageMap
+            ? $this->project->write(
+                $file,
+                Contents::of(CoverageMapFile::encode(MapText::of($opened), Unplaced::map(), level: $this->level)),
+            )
+            : $this->project->remove($file);
     }
 
     private function fileOf(ShardId $shard): Path

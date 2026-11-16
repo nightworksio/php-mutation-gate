@@ -39,6 +39,9 @@ enum Toggle: string
     /** A patched shard scans the codebase for the tests that read a value once, not once a chunk. */
     case PestShardScan = 'pest.shardScan';
 
+    /** The map a patched shard opens on is readied once, as the plan is made, for every shard (ADR-0163). */
+    case PestReadyAtPlan = 'pest.readyAtPlan';
+
     /** Commands a run starts side by side start the longest-limited first. */
     case PestLongestFirst = 'pest.longestFirst';
 
@@ -77,6 +80,7 @@ enum Toggle: string
             self::PestValueReaders,
             self::PestNarrow,
             self::PestShardScan,
+            self::PestReadyAtPlan,
             self::PestLongestFirst,
             self::PestRemember,
             self::PestOverlapSteps,
@@ -105,6 +109,7 @@ enum Toggle: string
         return match ($this) {
             self::StaticCheckTurbo,
             self::PestShardScan,
+            self::PestReadyAtPlan,
             self::PestLongestFirst,
             self::PestRemember,
             self::PestOverlapSteps,
@@ -143,6 +148,7 @@ enum Toggle: string
             self::TimeoutsParts,
             self::SuggestLooseValues,
             self::PestShardScan,
+            self::PestReadyAtPlan,
             self::PestLongestFirst,
             self::PestRemember,
             self::PestOverlapSteps,
@@ -166,6 +172,7 @@ enum Toggle: string
             self::SuggestLooseValues => 'Suggest::looseValuesNoted()',
             self::StaticCheckTurbo => 'StaticCheck::turbo()',
             self::PestShardScan => 'PestSpeedUps::scanningOnceAShard()',
+            self::PestReadyAtPlan => 'PestSpeedUps::readyingAtPlan()',
             self::PestLongestFirst => 'PestSpeedUps::longestFirst()',
             self::PestRemember => 'PestSpeedUps::remembering()',
             self::PestOverlapSteps => 'PestSpeedUps::overlappingSteps()',
@@ -188,6 +195,7 @@ enum Toggle: string
             self::SuggestLooseValues => 'Suggest::looseValuesSilent()',
             self::StaticCheckTurbo => 'StaticCheck::withoutTurbo()',
             self::PestShardScan => 'PestSpeedUps::scanningEachChunk()',
+            self::PestReadyAtPlan => 'PestSpeedUps::readyingInEachShard()',
             self::PestLongestFirst => 'PestSpeedUps::inTheirOrder()',
             self::PestRemember => 'PestSpeedUps::forgetting()',
             self::PestOverlapSteps => 'PestSpeedUps::stepByStep()',

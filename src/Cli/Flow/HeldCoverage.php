@@ -119,7 +119,7 @@ final readonly class HeldCoverage
     /** What the holding tests of each of these held units cover, each run alone under coverage once. */
     private function measured(Units $units, CoverageMap $suite): MeasuredHolds
     {
-        $measured = MeasuredHolds::of([]);
+        $measured = MeasuredHolds::none();
         $runs = $this->runsOf($units);
 
         foreach ($units as $unit) {

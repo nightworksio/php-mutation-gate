@@ -6,32 +6,34 @@ namespace NightWorksIO\MutationGate\Core\Hold;
 
 use function array_key_exists;
 
+use ArrayIterator;
+use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use Traversable;
 
 /**
  * What the plan measured of each held unit's holding tests, run alone under
  * coverage once for the whole run (ADR-0161): the tests of theirs that run
  * it, the sentence that says which of its lines they miss, or why they
- * cannot run on their own. Every shard holding the unit reads it from here
- * and runs nothing.
+ * cannot run on their own, by the held path. Every shard holding the unit
+ * reads it from here and runs nothing.
  *
- * @internal
+ * @implements IteratorAggregate<string, TestIds|NotCovered|CannotJudge>
  */
-final readonly class MeasuredHolds
+final readonly class MeasuredHolds implements IteratorAggregate
 {
     /** @param array<string, TestIds|NotCovered|CannotJudge> $held by the held path */
     private function __construct(private array $held)
     {
     }
 
-    /** @param array<string, TestIds|NotCovered|CannotJudge> $held by the held path */
-    public static function of(array $held): self
+    public static function none(): self
     {
-        return new self($held);
+        return new self([]);
     }
 
     /** These, with one more held unit measured: its covering tests, its misses, or why its tests cannot run alone. */
@@ -84,9 +86,9 @@ final readonly class MeasuredHolds
         return $checks;
     }
 
-    /** @return array<string, TestIds|NotCovered|CannotJudge> by the held path */
-    public function all(): array
+    /** @return Traversable<string, TestIds|NotCovered|CannotJudge> by the held path */
+    public function getIterator(): Traversable
     {
-        return $this->held;
+        return new ArrayIterator($this->held);
     }
 }

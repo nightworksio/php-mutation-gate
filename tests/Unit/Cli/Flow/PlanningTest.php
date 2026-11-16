@@ -555,7 +555,7 @@ it('measures the held units\' holding tests once, into the plan every shard read
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
     $held = $planned instanceof Plan ? $planned->briefing()->held() : $planned;
 
-    expect($held instanceof MeasuredHolds ? $held->all() : $held)
+    expect($held instanceof MeasuredHolds ? iterator_to_array($held, preserve_keys: true) : $held)
         ->toEqual(['src/Held.php' => TestIds::of(TestId::of('HeldTest::doubles'))]);
 });
 

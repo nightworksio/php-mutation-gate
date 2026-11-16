@@ -134,6 +134,43 @@ it('hands every shard the plan\'s whole map, beside the maps of each shard\'s ow
         ->toBe(CoverageMapFile::encode($map, Unplaced::map()));
 });
 
+it('leaves the map every shard opens on where the runner readied one, and removes an earlier plan\'s where it readied none', function () use (
+    $makePlan,
+    $makeMap,
+): void {
+    $project = Scratch::directory();
+    $opened = sprintf('%s/.mutation-gate/coverage/opened/map.json.gz', $project);
+    $readied = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(9), TestId::of('MoneyTest::adds'));
+    $handoff = new Handoff(Directory::at($project), HandedMaps::limits());
+
+    $handoff->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map(), opened: $readied);
+    $left = file_get_contents($opened);
+    $handoff->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map());
+
+    expect($left)->toBe(CoverageMapFile::encode($readied, Unplaced::map()))
+        ->and(file_exists($opened))->toBeFalse()
+        ->and(Handoff::opened())->toEqual(Path::of('.mutation-gate/coverage/opened'));
+});
+
+it('cannot hand the shards a map to open on it cannot write', function () use ($makePlan, $makeMap): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/coverage/opened/map.json.gz/blocked', '');
+
+    expect(new Handoff(Directory::at($project), HandedMaps::limits())->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map(), opened: CoverageMap::of()))
+        ->toEqual(CannotJudge::because(
+            sprintf('%s/.mutation-gate/coverage/opened/map.json.gz could not be written.', $project),
+        ));
+});
+
+it('writes nothing where the runner could not ready the map every shard opens on', function () use ($makePlan, $makeMap): void {
+    $project = Scratch::directory();
+    $unready = CannotJudge::because('The runner could not ready it.');
+
+    expect(new Handoff(Directory::at($project), HandedMaps::limits())->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map(), opened: $unready))
+        ->toBe($unready)
+        ->and(file_exists(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))->toBeFalse();
+});
+
 it('cannot hand the shards a whole map it cannot write', function () use ($makePlan, $makeMap): void {
     $plan = $makePlan();
     $map = $makeMap();

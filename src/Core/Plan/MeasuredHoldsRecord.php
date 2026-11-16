@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Hold\Covered;
 use NightWorksIO\MutationGate\Core\Hold\MeasuredHolds;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -43,7 +44,7 @@ final readonly class MeasuredHoldsRecord
     {
         $written = [];
 
-        foreach ($held->all() as $path => $measured) {
+        foreach ($held as $path => $measured) {
             $written[$path] = match (true) {
                 $measured instanceof TestIds => [
                     self::TESTS => array_map(static fn(TestId $test): string => $test->value(), [...$measured]),
@@ -59,22 +60,23 @@ final readonly class MeasuredHoldsRecord
     /** @throws NotInShape */
     public static function read(Node $held): MeasuredHolds
     {
-        $read = [];
+        $read = MeasuredHolds::none();
 
         foreach ($held->entries() as $path => $measured) {
-            $path = sprintf('%s', $path);
+            $unit = Unit::file(Path::of(sprintf('%s', $path)));
             $tests = $measured->field(self::TESTS);
             $misses = $measured->field(self::MISSES);
-            $read[$path] = match (true) {
-                $tests->isPresent() => TestIds::of(...array_map(
-                    static fn(Node $test): TestId => TestId::of($test->text()),
-                    $tests->items(),
-                )),
-                $misses->isPresent() => NotCovered::because(Unit::file(Path::of($path)), $misses->text()),
-                default => CannotJudge::because($measured->field(self::FAILED)->text()),
-            };
+            $ids = array_map(static fn(Node $test): TestId => TestId::of($test->text()), $tests->items());
+            $read = $read->with(
+                $unit,
+                match (true) {
+                    $tests->isPresent() => Covered::by($unit, TestIds::of(...$ids)),
+                    $misses->isPresent() => NotCovered::because($unit, $misses->text()),
+                    default => CannotJudge::because($measured->field(self::FAILED)->text()),
+                },
+            );
         }
 
-        return MeasuredHolds::of($read);
+        return $read;
     }
 }

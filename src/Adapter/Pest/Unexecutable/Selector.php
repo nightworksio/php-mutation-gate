@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
+use function array_key_exists;
 use function array_merge;
 use function count;
 use function file_get_contents;
+use function implode;
 use function is_file;
 use function is_string;
 
@@ -48,20 +50,26 @@ use NightWorksIO\MutationGate\Core\Test\TestCases;
  *
  * @internal
  */
-final readonly class Selector
+final class Selector
 {
     /** The last line any file could have, so that a range from the first covers a whole file. */
     private const int WHOLE = PHP_INT_MAX;
 
+    /** What separates the parts of the key a span's test files are kept by. */
+    private const string BETWEEN = "\n";
+
+    /** @var array<string, Paths> the test files whose tests run each span of lines asked about, by file and span */
+    private array $covered = [];
+
     private function __construct(
-        private Project $project,
-        private Covering $coverage,
-        private TestFiles $tests,
-        private Helpers $helpers,
-        private Followed $followed,
-        private CoverageMap $map,
-        private Originals $originals,
-        private Codebase $codebase,
+        private readonly Project $project,
+        private readonly Covering $coverage,
+        private readonly TestFiles $tests,
+        private readonly Helpers $helpers,
+        private readonly Followed $followed,
+        private readonly CoverageMap $map,
+        private readonly Originals $originals,
+        private readonly Codebase $codebase,
     ) {
     }
 
@@ -154,6 +162,16 @@ final readonly class Selector
             : $this->choose($symbol, $source->path());
     }
 
+    /**
+     * The map a run of these files opens on: its own, with the lines of each
+     * value they declare covered by the tests that read it, and each line of
+     * a match's arms by the tests of the arms after it too.
+     */
+    public function opened(Paths $files, CoverageMap $own): CoverageMap
+    {
+        return $this->armCoverage($files, $this->readCoverage($files, $own));
+    }
+
     /** A map with the lines of each value these files declare covered by the tests that read it (see ReadCoverage). */
     public function readCoverage(Paths $files, CoverageMap $onto): CoverageMap
     {
@@ -231,14 +249,20 @@ final readonly class Selector
         return count($tests) === 0 ? NotGiven::value() : Choice::of($tests, Paths::none(), ambiguous: false);
     }
 
-    /** The test files whose tests run any line from the first to the last of a file. */
+    /** The test files whose tests run any line from the first to the last of a file, each span worked out once. */
     private function covering(Path $file, int $first, int $last): Paths
     {
-        return $this->tests->holdingAny($this->coverage->testsCovering(
-            DiskPath::of($this->project->absolute($file)),
-            Line::of($first),
-            Line::of($last),
-        ));
+        $key = implode(self::BETWEEN, [$file->value(), $first, $last]);
+
+        if (! array_key_exists($key, $this->covered)) {
+            $this->covered[$key] = $this->tests->holdingAny($this->coverage->testsCovering(
+                DiskPath::of($this->project->absolute($file)),
+                Line::of($first),
+                Line::of($last),
+            ));
+        }
+
+        return $this->covered[$key];
     }
 
     /**

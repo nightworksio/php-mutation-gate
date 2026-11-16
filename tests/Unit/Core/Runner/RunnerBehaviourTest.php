@@ -3,22 +3,27 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
+use NightWorksIO\MutationGate\Core\Runner\HandedAsIs;
 use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\Parallelism;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Runner\ShardOpening;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestCases;
 use NightWorksIO\MutationGate\Tests\Support\EveryRowOfTheMethod;
 
 it('lists holds as groups, has no group in every key and opens no shard of its own, by default', function (): void {
     $standard = RunnerBehaviour::standard();
 
-    expect([$standard->holdsAsLoaded(), $standard->opensEachShard()])
-        ->toBe([false, false])
+    expect($standard->opensEachShard())->toBeFalse()
+        ->and($standard->opening())->toBeInstanceOf(HandedAsIs::class)
         ->and($standard->holds())->toBe(HoldsReading::Written)
         ->and($standard->readByEveryKey())->toEqual(Groups::none())
         ->and($standard->whyNotFull())->toBe(NotFull::FirstKillers)
@@ -38,14 +43,13 @@ it('says each way it behaves otherwise, and nothing more', function (): void {
         ->readingInEveryKey($canary)
         ->openingEachShard();
 
-    expect([$pest->holdsAsLoaded(), $pest->opensEachShard()])->toBe([true, true])
+    expect($pest->opensEachShard())->toBeTrue()
         ->and($pest->holds())->toBe(HoldsReading::AsLoaded)
         ->and(RunnerBehaviour::standard()->readingHolds(HoldsReading::Listed)->holds())->toBe(HoldsReading::Listed)
-        ->and(RunnerBehaviour::standard()->readingHolds(HoldsReading::Listed)->holdsAsLoaded())->toBeFalse()
         ->and(RunnerBehaviour::standard()->runningPerCore()->readingHolds(HoldsReading::Listed)->parallelism())
         ->toBe(Parallelism::PerCore)
         ->and($pest->readByEveryKey())->toEqual(Groups::of($canary))
-        ->and(RunnerBehaviour::standard()->openingEachShard()->holdsAsLoaded())->toBeFalse()
+        ->and(RunnerBehaviour::standard()->openingEachShard()->holds())->toBe(HoldsReading::Written)
         ->and(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->whyNotFull())
         ->toBe(NotFull::Infection)
         ->and(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->opensEachShard())->toBeFalse()
@@ -67,4 +71,18 @@ it('selects exactly the tests that judge a mutant for its own run, unless the ru
     expect(RunnerBehaviour::standard()->selection())->toEqual(new ExactRun())
         ->and(RunnerBehaviour::standard()->selecting(new EveryRowOfTheMethod())->selection())->toEqual(new EveryRowOfTheMethod())
         ->and(RunnerBehaviour::standard()->selecting(new EveryRowOfTheMethod())->runningPerCore()->selection())->toEqual(new EveryRowOfTheMethod());
+});
+
+it('opens each shard on the map it is handed, unless the runner readies the map once, as the plan is made', function (): void {
+    $readied = new class implements ShardOpening {
+        public function readied(CoverageMap $whole, Paths $files, TestCases $cases): CoverageMap
+        {
+            return $whole;
+        }
+    };
+    $map = CoverageMap::of();
+
+    expect(RunnerBehaviour::standard()->opening()->readied($map, Paths::none(), TestCases::unknown()))->toEqual(NotGiven::value())
+        ->and(RunnerBehaviour::standard()->readyingOpening($readied)->opening())->toBe($readied)
+        ->and(RunnerBehaviour::standard()->readyingOpening($readied)->runningPerCore()->selecting(new ExactRun())->opening())->toBe($readied);
 });

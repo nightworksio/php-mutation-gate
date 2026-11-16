@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Hold\Covered;
 use NightWorksIO\MutationGate\Core\Hold\MeasuredHolds;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -21,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 it('measures no peak and records first killers, by default', function (): void {
     expect(Briefing::standard()->peak())->toEqual(NotGiven::value())
@@ -81,7 +84,7 @@ it('waits for a fresh map only once told to, keeping the rest of what it tells',
 });
 
 it('tells every shard what the plan measured of the held units, which its file holds, and nothing by default', function (): void {
-    $measured = MeasuredHolds::of(['src/A.php' => TestIds::of(TestId::of('ATest::runs'))]);
+    $measured = MeasuredHolds::none()->with(Unit::file(Path::of('src/A.php')), Covered::by(Unit::file(Path::of('src/A.php')), TestIds::of(TestId::of('ATest::runs'))));
     $briefing = Briefing::standard()->measuring($measured)->onOwnScopeCoverage()->plannedEarly()->waitingForAMap();
 
     expect(Briefing::standard()->held())->toEqual(NotGiven::value())
@@ -95,8 +98,8 @@ it('tells every shard what the plan measured of the held units, which its file h
 });
 
 it('takes what the plan it stands as measured of the held units, and keeps its own where that one measured none', function (): void {
-    $measured = MeasuredHolds::of(['src/A.php' => TestIds::of(TestId::of('ATest::runs'))]);
-    $other = MeasuredHolds::of(['src/B.php' => TestIds::none()]);
+    $measured = MeasuredHolds::none()->with(Unit::file(Path::of('src/A.php')), Covered::by(Unit::file(Path::of('src/A.php')), TestIds::of(TestId::of('ATest::runs'))));
+    $other = MeasuredHolds::none()->with(Unit::file(Path::of('src/B.php')), Covered::by(Unit::file(Path::of('src/B.php')), TestIds::none()));
 
     expect(Briefing::standard()->standingAs(Briefing::standard()->measuring($measured))->held())->toBe($measured)
         ->and(Briefing::standard()->measuring($other)->standingAs(Briefing::standard())->held())->toBe($other)

@@ -29,8 +29,12 @@ final readonly class Codebase
      * @param list<Source>                $sources
      * @param array<array-key, Source> $byPath  each source, by its path; the last read of a path where two share it
      */
-    private function __construct(private array $sources, private Hierarchy $hierarchy, private array $byPath)
-    {
+    private function __construct(
+        private array $sources,
+        private Hierarchy $hierarchy,
+        private array $byPath,
+        private SourceWords $words,
+    ) {
     }
 
     public static function of(Source ...$sources): self
@@ -41,7 +45,9 @@ final readonly class Codebase
             $byPath[$source->path()->value()] = $source;
         }
 
-        return new self(array_values($sources), Hierarchy::of(...$sources), $byPath);
+        $listed = array_values($sources);
+
+        return new self($listed, Hierarchy::of(...$sources), $byPath, SourceWords::of($listed));
     }
 
     /** This codebase, with these sources too: those of paths it holds replace its own. */
@@ -92,11 +98,10 @@ final readonly class Codebase
     private function followed(Symbol $symbol, int $step, array $seen): References
     {
         $found = References::none();
+        $words = Reads::wordsOf($symbol);
 
-        foreach ($this->sources as $source) {
-            $found = Reads::mayHold($symbol, $source)
-                ? $found->and($this->through(Reads::of($symbol, $source, $this->hierarchy), $source, $step, $seen))
-                : $found;
+        foreach ($words instanceof NotGiven ? $this->sources : $this->words->spelling(...$words) as $source) {
+            $found = $found->and($this->through(Reads::of($symbol, $source, $this->hierarchy), $source, $step, $seen));
         }
 
         return $found;

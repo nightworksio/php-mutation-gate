@@ -59,15 +59,7 @@ final readonly class CoverageMap
      */
     public function and(self $other): self
     {
-        $map = $this;
-
-        foreach ($other->lines() as $line) {
-            $map = $map->covered(
-                $line->file(),
-                Line::of($line->line()),
-                ...array_map(TestId::of(...), [...$line]),
-            );
-        }
+        $map = $this->besides(...iterator_to_array($other->lines(), preserve_keys: false));
 
         return new self(
             $map->lines->knowing(...iterator_to_array($other->durations->tests(), preserve_keys: false)),
@@ -77,18 +69,14 @@ final readonly class CoverageMap
     }
 
     /**
-     * This map with these lines laid beside its own, built at once: a line
-     * both hold keeps the tests of both, and every test it knows keeps its
-     * time, with the methods it ran and the packages it loaded.
+     * This map with these lines laid beside its own, built at once, as
+     * covering them one after another would: a line both hold keeps the
+     * tests of both, and every test it knows keeps its place and its time,
+     * with the methods it ran and the packages it loaded.
      */
     public function besides(CoveredLine ...$covered): self
     {
-        return new self(
-            LineTests::of(...iterator_to_array($this->lines(), preserve_keys: false), ...$covered)
-                ->knowing(...iterator_to_array($this->tests(), preserve_keys: false)),
-            $this->durations,
-            $this->executed,
-        );
+        return new self($this->lines->coveredEach(...$covered), $this->durations, $this->executed);
     }
 
     /** This map, with these tests covering a line. */

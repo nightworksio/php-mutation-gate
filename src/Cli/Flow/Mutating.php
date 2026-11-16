@@ -330,7 +330,10 @@ final readonly class Mutating
 
         return $request->narrowedTo($files, $narrowing)
             ->across($pool)
-            ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard->id()), Workspace::coverage()))
+            ->reusingCoverage(
+                Handed::maps(Workspace::shardCoverage($shard->id()), Workspace::coverage())
+                    ->openingOn(Handoff::opened()),
+            )
             ->searching($search);
     }
 }

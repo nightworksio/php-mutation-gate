@@ -424,9 +424,10 @@ final readonly class Planning
 
     /**
      * The plan, once each shard is handed the whole map, the map of its own
-     * files and the kill history of their functions. The whole map is where a
-     * later local command, such as `pre-commit`, reads it without running the
-     * suite.
+     * files and the kill history of their functions, and the map every shard
+     * opens on where the runner readies it once, for every shard's files
+     * (ADR-0163). The whole map is where a later local command, such as
+     * `pre-commit`, reads it without running the suite.
      */
     private function handed(
         EntryKeys|NotGiven $keys,
@@ -436,13 +437,15 @@ final readonly class Planning
         KillHistory $history,
         Subsumption|NotGiven $held,
     ): Plan|CannotJudge {
+        $opened = $this->adapters->runner->behaviour()->opening()
+            ->readied($map, $plan->shards()->paths(), $this->adapters->suite->testCases());
         $handed = new Handoff(
             $this->adapters->project,
             Handoff::limits(),
             $this->adapters->maps,
             $this->settings->proofs()->coverageCompressionLevel(),
         )
-            ->write($plan, $map, $history, $at, $keys, $held);
+            ->write($plan, $map, $history, $at, $keys, $held, $opened);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
     }

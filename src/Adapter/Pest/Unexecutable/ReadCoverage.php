@@ -4,18 +4,21 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
-use function count;
+use function array_map;
+use function array_push;
+use function array_values;
 
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
-use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
 use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\ValueDeclaration;
 use NightWorksIO\MutationGate\Core\Php\ValueDeclarations;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -41,49 +44,38 @@ final readonly class ReadCoverage
     ) {
     }
 
-    /** A map with the lines of each value these files declare covered so. */
+    /** A map with the lines of each value these files declare covered so, built at once. */
     public function onto(Paths $files, CoverageMap $map): CoverageMap
     {
-        $read = $map;
+        $lines = [];
+        $timed = [];
 
         foreach ($files as $file) {
             $source = $this->codebase->source($file);
 
             foreach ($source instanceof Source ? ValueDeclarations::in($source) : [] as $declared) {
-                $read = $this->reading($read, $file, $declared);
+                $tests = $this->reading($file, $declared);
+                array_push($lines, ...$this->covered($file, $declared, $tests));
+                $timed += $this->timed($tests, $map);
             }
         }
 
-        return $read;
+        return $map->besides(...$lines)->timedEach(...array_values($timed));
     }
 
-    /**
-     * A map with the lines of one value covered by the tests one run judges
-     * its mutants by, each timed; the map as it is where no run can.
-     */
-    private function reading(CoverageMap $map, Path $file, ValueDeclaration $declared): CoverageMap
+    /** The tests one run judges the mutants of one value by; none where no run can. */
+    private function reading(Path $file, ValueDeclaration $declared): TestIds
     {
         $run = $this->selector->choose($declared->symbol(), $file)->oneRun();
-        $tests = $run instanceof Paths ? $this->tests->holding($run, $this->map) : TestIds::none();
 
-        if (count($tests) === 0) {
-            return $map;
-        }
-
-        $read = $map;
-
-        foreach (range($declared->first()->number(), $declared->last()->number()) as $line) {
-            $read = $read->covered($file, Line::of($line), ...$tests);
-        }
-
-        return $read->timedEach(...$this->timed($tests, $map));
+        return $run instanceof Paths ? $this->tests->holding($run, $this->map) : TestIds::none();
     }
 
     /**
      * How long each of these tests took, as the map of every file timed it,
-     * where a map does not time it already.
+     * where a map does not time it already, by id.
      *
-     * @return list<TimedTest>
+     * @return array<string, TimedTest>
      */
     private function timed(TestIds $tests, CoverageMap $timing): array
     {
@@ -93,10 +85,27 @@ final readonly class ReadCoverage
             $duration = $this->map->durations()->of($test);
 
             if ($duration instanceof Seconds && ! $timing->durations()->of($test) instanceof Seconds) {
-                $timed[] = TimedTest::of($test->value(), $duration->seconds());
+                $timed[$test->value()] = TimedTest::of($test->value(), $duration->seconds());
             }
         }
 
         return $timed;
+    }
+
+    /**
+     * Each line of one value, covered by these tests; none where there are none.
+     *
+     * @return list<CoveredLine>
+     */
+    private function covered(Path $file, ValueDeclaration $declared, TestIds $tests): array
+    {
+        $ids = array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
+        $lines = [];
+
+        foreach ($ids === [] ? [] : range($declared->first()->number(), $declared->last()->number()) as $line) {
+            $lines[] = CoveredLine::of($file, $line, ...$ids);
+        }
+
+        return $lines;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_any;
+use function array_push;
 use function array_values;
 
 use ArrayIterator;
@@ -14,6 +15,7 @@ use function count;
 use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Paths;
 
 use function sprintf;
 
@@ -65,6 +67,18 @@ final readonly class Shards implements Countable, IteratorAggregate
     public function pulls(): bool
     {
         return array_any($this->shards, static fn(Shard $shard): bool => $shard->isPulled());
+    }
+
+    /** The path of each unit of every shard, each once, in the shards' order. */
+    public function paths(): Paths
+    {
+        $paths = [];
+
+        foreach ($this->shards as $shard) {
+            array_push($paths, ...$shard->units()->paths());
+        }
+
+        return Paths::of(...$paths);
     }
 
     public function count(): int

@@ -301,7 +301,7 @@ it('hands each shard the plan\'s whole map beside its own, removing only the oth
 
     expect($touching)->toHaveCount(1)
         ->and(dirname($whole))->toBe($coverage)
-        ->and($removing)->toContain(sprintf('find %s -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}"', $coverage))
+        ->and($removing)->toContain(sprintf('find %s -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}" ! -name opened', $coverage))
         ->and($paths)->toContain(sprintf('%s/', $coverage))
         ->and($excluded)->toBe([]);
 });

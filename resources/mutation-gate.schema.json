@@ -4051,6 +4051,10 @@
                     "type": "boolean",
                     "default": true
                 },
+                "readyAtPlan": {
+                    "type": "boolean",
+                    "default": true
+                },
                 "longestFirst": {
                     "type": "boolean",
                     "default": true
@@ -8635,6 +8639,9 @@
                             "type": "boolean"
                         },
                         "shardScan": {
+                            "type": "boolean"
+                        },
+                        "readyAtPlan": {
                             "type": "boolean"
                         },
                         "longestFirst": {

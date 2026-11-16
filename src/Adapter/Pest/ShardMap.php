@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use Closure;
 
 use function dirname;
+use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
@@ -16,9 +17,12 @@ use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -32,8 +36,9 @@ use function sprintf;
  * The map a patched shard's run opens on: its own map the plan handed over,
  * with the lines of each value its files declare covered by the tests that
  * read it (ADR-0037), and each line of a match's arms by the tests of the
- * arms after it too, written again for Pest, which opens on the canary
- * group with it; or why the shard cannot open on it.
+ * arms after it too, as the plan readied it for every shard where it did
+ * (ADR-0163), written again for Pest, which opens on the canary group with
+ * it; or why the shard cannot open on it.
  *
  * @internal
  */
@@ -116,21 +121,48 @@ final readonly class ShardMap
         }
 
         $from = $laps->now();
-
-        $directory = $handed->own();
-
         $refusal = $this->refusal($request);
+        $readied = $refusal instanceof CannotJudge ? $refusal : $this->readied($handed);
 
+        if ($readied instanceof CoverageMap) {
+            return OpenedMap::readied(
+                $readied->onlyFor($request->files()),
+                StepTimes::of($laps->lap(Step::Coverage, $from)),
+            );
+        }
+
+        $own = $readied instanceof CannotJudge ? $readied : $this->handedMap($handed->own());
+
+        return $own instanceof CoverageMap
+            ? $this->read($request, $own, $laps, $laps->lap(Step::Coverage, $from))
+            : OpenedMap::unopened($own);
+    }
+
+    /**
+     * The map the plan readied for its shards to open on, where it left one
+     * and the run covers the lines that read values (ADR-0163); none where
+     * the shard readies its own.
+     */
+    private function readied(Handed $handed): CoverageMap|NotGiven|CannotJudge
+    {
+        $opened = $handed->opened();
+        $left = $opened instanceof Path
+            && $this->patching->steps()->on(Toggle::PestValueReaders)
+            && is_file($this->project->absolute(CoverageMapFile::in($opened)));
+
+        return $left ? $this->handedMap($opened) : NotGiven::value();
+    }
+
+    /** A map the plan wrote into a directory, read once for every run of the shard. */
+    private function handedMap(Path $directory): CoverageMap|CannotJudge
+    {
         $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in(
             $this->project,
             $directory,
             $this->remembered->vouching(),
         );
-        $own = $refusal instanceof CannotJudge ? $refusal : $this->remembered->map($directory, $reading);
 
-        return $own instanceof CoverageMap
-            ? $this->read($request, $own, $laps, $laps->lap(Step::Coverage, $from))
-            : OpenedMap::unopened($own);
+        return $this->remembered->map($directory, $reading);
     }
 
     /**
@@ -159,7 +191,7 @@ final readonly class ShardMap
         $wholeRead = $laps->lap(Step::ValueReaderCoverage, $from);
         $from = $laps->now();
         $selector = $whole->selector($request, $reads, $own, $this->patching->steps()->on(Toggle::PestShardScan));
-        $map = $selector->armCoverage($request->files(), $selector->readCoverage($request->files(), $own));
+        $map = $selector->opened($request->files(), $own);
 
         return OpenedMap::readied($map, StepTimes::of($read, $wholeRead, $laps->lap(Step::ValueReaders, $from)));
     }

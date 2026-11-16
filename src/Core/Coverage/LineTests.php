@@ -86,6 +86,31 @@ final readonly class LineTests
         return $known->with(PlacedLine::of($file, $line->number(), ...$places));
     }
 
+    /**
+     * These lines, with each of these covered by its tests, as covering them
+     * one after another would, built at once.
+     */
+    public function coveredEach(CoveredLine ...$covered): self
+    {
+        $tests = [];
+
+        foreach ($covered as $line) {
+            foreach ($line as $test) {
+                $tests[] = TestId::of($test);
+            }
+        }
+
+        $known = $this->knowing(...$tests);
+        $placed = [];
+
+        foreach ($covered as $line) {
+            $places = array_map(static fn(string $test): int => $known->places[$test], [...$line]);
+            $placed[] = PlacedLine::of($line->file(), $line->line(), ...$places);
+        }
+
+        return $known->with(...$placed);
+    }
+
     /** These lines, knowing these tests too, each one it did not know after those it did. */
     public function knowing(TestId ...$tests): self
     {
@@ -166,14 +191,12 @@ final readonly class LineTests
     /** Every test that ran any line of a file from the first to the last, each once, in the order lines name them. */
     public function running(Path $file, Line $first, Line $last): TestIds
     {
-        $lines = $this->linesOf($file);
-        $spanned = [];
-
-        for ($line = $first->number(); $line <= $last->number(); $line++) {
-            if (array_key_exists($line, $lines)) {
-                $spanned[] = $lines[$line];
-            }
-        }
+        $spanned = array_filter(
+            $this->linesOf($file),
+            static fn(int $number): bool => $number >= $first->number() && $number <= $last->number(),
+            ARRAY_FILTER_USE_KEY,
+        );
+        ksort($spanned);
 
         return $this->testsOf(...$spanned);
     }

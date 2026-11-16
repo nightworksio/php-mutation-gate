@@ -24,18 +24,7 @@ final readonly class HandedOver implements Covering
 
     public function testsCovering(DiskPath $file, Line $first, Line $last): TestIds
     {
-        $path = $this->project->relative($file->value());
-        $tests = [];
-
-        foreach ($this->map->lineTests()->setsOn($path)->lines() as $line) {
-            $covered = $line->number() >= $first->number() && $line->number() <= $last->number();
-
-            foreach ($covered ? $this->map->testsCovering($path, $line, $line) : [] as $test) {
-                $tests[] = $test;
-            }
-        }
-
-        return TestIds::of(...$tests);
+        return $this->map->testsCovering($this->project->relative($file->value()), $first, $last);
     }
 
     public function map(Project $project): CoverageMap

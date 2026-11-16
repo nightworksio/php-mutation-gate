@@ -17,8 +17,9 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
  * whether each shard pays a full opening run under coverage (ADR-0006),
  * whether it can record every test that kills a mutant, for a full kill
  * matrix (ADR-0014), whether it runs a mutant per core, the style its own
- * tests are written in (ADR-0015), and which tests a mutant's own run
- * selects (ADR-0008). The flows ask the runner, never its name.
+ * tests are written in (ADR-0015), which tests a mutant's own run selects
+ * (ADR-0008), and how the map each shard opens on is readied once, as the
+ * plan is made (ADR-0163). The flows ask the runner, never its name.
  */
 final readonly class RunnerBehaviour
 {
@@ -30,6 +31,7 @@ final readonly class RunnerBehaviour
         private Parallelism $parallelism,
         private AssertionStyle|NotGiven $writes,
         private RunSelection $selection,
+        private ShardOpening $opening,
     ) {
     }
 
@@ -49,6 +51,7 @@ final readonly class RunnerBehaviour
             parallelism: Parallelism::Serial,
             writes: AssertionStyle::PhpUnit,
             selection: new ExactRun(),
+            opening: new HandedAsIs(),
         );
     }
 
@@ -66,6 +69,7 @@ final readonly class RunnerBehaviour
             $this->parallelism,
             $style,
             $this->selection,
+            $this->opening,
         );
     }
 
@@ -95,6 +99,7 @@ final readonly class RunnerBehaviour
             parallelism: $this->parallelism,
             writes: $this->writes,
             selection: $this->selection,
+            opening: $this->opening,
         );
     }
 
@@ -109,6 +114,7 @@ final readonly class RunnerBehaviour
             $this->parallelism,
             $this->writes,
             $this->selection,
+            $this->opening,
         );
     }
 
@@ -123,6 +129,7 @@ final readonly class RunnerBehaviour
             parallelism: $this->parallelism,
             writes: $this->writes,
             selection: $this->selection,
+            opening: $this->opening,
         );
     }
 
@@ -140,6 +147,7 @@ final readonly class RunnerBehaviour
             $this->parallelism,
             $this->writes,
             $this->selection,
+            $this->opening,
         );
     }
 
@@ -154,6 +162,7 @@ final readonly class RunnerBehaviour
             Parallelism::PerCore,
             $this->writes,
             $this->selection,
+            $this->opening,
         );
     }
 
@@ -168,18 +177,35 @@ final readonly class RunnerBehaviour
             $this->parallelism,
             $this->writes,
             $selection,
+            $this->opening,
         );
+    }
+
+    /** This behaviour, where each shard opens on a map readied this way once, as the plan is made (ADR-0163). */
+    public function readyingOpening(ShardOpening $opening): self
+    {
+        return new self(
+            $this->holds,
+            $this->readByEveryKey,
+            $this->opensEachShard,
+            $this->whyNotFull,
+            $this->parallelism,
+            $this->writes,
+            $this->selection,
+            $opening,
+        );
+    }
+
+    /** How the map each shard opens on is readied once, as the plan is made; nothing beyond the map it is handed. */
+    public function opening(): ShardOpening
+    {
+        return $this->opening;
     }
 
     /** Which tests a mutant's own run runs of those that judge it: what a control that reproduces the run runs. */
     public function selection(): RunSelection
     {
         return $this->selection;
-    }
-
-    public function holdsAsLoaded(): bool
-    {
-        return $this->holds === HoldsReading::AsLoaded;
     }
 
     /** How the runner's tests come to hold the paths each `#[Holds]` names. */

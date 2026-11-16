@@ -23,7 +23,7 @@ function heldUnit(string $path): Unit
 }
 
 it('measures a shard\'s units only where it holds every held one of them, whatever it holds besides', function (): void {
-    $measured = MeasuredHolds::of([])->with(heldUnit('src/A.php'), Covered::by(heldUnit('src/A.php'), TestIds::none()));
+    $measured = MeasuredHolds::none()->with(heldUnit('src/A.php'), Covered::by(heldUnit('src/A.php'), TestIds::none()));
 
     expect($measured->measures(Units::of(heldUnit('src/A.php'), Unit::file(Path::of('src/B.php')))))->toBeTrue()
         ->and($measured->measures(Units::of(heldUnit('src/A.php'), heldUnit('src/C.php'))))->toBeFalse()
@@ -33,7 +33,7 @@ it('measures a shard\'s units only where it holds every held one of them, whatev
 it('gives each held unit of a shard the check the plan made of it, with the shard\'s own unit', function (): void {
     $a = heldUnit('src/A.php');
     $b = heldUnit('src/B.php');
-    $measured = MeasuredHolds::of([])
+    $measured = MeasuredHolds::none()
         ->with($a, Covered::by($a, TestIds::of(TestId::of('ATest::runs'))))
         ->with($b, NotCovered::because($b, 'misses line 3'));
     $checks = $measured->checksOf(Units::of($a, $b, Unit::file(Path::of('src/C.php'))));
@@ -47,7 +47,7 @@ it('gives each held unit of a shard the check the plan made of it, with the shar
 
 it('cannot judge a shard holding a unit whose tests the plan could not run on their own', function (): void {
     $a = heldUnit('src/A.php');
-    $measured = MeasuredHolds::of([])
+    $measured = MeasuredHolds::none()
         ->with($a, CannotJudge::because('they fail alone'))
         ->with(heldUnit('src/B.php'), Covered::by(heldUnit('src/B.php'), TestIds::none()));
 
@@ -57,7 +57,7 @@ it('cannot judge a shard holding a unit whose tests the plan could not run on th
 
 it('is written to the plan file and read back as it was', function (): void {
     $a = heldUnit('src/A.php');
-    $measured = MeasuredHolds::of([])
+    $measured = MeasuredHolds::none()
         ->with($a, Covered::by($a, TestIds::of(TestId::of('ATest::runs'), TestId::of('ATest::stops'))))
         ->with(heldUnit('src/B.php'), NotCovered::because(heldUnit('src/B.php'), 'misses line 3'))
         ->with(heldUnit('src/C.php'), CannotJudge::because('they fail alone'));

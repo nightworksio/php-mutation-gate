@@ -683,6 +683,64 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
         ]);
 });
 
+it('opens a patched shard on the map the plan readied, of its own files alone, reading no value again', function (): void {
+    $at = PestCases::patched();
+    PestCases::handedOver($at, 'readied', CoverageMap::of(
+        CoveredLine::of(Path::of('src/Money.php'), 5, 'Tests\B::c'),
+        CoveredLine::of(Path::of('src/Other.php'), 3, 'Tests\B::c'),
+    )->timedEach(TimedTest::of('Tests\B::c', 2.0)));
+    $written = ShardMap::fileFor(PestCases::results($at), PestCases::money()->files());
+    $loaded = null;
+    $shell = new ShellFake(static function (Command $command, int $before) use ($at, $written, &$loaded): Ran {
+        $loaded ??= is_file($written) ? CoverageFile::at($written) : null;
+
+        return $before === 0 ? PestCases::listed($command) : PestCases::killed($command, $at);
+    });
+    $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned'))->openingOn(Path::of('readied')));
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+    expect($result instanceof MutationResult ? array_slice(array_map(
+        static fn(StepTime $step): Step => $step->step(),
+        [...$result->steps()],
+    ), 0, 2) : $result)->toBe([Step::Coverage, Step::Mutation])
+        ->and($loaded instanceof CoverageFile ? $loaded->map($at) : $loaded)->toEqual(
+            CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 5, 'Tests\B::c'))->timedEach(TimedTest::of('Tests\B::c', 2.0)),
+        );
+});
+
+it('readies its own map where the plan left none to open on, and opens on the handed map as it is under pest.valueReaders: false', function (): void {
+    $at = PestCases::patched();
+    PestCases::handedOver($at, 'readied', CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 5, 'Tests\B::c')));
+    $written = ShardMap::fileFor(PestCases::results($at), PestCases::money()->files());
+    $opened = static function (Patching $patching, string $readied) use ($at, $written): array {
+        $loaded = null;
+        $shell = new ShellFake(static function (Command $command, int $before) use ($at, $written, &$loaded): Ran {
+            $loaded ??= is_file($written) ? CoverageFile::at($written) : null;
+
+            return $before === 0 ? PestCases::listed($command) : PestCases::killed($command, $at);
+        });
+        $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned'))->openingOn(Path::of($readied)));
+        $result = new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+        return [
+            $result instanceof MutationResult ? array_slice(array_map(
+                static fn(StepTime $step): Step => $step->step(),
+                [...$result->steps()],
+            ), 0, 2) : [],
+            $loaded instanceof CoverageFile ? count($loaded->map($at)->testsCovering(Path::of('src/Money.php'), Line::of(5), Line::of(5))) : null,
+        ];
+    };
+    $unread = PestCases::canary()->stepping(PestSteps::of(
+        Toggles::of(Toggle::PestValueReaders, on: false),
+        NarrowedKillTrust::Vouch,
+        LongFilter::Files,
+        Duplicates::JudgeOnce,
+    ));
+
+    expect($opened(PestCases::canary(), 'nowhere'))->toBe([[Step::Coverage, Step::ValueReaderCoverage], 0])
+        ->and($opened($unread, 'readied'))->toBe([[Step::Coverage, Step::Mutation], 0]);
+});
+
 it('covers the line of a constant a shard\'s file declares with the tests that read it, in the map written for its Pest', function (): void {
     $at = PestCases::patched();
     Scratch::write($at->root(), 'src/Money.php', "<?php\n\nfinal class Money\n{\n    public const RATE = 2;\n}\n");

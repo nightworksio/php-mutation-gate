@@ -7,8 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Php;
 use function array_diff_assoc;
 use function array_filter;
 use function array_keys;
+use function array_last;
 use function array_values;
 use function count;
+use function explode;
+use function mb_strtolower;
 use function min;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -171,13 +174,20 @@ final readonly class Source
 
     /**
      * Where the file writes a name that may stand for a class, other than
-     * where it declares or imports it.
+     * where it declares or imports it. A file that spells no name ending in
+     * the class's last segment writes none: an alias stands for the class
+     * only through an import that spells it.
      *
      * @return list<int>
      */
     public function namesOf(string $class): array
     {
         $found = [];
+        $segments = explode('\\', $class);
+
+        if (! $this->tokens->words()->has(mb_strtolower(array_last($segments)))) {
+            return $found;
+        }
 
         foreach ($this->tokens->indicesOf(...Names::TOKENS) as $at) {
             $named = ! $this->tokens->is($at - 1, ...self::NOT_A_CLASS)

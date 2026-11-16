@@ -138,8 +138,10 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
      * every shard opens on the canary group, whose test files every key then
      * reads, and a mutant's run selects exactly its covering rows; unpatched,
      * each shard pays a full opening run under coverage, and a mutant's run
-     * selects every row of its covering tests' data sets. It runs a mutant
-     * per core, and its tests are Pest's closures.
+     * selects every row of its covering tests' data sets. Patched, the map
+     * every shard opens on is readied once, as the plan is made (see
+     * ReadersOpening). It runs a mutant per core, and its tests are Pest's
+     * closures.
      */
     public function behaviour(): RunnerBehaviour
     {
@@ -148,7 +150,8 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
             ->selecting($this->patching->selection($this->tests))
             ->holdingAsLoaded()
             ->runningPerCore()
-            ->writingTestsIn(AssertionStyle::Pest);
+            ->writingTestsIn(AssertionStyle::Pest)
+            ->readyingOpening(new ReadersOpening($this->project, $this->patching));
 
         return $canary instanceof Group ? $pest->readingInEveryKey($canary) : $pest->openingEachShard();
     }

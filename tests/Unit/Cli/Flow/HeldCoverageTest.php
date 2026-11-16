@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\HeldCoverageMode;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hold\Covered;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\MeasuredHolds;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -79,8 +80,8 @@ it('measures each held unit of every shard once as the plan is made, for every s
         ->held();
 
     expect($held)->toBeInstanceOf(MeasuredHolds::class)
-        ->and($held instanceof MeasuredHolds ? array_keys($held->all()) : [])->toBe(['src/Held.php'])
-        ->and($held instanceof MeasuredHolds ? $held->all()['src/Held.php'] : null)
+        ->and($held instanceof MeasuredHolds ? array_keys(iterator_to_array($held, preserve_keys: true)) : [])->toBe(['src/Held.php'])
+        ->and($held instanceof MeasuredHolds ? iterator_to_array($held, preserve_keys: true)['src/Held.php'] : null)
         ->toEqual(TestIds::of(TestId::of('HeldTest::doubles')));
 });
 
@@ -98,7 +99,7 @@ it('leaves each shard to measure its own where told to, or where the plan cut no
 
 it('takes what the plan measured and runs nothing, unless the plan was made without a fresh map', function (): void {
     $suite = Flows::map();
-    $measured = MeasuredHolds::of(['src/Held.php' => TestIds::of(TestId::of('PlannedTest::holds'))]);
+    $measured = MeasuredHolds::none()->with(Unit::file(Path::of('src/Held.php')), Covered::by(Unit::file(Path::of('src/Held.php')), TestIds::of(TestId::of('PlannedTest::holds'))));
     $held = new HeldCoverage(Flows::adapters(Flows::project(), [], RunnerFake::ofTheFixture()));
     $taken = $held->checked(heldShard(1), $suite, Briefing::standard()->measuring($measured));
     $early = $held->checked(heldShard(1), $suite, Briefing::standard()->measuring($measured)->plannedEarly());
@@ -111,7 +112,7 @@ it('takes what the plan measured and runs nothing, unless the plan was made with
 
 it('measures a shard\'s own held units where the plan measured none of them', function (): void {
     $suite = Flows::map();
-    $measured = MeasuredHolds::of(['src/Other.php' => TestIds::of(TestId::of('PlannedTest::holds'))]);
+    $measured = MeasuredHolds::none()->with(Unit::file(Path::of('src/Other.php')), Covered::by(Unit::file(Path::of('src/Other.php')), TestIds::of(TestId::of('PlannedTest::holds'))));
     $checks = new HeldCoverage(Flows::adapters(Flows::project(), [], RunnerFake::ofTheFixture()))
         ->checked(heldShard(1), $suite, Briefing::standard()->measuring($measured));
 
