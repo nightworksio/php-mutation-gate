@@ -1,7 +1,8 @@
 {
-  "$comment": "Every sentence the bot's relay, explainer, checklist, welcome and duplicate-issue replies write (ADR-0019). A {name} is filled only with a value the scripts validated, or with text from main's other tables. .github/scripts/test_bot_tables.py fails where a key the scripts use is missing here, or a key here is never used.",
+  "$comment": "Every sentence the bot's relay, welcome sweep, explainer, checklist, welcome and duplicate-issue replies write (ADR-0019). A {name} is filled only with a value the scripts validated, or with text from main's other tables. .github/scripts/test_bot_tables.py fails where a key the scripts use is missing here, or a key here is never used.",
   "says": {
     "explaining": "> **Explaining** [the {workflow} run]({run}) on `{sha}`…",
+    "welcoming": "> **Welcome.** The checklist for this pull request on `{sha}` is being written…",
     "headline-waiting": "CI waits for a maintainer to approve it on `{sha}`.",
     "headline-running": "CI is running on `{sha}`.",
     "headline-green": "Every gate passed on `{sha}`.",

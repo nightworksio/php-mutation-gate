@@ -29,7 +29,11 @@
   },
   "checklist": {
     "welcomed": ["FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER", "NONE"],
-    "ci_changes": [".github/"]
+    "ci_changes": [".github/"],
+    "sweep": {
+      "cron": "*/10 * * * *",
+      "most_pulls": 100
+    }
   },
   "fix": {
     "headline": "style: apply the fixes CI computed",

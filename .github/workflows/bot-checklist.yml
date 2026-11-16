@@ -1,33 +1,40 @@
-# The checklist and the welcome: the sticky comment, written when a pull
-# request opens or changes between draft and ready (ADR-0019).
-# pull_request_target runs main's workflow with a token that can write, so it
-# reads the pull request only as data, through the API, and checks out only
-# main. It opens the comment for an author new here, with the welcome, while
-# CI waits for a maintainer to approve it.
+# The welcome sweep: the sticky comment opened for an author new here while
+# CI waits for a maintainer to approve it, so no workflow_run fires for the
+# relay to hand on (ADR-0019).
+# A schedule runs main's workflow with secrets, and its cache saves where
+# main's ledger is restored from, so its jobs handle numbers alone, as the
+# relay's do: each open pull request's number, head, author association and
+# account type, and the marks of the bot's own comment. They check out only
+# main's scripts and tables, and install nothing. The App's comment starts the
+# explainer, on issue_comment, whose cache is read-only, and which writes the
+# welcome.
 name: bot checklist
 
-# The trigger is ADR-0019's: the job reads the pull request only through the
-# API, and the test of V5 holds it to that.
-on: # zizmor: ignore[dangerous-triggers]
-  pull_request_target:
-    types: [opened, ready_for_review, converted_to_draft]
+# The cron is config.json's checklist.sweep.cron, and test_bot_tables.py holds
+# the two equal.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
 
 permissions: {}
 
+# A sweep waits for the one before it, so no pull request is welcomed twice.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
-  checklist:
-    name: checklist
-    # A Dependabot pull request's pull_request_target gets a read-only token.
-    if: ${{ github.event.pull_request.user.login != 'dependabot[bot]' }}
+  # The open pull requests to welcome, by number.
+  find:
+    name: find
     runs-on: ubuntu-latest
-    concurrency:
-      group: bot-sticky-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
     permissions:
-      actions: read # to read the runs, their jobs and their evidence
-      contents: read # to check out main's tables and read the head's files
-      pull-requests: write # to write the sticky comment and the suggested changes
-    timeout-minutes: 10
+      contents: read # to check out main's scripts and tables
+      pull-requests: read # to list the open pull requests and their comments
+    timeout-minutes: 5
+    outputs:
+      pulls: ${{ steps.find.outputs.pulls }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,7 +42,40 @@ jobs:
           sparse-checkout: |
             .github
             .docs
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/bot_welcome.py find
+
+  # The sticky comment, opened as the App with the welcome's mark. It enters
+  # the environment only when there is a pull request to welcome.
+  welcome:
+    name: welcome
+    needs: find
+    if: ${{ needs.find.outputs.pulls != '' }}
+    runs-on: ubuntu-latest
+    # The App's private key lives in this environment, whose deployment-branch
+    # policy allows main and the release tags only (ADR-0019).
+    environment: bot
+    permissions:
+      contents: read # to check out main's scripts and tables
+      pull-requests: read # to read each pull request and its comments again
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+            .docs
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          client-id: ${{ vars.MUTATION_GATE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.MUTATION_GATE_BOT_PRIVATE_KEY }}
+          permission-pull-requests: write
       - env:
           GH_TOKEN: ${{ github.token }}
-          NUMBER: ${{ github.event.pull_request.number }}
-        run: python3 .github/scripts/bot_explain.py checklist
+          APP_TOKEN: ${{ steps.app.outputs.token }}
+          PULLS: ${{ needs.find.outputs.pulls }}
+        run: python3 .github/scripts/bot_welcome.py welcome

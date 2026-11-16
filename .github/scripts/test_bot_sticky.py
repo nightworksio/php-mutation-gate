@@ -18,6 +18,11 @@ class Marks(unittest.TestCase):
         for body in ("", f"x {bot_sticky.relay_mark(42, SHA)}", f"<!-- mutation-gate-bot: run=0 sha={SHA} -->", "<!-- mutation-gate-bot: run=1 sha=abc -->"):
             self.assertIsNone(bot_sticky.relayed(body), body)
 
+    def test_the_welcome_mark_names_its_head_and_only_whole_on_its_line(self):
+        self.assertEqual(bot_sticky.welcomed(f"{bot_sticky.STICKY}\n{bot_sticky.welcome_mark(SHA)}\nrest"), SHA)
+        for body in ("", f"x {bot_sticky.welcome_mark(SHA)}", "<!-- mutation-gate-bot: welcome sha=abc -->", bot_sticky.relay_mark(1, SHA)):
+            self.assertEqual(bot_sticky.welcomed(body), "", body)
+
     def test_the_suggested_mark_names_its_head(self):
         self.assertEqual(bot_sticky.suggested(f"{bot_sticky.STICKY}\n{bot_sticky.suggested_mark(SHA)}"), SHA)
         self.assertEqual(bot_sticky.suggested("nothing"), "")
@@ -33,6 +38,14 @@ class Relaying(unittest.TestCase):
 
     def test_a_new_comment_holds_only_the_mark_and_the_line(self):
         self.assertEqual(bot_sticky.relaying("", "M", "L"), f"{bot_sticky.STICKY}\nM\nL\n")
+        self.assertEqual(bot_sticky.opening("M", "L"), f"{bot_sticky.STICKY}\nM\nL\n")
+
+    def test_the_relay_drops_the_welcome_sweep_s_mark_and_line(self):
+        before = bot_sticky.opening(bot_sticky.welcome_mark(OTHER), "> **Welcome.** The checklist…")
+
+        after = bot_sticky.relaying(before, bot_sticky.relay_mark(2, SHA), "> **Explaining** new…")
+
+        self.assertEqual(after, f"{bot_sticky.STICKY}\n{bot_sticky.relay_mark(2, SHA)}\n> **Explaining** new…\n")
 
 
 class Finding(unittest.TestCase):
