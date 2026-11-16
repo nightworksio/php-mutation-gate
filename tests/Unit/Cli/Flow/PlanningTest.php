@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
@@ -439,7 +440,7 @@ it('estimates a unit no shard timed by what it measured of the first run, counti
     expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(4.25), Seconds::of(0.0)]]);
 });
 
-it('counts nothing and starts no run of no test where every unit to run is timed', function () use ($plan): void {
+it('counts nothing where every unit to run is timed, and starts only the runs of no test that measure the shards\' start-up', function () use ($plan): void {
     $store = new ProofStoreFake();
     $at = Moment::at('2026-09-30T10:00:00Z');
     $store->write(
@@ -453,7 +454,7 @@ it('counts nothing and starts no run of no test where every unit to run is timed
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner, $store, Engine::with(new PlusToMinus()));
 
     expect($planned)->toBeInstanceOf(Plan::class)
-        ->and($runner->startedUp())->toBe([])
+        ->and($runner->startedUp())->toHaveCount(StartUpSamples::STANDARD)
         ->and($planned instanceof Plan ? [...$planned][0]->estimate()->part(CostBasis::Learned) : $planned)
         ->toEqual(Seconds::of(80.0));
 });
@@ -950,7 +951,7 @@ it('keys the project\'s coverage entries once a plan, for measuring against the 
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner, $store);
 
     expect($planned)->toBeInstanceOf(Plan::class)
-        ->and($runner->identified())->toHaveCount(2);
+        ->and($runner->identified())->toHaveCount(3);
 });
 
 it('briefs a plan measured against the map its own scope keeps as such, and one measured against the default branch\'s as not', function (

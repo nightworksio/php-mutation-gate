@@ -361,7 +361,8 @@
             echo "left=true" >> "${GITHUB_OUTPUT}"
           fi
       # ADR-0164: the analyser's warm-up, made once as the plan was made, and
-      # its result cache, which every shard's warm-up starts from.
+      # its result cache, which every shard's warm-up starts from; ADR-0165:
+      # the start-up the plan measured, which every shard's limits lie on.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mutation-gate-plan-${{ github.run_attempt }}
@@ -369,6 +370,7 @@
             .mutation-gate/plan.json
             .mutation-gate/cache/*.pack
             .mutation-gate/warm-up.json
+            .mutation-gate/start-up.json
             .mutation-gate/phpstan/resultCache.php
           include-hidden-files: true
           if-no-files-found: error

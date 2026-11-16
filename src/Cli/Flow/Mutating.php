@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Format\Secrets;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Plan\Batching;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -131,7 +133,13 @@ final readonly class Mutating
         Stopwatch $stopwatch,
     ): Mutated|CannotJudge {
         $samples = $this->settings->shards()->planning()->startUpSamples();
-        $startUp = new StartUpTiming($this->adapters, $samples)->of($map, $kept->units());
+        $runner = $this->adapters->runner->identity($this->adapters->withheld);
+        $planned = $runner instanceof Identity
+            ? PlannedStartUp::secondsFor($this->adapters->project, $runner)
+            : NotGiven::value();
+        $startUp = $planned instanceof Seconds
+            ? $planned
+            : new StartUpTiming($this->adapters, $samples)->of($map, $kept->units());
         $pool = $this->adapters->pooled($this->settings->runner()->workers())
             ->pacedBy($this->settings->runner()->pace(
                 $this->settings->triage()->limits()->bounds()->startUp()->unmeasured(),

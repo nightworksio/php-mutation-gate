@@ -82,6 +82,7 @@ final readonly class BuilderClasses
         'StaticCheck' => self::BUILDER,
         'Tests' => self::BUILDER,
         'Timeouts' => self::BUILDER,
+        'TimeoutSpeedUps' => self::BUILDER,
         'HeavyMutants' => self::BUILDER,
         'Timing' => self::BUILDER,
         'Tree' => self::BUILDER,

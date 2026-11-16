@@ -33,6 +33,9 @@ enum Toggle: string
     /** A mutant whose tests cannot fit `timeouts.most` in one run is judged in parts (ADR-0008). */
     case TimeoutsParts = 'timeouts.parts';
 
+    /** A mutant's start-up is measured once, as the plan is made, for every shard of its platform (ADR-0165). */
+    case TimeoutsStartUpAtPlan = 'timeouts.startUpAtPlan';
+
     /** The verdict notes each loose value in force (ADR-0142). */
     case SuggestLooseValues = 'suggest.looseValues';
 
@@ -93,6 +96,7 @@ enum Toggle: string
             self::ControlsMemory,
             self::StaticCheckAfter,
             self::TimeoutsParts,
+            self::TimeoutsStartUpAtPlan,
             self::SuggestLooseValues,
             self::StaticCheckTurbo,
             self::StaticCheckWarmAtPlan => false,
@@ -113,6 +117,7 @@ enum Toggle: string
         return match ($this) {
             self::StaticCheckTurbo,
             self::StaticCheckWarmAtPlan,
+            self::TimeoutsStartUpAtPlan,
             self::PestShardScan,
             self::PestReadyAtPlan,
             self::PestLongestFirst,
@@ -160,7 +165,8 @@ enum Toggle: string
             self::PestPcovOff,
             self::PestXdebugOff,
             self::StaticCheckTurbo,
-            self::StaticCheckWarmAtPlan => false,
+            self::StaticCheckWarmAtPlan,
+            self::TimeoutsStartUpAtPlan => false,
         };
     }
 
@@ -175,6 +181,7 @@ enum Toggle: string
             self::PestNarrow => 'Pest::narrowing()',
             self::StaticCheckAfter => 'CheckTiming::checkingSurvivors()',
             self::TimeoutsParts => 'Timeouts::inParts()',
+            self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringAtPlan()',
             self::SuggestLooseValues => 'Suggest::looseValuesNoted()',
             self::StaticCheckTurbo => 'StaticCheck::turbo()',
             self::StaticCheckWarmAtPlan => 'StaticCheck::warmingAtPlan()',
@@ -199,6 +206,7 @@ enum Toggle: string
             self::PestNarrow => 'Pest::unnarrowed()',
             self::StaticCheckAfter => 'CheckTiming::survivorsUnchecked()',
             self::TimeoutsParts => 'Timeouts::neverInParts()',
+            self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringInEachShard()',
             self::SuggestLooseValues => 'Suggest::looseValuesSilent()',
             self::StaticCheckTurbo => 'StaticCheck::withoutTurbo()',
             self::StaticCheckWarmAtPlan => 'StaticCheck::warmingInEachShard()',

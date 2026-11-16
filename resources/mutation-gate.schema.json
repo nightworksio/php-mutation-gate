@@ -1900,6 +1900,10 @@
                 "parts": {
                     "type": "boolean",
                     "default": true
+                },
+                "startUpAtPlan": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -6553,6 +6557,9 @@
                             "minimum": 1
                         },
                         "parts": {
+                            "type": "boolean"
+                        },
+                        "startUpAtPlan": {
                             "type": "boolean"
                         }
                     },

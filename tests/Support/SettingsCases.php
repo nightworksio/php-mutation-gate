@@ -209,7 +209,8 @@ final readonly class SettingsCases
                 "most": 10.0
             },
             "heavyFill": true,
-            "parts": true
+            "parts": true,
+            "startUpAtPlan": true
         },
         "flaky": {
             "confirmSurvivors": true,

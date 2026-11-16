@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
 use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
+use NightWorksIO\MutationGate\Cli\Flow\PlannedStartUp;
 use NightWorksIO\MutationGate\Cli\Flow\PreChecking;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
@@ -835,6 +836,21 @@ it('times a run of no test once before the first mutant, the fastest of three on
         ->toEqual([Path::of('src/Money.php'), Path::of('src/Money.php'), Path::of('src/Money.php')])
         ->and(array_map(static fn(MutationRequest $request): Pool => $request->pool(), $runner->requests()))
         ->each->toEqual(Pool::of(ProcessCount::single(), Workers::Fork)->startingIn(Seconds::of(1.2)));
+});
+
+it('lays every request on the start-up the plan measured for its runner\'s platform, timing no run of no test itself', function (): void {
+    $project = Flows::project();
+    $planning = ScriptedRunner::fixture()->startingUpIn(Seconds::of(0.7));
+    new PlannedStartUp(Flows::adapters($project, [], $planning), Flows::settings())
+        ->left(Planned::oneShard(), Flows::map());
+    $runner = ScriptedRunner::fixture()->startingUpIn(Seconds::of(2.0));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($runner->startedUp())->toBe([])
+        ->and(array_map(static fn(MutationRequest $request): Pool => $request->pool(), $runner->requests()))
+        ->each->toEqual(Pool::of(ProcessCount::single(), Workers::Fork)->startingIn(Seconds::of(0.7)));
 });
 
 it('lays each request on no start-up where a run of no test cannot run, so each limit keeps the start-up the rule gives', function (): void {
