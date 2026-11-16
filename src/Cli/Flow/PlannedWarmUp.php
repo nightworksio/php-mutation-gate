@@ -22,10 +22,18 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\StaticChecker;
+
+use function pcntl_fork;
+use function posix_getpid;
+use function posix_kill;
+
 use Psr\Clock\ClockInterface;
+
+use const SIGKILL;
 
 use function sprintf;
 
@@ -78,6 +86,30 @@ final readonly class PlannedWarmUp
         }
 
         return $same ? Seconds::of($seconds) : NotGiven::value();
+    }
+
+    /**
+     * The warm-up of {@see left()}, begun beside the work that follows it in
+     * a child forked for it, so the plan readies the shards' maps while the
+     * analyser runs; made at once where this PHP cannot fork. The child ends
+     * by a signal once it left what it measured, so nothing the plan set to
+     * happen at its end happens twice.
+     */
+    public function begun(Plan $plan): WarmingUp
+    {
+        $child = Forking::isAvailable() ? pcntl_fork() : -1;
+
+        if ($child === 0) {
+            try {
+                $this->left($plan);
+            } finally {
+                posix_kill(posix_getpid(), SIGKILL);
+            }
+        }
+
+        return $child > 0
+            ? WarmingUp::in($child, $this->adapters->project, self::file())
+            : WarmingUp::ended($this->left($plan));
     }
 
     /**

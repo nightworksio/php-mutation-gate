@@ -304,6 +304,9 @@ parameters:
                 - src/Adapter/Serve/ServeSocket.php
                 # A process a split stream forked ends itself by the signal that says how its test ended (ADR-0117).
                 - src/Adapter/Pest/Split/OwnEnd.php
+                # The child the plan forks to warm the analyser up ends itself by a signal, so nothing the plan set
+                # to happen at its end runs twice (ADR-0164).
+                - src/Cli/Flow/PlannedWarmUp.php
                 # A split stream stops a child that runs past its limit (ADR-0117).
                 - src/Adapter/Pest/Split/Children.php
                 # watch halts the batch running in its own process with SIGUSR2 once a save moves one of its units

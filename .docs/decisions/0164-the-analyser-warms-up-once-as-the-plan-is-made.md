@@ -21,6 +21,9 @@ is still valid takes 2 s: PHPStan reads the cache and hashes the files.
 1. **`staticCheck.warmAtPlan` `true`, the default, warms the analyser up
    once, as the plan is made,** where its shards check mutants with it
    (`staticCheck.before` or `staticCheck.after`) and the plan holds a shard.
+   It runs in a child the plan forks as it readies the shards' maps, so
+   the two run side by side, and the plan waits for it before it measures
+   a mutant's start-up; where PHP cannot fork, the plan warms up itself.
    The plan leaves how long it took, and by which analyser and config, in
    `.mutation-gate/warm-up.json`; the reusable workflow hands that and
    PHPStan's result cache to every shard with the plan.

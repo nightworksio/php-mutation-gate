@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -20,7 +21,9 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
@@ -91,6 +94,31 @@ it('warms nothing up and leaves no earlier plan\'s time where no shard checks, t
         new PlannedWarmUp(Flows::adapters($project, [], $checker), Flows::settings(), new TickingClock('2026-01-01T00:00:00Z', 3))->left(warmedPlan(1));
     }],
 ]);
+
+it('warms the analyser up in a child begun beside the plan\'s work, which leaves the same time, and is done once asked', function (): void {
+    $project = Flows::project();
+    $checker = new RecordingChecker(new StaticCheckerFake(warmedIdentity(), Findings::none(), []), $project);
+
+    $begun = new PlannedWarmUp(Flows::adapters($project, [], $checker), Flows::settings(), new TickingClock('2026-01-01T00:00:00Z', 3))
+        ->begun(warmedPlan(2));
+    $left = $begun->left();
+
+    expect($checker->warmUps())->toEqual([])
+        ->and($left)->toBeInstanceOf(Written::class)
+        ->and(PlannedWarmUp::secondsFor(Directory::at($project), warmedIdentity()))->toEqual(Seconds::of(3.0));
+})->skip(! Forking::isAvailable(), 'The process cannot fork.');
+
+it('leaves nothing from a child that warms nothing up', function (): void {
+    $project = Flows::project();
+    $checker = new RecordingChecker(new StaticCheckerFake(warmedIdentity(), Findings::none(), []), $project);
+
+    $left = new PlannedWarmUp(Flows::adapters($project, [], $checker), Flows::settings(), new TickingClock('2026-01-01T00:00:00Z', 3))
+        ->begun(warmedPlan(0))
+        ->left();
+
+    expect($left)->toBeInstanceOf(Missing::class)
+        ->and(PlannedWarmUp::secondsFor(Directory::at($project), warmedIdentity()))->toEqual(NotGiven::value());
+})->skip(! Forking::isAvailable(), 'The process cannot fork.');
 
 it('reads no time from a file that is not one it left', function (): void {
     $project = Flows::project();

@@ -21,8 +21,9 @@ use NightWorksIO\MutationGate\Core\Written;
  * Everything the plan readies once for every shard: the maps and the kill
  * history it hands them (see Handoff), the map every shard opens on where
  * the runner readies it (ADR-0163), the static analyser warmed up over the
- * originals where they check mutants with it (ADR-0164), and a mutant's
- * start-up, measured once (ADR-0165).
+ * originals where they check mutants with it (ADR-0164), begun beside the
+ * maps, and a mutant's start-up, measured once the analyser is done, so it
+ * runs alone (ADR-0165).
  *
  * @internal
  */
@@ -41,6 +42,7 @@ final readonly class ShardHandoff
         EntryKeys|NotGiven $keys,
         Subsumption|NotGiven $held,
     ): Written|Missing|CannotJudge {
+        $warming = new PlannedWarmUp($this->adapters, $this->settings, $this->setup->clock)->begun($plan);
         $opened = $this->adapters->runner->behaviour()->opening()
             ->readied($map, $plan->shards()->paths(), $this->adapters->suite->testCases());
         $handed = new Handoff(
@@ -51,9 +53,8 @@ final readonly class ShardHandoff
         )
             ->write($plan, $map, $history, $at, $keys, $held, $opened);
 
-        $warmed = $handed instanceof CannotJudge
-            ? $handed
-            : new PlannedWarmUp($this->adapters, $this->settings, $this->setup->clock)->left($plan);
+        $warmed = $warming->left();
+        $warmed = $handed instanceof CannotJudge ? $handed : $warmed;
 
         return $warmed instanceof CannotJudge
             ? $warmed

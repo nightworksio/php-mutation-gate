@@ -20,7 +20,8 @@ PHP build, its extensions and the machine's architecture.
 
 1. **`timeouts.startUpAtPlan` `true`, the default, measures the start-up
    once, as the plan is made,** as a shard measured it, on the first file
-   of the plan's first shard. The plan leaves it, with the runner and its
+   of the plan's first shard, once the analyser's warm-up (ADR-0164) has
+   ended, so nothing else runs beside it. The plan leaves it, with the runner and its
    platform, in `.mutation-gate/start-up.json`, which the reusable workflow
    hands every shard with the plan.
 2. **A shard whose runner and platform are the plan's lays every limit on
