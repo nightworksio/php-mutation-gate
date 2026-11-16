@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_any;
 use function array_flip;
+use function array_intersect_key;
 use function array_key_exists;
 use function array_map;
 use function array_push;
@@ -13,6 +13,7 @@ use function array_values;
 use function basename;
 use function count;
 use function explode;
+use function ksort;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 
@@ -40,11 +41,17 @@ final readonly class NamedFiles
     private const string FILE = 'file %s';
 
     /**
-     * @param array<string, list<string>> $naming   the files each file names, by its path
-     * @param array<string, list<string>> $mentions the names each file mentions, by its path
+     * @param array<string, list<string>> $naming      the files each file names, by its path
+     * @param array<string, list<string>> $namedBy     the files that name each file, by its path
+     * @param array<string, list<int>>    $mentionedBy the places among the files of those that mention each name
+     * @param list<string>                $files       every file of the graph, in its order
      */
-    private function __construct(private array $naming, private array $mentions)
-    {
+    private function __construct(
+        private array $naming,
+        private array $namedBy,
+        private array $mentionedBy,
+        private array $files,
+    ) {
     }
 
     /**
@@ -65,12 +72,26 @@ final readonly class NamedFiles
         }
 
         $naming = [];
+        $namedBy = [];
+        $mentionedBy = [];
+        $files = [];
 
         foreach ($mentions as $file => $names) {
+            $file = sprintf('%s', $file);
             $naming[$file] = self::declaringAny($names, $declaring);
+
+            foreach ($naming[$file] as $named) {
+                $namedBy[$named][] = $file;
+            }
+
+            foreach ($names as $name) {
+                $mentionedBy[$name][] = count($files);
+            }
+
+            $files[] = $file;
         }
 
-        return new self($naming, $mentions);
+        return new self($naming, $namedBy, $mentionedBy, $files);
     }
 
     /**
@@ -186,15 +207,7 @@ final readonly class NamedFiles
      */
     public function naming(string ...$names): array
     {
-        $namedBy = [];
-
-        foreach ($this->naming as $file => $named) {
-            foreach ($named as $declaring) {
-                $namedBy[$declaring][] = $file;
-            }
-        }
-
-        return $this->walk($namedBy, ...$this->mentioning(...$names));
+        return $this->walk($this->namedBy, ...$this->mentioning(...$names));
     }
 
     /**
@@ -205,16 +218,15 @@ final readonly class NamedFiles
      */
     public function mentioning(string ...$names): array
     {
-        $asked = array_flip($names);
-        $mentioning = [];
+        $places = [];
 
-        foreach ($this->mentions as $file => $mentioned) {
-            if (array_any($mentioned, static fn(string $name): bool => array_key_exists($name, $asked))) {
-                $mentioning[] = $file;
-            }
+        foreach ($names as $name) {
+            $places += array_key_exists($name, $this->mentionedBy) ? array_flip($this->mentionedBy[$name]) : [];
         }
 
-        return $mentioning;
+        ksort($places);
+
+        return array_values(array_intersect_key($this->files, $places));
     }
 
     /**

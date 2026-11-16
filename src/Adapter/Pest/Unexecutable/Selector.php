@@ -75,7 +75,7 @@ final class Selector
 
     public static function over(Project $project, Covering $coverage, Paths $mutated, TestCases $cases): self
     {
-        $tests = new TestFiles($project);
+        $tests = new TestFiles($project, still: true);
         $listed = $tests->all();
         $sources = [];
 
@@ -200,20 +200,16 @@ final class Selector
     public function choose(Symbol|Unnamed $symbol, Path $file): Choice
     {
         $references = $this->followed->references($symbol);
-        $reading = Paths::none();
+        $reading = [];
 
         foreach ($references->sites() as $site) {
-            $judging = $site->isInTest()
+            $reading[] = $site->isInTest()
                 ? $this->helpers->choosing($site->file())
                 : $this->covering($site->file(), $site->line()->number(), $site->last()->number());
-
-            foreach ($judging as $test) {
-                $reading = $reading->with($test);
-            }
         }
 
         return Choice::of(
-            $reading,
+            Paths::union(...$reading),
             $this->covering($file, Line::first()->number(), self::WHOLE),
             $references->isAmbiguous() || $this->helpers->readAny($references),
         );

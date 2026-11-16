@@ -63,6 +63,16 @@ final readonly class TestClassFiles
         return self::wanting(array_keys($classes));
     }
 
+    /**
+     * The short name of each class wanted, which a file named after it may declare.
+     *
+     * @return list<string>
+     */
+    public function shortNames(): array
+    {
+        return array_keys($this->wanted);
+    }
+
     /** Whether a file is named after a class wanted, so that its tokens are worth reading. */
     public function mayDeclare(Path $file): bool
     {

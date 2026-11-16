@@ -14,11 +14,10 @@ use function mb_strtolower;
  */
 final readonly class OwnMember
 {
+    /** How a class names itself, besides `static`. */
+    public const string SELF = 'self';
     /** The variable a class calls its own methods on. */
     private const string THIS = ReachingVariable::This->value;
-
-    /** How a class names itself, besides `static`. */
-    private const string SELF = 'self';
 
     /** How a class names the class it extends. */
     private const string PARENT = 'parent';

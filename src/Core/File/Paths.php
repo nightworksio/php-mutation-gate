@@ -47,6 +47,18 @@ final readonly class Paths implements Countable, IteratorAggregate
         return new self($collected);
     }
 
+    /** Every path of these sets, each once, in the order the sets first name them. */
+    public static function union(self ...$sets): self
+    {
+        $paths = [];
+
+        foreach ($sets as $set) {
+            $paths += $set->paths;
+        }
+
+        return new self($paths);
+    }
+
     public function with(Path $path): self
     {
         if ($this->has($path)) {

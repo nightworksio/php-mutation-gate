@@ -135,3 +135,8 @@ it('finds a class wanted in the names a file declares, as in the code that decla
         ->toEqual($wanted->readIn($file, $code)->byClass())
         ->and($wanted->readIn($file, $code)->byClass())->toEqual(['Tests\Unit\MoneyTest' => $file]);
 });
+
+it('names the short name of each class it wants, each once', function (): void {
+    expect(TestClassFiles::wanting(['Tests\Unit\MoneyTest', 'Tests\Feature\MoneyTest', 'RateTest'])->shortNames())
+        ->toBe(['MoneyTest', 'RateTest']);
+});

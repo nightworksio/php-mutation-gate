@@ -6,11 +6,13 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_diff_assoc;
 use function array_filter;
+use function array_flip;
 use function array_keys;
 use function array_last;
 use function array_values;
 use function count;
 use function explode;
+use function ksort;
 use function mb_strtolower;
 use function min;
 
@@ -174,22 +176,27 @@ final readonly class Source
 
     /**
      * Where the file writes a name that may stand for a class, other than
-     * where it declares or imports it. A file that spells no name ending in
-     * the class's last segment writes none: an alias stands for the class
-     * only through an import that spells it.
+     * where it declares or imports it. Only a name ending in the class's last
+     * segment, or in an alias a name ending in it is imported under, may: a
+     * name keeps its last segment through every resolution but an alias's.
      *
      * @return list<int>
      */
     public function namesOf(string $class): array
     {
-        $found = [];
         $segments = explode('\\', $class);
+        $last = mb_strtolower(array_last($segments));
+        $words = $this->tokens->words();
+        $places = array_flip($words->placesOf($last));
 
-        if (! $this->tokens->words()->has(mb_strtolower(array_last($segments)))) {
-            return $found;
+        foreach ($this->scope->aliasesEndingIn($last) as $alias) {
+            $places += array_flip($words->placesOf($alias));
         }
 
-        foreach ($this->tokens->indicesOf(...Names::TOKENS) as $at) {
+        ksort($places);
+        $found = [];
+
+        foreach (array_keys($places) as $at) {
             $named = ! $this->tokens->is($at - 1, ...self::NOT_A_CLASS)
                 && $this->scope->resolve($this->tokens->text($at))->meet(Names::of($class));
             $found = $named ? [...$found, $at] : $found;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_fill_keys;
 use function ltrim;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -45,17 +46,49 @@ final readonly class Reflections
     public static function of(Symbol $symbol, Source $source, Hierarchy $hierarchy): References
     {
         $reflections = new self($symbol, $source, $hierarchy);
-        $tokens = $source->tokens();
         $found = References::none();
 
-        foreach (self::CLASSES as $class) {
-            foreach ($source->namesOf($class) as $at) {
-                $built = $tokens->is($at - 1, T_NEW) && $tokens->is($at + 1, '(');
-                $found = $built ? $found->and($reflections->built($at, $class)) : $found;
+        foreach (self::builtIn($source) as $class => $sites) {
+            foreach ($sites as $at) {
+                $found = $found->and($reflections->built($at, $class));
             }
         }
 
         return $found;
+    }
+
+    /**
+     * Where a file builds each reflection class that can read a constant,
+     * class by class in the order they are listed: each name right after a
+     * `new` and right before a `(` that stands for one.
+     *
+     * @return array<string, list<int>>
+     */
+    private static function builtIn(Source $source): array
+    {
+        $tokens = $source->tokens();
+        $built = array_fill_keys(self::CLASSES, []);
+
+        foreach ($tokens->indicesOf(T_NEW) as $new) {
+            $named = self::namedAfter($source, $new);
+
+            foreach (self::CLASSES as $class) {
+                $built[$class] = $named->meet(Names::of($class)) ? [...$built[$class], $new + 1] : $built[$class];
+            }
+        }
+
+        return $built;
+    }
+
+    /** What the name right after a `new` and right before a `(` stands for; nothing where there is none. */
+    private static function namedAfter(Source $source, int $new): Names
+    {
+        $tokens = $source->tokens();
+        $at = $new + 1;
+
+        return $tokens->is($at, ...Names::TOKENS) && $tokens->is($at + 1, '(')
+            ? $source->scope()->resolve($tokens->text($at))
+            : Names::of();
     }
 
     /** What a reflection built at a token reads of the constant. */

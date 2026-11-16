@@ -154,6 +154,16 @@ it('finds the name a function keyword declares, a semi-reserved word among them,
         ->toBe(['', 'f', 'g', 'and', 'for', '', '', '']);
 });
 
+it('places each name by the word it ends in, in lower case, in order', function () use ($tokens): void {
+    $file = $tokens("<?php\nuse App\\Money as M;\necho \\Other\\MONEY::X + money(M::Y);\n");
+    $texts = static fn(int ...$places): array => array_map($file->text(...), $places);
+
+    expect($texts(...$file->words()->placesOf('money')))->toBe(['App\\Money', '\\Other\\MONEY', 'money'])
+        ->and($texts(...$file->words()->placesOf('m')))->toBe(['M', 'M'])
+        ->and($file->words()->placesOf('Money'))->toBe([])
+        ->and($file->words()->all())->toContain('Money', 'money', 'MONEY', 'M', 'm');
+});
+
 it('says whether a name the file spells ends in a word, as written or in lower case, whatever its qualification', function () use ($tokens): void {
     $file = $tokens("<?php\nuse App\\Money as M;\necho \\Other\\Rate::X + constant('Y');\n");
 
