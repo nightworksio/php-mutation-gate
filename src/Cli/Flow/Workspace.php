@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace as GateDirectory;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Recheck\ShareOf;
 
@@ -105,10 +106,15 @@ final readonly class Workspace
         return Path::of(sprintf('%s/converted', GateDirectory::root()->value()));
     }
 
-    /** Where the tests that hold a shard's units leave the map of their run on their own. */
-    public static function heldCoverage(ShardId $shard): Path
+    /**
+     * Where the tests that hold a shard's units leave the map of their run on
+     * their own; the plan's, where they run once for the whole run (ADR-0161).
+     */
+    public static function heldCoverage(ShardId|NotGiven $shard): Path
     {
-        return Path::of(sprintf('%s/held/shard-%d', GateDirectory::root()->value(), $shard->number()));
+        return $shard instanceof ShardId
+            ? Path::of(sprintf('%s/held/shard-%d', GateDirectory::root()->value(), $shard->number()))
+            : Path::of(sprintf('%s/held/plan', GateDirectory::root()->value()));
     }
 
     /** Where the verdict keeps the JSON report of the last run, which `digest` renders. */

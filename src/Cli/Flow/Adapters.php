@@ -328,9 +328,9 @@ final readonly class Adapters
     public function briefing(Briefing $briefing): Briefing
     {
         $suite = $this->narrowing->suite();
-        $briefing = $this->isSecurityOnly() ? $briefing->securityOnly() : $briefing;
+        $briefing = $this->isSecurityOnly() ? $briefing->ofKind($briefing->profile()->securityOnly()) : $briefing;
 
-        return $suite instanceof SuiteName ? $briefing->inSuite($suite) : $briefing;
+        return $suite instanceof SuiteName ? $briefing->ofKind($briefing->profile()->inSuite($suite)) : $briefing;
     }
 
     /** Whether its runs make mutants with the security mutators alone. */

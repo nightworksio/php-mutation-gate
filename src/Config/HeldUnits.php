@@ -30,10 +30,16 @@ final readonly class HeldUnits implements Setting
         return new self(Json::at('holds.fewestTests', $tests));
     }
 
-    /** `holds.coverage`, `measure`: a held unit's holding tests run alone under coverage first, as by default. */
+    /** `holds.coverage`, `measure`: a held unit's holding tests run alone under coverage once, as by default. */
     public static function measuringCoverage(): self
     {
         return new self(Json::at('holds.coverage', HeldCoverageMode::Measure->value));
+    }
+
+    /** `holds.coverage`, `measure-in-each-shard`: the same run alone, in every shard that holds the unit. */
+    public static function measuringCoverageInEachShard(): self
+    {
+        return new self(Json::at('holds.coverage', HeldCoverageMode::MeasureInEachShard->value));
     }
 
     /** `holds.coverage`, `map`: their lines are read from the handed map, which loosens under `uncovered: exclude`. */

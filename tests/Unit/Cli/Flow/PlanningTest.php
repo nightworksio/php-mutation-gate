@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Hold\MeasuredHolds;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
@@ -84,6 +85,7 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -549,15 +551,25 @@ it('cannot plan where it cannot leave the whole map', function () use ($plan): v
     ));
 });
 
+it('measures the held units\' holding tests once, into the plan every shard reads', function () use ($plan): void {
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
+    $held = $planned instanceof Plan ? $planned->briefing()->held() : $planned;
+
+    expect($held instanceof MeasuredHolds ? $held->all() : $held)
+        ->toEqual(['src/Held.php' => TestIds::of(TestId::of('HeldTest::doubles'))]);
+});
+
 it('asks for coverage withholding what every process that runs the project\'s code withholds', function () use (
     $plan,
 ): void {
     $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::of());
     $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner);
 
-    expect($runner->asked())->toHaveCount(1)
+    expect($runner->asked())->toHaveCount(2)
         ->and($runner->ran()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
-        ->and($runner->ran()[0]->tests())->toEqual(WholeSuite::tests());
+        ->and($runner->ran()[0]->tests())->toEqual(WholeSuite::tests())
+        ->and($runner->ran()[1]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
+        ->and($runner->ran()[1]->tests())->toEqual(Group::named('holds:src/Held.php'));
 });
 
 it('weighs each unit by what the cost model expects of it, with what the ledgers learned', function () use (

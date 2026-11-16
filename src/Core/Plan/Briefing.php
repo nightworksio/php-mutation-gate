@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use NightWorksIO\MutationGate\Core\Hold\MeasuredHolds;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
-use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
 /**
  * What a plan tells every shard about how to run its units, and the verdict
@@ -31,6 +31,7 @@ final readonly class Briefing
         private KillsLearned $kills,
         private bool $early = false,
         private bool $waits = false,
+        private MeasuredHolds|NotGiven $held = new NotGiven(),
     ) {
     }
 
@@ -60,6 +61,7 @@ final readonly class Briefing
             $this->kills,
             $this->early,
             $this->waits,
+            $this->held,
         );
     }
 
@@ -74,6 +76,7 @@ final readonly class Briefing
             $this->kills,
             $this->early,
             $this->waits,
+            $this->held,
         );
     }
 
@@ -88,36 +91,11 @@ final readonly class Briefing
             $this->kills,
             $this->early,
             $this->waits,
+            $this->held,
         );
     }
 
-    /** This briefing, for a run that makes mutants with the security mutators alone, as `--security` asks. */
-    public function securityOnly(): self
-    {
-        return new self(
-            $this->peak,
-            $this->kind->securityOnly(),
-            $this->ownScopeCoverage,
-            $this->unchanged,
-            $this->kills,
-            $this->early,
-            $this->waits,
-        );
-    }
 
-    /** This briefing, for a run whose mutants one suite's tests alone judge, as `--suite` asks. */
-    public function inSuite(SuiteName $suite): self
-    {
-        return new self(
-            $this->peak,
-            $this->kind->inSuite($suite),
-            $this->ownScopeCoverage,
-            $this->unchanged,
-            $this->kills,
-            $this->early,
-            $this->waits,
-        );
-    }
 
     /**
      * This briefing, for a run whose coverage map was measured against the
@@ -134,6 +112,7 @@ final readonly class Briefing
             kills: $this->kills,
             early: $this->early,
             waits: $this->waits,
+            held: $this->held,
         );
     }
 
@@ -152,6 +131,7 @@ final readonly class Briefing
             $this->kills,
             early: true,
             waits: $this->waits,
+            held: $this->held,
         );
     }
 
@@ -170,7 +150,32 @@ final readonly class Briefing
             $this->kills,
             $this->early,
             waits: true,
+            held: $this->held,
         );
+    }
+
+    /**
+     * This briefing, telling every shard what the plan measured of the held
+     * units' holding tests, run alone under coverage once (ADR-0161).
+     */
+    public function measuring(MeasuredHolds $held): self
+    {
+        return new self(
+            $this->peak,
+            $this->kind,
+            $this->ownScopeCoverage,
+            $this->unchanged,
+            $this->kills,
+            $this->early,
+            $this->waits,
+            $held,
+        );
+    }
+
+    /** What the plan measured of the held units' holding tests; nothing where each shard measures its own. */
+    public function held(): MeasuredHolds|NotGiven
+    {
+        return $this->held;
     }
 
     /** Whether the plan plans nothing, leaving the run to a caller that hands a fresh map (ADR-0135). */
@@ -196,6 +201,7 @@ final readonly class Briefing
             $kills,
             $this->early,
             $this->waits,
+            $this->held,
         );
     }
 
@@ -216,13 +222,20 @@ final readonly class Briefing
             $this->kills,
             $this->early,
             $this->waits,
+            $this->held,
         );
     }
 
-    /** This briefing, with the commit whose verdict stands for the plan that one names, where it names one. */
+    /**
+     * This briefing, with what the plan that one briefs settled: the commit
+     * whose verdict stands, where it names one, and what it measured of the
+     * held units, where it measured them (ADR-0161).
+     */
     public function standingAs(self $planned): self
     {
-        return $planned->unchanged instanceof Unchanged ? $this->unchangedSince($planned->unchanged) : $this;
+        $standing = $planned->unchanged instanceof Unchanged ? $this->unchangedSince($planned->unchanged) : $this;
+
+        return $planned->held instanceof MeasuredHolds ? $standing->measuring($planned->held) : $standing;
     }
 
     /** The commit whose verdict stands for a plan that runs nothing; none where the plan runs what it plans. */

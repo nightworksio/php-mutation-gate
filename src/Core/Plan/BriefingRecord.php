@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Hold\MeasuredHolds;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\PassedRecord;
 use NightWorksIO\MutationGate\Core\Proof\RunProfileRecord;
@@ -32,11 +33,14 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * file without it learned none (ADR-0077). `unchangedSince` or `reachedNothingSince` holds the
  * commit whose verdict stands for a plan that runs nothing, by why it stands
  * ({@see StandsBecause}, {@see PassedRecord}), `at` among its fields; a plan
- * without either runs what it plans.
+ * without either runs what it plans. `held` holds what the plan measured of
+ * each held unit's holding tests, run alone under coverage once ({@see
+ * MeasuredHoldsRecord}); a plan without it leaves each shard to measure its own.
  *
  * @internal the shape of the plan file
  *
  * @phpstan-import-type Written from PassedRecord as PassedWritten
+ * @phpstan-import-type Written from MeasuredHoldsRecord as HeldWritten
  *
  * @phpstan-type Written array{
  *     peak?: int,
@@ -50,6 +54,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     learnedPace?: float,
  *     unchangedSince?: PassedWritten,
  *     reachedNothingSince?: PassedWritten,
+ *     held?: HeldWritten,
  * }
  */
 final readonly class BriefingRecord
@@ -73,6 +78,7 @@ final readonly class BriefingRecord
         $unchanged = $briefing->unchanged();
         $multiple = $briefing->learned()->multiple();
         $pace = $briefing->learned()->pace();
+        $held = $briefing->held();
 
         return [
             ...$peak instanceof MemoryCap ? [self::PEAK => $peak->bytes()] : [],
@@ -85,9 +91,15 @@ final readonly class BriefingRecord
             ...$unchanged instanceof Unchanged
                 ? [$unchanged->because()->value => PassedRecord::of($unchanged->base())]
                 : [],
+            ...$held instanceof MeasuredHolds ? [MeasuredHoldsRecord::FIELD => MeasuredHoldsRecord::of($held)] : [],
         ];
     }
 
+    /**
+     * The briefing a plan file holds.
+     *
+     * @throws NotInShape
+     */
     public static function read(Node $file): Briefing
     {
         $peak = $file->field(self::PEAK);
@@ -101,6 +113,8 @@ final readonly class BriefingRecord
         $briefing = RunProfileRecord::isTrue($file->field(self::EARLY)) ? $briefing->plannedEarly() : $briefing;
         $briefing = RunProfileRecord::isTrue($file->field(self::WAITS)) ? $briefing->waitingForAMap() : $briefing;
         $briefing = $briefing->learning(self::killsIn($file));
+        $held = $file->field(MeasuredHoldsRecord::FIELD);
+        $briefing = $held->isPresent() ? $briefing->measuring(MeasuredHoldsRecord::read($held)) : $briefing;
 
         foreach (StandsBecause::cases() as $because) {
             $unchanged = $file->field($because->value);
@@ -112,11 +126,6 @@ final readonly class BriefingRecord
         return $briefing;
     }
 
-    /**
-     * The briefing a plan file holds.
-     *
-     * @throws NotInShape
-     */
     /** What a briefing's file says was learned of kills: the multiple a limit allows, and the pace. */
     private static function killsIn(Node $file): KillsLearned
     {

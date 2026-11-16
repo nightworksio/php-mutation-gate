@@ -92,7 +92,7 @@ final readonly class Mutating
     ): Mutated|CannotJudge {
         $from = $stopwatch->now();
         $held = new HeldCoverage($this->adapters, $this->settings->reach()->held()->coverage())
-            ->checked($shard, $map, $plan->briefing()->isEarly());
+            ->checked($shard, $map, $plan->briefing());
         $stopwatch->handled(Step::HeldCoverage, $from, $shard->units()->held());
 
         if ($held instanceof CannotJudge) {

@@ -379,7 +379,10 @@ final readonly class Planning
                 $entryKeys,
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
                     ->on($inventory->standing->runOn())
-                    ->briefed($standing)
+                    ->briefed(
+                        new HeldCoverage($this->adapters, $this->settings->reach()->held()->coverage())
+                            ->briefed($standing, $shards, $map),
+                    )
                     ->digesting($digests)
                     ->considering(
                         Considered::everything()

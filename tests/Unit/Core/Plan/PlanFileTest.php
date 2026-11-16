@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
@@ -570,7 +571,7 @@ it('refuses a plan whose matrix was dropped after it was made, or is not full', 
 
 it('writes a run of the security mutators alone within its digest, and reads it back', function (): void {
     $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
-        ->briefed(Briefing::standard()->securityOnly());
+        ->briefed(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly()));
     $written = PlanFile::encode($plan);
     $read = PlanFile::decode($written);
 
@@ -589,7 +590,7 @@ it('reads a plan that holds no security field as one that makes mutants with eve
 
 it('refuses a plan whose security field is anything but true', function (string $value, string $refusal): void {
     $written = str_replace('"security": true', sprintf('"security": %s', $value), PlanFile::encode(
-        planFileEmpty()->briefed(Briefing::standard()->securityOnly()),
+        planFileEmpty()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly())),
     ));
 
     expect(PlanFile::decode($written))->toEqual(CannotJudge::because(
@@ -659,14 +660,14 @@ it('refuses a plan whose standing verdict does not say when it passed', function
 
 it('writes a run of one suite\'s tests alone within its digest, and reads it back', function (): void {
     $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
-        ->briefed(Briefing::standard()->securityOnly()->inSuite(SuiteName::of('unit')));
+        ->briefed(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly()->inSuite(SuiteName::of('unit'))));
     $written = PlanFile::encode($plan);
     $read = PlanFile::decode($written);
 
     expect($read)->toEqual($plan)
         ->and($read instanceof Plan ? $read->briefing()->profile()->suite() : $read)->toEqual(SuiteName::of('unit'))
         ->and($written)->toContain('"suite": "unit"')
-        ->and($plan->digest())->not->toEqual(planFileEmpty()->briefed(Briefing::standard()->securityOnly())->digest())
+        ->and($plan->digest())->not->toEqual(planFileEmpty()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly()))->digest())
         ->and(PlanFile::encode(planFileEmpty()))->not->toContain('"suite"');
 });
 
@@ -678,7 +679,7 @@ it('reads a plan that holds no suite field as one that every test judges', funct
 
 it('refuses a plan whose suite field is no suite\'s name', function (string $value, string $refusal): void {
     $written = str_replace('"suite": "unit"', sprintf('"suite": %s', $value), PlanFile::encode(
-        planFileEmpty()->briefed(Briefing::standard()->inSuite(SuiteName::of('unit'))),
+        planFileEmpty()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->inSuite(SuiteName::of('unit')))),
     ));
 
     expect(PlanFile::decode($written))->toEqual(CannotJudge::because(

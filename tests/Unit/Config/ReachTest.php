@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 $calls = [
+    'HeldUnits::measuringCoverageInEachShard' => [static fn(): Setting => HeldUnits::measuringCoverageInEachShard(), 'holds.coverage', 'measure-in-each-shard', 'HeldUnits::measuringCoverageInEachShard'],
     'HeldUnits::coverageFromTheMap' => [static fn(): Setting => HeldUnits::coverageFromTheMap(), 'holds.coverage', 'map', 'HeldUnits::coverageFromTheMap'],
     'Reach::sinceJudgedOffBranch' => [static fn(): Setting => Reach::sinceJudgedOffBranch(), 'reach.defaultBranchSince', 'judged-off-branch', 'Reach::sinceJudgedOffBranch'],
     'Reach::sincePassed' => [static fn(): Setting => Reach::sincePassed(), 'reach.defaultBranchSince', 'passed', 'Reach::sincePassed'],

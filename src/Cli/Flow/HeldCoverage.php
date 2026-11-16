@@ -11,13 +11,16 @@ use function array_values;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\HeldCoverageMode;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hold\Covered;
 use NightWorksIO\MutationGate\Core\Hold\GroupCoverage;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\MeasuredHolds;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
@@ -53,34 +56,51 @@ final readonly class HeldCoverage
      * The shard's held units whose holding tests miss lines of them, by the
      * map the plan handed the shard, and those they cover, with the tests of
      * theirs that run each. A unit the whole suite judges is not checked, and
-     * is mutated as any other. In a run planned without a fresh map, whose
-     * handed map is not the suite's, each held unit is kept with its holding
-     * tests, and the verdict checks them against the map the streams
-     * recorded (ADR-0135).
+     * is mutated as any other. Where the plan measured every held unit of the
+     * shard, its measures are taken and nothing runs (ADR-0161). In a run
+     * planned without a fresh map, whose handed map is not the suite's, each
+     * held unit is kept with its holding tests, and the verdict checks them
+     * against the map the streams recorded (ADR-0135).
      */
-    public function checked(Shard $shard, CoverageMap $suite, bool $early = false): HeldChecks|CannotJudge
+    public function checked(Shard $shard, CoverageMap $suite, Briefing $briefing): HeldChecks|CannotJudge
     {
+        $measured = $briefing->held();
+
+        if ($measured instanceof MeasuredHolds && $measured->measures($shard->units()) && ! $briefing->isEarly()) {
+            return $measured->checksOf($shard->units());
+        }
+
         $checks = HeldChecks::none();
         $listing = $this->listingFor($shard->units());
 
         foreach ($shard->units() as $unit) {
-            $judgedBy = $unit->judgedBy();
-            $group = $judgedBy instanceof WholeSuite
-                ? NotGiven::value()
-                : $this->coverageOf($shard, $judgedBy, $suite, $listing);
+            $group = $this->groupOf($unit, $suite, $listing, Workspace::heldCoverage($shard->id()));
 
             if ($group instanceof CannotJudge) {
-                return CannotJudge::because(sprintf(self::FAILED, $unit->path()->value(), $group->why()));
+                return $group;
             }
 
             $checks = match (true) {
                 $group instanceof NotGiven => $checks,
-                $early => $checks->with(Covered::by($unit, $group->tests())),
+                $briefing->isEarly() => $checks->with(Covered::by($unit, $group->tests())),
                 default => $checks->with(GroupCoverage::of($unit, $suite, $group)),
             };
         }
 
         return $checks;
+    }
+
+    /**
+     * The plan's briefing, telling every shard what the holding tests of each
+     * held unit the shards hold cover, each run alone under coverage once, as
+     * the plan is made (ADR-0161); as it was where `holds.coverage` measures
+     * in each shard or reads the map, or the plan cut no shards.
+     */
+    public function briefed(Briefing $briefing, Shards|CannotJudge $shards, CoverageMap $suite): Briefing
+    {
+        return $this->mode === HeldCoverageMode::Measure && $shards instanceof Shards
+            ? $briefing->measuring($this->measured($this->heldIn($shards), $suite))
+            : $briefing;
     }
 
     /** The shard, less the held units whose holding tests miss lines of them. */
@@ -93,6 +113,38 @@ final readonly class HeldCoverage
         }
 
         return $shard->holding($kept);
+    }
+
+    /** What the holding tests of each of these held units cover, each run alone under coverage once. */
+    private function measured(Units $units, CoverageMap $suite): MeasuredHolds
+    {
+        $measured = MeasuredHolds::of([]);
+
+        foreach ($units as $unit) {
+            $group = $this->groupOf($unit, $suite, NotGiven::value(), Workspace::heldCoverage(NotGiven::value()));
+
+            $measured = match (true) {
+                $group instanceof NotGiven => $measured,
+                $group instanceof CannotJudge => $measured->with($unit, $group),
+                default => $measured->with($unit, GroupCoverage::of($unit, $suite, $group)),
+            };
+        }
+
+        return $measured;
+    }
+
+    /** Every held unit the shards hold, each once. */
+    private function heldIn(Shards $shards): Units
+    {
+        $held = [];
+
+        foreach ($shards as $shard) {
+            foreach ($shard->units() as $unit) {
+                $held += $unit->isHeld() ? [$unit->path()->value() => $unit] : [];
+            }
+        }
+
+        return Units::of(...array_values($held));
     }
 
     /**
@@ -115,17 +167,29 @@ final readonly class HeldCoverage
             : $adapters->runner->listing($adapters->withheld, $adapters->narrowing->suitesFor($groups[0]));
     }
 
-    /** The coverage of the tests that hold a unit: read from the map for a group listed, else run alone. */
-    private function coverageOf(
-        Shard $shard,
-        Group|Filter $judgedBy,
+    /**
+     * The coverage of the tests that hold a unit, run alone into this
+     * directory ({@see HeldRun}), or read from the map for a group listed; nothing for a unit
+     * the whole suite judges, or why its tests cannot run on their own.
+     */
+    private function groupOf(
+        Unit $unit,
         CoverageMap $suite,
         TestListing|CannotJudge|NotGiven $listing,
-    ): CoverageMap|CannotJudge {
-        return $judgedBy instanceof Group && $listing instanceof TestListing
+        Path $into,
+    ): CoverageMap|CannotJudge|NotGiven {
+        $judgedBy = $unit->judgedBy();
+
+        if ($judgedBy instanceof WholeSuite) {
+            return NotGiven::value();
+        }
+
+        $group = $judgedBy instanceof Group && $listing instanceof TestListing
             ? $suite->ranBy($listing->inGroup($judgedBy))
-            : $this->adapters->runner->coverage(
-                $this->adapters->covering(CoverageRun::of($judgedBy, Workspace::heldCoverage($shard->id()))),
-            );
+            : new HeldRun($this->adapters)->coverage($judgedBy, $into);
+
+        return $group instanceof CannotJudge
+            ? CannotJudge::because(sprintf(self::FAILED, $unit->path()->value(), $group->why()))
+            : $group;
     }
 }

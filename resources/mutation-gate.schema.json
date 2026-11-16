@@ -851,6 +851,7 @@
                 "coverage": {
                     "enum": [
                         "measure",
+                        "measure-in-each-shard",
                         "map"
                     ],
                     "default": "measure"
@@ -5747,6 +5748,7 @@
                         "coverage": {
                             "enum": [
                                 "measure",
+                                "measure-in-each-shard",
                                 "map"
                             ]
                         }
