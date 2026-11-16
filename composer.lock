@@ -3792,16 +3792,16 @@
         },
         {
             "name": "nette/neon",
-            "version": "v4.0.0",
+            "version": "v4.0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nette/neon.git",
-                "reference": "187c00a5c45d786a00ba08b3297f2ebb43d53c96"
+                "reference": "8fd6289466739c13f4b196936fa185bd933e1ddb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nette/neon/zipball/187c00a5c45d786a00ba08b3297f2ebb43d53c96",
-                "reference": "187c00a5c45d786a00ba08b3297f2ebb43d53c96",
+                "url": "https://api.github.com/repos/nette/neon/zipball/8fd6289466739c13f4b196936fa185bd933e1ddb",
+                "reference": "8fd6289466739c13f4b196936fa185bd933e1ddb",
                 "shasum": ""
             },
             "require": {
@@ -3858,9 +3858,9 @@
             ],
             "support": {
                 "issues": "https://github.com/nette/neon/issues",
-                "source": "https://github.com/nette/neon/tree/v4.0.0"
+                "source": "https://github.com/nette/neon/tree/v4.0.1"
             },
-            "time": "2026-10-26T00:16:48+00:00"
+            "time": "2026-11-06T01:23:16+00:00"
         },
         {
             "name": "nunomaduro/collision",
