@@ -43,12 +43,12 @@ Two more costs came with each round:
    run before its next batch and leaves the rest unjudged, never passed.
 5. **CI holds the local loop to what it measures.** `local-mode.yml` runs
    no PMG self-run.
-   - `local mode` fails a whole run on jwt above `RUN_SECONDS` (150; about
-     85 s measured).
+   - `local mode` fails a whole run on jwt above `RUN_SECONDS` (100; 84 s
+     measured on CI).
    - `local loop` checks first that the settings in force are the shipped
      ones (`watchBudget` 30s, `prePushBudget` 2m, `quick` and `changeOnly`
-     on), then fails a quick round above `LOOP_SECONDS` (30; about 8 s
-     measured on a laptop).
+     on), then fails a quick round above `LOOP_SECONDS` (10; 4 s measured
+     on CI).
 
 ## Why no verdict moves
 
@@ -68,8 +68,9 @@ Two more costs came with each round:
 
 ## Consequences
 
-- On jwt, a round after one changed line took 7.8 s with a cold daemon and
-  5.7 s with a warm one, against 46 s before.
+- On jwt, a round after one changed line takes 4 s on CI, against 48 to
+  53 s before; on a laptop, 7.8 s with a cold daemon and 5.7 s with a warm
+  one.
 - A unit no run has judged shows no result in `watch` until `pre-push`,
   `run` or CI judges it.
 

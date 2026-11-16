@@ -26,10 +26,10 @@ concurrency:
 env:
   PHP_VERSION: '8.5'
   JWT: ${{ github.workspace }}/../jwt
-  # The most seconds a whole run on jwt may take: about 85 s measured, with headroom for a slower runner.
-  RUN_SECONDS: 150
-  # The most seconds one quick round on jwt may take: about 8 s measured on a laptop, cold, with headroom.
-  LOOP_SECONDS: 30
+  # The most seconds a whole run on jwt may take: 84 s measured on CI.
+  RUN_SECONDS: 100
+  # The most seconds one quick round on jwt may take: 4 s measured on CI.
+  LOOP_SECONDS: 10
 
 jobs:
   local-mode:
