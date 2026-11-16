@@ -40,6 +40,18 @@ it('readies the plan\'s map of the shards\' files with the line of each value th
         )->timedEach(TimedTest::of(PestCases::RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)));
 });
 
+it('leaves the cycle collector as it found it once the map is readied', function (bool $collecting): void {
+    $at = PestCases::project();
+    Scratch::write($at->root(), 'src/Money.php', "<?php\n\nfinal class Money\n{\n    public const RATE = 2;\n}\n");
+    $collecting ? gc_enable() : gc_disable();
+
+    new ReadersOpening($at, PestCases::canary())->readied(CoverageMap::of(), Paths::of(Path::of('src/Money.php')), TestCases::unknown());
+    $after = gc_enabled();
+    gc_enable();
+
+    expect($after)->toBe($collecting);
+})->with(['collecting' => [true], 'paused' => [false]]);
+
 it('readies nothing for shards that open on their own suite, or that read no value', function (): void {
     $at = PestCases::project();
     $unread = PestCases::canary()->stepping(PestSteps::of(

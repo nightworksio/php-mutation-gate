@@ -7,7 +7,6 @@ use NightWorksIO\MutationGate\Cli\Flow\PlannedStartUp;
 use NightWorksIO\MutationGate\Config\TimeoutSpeedUps;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
-use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -58,20 +57,21 @@ it('measures a mutant\'s start-up once as the plan is made, the fastest of its r
         ->and(PlannedStartUp::secondsFor(Directory::at($project), Identity::of('other', $identity->versions(), $identity->platform())))->toEqual(NotGiven::value());
 });
 
-it('leaves no start-up, and none of an earlier plan, under timeouts.startUpAtPlan: false, for a plan of no unit, or where no run of no test can run', function (Settings $settings, Plan $plan, ScriptedRunner $runner): void {
+it('leaves no start-up, and none of an earlier plan, under timeouts.startUpAtPlan: false, for a plan of no unit, or where no run of no test can run', function (string $case): void {
     $project = Flows::project();
+    $money = startUpPlan(Unit::file(Path::of('src/Money.php')));
+    [$settings, $plan, $runner] = match ($case) {
+        'measured in each shard' => [Flows::settings(TimeoutSpeedUps::measuringInEachShard()), $money, ScriptedRunner::fixture()],
+        'no unit' => [Flows::settings(), startUpPlan(), ScriptedRunner::fixture()],
+        default => [Flows::settings(), $money, ScriptedRunner::fixture()->startingUpIn(CannotJudge::because('Pest did not start.'))],
+    };
     $identity = startedUpBy($runner);
-    new PlannedStartUp(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings())
-        ->left(startUpPlan(Unit::file(Path::of('src/Money.php'))), Flows::map());
+    new PlannedStartUp(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings())->left($money, Flows::map());
 
     new PlannedStartUp(Flows::adapters($project, [], $runner), $settings)->left($plan, Flows::map());
 
     expect(PlannedStartUp::secondsFor(Directory::at($project), $identity))->toEqual(NotGiven::value());
-})->with([
-    'measured in each shard' => [Flows::settings(TimeoutSpeedUps::measuringInEachShard()), startUpPlan(Unit::file(Path::of('src/Money.php'))), ScriptedRunner::fixture()],
-    'no unit' => [Flows::settings(), startUpPlan(), ScriptedRunner::fixture()],
-    'no run of no test' => [Flows::settings(), startUpPlan(Unit::file(Path::of('src/Money.php'))), ScriptedRunner::fixture()->startingUpIn(CannotJudge::because('Pest did not start.'))],
-]);
+})->with(['measured in each shard', 'no unit', 'no run of no test']);
 
 it('reads no start-up from a file that is not one it left', function (): void {
     $project = Flows::project();
