@@ -12,7 +12,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  services:
+    name: services
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      services: ${{ steps.servers.outputs.services }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: servers
+        run: python3 .github/scripts/servers.py services >> "$GITHUB_OUTPUT"
+
   mutation:
+    needs: services
     permissions:
       contents: write
       actions: read
@@ -24,6 +38,8 @@ jobs:
       extensions: zstd
       prepare: >-
         composer --working-dir=tests/Contract/Runner/fixture install --no-interaction --no-progress
+        && python3 .github/scripts/servers.py addresses >> "$GITHUB_ENV"
+      services: ${{ needs.services.outputs.services }}
       runs-on: ubuntu-24.04-arm
       mode: full
     secrets:
