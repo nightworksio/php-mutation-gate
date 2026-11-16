@@ -38,17 +38,21 @@ final readonly class Printed
 
     public static function checkable(Project $project, Mutant $mutant): Checkable|CannotJudge
     {
-        $file = $mutant->location()->file();
-        $printed = self::at($project, $file);
-        $patched = $printed instanceof Contents
-            ? DiffPatch::of($mutant->mutation())->ontoTheOnlyPlace($printed, $file)
-            : $printed;
+        $printed = self::at($project, $mutant->location()->file());
 
-        return match (true) {
-            ! $printed instanceof Contents => $printed,
-            ! $patched instanceof Contents => $patched,
-            default => Checkable::printed($printed, $patched),
-        };
+        if ($printed instanceof CannotJudge) {
+            return $printed;
+        }
+
+        $patched = self::patched($printed, $mutant);
+
+        return $patched instanceof Contents ? Checkable::printed($printed, $patched) : $patched;
+    }
+
+    /** A mutant's print: its diff on its file's print, or why it goes on no one place of it. */
+    public static function patched(Contents $printed, Mutant $mutant): Contents|CannotJudge
+    {
+        return DiffPatch::of($mutant->mutation())->ontoTheOnlyPlace($printed, $mutant->location()->file());
     }
 
     /** A project's file as Pest prints it, or why it cannot be printed: it cannot be read, or does not parse. */

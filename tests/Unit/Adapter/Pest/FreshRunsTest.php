@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\JUnitLogs;
+use NightWorksIO\MutationGate\Tests\Support\RefusingPlacement;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 
@@ -78,12 +79,13 @@ function freshRunsTest(): TestId
 }
 
 /** The result judged again through this shell, the time left to start a run in being this. */
-function freshRunsOf(Project $at, ShellFake $shell, MutationResult $result, Seconds|Unlimited $left = new Unlimited()): MutationResult
+function freshRunsOf(Project $at, ShellFake $shell, MutationResult $result, Seconds|Unlimited $left = new Unlimited(), string $refused = ''): MutationResult
 {
     $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(2), freshRunsTest());
     $laps = Laps::since(static fn(): Seconds => Seconds::of(0.0), Seconds::of(0.0));
 
-    $placement = Placement::inPestRunner($at->root(), Paths::none(), Path::of('vendor'), Path::of('.gate'));
+    $placed = Placement::inPestRunner($at->root(), Paths::none(), Path::of('vendor'), Path::of('.gate'));
+    $placement = $refused === '' ? $placed : new RefusingPlacement($placed, $refused);
     $bounds = LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0));
 
     return new FreshRuns($at, $placement, $shell, new CapDirectory(), Patching::on(Group::named('canary')), $bounds)
@@ -222,6 +224,27 @@ it('leaves every preloaded mutant unjudged, saying why, where its fresh run\'s f
         restore_error_handler();
     }
 
+
+    expect($mutant->status())->toBe(MutantStatus::Unjudged)
+        ->and($mutant->reason())->not->toEqual(freshRunsMutant()->reason())
+        ->and($shell->commands())->toBe([]);
+});
+
+it('leaves a preloaded mutant unjudged, saying which, where it cannot be placed or its log, its unmutated copy or its control\'s guard cannot be made, and starts no run', function (string $refused): void {
+    $at = freshProject();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $mutant = [...freshRunsOf($at, $shell, MutationResult::skippingNone(Mutants::of(freshRunsMutant())), refused: $refused)->mutants()][0];
+
+    expect($mutant->status())->toBe(MutantStatus::Unjudged)
+        ->and($mutant->reason() instanceof Reason ? $mutant->reason()->text() : '')->toEndWith(sprintf('%s cannot be made here.', $refused))
+        ->and($shell->commands())->toBe([]);
+})->with(['src/Money.php', 'junit.xml', 'unmutated.php', 'control-guard.txt']);
+
+it('leaves a preloaded mutant unjudged, and starts no run, where its diff goes on no place of its file\'s print', function (): void {
+    $at = freshProject();
+    Scratch::write($at->root(), 'src/Money.php', "<?php\nfunction add(){return 2+2;}\n");
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $mutant = [...freshRunsOf($at, $shell, MutationResult::skippingNone(Mutants::of(freshRunsMutant())))->mutants()][0];
 
     expect($mutant->status())->toBe(MutantStatus::Unjudged)
         ->and($mutant->reason())->not->toEqual(freshRunsMutant()->reason())

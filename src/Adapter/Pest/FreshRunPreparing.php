@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_map;
 
-use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -76,31 +75,43 @@ final readonly class FreshRunPreparing
     /** The files of a mutant's fresh run, written in its own directory. */
     private function written(Mutant $mutant, NativeSelection $listing): FreshRunFiles|CannotJudge
     {
-        $printed = Printed::checkable($this->project, $mutant);
-        $placed = $printed instanceof CannotJudge
-            ? $printed
-            : $this->placement->placed($mutant, $printed->mutant(), $listing);
+        $original = Printed::at($this->project, $mutant->location()->file());
 
-        return match (true) {
-            $printed instanceof CannotJudge => $printed,
-            $placed instanceof CannotJudge => $placed,
-            default => $this->besidePlaced($printed, $placed, $mutant->id()->value()),
-        };
+        if ($original instanceof CannotJudge) {
+            return $original;
+        }
+
+        $printed = Printed::patched($original, $mutant);
+
+        if ($printed instanceof CannotJudge) {
+            return $printed;
+        }
+
+        $placed = $this->placement->placed($mutant, $printed, $listing);
+
+        return $placed instanceof CannotJudge
+            ? $placed
+            : $this->besidePlaced($original, $placed, $mutant->id()->value());
     }
 
     /** The log, the unmutated copy and the control's guard beside a placed mutant. */
-    private function besidePlaced(Checkable $printed, PlacedMutant $placed, string $id): FreshRunFiles|CannotJudge
+    private function besidePlaced(Contents $original, PlacedMutant $placed, string $id): FreshRunFiles|CannotJudge
     {
         $log = $this->placement->fresh(sprintf('%s/%s', $id, JUnitLog::NAME));
-        $copy = $log instanceof CannotJudge ? $log : $this->unmutated($printed, $placed, $id);
-        $guard = $copy instanceof CannotJudge ? $copy : $this->placement->fresh(sprintf(self::CONTROL_GUARD, $id));
 
-        return match (true) {
-            $log instanceof CannotJudge => $log,
-            $copy instanceof CannotJudge => $copy,
-            $guard instanceof CannotJudge => $guard,
-            default => new FreshRunFiles($placed, $log, $copy, $guard),
-        };
+        if ($log instanceof CannotJudge) {
+            return $log;
+        }
+
+        $copy = $this->placement->written(sprintf(self::UNMUTATED, $id), $original->text());
+
+        if ($copy instanceof CannotJudge) {
+            return $copy;
+        }
+
+        $guard = $this->placement->fresh(sprintf(self::CONTROL_GUARD, $id));
+
+        return $guard instanceof CannotJudge ? $guard : new FreshRunFiles($placed, $log, $copy, $guard);
     }
 
     /** A mutant's fresh run and its control, over its written files. */
@@ -141,20 +152,6 @@ final readonly class FreshRunPreparing
             $limit,
             $selection->fits(),
         );
-    }
-
-    /**
-     * The copy of a mutant's file its control serves, written in the
-     * mutant's own directory: the file as Pest prints it, or the file itself
-     * where Pest's print of it is not known.
-     */
-    private function unmutated(Checkable $printed, PlacedMutant $placed, string $id): string|CannotJudge
-    {
-        $original = $printed->original();
-
-        return $original instanceof Contents
-            ? $this->placement->written(sprintf(self::UNMUTATED, $id), $original->text())
-            : $placed->original();
     }
 
     /**
