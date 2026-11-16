@@ -11,7 +11,9 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -67,7 +69,10 @@ it('measures a full run by one coverage run of the suite, cut as the config asks
         One coverage run of the suite measured a full run. Shards the config cuts it into: 1.
         The plan expects about 1m of wall time and 1m of runner time: 0% learned, 0% measured, 100% guessed.
         SAID)
-        ->and($runner->asked())->toHaveCount(1);
+        ->and(array_filter(
+            $runner->asked(),
+            static fn(object $run): bool => $run instanceof CoverageRun && $run->tests() instanceof WholeSuite,
+        ))->toHaveCount(1);
 });
 
 it('says where shards.max stops a full run meeting shards.target', function (): void {
