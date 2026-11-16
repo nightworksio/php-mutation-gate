@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 $calls = [
     'Shards::pullingByClaims' => [static fn(): Setting => Shards::pullingByClaims(), 'shards.pull', 'claim', 'Shards::pullingByClaims'],
     'Shards::pullingBySteals' => [static fn(): Setting => Shards::pullingBySteals(), 'shards.pull', 'steal', 'Shards::pullingBySteals'],
+    'Shards::pullingByRedoing' => [static fn(): Setting => Shards::pullingByRedoing(), 'shards.pull', 'redo', 'Shards::pullingByRedoing'],
     'Shards::owningTheirParts' => [static fn(): Setting => Shards::owningTheirParts(), 'shards.pull', 'off', 'Shards::owningTheirParts'],
 ];
 

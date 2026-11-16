@@ -42,7 +42,7 @@ them is not documented.
 ## Decision
 
 1. **`shards.pull` says how a shard finds its work:** `auto`, the default,
-   `claim`, `steal` or `off`.
+   `claim`, `steal`, `redo` or `off`.
    - `off` keeps the static cut: each shard runs its own planned part.
    - Every other value has the plan cut each package's work into items, its
      chunks of `plan.chunkMinutes` or, under split streams, its test parts
@@ -55,13 +55,19 @@ them is not documented.
    upload refused for its name means another shard holds the item. The plan's
    digest keeps the names of two runs of the gate in one workflow run apart,
    and the attempt keeps a re-run's apart.
-3. **Under `steal`, a shard takes items from the back and marks what it
-   finished.** It works through its own list, then through the longest
-   remaining list from its back, skipping an item for which any shard
-   uploaded a done marker,
-   `mutation-gate-done-<plan digest>-<attempt>-<k>-<shard>`.
-   Two shards may run one item; the verdict keeps one result for it
-   (decision 6).
+3. **Under `steal`, a shard takes items no other shard started, from the
+   back, and marks what it starts and what it finished.** It works through
+   its own list, then through the longest remaining list from its back,
+   skipping an item for which any shard uploaded a start marker,
+   `mutation-gate-start-<plan digest>-<attempt>-<k>-<shard>`, or a done
+   marker, `mutation-gate-done-<plan digest>-<attempt>-<k>-<shard>`, and
+   uploads its own start marker before it runs the item. Two shards run one
+   item only where both start it at once; the verdict keeps one result for
+   it (decision 6). A shard that has nothing left to start ends, so no idle
+   shard runs an item another is running until the job's limit. `redo`
+   takes an item another shard started and has not finished too, so a lost
+   shard's item runs again, at the cost of every idle shard running the
+   longest items again.
 4. **`auto` claims where the claim has passed its race test, and steals
    elsewhere.** The gate ships the list of services on which its own CI's
    race test passes, by the server URL a run reports (`GITHUB_SERVER_URL`),
@@ -95,7 +101,7 @@ them is not documented.
 
 | Setting | Values | Default | Effect |
 |---|---|---|---|
-| `shards.pull` | `auto`, `claim`, `steal`, `off` | `auto` | judges or reports only |
+| `shards.pull` | `auto`, `claim`, `steal`, `redo`, `off` | `auto` | judges or reports only |
 
 ### Why no verdict moves
 

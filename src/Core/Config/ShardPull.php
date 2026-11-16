@@ -13,8 +13,11 @@ enum ShardPull: string
     /** Each item is claimed by an artifact of its own name before a shard runs it. */
     case Claim = 'claim';
 
-    /** A shard takes items from the back of the longest list left, skipping those a done marker names. */
+    /** A shard takes items from the back of the longest list left that no other shard started or finished. */
     case Steal = 'steal';
+
+    /** As steal, also taking an item another shard started and has not finished, so a lost shard's item runs. */
+    case Redo = 'redo';
 
     /** Each shard runs its own planned part. */
     case Off = 'off';
@@ -26,6 +29,7 @@ enum ShardPull: string
             self::Auto => 'Shards::pullingAuto()',
             self::Claim => 'Shards::pullingByClaims()',
             self::Steal => 'Shards::pullingBySteals()',
+            self::Redo => 'Shards::pullingByRedoing()',
             self::Off => 'Shards::owningTheirParts()',
         };
     }
@@ -34,6 +38,12 @@ enum ShardPull: string
     public function pulls(): bool
     {
         return $this !== self::Off;
+    }
+
+    /** Whether a shard leaves a marker on each item it starts, which a steal of another shard skips. */
+    public function marksStarts(): bool
+    {
+        return $this === self::Steal;
     }
 
     /** How a shard pulls: `auto` steals. */

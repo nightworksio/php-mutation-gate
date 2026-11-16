@@ -948,6 +948,7 @@
                         "auto",
                         "claim",
                         "steal",
+                        "redo",
                         "off"
                     ],
                     "default": "auto"
@@ -5826,6 +5827,7 @@
                                 "auto",
                                 "claim",
                                 "steal",
+                                "redo",
                                 "off"
                             ]
                         },

@@ -35,6 +35,10 @@ final readonly class ArtifactClaims implements ItemClaims
 
     private const string DONE_OF = 'mutation-gate-done-%s-%d-%d-';
 
+    private const string START = 'mutation-gate-start-%s-%d-%d-%d';
+
+    private const string START_OF = 'mutation-gate-start-%s-%d-%d-';
+
     private const string UNHANDED = 'The gate was handed no artifact service to claim items by.';
 
     private function __construct(
@@ -99,7 +103,11 @@ final readonly class ArtifactClaims implements ItemClaims
         return $marked instanceof CannotJudge ? $marked : $item;
     }
 
-    /** Whether no job marked the item done in this attempt. */
+    /**
+     * Whether no job marked the item done in this attempt, nor, where this
+     * way of pulling marks starts, started it; this job's own start marked
+     * where it takes the item.
+     */
     private function unfinished(ShardId $item): bool|CannotJudge
     {
         $names = $this->artifacts->names();
@@ -108,8 +116,28 @@ final readonly class ArtifactClaims implements ItemClaims
             return $names;
         }
 
-        $done = sprintf(self::DONE_OF, $this->plan, $this->attempt, $item->number());
-        return array_all($names, fn(string $name): bool => !str_starts_with($name, $done));
+        $starts = $this->pull->marksStarts();
+        $marks = [
+            sprintf(self::DONE_OF, $this->plan, $this->attempt, $item->number()),
+            ...$starts ? [sprintf(self::START_OF, $this->plan, $this->attempt, $item->number())] : [],
+        ];
+        $unmarked = static fn(string $name): bool => array_all(
+            $marks,
+            static fn(string $mark): bool => !str_starts_with($name, $mark),
+        );
+        $free = array_all($names, $unmarked);
+
+        return $free && $starts ? $this->started($item) : $free;
+    }
+
+    /** This job's start of the item marked; or why it could not be. */
+    private function started(ShardId $item): bool|CannotJudge
+    {
+        $marked = $this->created(
+            sprintf(self::START, $this->plan, $this->attempt, $item->number(), $this->shard->number()),
+        );
+
+        return $marked instanceof CannotJudge ? $marked : true;
     }
 
     /** Whether this job created an empty artifact of this name; false where another artifact holds it. */

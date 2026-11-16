@@ -59,6 +59,32 @@ it('steals an item no job marked done, leaves one a job did, and marks what it f
         ->and(array_column($cloud->requests, 'body'))->toContain('{"workflow_run_backend_id":"run-1","workflow_job_run_backend_id":"job-7","name":"mutation-gate-done-abc-2-6-3","version":4}');
 });
 
+it('steals no item another job started, marks its own start before it runs one, and under redo takes one another job started', function () use ($runtime, $claims): void {
+    $listed = '{"artifacts": [{"name": "mutation-gate-start-abc-2-5-1"}, {"name": "mutation-gate-start-abc-2-51-1"}]}';
+    $cloud = static fn(): Cloud => new Cloud()
+        ->answering(sprintf('%sListArtifacts', CLAIMS_SERVICE), 200, $listed)
+        ->answering(sprintf('%sCreateArtifact', CLAIMS_SERVICE), 200, '{"ok": true, "signed_upload_url": "https://blob.example/upload"}')
+        ->answering(sprintf('%sFinalizeArtifact', CLAIMS_SERVICE), 200, '{"ok": true}');
+    $stealing = $cloud();
+    $redoing = $cloud();
+    $steals = $claims($stealing, $runtime(), ShardPull::Steal);
+    $redoes = $claims($redoing, $runtime(), ShardPull::Redo);
+
+    expect($steals instanceof ArtifactClaims ? [$steals->take(ShardId::of(5)), $steals->take(ShardId::of(6))] : $steals)->toBe([false, true])
+        ->and(array_column($stealing->requests, 'body'))->toContain('{"workflow_run_backend_id":"run-1","workflow_job_run_backend_id":"job-7","name":"mutation-gate-start-abc-2-6-3","version":4}')
+        ->and($redoes instanceof ArtifactClaims ? [$redoes->take(ShardId::of(5)), $redoes->take(ShardId::of(6))] : $redoes)->toBe([true, true])
+        ->and(implode("\n", array_column($redoing->requests, 'body')))->not->toContain('mutation-gate-start');
+});
+
+it('says why a steal cannot be told where its start cannot be marked', function () use ($runtime, $claims): void {
+    $cloud = new Cloud()
+        ->answering(sprintf('%sListArtifacts', CLAIMS_SERVICE), 200, '{"artifacts": []}')
+        ->answering(sprintf('%sCreateArtifact', CLAIMS_SERVICE), 500, '{"code": "internal"}');
+    $taken = $claims($cloud, $runtime(), ShardPull::Steal);
+
+    expect($taken instanceof ArtifactClaims ? $taken->take(ShardId::of(5)) : $taken)->toBeInstanceOf(CannotJudge::class);
+});
+
 it('steals under auto, since no service\'s claims pass the race test', function () use ($runtime, $claims): void {
     $taken = $claims(new Cloud(), $runtime());
 

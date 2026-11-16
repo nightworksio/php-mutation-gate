@@ -88,10 +88,16 @@ final readonly class Shards implements Setting
         return new self(Json::at('shards.pull', 'claim'));
     }
 
-    /** `shards.pull` `steal`: a shard takes items from the back of the longest list left, marking what it finished. */
+    /** `shards.pull` `steal`: a shard takes items from the back of the longest list left that no shard started. */
     public static function pullingBySteals(): self
     {
         return new self(Json::at('shards.pull', 'steal'));
+    }
+
+    /** `shards.pull` `redo`: as steal, but also an item another shard started and has not finished. */
+    public static function pullingByRedoing(): self
+    {
+        return new self(Json::at('shards.pull', 'redo'));
     }
 
     /** `shards.pull` `off`: each shard runs its own planned part. */
