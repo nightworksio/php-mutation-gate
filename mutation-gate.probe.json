@@ -1,0 +1,108 @@
+{
+    "$schema": "resources/mutation-gate.schema.json",
+    "runner": {
+        "use": "pest",
+        "memory": "3G"
+    },
+    "ci": {
+        "check": "mutation verdict",
+        "trustMergedPullRequests": true
+    },
+    "trees": [
+        {
+            "path": "src/Core/Config"
+        }
+    ],
+    "baseline": {
+        "improvement": "report"
+    },
+    "reach": {
+        "everything": [
+            "src/Adapter/Pest/Warm/**",
+            "src/Adapter/Pest/ByName.php",
+            "src/Adapter/Pest/Recording/**",
+            "src/Adapter/Pest/Grouping/**",
+            "src/Adapter/Pest/Order/**",
+            "src/Adapter/Pest/Plugin.php",
+            "src/Adapter/Pest/Bridged.php",
+            "src/Adapter/Pest/Patch.php",
+            "src/Adapter/Pest/Patching.php",
+            "src/Cli/PestPlugin.php",
+            "src/Adapter/Runtime/ForkedChild.php",
+            "bin/mutation-gate-pest-client",
+            "bin/mutation-gate-pest-worker",
+            "src/Core/Runner/MutantLimit.php"
+        ],
+        "fixtures": [
+            "tests/Contract/Runner/codeception-fixture",
+            "tests/Contract/Runner/constants",
+            "tests/Contract/Runner/crash",
+            "tests/Contract/Runner/fixture",
+            "tests/Contract/Runner/hang",
+            "tests/Contract/Runner/heavy",
+            "tests/Contract/Runner/infection-fixture",
+            "tests/Contract/Runner/interceptor",
+            "tests/Contract/Runner/override",
+            "tests/Contract/Runner/phpspec-fixture",
+            "tests/Contract/Runner/phpunit-fixture",
+            "tests/Contract/Runner/reach",
+            "tests/Contract/Runner/stall",
+            "tests/Contract/Runner/streamed",
+            "tests/Contract/Runner/spawned",
+            "tests/Contract/Runner/testo-fixture",
+            "tests/Contract/Runner/twins",
+            "tests/Contract/StaticChecker/fixture",
+            "tests/Fixtures/*"
+        ],
+        "lockPackages": [
+            "brianium/paratest",
+            "ergebnis/phpstan-rules",
+            "nikic/php-parser",
+            "pestphp/*",
+            "phpstan/*",
+            "phpunit/*",
+            "sebastian/*",
+            "shipmonk/phpstan-rules",
+            "spaze/phpstan-disallowed-calls",
+            "staabm/side-effects-detector",
+            "symfony/process",
+            "tomasvotruba/*"
+        ]
+    },
+    "pest": {
+        "patch": true
+    },
+    "splitStream": {
+        "enabled": true
+    },
+    "shards": {
+        "max": "learned"
+    },
+    "timeouts": {
+        "seconds": "learned",
+        "multiple": "learned"
+    },
+    "staticCheck": {
+        "config": "phpstan/mutants.neon"
+    },
+    "flaky": {
+        "confirmSurvivors": false
+    },
+    "tests": {
+        "suites": [
+            "Unit",
+            "Plugins"
+        ],
+        "holding": [
+            "Process",
+            "Contract"
+        ]
+    },
+    "contexts": {
+        "pr": {
+            "run": {
+                "failFast": "off"
+            }
+        }
+    }
+}

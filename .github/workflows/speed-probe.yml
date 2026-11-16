@@ -1,0 +1,55 @@
+name: speed probe
+
+on:
+  push:
+    branches: ['probe/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  map:
+    name: map
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+    steps:
+      - name: the newest map CI uploaded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          id=$(gh api "repos/${REPO}/actions/artifacts?name=mutation-gate-map&per_page=1" -q '.artifacts[0].id')
+          gh api "repos/${REPO}/actions/artifacts/${id}/zip" > map.zip
+          mkdir -p map && unzip -o map.zip -d map
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-gate-map
+          path: map/map.json.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  mutation:
+    needs: map
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+      id-token: write
+    uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
+    with:
+      config: mutation-gate.probe.json
+      coverage: mutation-gate-map
+      extensions: zstd
+      prepare: >-
+        composer --working-dir=tests/Contract/Runner/fixture install --no-interaction --no-progress
+      runs-on: ubuntu-24.04-arm
+      mode: full
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
