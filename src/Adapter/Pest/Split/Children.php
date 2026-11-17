@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
-use function array_column;
 use function array_key_exists;
-use function count;
 
 use const FILE_APPEND;
 
@@ -15,6 +13,8 @@ use function hrtime;
 use function is_int;
 
 use const LOCK_EX;
+
+use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -36,14 +36,20 @@ use function usleep;
 use const WNOHANG;
 
 /**
- * A split stream's running children (ADR-0117): no more of them at once than
- * the plan allows now (see ChildPlaces), each held to its limit, a child that ended without writing
- * how its test ended written for it, and each that failed or ended in its
- * test named, so the stream can kill its mutant. Where the stream counts
- * steps (ADR-0147), each child is bound to a slot of limits it shares with
- * its parent, unlimited until the parent ends the test, and a child past its
- * steps stops itself by `SIGXCPU`. The databases copied for a child
- * (ADR-0147) are dropped once it ended, and each left as the process ends.
+ * A split stream's running children (ADR-0117): no more of them in places
+ * at once than the plan allows now (see ChildPlaces), each held to its
+ * limit, a child that ended without writing how its test ended written for
+ * it, and each that failed or ended in its test named, so the stream can
+ * kill its mutant. A child is stopped as past its limit only once its parent
+ * ended the test, against the parent's own time of it on this machine, less
+ * what the parent spent waiting for a place (ADR-0177); until then it is
+ * held to `timeouts.most` alone, and one that ran past the coverage map's
+ * time leaves its place where the parent needs it, and runs on beside the
+ * places. Where the stream counts steps (ADR-0147), each child is bound to a
+ * slot of limits it shares with its parent, unlimited until the parent ends
+ * the test, and a child past its steps stops itself by `SIGXCPU`. The
+ * databases copied for a child (ADR-0147) are dropped once it ended, and
+ * each left as the process ends.
  *
  * @internal
  */
@@ -52,14 +58,10 @@ final class Children
     /** How long the parent sleeps between looks at children it waits for, in microseconds. */
     private const int WAIT = 500;
 
-    /** Where a running child's slot of limits sits among what is kept of it. */
-    private const int SLOT = 4;
+    private readonly HeldChildren $held;
 
-    /**
-     * @var array<int, array{string, string, float, float, int, int}> each running child's mutant, test, start, end,
-     *                                                                 slot and steps at its fork, by pid
-     */
-    private array $running = [];
+    /** How long the parent waited for a place in the test it runs, in seconds. */
+    private float $waited = 0.0;
 
     /** The steps each child is held to. */
     private readonly ChildSteps $steps;
@@ -73,6 +75,7 @@ final class Children
     public function __construct(private readonly StreamPlan $plan)
     {
         $this->steps = new ChildSteps($plan);
+        $this->held = new HeldChildren();
         $plan->places->joined();
         register_shutdown_function($this->leftDropped(...));
     }
@@ -85,14 +88,8 @@ final class Children
      */
     public function forked(string $mutant, string $test, Copies $copies): int
     {
-        $failed = [];
-
-        while (count($this->running) >= $this->plan->places->now()) {
-            $failed = [...$failed, ...$this->reaped(blocking: true)];
-        }
-
-        $this->pending = [...$this->pending, ...$failed];
-        $slot = $this->steps->freeSlot(array_column($this->running, self::SLOT));
+        $this->pending = [...$this->pending, ...$this->placeFreed()];
+        $slot = $this->steps->freeSlot($this->held->slots());
         $atFork = $this->steps->taken();
         $this->steps->opened($slot);
         $pid = pcntl_fork();
@@ -108,21 +105,18 @@ final class Children
 
     /**
      * The parent ended this test in this many seconds: each child of it is
-     * held to the limit that time sets, or, where the stream counts steps,
-     * to the steps the parent took from the child's fork to here.
+     * held to the limit the parent's own time sets, less what it waited for
+     * a place, or, where the stream counts steps, to the steps the parent
+     * took from the child's fork to here.
      */
     public function ended(string $test, float $seconds): void
     {
         $atEnd = $this->steps->taken();
+        $limit = $this->steps->secondsOf(max(0.0, $seconds - $this->waited));
+        $this->waited = 0.0;
 
-        foreach ($this->running as $pid => [$mutant, $of, $started, , $slot, $atFork]) {
-            if ($of !== $test) {
-                continue;
-            }
-
-            $deadline = $started + $this->steps->secondsOf($seconds);
-            $this->running[$pid] = [$mutant, $of, $started, $deadline, $slot, $atFork];
-            $this->steps->held($slot, $atFork, $atEnd);
+        foreach ($this->held->heldTo($test, $limit) as $child) {
+            $this->steps->held($child->slot, $child->atFork, $atEnd);
         }
     }
 
@@ -138,10 +132,10 @@ final class Children
         $this->pending = [];
 
         do {
-            $before = count($this->running);
+            $before = $this->held->placed();
             $failed = [...$failed, ...$this->drained()];
-            $this->stopLate();
-            $done = ! $blocking || count($this->running) < $before || $this->running === [];
+            $this->stopped($this->held->lateBy($this->now()));
+            $done = ! $blocking || $this->held->placed() < $before || ! $this->held->areAny();
 
             if (! $done) {
                 usleep(self::WAIT);
@@ -170,13 +164,41 @@ final class Children
     /** Whether any child still runs. */
     public function areRunning(): bool
     {
-        return $this->running !== [];
+        return $this->held->areAny();
+    }
+
+    /**
+     * Waits until a place is free, taking every child that ended, stopping
+     * each past its limit, and letting one out of its place, where none is
+     * free, that its parent's test still runs and that ran past the map's
+     * time.
+     *
+     * @return list<array{string, string}> each that failed or ended in its test: its mutant, and the test
+     */
+    private function placeFreed(): array
+    {
+        $from = $this->now();
+        $failed = [];
+
+        do {
+            $failed = [...$failed, ...$this->drained()];
+            $this->stopped($this->held->lateBy($this->now()));
+            $room = $this->held->roomMade($this->plan->places->now(), $this->now());
+
+            if (! $room) {
+                usleep(self::WAIT);
+            }
+        } while (! $room);
+
+        $this->waited += $this->now() - $from;
+
+        return $failed;
     }
 
     /** In a child just forked, nothing of its parent's children kept, its steps counted against its slot. */
     private function inChild(int $slot): void
     {
-        $this->running = [];
+        $this->held->forgotten();
         $this->copies = [];
         $this->steps->bound($slot);
     }
@@ -189,9 +211,17 @@ final class Children
     private function running(int $pid, array $child, Copies $copies): void
     {
         [$mutant, $test, $slot, $atFork] = $child;
-        $started = $this->now();
         $own = array_key_exists($test, $this->plan->times) ? $this->plan->times[$test] : false;
-        $this->running[$pid] = [$mutant, $test, $started, $started + $this->steps->secondsOf($own), $slot, $atFork];
+        $forked = ForkedChild::forked(
+            $mutant,
+            $test,
+            $slot,
+            $atFork,
+            $this->now(),
+            $this->plan->limit->longest(),
+            $this->steps->releasedAfter($own),
+        );
+        $this->held->started($pid, $forked);
         $this->copies[$pid] = $copies;
     }
 
@@ -221,26 +251,27 @@ final class Children
      */
     private function endedOf(int $pid, int $status): array
     {
-        if (! array_key_exists($pid, $this->running)) {
+        $child = $this->held->of($pid);
+
+        if (! $child instanceof ForkedChild) {
             return [];
         }
 
-        [$mutant, $test] = $this->running[$pid];
         $this->gone($pid);
         $signal = pcntl_wifsignaled($status) ? pcntl_wtermsig($status) : false;
         $signal = is_int($signal) ? $signal : 0;
 
         if ($this->steps->exceeded($signal)) {
-            $this->write(StreamLine::timedOut($mutant, $test));
+            $this->write(StreamLine::timedOut($child->mutant, $child->test));
 
             return [];
         }
 
         if ($signal !== SIGKILL && $signal !== SIGUSR1) {
-            $this->write(StreamLine::endedChild($mutant, $test, $this->exitCode($status)));
+            $this->write(StreamLine::endedChild($child->mutant, $child->test, $this->exitCode($status)));
         }
 
-        return $signal === SIGKILL ? [] : [[$mutant, $test]];
+        return $signal === SIGKILL ? [] : [[$child->mutant, $child->test]];
     }
 
     /** The code a child exited with, or -1 where a signal ended it. */
@@ -251,25 +282,25 @@ final class Children
         return is_int($code) ? $code : -1;
     }
 
-    /** Stops each child past its limit. */
-    private function stopLate(): void
+    /**
+     * Stops each of these children past its limit: its mutant timed out in its test.
+     *
+     * @param array<int, ForkedChild> $late by pid
+     */
+    private function stopped(array $late): void
     {
-        $now = $this->now();
-
-        foreach ($this->running as $pid => [$mutant, $test, , $deadline]) {
-            if ($now > $deadline) {
-                posix_kill($pid, SIGKILL);
-                pcntl_waitpid($pid, $status);
-                $this->gone($pid);
-                $this->write(StreamLine::timedOut($mutant, $test));
-            }
+        foreach ($late as $pid => $child) {
+            posix_kill($pid, SIGKILL);
+            pcntl_waitpid($pid, $status);
+            $this->gone($pid);
+            $this->write(StreamLine::timedOut($child->mutant, $child->test));
         }
     }
 
-    /** A child that ended no longer runs, and the databases copied for it are dropped. */
+    /** A child that ended is held no more, and the databases copied for it are dropped. */
     private function gone(int $pid): void
     {
-        unset($this->running[$pid]);
+        $this->held->gone($pid);
 
         if (array_key_exists($pid, $this->copies)) {
             $this->copies[$pid]->dropped();

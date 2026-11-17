@@ -85,9 +85,20 @@ final readonly class ChildSteps
     }
 
     /** The seconds a child may run in a test its parent took this long: the most, where the stream counts steps. */
-    public function secondsOf(float|false $own): float
+    public function secondsOf(float $own): float
     {
         return $this->counted ? $this->plan->limit->longest() : $this->plan->limit->of($own);
+    }
+
+    /**
+     * The seconds past which a child of a test its parent still runs may
+     * leave its place, where the map timed the test this long: the limit
+     * that time sets, or the floor where the map has none; the most, so
+     * never, where the stream counts steps.
+     */
+    public function releasedAfter(float|false $own): float
+    {
+        return $this->counted ? $this->plan->limit->longest() : $this->plan->limit->of($own === false ? 0.0 : $own);
     }
 
     /** Whether a child that ended by this signal ran past its steps. */

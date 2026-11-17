@@ -52,3 +52,15 @@ it('counts no steps taken where outbreak.so cannot tell them', function (): void
         echo (new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildSteps($plan))->taken();
         CODE))->toBe('0');
 });
+
+it('lets a child of a running test out of its place past the limit the map\'s time sets, past the floor where it has none, and never where it counts steps', function (): void {
+    expect(FreshProcess::answer(<<<'CODE'
+        function outbreak_steps_share(int $children): bool { return true; }
+        function outbreak_steps(): ?int { return 7; }
+        $limit = static fn(int $floor): NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit => new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit(3.0, 2.0, 30.0, $floor);
+        $places = NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces::fixed(2);
+        $timed = new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildSteps(new NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan('/r', [], [], [], $places, $limit(0)));
+        $counted = new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildSteps(new NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan('/r', [], [], [], $places, $limit(100)));
+        echo json_encode([$timed->releasedAfter(1.5), $timed->releasedAfter(false), $counted->releasedAfter(1.5), $timed->secondsOf(1.5), $counted->secondsOf(1.5)]);
+        CODE))->toBe('[4.5,2,30,4.5,30]');
+});

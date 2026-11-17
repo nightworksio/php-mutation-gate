@@ -11,11 +11,10 @@ use function round;
  * How long a split stream's child may run in its test (ADR-0117):
  * `timeouts.perTest` times the parent's own time of the same test, never
  * under `timeouts.testFloor`; or `timeouts.most` where `timeouts.perTest` is
- * off, or while the parent's own time of the test is not yet known and the
- * coverage map has none. Where the stream counts steps (ADR-0147), a child
- * is held to `timeouts.perTest` times the parent's steps from the fork to the
- * test's end, plus `outbreak.stepFloor`, and its time to `timeouts.most`
- * alone.
+ * off, or while the parent has not yet ended the test (ADR-0177). Where
+ * the stream counts steps (ADR-0147), a child is held to `timeouts.perTest`
+ * times the parent's steps from the fork to the test's end, plus
+ * `outbreak.stepFloor`, and its time to `timeouts.most` alone.
  *
  * @internal
  */
@@ -35,12 +34,10 @@ final readonly class ChildLimit
     ) {
     }
 
-    /** The seconds a child may run in a test the parent took, or the map timed, this long; the most where neither. */
-    public function of(float|false $own): float
+    /** The seconds a child may run in a test the parent took, or the map timed, this long. */
+    public function of(float $own): float
     {
-        return $own === false || $this->multiple <= 0.0
-            ? $this->most
-            : max($this->floor, $own * $this->multiple);
+        return $this->multiple <= 0.0 ? $this->most : max($this->floor, $own * $this->multiple);
     }
 
     /** The most seconds a child may run in a test, whatever its parent took. */
