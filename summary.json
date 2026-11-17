@@ -1,7 +1,7 @@
 {
     "format": 1,
     "commit": "a9505f98566d0cb134a17ff2a4e313cccbfd30b4",
-    "time": "2026-11-16T21:12:37Z",
+    "time": "2026-11-17T13:53:22Z",
     "verdict": "failed",
     "score": 99.98,
     "trees": [
@@ -38,70 +38,70 @@
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Logical\\InstanceOfToTrue",
-            "seconds": 117717.64135000831,
+            "seconds": 125290.43641073984,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Logical\\InstanceOfToFalse",
-            "seconds": 114681.02963458544,
+            "seconds": 119618.16235698933,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\ForeachEmptyIterable",
-            "seconds": 78848.42569276798,
+            "seconds": 80174.80617075266,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\TernaryNegated",
-            "seconds": 76678.40979440452,
+            "seconds": 78433.69059506038,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Removal\\RemoveArrayItem",
-            "seconds": 52088.65239603418,
+            "seconds": 54200.57894835999,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Number\\DecrementInteger",
-            "seconds": 32140.25614629222,
-            "survived": 0,
-            "killRate": 100.0
-        },
-        {
-            "runner": "pest",
-            "mutator": "Pest\\Mutate\\Mutators\\Logical\\BooleanAndToBooleanOr",
-            "seconds": 27845.47540809725,
+            "seconds": 38523.11206986614,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Number\\IncrementInteger",
-            "seconds": 25176.159182119874,
+            "seconds": 31193.817547928415,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Array\\UnwrapArrayValues",
-            "seconds": 24168.72999081919,
+            "seconds": 30199.82438643772,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\Logical\\BooleanAndToBooleanOr",
+            "seconds": 29899.958562971984,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\IfNegated",
-            "seconds": 20726.44990339583,
+            "seconds": 20860.458617746342,
             "survived": 0,
             "killRate": 100.0
         }
@@ -110,25 +110,19 @@
         {
             "path": "src/Core/Config/Definition/Items.php",
             "score": 90.0,
-            "base": 100.0,
+            "base": 90.0,
             "notKilled": 3
         },
         {
             "path": "src/Core/Config/Definition/CommentKeys.php",
             "score": 97.1,
-            "base": 100.0,
-            "notKilled": 2
-        },
-        {
-            "path": "src/Core/Php/Tokens.php",
-            "score": 97.67,
-            "base": 100.0,
+            "base": 97.1,
             "notKilled": 2
         },
         {
             "path": "src/Core/Format/Json.php",
             "score": 97.72,
-            "base": 100.0,
+            "base": 97.72,
             "notKilled": 1
         },
         {
@@ -163,6 +157,12 @@
         },
         {
             "path": "plugins/default/src/Arithmetic/MinusToPlus.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/ModulusToMultiplication.php",
             "score": 100.0,
             "base": 100.0,
             "notKilled": 0
