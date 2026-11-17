@@ -67,6 +67,9 @@ final class StreamRun
     /** The mutant this process runs, in a child; none in the parent. */
     private string $mutant = '';
 
+    /** @var array<string, true> the tests the stream fell back on so far, by their ids */
+    private array $fellBack = [];
+
     private readonly ForkStates $states;
 
     private readonly ParentLines $lines;
@@ -166,6 +169,7 @@ final class StreamRun
         $this->processes->watched();
 
         if (! $this->test->isForkable()) {
+            $this->fellBack[$test] = true;
             $this->write(StreamLine::fallback($test));
         }
     }
@@ -176,6 +180,7 @@ final class StreamRun
         $this->lines->isolated($this->test->id);
 
         if ($this->test->isForkable() && $this->mutant === '') {
+            $this->fellBack[$this->test->id] = true;
             $this->write(StreamLine::fallback($this->test->id));
         }
 
@@ -275,7 +280,11 @@ final class StreamRun
             : $value;
     }
 
-    /** Whether the stream forks a site's mutant at this execution. */
+    /**
+     * Whether the stream forks a site's mutant at this execution: at any
+     * test where it names no likely killer, or its killer is a test the
+     * stream fell back on, which forks nothing; otherwise at that killer.
+     */
     private function forks(string $file, int $id): bool
     {
         if ($this->boot->areBooting()) {
@@ -287,7 +296,7 @@ final class StreamRun
         return $site !== false
             && ! $this->kills->has($site[0])
             && ! $this->boot->holds($site[0])
-            && ($site[1] === '' || $site[1] === $this->test->id);
+            && ($site[1] === '' || $site[1] === $this->test->id || array_key_exists($site[1], $this->fellBack));
     }
 
     /** Whether the stream may fork at a site of the plan this execution reaches, not yet forked in this test. */

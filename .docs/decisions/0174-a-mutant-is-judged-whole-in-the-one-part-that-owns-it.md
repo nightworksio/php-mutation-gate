@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-11-17
 **Amends:** [0117](0117-a-kill-judged-against-its-own-unmutated-stream-needs-no-control.md): decision 9's judging of a mutant in every part that holds a covering test
+**Amends:** [0117](0117-a-kill-judged-against-its-own-unmutated-stream-needs-no-control.md): decision 8's fork at the likely killer alone, for a killer the stream falls back on
 **Amends:** [0171](0171-a-test-no-loaded-file-declares-leaves-the-cut-standing-and-an-uncovered-mutant-is-judged-once.md): decision 3's owner, for a mutant the ledger names a likely killer of
 
 ## Context
@@ -21,7 +22,10 @@ parts. Shard 9's part held a nineteenth of the suite's time and reached
 its streams. Over the parts of the probe's coverage map, the covered lines
 were reached 7.2 times each on average at 19 parts, and 10.5 times at 38:
 more shards made every shard reach a smaller share, but the run judged more.
-The ledger named a likely killer for 45,610 of the mutants.
+The ledger named a likely killer for 45,610 of the mutants. Run locally on
+that plan, shard 9 judging whole owned 2,942 streamed mutants; the likely
+killer of 1,262 of them was a test the stream fell back on, so the first
+pass forked them nowhere.
 
 ## Decision
 
@@ -42,11 +46,15 @@ The ledger named a likely killer for 45,610 of the mutants.
    tests the first did not**, for each owned mutant the first left
    undecided: every one for a mutant forked at its killer alone, and those
    of the other parts for the rest.
-4. **A mutant the owner judges is judged whole:** its survival dooms the
+4. **A stream that falls back on a mutant's likely killer forks the mutant
+   at the later tests that reach it,** as it forks a mutant the ledger
+   names no killer of: a test the stream cannot fork in kills nothing
+   there, and every likely killer the history names may be such a test.
+5. **A mutant the owner judges is judged whole:** its survival dooms the
    run (ADR-0008), static analysis checks it, a mutant a stream falls back
    on runs one own run by every covering test, and `flaky.confirmSurvivors`
    runs it again by every covering test, all in the owner alone.
-5. **`splitStream.sharding` and `splitStream.judging` are set by the
+6. **`splitStream.sharding` and `splitStream.judging` are set by the
    `StreamShards` builder.**
 
 ## Why no verdict moves
@@ -57,6 +65,8 @@ The ledger named a likely killer for 45,610 of the mutants.
 - A test of another part runs in the owner's second pass in a stream of the
   files that declare it, unmutated, the child forked at the site as in any
   stream (ADR-0117); the parent is the child's control wherever it runs.
+- A fork past a killer the stream fell back on is a fork at a test that
+  reaches the site, as every fork of a mutant with no killer is.
 - A mutant every part left survived every covering test; the owner's
   survivor did the same in one shard, which the merge takes whole.
 

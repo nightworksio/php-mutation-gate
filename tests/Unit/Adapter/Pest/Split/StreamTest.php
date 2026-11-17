@@ -670,3 +670,36 @@ it('forks at each site once in a test', function (): void {
 
     expect(streamFields($results, 'k', 't'))->toEqualCanonicalizing([['child', 'T::twice'], ['parent', 'T::twice']]);
 })->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');
+
+it('forks a mutant at a later test that reaches it once the stream fell back on its likely killer, and only at that killer before', function (string $fallingBack): void {
+    [, $results] = streamedApart(['sites' => ['f1' => [1 => ['m1', 'T::killer', []]]], 'floor' => 10, 'longest' => 10], sprintf(<<<'PHP'
+        foreach (['T::earlier', 'T::killer', 'T::later'] as $test) {
+            $pair = $test === 'T::killer' && %1$s ? stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP) : [];
+            Stream::began($test);
+
+            if ($test === 'T::killer' && ! %1$s) {
+                Stream::isolated();
+            }
+
+            if (SchemaSwitch::is('f1', 1)) {
+                Stream::ended();
+            }
+
+            Stream::ended();
+            array_map(fclose(...), is_array($pair) ? $pair : []);
+        }
+
+        Stream::finished();
+        PHP, $fallingBack));
+
+    expect(streamFields($results, 'k', 'm', 't'))->toEqualCanonicalizing([
+        ['parent', null, 'T::earlier'],
+        ['fallback', null, 'T::killer'],
+        ['parent', null, 'T::killer'],
+        ['child', 'm1', 'T::later'],
+        ['parent', null, 'T::later'],
+    ]);
+})->with([
+    'holding a socket as it begins' => ['true'],
+    'running in a process of its own' => ['false'],
+])->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');
