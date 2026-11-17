@@ -29,6 +29,27 @@ final readonly class Evidences implements Countable
         return new self([]);
     }
 
+    /**
+     * Each mutant's evidence, in the order given, as {@see with()} adds them
+     * one after another, in time that grows with their count alone.
+     *
+     * @param iterable<array{MutantId, Evidence}> $given
+     */
+    public static function collected(iterable $given): self
+    {
+        $byId = [];
+
+        foreach ($given as [$id, $evidence]) {
+            unset($byId[$id->value()]);
+
+            if (! $evidence->isEmpty()) {
+                $byId[$id->value()] = $evidence;
+            }
+        }
+
+        return new self($byId);
+    }
+
     /** These, and a mutant's evidence; evidence that says nothing is not kept. */
     public function with(MutantId $id, Evidence $evidence): self
     {
@@ -109,7 +130,9 @@ final readonly class Evidences implements Countable
         $ids = [];
 
         foreach ($mutants as $mutant) {
-            $ids = $asked($this->of($mutant->id())->share()) ? [...$ids, $mutant->id()] : $ids;
+            if ($asked($this->of($mutant->id())->share())) {
+                $ids[] = $mutant->id();
+            }
         }
 
         return MutantIds::of(...$ids);

@@ -241,16 +241,16 @@ final readonly class ShardResultFile
         }
 
         $mutants = [];
-        $evidence = Evidences::none();
+        $evidence = [];
 
         foreach ($file->field('mutants')->items() as $record) {
             $mutant = MutantRecord::readFull($record);
             $mutants[] = $mutant;
-            $evidence = $evidence->with($mutant->id(), EvidenceRecord::read($record));
+            $evidence[] = [$mutant->id(), EvidenceRecord::read($record)];
         }
 
         return MutationResult::of(Mutants::of(...$mutants), $file->field('skipped')->integer())
-            ->withEvidence($evidence);
+            ->withEvidence(Evidences::collected($evidence));
     }
 
     /** @throws NotInShape */

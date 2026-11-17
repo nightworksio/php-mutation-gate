@@ -59,6 +59,9 @@ final readonly class Interpretation
 
     private const string RAN_NO_TEST = 'its own run ran no test';
 
+    /** The key of a span of a file's lines, whose covering tests every mutant on it shares. */
+    private const string SPAN = '%s:%d:%d';
+
     /** What a run that counts its forks' states says of them (H5). */
     private const string FORK_STATES = <<<'SAID'
         Split streams read the state %d forks left in parent and child;
@@ -110,18 +113,23 @@ final readonly class Interpretation
     private function mutants(Records $records, Covering $coverage): MutationResult|CannotJudge
     {
         $mutants = [];
-        $evidence = Evidences::none();
+        $evidence = [];
         $planned = $records->planned();
         $ids = Identities::of(Root::of($this->project->root()), $planned);
 
         $suite = Suite::of($coverage->tests());
+        $none = $this->patching->selecting(TestIds::none(), $suite);
+        $selections = [];
 
         foreach ($planned as $at => $made) {
             $mutant = $this->handOff instanceof HandOff ? $this->handOff->judgedAs($made) : $made;
-            $selection = $this->patching->selecting(
-                $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
-                $suite,
-            );
+            $span = sprintf(self::SPAN, $mutant->file()->value(), $mutant->start()->number(), $mutant->end()->number());
+            $selection = $records->runOf($mutant)->isMarked(RecordEvent::Unreached)
+                ? $none
+                : $selections[$span] ??= $this->patching->selecting(
+                    $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
+                    $suite,
+                );
 
             if (! $selection->fits() && ! $this->patching->isOn()) {
                 return CannotJudge::because(sprintf(
@@ -134,10 +142,10 @@ final readonly class Interpretation
 
             $judged = $this->rejected($this->mutant($ids[$at], $mutant, $records, $selection), $mutant);
             $mutants[] = $judged;
-            $evidence = $evidence->with($judged->id(), new RunEvidence($this->project)->of($judged, $mutant, $records));
+            $evidence[] = [$judged->id(), new RunEvidence($this->project)->of($judged, $mutant, $records)];
         }
 
-        return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);
+        return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence(Evidences::collected($evidence));
     }
 
     /**

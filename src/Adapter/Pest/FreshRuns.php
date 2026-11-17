@@ -269,7 +269,7 @@ final readonly class FreshRuns
         array $controlled,
         MemoryCap $memory,
     ): MutationResult {
-        $evidence = Evidences::none();
+        $evidence = [];
 
         foreach ($controlled as $at => $verdict) {
             $run = $runs[$at];
@@ -277,12 +277,12 @@ final readonly class FreshRuns
             $given = $verdict->evidence($ended[$at]);
             $given = $run->isFiltered() ? $given : $given->loadingUnfiltered(WholeSuite::tests());
             $share = $result->evidence()->of($mutant->id())->share();
-            $evidence = $evidence->with($mutant->id(), $given->sharing($share));
+            $evidence[] = [$mutant->id(), $given->sharing($share)];
             $judged[] = $mutant;
         }
 
         return $result->withMutants(FoundAgain::replacing($result->mutants(), Mutants::of(...$judged)))
-            ->withEvidence($evidence);
+            ->withEvidence(Evidences::collected($evidence));
     }
 
     /**

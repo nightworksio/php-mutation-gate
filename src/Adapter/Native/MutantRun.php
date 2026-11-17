@@ -153,15 +153,15 @@ final readonly class MutantRun
         }
 
         $judged = [];
-        $evidence = Evidences::none();
+        $evidence = [];
 
         foreach ($this->shell->sideBySide($slots, $startingWithin, ...$commands) as $at => $ran) {
             $mutant = $this->finished($runs[$at], $ran);
             $judged[] = $mutant;
-            $evidence = $evidence->with($mutant->id(), $this->evidenced($runs[$at], $ran, $mutant));
+            $evidence[] = [$mutant->id(), $this->evidenced($runs[$at], $ran, $mutant)];
         }
 
-        return Judged::of($judged, Warnings::none())->withEvidence($evidence);
+        return Judged::of($judged, Warnings::none())->withEvidence(Evidences::collected($evidence));
     }
 
     /**

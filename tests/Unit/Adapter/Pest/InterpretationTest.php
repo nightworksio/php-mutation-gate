@@ -407,6 +407,30 @@ it('reads a mutant its shard\'s part of the test files left to another part as n
         ->and($result instanceof MutationResult && $result->evidence()->of($mutants[1]->id())->isStreamed())->toBeTrue();
 });
 
+it('reads a mutant its shard\'s part left to another part as not reached, whatever its covering tests\' filter could select', function () use (
+    $mutant,
+    $plan,
+    $read,
+): void {
+    [$project, $results, $root] = interpretedRun([11 => [0]], [11 => [1]]);
+    PestRun::write($results, [
+        $plan($root, 'n5', 'legacy/Legacy.php:11', 'amount'),
+        $plan($root, 'n1', 'src/Money.php:11', 'ab'),
+        PestRun::made(2),
+        PestRun::marked('n5', RecordEvent::Unreached),
+        PestRun::finished('n5', PestStatus::Untested, 0.0),
+        PestRun::marked('n1', RecordEvent::Unreached),
+        PestRun::finished('n1', PestStatus::Untested, 0.0),
+        PestRun::end(),
+    ]);
+
+    expect($read($project, Ran::finished(succeeded: true, output: "\n  Mutations: 2 untested\n"), $results))
+        ->toEqual(MutationResult::of(Mutants::of(
+            $mutant('n5', 'legacy/Legacy.php:11', 'amount', MutantStatus::NotReached),
+            $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::NotReached),
+        ), 0));
+});
+
 it('leaves unjudged a survivor whose own processes ran no test, and judges every other as Pest did', function () use (
     $mutant,
     $plan,

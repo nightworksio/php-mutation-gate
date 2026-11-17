@@ -150,14 +150,14 @@ final readonly class Judging
             $thens[$at] = $this->then($choices[$at], $outcome, $mutants[$at]);
         }
 
-        $evidence = Evidences::none();
+        $evidence = [];
 
         foreach ($this->tried($thens, $mutants, $selector, $trial, $results) as $at => $outcome) {
             $mutants[$at] = $outcome->judging($mutants[$at]);
-            $evidence = $evidence->with($mutants[$at]->id(), $outcome->evidence());
+            $evidence[] = [$mutants[$at]->id(), $outcome->evidence()];
         }
 
-        return [array_values($mutants), $evidence];
+        return [array_values($mutants), Evidences::collected($evidence)];
     }
 
     /**

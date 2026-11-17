@@ -171,6 +171,21 @@ it('holds each mutant\'s evidence by its id, the last given winning, and none fo
         ->and($evidences->and(Evidences::none()->with($id('a'), $second))->of($id('a')))->toBe($second);
 });
 
+it('collects each mutant\'s evidence as giving it one after another would', function () use ($id): void {
+    $first = Evidence::none()->withPrefix(Prefix::at(1));
+    $second = Evidence::none()->withPrefix(Prefix::at(2));
+    $given = [[$id('a'), $first], [$id('b'), $second], [$id('a'), $second], [$id('b'), Evidence::none()], [$id('c'), $first]];
+    $chained = array_reduce(
+        $given,
+        static fn(Evidences $evidences, array $one): Evidences => $evidences->with(...$one),
+        Evidences::none(),
+    );
+
+    expect(Evidences::collected($given))->toEqual($chained)
+        ->and(Evidences::collected($given))->toHaveCount(2)
+        ->and(Evidences::collected([]))->toEqual(Evidences::none());
+});
+
 it('keeps the evidence of a mutant whose id reads as a number under that id, joined or not', function (): void {
     $numeric = MutantId::parse('123456789012');
     $other = MutantId::parse('023456789012');
