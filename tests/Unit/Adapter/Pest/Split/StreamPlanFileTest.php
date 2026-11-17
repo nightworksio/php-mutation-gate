@@ -55,6 +55,14 @@ it('leaves out what is not as written, and holds at least one child', function (
         ->toEqual(new StreamPlan('r', [], [], [], ChildPlaces::fixed(1), new ChildLimit(0.0, 0.0, 0.0)));
 });
 
+it('marks a stream with a fixed count of children running in its directory', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'fixed.json', (string) json_encode(['results' => 'r', 'children' => 2, 'live' => '/tmp/streams']));
+
+    expect(StreamPlanFile::read(sprintf('%s/fixed.json', $root)))
+        ->toEqual(new StreamPlan('r', [], [], [], ChildPlaces::fixed(2, '/tmp/streams'), new ChildLimit(0.0, 0.0, 0.0)));
+});
+
 it('reads the cores a stream shares among the streams running in its directory, where the plan says so', function (): void {
     $root = Scratch::directory();
     Scratch::write($root, 'cores.json', (string) json_encode(['results' => 'r', 'children' => 'cores', 'cores' => 4, 'live' => '/tmp/streams']));

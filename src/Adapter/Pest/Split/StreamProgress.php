@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_keys;
 use function count;
 use function explode;
 use function file_get_contents;
@@ -13,18 +14,23 @@ use function is_array;
 use function is_file;
 use function is_string;
 use function json_decode;
+use function max;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 
+use function preg_match;
 use function sprintf;
+use function str_contains;
 use function trim;
 use function unlink;
 
 /**
- * How many mutants a run's split streams have decided so far, before Pest
- * gives any of them its result: each one a child killed, ended or timed out,
- * as the streams' results files say, found by the stream directory a run
- * names beside its results file for the gate's log.
+ * How far a run's split streams have come, before Pest gives any of their
+ * mutants its result: each mutant a child killed, ended or timed out, as the
+ * streams' results files say, the latest pass whose streams wrote one, and
+ * how many of its streams are still marked running (see ChildPlaces), found
+ * by the stream directory a run names beside its results file for the
+ * gate's log.
  *
  * @internal
  */
@@ -35,6 +41,12 @@ final readonly class StreamProgress
 
     /** Every stream's results in that directory. */
     private const string RESULTS = '%s/results-*.jsonl';
+
+    /** A stream's results file, by its pass. */
+    private const string OF_PASS = '~/results-(\d+)-\d+\.jsonl$~';
+
+    /** What a line a child's end is written in holds, which no parent's line does. */
+    private const string MUTANT = '"m":';
 
     /** The stream directory, named beside the run's results where the gate names a file. */
     public static function named(string|false $results, string $directory): void
@@ -54,19 +66,33 @@ final readonly class StreamProgress
         }
     }
 
-    /** How many mutants the streams of the run with these results decided so far; none where it names none. */
-    public static function decided(string $results): int
+    /** How far the streams of the run with these results came; none where it names none. */
+    public static function seen(string $results): StreamsSeen
     {
         $named = sprintf(self::NAMED, $results);
         $directory = is_file($named) ? trim((string) file_get_contents($named)) : '';
-        $files = $directory === '' ? [] : glob(sprintf(self::RESULTS, $directory));
-        $decided = [];
+        $files = $directory === '' ? false : glob(sprintf(self::RESULTS, $directory));
 
-        foreach (is_array($files) ? $files : [] as $file) {
-            $decided += self::decidedIn((string) file_get_contents($file));
+        if (! is_array($files) || $files === []) {
+            return StreamsSeen::none();
         }
 
-        return count($decided);
+        $decided = [];
+        $passes = [];
+
+        foreach ($files as $file) {
+            $decided += self::decidedIn((string) file_get_contents($file));
+            $passes[] = preg_match(self::OF_PASS, $file, $pass) === 1 ? (int) $pass[1] : 0;
+        }
+
+        $latest = max($passes);
+
+        return new StreamsSeen(
+            count($decided),
+            $latest,
+            count(array_keys($passes, $latest, strict: true)),
+            ChildPlaces::runningIn($directory),
+        );
     }
 
     /**
@@ -79,15 +105,25 @@ final readonly class StreamProgress
         $decided = [];
 
         foreach (explode("\n", $text) as $line) {
-            $read = json_decode($line, associative: true);
-            $stream = is_array($read) ? StreamRead::of($read) : NotGiven::value();
-            $end = $stream instanceof StreamRead ? $stream->childEnd() : false;
+            $mutant = self::decidedBy($line);
 
-            if ($stream instanceof StreamRead && $end instanceof ChildEnd && $end !== ChildEnd::Passed) {
-                $decided[$stream->mutant] = true;
+            if ($mutant !== false) {
+                $decided[$mutant] = true;
             }
         }
 
         return $decided;
+    }
+
+    /** The mutant a line says a child decided: killed, ended or timed out; false where it says none. */
+    private static function decidedBy(string $line): string|false
+    {
+        $read = str_contains($line, self::MUTANT) ? json_decode($line, associative: true) : null;
+        $stream = is_array($read) ? StreamRead::of($read) : NotGiven::value();
+        $end = $stream instanceof StreamRead ? $stream->childEnd() : false;
+
+        return $stream instanceof StreamRead && $end instanceof ChildEnd && $end !== ChildEnd::Passed
+            ? $stream->mutant
+            : false;
     }
 }

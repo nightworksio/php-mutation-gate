@@ -18,9 +18,11 @@ use function sprintf;
 /**
  * How far a Pest mutation run has come, as the results file the plugin
  * writes says, for the gate's log: how many of the mutants Pest planned it
- * has judged, those its split streams decided so far among them, and one it
- * is running. Every look is the watch's it wraps,
- * such as the hand-off to static analysis.
+ * has judged, those its split streams decided so far among them, and what
+ * it does now: the pass its streams are in and how many of them still run,
+ * or how many mutants are left for their own runs and the one it is
+ * running. Every look is the watch's it wraps, such as the hand-off to
+ * static analysis.
  *
  * @internal
  */
@@ -28,7 +30,9 @@ final readonly class MutantsProgress implements ProcessWatch
 {
     private const string JUDGED = '%d of %d mutants judged';
 
-    private const string RUNNING = '%s, running %s:%d (%s)';
+    private const string STREAMING = '%s, %s';
+
+    private const string RUNNING = '%s, own runs: %d left, running %s:%d (%s)';
 
     public function __construct(private string $results, private ProcessWatch $watch)
     {
@@ -56,13 +60,21 @@ final readonly class MutantsProgress implements ProcessWatch
             $unjudged,
             static fn(PlannedMutant $mutant): bool => is_array($records->runOf($mutant)->arguments()),
         );
-        $streamed = min(count($unjudged), StreamProgress::decided($this->results));
-        $judged = sprintf(self::JUDGED, count($planned) - count($unjudged) + $streamed, count($planned));
+        $streams = StreamProgress::seen($this->results);
+        $left = count($unjudged) - min(count($unjudged), $streams->decided);
+        $judged = sprintf(self::JUDGED, count($planned) - $left, count($planned));
 
-        if (! $first instanceof PlannedMutant) {
-            return $judged;
-        }
-
-        return sprintf(self::RUNNING, $judged, $first->file()->value(), $first->start()->number(), $first->mutator());
+        return match (true) {
+            $streams->areStreaming() => sprintf(self::STREAMING, $judged, $streams->phase()),
+            $first instanceof PlannedMutant => sprintf(
+                self::RUNNING,
+                $judged,
+                $left,
+                $first->file()->value(),
+                $first->start()->number(),
+                $first->mutator(),
+            ),
+            default => $judged,
+        };
     }
 }

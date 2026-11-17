@@ -36,10 +36,10 @@ final readonly class ChildPlaces
     {
     }
 
-    /** This many children at once, at least one. */
-    public static function fixed(int $count): self
+    /** This many children at once, at least one, the stream marked running in this directory where one is given. */
+    public static function fixed(int $count, string $directory = ''): self
     {
-        return new self(max(1, $count), 0, '');
+        return new self(max(1, $count), 0, $directory);
     }
 
     /** These logical cores shared among the streams marked running in this directory. */
@@ -48,7 +48,7 @@ final readonly class ChildPlaces
         return new self(0, max(1, $cores), $directory);
     }
 
-    /** Marks the stream of this process running until it ends; nothing where the count is fixed. */
+    /** Marks the stream of this process running until it ends; nothing where no directory is given. */
     public function joined(): void
     {
         $pid = getmypid();
@@ -69,18 +69,24 @@ final readonly class ChildPlaces
     /** The most children the stream may ever hold at once: the count, or every core. */
     public function most(): int
     {
-        return $this->directory === '' ? $this->count : $this->cores;
+        return $this->count > 0 ? $this->count : $this->cores;
     }
 
     /** How many children the stream may hold now: the count, or its share of the cores among the running streams. */
     public function now(): int
     {
-        if ($this->directory === '') {
+        if ($this->count > 0) {
             return $this->count;
         }
 
-        $live = glob(sprintf(self::EVERY_LIVE, $this->directory));
+        return max(1, intdiv($this->cores, max(1, self::runningIn($this->directory))));
+    }
 
-        return max(1, intdiv($this->cores, max(1, is_array($live) ? count($live) : 0)));
+    /** How many streams are marked running in this directory. */
+    public static function runningIn(string $directory): int
+    {
+        $live = glob(sprintf(self::EVERY_LIVE, $directory));
+
+        return is_array($live) ? count($live) : 0;
     }
 }

@@ -20,6 +20,17 @@ it('holds a fixed count of children, at least one, and marks no stream running',
         ->and(glob(sprintf('%s/*', $directory)))->toBe([]);
 });
 
+it('marks a stream with a fixed count running where it is given a directory, and holds that count however many run', function (): void {
+    $directory = Scratch::directory();
+    touch(sprintf('%s/live-1', $directory));
+    touch(sprintf('%s/live-2', $directory));
+    $places = ChildPlaces::fixed(3, $directory);
+    $places->joined();
+
+    expect(glob(sprintf('%s/live-%d', $directory, getmypid())))->toHaveCount(1)
+        ->and([$places->now(), $places->most()])->toBe([3, 3]);
+});
+
 it('shares the cores among the streams marked running, at least one a stream', function (): void {
     $directory = Scratch::directory();
     $places = ChildPlaces::sharing(4, $directory);

@@ -82,7 +82,7 @@ final readonly class StreamPlanFile
 
         return self::text($read, 'children') === StreamChildren::Cores->value && $live !== ''
             ? ChildPlaces::sharing(self::integer($read, 'cores', 1), $live)
-            : ChildPlaces::fixed(self::integer($read, 'children', 1));
+            : ChildPlaces::fixed(self::integer($read, 'children', 1), $live);
     }
 
     /** @param array<mixed> $read */
