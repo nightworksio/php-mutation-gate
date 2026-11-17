@@ -97,7 +97,9 @@ final readonly class Handoff
      * one, each shard's map and the history of its files' functions, in the
      * directory `run` reads them from; the verdict's map; and the map every
      * shard opens on, where the runner readied one, none of an earlier plan's
-     * left behind otherwise; nothing where the runner could not ready it.
+     * left behind otherwise; nothing where the runner could not ready it. The
+     * whole map is the one a child began writing beside the readying, where
+     * one did (ADR-0169).
      */
     public function write(
         Plan $plan,
@@ -107,10 +109,13 @@ final readonly class Handoff
         EntryKeys|NotGiven $keys = new NotGiven(),
         Subsumption|NotGiven $held = new NotGiven(),
         CoverageMap|NotGiven|CannotJudge $opened = new NotGiven(),
+        HandedWhole|NotGiven $whole = new NotGiven(),
     ): Written|CannotJudge {
+        $writing = HandedWhole::of($whole, $this->project, $map, $at, $keys, $this->level);
+
         return $opened instanceof CannotJudge
-            ? $opened
-            : $this->writing($plan, $map, $history, $at, $keys, $held, $opened);
+            ? $writing->abandonedFor($opened)
+            : $this->writing($plan, $map, $history, $held, $opened, $writing);
     }
 
     /** The map the verdict was handed: the lines of every unit the plan considered. */
@@ -181,21 +186,17 @@ final readonly class Handoff
         Plan $plan,
         CoverageMap $map,
         KillHistory $history,
-        MeasuredAt|Unplaced $at,
-        EntryKeys|NotGiven $keys,
         Subsumption|NotGiven $held,
         CoverageMap|NotGiven $opened,
+        HandedWhole $whole,
     ): Written|CannotJudge {
         $written = Written::to(Workspace::coverage()->value());
         $considered = Units::none();
         $text = MapText::of($map);
-        $whole = $this->project->write(
-            CoverageMapFile::in(Workspace::coverage()),
-            Contents::of(CoverageMapFile::encode($text, $at, $keys, $this->level)),
-        );
+        $wrote = $whole->left();
 
-        if ($whole instanceof CannotJudge) {
-            return $whole;
+        if ($wrote instanceof CannotJudge) {
+            return $wrote;
         }
 
         $slices = MapSlices::of();

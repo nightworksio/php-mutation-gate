@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\HandedWhole;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
@@ -28,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\KillHistoryFile;
 use NightWorksIO\MutationGate\Core\Proof\SubsumptionFile;
+use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -184,6 +187,40 @@ it('cannot hand the shards a whole map it cannot write', function () use ($makeP
         ))
         ->and(file_exists(sprintf('%s/.mutation-gate/coverage/shard-1/map.json.gz', $project)))->toBeFalse();
 });
+
+it('hands the whole map a child wrote beside the readying, byte for byte as the plan writes it itself', function () use ($makePlan, $makeMap): void {
+    $forked = Scratch::directory();
+    $itself = Scratch::directory();
+    $whole = HandedWhole::begun(Directory::at($forked), $makeMap(), Unplaced::map(), NotGiven::value(), Gzip::LEVEL);
+
+    $handed = new Handoff(Directory::at($forked), HandedMaps::limits())->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map(), whole: $whole);
+    new Handoff(Directory::at($itself), HandedMaps::limits())->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map());
+
+    expect($handed)->toBeInstanceOf(Written::class)
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $forked)))
+        ->toBe(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $itself)));
+})->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
+
+it('removes the whole map a child wrote where the runner could not ready the map every shard opens on', function () use ($makePlan, $makeMap): void {
+    $project = Scratch::directory();
+    $unready = CannotJudge::because('The runner could not ready it.');
+    $whole = HandedWhole::begun(Directory::at($project), $makeMap(), Unplaced::map(), NotGiven::value(), Gzip::LEVEL);
+
+    expect(new Handoff(Directory::at($project), HandedMaps::limits())->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map(), opened: $unready, whole: $whole))
+        ->toBe($unready)
+        ->and(file_exists(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))->toBeFalse();
+})->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
+
+it('writes the whole map itself where its child wrote none, and says why it cannot either', function () use ($makePlan, $makeMap): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/coverage/map.json.gz/blocked', '');
+    $whole = HandedWhole::begun(Directory::at($project), $makeMap(), Unplaced::map(), NotGiven::value(), Gzip::LEVEL);
+
+    expect(new Handoff(Directory::at($project), HandedMaps::limits())->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map(), whole: $whole))
+        ->toEqual(CannotJudge::because(
+            sprintf('%s/.mutation-gate/coverage/map.json.gz could not be written.', $project),
+        ));
+})->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
 
 it('says a shard was handed no map where there is none', function (): void {
     expect(new Handoff(Directory::at(Scratch::directory()), HandedMaps::limits())->read(ShardId::of(4)))->toEqual(CannotJudge::because(
