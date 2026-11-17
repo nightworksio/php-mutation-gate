@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
+use function range;
 use function sort;
 use function sprintf;
 
@@ -195,11 +196,16 @@ final readonly class LineTests
     /** Every test that ran any line of a file from the first to the last, each once, in the order lines name them. */
     public function running(Path $file, Line $first, Line $last): TestIds
     {
-        $spanned = array_filter(
-            $this->linesOf($file),
-            static fn(int $number): bool => $number >= $first->number() && $number <= $last->number(),
-            ARRAY_FILTER_USE_KEY,
-        );
+        $lines = $this->linesOf($file);
+        $from = $first->number();
+        $to = $last->number();
+        $spanned = $to - $from < count($lines)
+            ? array_intersect_key($lines, array_flip(range($from, $to)))
+            : array_filter(
+                $lines,
+                static fn(int $number): bool => $number >= $from && $number <= $to,
+                ARRAY_FILTER_USE_KEY,
+            );
         ksort($spanned);
 
         return $this->testsOf(...$spanned);
