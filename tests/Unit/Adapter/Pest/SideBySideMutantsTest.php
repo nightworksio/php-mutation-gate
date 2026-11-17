@@ -91,7 +91,7 @@ it('makes every file\'s mutants in children side by side where the gate asks, an
     expect(array_map(static fn(SplFileInfo $file): array => madeFields($made->of($file, [7])), $files))
         ->toBe(array_map(static fn(SplFileInfo $file): array => madeFields($expected($file, [7])), $files))
         ->and($makers->getArrayCopy())->toBe([]);
-})->skip(! function_exists('pcntl_fork'), 'The process cannot fork.');
+})->skip(fn(): bool => ! function_exists('pcntl_fork'), 'The process cannot fork.');
 
 it('hands on a mutant whose diff or copy holds bytes that are not UTF-8 as the child made it', function (): void {
     putenv(sprintf('%s=1', GateVariable::MakingSideBySide->value));
@@ -104,7 +104,7 @@ it('hands on a mutant whose diff or copy holds bytes that are not UTF-8 as the c
     $mutant = $made->of($files[0], [])[0];
 
     expect([$mutant->diff, $mutant->modifiedSourcePath])->toBe(["- '\xE9t\xE9'", "/copies/\xE9"]);
-})->skip(! function_exists('pcntl_fork'), 'The process cannot fork.');
+})->skip(fn(): bool => ! function_exists('pcntl_fork'), 'The process cannot fork.');
 
 it('makes each file\'s mutants as it is taken where the gate does not ask, and those of a file it mutates no line of', function (): void {
     $files = madeFiles();
@@ -134,7 +134,7 @@ it('makes here the mutants of the files a child failed to make', function (): vo
 
     expect($taken)->toBe(madeFields(countedMaking(new ArrayObject())($files[1], [])))
         ->and($makers->getArrayCopy())->toBe([$parent]);
-})->skip(! function_exists('pcntl_fork'), 'The process cannot fork.');
+})->skip(fn(): bool => ! function_exists('pcntl_fork'), 'The process cannot fork.');
 
 it('hands on the schemata a child wrote, so the run tells each mutant its schema, though its id is all digits', function (): void {
     putenv(sprintf('%s=1', GateVariable::MakingSideBySide->value));
@@ -161,4 +161,4 @@ it('hands on the schemata a child wrote, so the run tells each mutant its schema
         ->and(array_keys($told))->toBe([GateVariable::Schema->value, GateVariable::SchemaOn->value])
         ->and($told[GateVariable::SchemaOn->value])->toBe('1')
         ->and(file_get_contents($told[GateVariable::Schema->value]))->toContain('? (1 - 2) : (1 + 2)');
-})->skip(! function_exists('pcntl_fork'), 'The process cannot fork.');
+})->skip(fn(): bool => ! function_exists('pcntl_fork'), 'The process cannot fork.');

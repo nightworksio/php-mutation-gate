@@ -106,7 +106,7 @@ it('warms the analyser up in a child begun beside the plan\'s work, which leaves
     expect($checker->warmUps())->toEqual([])
         ->and($left)->toBeInstanceOf(Written::class)
         ->and(PlannedWarmUp::secondsFor(Directory::at($project), warmedIdentity()))->toEqual(Seconds::of(3.0));
-})->skip(! Forking::isAvailable(), 'The process cannot fork.');
+})->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
 
 it('leaves nothing from a child that warms nothing up', function (): void {
     $project = Flows::project();
@@ -118,7 +118,7 @@ it('leaves nothing from a child that warms nothing up', function (): void {
 
     expect($left)->toBeInstanceOf(Missing::class)
         ->and(PlannedWarmUp::secondsFor(Directory::at($project), warmedIdentity()))->toEqual(NotGiven::value());
-})->skip(! Forking::isAvailable(), 'The process cannot fork.');
+})->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
 
 it('reads no time from a file that is not one it left', function (): void {
     $project = Flows::project();

@@ -100,9 +100,11 @@
     </groups>
 
     <!-- Under scripts/coverage.sh, each test is named to the processes it
-         starts, which record their lines as its own. -->
+         starts, which record their lines as its own; and each test's scratch
+         directories are swept once it finishes. -->
     <extensions>
         <bootstrap class="NightWorksIO\MutationGate\Tests\Support\ProcessCoverage\TestNaming"/>
+        <bootstrap class="NightWorksIO\MutationGate\Tests\Support\ScratchSweeping"/>
     </extensions>
 
     <source
