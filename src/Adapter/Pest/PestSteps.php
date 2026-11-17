@@ -36,7 +36,7 @@ final readonly class PestSteps
 
     public static function standard(): self
     {
-        return new self(Toggles::none(), NarrowedKillTrust::Vouch, LongFilter::Files, Duplicates::JudgeOnce);
+        return new self(Toggles::none(), NarrowedKillTrust::Vouch, LongFilter::DEFAULT, Duplicates::JudgeOnce);
     }
 
     public static function of(

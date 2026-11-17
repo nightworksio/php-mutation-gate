@@ -59,7 +59,7 @@ use function sprintf;
  * default; `trials`,
  * `valueReaders` and `narrow`, which steps of a run are on (ADR-0142), all
  * of them by default; `narrowedKills`, `vouch` by default, `longFilter`,
- * `files` by default (ADR-0138, ADR-0142), `preloaded`, `fresh` by
+ * `set` by default (ADR-0138, ADR-0142, ADR-0168), `preloaded`, `fresh` by
  * default (ADR-0148), and `childProcesses`, `serve` by default (ADR-0150);
  * `splitStream`,
  * whether and how a patched run judges its mutants in split streams
@@ -116,7 +116,7 @@ final readonly class PestOptions
             NarrowedKillTrust::Vouch,
             NarrowedKillTrust::tryFrom(...),
         );
-        $selecting = self::chosen($options, ConfigPest::LONG_FILTER, LongFilter::Files, LongFilter::tryFrom(...));
+        $selecting = self::chosen($options, ConfigPest::LONG_FILTER, LongFilter::DEFAULT, LongFilter::tryFrom(...));
         $judging = self::chosen($options, Mutants::DUPLICATES, Duplicates::JudgeOnce, Duplicates::tryFrom(...));
         $rejudging = self::chosen($options, ConfigPest::PRELOADED, Preloaded::Fresh, Preloaded::tryFrom(...));
         $serving = self::chosen(

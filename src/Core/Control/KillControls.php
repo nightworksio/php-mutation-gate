@@ -88,7 +88,7 @@ final readonly class KillControls implements ControlJudge
         RunSelection $run,
         LimitBounds $bounds,
         KillControl $control = KillControl::Order,
-        LongFilter $long = LongFilter::Files,
+        LongFilter $long = LongFilter::DEFAULT,
     ): self {
         if ($control === KillControl::Alone || $run->replaysKills()) {
             $replayed = $run->replaysKills() && $long === LongFilter::UntilKiller;

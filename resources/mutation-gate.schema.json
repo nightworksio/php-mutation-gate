@@ -4023,7 +4023,7 @@
                         "set",
                         "until-killer"
                     ],
-                    "default": "files"
+                    "default": "set"
                 },
                 "preloaded": {
                     "enum": [

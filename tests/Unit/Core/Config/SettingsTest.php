@@ -263,7 +263,7 @@ describe('Settings', function (): void {
             . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
             . '"controls":{"kills":true,"memory":true},'
             . '"extensions":[],"flaky":{"confirmSurvivors":true,"killControls":"order"},"holds":{"coverage":"measure"},"mutants":{"duplicates":"judge-once"},"mutators":{"except":[],"sets":[]},"packages":[],'
-            . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","childProcesses":"serve","longFilter":"files","narrow":true,"narrowedKills":"vouch","patch":false,"preloaded":"fresh","schemata":true,"trials":true,"valueReaders":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
+            . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","childProcesses":"serve","longFilter":"set","narrow":true,"narrowedKills":"vouch","patch":false,"preloaded":"fresh","schemata":true,"trials":true,"valueReaders":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
             . '"runner":{"memory":"1G","pathRules":"partitioned","use":"pest","withhold":[],"workers":"fork"},"splitStream":{"bootOnce":false,"changeCheck":true,"children":1,"enabled":false,"killerStreams":false,"killersFirst":true,"reconnect":true,"sharding":"tests"},"staticCheck":{"after":true,"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
             . '"timeouts":{"learned":{"least":2.0,"most":10.0,"percentile":0.99},"most":300,"multiple":3,"parts":true,"perTest":3,"seconds":10,"startUp":"5s","startUpMultiple":3,"testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
         )->and(Configs::settings(SettingsCases::EVERYTHING)->canonical())->toBe(
@@ -274,7 +274,7 @@ describe('Settings', function (): void {
             . '"extensions":["Acme\\\\GateSlack\\\\SlackExtension"],"flaky":{"confirmSurvivors":false,"killControls":"order"},'
             . '"holds":{"coverage":"measure"},"mutants":{"duplicates":"judge-once"},'
             . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
-            . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","childProcesses":"serve","longFilter":"files","narrow":true,"narrowedKills":"vouch","patch":true,"preloaded":"fresh","schemata":false,"trials":true,"valueReaders":true,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
+            . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","childProcesses":"serve","longFilter":"set","narrow":true,"narrowedKills":"vouch","patch":true,"preloaded":"fresh","schemata":false,"trials":true,"valueReaders":true,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
             . '"runner":{"memory":"512M","pathRules":"partitioned","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
             . '"splitStream":{"bootOnce":false,"changeCheck":false,"children":2,"enabled":true,"killerStreams":false,"killersFirst":false,"reconnect":true,"sharding":"source"},'
             . '"staticCheck":{"after":true,"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'

@@ -65,7 +65,7 @@ it('is held by the Pest part, laid beneath the Pest runner\'s options and writte
 
     expect($pest->splitStream()->enabled())->toBeTrue()
         ->and($pest->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": true, "children": 2, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": true}, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "files", "preloaded": "fresh", "childProcesses": "serve"}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": true, "children": 2, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": true}, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "set", "preloaded": "fresh", "childProcesses": "serve"}')))
         ->and($pest->written(ProjectRoot::origin())->line())
         ->toBe('{"pest":{"patch":true},"splitStream":{"enabled":true,"children":2}}')
         ->and($pest->php(ProjectRoot::origin()))

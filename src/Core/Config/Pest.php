@@ -126,13 +126,10 @@ final readonly class Pest implements Part
         return $this->narrowedKills instanceof NarrowedKillTrust ? $this->narrowedKills : NarrowedKillTrust::Vouch;
     }
 
-    /**
-     * `pest.longFilter`: what a run selects where its filter cannot be passed; `files` unless a layer says, until
-     * ADR-0138's proof moves the default to `set`.
-     */
+    /** `pest.longFilter`: what a run selects where its filter cannot be passed; `set` unless a layer says. */
     public function longFilter(): LongFilter
     {
-        return $this->longFilter instanceof LongFilter ? $this->longFilter : LongFilter::Files;
+        return $this->longFilter instanceof LongFilter ? $this->longFilter : LongFilter::DEFAULT;
     }
 
     /**

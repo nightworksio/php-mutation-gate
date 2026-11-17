@@ -18,6 +18,8 @@ enum LongFilter: string
 
     /** As `files`, its control running the loaded tests in the run's recorded order up to its last killer. */
     case UntilKiller = 'until-killer';
+    /** What a run selects where no layer says: exactly its covering tests (ADR-0168). */
+    public const LongFilter DEFAULT = self::Set;
 
     /** The builder's call that sets it. */
     public function php(): string
