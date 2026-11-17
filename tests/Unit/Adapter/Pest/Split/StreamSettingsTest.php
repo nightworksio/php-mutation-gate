@@ -49,6 +49,11 @@ it('reads back what it told a run', function (): void {
         ->toBe([true, 4, false, false]);
 });
 
+it('splits nothing where it is not enabled, whatever else it is given', function (): void {
+    expect(StreamSettings::of(enabled: false, children: StreamChildren::Cores, changeCheck: false, killersFirst: false))
+        ->toEqual(StreamSettings::off());
+});
+
 it('tells a run to share the cores among its streams, and reads it back', function (): void {
     $told = StreamSettings::of(enabled: true, children: StreamChildren::Cores, changeCheck: true, killersFirst: true)->variables();
 

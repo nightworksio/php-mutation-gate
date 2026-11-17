@@ -53,8 +53,13 @@ final readonly class StreamSettings
         return new self(enabled: false, children: 1, changeCheck: true, killersFirst: true, part: TestPart::whole());
     }
 
+    /** Splitting so where enabled; otherwise splitting nothing, as {@see off()} does, whatever the rest says. */
     public static function of(bool $enabled, int|StreamChildren $children, bool $changeCheck, bool $killersFirst): self
     {
+        if (! $enabled) {
+            return self::off();
+        }
+
         return new self(
             $enabled,
             is_int($children) ? max(1, $children) : $children,
