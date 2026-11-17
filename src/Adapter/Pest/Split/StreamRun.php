@@ -67,8 +67,7 @@ final class StreamRun
     /** The mutant this process runs, in a child; none in the parent. */
     private string $mutant = '';
 
-    /** @var array<string, true> the tests the stream fell back on so far, by their ids */
-    private array $fellBack = [];
+    private readonly PastKillers $past;
 
     private readonly ForkStates $states;
 
@@ -89,6 +88,7 @@ final class StreamRun
         $this->lines = new ParentLines($plan, Recorded::inProcess());
         $this->boot = new BootedSites($plan);
         $this->processes = StartedProcesses::beside($plan->results);
+        $this->past = new PastKillers();
     }
 
     /**
@@ -169,7 +169,7 @@ final class StreamRun
         $this->processes->watched();
 
         if (! $this->test->isForkable()) {
-            $this->fellBack[$test] = true;
+            $this->past->fellBackOn($test);
             $this->write(StreamLine::fallback($test));
         }
     }
@@ -180,7 +180,7 @@ final class StreamRun
         $this->lines->isolated($this->test->id);
 
         if ($this->test->isForkable() && $this->mutant === '') {
-            $this->fellBack[$this->test->id] = true;
+            $this->past->fellBackOn($this->test->id);
             $this->write(StreamLine::fallback($this->test->id));
         }
 
@@ -282,8 +282,9 @@ final class StreamRun
 
     /**
      * Whether the stream forks a site's mutant at this execution: at any
-     * test where it names no likely killer, or its killer is a test the
-     * stream fell back on, which forks nothing; otherwise at that killer.
+     * test where it names no likely killer, its killer is a test the stream
+     * fell back on, or a test held a descriptor at its site; otherwise at
+     * that killer.
      */
     private function forks(string $file, int $id): bool
     {
@@ -296,7 +297,7 @@ final class StreamRun
         return $site !== false
             && ! $this->kills->has($site[0])
             && ! $this->boot->holds($site[0])
-            && ($site[1] === '' || $site[1] === $this->test->id || array_key_exists($site[1], $this->fellBack));
+            && $this->past->forks($site[0], $site[1], $this->test->id);
     }
 
     /** Whether the stream may fork at a site of the plan this execution reaches, not yet forked in this test. */
@@ -311,10 +312,12 @@ final class StreamRun
 
     /**
      * Forks a site's mutant: true in the child, which runs it, false in the
-     * parent, and false where the test holds a descriptor a child would
-     * share (see Descriptors) and no copies stand in for it, or started a
-     * PHP process that ran without the child's mutant (see
-     * StartedProcesses), which then forks nothing more.
+     * parent; false where the test started a PHP process that ran without
+     * the child's mutant (see StartedProcesses), which then forks nothing
+     * more; and false where the test holds a descriptor a child would share
+     * (see Descriptors) and no copies stand in for it, which leaves this
+     * site's mutant to its own run of the test and forks it at no later
+     * reach of the site in it.
      */
     private function fork(string $file, int $id): bool
     {
@@ -325,7 +328,7 @@ final class StreamRun
 
         if (! $copies instanceof Copies) {
             $this->deciding = false;
-            $this->isolated();
+            $this->processes->ran() ? $this->isolated() : $this->held($file, $id);
 
             return false;
         }
@@ -356,6 +359,21 @@ final class StreamRun
         ServedChildren::tellOf($variables);
 
         return true;
+    }
+
+    /**
+     * The test holds a descriptor a child would share as it reaches this
+     * site: the stream forks its mutant nowhere else in the test, which
+     * reached the site unmutated, leaves it to its own run of the test,
+     * and forks it at later tests, as past a killer it fell back on.
+     */
+    private function held(string $file, int $id): void
+    {
+        [$mutant] = $this->plan->sites[$file][$id];
+        $this->test->forkAt($file, $id);
+        $this->past->heldAt($mutant);
+        $this->lines->held($this->test->id);
+        $this->write(StreamLine::fallback($this->test->id, $mutant));
     }
 
     private function write(string $line): void

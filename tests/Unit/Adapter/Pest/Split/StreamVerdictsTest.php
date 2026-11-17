@@ -124,6 +124,19 @@ it('leaves a mutant for its own run where a covering test forked nothing, or nev
     'a test no stream ran' => ['T::three'],
 ]);
 
+it('leaves for its own run only the mutant a covering test forked nowhere, and lets another survive that test', function (string $unforked, MutationTestResult $given): void {
+    $verdicts = streamResults(
+        StreamLine::parent('T::one', passed: true, seconds: 0.1),
+        StreamLine::parent('T::two', passed: true, seconds: 0.1),
+        StreamLine::fallback('T::two', $unforked),
+    );
+
+    expect(streamGiven($verdicts, ['T::one', 'T::two'])[0])->toBe($given);
+})->with([
+    'the mutant' => ['m', MutationTestResult::None],
+    'another mutant' => ['n', MutationTestResult::Untested],
+]);
+
 it('reads no results where a stream wrote none, and skips what is no line of its own', function (): void {
     $verdicts = StreamVerdicts::none()->reading(sprintf('%s/missing.jsonl', Scratch::directory()));
     $garbled = streamResults("not json\n", "{\"k\":\"other\",\"t\":\"T::one\"}\n", "[1]\n");

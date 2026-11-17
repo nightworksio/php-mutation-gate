@@ -703,3 +703,68 @@ it('forks a mutant at a later test that reaches it once the stream fell back on 
     'holding a socket as it begins' => ['true'],
     'running in a process of its own' => ['false'],
 ])->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');
+
+it('forks no mutant at a site its likely killer reaches holding a writable file, there or later in that test, and forks the next site, and that mutant at later tests', function (): void {
+    $root = Scratch::directory();
+    [, $results] = streamedApart(['sites' => ['f1' => [1 => ['m1', 'T::holds', []], 2 => ['m2', '', []]]], 'floor' => 10, 'longest' => 10], sprintf(<<<'PHP'
+        Stream::began('T::holds');
+        $file = fopen(%s, 'w');
+
+        if (SchemaSwitch::is('f1', 1)) {
+            Stream::ended();
+        }
+
+        fclose($file);
+
+        foreach ([1, 2] as $site) {
+            if (SchemaSwitch::is('f1', $site)) {
+                Stream::ended();
+            }
+        }
+
+        Stream::ended();
+        Stream::began('T::later');
+
+        if (SchemaSwitch::is('f1', 1)) {
+            Stream::ended();
+        }
+
+        Stream::ended();
+        Stream::finished();
+        PHP, var_export(sprintf('%s/written', $root), return: true)));
+
+    expect(streamFields($results, 'k', 'm', 't'))->toEqualCanonicalizing([
+        ['fallback', 'm1', 'T::holds'],
+        ['child', 'm2', 'T::holds'],
+        ['parent', null, 'T::holds'],
+        ['child', 'm1', 'T::later'],
+        ['parent', null, 'T::later'],
+    ]);
+})->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');
+
+it('records a test that held a writable file at sites once as run in a process of its own', function (): void {
+    $root = Scratch::directory();
+    [, , $recorded] = streamedApart(['sites' => ['f1' => [1 => ['m1', '', []], 2 => ['m2', '', []]]], 'floor' => 10, 'longest' => 10], sprintf(<<<'PHP'
+        Stream::began('T::holds');
+        $file = fopen(%s, 'w');
+
+        foreach ([1, 2] as $site) {
+            if (SchemaSwitch::is('f1', $site)) {
+                Stream::ended();
+            }
+        }
+
+        fclose($file);
+        Stream::ended();
+        Stream::finished();
+        PHP, var_export(sprintf('%s/written', $root), return: true)), <<<'PHP'
+        function outbreak_lines_start(): bool { return true; }
+        function outbreak_lines_stop(): array { return []; }
+        PHP, recording: true);
+
+    expect(streamFields($recorded, 'k', 't', 'p', 'o'))->toBe([
+        ['covered', 'T::holds', false, true],
+        ['covered', 'T::holds', true, true],
+        ['finished', null, null, null],
+    ]);
+})->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');

@@ -34,9 +34,9 @@ use function sprintf;
  * kills its mutant; a child its limit stopped in a test the parent passed
  * times it out; a mutant every child of passed every covering test the
  * stream reached it in, and whose covering tests the parent all passed,
- * survives. A mutant a covering test of did not run, failed in the parent or
- * forked nothing in, or whose file a stream loaded before serving its schema,
- * is left for its own run.
+ * survives. A mutant a covering test of did not run, failed in the parent,
+ * forked nothing in or forked it nowhere in, or whose file a stream loaded
+ * before serving its schema, is left for its own run.
  *
  * @internal
  */
@@ -45,8 +45,7 @@ final class StreamVerdicts
     /** @var array<string, bool> whether the parent passed each test, by its id */
     private array $passed = [];
 
-    /** @var array<string, true> the tests a stream forked nothing in */
-    private array $fallback = [];
+    private readonly StreamFallbacks $fallbacks;
 
     /** @var array<string, true> the mutants a stream loaded the file of before serving its schema */
     private array $unserved = [];
@@ -65,6 +64,11 @@ final class StreamVerdicts
      *                                                   parent then the child, by mutant and test (H5)
      */
     private array $states = [];
+
+    private function __construct()
+    {
+        $this->fallbacks = new StreamFallbacks();
+    }
 
     public static function none(): self
     {
@@ -204,7 +208,7 @@ final class StreamVerdicts
 
         return array_any(
             $covering,
-            fn(string $covered): bool => ! $this->passes($covered) || array_key_exists($covered, $this->fallback),
+            fn(string $covered): bool => ! $this->passes($covered) || $this->fallbacks->leaves($mutant, $covered),
         );
     }
 
@@ -222,6 +226,7 @@ final class StreamVerdicts
 
     private function take(StreamRead $read): void
     {
+        $this->fallbacks->take($read);
         $this->takeWhole($read);
         $this->takeFork($read);
     }
@@ -232,10 +237,6 @@ final class StreamVerdicts
         if ($read->kind === StreamLine::PARENT) {
             $earlier = ! array_key_exists($read->test, $this->passed) || $this->passed[$read->test];
             $this->passed[$read->test] = $read->passed && $earlier;
-        }
-
-        if ($read->kind === StreamLine::FALLBACK) {
-            $this->fallback[$read->test] = true;
         }
 
         if ($read->kind === StreamLine::UNSERVED) {

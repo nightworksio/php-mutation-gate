@@ -17,9 +17,10 @@ use function sprintf;
 /**
  * One line a split stream writes to its results (ADR-0117): how the parent
  * ended a test, how a child ended its mutant's test, a child it stopped at
- * its limit, or a test it forks nothing in; and in a run planned without a
- * fresh map, a test's lines and the end of the stream. Each is a JSON object
- * on a line of its own, appended under a lock.
+ * its limit, a test it forks nothing in, or a mutant it forks nowhere in a
+ * test; and in a run planned without a fresh map, a test's lines and the end
+ * of the stream. Each is a JSON object on a line of its own, appended under
+ * a lock.
  *
  * @internal
  */
@@ -100,10 +101,10 @@ final readonly class StreamLine
         return self::line([self::KIND => self::STATE, 'm' => $mutant, 't' => $test, 'c' => $child, 'd' => $digest]);
     }
 
-    /** The stream forks nothing in this test. */
-    public static function fallback(string $test): string
+    /** The stream forks nothing in this test; or, where it names one, this mutant alone. */
+    public static function fallback(string $test, string $mutant = ''): string
     {
-        return self::line([self::KIND => self::FALLBACK, 't' => $test]);
+        return self::line([self::KIND => self::FALLBACK, 't' => $test, ...$mutant === '' ? [] : ['m' => $mutant]]);
     }
 
     /** The mutant's site ran while the stream booted its application once, so no test forked from it reaches it. */
