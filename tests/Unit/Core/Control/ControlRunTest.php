@@ -144,3 +144,15 @@ it('names the test it was stopped in where it ran out, and none where it did not
         ->and(ControlRun::passed(Seconds::of(1.0))->stoppedWhile($test)->stoppedIn())->toEqual(NotGiven::value())
         ->and(ControlRun::failed(TestIds::none())->stoppedWhile($test))->toEqual(ControlRun::failed(TestIds::none()));
 });
+
+it('carries how long its process lasted whatever its end, and how many cases its log names, where it ran as a process', function (): void {
+    $passed = ControlRun::ofProcess(Ran::finished(succeeded: true, output: '')->took(Seconds::of(2.5)), TestIds::none(), 7);
+    $stopped = ControlRun::ofProcess(Ran::stopped('')->took(Seconds::of(9.0)), TestIds::none())
+        ->withPeak(MemoryCap::of(20, MemoryUnit::Megabytes))
+        ->stoppedWhile(TestId::of('MoneyTest::a'));
+
+    expect([$passed->wall(), $passed->cases()])->toEqual([Seconds::of(2.5), 7])
+        ->and([$stopped->wall(), $stopped->cases(), $stopped->took()])->toEqual([Seconds::of(9.0), NotGiven::value(), Unmeasured::duration()])
+        ->and([ControlRun::passed(Seconds::of(1.0))->wall(), ControlRun::passed(Seconds::of(1.0))->cases()])
+        ->toEqual([Unmeasured::duration(), NotGiven::value()]);
+});

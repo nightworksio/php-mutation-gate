@@ -157,7 +157,7 @@ it('runs each control with its file served unmutated through Pest\'s override', 
     $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
     $runs = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->controls(PestCases::money(), UnmutatedControls::of($control));
 
-    expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::passed(Seconds::of(0.4)));
+    expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::ofProcess(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)), TestIds::none()));
 });
 
 it('runs each control through the client of a warm worker where runner.workers forks the tail under pest.patch', function (Workers $workers, bool $forked): void {
@@ -180,6 +180,6 @@ it('starts the unmutated controls of a run beside its survivors\' runs again, an
 
     $runs = $pest->controlsStarted(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), UnmutatedControls::of($control))->taken();
 
-    expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::passed(Seconds::of(1.5)))
+    expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::ofProcess(Ran::finished(succeeded: true, output: '')->took(Seconds::of(1.5)), TestIds::none()))
         ->and($shell->handled())->toBe([[true, false]]);
 });

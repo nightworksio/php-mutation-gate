@@ -97,6 +97,12 @@ function unmutatedRequest(): MutationRequest
     return MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
 }
 
+/** What a control found that passed in this many seconds, as a process of its own that kept no log. */
+function pestControlPassed(float $seconds): ControlRun
+{
+    return ControlRun::ofProcess(Ran::finished(succeeded: true, output: '')->took(Seconds::of($seconds)), TestIds::none());
+}
+
 /** What the controls found, failing where the runs cannot be readied. */
 function unmutatedRuns(Project $at, ShellFake $shell, Controls $controls, MutationRequest $request): ControlRuns
 {
@@ -114,7 +120,7 @@ it('runs each control with its file served unmutated through Pest\'s override, b
     $environment = $command->environment();
     $copy = $environment[Recorder::MUTATED];
 
-    expect($runs->of(pestControl('src/Money.php', 7.0)))->toEqual(ControlRun::passed(Seconds::of(1.5)))
+    expect($runs->of(pestControl('src/Money.php', 7.0)))->toEqual(pestControlPassed(1.5))
         ->and($environment[Recorder::MUTANT])->toBe(sprintf('%s/src/Money.php', $at->root()))
         ->and(is_string($copy) ? file_get_contents($copy) : $copy)->toBe("<?php\n\nfinal class Money\n{\n}")
         ->and(implode(' ', $command->arguments()))->toContain('MoneySpec::(.*)it.adds')
@@ -122,7 +128,7 @@ it('runs each control with its file served unmutated through Pest\'s override, b
         ->and($command->deadline())->toEqual(Seconds::of(7.0));
 });
 
-it('names the tests a failed control\'s JUnit log records failing', function (): void {
+it('names the tests a failed control\'s JUnit log records failing, and how many cases it names', function (): void {
     $shell = new ShellFake(static function (Command $command): Ran {
         JUnitLogs::failing($command->arguments(), 'it adds', 'tests/WalletSpec.php::it adds');
 
@@ -131,8 +137,9 @@ it('names the tests a failed control\'s JUnit log records failing', function ():
 
     $runs = unmutatedRuns(unmutatedProject(), $shell, Controls::of(pestControl('src/Money.php')), unmutatedRequest());
 
-    expect($runs->of(pestControl('src/Money.php')))
-        ->toEqual(ControlRun::failed(TestIds::of(TestId::of('P\Tests\WalletSpec::__pest_evaluable_it_adds'))));
+    expect($runs->of(pestControl('src/Money.php'))->failing())
+        ->toEqual(TestIds::of(TestId::of('P\Tests\WalletSpec::__pest_evaluable_it_adds')))
+        ->and($runs->of(pestControl('src/Money.php'))->cases())->toBe(1);
 });
 
 /** The `--filter` pattern a control's command passes. */
@@ -192,11 +199,14 @@ it('runs a timeout\'s control of a data set\'s rows as its mutant\'s own run ran
 it('reads how each control ended: passed in the time it took, failed, or ran out of its limit', function (Ran $ran, ControlRun $found): void {
     $runs = unmutatedRuns(unmutatedProject(), ShellFake::answering($ran), Controls::of(pestControl('src/Money.php')), unmutatedRequest());
 
-    expect($runs->of(pestControl('src/Money.php')))->toEqual($found);
+    $run = $runs->of(pestControl('src/Money.php'));
+
+    expect([$run->end(), $run->took(), $run->failing(), $run->wall(), $run->cases()])
+        ->toEqual([$found->end(), $found->took(), $found->failing(), $ran->duration(), NotGiven::value()]);
 })->with([
     'passed' => [fn(): Ran => Ran::finished(succeeded: true, output: '')->took(Seconds::of(2.0)), fn(): ControlRun => ControlRun::passed(Seconds::of(2.0))],
-    'failed' => [fn(): Ran => Ran::finished(succeeded: false, output: 'FAILED'), fn(): ControlRun => ControlRun::failed(TestIds::none())],
-    'stopped at its limit' => [fn(): Ran => Ran::stopped(''), fn(): ControlRun => ControlRun::ranOut()],
+    'failed' => [fn(): Ran => Ran::finished(succeeded: false, output: 'FAILED')->took(Seconds::of(3.0)), fn(): ControlRun => ControlRun::failed(TestIds::none())],
+    'stopped at its limit' => [fn(): Ran => Ran::stopped('')->took(Seconds::of(7.0)), fn(): ControlRun => ControlRun::ranOut()],
 ]);
 
 it('names the test a control that ran out was stopped in, as the events it wrote leave it running', function (): void {
@@ -450,7 +460,7 @@ it('starts the controls where the shell starts commands, and reads what they fou
 
     $runs = $pending->taken();
 
-    expect($runs instanceof ControlRuns ? $runs->of(pestControl('src/Money.php')) : $runs)->toEqual(ControlRun::passed(Seconds::of(1.5)))
+    expect($runs instanceof ControlRuns ? $runs->of(pestControl('src/Money.php')) : $runs)->toEqual(pestControlPassed(1.5))
         ->and($shell->handled())->toBe([[true, false]]);
 });
 
@@ -471,7 +481,7 @@ it('runs the controls to their ends at once where the shell only runs commands s
     $none = new UnmutatedRuns(unmutatedProject(), $fake, new CapDirectory())->started(unmutatedRequest(), Controls::none())->taken();
     $noneRun = new UnmutatedRuns(unmutatedProject(), $fake, new CapDirectory())->of(unmutatedRequest(), Controls::none());
 
-    expect($ran instanceof ControlRuns ? $ran->of(pestControl('src/Money.php')) : $ran)->toEqual(ControlRun::passed(Seconds::of(1.5)))
+    expect($ran instanceof ControlRuns ? $ran->of(pestControl('src/Money.php')) : $ran)->toEqual(pestControlPassed(1.5))
         ->and($none)->toBeInstanceOf(ControlRuns::class)
         ->and($noneRun)->toBeInstanceOf(ControlRuns::class)
         ->and($fake->commands())->toHaveCount(1)

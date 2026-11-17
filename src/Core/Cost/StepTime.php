@@ -4,16 +4,26 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Cost;
 
+use function array_values;
+
+use NightWorksIO\MutationGate\Core\Control\ControlTime;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * One stretch of a shard's time: the step it went to, how long after the
- * shard began it started, how long it took, and how many it handled.
+ * shard began it started, how long it took, how many it handled, and where
+ * a step runs unmutated controls, where each one's time went (ADR-0167).
  */
 final readonly class StepTime
 {
-    private function __construct(private Step $step, private Seconds $since, private Seconds $took, private int $count)
-    {
+    /** @param list<ControlTime> $controls */
+    private function __construct(
+        private Step $step,
+        private Seconds $since,
+        private Seconds $took,
+        private int $count,
+        private array $controls = [],
+    ) {
     }
 
     /** A step that started this long after the shard began and took this long, handling this many. */
@@ -25,7 +35,23 @@ final readonly class StepTime
     /** A step as it was timed, having handled this many: a count known only once the step is over. */
     public static function counted(self $timed, int $count): self
     {
-        return new self($timed->step, $timed->since, $timed->took, $count);
+        return new self($timed->step, $timed->since, $timed->took, $count, $timed->controls);
+    }
+
+    /** The same step, having run these controls. */
+    public function controlling(ControlTime ...$controls): self
+    {
+        return new self($this->step, $this->since, $this->took, $this->count, array_values($controls));
+    }
+
+    /**
+     * The controls the step ran, each with where its time went; none where it ran none.
+     *
+     * @return list<ControlTime>
+     */
+    public function controls(): array
+    {
+        return $this->controls;
     }
 
     public function step(): Step
@@ -53,10 +79,15 @@ final readonly class StepTime
         return $this->count;
     }
 
-
     /** The same step, started this much later: timed from an earlier start than its own. */
     public function later(Seconds $by): self
     {
-        return new self($this->step, Seconds::of($this->since->seconds() + $by->seconds()), $this->took, $this->count);
+        return new self(
+            $this->step,
+            Seconds::of($this->since->seconds() + $by->seconds()),
+            $this->took,
+            $this->count,
+            $this->controls,
+        );
     }
 }

@@ -1483,6 +1483,59 @@
                                         "count": {
                                             "type": "integer",
                                             "minimum": 0
+                                        },
+                                        "controls": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "kinds": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "timeout",
+                                                                "kills",
+                                                                "kill",
+                                                                "unnamed kill",
+                                                                "memory",
+                                                                "heavy part"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "tests": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "cases": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "limit": {
+                                                        "type": "number",
+                                                        "minimum": 0
+                                                    },
+                                                    "seconds": {
+                                                        "type": "number",
+                                                        "minimum": 0
+                                                    },
+                                                    "end": {
+                                                        "enum": [
+                                                            "passed",
+                                                            "failed",
+                                                            "ran-out",
+                                                            "out-of-memory",
+                                                            "unrun"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "kinds",
+                                                    "tests",
+                                                    "limit",
+                                                    "end"
+                                                ],
+                                                "additionalProperties": false
+                                            }
                                         }
                                     },
                                     "required": [

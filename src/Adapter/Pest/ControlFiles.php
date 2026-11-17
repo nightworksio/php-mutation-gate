@@ -101,17 +101,18 @@ final readonly class ControlFiles
 
     /**
      * What the control found as its process ended: the tests its log names
-     * failing, at the larger of both peaks, and where it ran out, the test
-     * its events left running.
+     * failing and how many it names, at the larger of both peaks, and where
+     * it ran out, the test its events left running.
      */
     public function found(Ran $ran): ControlRun
     {
-        $failing = JUnitFailures::of(is_file($this->log) ? file_get_contents($this->log) : false);
+        $log = is_file($this->log) ? file_get_contents($this->log) : false;
+        $failing = JUnitFailures::of($log);
         $running = $ran->wasStopped() && is_file($this->events)
             ? TestLog::runningAtEnd(TestEvents::PhpUnitText, (string) file_get_contents($this->events))
             : NotGiven::value();
 
-        return ControlRun::ofProcess($ran, $failing)
+        return ControlRun::ofProcess($ran, $failing, $log === false ? NotGiven::value() : JUnitFailures::cases($log))
             ->peakingAtLeast($this->peakIn($this->peak))
             ->peakingAtLeast($this->peakIn($this->forked))
             ->stoppedWhile($running);

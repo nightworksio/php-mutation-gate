@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Control\ControlEnd;
+use NightWorksIO\MutationGate\Core\Control\ControlKind;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
@@ -393,6 +395,37 @@ it('leaves the steps its time went to in its result, the runner\'s own and those
         [Step::Controls, 2],
     ])
         ->and($since)->toBe($ordered);
+});
+
+it('leaves in its controls step what asked for each control, its tests and how it ended', function () use (
+    $makeTicking,
+    $makeResultIn,
+): void {
+    $ticking = $makeTicking();
+    $resultIn = $makeResultIn();
+
+    $project = Flows::project();
+
+    new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), $ticking())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $controls = [];
+
+    foreach ($result instanceof ShardResult ? $result->measured()->steps() : [] as $step) {
+        foreach ($step->controls() as $control) {
+            $controls[] = [
+                $step->step(),
+                array_map(static fn(ControlKind $kind): string => $kind->value, $control->kinds()),
+                $control->tests(),
+                $control->end(),
+            ];
+        }
+    }
+
+    expect($controls)->toBe([
+        [Step::Controls, ['timeout'], 1, ControlEnd::Passed],
+        [Step::Controls, ['kills'], 1, ControlEnd::Passed],
+    ]);
 });
 
 it('leaves the units no batch took unjudged, and each survivor it had no time to confirm', function () use (

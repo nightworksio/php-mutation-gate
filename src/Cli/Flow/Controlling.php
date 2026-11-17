@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Control\Control;
+use NightWorksIO\MutationGate\Core\Control\ControlKind;
+use NightWorksIO\MutationGate\Core\Control\ControlKinds;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\HeavyMutants;
@@ -81,7 +83,7 @@ final readonly class Controlling
         Evidences $evidence,
         StepsOverlap $overlap,
     ): Controlled|CannotJudge {
-        [$timeouts, $kills, $memory, $unnamed, $heavy, $asked] = $this->judges($mutants, $request, $evidence);
+        [$timeouts, $kills, $memory, $unnamed, $heavy, $asked, $kinds] = $this->judges($mutants, $request, $evidence);
 
         if ($asked === []) {
             $overlap->stop();
@@ -89,11 +91,11 @@ final readonly class Controlling
             return $this->partedIn(new Controlled($mutants, $evidence), $heavy, $request);
         }
 
-        [$runs, $left] = $this->ranWith($asked, $request, $overlap);
+        [$runs, $left] = $this->ranWith($asked, $request, $overlap, $kinds);
         $fallback = $runs instanceof CannotJudge ? [] : [...$kills->fallback($runs, $left)];
         [$again, $leftAgain] = $fallback === []
             ? [ControlRuns::none(), Controls::none()]
-            : $this->ranOf($fallback, $request);
+            : $this->ranOf($fallback, $request, ControlKinds::otherwise(ControlKind::Kill));
 
         if ($runs instanceof CannotJudge || $again instanceof CannotJudge) {
             return $runs instanceof CannotJudge ? $runs : $again;
@@ -154,7 +156,17 @@ final readonly class Controlling
      * timeout's, each named kill's, each mutant's out of memory and each
      * unnamed kill's, and the heavy timeouts judged by their parts instead.
      *
-     * @return array{TimeoutControls, KillControls, MemoryControls, UnnamedKillControls, HeavyMutants, list<Control>}
+     * With what asked for each control, by its key.
+     *
+     * @return array{
+     *     TimeoutControls,
+     *     KillControls,
+     *     MemoryControls,
+     *     UnnamedKillControls,
+     *     HeavyMutants,
+     *     list<Control>,
+     *     ControlKinds,
+     * }
      */
     private function judges(Mutants $mutants, MutationRequest $request, Evidences $evidence): array
     {
@@ -194,8 +206,13 @@ final readonly class Controlling
             ...$unnamed->asked(),
             ...$memory->asked(),
         ])];
+        $kinds = ControlKinds::otherwise(ControlKind::Kills)
+            ->asking(ControlKind::Timeout, $timeouts->asked())
+            ->asking(ControlKind::Kills, $kills->asked())
+            ->asking(ControlKind::UnnamedKill, $unnamed->asked())
+            ->asking(ControlKind::Memory, $memory->asked());
 
-        return [$timeouts, $kills, $memory, $unnamed, $heavy, $asked];
+        return [$timeouts, $kills, $memory, $unnamed, $heavy, $asked, $kinds];
     }
 
     /**
@@ -205,12 +222,18 @@ final readonly class Controlling
      * @param  non-empty-list<Control>                  $asked
      * @return array{ControlRuns|CannotJudge, Controls}
      */
-    private function ranWith(array $asked, MutationRequest $request, StepsOverlap $overlap): array
-    {
+    private function ranWith(
+        array $asked,
+        MutationRequest $request,
+        StepsOverlap $overlap,
+        ControlKinds $kinds,
+    ): array {
         $started = $overlap->taken($this->stopwatch);
 
         if (! $started instanceof ControlRuns) {
-            return $started instanceof CannotJudge ? [$started, Controls::none()] : $this->ranOf($asked, $request);
+            return $started instanceof CannotJudge
+                ? [$started, Controls::none()]
+                : $this->ranOf($asked, $request, $kinds);
         }
 
         $rest = array_values(array_filter($asked, static fn(Control $control): bool => ! $started->holds($control)));
@@ -219,7 +242,7 @@ final readonly class Controlling
             return [$started, Controls::none()];
         }
 
-        [$runs, $left] = $this->ranOf($rest, $request);
+        [$runs, $left] = $this->ranOf($rest, $request, $kinds);
 
         return [$runs instanceof CannotJudge ? $runs : $started->and($runs), $left];
     }
@@ -248,7 +271,13 @@ final readonly class Controlling
             $controlled->mutants,
             $heavy,
             $request->pool()->processes(),
-            fn(array $asked, array $ahead): array => $this->ranOf($asked, $request, Step::HeavyParts, $ahead),
+            fn(array $asked, array $ahead): array => $this->ranOf(
+                $asked,
+                $request,
+                ControlKinds::otherwise(ControlKind::HeavyPart),
+                Step::HeavyParts,
+                $ahead,
+            ),
         );
 
         return $mutants instanceof CannotJudge ? $mutants : new Controlled($mutants, $controlled->evidence);
@@ -272,7 +301,8 @@ final readonly class Controlling
      * side in the request's pool and timed as this step, the controls of the
      * request's first files first (ADR-0146), and those the time left had no
      * room for. Where they all fit, those beside them that fit in the time
-     * left run too, in the pool's spare room.
+     * left run too, in the pool's spare room. The step records where each
+     * control's time went, as what asked for it (ADR-0167).
      *
      * @param  non-empty-list<Control>                  $asked
      * @param  list<Control>                            $beside
@@ -281,6 +311,7 @@ final readonly class Controlling
     private function ranOf(
         array $asked,
         MutationRequest $request,
+        ControlKinds $kinds,
         Step $step = Step::Controls,
         array $beside = [],
     ): array {
@@ -292,14 +323,13 @@ final readonly class Controlling
             fn(Control $control): bool => $this->timeLeft->fits($control->limit()),
         )) : [];
         $from = $this->stopwatch->now();
+        $ran = Controls::of(...array_slice($asked, 0, $fitting), ...$room);
         $runs = $fitting === 0
             ? ControlRuns::none()
-            : $this->adapters->runner->controls(
-                $this->timeLeft->retimed($request),
-                Controls::of(...array_slice($asked, 0, $fitting), ...$room),
-            );
+            : $this->adapters->runner->controls($this->timeLeft->retimed($request), $ran);
+        $times = $runs instanceof ControlRuns ? $kinds->timesOf($ran, $runs) : [];
 
-        $this->stopwatch->handled($step, $from, $fitting + count($room));
+        $this->stopwatch->handled($step, $from, $fitting + count($room), ...$times);
 
         return [$runs, Controls::of(...array_slice($asked, $fitting))];
     }
