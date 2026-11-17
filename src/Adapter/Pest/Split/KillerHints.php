@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Php\Functions;
@@ -26,21 +28,31 @@ use function sprintf;
 /**
  * The test a split stream forks each mutant at first (ADR-0117): the likeliest
  * killer the kill history names for it, as each mutant's own run orders its
- * tests (ADR-0013), where a test that covers it is one.
+ * tests (ADR-0013), where a test that covers it is one. A mutant's likely
+ * killers are read from the history only once a stream asks for them, so a
+ * mutant no stream of the shard's part forks costs nothing.
  *
  * @internal
  */
-final readonly class KillerHints
+final class KillerHints
 {
-    /** @param array<string, TestIds> $killers each mutant's likely killers, likeliest first, by Pest's id */
-    private function __construct(private array $killers)
-    {
+    /** @var array<string, Functions> each file's functions, read once a mutant of it is asked about, by its path */
+    private array $functions = [];
+
+    /**
+     * @param array<string, array{MutantId, PlannedMutant}> $planned each mutant's id and record, by Pest's id
+     */
+    private function __construct(
+        private readonly KillHistory|NotGiven $history,
+        private readonly Root $root,
+        private readonly array $planned,
+    ) {
     }
 
     /** No likely killer of any mutant: every mutant forks at every covering test. */
     public static function none(): self
     {
-        return new self([]);
+        return new self(NotGiven::value(), Root::of(''), []);
     }
 
     /**
@@ -62,7 +74,7 @@ final readonly class KillerHints
      */
     public function killerOf(string $mutant, array $covering): string
     {
-        foreach (array_key_exists($mutant, $this->killers) ? $this->killers[$mutant] : [] as $test) {
+        foreach ($this->killersOf($mutant) as $test) {
             if (in_array($test->value(), $covering, strict: true)) {
                 return $test->value();
             }
@@ -83,18 +95,29 @@ final readonly class KillerHints
 
         $planned = PlannedMutant::inOrder($planned);
         $ids = Identities::of($root, $planned);
-        $functions = [];
-        $killers = [];
+        $byId = [];
 
         foreach ($planned as $at => $mutant) {
-            $file = $mutant->file()->value();
-            $functions[$file] = array_key_exists($file, $functions)
-                ? $functions[$file]
-                : Functions::in(Contents::of(sprintf('%s', file_get_contents($file))));
-            $in = Enclosing::of($root->relative($file), $functions[$file]->around($mutant->start()));
-            $killers[$mutant->id()] = $history->likelyKillers($ids[$at], $in);
+            $byId[$mutant->id()] = [$ids[$at], $mutant];
         }
 
-        return new self($killers);
+        return new self($history, $root, $byId);
+    }
+
+    /** A mutant's likely killers, likeliest first; none of a mutant the history or the suite does not know. */
+    private function killersOf(string $mutant): TestIds
+    {
+        if (! $this->history instanceof KillHistory || ! array_key_exists($mutant, $this->planned)) {
+            return TestIds::none();
+        }
+
+        [$id, $planned] = $this->planned[$mutant];
+        $file = $planned->file()->value();
+        $this->functions[$file] ??= Functions::in(Contents::of(sprintf('%s', file_get_contents($file))));
+
+        return $this->history->likelyKillers(
+            $id,
+            Enclosing::of($this->root->relative($file), $this->functions[$file]->around($planned->start())),
+        );
     }
 }
