@@ -10,6 +10,8 @@ use function array_key_exists;
  * What asked for each unmutated control, so a shard's measured steps say
  * where each one's time went (ADR-0167): the kinds that asked for it, or one
  * kind for every control none of them asked for.
+ *
+ * @internal
  */
 final readonly class ControlKinds
 {

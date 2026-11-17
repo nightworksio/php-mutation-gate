@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_map;
+use function count;
 
+use NightWorksIO\MutationGate\Core\Control\AskingKinds;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlKind;
 use NightWorksIO\MutationGate\Core\Control\ControlTime;
@@ -73,9 +75,9 @@ final readonly class StepsRecord
                 self::SINCE => $step->since()->seconds(),
                 self::SECONDS => $step->took()->seconds(),
                 ...$step->count() === 1 ? [] : [self::COUNT => $step->count()],
-                ...$step->controls() === []
+                ...count($step->controls()) === 0
                     ? []
-                    : [self::CONTROLS => array_map(self::controlOf(...), $step->controls())],
+                    : [self::CONTROLS => array_map(self::controlOf(...), [...$step->controls()])],
             ],
             [...$steps],
         );
@@ -118,7 +120,7 @@ final readonly class StepsRecord
         $took = $control->took();
 
         return [
-            self::KINDS => array_map(static fn(ControlKind $kind): string => $kind->value, $control->kinds()),
+            self::KINDS => array_map(static fn(ControlKind $kind): string => $kind->value, [...$control->kinds()]),
             self::TESTS => $control->tests(),
             ...$cases instanceof NotGiven ? [] : [self::CASES => $cases],
             self::LIMIT => $control->limit()->seconds(),
@@ -134,11 +136,11 @@ final readonly class StepsRecord
         $took = $item->field(self::SECONDS);
 
         return ControlTime::read(
-            array_map(
+            AskingKinds::of(...array_map(
                 static fn(Node $kind): ControlKind => ControlKind::tryFrom($kind->text())
                     ?? throw NotInShape::at($kind->at(), 'a kind of control'),
                 $item->field(self::KINDS)->items(),
-            ),
+            )),
             $item->field(self::TESTS)->integer(),
             $cases->isPresent() ? $cases->integer() : NotGiven::value(),
             Seconds::of($item->field(self::LIMIT)->number()),

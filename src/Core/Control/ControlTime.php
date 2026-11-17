@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Control;
 
-use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -19,9 +18,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  */
 final readonly class ControlTime
 {
-    /** @param list<ControlKind> $kinds */
     private function __construct(
-        private array $kinds,
+        private AskingKinds $kinds,
         private int $tests,
         private int|NotGiven $cases,
         private Seconds $limit,
@@ -34,7 +32,7 @@ final readonly class ControlTime
     public static function of(Control $control, ControlRun $run, ControlKind ...$kinds): self
     {
         return new self(
-            array_values($kinds),
+            AskingKinds::of(...$kinds),
             count($control->tests()),
             $run->cases(),
             $control->limit(),
@@ -43,13 +41,9 @@ final readonly class ControlTime
         );
     }
 
-    /**
-     * A control's time as a result holds it.
-     *
-     * @param list<ControlKind> $kinds
-     */
+    /** A control's time as a result holds it. */
     public static function read(
-        array $kinds,
+        AskingKinds $kinds,
         int $tests,
         int|NotGiven $cases,
         Seconds $limit,
@@ -59,8 +53,7 @@ final readonly class ControlTime
         return new self($kinds, $tests, $cases, $limit, $took, $end);
     }
 
-    /** @return list<ControlKind> */
-    public function kinds(): array
+    public function kinds(): AskingKinds
     {
         return $this->kinds;
     }

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Cost;
 
-use function array_values;
-
 use NightWorksIO\MutationGate\Core\Control\ControlTime;
+use NightWorksIO\MutationGate\Core\Control\ControlTimes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
@@ -16,20 +15,19 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class StepTime
 {
-    /** @param list<ControlTime> $controls */
     private function __construct(
         private Step $step,
         private Seconds $since,
         private Seconds $took,
         private int $count,
-        private array $controls = [],
+        private ControlTimes $controls,
     ) {
     }
 
     /** A step that started this long after the shard began and took this long, handling this many. */
     public static function of(Step $step, Seconds $since, Seconds $took, int $count = 1): self
     {
-        return new self($step, $since, $took, $count);
+        return new self($step, $since, $took, $count, ControlTimes::of());
     }
 
     /** A step as it was timed, having handled this many: a count known only once the step is over. */
@@ -41,15 +39,11 @@ final readonly class StepTime
     /** The same step, having run these controls. */
     public function controlling(ControlTime ...$controls): self
     {
-        return new self($this->step, $this->since, $this->took, $this->count, array_values($controls));
+        return new self($this->step, $this->since, $this->took, $this->count, ControlTimes::of(...$controls));
     }
 
-    /**
-     * The controls the step ran, each with where its time went; none where it ran none.
-     *
-     * @return list<ControlTime>
-     */
-    public function controls(): array
+    /** The controls the step ran, each with where its time went; none where it ran none. */
+    public function controls(): ControlTimes
     {
         return $this->controls;
     }

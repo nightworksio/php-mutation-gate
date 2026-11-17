@@ -415,7 +415,7 @@ it('leaves in its controls step what asked for each control, its tests and how i
         foreach ($step->controls() as $control) {
             $controls[] = [
                 $step->step(),
-                array_map(static fn(ControlKind $kind): string => $kind->value, $control->kinds()),
+                array_map(static fn(ControlKind $kind): string => $kind->value, [...$control->kinds()]),
                 $control->tests(),
                 $control->end(),
             ];

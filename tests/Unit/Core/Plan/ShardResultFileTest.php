@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\AskingKinds;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlKind;
 use NightWorksIO\MutationGate\Core\Control\ControlTime;
@@ -447,8 +448,8 @@ it('lists where each control of a step went, what asked for it, and reads them b
     $survivor = $makeSurvivor();
     $measured = $makeMeasured();
 
-    $passed = ControlTime::read([ControlKind::Kills, ControlKind::Timeout], 3, 4, Seconds::of(12.5), Seconds::of(2.25), ControlEnd::Passed);
-    $unrun = ControlTime::read([ControlKind::Kill], 1, NotGiven::value(), Seconds::of(5.0), Unmeasured::duration(), ControlEnd::Unrun);
+    $passed = ControlTime::read(AskingKinds::of(ControlKind::Kills, ControlKind::Timeout), 3, 4, Seconds::of(12.5), Seconds::of(2.25), ControlEnd::Passed);
+    $unrun = ControlTime::read(AskingKinds::of(ControlKind::Kill), 1, NotGiven::value(), Seconds::of(5.0), Unmeasured::duration(), ControlEnd::Unrun);
     $steps = StepTimes::of(StepTime::of(Step::Controls, Seconds::of(2.0), Seconds::of(3.0), 2)->controlling($passed, $unrun));
     $result = $finished($survivor, $measured->withSteps($steps));
     $written = ShardResultFile::encode($result);

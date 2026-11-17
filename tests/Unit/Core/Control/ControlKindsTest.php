@@ -33,7 +33,7 @@ function controlKindsEntry(float $limit, string ...$tests): Control
 function controlKindsSaid(array $times): array
 {
     return array_map(static fn(ControlTime $time): array => [
-        array_map(static fn(ControlKind $kind): string => $kind->value, $time->kinds()),
+        array_map(static fn(ControlKind $kind): string => $kind->value, [...$time->kinds()]),
         $time->tests(),
         $time->cases(),
         $time->limit()->seconds(),
