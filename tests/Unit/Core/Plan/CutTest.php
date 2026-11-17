@@ -459,6 +459,19 @@ it('spreads a pulling run\'s items over fewer shards than items, consecutive ite
     ) : $cut)->toBe([1, 1, 2, 2]);
 });
 
+it('pulls one part of the test files for each shard, however long the items, where a run cuts the test files', function () use ($weighed, $makeSrc): void {
+    $work = Workload::of(...array_map(
+        static fn(string $name): Weighed => $weighed(sprintf('src/%s.php', $name), 100.0),
+        ['A', 'B', 'C', 'D'],
+    ));
+    $cut = Cut::exactly(2)->cuttingTestFiles()->pulling(Seconds::of(50.0))->cut($work, $makeSrc());
+
+    expect($cut instanceof Shards ? array_map(
+        static fn(Shard $item): array => [$item->testPart()->number(), $item->testPart()->parts(), $item->worker()->number()],
+        iterator_to_array($cut, preserve_keys: false),
+    ) : $cut)->toBe([[1, 2, 1], [2, 2, 2]]);
+});
+
 it('pulls one item of a package that costs nothing and is lowered to no shard, where a run cuts the test files', function () use ($weighed): void {
     $cut = Cut::bySize(600, Seconds::of(60.0), 20)
         ->cuttingTestFiles()

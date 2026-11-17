@@ -105,8 +105,9 @@ final readonly class Cut
 
     /**
      * This cut, its shards pulling their work (ADR-0134): each package's work
-     * cut into items of about this long, or under test parts into as many
-     * parts, each item listed first for one of the package's shards.
+     * cut into items of about this long, or under test parts into one part
+     * for each of its shards (ADR-0172), each item listed first for one of
+     * the package's shards.
      */
     public function pulling(Seconds $item): self
     {
@@ -158,13 +159,18 @@ final readonly class Cut
 
     /**
      * How many runs a package is cut into: its shards, or where they pull,
-     * as many items of the item's length as its cost takes, at least one a shard.
+     * as many items of the item's length as its cost takes, at least one a
+     * shard; under test parts one part a shard, at least one, as every part
+     * makes and reads every unit's mutants again (ADR-0172).
      */
     private function itemsOf(PackageWork $package, int $count): int
     {
-        return $this->item instanceof Seconds && $this->item->seconds() > 0.0
-            ? max($count, (int) ceil($package->cost()->seconds() / $this->item->seconds()), 1)
-            : $count;
+        return match (true) {
+            $this->testParts => max($count, 1),
+            $this->item instanceof Seconds && $this->item->seconds() > 0.0
+                => max($count, (int) ceil($package->cost()->seconds() / $this->item->seconds()), 1),
+            default => $count,
+        };
     }
 
     /**
