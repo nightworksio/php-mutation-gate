@@ -125,6 +125,12 @@ on:
         description: How many minutes each shard job may take.
         type: number
         default: 360
+      probe-shards:
+        description: >-
+          A JSON list of the shard ids a speed probe runs, on a probe/ branch alone; empty, the default, runs every
+          shard, and a list given on any other ref fails the plan.
+        type: string
+        default: ''
       verdict-timeout:
         description: How many minutes the verdict job may take.
         type: number
@@ -605,8 +611,14 @@ jobs:
           OPTIONS: ${{ steps.resolve.outputs.plan_options }}
           COVERAGE: ${{ inputs.coverage }}
           EARLY_ONLY: ${{ inputs.early-only }}
+          PROBE_SHARDS: ${{ inputs.probe-shards }}
+          REF: ${{ github.ref }}
         run: |
           set -euo pipefail
+          if [ -n "${PROBE_SHARDS}" ] && [[ "${REF}" != refs/heads/probe/* ]]; then
+            echo "probe-shards is given on ${REF}; only a probe/ branch may run part of the shards." >&2
+            exit 1
+          fi
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           if [ -n "${COVERAGE}" ]; then
             arguments+=("--coverage=${HANDED}")
@@ -615,6 +627,12 @@ jobs:
             arguments+=("--early-only")
           fi
           "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
+          if [ -n "${PROBE_SHARDS}" ]; then
+            echo "probe shards ${PROBE_SHARDS}"
+            jq -c --argjson keep "${PROBE_SHARDS}" '.shards[] | select(.id as $i | $keep | index($i)) | {id, seconds, opening, units: (.units | length)}' .mutation-gate/plan.json
+            all=$(grep '^shards=' "${GITHUB_OUTPUT}" | tail -1 | cut -d= -f2-)
+            echo "shards=$(jq -c --argjson keep "${PROBE_SHARDS}" '[.[] | select(.id as $i | $keep | index($i))]' <<< "${all}")" >> "${GITHUB_OUTPUT}"
+          fi
       # ADR-0106: on a pull request whose plan runs a shard, the jobs the last
       # run's survivors are re-checked in, one per file of those it takes, at
       # most survivorsFirst.shards, and the minutes each may take.
