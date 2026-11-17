@@ -32,8 +32,9 @@ use function strval;
  * The split streams of a patched Pest mutation run (ADR-0117): in Pest's
  * own process, once the mutants are made, every mutant its file's schema
  * switches, that tests of the shard's part of the test files cover, is
- * judged in streams of the test files that cover them, each its own Pest run
- * of those files, and is given its result as its own run would give it. A
+ * judged in streams of the tests that cover them, each its own Pest run of
+ * their files, those tests alone where the run selects them (ADR-0181), and
+ * is given its result as its own run would give it. A
  * mutant a stream cannot judge is left for its own run. Where a run cuts its
  * test files across its shards, a mutant no stream can judge runs on its own
  * in the shard that owns it alone, and one no test of the part covers is left
@@ -53,7 +54,7 @@ final readonly class Streams
     /**
      * Judges every mutant of the suite a stream can, giving each its result:
      * where the ledger names a likely killer, a first stream forks it at that
-     * test alone, and a second, of the files that cover what the first left
+     * test alone, and a second, of the tests that cover what the first left
      * undecided, at every covering test (ADR-0117).
      *
      * @param array<string, array<int, array<int, string>>> $coveredLines
@@ -95,6 +96,7 @@ final readonly class Streams
             $settings->lines(),
             $settings->bootsOnce(),
             $settings->reconnects(),
+            $settings->selectsCoveringTests(),
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $held, $settings);
         $undecided = self::undecided($byId, $sites, $covering, $held, $verdicts);

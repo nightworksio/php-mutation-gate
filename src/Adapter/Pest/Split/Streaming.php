@@ -47,6 +47,7 @@ use function sprintf;
 use function str_starts_with;
 use function strval;
 
+use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -69,6 +70,9 @@ final readonly class Streaming
     /** A pass's killers, named by their ids, in the run's directory. */
     private const string KILLERS = '%s/killers-%d.ids';
 
+    /** The covering tests one stream of a pass runs, named by their ids, in the run's directory (ADR-0181). */
+    private const string SELECTED = '%s/selected-%d-%d.ids';
+
     /** A pass's results of one stream, in the run's directory. */
     private const string RESULTS = '%s/results-%d-%d.jsonl';
 
@@ -85,12 +89,16 @@ final readonly class Streaming
         private string $recording = '',
         private bool $bootOnce = false,
         private bool $reconnect = false,
+        private bool $coveringOnly = false,
     ) {
     }
 
     /**
      * What one pass of streams of the files that hold these covering tests
-     * of these sites' mutants found of them, beside what earlier passes did.
+     * of these sites' mutants found of them, beside what earlier passes did:
+     * each stream runs only those tests of its files, selected by their ids,
+     * where the run says so, records no lines for a kept map, and can name
+     * every one so, and every test of its files otherwise (ADR-0181).
      *
      * @param array<string, array{string, int, string, array<string, string>}> $sites    each mutant's file key, switch
      *                                                                                    id, killer and variables
@@ -105,7 +113,14 @@ final readonly class Streaming
             $tests = [...$tests, ...$covering[$mutant]];
         }
 
-        return $this->streamed($pass, array_values(array_unique($tests)), $this->plannedOf($sites), [], $verdicts);
+        return $this->streamed(
+            $pass,
+            array_values(array_unique($tests)),
+            $this->plannedOf($sites),
+            [],
+            $verdicts,
+            $this->coveringOnly && $this->recording === '',
+        );
     }
 
     /**
@@ -152,35 +167,43 @@ final readonly class Streaming
 
     /**
      * The test files, cut into at most as many parts as there are processes,
-     * each file going to the part with least time so far, longest first; one
-     * part of none where no file is known, which runs the whole suite.
+     * each file going to the part with least time so far, longest first, each
+     * part beside the tests of its files the units name; one part of none
+     * where no file is known, which runs the whole suite.
      *
      * @param  array<string, array{files: list<string>, tests: list<string>}> $units
      * @param  array<string, float>                                           $times
-     * @return list<list<string>>
+     * @return list<array{files: list<string>, tests: list<string>}>
      */
-    public static function parts(array $units, array $times, int $processes): array
+    public static function cut(array $units, array $times, int $processes): array
     {
-        $parts = array_fill(0, min(max(1, $processes), max(1, count($units))), []);
+        $parts = array_fill(0, min(max(1, $processes), max(1, count($units))), ['files' => [], 'tests' => []]);
 
         foreach (TestParts::assigned($units, $times, $processes) as $file => $at) {
-            $parts[$at] = [...$parts[$at], ...$units[$file]['files']];
+            $parts[$at] = [
+                'files' => [...$parts[$at]['files'], ...$units[$file]['files']],
+                'tests' => [...$parts[$at]['tests'], ...$units[$file]['tests']],
+            ];
         }
 
         $cut = [];
 
-        foreach ($parts as $files) {
-            $unique = array_values(array_unique($files));
-            sort($unique);
-            $cut[] = $unique;
+        foreach ($parts as $part) {
+            $files = array_values(array_unique($part['files']));
+            sort($files);
+            $cut[] = ['files' => $files, 'tests' => array_values(array_unique($part['tests']))];
         }
 
-        return array_values(array_filter($cut, static fn(array $files): bool => $files !== [] || $units === []));
+        return array_values(array_filter(
+            $cut,
+            static fn(array $part): bool => $part['files'] !== [] || $units === [],
+        ));
     }
 
     /**
      * What one pass of streams of the files that hold these tests found,
-     * each stream started with these arguments beside a mutant's own run's;
+     * each stream started with these arguments beside a mutant's own run's,
+     * and running only those tests of its files where it selects them;
      * nothing more where no loaded file holds any of them, which leaves
      * their mutants to their own runs (ADR-0171).
      *
@@ -194,15 +217,19 @@ final readonly class Streaming
         array $planned,
         array $selecting,
         StreamVerdicts $verdicts,
+        bool $selects = false,
     ): StreamVerdicts {
         $units = CoveringFiles::streamed($tests);
 
-        return $units === [] ? $verdicts : $this->streamedUnits($pass, $units, $planned, $selecting, $verdicts);
+        return $units === []
+            ? $verdicts
+            : $this->streamedUnits($pass, $units, $planned, $selecting, $verdicts, $selects);
     }
 
     /**
      * What one pass of streams of these test files found, each stream started
-     * with these arguments beside a mutant's own run's.
+     * with these arguments beside a mutant's own run's, and, where it selects
+     * them, the ids of its part's tests the units name.
      *
      * @param array<string, array{files: list<string>, tests: list<string>}>          $units
      * @param array<string, array<int, array{string, string, array<string, string>}>> $planned
@@ -214,23 +241,58 @@ final readonly class Streaming
         array $planned,
         array $selecting,
         StreamVerdicts $verdicts,
+        bool $selects = false,
     ): StreamVerdicts {
         $times = LoadedMap::timed();
         $cores = new CpuCoreCounter()->getCountWithFallback(1);
         $streams = [];
 
-        foreach (self::parts($units, $times, $this->processes) as $at => $files) {
+        foreach (self::cut($units, $times, $this->processes) as $at => $part) {
             $results = sprintf(self::RESULTS, $this->directory, $pass, $at);
-            $started = $this->started($pass, $at, $results, $planned, $times, [...$selecting, ...$files], $cores);
+            $chosen = $selects ? $this->selected($pass, $at, $part['tests']) : [];
+            $arguments = [...$selecting, ...$chosen, ...$part['files']];
+            $started = $this->started($pass, $at, $results, $planned, $times, $arguments, $cores);
             $streams[] = [$started, $results];
         }
 
         foreach ($streams as [$process, $results]) {
-            $process->wait();
+            $this->ended($process);
             $verdicts = $verdicts->reading($results);
         }
 
         return $verdicts;
+    }
+
+    /**
+     * Waits for a stream to end, however it ends: one a signal ended leaves
+     * what it wrote, and no test it did not finish passes in it, so the
+     * mutants that test covers are left to their own runs.
+     */
+    private function ended(Process $process): void
+    {
+        try {
+            $process->wait();
+        } catch (ProcessSignaledException) {
+            return;
+        }
+    }
+
+    /**
+     * What selects exactly these tests in one stream of a pass, by a file of
+     * their ids; nothing where they cannot be named so, which runs every test
+     * of the stream's files (ADR-0181).
+     *
+     * @param  list<string> $tests
+     * @return list<string>
+     */
+    private function selected(int $pass, int $at, array $tests): array
+    {
+        $file = IdsFile::written(
+            TestIds::of(...array_map(TestId::of(...), $tests)),
+            sprintf(self::SELECTED, $this->directory, $pass, $at),
+        );
+
+        return $file instanceof NotGiven ? [] : [PhpUnitOption::TestIdFilterFile->value, $file];
     }
 
     /**

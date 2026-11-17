@@ -377,8 +377,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
             ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
     );
     $own = $run(StreamSettings::off());
-    $split = $run(StreamSettings::of(enabled: true, children: 1, changeCheck: $changeCheck, killersFirst: $killersFirst)
-        ->streamingKillers($killerStreams));
+    $split = $run(StreamSettings::of(enabled: true, children: 1, changeCheck: $changeCheck, killersFirst: $killersFirst, killerStreams: $killerStreams));
     $streamed = $split instanceof MutationResult
         ? array_filter(
             iterator_to_array($split->mutants(), preserve_keys: false),
@@ -620,7 +619,7 @@ it('patches the installed pest-plugin-mutate into the files the pristine fixture
     );
 
     expect(Patch::applyIn($installed, new PackageDirectory()))->toBeString()
-        ->and(Patch::applyIn($pristine, new PackageDirectory()))->toBe('pest:patch patched 6 of the 6 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.')
+        ->and(Patch::applyIn($pristine, new PackageDirectory()))->toBe('pest:patch patched 6 of the 6 files it changes in pest-plugin-mutate. pest:patch patched 4 of the 4 files it changes in pest.')
         ->and($read($installed))->toBe($read($pristine));
 })->group(...$holds);
 

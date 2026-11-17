@@ -23,8 +23,9 @@ use function sprintf;
  * a stream holds at once, whether a stream checks a pure expression's mutant
  * changes its value before it forks, whether it forks first at each
  * mutant's likely killer, whether a first-pass stream runs only those
- * killers (ADR-0136), and the part of the test files whose tests judge its
- * mutants, every test file unless a run cuts them across its shards.
+ * killers (ADR-0136), whether a stream of covering tests runs them alone
+ * (ADR-0181), and the part of the test files whose tests judge its mutants,
+ * every test file unless a run cuts them across its shards.
  *
  * @internal
  */
@@ -47,6 +48,7 @@ final readonly class StreamSettings
         private bool $reconnect = true,
         private StreamJudging $judging = StreamJudging::Whole,
         private bool $fallbackOwnRun = true,
+        private bool $coveringOnly = true,
     ) {
     }
 
@@ -55,7 +57,12 @@ final readonly class StreamSettings
         return new self(enabled: false, children: 1, changeCheck: true, killersFirst: true, part: TestPart::whole());
     }
 
-    /** Splitting so where enabled; otherwise splitting nothing, as {@see off()} does, whatever the rest says. */
+    /**
+     * Splitting so where enabled; otherwise splitting nothing, as {@see off()} does, whatever the rest says: a
+     * first-pass stream running only the killers of its mutants (ADR-0136), or booting the application once and
+     * forking each test from it, and a test holding a connection of the application's own to a database forking,
+     * each child on its own copy of it (ADR-0147), where these say.
+     */
     public static function of(
         bool $enabled,
         int|StreamChildren $children,
@@ -63,6 +70,10 @@ final readonly class StreamSettings
         bool $killersFirst,
         StreamJudging $judging = StreamJudging::Whole,
         bool $fallbackOwnRun = true,
+        bool $coveringOnly = true,
+        bool $killerStreams = false,
+        bool $bootOnce = false,
+        bool $reconnect = true,
     ): self {
         if (! $enabled) {
             return self::off();
@@ -74,8 +85,12 @@ final readonly class StreamSettings
             $changeCheck,
             $killersFirst,
             TestPart::whole(),
+            killerStreams: $killerStreams,
+            bootOnce: $bootOnce,
+            reconnect: $reconnect,
             judging: $judging,
             fallbackOwnRun: $fallbackOwnRun,
+            coveringOnly: $coveringOnly,
         );
     }
 
@@ -103,67 +118,7 @@ final readonly class StreamSettings
             getenv(GateVariable::SplitReconnect->value) === self::ON,
             StreamJudging::tryFrom((string) getenv(GateVariable::SplitJudging->value)) ?? StreamJudging::Whole,
             getenv(GateVariable::SplitFallbackOwnRun->value) !== self::OFF,
-        );
-    }
-
-    /** These, a first-pass stream running only the killers of its mutants where this says (ADR-0136). */
-    public function streamingKillers(bool $killerStreams): self
-    {
-        return new self(
-            $this->enabled,
-            $this->children,
-            $this->changeCheck,
-            $this->killersFirst,
-            $this->part,
-            $killerStreams,
-            $this->recording,
-            $this->bootOnce,
-            $this->lines,
-            $this->reconnect,
-            $this->judging,
-            $this->fallbackOwnRun,
-        );
-    }
-
-    /** These, a first-pass stream booting the application once and forking each test from it where this says. */
-    public function bootingOnce(bool $bootOnce): self
-    {
-        return new self(
-            $this->enabled,
-            $this->children,
-            $this->changeCheck,
-            $this->killersFirst,
-            $this->part,
-            $this->killerStreams,
-            $this->recording,
-            $bootOnce,
-            $this->lines,
-            $this->reconnect,
-            $this->judging,
-            $this->fallbackOwnRun,
-        );
-    }
-
-    /**
-     * These, a test holding a connection of the application's own to a
-     * database forking, each child on its own copy of it, where this says
-     * (ADR-0147).
-     */
-    public function reconnecting(bool $reconnect): self
-    {
-        return new self(
-            $this->enabled,
-            $this->children,
-            $this->changeCheck,
-            $this->killersFirst,
-            $this->part,
-            $this->killerStreams,
-            $this->recording,
-            $this->bootOnce,
-            $this->lines,
-            $reconnect,
-            $this->judging,
-            $this->fallbackOwnRun,
+            getenv(GateVariable::SplitCoveringTestsOnly->value) !== self::OFF,
         );
     }
 
@@ -180,6 +135,12 @@ final readonly class StreamSettings
     public function fallsBackToOwnRuns(): bool
     {
         return $this->fallbackOwnRun;
+    }
+
+    /** Whether a stream of covering tests runs only those tests, by their ids, not their whole files (ADR-0181). */
+    public function selectsCoveringTests(): bool
+    {
+        return $this->coveringOnly;
     }
 
     /** Whether a stream's child reconnects to its own copy of each database a test holds open (ADR-0147). */
@@ -274,6 +235,7 @@ final readonly class StreamSettings
                 GateVariable::SplitReconnect->value => $told($this->reconnect),
                 GateVariable::SplitJudging->value => $this->judging->value,
                 GateVariable::SplitFallbackOwnRun->value => $told($this->fallbackOwnRun),
+                GateVariable::SplitCoveringTestsOnly->value => $told($this->coveringOnly),
             ]
             : [];
     }

@@ -126,7 +126,7 @@ it('kills in its stream a mutant a test tells apart, or whose test ends its own 
 it('forks a first pass at each likely killer alone, and a second at every covering test for a mutant its likely killer leaves undecided', function (): void {
     Library::patched();
     $library = Library::pest(Patching::on(Library::canary())->splitting(
-        StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true)->streamingKillers(killerStreams: true),
+        StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true, killerStreams: true),
     ));
     $history = KillHistory::none();
 
@@ -198,6 +198,48 @@ it('leaves a mutant whose likely killer the first pass fell back on to its own r
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);
 
+it('judges a mutant alike whether its stream runs only the covering tests or their whole files, and in its stream only where it runs the covering tests alone, under splitStream.coveringTestsOnly', function (bool $coveringOnly): void {
+    $copied = [
+        'src/Selected.php' => 'tests/Contract/Runner/streamed/src/Selected.php',
+        'tests/SelectedSpec.php' => 'tests/Contract/Runner/streamed/tests/SelectedSpec.php',
+    ];
+
+    foreach ($copied as $into => $from) {
+        copy(Tree::at($from), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+    }
+
+    Library::patched();
+
+    try {
+        $result = Library::pest(Patching::on(Library::canary())->splitting(StreamSettings::of(
+            enabled: true,
+            children: 1,
+            changeCheck: false,
+            killersFirst: false,
+            coveringOnly: $coveringOnly,
+        )))->runner()->mutate(
+            MutationRequest::of(Paths::of(Path::of('src/Selected.php')), WholeSuite::tests())->narrowedTo(
+                Paths::of(Path::of('src/Selected.php')),
+                Narrowing::none()->toMutators(Mutators::named(MultiplicationToDivision::class)),
+            ),
+        );
+    } finally {
+        foreach (array_keys($copied) as $into) {
+            unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+        }
+    }
+
+    expect(streamedJudged($result))->toBe([
+        16 => [MutantStatus::Killed, ['P\\Tests\\SelectedSpec::__pest_evaluable_it_quadruples_a_small_amount'], $coveringOnly],
+    ]);
+})->with([
+    'covering tests only' => [true],
+    'whole files' => [false],
+])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
 it('leaves a mutant whose site the application\'s boot runs to a second pass that boots in every test, under splitStream.bootOnce', function (): void {
     $copied = [
         'src/Booted.php' => 'tests/Contract/Runner/streamed/src/Booted.php',
@@ -215,7 +257,7 @@ it('leaves a mutant whose site the application\'s boot runs to a second pass tha
 
     try {
         $result = Library::pest(Patching::on(Library::canary())->splitting(
-            StreamSettings::of(enabled: true, children: 1, changeCheck: false, killersFirst: false)->bootingOnce(bootOnce: true),
+            StreamSettings::of(enabled: true, children: 1, changeCheck: false, killersFirst: false, bootOnce: true),
         ))->runner()->mutate(
             MutationRequest::of(Paths::of(Path::of('src/Booted.php')), WholeSuite::tests())->narrowedTo(
                 Paths::of(Path::of('src/Booted.php')),

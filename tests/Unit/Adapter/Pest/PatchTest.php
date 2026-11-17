@@ -35,7 +35,7 @@ it('finds the patch in place and changes nothing when patching again', function 
     Patch::applyIn($at, new PackageDirectory());
     $patched = array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES);
 
-    expect(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 3 files it changes in pest.')
+    expect(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES))->toBe($patched);
 });
 
@@ -46,7 +46,7 @@ it('patches only the files that are not patched yet', function () use ($vendor, 
     file_put_contents(sprintf('%s/pestphp/pest-plugin-mutate/src/Tester/MutationTestRunner.php', $at), $pristine);
 
     expect(Patch::isAppliedIn($at, new PackageDirectory()))->toBeFalse()
-        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 1 of the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 3 files it changes in pest.')
+        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 1 of the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
         ->and(substr_count($source($at, 'Tester/MutationTestRunner.php'), 'MUTATION_GATE_SUITE_SECONDS'))->toBe(1);
 });
 
@@ -102,7 +102,7 @@ it('counts a vendor it already patched as patched, though none of its files can 
         array_map(static fn(string $file): bool => chmod($file, 0o644), $files);
     }
 
-    expect($again)->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 3 files it changes in pest.')
+    expect($again)->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
         ->and($applied)->toBeTrue();
 });
 
@@ -255,7 +255,7 @@ it('plans what patching would write, writing nothing, and plans nothing once the
 
     expect($planned)->toBe($applied)
         ->and(array_keys($applied))->toContain(sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, MutatePlugin::FILES[0]))
-        ->and($applied)->toHaveCount(9)
+        ->and($applied)->toHaveCount(count(MutatePlugin::FILES) + count(MutatePlugin::PEST_FILES))
         ->and(Patch::plannedIn($at, new PackageDirectory()))->toBe([])
         ->and(Patch::plannedIn(Scratch::directory(), new PackageDirectory()))->toBeInstanceOf(CannotJudge::class);
 });

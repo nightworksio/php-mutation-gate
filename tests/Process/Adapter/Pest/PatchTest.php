@@ -30,11 +30,11 @@ $source = static fn(string $vendor, string $file): string => (string) file_get_c
     sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $vendor, $file),
 );
 
-it('patches the four files, leaving each one PHP', function () use ($vendor, $source): void {
+it('patches the files of pest-plugin-mutate and of Pest, leaving each one PHP', function () use ($vendor, $source): void {
     $at = $vendor();
 
     expect(Patch::isAppliedIn($at, new PackageDirectory()))->toBeFalse()
-        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 6 of the 6 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.')
+        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 6 of the 6 files it changes in pest-plugin-mutate. pest:patch patched 4 of the 4 files it changes in pest.')
         ->and(Patch::isAppliedIn($at, new PackageDirectory()))->toBeTrue()
         ->and($source($at, 'MutationTest.php'))->toContain(sprintf(
             '$passed = class_exists(\\%1$s::class) ? \\%1$s::passable($filter) : strlen($filter) < 100000;',
@@ -85,8 +85,13 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
         ->and($source($at, 'MutationTest.php'))
         ->toContain(sprintf("\\%s::record(\$this->process, \$this->mutation->modifiedSourcePath);\n", Ending::class));
 
-    foreach (MutatePlugin::FILES as $file) {
-        $lint = new Process([PHP_BINARY, '-l', sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file)]);
+    $patched = [
+        ...array_map(static fn(string $file): string => sprintf('pest-plugin-mutate/src/%s', $file), MutatePlugin::FILES),
+        ...array_map(static fn(string $file): string => sprintf('pest/%s', $file), array_keys(MutatePlugin::PEST_FILES)),
+    ];
+
+    foreach ($patched as $file) {
+        $lint = new Process([PHP_BINARY, '-l', sprintf('%s/pestphp/%s', $at, $file)]);
         $lint->run();
 
         expect($lint->isSuccessful())->toBeTrue();

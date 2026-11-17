@@ -4181,6 +4181,10 @@
                 "fallbackOwnRun": {
                     "type": "boolean",
                     "default": true
+                },
+                "coveringTestsOnly": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -8780,6 +8784,9 @@
                             ]
                         },
                         "fallbackOwnRun": {
+                            "type": "boolean"
+                        },
+                        "coveringTestsOnly": {
                             "type": "boolean"
                         }
                     },

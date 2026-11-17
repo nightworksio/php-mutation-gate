@@ -71,6 +71,10 @@ use function sprintf;
  *   mutants' worker (ADR-0091); a booting worker leaves the kernel dump to
  *   each child, and a kernel shuts down only in the process that booted it
  *   (see Warm\Booted). An unbooted process runs as it ships.
+ * - In Pest itself, a run that names its tests by their ids, with
+ *   `--test-id-filter-file` or `--test-id-filter`, runs only those, as
+ *   PHPUnit's own filter of its suite does; Pest's override of that filter
+ *   ships without them, so it ran every test it loaded (ADR-0181).
  * - A file whose every class Composer autoloads, none loaded yet, is served
  *   with no override: an autoloader loads its mutated copy in its place (see
  *   ServedClasses). A mutant whose mutator is pinned by source is still
@@ -677,6 +681,44 @@ final readonly class Patch
                 $suiteClassName = $this->classNameFromFileName($suiteClassFile);
         PHP;
 
+    private const string FILTERING = '../overrides/TextUI/TestSuiteFilterProcessor.php';
+
+    private const string FILTERED_SHIPS = <<<'PHP'
+                if (! $configuration->hasFilter() &&
+        PHP;
+
+    private const string FILTERED_BECOMES = <<<'PHP'
+                {MARK} a run that names its tests by their ids filters its suite to them (ADR-0181).
+                if (! $configuration->hasFilter() &&
+                    ! $configuration->hasTestIdFilterFile() &&
+                    ! $configuration->hasTestIdFilter() &&
+        PHP;
+
+    private const string IDS_SHIPS = <<<'PHP'
+                if ($configuration->hasFilter()) {
+                    $factory->addIncludeNameFilter(
+        PHP;
+
+    private const string IDS_BECOMES = <<<'PHP'
+                {MARK} the tests a run names by their ids, in a file or alone, are the only ones it runs (ADR-0181).
+                $named = $configuration->hasTestIdFilterFile()
+                    ? @file($configuration->testIdFilterFile(), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES)
+                    : [];
+
+                if ($named === false) {
+                    throw new RuntimeException('Cannot read from '.$configuration->testIdFilterFile());
+                }
+
+                $named = [...$named, ...($configuration->hasTestIdFilter() ? [$configuration->testIdFilter()] : [])];
+
+                if ($named !== []) {
+                    $factory->addTestIdFilter($named);
+                }
+
+                if ($configuration->hasFilter()) {
+                    $factory->addIncludeNameFilter(
+        PHP;
+
     /** Patch pest-plugin-mutate and Pest in a vendor directory, and say what was done. */
     public static function applyIn(string $vendor, PackageFiles $files): string|CannotJudge
     {
@@ -705,7 +747,10 @@ final readonly class Patch
         return VendorPatch::of(self::COMMAND, Package::PestMutate->value, ...self::hunks());
     }
 
-    /** Pest's own, which a booted warm worker of the verification tail relies on (ADR-0075). */
+    /**
+     * Pest's own, which a booted warm worker of the verification tail relies on (ADR-0075), and whose filter of its
+     * suite selects the tests a run names by their ids (ADR-0181).
+     */
     private static function pestPatch(): VendorPatch
     {
         return VendorPatch::of(
@@ -716,6 +761,8 @@ final readonly class Patch
             Hunk::in(self::KERNEL, self::PLUGINS_SHIPS, sprintf(self::PLUGINS_BECOMES, Booted::class)),
             Hunk::in(self::KERNEL, self::SHUTDOWN_SHIPS, self::SHUTDOWN_BECOMES),
             Hunk::in(self::LOADER, self::LOAD_SHIPS, sprintf(self::LOAD_BECOMES, Booted::class)),
+            Hunk::in(self::FILTERING, self::FILTERED_SHIPS, self::FILTERED_BECOMES),
+            Hunk::in(self::FILTERING, self::IDS_SHIPS, self::IDS_BECOMES),
         );
     }
 

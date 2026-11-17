@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 afterEach(function (): void {
-    foreach ([GateVariable::Split, GateVariable::SplitChildren, GateVariable::SplitChangeCheck, GateVariable::SplitKillersFirst, GateVariable::SplitKillerStreams, GateVariable::SplitPart, GateVariable::SplitJudging, GateVariable::SplitFallbackOwnRun] as $variable) {
+    foreach ([GateVariable::Split, GateVariable::SplitChildren, GateVariable::SplitChangeCheck, GateVariable::SplitKillersFirst, GateVariable::SplitKillerStreams, GateVariable::SplitPart, GateVariable::SplitJudging, GateVariable::SplitFallbackOwnRun, GateVariable::SplitCoveringTestsOnly] as $variable) {
         putenv($variable->value);
     }
 });
@@ -30,7 +30,8 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_RECONNECT' => '1',
         'MUTATION_GATE_SPLIT_JUDGING' => 'whole',
         'MUTATION_GATE_SPLIT_FALLBACK_OWN_RUN' => '1',
-    ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false)->variables())->toBe([
+        'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY' => '1',
+    ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false)->variables())->toBe([
         'MUTATION_GATE_SPLIT' => '1',
         'MUTATION_GATE_SPLIT_CHILDREN' => '1',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
@@ -40,18 +41,19 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_RECONNECT' => '1',
         'MUTATION_GATE_SPLIT_JUDGING' => 'parted',
         'MUTATION_GATE_SPLIT_FALLBACK_OWN_RUN' => '0',
+        'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY' => '0',
     ]);
 });
 
 it('reads back what it told a run', function (): void {
-    foreach (StreamSettings::of(enabled: true, children: 4, changeCheck: false, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false)->variables() as $name => $value) {
+    foreach (StreamSettings::of(enabled: true, children: 4, changeCheck: false, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false)->variables() as $name => $value) {
         putenv(sprintf('%s=%s', $name, $value));
     }
 
     $read = StreamSettings::fromEnvironment();
 
-    expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst(), $read->judging(), $read->fallsBackToOwnRuns()])
-        ->toBe([true, 4, false, false, StreamJudging::Parted, false]);
+    expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst(), $read->judging(), $read->fallsBackToOwnRuns(), $read->selectsCoveringTests()])
+        ->toBe([true, 4, false, false, StreamJudging::Parted, false, false]);
 });
 
 it('splits nothing where it is not enabled, whatever else it is given', function (): void {
@@ -78,7 +80,7 @@ it('reads a run told nothing as one that does not split, checking changes and ki
 });
 
 it('streams only killers in a first pass where told to and forking killers first, and reads it back', function (bool $killersFirst, bool $streams): void {
-    $told = StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: $killersFirst)->streamingKillers(killerStreams: true);
+    $told = StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: $killersFirst, killerStreams: true);
 
     foreach ($told->variables() as $name => $value) {
         putenv(sprintf('%s=%s', $name, $value));

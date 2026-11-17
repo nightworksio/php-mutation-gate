@@ -54,6 +54,12 @@ final readonly class SplitStream
      */
     public const string FALLBACK_OWN_RUN = 'fallbackOwnRun';
 
+    /**
+     * The key, and the Pest runner's option, that says whether a stream of covering tests runs only those tests,
+     * selected by their ids, or their whole test files (ADR-0181).
+     */
+    public const string COVERING_TESTS_ONLY = 'coveringTestsOnly';
+
     /** The section the keys are in, and the Pest runner's option that holds them. */
     public const string SECTION = 'splitStream';
 
@@ -69,6 +75,7 @@ final readonly class SplitStream
         private bool|Absent $reconnect = new Absent(),
         private StreamJudging|Absent $judging = new Absent(),
         private bool|Absent $fallbackOwnRun = new Absent(),
+        private bool|Absent $coveringTestsOnly = new Absent(),
     ) {
     }
 
@@ -84,6 +91,7 @@ final readonly class SplitStream
         bool|Absent $reconnect = new Absent(),
         StreamJudging|Absent $judging = new Absent(),
         bool|Absent $fallbackOwnRun = new Absent(),
+        bool|Absent $coveringTestsOnly = new Absent(),
     ): self {
         return new self(
             $enabled,
@@ -97,6 +105,7 @@ final readonly class SplitStream
             $reconnect,
             $judging,
             $fallbackOwnRun,
+            $coveringTestsOnly,
         );
     }
 
@@ -117,6 +126,7 @@ final readonly class SplitStream
             $none->reconnect(),
             $none->judging(),
             $none->fallbackOwnRun(),
+            $none->coveringTestsOnly(),
         );
     }
 
@@ -135,6 +145,7 @@ final readonly class SplitStream
             Absent::laid($this->reconnect, $later->reconnect),
             Absent::laid($this->judging, $later->judging),
             Absent::laid($this->fallbackOwnRun, $later->fallbackOwnRun),
+            Absent::laid($this->coveringTestsOnly, $later->coveringTestsOnly),
         );
     }
 
@@ -189,6 +200,16 @@ final readonly class SplitStream
     public function fallbackOwnRun(): bool
     {
         return $this->fallbackOwnRun !== false;
+    }
+
+    /**
+     * `splitStream.coveringTestsOnly`: whether a stream of the tests that
+     * cover its mutants runs only those tests, selected by their ids, or
+     * every test of their files (ADR-0181); on by default.
+     */
+    public function coveringTestsOnly(): bool
+    {
+        return $this->coveringTestsOnly !== false;
     }
 
     /** `splitStream.sharding`: what a run that splits its streams cuts its shards by; test files by default. */
@@ -253,6 +274,7 @@ final readonly class SplitStream
             Member::of(self::RECONNECT, $this->reconnect()),
             Member::of(self::JUDGING, $this->judging()->value),
             Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun()),
+            Member::of(self::COVERING_TESTS_ONLY, $this->coveringTestsOnly()),
         );
 
         return Member::of(self::SECTION, $option);
@@ -277,6 +299,7 @@ final readonly class SplitStream
             Member::of(self::RECONNECT, $this->reconnect),
             Member::of(self::JUDGING, $this->judging instanceof StreamJudging ? $this->judging->value : $this->judging),
             Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun),
+            Member::of(self::COVERING_TESTS_ONLY, $this->coveringTestsOnly),
         );
 
         return Member::unlessEmpty(self::SECTION, $written);
@@ -285,41 +308,38 @@ final readonly class SplitStream
     /** The PHP builder's calls for the keys set. */
     public function php(): PhpCalls
     {
-        return PhpCalls::inWith(
-            ...$this->switched($this->enabled, 'SplitStream::on()', 'SplitStream::off()'),
-            ...match (true) {
+        return PhpCalls::flag($this->enabled, 'SplitStream::on()', 'SplitStream::off()')
+            ->and(PhpCalls::inWith(...match (true) {
                 is_int($this->children) => [sprintf('SplitStream::children(%d)', $this->children)],
                 $this->children instanceof StreamChildren => ['SplitStream::childrenByCores()'],
                 default => [],
-            },
-            ...$this->switched($this->changeCheck, 'SplitStream::checkingChanges()', 'SplitStream::forkingUnchecked()'),
-            ...$this->switched($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'),
-            ...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : [],
-            ...$this->switched($this->killerStreams, 'SplitStream::killerStreams()', 'SplitStream::wholeFirstPass()'),
-            ...$this->early instanceof SplitEarly ? [$this->early->php()] : [],
-            ...$this->switched($this->bootOnce, 'SplitStream::bootOnce()', 'SplitStream::bootPerTest()'),
-            ...$this->switched($this->reconnect, 'SplitStream::reconnect()', 'SplitStream::connectionsFallBack()'),
-            ...$this->judging instanceof StreamJudging ? [$this->judging->php()] : [],
-            ...$this->switched(
+            }))
+            ->and(PhpCalls::flag(
+                $this->changeCheck,
+                'SplitStream::checkingChanges()',
+                'SplitStream::forkingUnchecked()',
+            ))
+            ->and(PhpCalls::flag($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'))
+            ->and(PhpCalls::inWith(...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : []))
+            ->and(PhpCalls::flag(
+                $this->killerStreams,
+                'SplitStream::killerStreams()',
+                'SplitStream::wholeFirstPass()',
+            ))
+            ->and(PhpCalls::inWith(...$this->early instanceof SplitEarly ? [$this->early->php()] : []))
+            ->and(PhpCalls::flag($this->bootOnce, 'SplitStream::bootOnce()', 'SplitStream::bootPerTest()'))
+            ->and(PhpCalls::flag($this->reconnect, 'SplitStream::reconnect()', 'SplitStream::connectionsFallBack()'))
+            ->and(PhpCalls::inWith(...$this->judging instanceof StreamJudging ? [$this->judging->php()] : []))
+            ->and(PhpCalls::flag(
                 $this->fallbackOwnRun,
                 'SplitStream::fallbackOwnRun()',
                 'SplitStream::fallbackSecondPass()',
-            ),
-        );
-    }
-
-    /**
-     * The call that sets a switch as a layer sets it, on or off; none where the layer leaves it.
-     *
-     * @return list<string>
-     */
-    private function switched(bool|Absent $value, string $on, string $off): array
-    {
-        return match ($value) {
-            true => [$on],
-            false => [$off],
-            default => [],
-        };
+            ))
+            ->and(PhpCalls::flag(
+                $this->coveringTestsOnly,
+                'SplitStream::coveringTestsOnly()',
+                'SplitStream::wholeCoveringFiles()',
+            ));
     }
 
     /** How a config and the runner's option write `splitStream.children`. */

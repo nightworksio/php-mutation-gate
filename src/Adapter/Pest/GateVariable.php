@@ -184,6 +184,9 @@ enum GateVariable: string
     /** Whether a mutant whose likely killer the first pass could not fork it in skips the second pass (ADR-0179). */
     case SplitFallbackOwnRun = 'MUTATION_GATE_SPLIT_FALLBACK_OWN_RUN';
 
+    /** Whether a stream of covering tests runs only those tests, by their ids (ADR-0181). */
+    case SplitCoveringTestsOnly = 'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY';
+
     /**
      * The `outbreak.so` a split stream loads, to count the forks that change
      * no state (H5), to see a test touch nondeterminism (ADR-0130), to record

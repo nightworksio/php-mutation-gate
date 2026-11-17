@@ -111,8 +111,9 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
         'MUTATION_GATE_SPLIT_RECONNECT' => '1',
         'MUTATION_GATE_SPLIT_JUDGING' => 'whole',
         'MUTATION_GATE_SPLIT_FALLBACK_OWN_RUN' => '1',
+        'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY' => '1',
     ], true])
-        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false}}'))->toBe([[
+        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false}}'))->toBe([[
             'MUTATION_GATE_SCHEMATA' => '1',
             'MUTATION_GATE_SPLIT' => '1',
             'MUTATION_GATE_SPLIT_CHILDREN' => 'cores',
@@ -123,6 +124,7 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
             'MUTATION_GATE_SPLIT_RECONNECT' => '1',
             'MUTATION_GATE_SPLIT_JUDGING' => 'parted',
             'MUTATION_GATE_SPLIT_FALLBACK_OWN_RUN' => '0',
+            'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY' => '0',
         ], true])
         ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
         ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
@@ -140,6 +142,7 @@ it('refuses a splitStream option written as something else', function (string $o
     'killersFirst' => ['{"splitStream": {"killersFirst": 1}}', fn(): Problem => Problem::at('splitStream.killersFirst', 'expected true or false, got 1')],
     'killerStreams' => ['{"splitStream": {"killerStreams": "on"}}', fn(): Problem => Problem::at('splitStream.killerStreams', 'expected true or false, got "on"')],
     'fallbackOwnRun' => ['{"splitStream": {"fallbackOwnRun": "yes"}}', fn(): Problem => Problem::at('splitStream.fallbackOwnRun', 'expected true or false, got "yes"')],
+    'coveringTestsOnly' => ['{"splitStream": {"coveringTestsOnly": "yes"}}', fn(): Problem => Problem::at('splitStream.coveringTestsOnly', 'expected true or false, got "yes"')],
     'judging' => ['{"splitStream": {"judging": "halved"}}', fn(): Problem => Problem::mismatch('splitStream.judging', 'one of its values', '"halved"')],
 ]);
 

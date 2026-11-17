@@ -83,6 +83,21 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.fallbackOwnRun', value: false));
     }
 
+    /**
+     * `splitStream.coveringTestsOnly`, as by default: a stream of the tests
+     * that cover its mutants runs only those tests, by their ids.
+     */
+    public static function coveringTestsOnly(): self
+    {
+        return new self(Json::at('splitStream.coveringTestsOnly', value: true));
+    }
+
+    /** `splitStream.coveringTestsOnly` off: such a stream runs every test of their files. */
+    public static function wholeCoveringFiles(): self
+    {
+        return new self(Json::at('splitStream.coveringTestsOnly', value: false));
+    }
+
     /** `splitStream.killerStreams`: a first-pass stream runs only the tests that last killed its mutants. */
     public static function killerStreams(): self
     {
