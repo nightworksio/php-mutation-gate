@@ -1,0 +1,48 @@
+name: speed probe
+
+on:
+  push:
+    branches: ['probe/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      services: ${{ steps.servers.outputs.services }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: servers
+        run: python3 .github/scripts/servers.py services >> "$GITHUB_OUTPUT"
+
+  mutation:
+    needs: [scope]
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+      id-token: write
+    uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
+    with:
+      extensions: zstd
+      prepare: >-
+        composer --working-dir=tests/Contract/Runner/fixture install --no-interaction --no-progress
+        && python3 .github/scripts/servers.py addresses >> "$GITHUB_ENV"
+      services: ${{ needs.scope.outputs.services }}
+      runs-on: ubuntu-24.04-arm
+      mode: full
+      plan-timeout: 30
+      shard-timeout: 15
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}

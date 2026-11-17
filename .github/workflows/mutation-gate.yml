@@ -615,6 +615,11 @@ jobs:
             arguments+=("--early-only")
           fi
           "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
+          heaviest='[15,18,9]'
+          echo "probe shards ${heaviest}"
+          jq -c '.shards[] | select(.id as $i | '"${heaviest}"' | index($i)) | {id, seconds, opening, units: (.units | length)}' .mutation-gate/plan.json
+          all=$(grep '^shards=' "${GITHUB_OUTPUT}" | tail -1 | cut -d= -f2-)
+          echo "shards=$(jq -c --argjson keep "${heaviest}" '[.[] | select(.id as $i | $keep | index($i))]' <<< "${all}")" >> "${GITHUB_OUTPUT}"
       # ADR-0106: on a pull request whose plan runs a shard, the jobs the last
       # run's survivors are re-checked in, one per file of those it takes, at
       # most survivorsFirst.shards, and the minutes each may take.
