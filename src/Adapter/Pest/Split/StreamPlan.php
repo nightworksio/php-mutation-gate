@@ -43,6 +43,7 @@ final readonly class StreamPlan
         public string $recording = '',
         public bool $bootOnce = false,
         public bool $reconnect = false,
+        public bool $deadline = false,
     ) {
     }
 

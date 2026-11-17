@@ -78,6 +78,7 @@ final readonly class BuilderClasses
         'Source' => self::BUILDER,
         'SplitStream' => self::BUILDER,
         'StreamShards' => self::BUILDER,
+        'StreamWork' => self::BUILDER,
         'Suggest' => self::BUILDER,
         'Survivors' => self::BUILDER,
         'StaticCheck' => self::BUILDER,

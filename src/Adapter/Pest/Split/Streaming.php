@@ -47,7 +47,6 @@ use function sprintf;
 use function str_starts_with;
 use function strval;
 
-use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -90,6 +89,7 @@ final readonly class Streaming
         private bool $bootOnce = false,
         private bool $reconnect = false,
         private bool $coveringOnly = false,
+        private bool $deadline = false,
     ) {
     }
 
@@ -245,18 +245,19 @@ final readonly class Streaming
     ): StreamVerdicts {
         $times = LoadedMap::timed();
         $cores = new CpuCoreCounter()->getCountWithFallback(1);
+        $parts = self::cut($units, $times, $this->processes);
         $streams = [];
 
-        foreach (self::cut($units, $times, $this->processes) as $at => $part) {
-            $results = sprintf(self::RESULTS, $this->directory, $pass, $at);
-            $chosen = $selects ? $this->selected($pass, $at, $part['tests']) : [];
-            $arguments = [...$selecting, ...$chosen, ...$part['files']];
-            $started = $this->started($pass, $at, $results, $planned, $times, $arguments, $cores);
-            $streams[] = [$started, $results];
+        foreach ($parts as $at => $part) {
+            $streams[] = $this->watched(
+                new StreamStart($pass, $at, count($parts), $planned, $times, $cores, $selecting),
+                $part['tests'],
+                $part['files'],
+                $selects,
+            );
         }
 
-        foreach ($streams as [$process, $results]) {
-            $this->ended($process);
+        foreach (new StreamWatch($this->directory)->ended($streams) as $results) {
             $verdicts = $verdicts->reading($results);
         }
 
@@ -264,17 +265,28 @@ final readonly class Streaming
     }
 
     /**
-     * Waits for a stream to end, however it ends: one a signal ended leaves
-     * what it wrote, and no test it did not finish passes in it, so the
-     * mutants that test covers are left to their own runs.
+     * One stream of a pass, started on these test files: of these tests
+     * alone, named in a file of their ids, where it is chosen so, and on
+     * the pass's selecting arguments otherwise. A stream stopped in a test
+     * is started again in its place, of its tests but that one, at the
+     * place one round of streams on (ADR-0182).
+     *
+     * @param list<string> $tests
+     * @param list<string> $files
      */
-    private function ended(Process $process): void
+    private function watched(StreamStart $start, array $tests, array $files, bool $chosen): WatchedStream
     {
-        try {
-            $process->wait();
-        } catch (ProcessSignaledException) {
-            return;
-        }
+        $results = sprintf(self::RESULTS, $this->directory, $start->pass, $start->at);
+        $arguments = $chosen
+            ? [...$this->selected($start->pass, $start->at, $tests), ...$files]
+            : [...$start->selecting, ...$files];
+
+        return new WatchedStream(
+            $this->started($start, $results, $arguments),
+            $results,
+            $chosen || $start->selecting !== [] ? $tests : [],
+            fn(array $left): WatchedStream => $this->watched($start->next(), $left, $files, chosen: true),
+        );
     }
 
     /**
@@ -310,19 +322,12 @@ final readonly class Streaming
      * files; where it records, its file of lines starts empty, so a stream
      * that never ended its tests leaves a file that says so (ADR-0135).
      *
-     * @param array<string, array<int, array{string, string, array<string, string>}>> $planned
-     * @param array<string, float>                                                    $times
-     * @param list<string>                                                            $files
+     * @param list<string> $files
      */
-    private function started(
-        int $pass,
-        int $at,
-        string $results,
-        array $planned,
-        array $times,
-        array $files,
-        int $cores,
-    ): Process {
+    private function started(StreamStart $start, string $results, array $files): Process
+    {
+        $pass = $start->pass;
+        $at = $start->at;
         $plan = sprintf(self::PLAN, $this->directory, $pass, $at);
         $perTest = PerTestVariables::read(
             getenv(GateVariable::TestMultiple->value),
@@ -331,11 +336,11 @@ final readonly class Streaming
         $most = ToldSeconds::read(getenv(GateVariable::MutantCap->value));
         $fields = [
             'results' => $results,
-            'sites' => $planned,
+            'sites' => $start->planned,
             'paths' => $this->paths,
-            'times' => $times,
+            'times' => $start->times,
             'children' => $this->children instanceof StreamChildren ? $this->children->value : $this->children,
-            'cores' => $cores,
+            'cores' => $start->cores,
             'live' => $this->directory,
             'multiple' => $perTest->isOn() ? $perTest->multiple() : 0,
             'floor' => $perTest->floor()->seconds(),
@@ -346,6 +351,7 @@ final readonly class Streaming
                 : sprintf(self::RECORDED, $this->recording, $pass, $at),
             'bootOnce' => $this->bootsOnceIn($pass),
             'reconnect' => $this->reconnect,
+            'deadline' => $this->deadline,
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 

@@ -19,6 +19,7 @@ use function is_string;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Waiting;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
 use NightWorksIO\MutationGate\Adapter\Serve\Connection;
 use NightWorksIO\MutationGate\Adapter\Serve\Listener;
 use NightWorksIO\MutationGate\Adapter\Serve\ServeSocket;
@@ -64,9 +65,13 @@ final class ServedProjects
         return self::enteredAt(Scratch::directory());
     }
 
-    /** A project, its gate's directory made its owner's alone, changed into: its path. */
+    /**
+     * A project, its gate's directory made its owner's alone, changed into: its path. No fork of a split stream
+     * judges the test from here, as a child would share the project's socket and daemons (ADR-0176).
+     */
     public static function enteredAt(string $project): string
     {
+        Stream::unforkable();
         $directory = sprintf('%s/.mutation-gate', $project);
 
         if (! is_dir($directory)) {
@@ -133,12 +138,14 @@ final class ServedProjects
 
     /**
      * This run in a process of its own, which leaves nothing of the suite
-     * behind it once it is done: its process id.
+     * behind it once it is done: its process id. No fork of a split stream
+     * judges the test from here, as a child would share that process.
      *
      * @param Closure(): void $run
      */
     public static function aside(Closure $run): int
     {
+        Stream::unforkable();
         $child = pcntl_fork();
 
         if ($child === 0) {

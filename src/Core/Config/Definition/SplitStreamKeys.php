@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\SplitEarly;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Config\StreamSharding;
+use NightWorksIO\MutationGate\Core\Config\StreamWork;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
@@ -37,6 +38,7 @@ final readonly class SplitStreamKeys
         $judging = Field::optional(SplitStream::JUDGING, Enumerated::of(StreamJudging::cases()), $results);
         $fallbackOwnRun = Field::optional(SplitStream::FALLBACK_OWN_RUN, Flag::boolean(), $results);
         $coveringOnly = Field::optional(SplitStream::COVERING_TESTS_ONLY, Flag::boolean(), $results);
+        $deadline = Field::optional(StreamWork::PARENT_DEADLINE, Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -59,6 +61,7 @@ final readonly class SplitStreamKeys
                     $judging,
                     $fallbackOwnRun,
                     $coveringOnly,
+                    $deadline,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -72,6 +75,7 @@ final readonly class SplitStreamKeys
                     $judged = $judging->read($split);
                     $ownRun = $fallbackOwnRun->read($split);
                     $selected = $coveringOnly->read($split);
+                    $deadlined = $deadline->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -87,6 +91,7 @@ final readonly class SplitStreamKeys
                             $judged->value(),
                             $ownRun->value(),
                             $selected->value(),
+                            new StreamWork($deadlined->value()),
                         ))),
                         $on,
                         $most,
@@ -100,6 +105,7 @@ final readonly class SplitStreamKeys
                         $judged,
                         $ownRun,
                         $selected,
+                        $deadlined,
                     );
                 },
                 $enabled,
@@ -114,6 +120,7 @@ final readonly class SplitStreamKeys
                 $judging,
                 $fallbackOwnRun,
                 $coveringOnly,
+                $deadline,
             ),
         )];
     }

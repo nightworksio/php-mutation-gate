@@ -57,13 +57,27 @@ final readonly class ChildPlaces
             return;
         }
 
-        $mark = sprintf(self::LIVE, $this->directory, $pid);
+        $mark = self::markOf($this->directory, $pid);
         touch($mark);
         register_shutdown_function(static function () use ($mark, $pid): void {
             if (getmypid() === $pid && is_file($mark)) {
                 unlink($mark);
             }
         });
+    }
+
+    /** The mark of the stream of this process, where it is marked running; '' where it is not. */
+    public function mark(): string
+    {
+        $pid = getmypid();
+
+        return $this->directory === '' || $pid === false ? '' : self::markOf($this->directory, $pid);
+    }
+
+    /** The mark of the stream of this process id in this directory. */
+    public static function markOf(string $directory, int $pid): string
+    {
+        return sprintf(self::LIVE, $directory, $pid);
     }
 
     /** The most children the stream may ever hold at once: the count, or every core. */

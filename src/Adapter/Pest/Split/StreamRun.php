@@ -77,6 +77,8 @@ final class StreamRun
 
     private readonly StartedProcesses $processes;
 
+    private readonly ParentDeadline $deadline;
+
     private function __construct(
         private readonly StreamPlan $plan,
         private readonly Children $children,
@@ -89,6 +91,7 @@ final class StreamRun
         $this->boot = new BootedSites($plan);
         $this->processes = StartedProcesses::beside($plan->results);
         $this->fallbacks = new ForkFallbacks($plan, $this->lines);
+        $this->deadline = ParentDeadline::of($plan, $plan->places->mark());
     }
 
     /**
@@ -169,6 +172,10 @@ final class StreamRun
 
         $this->processes->watched();
         $this->fallbacks->began($this->test);
+
+        if ($this->isParent()) {
+            $this->deadline->began($test);
+        }
     }
 
     /** The test runs in a process of its own, where no fork reaches it. */
@@ -204,6 +211,10 @@ final class StreamRun
 
         if (! $test->isRunning()) {
             return;
+        }
+
+        if ($this->isParent()) {
+            $this->deadline->ended();
         }
 
         if ($test->wasHanded()) {
@@ -341,10 +352,12 @@ final class StreamRun
         [$mutant, , $variables] = $this->plan->sites[$file][$id];
         $this->test->forkAt($file, $id);
         $watch = $this->states->armed();
+        $waited = $this->children->waited();
         $pid = $this->children->forked($mutant, $this->test->id, $copies);
         $this->deciding = false;
 
         if ($pid !== 0) {
+            $this->deadline->waited($this->children->waited() - $waited);
             $this->states->forked($mutant, $watch);
 
             return false;
@@ -364,6 +377,12 @@ final class StreamRun
         ServedChildren::tellOf($variables);
 
         return true;
+    }
+
+    /** Whether this process is the stream's own, neither a child nor a test's own process. */
+    private function isParent(): bool
+    {
+        return $this->mutant === '' && ! $this->testProcess;
     }
 
     private function write(string $line): void

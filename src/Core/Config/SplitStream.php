@@ -76,6 +76,7 @@ final readonly class SplitStream
         private StreamJudging|Absent $judging = new Absent(),
         private bool|Absent $fallbackOwnRun = new Absent(),
         private bool|Absent $coveringTestsOnly = new Absent(),
+        private StreamWork $work = new StreamWork(),
     ) {
     }
 
@@ -92,6 +93,7 @@ final readonly class SplitStream
         StreamJudging|Absent $judging = new Absent(),
         bool|Absent $fallbackOwnRun = new Absent(),
         bool|Absent $coveringTestsOnly = new Absent(),
+        StreamWork $work = new StreamWork(),
     ): self {
         return new self(
             $enabled,
@@ -106,6 +108,7 @@ final readonly class SplitStream
             $judging,
             $fallbackOwnRun,
             $coveringTestsOnly,
+            $work,
         );
     }
 
@@ -127,6 +130,7 @@ final readonly class SplitStream
             $none->judging(),
             $none->fallbackOwnRun(),
             $none->coveringTestsOnly(),
+            StreamWork::standard(),
         );
     }
 
@@ -146,6 +150,7 @@ final readonly class SplitStream
             Absent::laid($this->judging, $later->judging),
             Absent::laid($this->fallbackOwnRun, $later->fallbackOwnRun),
             Absent::laid($this->coveringTestsOnly, $later->coveringTestsOnly),
+            $this->work->over($later->work),
         );
     }
 
@@ -212,6 +217,12 @@ final readonly class SplitStream
         return $this->coveringTestsOnly !== false;
     }
 
+    /** How the streams get through their work: the keys that move only how fast a run judges (ADR-0182). */
+    public function work(): StreamWork
+    {
+        return $this->work;
+    }
+
     /** `splitStream.sharding`: what a run that splits its streams cuts its shards by; test files by default. */
     public function sharding(): StreamSharding
     {
@@ -266,7 +277,7 @@ final readonly class SplitStream
     {
         $option = Json::object(
             Member::of(self::ENABLED, $this->enabled()),
-            Member::of(self::CHILDREN, $this->childrenText($this->children())),
+            Member::of(self::CHILDREN, StreamChildren::text($this->children())),
             Member::of(self::CHANGE_CHECK, $this->changeCheck()),
             Member::of(self::KILLERS_FIRST, $this->killersFirst()),
             Member::of(self::KILLER_STREAMS, $this->killerStreams()),
@@ -275,6 +286,7 @@ final readonly class SplitStream
             Member::of(self::JUDGING, $this->judging()->value),
             Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun()),
             Member::of(self::COVERING_TESTS_ONLY, $this->coveringTestsOnly()),
+            ...$this->work->option(),
         );
 
         return Member::of(self::SECTION, $option);
@@ -288,7 +300,7 @@ final readonly class SplitStream
             Member::of(self::ENABLED, $this->enabled),
             Member::of(
                 self::CHILDREN,
-                $this->children instanceof Absent ? $this->children : $this->childrenText($this->children),
+                $this->children instanceof Absent ? $this->children : StreamChildren::text($this->children),
             ),
             Member::of(self::CHANGE_CHECK, $this->changeCheck),
             Member::of(self::KILLERS_FIRST, $this->killersFirst),
@@ -300,6 +312,7 @@ final readonly class SplitStream
             Member::of(self::JUDGING, $this->judging instanceof StreamJudging ? $this->judging->value : $this->judging),
             Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun),
             Member::of(self::COVERING_TESTS_ONLY, $this->coveringTestsOnly),
+            ...$this->work->written(),
         );
 
         return Member::unlessEmpty(self::SECTION, $written);
@@ -339,12 +352,7 @@ final readonly class SplitStream
                 $this->coveringTestsOnly,
                 'SplitStream::coveringTestsOnly()',
                 'SplitStream::wholeCoveringFiles()',
-            ));
-    }
-
-    /** How a config and the runner's option write `splitStream.children`. */
-    private function childrenText(int|StreamChildren $children): int|string
-    {
-        return $children instanceof StreamChildren ? $children->value : $children;
+            ))
+            ->and($this->work->php());
     }
 }

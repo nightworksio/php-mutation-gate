@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
+use NightWorksIO\MutationGate\Core\Config\StreamWork;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -346,6 +347,7 @@ final readonly class PestOptions
         $reconnect = $split->flag(Key::of(SplitStream::RECONNECT));
         $fallbackOwnRun = $split->flag(Key::of(SplitStream::FALLBACK_OWN_RUN));
         $coveringOnly = $split->flag(Key::of(SplitStream::COVERING_TESTS_ONLY));
+        $deadline = $split->flag(Key::of(StreamWork::PARENT_DEADLINE));
         $standard = SplitStream::of();
         $judging = self::judgingOf($split, $standard->judging());
 
@@ -360,6 +362,7 @@ final readonly class PestOptions
             $judging instanceof Problem => $judging,
             $fallbackOwnRun instanceof Problem => $fallbackOwnRun,
             $coveringOnly instanceof Problem => $coveringOnly,
+            $deadline instanceof Problem => $deadline,
             default => StreamSettings::of(
                 $enabled === true,
                 $children instanceof NotGiven ? $standard->children() : $children,
@@ -371,6 +374,7 @@ final readonly class PestOptions
                 $killerStreams === true,
                 $bootOnce === true,
                 $reconnect !== false,
+                $deadline !== false,
             ),
         };
     }

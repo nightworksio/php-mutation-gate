@@ -4185,6 +4185,10 @@
                 "coveringTestsOnly": {
                     "type": "boolean",
                     "default": true
+                },
+                "parentDeadline": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -8787,6 +8791,9 @@
                             "type": "boolean"
                         },
                         "coveringTestsOnly": {
+                            "type": "boolean"
+                        },
+                        "parentDeadline": {
                             "type": "boolean"
                         }
                     },

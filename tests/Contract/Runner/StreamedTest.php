@@ -240,6 +240,46 @@ it('judges a mutant alike whether its stream runs only the covering tests or the
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);
 
+it('stops a stream whose parent runs a test past its deadline, and judges the mutant by the tests left in a stream started in its place, under splitStream.parentDeadline', function (): void {
+    $copied = [
+        'src/Stalled.php' => 'tests/Contract/Runner/streamed/src/Stalled.php',
+        'tests/StalledSpec.php' => 'tests/Contract/Runner/streamed/tests/StalledSpec.php',
+    ];
+
+    foreach ($copied as $into => $from) {
+        copy(Tree::at($from), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+    }
+
+    Library::patched();
+    $started = microtime(as_float: true);
+
+    try {
+        $result = Library::pest(Patching::on(Library::canary())->splitting(StreamSettings::of(
+            enabled: true,
+            children: 1,
+            changeCheck: false,
+            killersFirst: false,
+        )))->runner()->mutate(
+            MutationRequest::of(Paths::of(Path::of('src/Stalled.php')), WholeSuite::tests())->narrowedTo(
+                Paths::of(Path::of('src/Stalled.php')),
+                Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)),
+            ),
+        );
+    } finally {
+        foreach (array_keys($copied) as $into) {
+            unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+        }
+    }
+
+    expect([streamedJudged($result), microtime(as_float: true) - $started < 60.0])->toBe([
+        [16 => [MutantStatus::Killed, ['P\\Tests\\StalledSpec::__pest_evaluable_it_raises_a_small_amount'], true]],
+        true,
+    ]);
+})->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
 it('leaves a mutant whose site the application\'s boot runs to a second pass that boots in every test, under splitStream.bootOnce', function (): void {
     $copied = [
         'src/Booted.php' => 'tests/Contract/Runner/streamed/src/Booted.php',

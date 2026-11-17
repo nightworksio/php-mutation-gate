@@ -187,6 +187,9 @@ enum GateVariable: string
     /** Whether a stream of covering tests runs only those tests, by their ids (ADR-0181). */
     case SplitCoveringTestsOnly = 'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY';
 
+    /** Whether a stream whose parent runs a test past its deadline is stopped and started again (ADR-0182). */
+    case SplitParentDeadline = 'MUTATION_GATE_SPLIT_PARENT_DEADLINE';
+
     /**
      * The `outbreak.so` a split stream loads, to count the forks that change
      * no state (H5), to see a test touch nondeterminism (ADR-0130), to record

@@ -49,6 +49,7 @@ final readonly class StreamSettings
         private StreamJudging $judging = StreamJudging::Whole,
         private bool $fallbackOwnRun = true,
         private bool $coveringOnly = true,
+        private bool $parentDeadline = true,
     ) {
     }
 
@@ -74,6 +75,7 @@ final readonly class StreamSettings
         bool $killerStreams = false,
         bool $bootOnce = false,
         bool $reconnect = true,
+        bool $parentDeadline = true,
     ): self {
         if (! $enabled) {
             return self::off();
@@ -91,6 +93,7 @@ final readonly class StreamSettings
             judging: $judging,
             fallbackOwnRun: $fallbackOwnRun,
             coveringOnly: $coveringOnly,
+            parentDeadline: $parentDeadline,
         );
     }
 
@@ -119,6 +122,7 @@ final readonly class StreamSettings
             StreamJudging::tryFrom((string) getenv(GateVariable::SplitJudging->value)) ?? StreamJudging::Whole,
             getenv(GateVariable::SplitFallbackOwnRun->value) !== self::OFF,
             getenv(GateVariable::SplitCoveringTestsOnly->value) !== self::OFF,
+            getenv(GateVariable::SplitParentDeadline->value) !== self::OFF,
         );
     }
 
@@ -138,6 +142,15 @@ final readonly class StreamSettings
     }
 
     /** Whether a stream of covering tests runs only those tests, by their ids, not their whole files (ADR-0181). */
+    /**
+     * Whether a stream whose parent runs a test past its deadline is stopped
+     * and started again on its other tests (ADR-0182).
+     */
+    public function stopsAtDeadlines(): bool
+    {
+        return $this->parentDeadline;
+    }
+
     public function selectsCoveringTests(): bool
     {
         return $this->coveringOnly;
@@ -236,6 +249,7 @@ final readonly class StreamSettings
                 GateVariable::SplitJudging->value => $this->judging->value,
                 GateVariable::SplitFallbackOwnRun->value => $told($this->fallbackOwnRun),
                 GateVariable::SplitCoveringTestsOnly->value => $told($this->coveringOnly),
+                GateVariable::SplitParentDeadline->value => $told($this->parentDeadline),
             ]
             : [];
     }

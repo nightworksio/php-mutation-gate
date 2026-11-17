@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Config\EarlyStreams;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\SplitStream;
 use NightWorksIO\MutationGate\Config\StreamShards;
+use NightWorksIO\MutationGate\Config\StreamWork;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 $calls = [
@@ -27,6 +28,8 @@ $calls = [
     'bootPerTest' => [static fn(): Setting => SplitStream::bootPerTest(), 'splitStream.bootOnce', false, 'SplitStream::bootPerTest'],
     'reconnect' => [static fn(): Setting => SplitStream::reconnect(), 'splitStream.reconnect', true, 'SplitStream::reconnect'],
     'connectionsFallBack' => [static fn(): Setting => SplitStream::connectionsFallBack(), 'splitStream.reconnect', false, 'SplitStream::connectionsFallBack'],
+    'parentDeadline' => [static fn(): Setting => StreamWork::parentDeadline(), 'splitStream.parentDeadline', true, 'StreamWork::parentDeadline'],
+    'noParentDeadline' => [static fn(): Setting => StreamWork::noParentDeadline(), 'splitStream.parentDeadline', false, 'StreamWork::noParentDeadline'],
     'byTests' => [static fn(): Setting => StreamShards::byTests(), 'splitStream.sharding', 'tests', 'StreamShards::byTests'],
     'byTestsInEveryPart' => [static fn(): Setting => StreamShards::byTestsInEveryPart(), 'splitStream.sharding', 'tests-every-part', 'StreamShards::byTestsInEveryPart'],
     'bySource' => [static fn(): Setting => StreamShards::bySource(), 'splitStream.sharding', 'source', 'StreamShards::bySource'],

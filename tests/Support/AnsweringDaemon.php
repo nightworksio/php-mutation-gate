@@ -12,6 +12,7 @@ use function is_array;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnEnd;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
 use NightWorksIO\MutationGate\Adapter\Serve\Connection;
 use NightWorksIO\MutationGate\Adapter\Serve\Listener;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -50,9 +51,13 @@ final readonly class AnsweringDaemon
         return self::after(0, $socket, ...$answers);
     }
 
-    /** One that answers each request this many microseconds after it read it. */
+    /**
+     * One that answers each request this many microseconds after it read it. No fork of a split stream judges the
+     * test from here, as a child would share the daemon (ADR-0176).
+     */
     public static function after(int $microseconds, string $socket, string ...$answers): self
     {
+        Stream::unforkable();
         $listener = Listener::directoryMade(dirname($socket)) ? Listener::boundTo($socket) : null;
 
         if (! $listener instanceof Listener) {

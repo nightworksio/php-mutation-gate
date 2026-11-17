@@ -161,6 +161,12 @@ final class Children
         return $failed;
     }
 
+    /** How long the parent waited for a place in its current test, in seconds. */
+    public function waited(): float
+    {
+        return $this->waited;
+    }
+
     /** Whether any child still runs. */
     public function areRunning(): bool
     {

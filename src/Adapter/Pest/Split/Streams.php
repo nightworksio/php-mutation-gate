@@ -97,6 +97,7 @@ final readonly class Streams
             $settings->bootsOnce(),
             $settings->reconnects(),
             $settings->selectsCoveringTests(),
+            $settings->stopsAtDeadlines(),
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $held, $settings);
         $undecided = self::undecided($byId, $sites, $covering, $held, $verdicts);
