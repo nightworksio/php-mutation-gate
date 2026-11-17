@@ -26,7 +26,7 @@ final readonly class SplitStreamKeys
     {
         $results = Effect::AffectsResults;
         $enabled = Field::optional(SplitStream::ENABLED, Flag::boolean(), $results);
-        $children = Field::optional(SplitStream::CHILDREN, Integer::atLeast(1), $results);
+        $children = Field::optional(SplitStream::CHILDREN, new ChildCount(), $results);
         $changeCheck = Field::optional(SplitStream::CHANGE_CHECK, Flag::boolean(), $results);
         $killersFirst = Field::optional(SplitStream::KILLERS_FIRST, Flag::boolean(), $results);
         $sharding = Field::optional(SplitStream::SHARDING, Enumerated::of(StreamSharding::cases()), $results);

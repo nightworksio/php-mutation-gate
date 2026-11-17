@@ -14,6 +14,8 @@ use function is_string;
 use function json_decode;
 use function max;
 
+use NightWorksIO\MutationGate\Core\Config\StreamChildren;
+
 /**
  * A split stream's plan read from the JSON Pest's own process wrote
  * (ADR-0117), each part of it typed, and what is not as written left out.
@@ -36,7 +38,7 @@ final readonly class StreamPlanFile
             PlannedSites::of(self::listed($read, 'sites')),
             self::texts(self::listed($read, 'paths')),
             self::timesOf(self::listed($read, 'times')),
-            max(1, self::integer($read, 'children', 1)),
+            self::placesOf($read),
             new ChildLimit(
                 self::number($read, 'multiple'),
                 self::number($read, 'floor'),
@@ -66,6 +68,21 @@ final readonly class StreamPlanFile
         }
 
         return $read;
+    }
+
+    /**
+     * How many children the plan lets the stream hold at once: a count, or
+     * the cores shared among the streams running in its directory.
+     *
+     * @param array<mixed> $read
+     */
+    private static function placesOf(array $read): ChildPlaces
+    {
+        $live = self::text($read, 'live');
+
+        return self::text($read, 'children') === StreamChildren::Cores->value && $live !== ''
+            ? ChildPlaces::sharing(self::integer($read, 'cores', 1), $live)
+            : ChildPlaces::fixed(self::integer($read, 'children', 1));
     }
 
     /** @param array<mixed> $read */

@@ -48,11 +48,9 @@ final readonly class SplitStream
     /** The section the keys are in, and the Pest runner's option that holds them. */
     public const string SECTION = 'splitStream';
 
-    private const int CHILDREN_AT_ONCE = 1;
-
     private function __construct(
         private bool|Absent $enabled,
-        private int|Absent $children,
+        private int|StreamChildren|Absent $children,
         private bool|Absent $changeCheck,
         private bool|Absent $killersFirst,
         private StreamSharding|Absent $sharding,
@@ -65,7 +63,7 @@ final readonly class SplitStream
 
     public static function of(
         bool|Absent $enabled = new Absent(),
-        int|Absent $children = new Absent(),
+        int|StreamChildren|Absent $children = new Absent(),
         bool|Absent $changeCheck = new Absent(),
         bool|Absent $killersFirst = new Absent(),
         StreamSharding|Absent $sharding = new Absent(),
@@ -127,10 +125,13 @@ final readonly class SplitStream
         return $this->enabled === true;
     }
 
-    /** `splitStream.children`: the most children a stream holds at once; 1 by default. */
-    public function children(): int
+    /**
+     * `splitStream.children`: the most children a stream holds at once, or
+     * the cores shared among the streams still running, by default (ADR-0173).
+     */
+    public function children(): int|StreamChildren
     {
-        return is_int($this->children) ? $this->children : self::CHILDREN_AT_ONCE;
+        return $this->children instanceof Absent ? StreamChildren::Cores : $this->children;
     }
 
     /**
@@ -205,7 +206,7 @@ final readonly class SplitStream
     {
         $option = Json::object(
             Member::of(self::ENABLED, $this->enabled()),
-            Member::of(self::CHILDREN, $this->children()),
+            Member::of(self::CHILDREN, $this->childrenText($this->children())),
             Member::of(self::CHANGE_CHECK, $this->changeCheck()),
             Member::of(self::KILLERS_FIRST, $this->killersFirst()),
             Member::of(self::KILLER_STREAMS, $this->killerStreams()),
@@ -222,7 +223,10 @@ final readonly class SplitStream
         $sharding = $this->sharding instanceof StreamSharding ? $this->sharding->value : $this->sharding;
         $written = Json::object(
             Member::of(self::ENABLED, $this->enabled),
-            Member::of(self::CHILDREN, $this->children),
+            Member::of(
+                self::CHILDREN,
+                $this->children instanceof Absent ? $this->children : $this->childrenText($this->children),
+            ),
             Member::of(self::CHANGE_CHECK, $this->changeCheck),
             Member::of(self::KILLERS_FIRST, $this->killersFirst),
             Member::of(self::SHARDING, $sharding),
@@ -240,7 +244,11 @@ final readonly class SplitStream
     {
         return PhpCalls::inWith(
             ...$this->switched($this->enabled, 'SplitStream::on()', 'SplitStream::off()'),
-            ...is_int($this->children) ? [sprintf('SplitStream::children(%d)', $this->children)] : [],
+            ...match (true) {
+                is_int($this->children) => [sprintf('SplitStream::children(%d)', $this->children)],
+                $this->children instanceof StreamChildren => ['SplitStream::childrenByCores()'],
+                default => [],
+            },
             ...$this->switched($this->changeCheck, 'SplitStream::checkingChanges()', 'SplitStream::forkingUnchecked()'),
             ...$this->switched($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'),
             ...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : [],
@@ -263,5 +271,11 @@ final readonly class SplitStream
             false => [$off],
             default => [],
         };
+    }
+
+    /** How a config and the runner's option write `splitStream.children`. */
+    private function childrenText(int|StreamChildren $children): int|string
+    {
+        return $children instanceof StreamChildren ? $children->value : $children;
     }
 }

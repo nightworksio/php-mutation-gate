@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function getenv;
+use function is_int;
 use function is_numeric;
 use function is_string;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
@@ -34,7 +36,7 @@ final readonly class StreamSettings
 
     private function __construct(
         private bool $enabled,
-        private int $children,
+        private int|StreamChildren $children,
         private bool $changeCheck,
         private bool $killersFirst,
         private TestPart $part,
@@ -51,9 +53,15 @@ final readonly class StreamSettings
         return new self(enabled: false, children: 1, changeCheck: true, killersFirst: true, part: TestPart::whole());
     }
 
-    public static function of(bool $enabled, int $children, bool $changeCheck, bool $killersFirst): self
+    public static function of(bool $enabled, int|StreamChildren $children, bool $changeCheck, bool $killersFirst): self
     {
-        return new self($enabled, max(1, $children), $changeCheck, $killersFirst, TestPart::whole());
+        return new self(
+            $enabled,
+            is_int($children) ? max(1, $children) : $children,
+            $changeCheck,
+            $killersFirst,
+            TestPart::whole(),
+        );
     }
 
     /** What the gate told this process. */
@@ -65,7 +73,11 @@ final readonly class StreamSettings
 
         return new self(
             getenv(GateVariable::Split->value) === self::ON,
-            is_numeric($children) ? max(1, (int) $children) : 1,
+            match (true) {
+                is_numeric($children) => max(1, (int) $children),
+                $children === StreamChildren::Cores->value => StreamChildren::Cores,
+                default => 1,
+            },
             getenv(GateVariable::SplitChangeCheck->value) !== self::OFF,
             getenv(GateVariable::SplitKillersFirst->value) !== self::OFF,
             TestPartVariable::read(getenv(GateVariable::SplitPart->value)),
@@ -195,7 +207,8 @@ final readonly class StreamSettings
         return $this->enabled;
     }
 
-    public function children(): int
+    /** The most children a stream holds at once, or the cores shared among the streams still running (ADR-0173). */
+    public function children(): int|StreamChildren
     {
         return $this->children;
     }
@@ -227,7 +240,9 @@ final readonly class StreamSettings
         return $this->enabled
             ? [
                 GateVariable::Split->value => self::ON,
-                GateVariable::SplitChildren->value => sprintf('%d', $this->children),
+                GateVariable::SplitChildren->value => is_int($this->children)
+                    ? sprintf('%d', $this->children)
+                    : $this->children->value,
                 GateVariable::SplitChangeCheck->value => $this->told($this->changeCheck),
                 GateVariable::SplitKillersFirst->value => $this->told($this->killersFirst),
                 GateVariable::SplitKillerStreams->value => $this->told($this->killerStreams),

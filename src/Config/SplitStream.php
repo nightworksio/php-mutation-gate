@@ -25,10 +25,19 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.enabled', value: false));
     }
 
-    /** `splitStream.children`: the most children a stream holds at once; 1. */
+    /** `splitStream.children`: the most children a stream holds at once. */
     public static function children(int $most): self
     {
         return new self(Json::at('splitStream.children', $most));
+    }
+
+    /**
+     * `splitStream.children` `cores`, as by default: the logical cores shared
+     * among the streams still running, at least one a stream (ADR-0173).
+     */
+    public static function childrenByCores(): self
+    {
+        return new self(Json::at('splitStream.children', 'cores'));
     }
 
     /**

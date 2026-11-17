@@ -11,6 +11,9 @@ use function array_map;
 use function array_unique;
 use function array_values;
 use function count;
+
+use Fidry\CpuCoreCounter\CpuCoreCounter;
+
 use function file_put_contents;
 use function getenv;
 use function is_string;
@@ -26,6 +29,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\IdsFile;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
+use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
@@ -78,7 +82,7 @@ final readonly class Streaming
         private array $covering,
         private array $arguments,
         private int $processes,
-        private int $children,
+        private int|StreamChildren $children,
         private string $recording = '',
         private bool $bootOnce = false,
         private bool $reconnect = false,
@@ -211,11 +215,13 @@ final readonly class Streaming
         StreamVerdicts $verdicts,
     ): StreamVerdicts {
         $times = LoadedMap::timed();
+        $cores = new CpuCoreCounter()->getCountWithFallback(1);
         $streams = [];
 
         foreach (self::parts($units, $times, $this->processes) as $at => $files) {
             $results = sprintf(self::RESULTS, $this->directory, $pass, $at);
-            $streams[] = [$this->started($pass, $at, $results, $planned, $times, [...$selecting, ...$files]), $results];
+            $started = $this->started($pass, $at, $results, $planned, $times, [...$selecting, ...$files], $cores);
+            $streams[] = [$started, $results];
         }
 
         foreach ($streams as [$process, $results]) {
@@ -245,8 +251,15 @@ final readonly class Streaming
      * @param array<string, float>                                                    $times
      * @param list<string>                                                            $files
      */
-    private function started(int $pass, int $at, string $results, array $planned, array $times, array $files): Process
-    {
+    private function started(
+        int $pass,
+        int $at,
+        string $results,
+        array $planned,
+        array $times,
+        array $files,
+        int $cores,
+    ): Process {
         $plan = sprintf(self::PLAN, $this->directory, $pass, $at);
         $perTest = PerTestVariables::read(
             getenv(GateVariable::TestMultiple->value),
@@ -258,7 +271,9 @@ final readonly class Streaming
             'sites' => $planned,
             'paths' => $this->paths,
             'times' => $times,
-            'children' => $this->children,
+            'children' => $this->children instanceof StreamChildren ? $this->children->value : $this->children,
+            'cores' => $cores,
+            'live' => $this->directory,
             'multiple' => $perTest->isOn() ? $perTest->multiple() : 0,
             'floor' => $perTest->floor()->seconds(),
             'longest' => ($most instanceof Seconds ? $most : Triage::none()->limits()->most())->seconds(),

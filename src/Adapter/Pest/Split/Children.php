@@ -37,7 +37,7 @@ use const WNOHANG;
 
 /**
  * A split stream's running children (ADR-0117): no more of them at once than
- * the plan allows, each held to its limit, a child that ended without writing
+ * the plan allows now (see ChildPlaces), each held to its limit, a child that ended without writing
  * how its test ended written for it, and each that failed or ended in its
  * test named, so the stream can kill its mutant. Where the stream counts
  * steps (ADR-0147), each child is bound to a slot of limits it shares with
@@ -73,6 +73,7 @@ final class Children
     public function __construct(private readonly StreamPlan $plan)
     {
         $this->steps = new ChildSteps($plan);
+        $plan->places->joined();
         register_shutdown_function($this->leftDropped(...));
     }
 
@@ -86,7 +87,7 @@ final class Children
     {
         $failed = [];
 
-        while (count($this->running) >= $this->plan->children) {
+        while (count($this->running) >= $this->plan->places->now()) {
             $failed = [...$failed, ...$this->reaped(blocking: true)];
         }
 

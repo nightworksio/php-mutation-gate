@@ -33,9 +33,10 @@ final class OutbreakCalls
             function outbreak_state_digest(int $watch): string { $GLOBALS['asked'][] = "digest {$watch}"; return 'd1'; }
 
             use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit;
+            use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces;
             use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan;
 
-            $plan = new StreamPlan(%s, [], [], [], 2, new ChildLimit(1.0, 1.0, 10.0, stepFloor: 100));
+            $plan = new StreamPlan(%s, [], [], [], ChildPlaces::fixed(2), new ChildLimit(1.0, 1.0, 10.0, stepFloor: 100));
             %s
             echo implode(';', $GLOBALS['asked']);
             CODE, var_export($results, return: true), $program));

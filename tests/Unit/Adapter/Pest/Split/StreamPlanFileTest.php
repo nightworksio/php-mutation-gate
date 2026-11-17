@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlanFile;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -25,7 +26,7 @@ it('reads a stream\'s plan as Pest\'s own process wrote it, each part typed', fu
         ['f1' => [3 => ['m1', 'T::kills', ['GATE_A' => 'x']], 4 => ['m2', '', []]]],
         ['f1' => 'src/Money.php'],
         ['T::kills' => 0.25, 'T::slow' => 2.0],
-        3,
+        ChildPlaces::fixed(3),
         new ChildLimit(3.0, 1.5, 30.0),
     ));
 });
@@ -47,11 +48,22 @@ it('leaves out what is not as written, and holds at least one child', function (
         ['f1' => [4 => ['m4', 'T', ['B' => 'b']]], 'f2' => []],
         ['f2' => 'src/Shapes.php'],
         ['T::b' => 1.0],
-        1,
+        ChildPlaces::fixed(1),
         new ChildLimit(0.0, 0.0, 0.0),
     ))
         ->and(StreamPlanFile::read(sprintf('%s/unlisted.json', $root)))
-        ->toEqual(new StreamPlan('r', [], [], [], 1, new ChildLimit(0.0, 0.0, 0.0)));
+        ->toEqual(new StreamPlan('r', [], [], [], ChildPlaces::fixed(1), new ChildLimit(0.0, 0.0, 0.0)));
+});
+
+it('reads the cores a stream shares among the streams running in its directory, where the plan says so', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'cores.json', (string) json_encode(['results' => 'r', 'children' => 'cores', 'cores' => 4, 'live' => '/tmp/streams']));
+    Scratch::write($root, 'nowhere.json', (string) json_encode(['results' => 'r', 'children' => 'cores', 'cores' => 4]));
+
+    expect(StreamPlanFile::read(sprintf('%s/cores.json', $root)))
+        ->toEqual(new StreamPlan('r', [], [], [], ChildPlaces::sharing(4, '/tmp/streams'), new ChildLimit(0.0, 0.0, 0.0)))
+        ->and(StreamPlanFile::read(sprintf('%s/nowhere.json', $root)))
+        ->toEqual(new StreamPlan('r', [], [], [], ChildPlaces::fixed(1), new ChildLimit(0.0, 0.0, 0.0)));
 });
 
 it('reads no plan from a file that is not there, is not JSON, or names no results file', function (): void {
@@ -72,7 +84,7 @@ it('names the mutants of each schema whose source file the process loaded before
         ['f1' => [1 => ['m1', '', []], 2 => ['m2', '', []]], 'f2' => [1 => ['m3', '', []]]],
         ['f1' => 'src/Money.php', 'f2' => 'src/Shapes.php', 'f3' => 'src/Held.php'],
         [],
-        1,
+        ChildPlaces::fixed(1),
         new ChildLimit(0.0, 0.0, 0.0),
     );
 

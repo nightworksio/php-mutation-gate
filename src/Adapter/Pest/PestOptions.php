@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use Closure;
 
 use function is_bool;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -28,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
+use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -299,6 +301,16 @@ final readonly class PestOptions
         return $toggles;
     }
 
+    /** `splitStream.children`: a count, or `cores` (ADR-0173). */
+    private static function childrenOf(Options $split): int|StreamChildren|NotGiven|Problem
+    {
+        $key = Key::of(SplitStream::CHILDREN);
+        $text = $split->text($key);
+        $cores = is_string($text) ? StreamChildren::tryFrom($text) : null;
+
+        return $cores ?? $split->integer($key);
+    }
+
     /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117). */
     private static function streamsOf(Options $options): StreamSettings|Problem
     {
@@ -309,7 +321,7 @@ final readonly class PestOptions
         }
 
         $enabled = $split->flag(Key::of(SplitStream::ENABLED));
-        $children = $split->integer(Key::of(SplitStream::CHILDREN));
+        $children = self::childrenOf($split);
         $changeCheck = $split->flag(Key::of(SplitStream::CHANGE_CHECK));
         $killersFirst = $split->flag(Key::of(SplitStream::KILLERS_FIRST));
         $killerStreams = $split->flag(Key::of(SplitStream::KILLER_STREAMS));

@@ -4121,9 +4121,18 @@
                     "default": false
                 },
                 "children": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "default": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "enum": [
+                                "cores"
+                            ]
+                        }
+                    ],
+                    "default": "cores"
                 },
                 "changeCheck": {
                     "type": "boolean",
@@ -8711,8 +8720,17 @@
                             "type": "boolean"
                         },
                         "children": {
-                            "type": "integer",
-                            "minimum": 1
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "enum": [
+                                        "cores"
+                                    ]
+                                }
+                            ]
                         },
                         "changeCheck": {
                             "type": "boolean"

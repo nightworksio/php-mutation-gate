@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 afterEach(function (): void {
@@ -46,6 +47,17 @@ it('reads back what it told a run', function (): void {
 
     expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst()])
         ->toBe([true, 4, false, false]);
+});
+
+it('tells a run to share the cores among its streams, and reads it back', function (): void {
+    $told = StreamSettings::of(enabled: true, children: StreamChildren::Cores, changeCheck: true, killersFirst: true)->variables();
+
+    foreach ($told as $name => $value) {
+        putenv(sprintf('%s=%s', $name, $value));
+    }
+
+    expect($told['MUTATION_GATE_SPLIT_CHILDREN'])->toBe('cores')
+        ->and(StreamSettings::fromEnvironment()->children())->toBe(StreamChildren::Cores);
 });
 
 it('reads a run told nothing as one that does not split, checking changes and killers first', function (): void {

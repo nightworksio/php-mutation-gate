@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\HandedEnd;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\HandedTest;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Kills;
@@ -57,7 +58,7 @@ it('reads a passed test\'s failed mutants into the kills as killed, and writes a
         StreamLine::parent('MoneyTest::adds', passed: true, seconds: 0.3),
         StreamLine::child('m2', 'MoneyTest::subtracts', failed: true, seconds: 0.1),
     ]));
-    $plan = new StreamPlan(sprintf('%s/stream.jsonl', $directory), [], [], [], 1, new ChildLimit(0.0, 0.0, 0.0));
+    $plan = new StreamPlan(sprintf('%s/stream.jsonl', $directory), [], [], [], ChildPlaces::fixed(1), new ChildLimit(0.0, 0.0, 0.0));
     $kills = new Kills();
 
     HandedTest::read($results, 0, 'MoneyTest::adds')->into($kills, $plan);

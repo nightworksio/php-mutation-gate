@@ -11,6 +11,7 @@ $calls = [
     'on' => [static fn(): Setting => SplitStream::on(), 'splitStream.enabled', true, 'SplitStream::on'],
     'off' => [static fn(): Setting => SplitStream::off(), 'splitStream.enabled', false, 'SplitStream::off'],
     'children' => [static fn(): Setting => SplitStream::children(4), 'splitStream.children', 4, 'SplitStream::children'],
+    'childrenByCores' => [static fn(): Setting => SplitStream::childrenByCores(), 'splitStream.children', 'cores', 'SplitStream::childrenByCores'],
     'checkingChanges' => [static fn(): Setting => SplitStream::checkingChanges(), 'splitStream.changeCheck', true, 'SplitStream::checkingChanges'],
     'forkingUnchecked' => [static fn(): Setting => SplitStream::forkingUnchecked(), 'splitStream.changeCheck', false, 'SplitStream::forkingUnchecked'],
     'killersFirst' => [static fn(): Setting => SplitStream::killersFirst(), 'splitStream.killersFirst', true, 'SplitStream::killersFirst'],

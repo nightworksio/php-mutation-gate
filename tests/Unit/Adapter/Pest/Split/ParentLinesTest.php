@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\ParentLines;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Recorded;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
@@ -20,7 +21,7 @@ $planned = static fn(string $recording): StreamPlan => new StreamPlan(
     [],
     [],
     [],
-    1,
+    ChildPlaces::fixed(1),
     new ChildLimit(0.0, 0.0, 0.0),
     $recording,
 );

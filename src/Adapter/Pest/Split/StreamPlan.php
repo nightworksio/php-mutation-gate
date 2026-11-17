@@ -17,8 +17,8 @@ use const LOCK_EX;
  * What a split stream is told to do (ADR-0117), read from the plan Pest's own
  * process wrote: where it writes its results, each site's mutant, likely
  * killer and variables, the source file each schema stands for, each test's
- * own time by the coverage map, how many children it holds at once and each
- * child's limit; and, in a run that plans without a fresh map, where the
+ * own time by the coverage map, how many children it holds at once (see
+ * ChildPlaces) and each child's limit; and, in a run that plans without a fresh map, where the
  * parent records the lines each test executed (ADR-0135).
  *
  * @internal
@@ -38,7 +38,7 @@ final readonly class StreamPlan
         public array $sites,
         public array $paths,
         public array $times,
-        public int $children,
+        public ChildPlaces $places,
         public ChildLimit $limit,
         public string $recording = '',
         public bool $bootOnce = false,

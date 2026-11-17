@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\BootedSites;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -14,7 +15,7 @@ afterEach(function (): void {
 
 it('leaves the mutant of each planned site that ran while the stream booted, written once', function (): void {
     $results = sprintf('%s/stream.jsonl', Scratch::directory());
-    $sites = new BootedSites(new StreamPlan($results, ['f1' => [1 => ['m1', '', []], 2 => ['m2', '', []]]], [], [], 1, new ChildLimit(0.0, 0.0, 0.0)));
+    $sites = new BootedSites(new StreamPlan($results, ['f1' => [1 => ['m1', '', []], 2 => ['m2', '', []]]], [], [], ChildPlaces::fixed(1), new ChildLimit(0.0, 0.0, 0.0)));
 
     $before = $sites->areBooting();
     $sites->booting(booting: true);

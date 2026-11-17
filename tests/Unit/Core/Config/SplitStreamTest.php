@@ -7,15 +7,16 @@ use NightWorksIO\MutationGate\Core\Config\Pest;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
+use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\StreamSharding;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
-it('is off, one child at once, checking changes, killers first, whole first passes and sharding by tests, where no layer sets it', function (): void {
+it('is off, children by the cores, checking changes, killers first, whole first passes and sharding by tests, where no layer sets it', function (): void {
     $none = SplitStream::of();
 
     expect([$none->enabled(), $none->children(), $none->changeCheck(), $none->killersFirst(), $none->sharding(), $none->killerStreams()])
-        ->toBe([false, 1, true, true, StreamSharding::Tests, false]);
+        ->toBe([false, StreamChildren::Cores, true, true, StreamSharding::Tests, false]);
 });
 
 it('takes what a later layer sets, key by key', function (): void {
@@ -31,8 +32,10 @@ it('writes the keys a layer sets, and nothing where it sets none', function (): 
         ->toBe('{"splitStream":{"enabled":true,"sharding":"source"}}')
         ->and(Json::object(SplitStream::of()->written())->line())
         ->toBe('{}')
+        ->and(Json::object(SplitStream::of(children: StreamChildren::Cores)->written())->line())
+        ->toBe('{"splitStream":{"children":"cores"}}')
         ->and(Json::object(SplitStream::standard()->written())->line())
-        ->toBe('{"splitStream":{"enabled":false,"children":1,"changeCheck":true,"killersFirst":true,"sharding":"tests","killerStreams":false,"early":"no-match","bootOnce":false,"reconnect":true}}');
+        ->toBe('{"splitStream":{"enabled":false,"children":"cores","changeCheck":true,"killersFirst":true,"sharding":"tests","killerStreams":false,"early":"no-match","bootOnce":false,"reconnect":true}}');
 });
 
 it('writes each key set as the PHP config calls it', function (): void {

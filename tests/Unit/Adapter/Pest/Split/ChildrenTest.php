@@ -16,6 +16,7 @@ it('takes no child it did not fork, and drops each copy a child still running ho
 
     $answer = json_decode(FreshProcess::answer(sprintf(<<<'PHP'
         use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit;
+        use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces;
         use NightWorksIO\MutationGate\Adapter\Pest\Split\Children;
         use NightWorksIO\MutationGate\Adapter\Pest\Split\Descriptors;
         use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
@@ -25,7 +26,7 @@ it('takes no child it did not fork, and drops each copy a child still running ho
         $manager = LaravelTesting::managing(['main' => ['driver' => 'sqlite', 'database' => %1$s]]);
         $manager->getConnections()['main']->getPdo()->exec('SELECT 1');
         $copies = Copies::taken(Descriptors::held(), %2$s);
-        $children = new Children(new StreamPlan(%2$s . '/stream.jsonl', [], [], [], 1, new ChildLimit(1.0, 1.0, 10.0)));
+        $children = new Children(new StreamPlan(%2$s . '/stream.jsonl', [], [], [], ChildPlaces::fixed(1), new ChildLimit(1.0, 1.0, 10.0)));
         $other = pcntl_fork();
 
         if ($other === 0) {
