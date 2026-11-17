@@ -199,6 +199,31 @@ final readonly class Planning
         bool $ownMap,
         QuickRound|NotGiven $quick,
     ): PlanMade|CannotJudge {
+        $warming = new PlannedWarmUp($this->adapters, $this->settings, $this->setup->clock)
+            ->beforeCutting($coverage, $quick);
+
+        return WarmingUp::settled(
+            $warming,
+            $this->measuredWith($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap, $quick, $warming),
+        );
+    }
+
+    /**
+     * The plan of {@see measured()}, with the analyser's warm-up the plan
+     * began where it reads its map and runs no test before it cuts its
+     * shards (ADR-0180).
+     */
+    private function measuredWith(
+        Inventory $inventory,
+        Ledgers $ledgers,
+        Mode $mode,
+        CoverageRun|CoverageRead $coverage,
+        Cut $cut,
+        MatrixKind $matrix,
+        bool $ownMap,
+        QuickRound|NotGiven $quick,
+        WarmingUp|NotGiven $warming,
+    ): PlanMade|CannotJudge {
         $suites = SuiteCoverage::of($this->adapters, $inventory, $this->settings->proofs()->coverageCompressionLevel());
         $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
         $names = new NameGraph($this->adapters)->named($inventory->suite);
@@ -246,6 +271,7 @@ final readonly class Planning
                 $matrix,
                 $saved,
                 $quick instanceof QuickRound,
+                $warming,
             )
             : $keying;
 
@@ -278,6 +304,7 @@ final readonly class Planning
         MatrixKind $matrix,
         Saved $saved,
         bool $quick,
+        WarmingUp|NotGiven $warming,
     ): Plan|CannotJudge {
         $map = $judges->map();
         $kind = $this->adapters->briefing(Briefing::standard()->recording($matrix))->profile();
@@ -399,6 +426,7 @@ final readonly class Planning
                 $at,
                 $ledgers->killers(),
                 new Inferring($this->adapters, $this->settings)->holding($ledgers),
+                $warming,
             ),
         };
     }
@@ -434,9 +462,10 @@ final readonly class Planning
         MeasuredAt|Unplaced $at,
         KillHistory $history,
         Subsumption|NotGiven $held,
+        WarmingUp|NotGiven $warming,
     ): Plan|CannotJudge {
         $handed = new ShardHandoff($this->adapters, $this->settings, $this->setup)
-            ->of($plan, $map, $history, $at, $keys, $held);
+            ->of($plan, $map, $history, $at, $keys, $held, $warming);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
     }

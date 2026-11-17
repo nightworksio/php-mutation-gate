@@ -307,6 +307,9 @@ parameters:
                 # The child the plan forks to warm the analyser up ends itself by a signal, so nothing the plan set
                 # to happen at its end runs twice (ADR-0164).
                 - src/Cli/Flow/PlannedWarmUp.php
+                # A warm-up the plan began early is stopped where the plan turns out to hold no shard
+                # (ADR-0180).
+                - src/Cli/Flow/WarmingUp.php
                 # The child the plan forks to write the whole map beside the readying ends itself by the signal that
                 # says whether it wrote it, so nothing the plan set to happen at its end runs twice (ADR-0169).
                 - src/Cli/Flow/HandedWhole.php

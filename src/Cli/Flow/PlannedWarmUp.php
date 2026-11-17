@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
@@ -90,18 +92,20 @@ final readonly class PlannedWarmUp
 
     /**
      * The warm-up of {@see left()}, begun beside the work that follows it in
-     * a child forked for it, so the plan readies the shards' maps while the
-     * analyser runs; made at once where this PHP cannot fork. The child ends
-     * by a signal once it left what it measured, so nothing the plan set to
-     * happen at its end happens twice.
+     * a child forked for it, so the plan cuts its shards and readies their
+     * maps while the analyser runs (ADR-0180); made at once where this PHP
+     * cannot fork. The child ends by a signal once it left what it measured,
+     * so nothing the plan set to happen at its end happens twice. What it
+     * left is taken for a plan that holds a shard, and dropped for one that
+     * holds none.
      */
-    public function begun(Plan $plan): WarmingUp
+    public function begun(): WarmingUp
     {
         $child = Forking::isAvailable() ? pcntl_fork() : -1;
 
         if ($child === 0) {
             try {
-                $this->left($plan);
+                $this->made();
             } finally {
                 posix_kill(posix_getpid(), SIGKILL);
             }
@@ -109,21 +113,39 @@ final readonly class PlannedWarmUp
 
         return $child > 0
             ? WarmingUp::in($child, $this->adapters->project, self::file())
-            : WarmingUp::ended($this->left($plan));
+            : WarmingUp::ended($this->made(), $this->adapters->project, self::file());
+    }
+
+    /**
+     * The warm-up of {@see begun()}, begun now where the plan reads its map
+     * and runs no test before it cuts its shards, so no test's time is
+     * measured beside it (ADR-0180); none otherwise, where the plan begins
+     * it beside its shards' maps.
+     */
+    public function beforeCutting(CoverageRun|CoverageRead $coverage, QuickRound|NotGiven $quick): WarmingUp|NotGiven
+    {
+        return $coverage instanceof CoverageRead && ! $quick instanceof QuickRound ? $this->begun() : NotGiven::value();
     }
 
     /**
      * The analyser warmed up over the originals once, and how long it took
-     * left beside the plan, where its shards check mutants with it and
-     * `staticCheck.warmAtPlan` is on; none left of an earlier plan's
-     * otherwise, or where the warm-up fails, so each shard warms up itself.
+     * left beside the plan, where it holds a shard, its shards check mutants
+     * with it and `staticCheck.warmAtPlan` is on; none left of an earlier
+     * plan's otherwise, or where the warm-up fails, so each shard warms up
+     * itself.
      */
     public function left(Plan $plan): Written|Missing|CannotJudge
+    {
+        return count($plan) === 0 ? $this->adapters->project->remove(self::file()) : $this->made();
+    }
+
+    /** The warm-up of {@see left()}, whatever the plan holds. */
+    private function made(): Written|Missing|CannotJudge
     {
         $identity = $this->adapters->analyser;
 
         return $identity instanceof AnalyserIdentity
-            ? $this->leftBy($identity, $this->warmed($plan))
+            ? $this->leftBy($identity, $this->warmed())
             : $this->adapters->project->remove(self::file());
     }
 
@@ -131,12 +153,12 @@ final readonly class PlannedWarmUp
     private function leftBy(AnalyserIdentity $identity, Seconds|NotGiven $took): Written|Missing|CannotJudge
     {
         return $took instanceof Seconds
-            ? $this->adapters->project->write(self::file(), self::written($identity, $took))
+            ? $this->adapters->project->write(self::file(), $this->written($identity, $took))
             : $this->adapters->project->remove(self::file());
     }
 
     /** How long a warm-up by this analyser took, as the plan leaves it. */
-    private static function written(AnalyserIdentity $identity, Seconds $took): Contents
+    private function written(AnalyserIdentity $identity, Seconds $took): Contents
     {
         return Contents::of(Json::object(
             Member::of(self::ANALYSER, $identity->analyser()),
@@ -147,7 +169,7 @@ final readonly class PlannedWarmUp
     }
 
     /** How long the warm-up took, where the plan makes one; none where it makes none, or it fails. */
-    private function warmed(Plan $plan): Seconds|NotGiven
+    private function warmed(): Seconds|NotGiven
     {
         $checker = $this->adapters->checker;
         $checks = $this->settings->staticCheck()->before() || $this->settings->toggles()->on(Toggle::StaticCheckAfter);
@@ -155,7 +177,6 @@ final readonly class PlannedWarmUp
         if (
             ! $checker instanceof StaticChecker
             || ! $checks
-            || count($plan) === 0
             || ! $this->settings->toggles()->on(Toggle::StaticCheckWarmAtPlan)
         ) {
             return NotGiven::value();

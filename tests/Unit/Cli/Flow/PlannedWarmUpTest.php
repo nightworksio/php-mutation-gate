@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\AnalyserWarmUp;
+use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\PlannedWarmUp;
+use NightWorksIO\MutationGate\Cli\Flow\QuickRound;
 use NightWorksIO\MutationGate\Cli\Flow\WarmedUp;
+use NightWorksIO\MutationGate\Cli\Flow\WarmingUp;
 use NightWorksIO\MutationGate\Config\CheckTiming;
 use NightWorksIO\MutationGate\Config\StaticCheck as StaticCheckBuilder;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -21,7 +26,10 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
@@ -100,25 +108,31 @@ it('warms the analyser up in a child begun beside the plan\'s work, which leaves
     $checker = new RecordingChecker(new StaticCheckerFake(warmedIdentity(), Findings::none(), []), $project);
 
     $begun = new PlannedWarmUp(Flows::adapters($project, [], $checker), Flows::settings(), new TickingClock('2026-01-01T00:00:00Z', 3))
-        ->begun(warmedPlan(2));
-    $left = $begun->left();
+        ->begun();
+    $left = $begun->leftFor(warmedPlan(2));
 
     expect($checker->warmUps())->toEqual([])
         ->and($left)->toBeInstanceOf(Written::class)
         ->and(PlannedWarmUp::secondsFor(Directory::at($project), warmedIdentity()))->toEqual(Seconds::of(3.0));
 })->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
 
-it('leaves nothing from a child that warms nothing up', function (): void {
+it('keeps nothing a child warmed up for a plan that holds no shard, or for one dropped', function (Closure $taken): void {
     $project = Flows::project();
     $checker = new RecordingChecker(new StaticCheckerFake(warmedIdentity(), Findings::none(), []), $project);
 
-    $left = new PlannedWarmUp(Flows::adapters($project, [], $checker), Flows::settings(), new TickingClock('2026-01-01T00:00:00Z', 3))
-        ->begun(warmedPlan(0))
-        ->left();
+    $left = $taken(new PlannedWarmUp(Flows::adapters($project, [], $checker), Flows::settings(), new TickingClock('2026-01-01T00:00:00Z', 3))->begun());
 
     expect($left)->toBeInstanceOf(Missing::class)
         ->and(PlannedWarmUp::secondsFor(Directory::at($project), warmedIdentity()))->toEqual(NotGiven::value());
-})->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
+})->with([
+    'no shard' => [static fn(WarmingUp $warming): Written|Missing|CannotJudge => $warming->leftFor(warmedPlan(0))],
+    'dropped' => [static fn(WarmingUp $warming): Missing|CannotJudge => $warming->dropped()],
+    'dropped once taken' => [static function (WarmingUp $warming): Missing|CannotJudge {
+        $warming->leftFor(warmedPlan(1));
+
+        return $warming->dropped();
+    }],
+])->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
 
 it('reads no time from a file that is not one it left', function (): void {
     $project = Flows::project();
@@ -145,3 +159,35 @@ it('has a shard take the plan\'s longer warm-up for a check\'s time, its own whe
         ->and($planned)->toEqual(Seconds::of(30.0))
         ->and($took())->toEqual(Seconds::of(2.0));
 });
+
+it('begins the warm-up before the plan cuts its shards only where it reads its map and runs no test first', function (): void {
+    $project = Flows::project();
+    $checker = new RecordingChecker(new StaticCheckerFake(warmedIdentity(), Findings::none(), []), $project);
+    $planned = new PlannedWarmUp(Flows::adapters($project, [], $checker), Flows::settings(), new TickingClock('2026-01-01T00:00:00Z', 3));
+    $read = CoverageRead::from(Path::of('planned'));
+
+    $early = $planned->beforeCutting($read, NotGiven::value());
+
+    expect($early)->toBeInstanceOf(WarmingUp::class)
+        ->and($early instanceof WarmingUp ? $early->leftFor(warmedPlan(1)) : null)->toBeInstanceOf(Written::class)
+        ->and($planned->beforeCutting(CoverageRun::of(WholeSuite::tests(), Path::of('measured')), NotGiven::value()))->toEqual(NotGiven::value())
+        ->and($planned->beforeCutting($read, QuickRound::after(Changes::none())))->toEqual(NotGiven::value());
+})->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
+
+it('drops the warm-up it began early where the planning made no plan, and keeps it where it made one', function (): void {
+    $project = Flows::project();
+    $checker = new RecordingChecker(new StaticCheckerFake(warmedIdentity(), Findings::none(), []), $project);
+    $planned = new PlannedWarmUp(Flows::adapters($project, [], $checker), Flows::settings(), new TickingClock('2026-01-01T00:00:00Z', 3));
+    $made = PlanMade::of(warmedPlan(1), NotGiven::value());
+
+    $taken = $planned->begun();
+    $taken->leftFor(warmedPlan(1));
+    $kept = WarmingUp::settled($taken, $made);
+    $left = PlannedWarmUp::secondsFor(Directory::at($project), warmedIdentity());
+    $failed = WarmingUp::settled($planned->begun(), CannotJudge::because('No map.'));
+
+    expect([$kept, $left])->toEqual([$made, Seconds::of(3.0)])
+        ->and($failed)->toEqual(CannotJudge::because('No map.'))
+        ->and(PlannedWarmUp::secondsFor(Directory::at($project), warmedIdentity()))->toEqual(NotGiven::value())
+        ->and(WarmingUp::settled(NotGiven::value(), $made))->toBe($made);
+})->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');

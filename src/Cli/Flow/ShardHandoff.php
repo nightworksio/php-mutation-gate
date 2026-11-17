@@ -23,8 +23,9 @@ use NightWorksIO\MutationGate\Core\Written;
  * beside the readying (ADR-0169), the map every shard opens on where
  * the runner readies it (ADR-0163), the static analyser warmed up over the
  * originals where they check mutants with it (ADR-0164), begun beside the
- * maps, and a mutant's start-up, measured once the analyser is done, so it
- * runs alone (ADR-0165).
+ * maps where the plan did not begin it earlier (ADR-0180), and a mutant's
+ * start-up, measured once the analyser is done, so it runs alone
+ * (ADR-0165).
  *
  * @internal
  */
@@ -42,8 +43,11 @@ final readonly class ShardHandoff
         MeasuredAt|Unplaced $at,
         EntryKeys|NotGiven $keys,
         Subsumption|NotGiven $held,
+        WarmingUp|NotGiven $warming,
     ): Written|Missing|CannotJudge {
-        $warming = new PlannedWarmUp($this->adapters, $this->settings, $this->setup->clock)->begun($plan);
+        $warming = $warming instanceof WarmingUp
+            ? $warming
+            : new PlannedWarmUp($this->adapters, $this->settings, $this->setup->clock)->begun();
         $level = $this->settings->proofs()->coverageCompressionLevel();
         $whole = HandedWhole::begun($this->adapters->project, $map, $at, $keys, $level);
         $opened = $this->adapters->runner->behaviour()->opening()
@@ -51,7 +55,7 @@ final readonly class ShardHandoff
         $handed = new Handoff($this->adapters->project, Handoff::limits(), $this->adapters->maps, $level)
             ->write($plan, $map, $history, $at, $keys, $held, $opened, $whole);
 
-        $warmed = $warming->left();
+        $warmed = $warming->leftFor($plan);
         $warmed = $handed instanceof CannotJudge ? $handed : $warmed;
 
         return $warmed instanceof CannotJudge
