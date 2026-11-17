@@ -14,6 +14,8 @@ it('holds a fixed count of children, at least one, and marks no stream running',
     ChildPlaces::fixed(3)->joined();
 
     expect(ChildPlaces::fixed(3)->now())->toBe(3)
+        ->and(ChildPlaces::fixed(3)->most())->toBe(3)
+        ->and(ChildPlaces::sharing(4, $directory)->most())->toBe(4)
         ->and(ChildPlaces::fixed(0)->now())->toBe(1)
         ->and(glob(sprintf('%s/*', $directory)))->toBe([]);
 });

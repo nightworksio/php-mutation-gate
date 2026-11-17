@@ -37,7 +37,7 @@ final readonly class ChildSteps
     {
         $this->counted = $plan->limit->countsSteps()
             && function_exists('outbreak_steps_share')
-            && outbreak_steps_share($plan->children);
+            && outbreak_steps_share($plan->places->most());
     }
 
     /**
@@ -47,7 +47,7 @@ final readonly class ChildSteps
      */
     public function freeSlot(array $held): int
     {
-        $free = array_diff(range(0, $this->plan->children - 1), $this->counted ? $held : []);
+        $free = array_diff(range(0, $this->plan->places->most() - 1), $this->counted ? $held : []);
 
         return $free === [] ? 0 : min($free);
     }

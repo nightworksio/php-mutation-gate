@@ -66,6 +66,12 @@ final readonly class ChildPlaces
         });
     }
 
+    /** The most children the stream may ever hold at once: the count, or every core. */
+    public function most(): int
+    {
+        return $this->directory === '' ? $this->count : $this->cores;
+    }
+
     /** How many children the stream may hold now: the count, or its share of the cores among the running streams. */
     public function now(): int
     {

@@ -24,7 +24,7 @@ it('gives a child the first slot no running child holds, the first where all are
     expect(FreshProcess::answer(<<<'CODE'
         function outbreak_steps_share(int $children): bool { return true; }
         function outbreak_steps(): ?int { return 7; }
-        $plan = new NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan('/r', [], [], [], 3, new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit(1.0, 1.0, 10.0, stepFloor: 100));
+        $plan = new NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan('/r', [], [], [], NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces::fixed(3), new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit(1.0, 1.0, 10.0, stepFloor: 100));
         $steps = new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildSteps($plan);
         echo json_encode([
             $steps->freeSlot([]), $steps->freeSlot([0]), $steps->freeSlot([0, 1]), $steps->freeSlot([1, 2]),
@@ -38,7 +38,7 @@ it('gives every child the first slot and counts no steps where the stream counts
         $GLOBALS['shared'] = 'never';
         function outbreak_steps_share(int $children): bool { $GLOBALS['shared'] = 'asked'; return true; }
         function outbreak_steps(): ?int { return 7; }
-        $plan = new NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan('/r', [], [], [], 3, new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit(1.0, 1.0, 10.0));
+        $plan = new NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan('/r', [], [], [], NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces::fixed(3), new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit(1.0, 1.0, 10.0));
         $steps = new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildSteps($plan);
         echo json_encode([$steps->freeSlot([0]), $steps->freeSlot([0, 1, 2]), $steps->taken(), $steps->exceeded(SIGXCPU), $GLOBALS['shared']]);
         CODE))->toBe('[0,0,0,false,"never"]');
@@ -48,7 +48,7 @@ it('counts no steps taken where outbreak.so cannot tell them', function (): void
     expect(FreshProcess::answer(<<<'CODE'
         function outbreak_steps_share(int $children): bool { return true; }
         function outbreak_steps(): ?int { return null; }
-        $plan = new NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan('/r', [], [], [], 3, new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit(1.0, 1.0, 10.0, stepFloor: 100));
+        $plan = new NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan('/r', [], [], [], NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces::fixed(3), new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit(1.0, 1.0, 10.0, stepFloor: 100));
         echo (new NightWorksIO\MutationGate\Adapter\Pest\Split\ChildSteps($plan))->taken();
         CODE))->toBe('0');
 });
