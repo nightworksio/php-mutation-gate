@@ -35,6 +35,7 @@ final readonly class SplitStreamKeys
         $bootOnce = Field::optional(SplitStream::BOOT_ONCE, Flag::boolean(), $results);
         $reconnect = Field::optional(SplitStream::RECONNECT, Flag::boolean(), $results);
         $judging = Field::optional(SplitStream::JUDGING, Enumerated::of(StreamJudging::cases()), $results);
+        $fallbackOwnRun = Field::optional(SplitStream::FALLBACK_OWN_RUN, Flag::boolean(), $results);
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -55,6 +56,7 @@ final readonly class SplitStreamKeys
                     $bootOnce,
                     $reconnect,
                     $judging,
+                    $fallbackOwnRun,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -66,6 +68,7 @@ final readonly class SplitStreamKeys
                     $booted = $bootOnce->read($split);
                     $reconnected = $reconnect->read($split);
                     $judged = $judging->read($split);
+                    $ownRun = $fallbackOwnRun->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -79,6 +82,7 @@ final readonly class SplitStreamKeys
                             $booted->value(),
                             $reconnected->value(),
                             $judged->value(),
+                            $ownRun->value(),
                         ))),
                         $on,
                         $most,
@@ -90,6 +94,7 @@ final readonly class SplitStreamKeys
                         $booted,
                         $reconnected,
                         $judged,
+                        $ownRun,
                     );
                 },
                 $enabled,
@@ -102,6 +107,7 @@ final readonly class SplitStreamKeys
                 $bootOnce,
                 $reconnect,
                 $judging,
+                $fallbackOwnRun,
             ),
         )];
     }

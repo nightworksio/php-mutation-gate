@@ -17,6 +17,8 @@ $calls = [
     'forkingUnchecked' => [static fn(): Setting => SplitStream::forkingUnchecked(), 'splitStream.changeCheck', false, 'SplitStream::forkingUnchecked'],
     'killersFirst' => [static fn(): Setting => SplitStream::killersFirst(), 'splitStream.killersFirst', true, 'SplitStream::killersFirst'],
     'everyTestAlike' => [static fn(): Setting => SplitStream::everyTestAlike(), 'splitStream.killersFirst', false, 'SplitStream::everyTestAlike'],
+    'fallbackOwnRun' => [static fn(): Setting => SplitStream::fallbackOwnRun(), 'splitStream.fallbackOwnRun', true, 'SplitStream::fallbackOwnRun'],
+    'fallbackSecondPass' => [static fn(): Setting => SplitStream::fallbackSecondPass(), 'splitStream.fallbackOwnRun', false, 'SplitStream::fallbackSecondPass'],
     'killerStreams' => [static fn(): Setting => SplitStream::killerStreams(), 'splitStream.killerStreams', true, 'SplitStream::killerStreams'],
     'wholeFirstPass' => [static fn(): Setting => SplitStream::wholeFirstPass(), 'splitStream.killerStreams', false, 'SplitStream::wholeFirstPass'],
     'bootOnce' => [static fn(): Setting => SplitStream::bootOnce(), 'splitStream.bootOnce', true, 'SplitStream::bootOnce'],

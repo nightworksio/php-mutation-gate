@@ -67,6 +67,22 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.killersFirst', value: false));
     }
 
+    /**
+     * `splitStream.fallbackOwnRun`, as by default: a mutant whose likely
+     * killer the first pass could not fork it in skips the second pass for
+     * its own run.
+     */
+    public static function fallbackOwnRun(): self
+    {
+        return new self(Json::at('splitStream.fallbackOwnRun', value: true));
+    }
+
+    /** `splitStream.fallbackOwnRun` off: such a mutant streams in the second pass first. */
+    public static function fallbackSecondPass(): self
+    {
+        return new self(Json::at('splitStream.fallbackOwnRun', value: false));
+    }
+
     /** `splitStream.killerStreams`: a first-pass stream runs only the tests that last killed its mutants. */
     public static function killerStreams(): self
     {

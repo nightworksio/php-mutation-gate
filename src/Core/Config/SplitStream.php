@@ -48,6 +48,12 @@ final readonly class SplitStream
     /** The key, and the Pest runner's option, that says where a run that cuts its test files judges each mutant. */
     public const string JUDGING = 'judging';
 
+    /**
+     * The key, and the Pest runner's option, that says whether a mutant whose likely killer the first pass could
+     * not fork it in goes straight to its own run (ADR-0179).
+     */
+    public const string FALLBACK_OWN_RUN = 'fallbackOwnRun';
+
     /** The section the keys are in, and the Pest runner's option that holds them. */
     public const string SECTION = 'splitStream';
 
@@ -62,6 +68,7 @@ final readonly class SplitStream
         private bool|Absent $bootOnce = new Absent(),
         private bool|Absent $reconnect = new Absent(),
         private StreamJudging|Absent $judging = new Absent(),
+        private bool|Absent $fallbackOwnRun = new Absent(),
     ) {
     }
 
@@ -76,6 +83,7 @@ final readonly class SplitStream
         bool|Absent $bootOnce = new Absent(),
         bool|Absent $reconnect = new Absent(),
         StreamJudging|Absent $judging = new Absent(),
+        bool|Absent $fallbackOwnRun = new Absent(),
     ): self {
         return new self(
             $enabled,
@@ -88,6 +96,7 @@ final readonly class SplitStream
             $bootOnce,
             $reconnect,
             $judging,
+            $fallbackOwnRun,
         );
     }
 
@@ -107,6 +116,7 @@ final readonly class SplitStream
             $none->bootOnce(),
             $none->reconnect(),
             $none->judging(),
+            $none->fallbackOwnRun(),
         );
     }
 
@@ -124,6 +134,7 @@ final readonly class SplitStream
             Absent::laid($this->bootOnce, $later->bootOnce),
             Absent::laid($this->reconnect, $later->reconnect),
             Absent::laid($this->judging, $later->judging),
+            Absent::laid($this->fallbackOwnRun, $later->fallbackOwnRun),
         );
     }
 
@@ -168,6 +179,16 @@ final readonly class SplitStream
     public function judging(): StreamJudging
     {
         return $this->judging instanceof StreamJudging ? $this->judging : StreamJudging::Whole;
+    }
+
+    /**
+     * `splitStream.fallbackOwnRun`: whether a mutant whose likely killer the
+     * first pass could not fork it in skips the second pass for its own run,
+     * which runs that killer first (ADR-0179); on by default.
+     */
+    public function fallbackOwnRun(): bool
+    {
+        return $this->fallbackOwnRun !== false;
     }
 
     /** `splitStream.sharding`: what a run that splits its streams cuts its shards by; test files by default. */
@@ -231,6 +252,7 @@ final readonly class SplitStream
             Member::of(self::BOOT_ONCE, $this->bootOnce()),
             Member::of(self::RECONNECT, $this->reconnect()),
             Member::of(self::JUDGING, $this->judging()->value),
+            Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun()),
         );
 
         return Member::of(self::SECTION, $option);
@@ -254,6 +276,7 @@ final readonly class SplitStream
             Member::of(self::BOOT_ONCE, $this->bootOnce),
             Member::of(self::RECONNECT, $this->reconnect),
             Member::of(self::JUDGING, $this->judging instanceof StreamJudging ? $this->judging->value : $this->judging),
+            Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun),
         );
 
         return Member::unlessEmpty(self::SECTION, $written);
@@ -277,6 +300,11 @@ final readonly class SplitStream
             ...$this->switched($this->bootOnce, 'SplitStream::bootOnce()', 'SplitStream::bootPerTest()'),
             ...$this->switched($this->reconnect, 'SplitStream::reconnect()', 'SplitStream::connectionsFallBack()'),
             ...$this->judging instanceof StreamJudging ? [$this->judging->php()] : [],
+            ...$this->switched(
+                $this->fallbackOwnRun,
+                'SplitStream::fallbackOwnRun()',
+                'SplitStream::fallbackSecondPass()',
+            ),
         );
     }
 

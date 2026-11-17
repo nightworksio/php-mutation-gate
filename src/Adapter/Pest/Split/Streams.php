@@ -26,6 +26,7 @@ use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
 
 use function sprintf;
+use function strval;
 
 /**
  * The split streams of a patched Pest mutation run (ADR-0117): in Pest's
@@ -96,7 +97,9 @@ final readonly class Streams
             $settings->reconnects(),
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $held, $settings);
-        $again = self::undecided($byId, $sites, $covering, $held, $verdicts) + $unrun + self::booted($sites, $verdicts);
+        $undecided = self::undecided($byId, $sites, $covering, $held, $verdicts);
+        $booted = self::booted($sites, $verdicts);
+        $again = self::streamedAgain($undecided, $sites, $verdicts, $settings) + $unrun + $booted;
         $left = self::left($again, $sites, $covering, $held, $unrun, $verdicts);
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $left, $verdicts);
 
@@ -199,6 +202,39 @@ final readonly class Streams
 
             if ($unfinished && ! $verdicts->decides($mutant, $covering[$mutant])) {
                 $again[$mutant] = [$key, $id, '', $variables];
+            }
+        }
+
+        return $again;
+    }
+
+    /**
+     * The sites of these undecided mutants a second pass streams: under
+     * `splitStream.fallbackOwnRun`, none whose likely killer the first pass
+     * fell back on for it, which its own run judges, that killer first
+     * (ADR-0179).
+     *
+     * @param  array<string, array{string, int, string, array<string, string>}> $undecided
+     * @param  array<string, array{string, int, string, array<string, string>}> $sites
+     * @return array<string, array{string, int, string, array<string, string>}>
+     */
+    private static function streamedAgain(
+        array $undecided,
+        array $sites,
+        StreamVerdicts $verdicts,
+        StreamSettings $settings,
+    ): array {
+        if (! $settings->fallsBackToOwnRuns()) {
+            return $undecided;
+        }
+
+        $again = [];
+
+        foreach ($undecided as $mutant => $site) {
+            $killer = $sites[$mutant][2];
+
+            if ($killer === '' || ! $verdicts->leaves(strval($mutant), $killer)) {
+                $again[$mutant] = $site;
             }
         }
 

@@ -181,6 +181,9 @@ enum GateVariable: string
     /** Where a run that cuts its test files across its shards judges each mutant (ADR-0174). */
     case SplitJudging = 'MUTATION_GATE_SPLIT_JUDGING';
 
+    /** Whether a mutant whose likely killer the first pass could not fork it in skips the second pass (ADR-0179). */
+    case SplitFallbackOwnRun = 'MUTATION_GATE_SPLIT_FALLBACK_OWN_RUN';
+
     /**
      * The `outbreak.so` a split stream loads, to count the forks that change
      * no state (H5), to see a test touch nondeterminism (ADR-0130), to record

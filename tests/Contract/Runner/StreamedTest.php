@@ -45,6 +45,9 @@ const STREAMED_TWICE = 'P\\Tests\\MoneySpec::__pest_evaluable_it_adds_the_same_a
 /** The fixture's test of Money::isLarge, which covers its boundary without telling it apart. */
 const STREAMED_TELLS = 'P\\Tests\\MoneySpec::__pest_evaluable_it_tells_a_large_amount_from_a_small_one';
 
+/** The fixture's likely killer of a change to Fallen::tripled, which holds a writable file, so no stream forks there. */
+const FALLEN_KILLER = 'P\\Tests\\FallenSpec::__pest_evaluable_it_triples_while_it_holds_a_writable_file';
+
 /**
  * Each mutant of a run by the line it is on: its status, its killers and whether a stream judged it; why the run
  * judged none, where it did not.
@@ -142,6 +145,55 @@ it('forks a first pass at each likely killer alone, and a second at every coveri
         16 => [MutantStatus::Survived, [], true],
     ]);
 })->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
+it('leaves a mutant whose likely killer the first pass fell back on to its own run, killer first, under splitStream.fallbackOwnRun, and streams it again otherwise', function (bool $ownRun, array $judged): void {
+    $copied = [
+        'src/Fallen.php' => 'tests/Contract/Runner/streamed/src/Fallen.php',
+        'tests/FallenSpec.php' => 'tests/Contract/Runner/streamed/tests/FallenSpec.php',
+    ];
+
+    foreach ($copied as $into => $from) {
+        copy(Tree::at($from), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+    }
+
+    Library::patched();
+    $request = MutationRequest::of(Paths::of(Path::of('src/Fallen.php')), WholeSuite::tests())->narrowedTo(
+        Paths::of(Path::of('src/Fallen.php')),
+        Narrowing::none()->toMutators(Mutators::named(MultiplicationToDivision::class)),
+    );
+    $streams = static fn(bool $killersFirst): StreamSettings => StreamSettings::of(
+        enabled: true,
+        children: 1,
+        changeCheck: false,
+        killersFirst: $killersFirst,
+        fallbackOwnRun: $ownRun,
+    );
+
+    try {
+        $first = Library::pest(Patching::on(Library::canary())->splitting($streams(killersFirst: false)))->runner()->mutate($request);
+        $history = KillHistory::none();
+
+        foreach ($first instanceof MutationResult ? $first->mutants() : [] as $mutant) {
+            $history = $history->withMutant($mutant->id(), Ranking::of(Kills::of(TestId::of(FALLEN_KILLER), 3)));
+        }
+
+        $result = Library::pest(Patching::on(Library::canary())->splitting($streams(killersFirst: true)))->runner()->mutate(
+            $request->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, $history), MatrixKind::FirstKiller)),
+        );
+    } finally {
+        foreach (array_keys($copied) as $into) {
+            unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+        }
+    }
+
+    expect(streamedJudged($result))->toBe($judged);
+})->with([
+    'own run' => [true, [15 => [MutantStatus::Killed, [FALLEN_KILLER], false]]],
+    'second pass' => [false, [15 => [MutantStatus::Killed, ['P\\Tests\\FallenSpec::__pest_evaluable_it_triples_a_small_amount'], true]]],
+])->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);

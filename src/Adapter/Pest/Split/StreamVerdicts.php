@@ -104,6 +104,12 @@ final class StreamVerdicts
         return $this->firstEnding($mutant, $covering, $decided) !== '';
     }
 
+    /** Whether a stream forked nothing in this test, or this mutant nowhere in it (ADR-0117, ADR-0175). */
+    public function leaves(string $mutant, string $test): bool
+    {
+        return $this->fallbacks->leaves($mutant, $test);
+    }
+
     /**
      * Gives a mutant its result, where the streams judged it, and announces
      * it as its own run's would be; leaves it untouched otherwise.

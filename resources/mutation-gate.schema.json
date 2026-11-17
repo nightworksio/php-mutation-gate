@@ -4177,6 +4177,10 @@
                         "parted"
                     ],
                     "default": "whole"
+                },
+                "fallbackOwnRun": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -8774,6 +8778,9 @@
                                 "whole",
                                 "parted"
                             ]
+                        },
+                        "fallbackOwnRun": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false

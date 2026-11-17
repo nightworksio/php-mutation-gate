@@ -46,6 +46,7 @@ final readonly class StreamSettings
         private string $lines = '',
         private bool $reconnect = true,
         private StreamJudging $judging = StreamJudging::Whole,
+        private bool $fallbackOwnRun = true,
     ) {
     }
 
@@ -61,6 +62,7 @@ final readonly class StreamSettings
         bool $changeCheck,
         bool $killersFirst,
         StreamJudging $judging = StreamJudging::Whole,
+        bool $fallbackOwnRun = true,
     ): self {
         if (! $enabled) {
             return self::off();
@@ -73,6 +75,7 @@ final readonly class StreamSettings
             $killersFirst,
             TestPart::whole(),
             judging: $judging,
+            fallbackOwnRun: $fallbackOwnRun,
         );
     }
 
@@ -99,6 +102,7 @@ final readonly class StreamSettings
             is_string($lines) ? $lines : '',
             getenv(GateVariable::SplitReconnect->value) === self::ON,
             StreamJudging::tryFrom((string) getenv(GateVariable::SplitJudging->value)) ?? StreamJudging::Whole,
+            getenv(GateVariable::SplitFallbackOwnRun->value) !== self::OFF,
         );
     }
 
@@ -117,6 +121,7 @@ final readonly class StreamSettings
             $this->lines,
             $this->reconnect,
             $this->judging,
+            $this->fallbackOwnRun,
         );
     }
 
@@ -135,6 +140,7 @@ final readonly class StreamSettings
             $this->lines,
             $this->reconnect,
             $this->judging,
+            $this->fallbackOwnRun,
         );
     }
 
@@ -157,6 +163,7 @@ final readonly class StreamSettings
             $this->lines,
             $reconnect,
             $this->judging,
+            $this->fallbackOwnRun,
         );
     }
 
@@ -164,6 +171,15 @@ final readonly class StreamSettings
     public function judging(): StreamJudging
     {
         return $this->judging;
+    }
+
+    /**
+     * Whether a mutant whose likely killer the first pass could not fork it
+     * in skips the second pass for its own run (ADR-0179).
+     */
+    public function fallsBackToOwnRuns(): bool
+    {
+        return $this->fallbackOwnRun;
     }
 
     /** Whether a stream's child reconnects to its own copy of each database a test holds open (ADR-0147). */
@@ -243,25 +259,22 @@ final readonly class StreamSettings
      */
     public function variables(): array
     {
+        $told = static fn(bool $on): string => $on ? self::ON : self::OFF;
+
         return $this->enabled
             ? [
                 GateVariable::Split->value => self::ON,
                 GateVariable::SplitChildren->value => is_int($this->children)
                     ? sprintf('%d', $this->children)
                     : $this->children->value,
-                GateVariable::SplitChangeCheck->value => $this->told($this->changeCheck),
-                GateVariable::SplitKillersFirst->value => $this->told($this->killersFirst),
-                GateVariable::SplitKillerStreams->value => $this->told($this->killerStreams),
-                GateVariable::SplitBootOnce->value => $this->told($this->bootOnce),
-                GateVariable::SplitReconnect->value => $this->told($this->reconnect),
+                GateVariable::SplitChangeCheck->value => $told($this->changeCheck),
+                GateVariable::SplitKillersFirst->value => $told($this->killersFirst),
+                GateVariable::SplitKillerStreams->value => $told($this->killerStreams),
+                GateVariable::SplitBootOnce->value => $told($this->bootOnce),
+                GateVariable::SplitReconnect->value => $told($this->reconnect),
                 GateVariable::SplitJudging->value => $this->judging->value,
+                GateVariable::SplitFallbackOwnRun->value => $told($this->fallbackOwnRun),
             ]
             : [];
-    }
-
-    /** A setting turned on or off, as the gate tells it. */
-    private function told(bool $on): string
-    {
-        return $on ? self::ON : self::OFF;
     }
 }

@@ -344,6 +344,7 @@ final readonly class PestOptions
         $killerStreams = $split->flag(Key::of(SplitStream::KILLER_STREAMS));
         $bootOnce = $split->flag(Key::of(SplitStream::BOOT_ONCE));
         $reconnect = $split->flag(Key::of(SplitStream::RECONNECT));
+        $fallbackOwnRun = $split->flag(Key::of(SplitStream::FALLBACK_OWN_RUN));
         $standard = SplitStream::of();
         $judging = self::judgingOf($split, $standard->judging());
 
@@ -356,12 +357,14 @@ final readonly class PestOptions
             $bootOnce instanceof Problem => $bootOnce,
             $reconnect instanceof Problem => $reconnect,
             $judging instanceof Problem => $judging,
+            $fallbackOwnRun instanceof Problem => $fallbackOwnRun,
             default => StreamSettings::of(
                 $enabled === true,
                 $children instanceof NotGiven ? $standard->children() : $children,
                 $changeCheck !== false,
                 $killersFirst !== false,
                 $judging,
+                $fallbackOwnRun !== false,
             )->streamingKillers($killerStreams === true)
                 ->bootingOnce($bootOnce === true)
                 ->reconnecting($reconnect !== false),
