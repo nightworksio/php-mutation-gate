@@ -9,6 +9,9 @@ use function array_key_exists;
 use function getmypid;
 use function glob;
 use function is_file;
+
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
+
 use function preg_match;
 use function preg_quote;
 use function preg_replace;
@@ -21,6 +24,7 @@ use function sprintf;
 use function str_starts_with;
 use function strlen;
 use function substr;
+use function touch;
 use function unlink;
 
 /**
@@ -68,6 +72,8 @@ final class OwnFixtures
     {
         foreach (self::COPIED as $fixture) {
             if ($path === $fixture || str_starts_with($path, sprintf('%s/', $fixture))) {
+                Stream::unforkable();
+
                 return sprintf('%s%s', self::copyOf($fixture), substr($path, strlen($fixture)));
             }
         }
@@ -117,10 +123,11 @@ final class OwnFixtures
         return $copy;
     }
 
-    /** The lock of a copy, taken by this process. */
+    /** The lock of a copy, taken by this process, through a descriptor open only for reading. */
     private static function locked(string $copy): SplFileObject
     {
-        $lock = new SplFileObject(sprintf(self::LOCK, $copy), 'c');
+        touch(sprintf(self::LOCK, $copy));
+        $lock = new SplFileObject(sprintf(self::LOCK, $copy), 'r');
 
         return $lock->flock(LOCK_EX)
             ? $lock
@@ -133,7 +140,11 @@ final class OwnFixtures
         $locks = glob(sprintf(self::LOCK, sprintf('%s%s*', $original, self::MARK)));
 
         foreach ($locks === false ? [] : $locks as $path) {
-            $lock = new SplFileObject($path, 'c');
+            try {
+                $lock = new SplFileObject($path, 'r');
+            } catch (RuntimeException) {
+                continue;
+            }
 
             if ($lock->flock(LOCK_EX | LOCK_NB)) {
                 self::removed(substr($path, 0, -strlen(sprintf(self::LOCK, ''))));

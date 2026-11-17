@@ -42,17 +42,13 @@ final class ParentLines
         $this->recording = $parent && $this->plan->recording !== '' ? $this->recorded->start() : false;
     }
 
-    /** The test held a descriptor a child would share at a site: recorded as run in a process of its own, once. */
-    public function held(string $test): void
-    {
-        if (! $this->own) {
-            $this->isolated($test);
-        }
-    }
-
-    /** The test runs in a process of its own. */
+    /** The test runs in a process of its own, or no fork reaches it: recorded so, once. */
     public function isolated(string $test): void
     {
+        if ($this->own) {
+            return;
+        }
+
         $this->own = true;
 
         if ($this->recording !== false) {

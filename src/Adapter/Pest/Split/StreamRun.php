@@ -67,7 +67,7 @@ final class StreamRun
     /** The mutant this process runs, in a child; none in the parent. */
     private string $mutant = '';
 
-    private readonly PastKillers $past;
+    private readonly ForkFallbacks $fallbacks;
 
     private readonly ForkStates $states;
 
@@ -88,7 +88,7 @@ final class StreamRun
         $this->lines = new ParentLines($plan, Recorded::inProcess());
         $this->boot = new BootedSites($plan);
         $this->processes = StartedProcesses::beside($plan->results);
-        $this->past = new PastKillers();
+        $this->fallbacks = new ForkFallbacks($plan, $this->lines);
     }
 
     /**
@@ -167,24 +167,29 @@ final class StreamRun
         $this->lines->began(parent: $this->mutant === '');
 
         $this->processes->watched();
-
-        if (! $this->test->isForkable()) {
-            $this->past->fellBackOn($test);
-            $this->write(StreamLine::fallback($test));
-        }
+        $this->fallbacks->began($this->test);
     }
 
     /** The test runs in a process of its own, where no fork reaches it. */
     public function isolated(): void
     {
-        $this->lines->isolated($this->test->id);
+        $this->fallbacks->isolated($this->test, parent: $this->mutant === '');
+    }
 
-        if ($this->test->isForkable() && $this->mutant === '') {
-            $this->past->fellBackOn($this->test->id);
-            $this->write(StreamLine::fallback($this->test->id));
+    /**
+     * The test says no fork may judge it from here, as it reaches what a
+     * child would share with the stream: a child forked in it leaves its
+     * mutant to its own run of the test and stops at once; the stream forks
+     * nothing more in it.
+     */
+    public function unforkable(): void
+    {
+        if ($this->mutant !== '') {
+            $this->write(StreamLine::fallback($this->test->id, $this->mutant));
+            OwnEnd::by(SIGKILL);
         }
 
-        $this->test->isolate();
+        $this->isolated();
     }
 
     /**
@@ -297,7 +302,7 @@ final class StreamRun
         return $site !== false
             && ! $this->kills->has($site[0])
             && ! $this->boot->holds($site[0])
-            && $this->past->forks($site[0], $site[1], $this->test->id);
+            && $this->fallbacks->forks($site[0], $site[1], $this->test->id);
     }
 
     /** Whether the stream may fork at a site of the plan this execution reaches, not yet forked in this test. */
@@ -328,7 +333,9 @@ final class StreamRun
 
         if (! $copies instanceof Copies) {
             $this->deciding = false;
-            $this->processes->ran() ? $this->isolated() : $this->held($file, $id);
+            $this->processes->ran()
+                ? $this->isolated()
+                : $this->fallbacks->held($this->test, $file, $id, $this->plan->sites[$file][$id][0]);
 
             return false;
         }
@@ -359,21 +366,6 @@ final class StreamRun
         ServedChildren::tellOf($variables);
 
         return true;
-    }
-
-    /**
-     * The test holds a descriptor a child would share as it reaches this
-     * site: the stream forks its mutant nowhere else in the test, which
-     * reached the site unmutated, leaves it to its own run of the test,
-     * and forks it at later tests, as past a killer it fell back on.
-     */
-    private function held(string $file, int $id): void
-    {
-        [$mutant] = $this->plan->sites[$file][$id];
-        $this->test->forkAt($file, $id);
-        $this->past->heldAt($mutant);
-        $this->lines->held($this->test->id);
-        $this->write(StreamLine::fallback($this->test->id, $mutant));
     }
 
     private function write(string $line): void

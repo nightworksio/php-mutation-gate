@@ -71,6 +71,17 @@ final class Stream
         self::$run?->isolated();
     }
 
+    /**
+     * The test says no fork may judge it from here, as it reaches state a
+     * child would share with the stream (ADR-0176): a child forked in it
+     * leaves its mutant to its own run and stops; the stream forks nothing
+     * more in it. Nothing where the process runs no stream.
+     */
+    public static function unforkable(): void
+    {
+        self::$run?->unforkable();
+    }
+
     /** The test ended. */
     public static function ended(): void
     {

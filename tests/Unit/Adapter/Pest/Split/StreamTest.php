@@ -768,3 +768,25 @@ it('records a test that held a writable file at sites once as run in a process o
         ['finished', null, null, null],
     ]);
 })->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');
+
+it('leaves a mutant to its own run where its child reaches what the test says no fork may judge, and forks nothing more in that test', function (): void {
+    [, $results] = streamedApart(['sites' => ['f1' => [1 => ['m1', '', []], 2 => ['m2', '', []]]], 'floor' => 10, 'longest' => 10], <<<'PHP'
+        Stream::began('T::shares');
+        SchemaSwitch::is('f1', 1);
+        Stream::unforkable();
+        Stream::unforkable();
+
+        if (SchemaSwitch::is('f1', 2)) {
+            Stream::ended();
+        }
+
+        Stream::ended();
+        Stream::finished();
+        PHP);
+
+    expect(streamFields($results, 'k', 'm', 't'))->toEqualCanonicalizing([
+        ['fallback', 'm1', 'T::shares'],
+        ['fallback', null, 'T::shares'],
+        ['parent', null, 'T::shares'],
+    ]);
+})->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');
