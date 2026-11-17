@@ -10,6 +10,7 @@ use Closure;
 
 use function dirname;
 use function get_included_files;
+use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\ServedChildren;
@@ -214,7 +215,7 @@ final class StreamRun
         }
 
         if ($this->isParent()) {
-            $this->deadline->ended();
+            $this->deadline->ended(max(0.0, $test->seconds() - $this->children->waited()));
         }
 
         if ($test->wasHanded()) {

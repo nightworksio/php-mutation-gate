@@ -50,30 +50,26 @@ it('stops a stream whose parent passed its deadline, with what it started, and s
 
 it('waits for a stream within its deadline, takes away the mark one leaves, and starts none in the place of one that ran whole files or ended every test', function (): void {
     $directory = Scratch::directory();
-    $running = watchedProcess('usleep(300000);');
-    file_put_contents(sprintf('%s/live-%d', $directory, $running->getPid()), sprintf('{"t": "slow", "d": %F}', microtime(as_float: true) + 60.0));
     $started = [];
     $never = static function (array $tests) use (&$started): NotGiven {
         $started[] = $tests;
 
         return NotGiven::value();
     };
-    $whole = watchedProcess('pcntl_fork(); sleep(60);');
-    file_put_contents(sprintf('%s/live-%d', $directory, $whole->getPid()), '{"t": "stuck", "d": 0}');
-    $done = watchedProcess('pcntl_fork(); sleep(60);');
+    $running = new WatchedStream(watchedProcess('usleep(1000000);'), 'running', ['slow'], $never);
+    file_put_contents(sprintf('%s/live-%d', $directory, (int) $running->pid), sprintf('{"t": "slow", "d": %F}', microtime(as_float: true) + 60.0));
+    $whole = new WatchedStream(watchedProcess('pcntl_fork(); sleep(60);'), 'whole', [], $never);
+    file_put_contents(sprintf('%s/live-%d', $directory, (int) $whole->pid), '{"t": "stuck", "d": 0}');
     $ended = sprintf('%s/results-1-2.jsonl', $directory);
     file_put_contents($ended, StreamLine::parent('a', passed: true, seconds: 0.1));
-    file_put_contents(sprintf('%s/live-%d', $directory, $done->getPid()), '{"t": "a", "d": 0}');
+    $done = new WatchedStream(watchedProcess('pcntl_fork(); sleep(60);'), $ended, ['a'], $never);
+    file_put_contents(sprintf('%s/live-%d', $directory, (int) $done->pid), '{"t": "a", "d": 0}');
 
-    $wrote = new StreamWatch($directory)->ended([
-        new WatchedStream($running, 'running', ['slow'], $never),
-        new WatchedStream($whole, 'whole', [], $never),
-        new WatchedStream($done, $ended, ['a'], $never),
-    ]);
+    $wrote = new StreamWatch($directory)->ended([$running, $whole, $done]);
 
     expect($wrote)->toEqualCanonicalizing(['running', 'whole', $ended])
         ->and($started)->toBe([])
-        ->and($running->getExitCode())->toBe(0)
+        ->and($running->process->getExitCode())->toBe(0)
         ->and(glob(sprintf('%s/live-*', $directory)))->toBe([]);
 });
 

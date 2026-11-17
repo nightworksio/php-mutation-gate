@@ -11,6 +11,7 @@ use function is_resource;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Adapter\Pest\PcovTests;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\WholeNumber;
@@ -64,7 +65,7 @@ final class Pool
 
         if (! array_key_exists($seat->pid(), self::$started)) {
             Schemata::leftIn($directory);
-            self::$started[$seat->pid()] = self::isKept($seat) || self::started($seat);
+            self::$started[$seat->pid()] = self::isKept($seat) || self::started($seat, PcovTests::off());
         }
 
         return self::$started[$seat->pid()]

@@ -9,7 +9,6 @@ use function array_key_exists;
 use function array_keys;
 use function array_unique;
 use function function_exists;
-use function getenv;
 use function ini_get;
 use function is_string;
 use function mb_strtolower;
@@ -35,9 +34,6 @@ use function sort;
  */
 final readonly class Recorded
 {
-    /** The variable pcov reads before its `pcov.enabled`. */
-    public const string ENABLED = 'PCOV_ENABLED';
-
     /** pcov's mark of a line a test executed. */
     private const int EXECUTED = 1;
 
@@ -53,13 +49,17 @@ final readonly class Recorded
 
     /**
      * Whether pcov is loaded and enabled, so a test's lines can be collected:
-     * `PCOV_ENABLED` wins over `pcov.enabled`, as pcov reads them.
+     * `pcov.enabled`, which PHP sets only as it starts, and pcov reads no
+     * variable of its own (ADR-0183).
      */
     public static function usable(): bool
     {
-        $variable = getenv(self::ENABLED);
-        $enabled = is_string($variable) ? $variable : ini_get('pcov.enabled');
+        return self::enabledBy(ini_get('pcov.enabled'));
+    }
 
+    /** Whether pcov, where it is loaded, collects under this value of its `pcov.enabled`. */
+    public static function enabledBy(string|false $enabled): bool
+    {
         return function_exists('pcov\\start')
             && is_string($enabled)
             && OnSwitch::tryFrom(mb_strtolower($enabled)) instanceof OnSwitch;

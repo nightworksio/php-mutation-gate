@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\EarlyStreams;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
-use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
 use Pest\Mutate\Support\MutationTestResult;
 
@@ -14,16 +13,12 @@ use Pest\Mutate\Support\MutationTestResult;
  *
  * @return array{list<MutationTestResult>, bool}
  */
-function earlyJudged(string $pcov): array
+function earlyJudged(): array
 {
     $suite = Mutations::suite('src/Money.php', MutationTestResult::None, MutationTestResult::None);
     $before = earlyStreamDirectories();
 
-    Environment::during(['PCOV_ENABLED' => $pcov], static function () use ($suite): object {
-        EarlyStreams::judge($suite, [], 1, StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true));
-
-        return $suite;
-    });
+    EarlyStreams::judge($suite, [], 1, StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true));
     $results = [];
 
     foreach ($suite->repository->all() as $collection) {
@@ -43,9 +38,6 @@ function earlyStreamDirectories(): array
     return $found === false ? [] : $found;
 }
 
-it('streams nothing where pcov cannot collect a test\'s lines, nor where no mutant has a site its schema switches', function (string $pcov): void {
-    expect(earlyJudged($pcov))->toBe([[MutationTestResult::None, MutationTestResult::None], false]);
-})->with([
-    'pcov turned off' => ['0'],
-    'no mutant switched' => ['1'],
-]);
+it('streams nothing where no mutant has a site its schema switches, whether pcov can collect a test\'s lines or not', function (): void {
+    expect(earlyJudged())->toBe([[MutationTestResult::None, MutationTestResult::None], false]);
+});

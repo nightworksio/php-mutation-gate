@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_keys;
+use function array_map;
 use function array_values;
 use function dirname;
 use function file_put_contents;
@@ -28,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\TestEvents;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 
 use function sprintf;
 use function strval;
@@ -179,7 +181,13 @@ final readonly class UnmutatedRuns
 
             $command = $files->served()
                 ->onto($scan->onto($this->judging($control, $request, $files->log(), $files->events())))
-                ->with([GateVariable::Peak->value => $files->forked()])
+                ->with([
+                    GateVariable::Peak->value => $files->forked(),
+                    ...PcovTests::keptFor(
+                        $this->project->results(),
+                        array_map(static fn(TestId $test): string => $test->value(), [...$control->tests()]),
+                    ),
+                ])
                 ->launchedBy($launcher, $files->peak());
             $commands[$control->key()] = $this->silenced($command, $control, $files->events());
             $ranWith[$control->key()] = [$control, $files];

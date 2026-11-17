@@ -158,7 +158,7 @@ final readonly class Project
      */
     public function freshResults(): string|CannotJudge
     {
-        $results = $this->absolute($this->workspace->child(Path::of(self::RESULTS)));
+        $results = $this->results();
         $this->directory(Path::of(dirname($results)));
         $copies = glob(Recorder::mutantBeside($results, '*'));
         $logs = glob(Recorder::everyErrorLogBeside($results));
@@ -178,6 +178,12 @@ final readonly class Project
         return $this->without($results, ...$beside)
             ? $results
             : CannotJudge::because(sprintf(self::STALE, $results));
+    }
+
+    /** The file a mutation run writes its results to, which files of its own are written beside. */
+    public function results(): string
+    {
+        return $this->absolute($this->workspace->child(Path::of(self::RESULTS)));
     }
 
     /**

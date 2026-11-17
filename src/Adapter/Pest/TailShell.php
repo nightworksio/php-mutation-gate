@@ -8,12 +8,12 @@ use function array_key_exists;
 use function count;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Split\Recorded;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\EndedProcesses;
+use NightWorksIO\MutationGate\Core\Runner\IniScan;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
@@ -54,7 +54,7 @@ final readonly class TailShell implements Shell, StartsCommands
     private const string APART = 'pest/tail-apart';
 
     /** The variables PHP and its extensions read as a process starts. */
-    private const array STARTING = [MemoryCap::SCAN_DIR, Recorded::ENABLED, Xdebug::MODE_VARIABLE];
+    private const array STARTING = [MemoryCap::SCAN_DIR, IniScan::KEPT, IniScan::ADDED, Xdebug::MODE_VARIABLE];
 
     private function __construct(
         private Shell $shell,

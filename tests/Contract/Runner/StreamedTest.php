@@ -3,9 +3,15 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\PestSteps;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -278,6 +284,45 @@ it('stops a stream whose parent runs a test past its deadline, and judges the mu
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
+it('judges a mutant whose test reads its coverage through pcov alike whether pest.pcovOff turns pcov off in the run or not, its stream keeping pcov on', function (bool $pcovOff): void {
+    $copied = [
+        'src/Measured.php' => 'tests/Contract/Runner/streamed/src/Measured.php',
+        'tests/MeasuredSpec.php' => 'tests/Contract/Runner/streamed/tests/MeasuredSpec.php',
+    ];
+
+    foreach ($copied as $into => $from) {
+        copy(Tree::at($from), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+    }
+
+    Library::patched();
+
+    try {
+        $result = Library::pest(Patching::on(Library::canary())
+            ->stepping(PestSteps::of(Toggles::of(Toggle::PestPcovOff, $pcovOff), NarrowedKillTrust::Vouch, LongFilter::DEFAULT, Duplicates::JudgeOnce))
+            ->splitting(StreamSettings::of(enabled: true, children: 1, changeCheck: false, killersFirst: false)))
+            ->runner()->mutate(
+                MutationRequest::of(Paths::of(Path::of('src/Measured.php')), WholeSuite::tests())->narrowedTo(
+                    Paths::of(Path::of('src/Measured.php')),
+                    Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)),
+                ),
+            );
+    } finally {
+        foreach (array_keys($copied) as $into) {
+            unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+        }
+    }
+
+    expect(streamedJudged($result))->toBe([
+        15 => [MutantStatus::Killed, ['P\\Tests\\MeasuredSpec::__pest_evaluable_it_doubles_a_small_amount_where_pcov_is_on'], true],
+    ]);
+})->with([
+    'pcov off in the run' => [true],
+    'pcov as PHP is configured' => [false],
+])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('pcov\\start') || ini_get('pcov.enabled') !== '1',
+    'the runner contracts job installs the fixture library, split streams need a PHP that forks, and the test needs pcov on',
 )->group(...$holds);
 
 it('leaves a mutant whose site the application\'s boot runs to a second pass that boots in every test, under splitStream.bootOnce', function (): void {

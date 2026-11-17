@@ -11,7 +11,9 @@ use function preg_match;
  * (ADR-0004; ADR-0020): every variable it would
  * inherit, each withheld one as false, which is how Symfony's process leaves
  * a variable out. Every variable is named, since Symfony's process on its
- * own inherits only those PHP started with.
+ * own inherits only those PHP started with. A mutation run's directory of
+ * ini files is left out of what it scans (ADR-0183), so a process the gate
+ * starts from a mutation run's own runs PHP as it is configured.
  *
  * @internal
  */
@@ -29,6 +31,6 @@ final readonly class Withholding
             $environment[$name] = preg_match($withheld->pattern(), $name) === 1 ? false : $value;
         }
 
-        return $environment;
+        return [...$environment, ...IniScan::restored($inherited)];
     }
 }

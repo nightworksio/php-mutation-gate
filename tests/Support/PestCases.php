@@ -9,6 +9,7 @@ use function array_map;
 use function array_values;
 use function end;
 use function file_put_contents;
+use function getenv;
 use function in_array;
 use function is_file;
 use function json_encode;
@@ -21,11 +22,17 @@ use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Adapter\Pest\PestSteps;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
@@ -42,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Runner\IniScan;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitTestList;
@@ -64,8 +72,6 @@ final readonly class PestCases
 
     public const string RUN_ADDS = 'P\Tests\MoneySpec::__pest_evaluable_it_adds';
 
-    /** What a mutation run and every process it starts set by default: pcov off, and Xdebug's mode off. */
-    public const array DRIVERS_OFF = ['PCOV_ENABLED' => '0', 'XDEBUG_MODE' => 'off'];
 
     /** The list of tests Pest writes for the fixture: two tests, one of them the canary group's. */
     public const string RUN_LISTING = <<<'XML'
@@ -89,6 +95,37 @@ final readonly class PestCases
         XML;
 
     /** The file Pest lists a project's tests into. */
+    /**
+     * What Pest's own mutation process in this project is started with by default: the directory of the ini file
+     * that turns pcov off in each process it starts, and Xdebug's mode off.
+     *
+     * @return array<string, string>
+     */
+    public static function driversOff(Project $at): array
+    {
+        return [GateVariable::PcovOff->value => sprintf('%s/pcov-off', $at->workspace()), 'XDEBUG_MODE' => 'off'];
+    }
+
+    /**
+     * What every other process of a mutation run in this project is started with by default: pcov off, by the
+     * directory of its ini file scanned after what this process scans, and Xdebug's mode off.
+     *
+     * @return array<string, string>
+     */
+    public static function driversOffBeside(Project $at): array
+    {
+        return [...IniScan::adding(sprintf('%s/pcov-off', $at->workspace()), getenv()), 'XDEBUG_MODE' => 'off'];
+    }
+
+    /** A patched run whose pcov and Xdebug steps are on or off. */
+    public static function drivenBy(bool $pcovOff, bool $xdebugOff): Patching
+    {
+        $toggles = Toggles::of(Toggle::PestPcovOff, $pcovOff)->with(Toggle::PestXdebugOff, $xdebugOff);
+
+        return Patching::on(Group::named('mutation-canary'))
+            ->stepping(PestSteps::of($toggles, NarrowedKillTrust::Vouch, LongFilter::Files, Duplicates::JudgeOnce));
+    }
+
     public static function listingFile(Project $at): string
     {
         return sprintf('%s/%s', $at->workspace(), PhpUnitTestList::FILE);

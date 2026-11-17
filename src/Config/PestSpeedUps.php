@@ -99,15 +99,15 @@ final readonly class PestSpeedUps implements Setting
     }
 
     /**
-     * `pest.pcovOff`, `true`: a mutation run starts with pcov off unless its streams record lines with it, as by
-     * default.
+     * `pest.pcovOff`, `true`, as by default: every process a mutation run starts has pcov off, unless its streams
+     * record lines with it, or it runs a test that reads the coverage driver.
      */
     public static function pcovOff(): self
     {
         return new self(Json::at('pest.pcovOff', value: true));
     }
 
-    /** `pest.pcovOff`, `false`: a mutation run starts with pcov as PHP is configured. */
+    /** `pest.pcovOff`, `false`: every process of a mutation run has pcov as PHP is configured. */
     public static function pcovOn(): self
     {
         return new self(Json::at('pest.pcovOff', value: false));

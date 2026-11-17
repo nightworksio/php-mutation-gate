@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\IdsFile;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
+use NightWorksIO\MutationGate\Adapter\Pest\PcovTests;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -90,6 +91,7 @@ final readonly class Streaming
         private bool $reconnect = false,
         private bool $coveringOnly = false,
         private bool $deadline = false,
+        private PcovTests|NotGiven $pcov = new NotGiven(),
     ) {
     }
 
@@ -245,12 +247,19 @@ final readonly class Streaming
     ): StreamVerdicts {
         $times = LoadedMap::timed();
         $cores = new CpuCoreCounter()->getCountWithFallback(1);
-        $parts = self::cut($units, $times, $this->processes);
+        [$reading, $others] = $this->pcov instanceof PcovTests ? $this->pcov->split($units) : [[], $units];
+        $readers = PcovTests::processesFor($reading, $others, $times, $this->processes);
+        $keeping = $reading === [] ? [] : self::cut($reading, $times, $readers);
+        $parts = [
+            ...$keeping,
+            ...$others === [] && $reading !== [] ? [] : self::cut($others, $times, max(1, $this->processes - $readers)),
+        ];
+        $kept = count($keeping);
         $streams = [];
 
         foreach ($parts as $at => $part) {
             $streams[] = $this->watched(
-                new StreamStart($pass, $at, count($parts), $planned, $times, $cores, $selecting),
+                new StreamStart($pass, $at, count($parts), $planned, $times, $cores, $selecting, $at < $kept),
                 $part['tests'],
                 $part['files'],
                 $selects,
@@ -370,6 +379,7 @@ final readonly class Streaming
                 GateVariable::SplitPlan->value => $plan,
                 Mutate::ENV_MUTATION_TESTING => false,
                 GateVariable::Results->value => false,
+                ...$start->keepsPcov ? PcovTests::kept() : PcovTests::off(),
             ],
             timeout: null,
         );

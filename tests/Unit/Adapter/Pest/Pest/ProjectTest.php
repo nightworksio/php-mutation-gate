@@ -250,7 +250,7 @@ it('makes the registered mutators\' mutants through the bridges it writes for it
 
     expect(PestCases::untimed($result))->toEqual(MutationResult::of(Mutants::of(PestCases::mutant()), 0))
         ->and($shell->commands())->toEqual([
-            PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at), $bridges)->with(PestCases::DRIVERS_OFF)
+            PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at), $bridges)->with(PestCases::driversOff($at))
                 ->with(['MUTATION_GATE_MUTATORS' => $file]),
         ])
         ->and(is_file($file) ? (string) file_get_contents($file) : '')->toContain("return 'acme/PlusToMinus';");

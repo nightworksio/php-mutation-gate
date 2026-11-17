@@ -18,12 +18,14 @@ use function json_encode;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 
+use function max;
 use function microtime;
 
 /**
  * The time by which a split stream's parent must end the test it runs
  * (ADR-0182): the limit a child of the test is held to, of the map's time
- * of the test, or `timeouts.most` where the map timed none, from the test's
+ * of the test times how much slower than the map the stream has run its
+ * tests so far, or `timeouts.most` where the map timed none, from the test's
  * start, moved on by each wait for a child's place. The parent keeps it in
  * its stream's mark, where Pest's own process reads it (see StreamWatch).
  *
@@ -34,6 +36,15 @@ final class ParentDeadline
     private const string TEST = 't';
 
     private const string BY = 'd';
+
+    /** How far each test the map timed moves the stream's slowdown toward its own. */
+    private const float WEIGHT = 0.2;
+
+    /** The least time the map gave a test whose own time moves the slowdown, as shorter ones are mostly start-up. */
+    private const float MEASURABLE = 0.05;
+
+    /** How much slower than the map the stream runs its tests, never less than as fast. */
+    private float $slowdown = 1.0;
 
     private float $by = 0.0;
 
@@ -67,8 +78,9 @@ final class ParentDeadline
     public function began(string $test): void
     {
         $this->test = $test;
-        $this->by = microtime(as_float: true)
-            + (array_key_exists($test, $this->times) ? $this->limit->of($this->times[$test]) : $this->limit->longest());
+        $this->by = microtime(as_float: true) + (array_key_exists($test, $this->times)
+            ? $this->limit->of($this->times[$test] * $this->slowdown)
+            : $this->limit->longest());
         $this->kept();
     }
 
@@ -83,9 +95,16 @@ final class ParentDeadline
         $this->kept();
     }
 
-    /** The parent ended its test: it runs none past a deadline. */
-    public function ended(): void
+    /**
+     * The parent ended its test, taking this many seconds of its own: it runs
+     * none past a deadline, and a test the map timed moves the slowdown.
+     */
+    public function ended(float $own): void
     {
+        $timed = array_key_exists($this->test, $this->times) ? $this->times[$this->test] : 0.0;
+        $this->slowdown = $timed >= self::MEASURABLE
+            ? max(1.0, $this->slowdown + self::WEIGHT * ($own / $timed - $this->slowdown))
+            : $this->slowdown;
         $this->test = '';
 
         if ($this->mark !== '' && is_file($this->mark)) {

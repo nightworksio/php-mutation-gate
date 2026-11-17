@@ -46,11 +46,32 @@ it('moves the deadline on by each wait for a child\'s place, and keeps none once
     $deadline->waited(10.0);
     $deadline->waited(-4.0);
     $waited = ParentDeadline::passedIn($mark, $now + 15.5);
-    $deadline->ended();
+    $deadline->ended(1.0);
     $deadline->waited(10.0);
 
     expect([$waited, ParentDeadline::passedIn($mark, $now + 16.5)])->toBe([false, false])
         ->and(file_get_contents($mark))->toBe('');
+});
+
+it('holds a test to its limit times how much slower than the map the stream ran the timed tests before it, never less than the map\'s', function () use ($planned): void {
+    $mark = sprintf('%s/live-1', Scratch::directory());
+    $deadline = ParentDeadline::of($planned(deadline: true), $mark);
+
+    $deadline->began('timed');
+    $deadline->ended(12.0);
+    $now = microtime(as_float: true);
+    $deadline->began('timed');
+    $slowed = [ParentDeadline::passedIn($mark, $now + 11.5), ParentDeadline::passedIn($mark, $now + 12.5)];
+    $deadline->ended(0.5);
+    $deadline->ended(0.5);
+    $deadline->began('untimed');
+    $deadline->ended(100.0);
+    $now = microtime(as_float: true);
+    $deadline->began('timed');
+
+    expect($slowed)->toBe([false, 'timed'])
+        ->and(ParentDeadline::passedIn($mark, $now + 5.5))->toBeFalse()
+        ->and(ParentDeadline::passedIn($mark, $now + 11.0))->toBe('timed');
 });
 
 it('keeps nothing where the plan sets no deadline, or the stream has no mark, and reads none from a mark that holds none', function () use ($planned): void {

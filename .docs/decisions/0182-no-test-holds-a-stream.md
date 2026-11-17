@@ -35,11 +35,17 @@ reads a sibling's answer, or waits on a socket no daemon will answer.
    before that point stops there, and its mutant runs its own run.
 2. **A stream's parent keeps the deadline of the test it runs** in its
    stream's mark (ADR-0173): the limit a child of that test is held to, of
-   the map's time of the test (`timeouts.perTest` times it, at least
-   `timeouts.testFloor`), or `timeouts.most` where the map timed none or
-   `timeouts.perTest` is off, from the test's start. Each wait for a
-   child's place moves it on by as long, as a child's limit leaves that
-   wait out (ADR-0177). The parent clears it as the test ends.
+   the map's time of the test times the stream's slowdown
+   (`timeouts.perTest` times that, at least `timeouts.testFloor`), or
+   `timeouts.most` where the map timed none or `timeouts.perTest` is off,
+   from the test's start. The slowdown is how much slower than the map the
+   stream ran the tests before it, never under 1: each test the map timed
+   at 0.05 s or more moves it a fifth of the way toward that test's own
+   time over the map's, less the time it waited for children's places, so
+   a loaded machine, or one slower than the map's, does not stop its
+   streams. Each wait for a child's place moves the deadline on by as
+   long, as a child's limit leaves that wait out (ADR-0177). The parent
+   clears it as the test ends.
 3. **Pest's own process watches every stream of a pass at once**
    (`StreamWatch`), in place of waiting for each in turn. A stream whose
    parent passed its test's deadline is stopped with every process under
@@ -88,3 +94,4 @@ reads a sibling's answer, or waits on a socket no daemon will answer.
 | **A process group per stream, killed whole** | The gate starts its processes in a session of their own, which it stops whole (ADR-0158); a stream that left its group would escape that. |
 | **Stop the stream and leave its other tests to their own runs** | One stuck test would send every later test's mutants to their own runs, far slower than starting a stream on them. |
 | **`timeouts.most` as the deadline** | Five minutes of a stream held by one test, where the map's time bounds it to seconds. |
+| **The map's time alone, with no slowdown** | Run locally on a loaded machine, the gate's shard 9 stopped and started its streams again 41 times in its first pass, sending each stopped test's mutants to their own runs. |

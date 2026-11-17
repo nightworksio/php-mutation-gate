@@ -91,9 +91,9 @@ it('runs each control with the file the mutant changes served unmutated, the nar
     $judging = Invocation::of($at);
     $log = sprintf('%s/.mutation-gate/pest/alone/junit-0.xml', $at->root());
 
-    expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(PestCases::spec($at))), WholeSuite::tests(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with([...$served, ...PestCases::DRIVERS_OFF]))
+    expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(PestCases::spec($at))), WholeSuite::tests(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with([...$served, ...PestCases::driversOffBeside($at)]))
         ->and($confirmation)->toEqual(
-            $judging->judging(Paths::none(), Selection::of(TestIds::of(TestId::of(PestCases::RUN_ADDS)))->filter(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with([...$served, ...PestCases::DRIVERS_OFF]),
+            $judging->judging(Paths::none(), Selection::of(TestIds::of(TestId::of(PestCases::RUN_ADDS)))->filter(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with([...$served, ...PestCases::driversOffBeside($at)]),
         )
         ->and(file_get_contents($unmutated))->toBe($printed instanceof Contents ? $printed->text() : null);
 });

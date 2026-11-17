@@ -191,6 +191,13 @@ enum GateVariable: string
     case SplitParentDeadline = 'MUTATION_GATE_SPLIT_PARENT_DEADLINE';
 
     /**
+     * The directory whose ini file turns pcov off, which a mutation run adds to what each process it starts scans,
+     * where `pest.pcovOff` turns pcov off (ADR-0183); Pest's own mutation process keeps pcov on, as it refuses to run
+     * without a coverage driver.
+     */
+    case PcovOff = 'MUTATION_GATE_PCOV_OFF';
+
+    /**
      * The `outbreak.so` a split stream loads, to count the forks that change
      * no state (H5), to see a test touch nondeterminism (ADR-0130), to record
      * its tests' lines or to count its steps (ADR-0147).

@@ -327,8 +327,13 @@ final readonly class MutationRun
         $handOff = $this->handOff($request, $results, $shared);
         $told = $this->told($request, $results, $handOff, $bounds);
         $this->warmFor($request, $command, $results);
+        $drivers = CoverageDrivers::of(
+            $this->patching,
+            ToldExtension::recordsWithPcov($this->extension, $request->narrowing()->recording()),
+            $this->project,
+        );
         $ran = $this->shell->run(
-            $command->with($told),
+            $drivers->mutating($command->with($told)),
             new MutantsProgress($results, $handOff instanceof HandOff ? $handOff : new Unwatched()),
         );
         $mutation = $laps->lap(Step::Mutation, $from);
@@ -374,8 +379,7 @@ final readonly class MutationRun
 
     /**
      * The variables a run of this request is started with: what it tells the patched plugin, what it tells its
-     * streams of Outbreak's extension, the coverage drivers it turns off, and, where its streams record lines with
-     * pcov, what pcov collects from there.
+     * streams of Outbreak's extension, and, where its streams record lines with pcov, what pcov collects from there.
      *
      * @return array<string, string>
      */
@@ -392,7 +396,6 @@ final readonly class MutationRun
             ...new Told($this->project, $this->patching, $this->only, $this->narrows())
                 ->of($request, $results, $handOff instanceof HandOff, $bounds),
             ...ToldExtension::of($this->extension, $recording),
-            ...CoverageDrivers::of($this->patching, $withPcov),
             ...$withPcov ? StreamReach::told(
                 PcovReach::under($this->project->root(), $this->project->vendor())->keeping(Schemata::inVendor()),
             ) : [],
@@ -503,14 +506,17 @@ final readonly class MutationRun
     {
         return DriversSetShell::over(
             TailShell::of($this->shell, $this->project, $this->patching, $request),
-            CoverageDrivers::of($this->patching, recordsWithPcov: false),
+            CoverageDrivers::of($this->patching, recordsWithPcov: false, project: $this->project),
         );
     }
 
     /** The shell the run's other processes start in, with the coverage drivers a mutation run sets (ADR-0147). */
     private function driven(): Shell
     {
-        return DriversSetShell::over($this->shell, CoverageDrivers::of($this->patching, recordsWithPcov: false));
+        return DriversSetShell::over(
+            $this->shell,
+            CoverageDrivers::of($this->patching, recordsWithPcov: false, project: $this->project),
+        );
     }
 
     private function shardMap(): ShardMap

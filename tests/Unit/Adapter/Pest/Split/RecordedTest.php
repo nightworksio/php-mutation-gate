@@ -7,7 +7,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\LineRecorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\PcovLines;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Recorded;
 use NightWorksIO\MutationGate\Tests\Fakes\LineCollectorFake;
-use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\OutbreakCalls;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedBox;
@@ -63,15 +62,15 @@ it('takes the lines outbreak.so recorded, none where it is not loaded', function
     expect(new Recorded(new LineCollectorFake())->stop(LineRecorder::Outbreak))->toBe([[], []]);
 })->skip(fn(): bool => function_exists('outbreak_lines_stop'), 'outbreak.so records the lines of this very process.');
 
-it('collects through pcov only where PCOV_ENABLED switches it on, as pcov reads it', function (string $enabled, bool $usable): void {
-    $inProcess = Environment::during([Recorded::ENABLED => $enabled], static fn(): Recorded => Recorded::inProcess());
-
-    expect($inProcess)->toEqual(new Recorded($usable && function_exists('pcov\start') ? new PcovLines() : false));
+it('collects through pcov only where pcov.enabled switches it on, as pcov reads it', function (string|false $enabled, bool $usable): void {
+    expect(Recorded::enabledBy($enabled))->toBe($usable && function_exists('pcov\\start'))
+        ->and(Recorded::inProcess())->toEqual(new Recorded(Recorded::usable() ? new PcovLines() : false));
 })->with([
     'a one' => ['1', true],
     'a word in any case' => ['On', true],
     'a nought' => ['0', false],
     'nothing' => ['', false],
+    'no such setting' => [false, false],
 ]);
 
 it('records a test\'s lines by outbreak.so where it starts recording, and takes the lines it stopped with as they stand', function (): void {

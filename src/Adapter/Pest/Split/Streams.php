@@ -17,6 +17,7 @@ use function getenv;
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
+use NightWorksIO\MutationGate\Adapter\Pest\PcovTests;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -98,6 +99,7 @@ final readonly class Streams
             $settings->reconnects(),
             $settings->selectsCoveringTests(),
             $settings->stopsAtDeadlines(),
+            PcovTests::of($coveredLines),
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $held, $settings);
         $undecided = self::undecided($byId, $sites, $covering, $held, $verdicts);

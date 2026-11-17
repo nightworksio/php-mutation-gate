@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\ParsedSource;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
+use NightWorksIO\MutationGate\Adapter\Pest\PcovTests;
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
@@ -215,14 +216,16 @@ it('narrows a mutant\'s own run to the covering tests its shard\'s part of the t
         ->and(preg_match($inPlace, $test))->toBe(1);
 });
 
-it('asks each mutant\'s run of its place\'s warm worker, where the run has one', function () use ($vendor, $source): void {
+it('asks each mutant\'s run of its place\'s warm worker, where the run has one, unless a test of it reads the coverage driver, and starts it with pcov off unless one does', function () use ($vendor, $source): void {
     $at = $vendor();
     Patch::applyIn($at, new PackageDirectory());
 
-    expect($source($at, 'MutationTest.php'))->toContain(sprintf(
-        '...($processId !== null && class_exists(\\%1$s::class) ? \\%1$s::prefix($processId) : []),',
-        Pool::class,
-    ));
+    expect($source($at, 'MutationTest.php'))->toContain(
+        sprintf('$reads = class_exists(\\%1$s::class) && \\%1$s::of($coveredLines)->readBy($covering);', PcovTests::class),
+        sprintf('$warm = $processId !== null && ! $reads && class_exists(\\%1$s::class);', Pool::class),
+        sprintf('...($warm ? \\%1$s::prefix($processId) : []),', Pool::class),
+        'env: [...$envs, ...$pcov],',
+    );
 });
 
 it('serves a class Composer autoloads by an autoloader, and starts the wrapper for any other file or a mutant pinned by source', function () use ($vendor, $source): void {

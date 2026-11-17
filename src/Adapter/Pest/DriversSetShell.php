@@ -27,25 +27,22 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
  */
 final readonly class DriversSetShell implements Shell, StartsCommands
 {
-    /** @param array<string, string> $drivers */
-    private function __construct(private Shell $shell, private array $drivers)
+    private function __construct(private Shell $shell, private CoverageDrivers $drivers)
     {
     }
 
     /**
-     * That shell, its commands started with these drivers' variables; the
-     * shell as it is where they set none.
-     *
-     * @param array<string, string> $drivers
+     * That shell, its commands started with these drivers; the shell as it
+     * is where they set none.
      */
-    public static function over(Shell $shell, array $drivers): Shell
+    public static function over(Shell $shell, CoverageDrivers $drivers): Shell
     {
-        return $drivers === [] ? $shell : new self($shell, $drivers);
+        return $drivers->isNone() ? $shell : new self($shell, $drivers);
     }
 
     public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran
     {
-        return $this->shell->run($command->with($this->drivers), $watch);
+        return $this->shell->run($this->drivers->onto($command), $watch);
     }
 
     public function sideBySide(
@@ -79,6 +76,6 @@ final readonly class DriversSetShell implements Shell, StartsCommands
      */
     private function set(array $commands): array
     {
-        return array_map(fn(Command $command): Command => $command->with($this->drivers), $commands);
+        return array_map($this->drivers->onto(...), $commands);
     }
 }

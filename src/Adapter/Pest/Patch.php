@@ -276,6 +276,7 @@ final readonly class Patch
                         '--bail',
                         '--filter="'.implode('|', $filters).'"',
                     ],
+                    env: $envs,
         PHP;
 
     private const string FILTER_BECOMES = <<<'PHP'
@@ -286,16 +287,21 @@ final readonly class Patch
                     : '--filter="'.implode('|', $filters).'"';
                 $passed = class_exists(\%1$s::class) ? \%1$s::passable($filter) : strlen($filter) < %2$d;
 
-                {MARK} a mutant's run is asked of its place's warm worker, where the run has them.
+                {MARK} a mutant's run is asked of its place's warm worker, where the run has them, but
+                // one a test of which reads the coverage driver runs alone, its pcov left as configured (ADR-0183).
+                $reads = class_exists(\%6$s::class) && \%6$s::of($coveredLines)->readBy($covering);
+                $pcov = class_exists(\%6$s::class) ? \%6$s::of($coveredLines)->variablesFor($covering) : [];
+                $warm = $processId !== null && ! $reads && class_exists(\%3$s::class);
                 $process = new Process(
                     command: [
-                        ...($processId !== null && class_exists(\%3$s::class) ? \%3$s::prefix($processId) : []),
+                        ...($warm ? \%3$s::prefix($processId) : []),
                         ...$filteredArguments,
                         '--bail',
                         ...(class_exists(\%5$s::class)
                             ? \%5$s::arguments($covering, $filter)
                             : ($passed ? [$filter] : [])),
                     ],
+                    env: [...$envs, ...$pcov],
         PHP;
 
     private const string CANARY_SHIPS = <<<'PHP'
@@ -780,6 +786,7 @@ final readonly class Patch
                     Pool::class,
                     LoadedMap::class,
                     LongFilterSet::class,
+                    PcovTests::class,
                 ),
             ),
             Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
