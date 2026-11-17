@@ -9,6 +9,7 @@ use function array_key_exists;
 use function array_map;
 use function array_sum;
 use function count;
+use function crc32;
 use function max;
 use function min;
 
@@ -23,9 +24,9 @@ use function uksort;
  * by the file that declares a test's class, goes, longest first by the map's
  * times and files of equal time by path, to the part with the least time so
  * far, of those the fewest files, of those the lowest, so every shard cuts
- * the same map alike. A test belongs to the part of its file. Where a test
- * of the map is declared in no test file the process loaded, no file can be
- * cut by its tests, and the first part holds every test.
+ * the same map alike. A test belongs to the part of its file, and a test
+ * of the map declared in no test file the process loaded to the first part,
+ * the rest cut as ever (ADR-0171).
  *
  * @internal
  */
@@ -122,27 +123,31 @@ final readonly class TestParts
     }
 
     /**
-     * Whether the shard owns a mutant whose covering tests these are: its
-     * part holds the first of them, or there are none and it is the first.
+     * Whether the shard owns this mutant, whose covering tests these are:
+     * its part holds the first of them, or, where there are none, its id
+     * falls to the part, so one shard judges each such mutant and the parts
+     * share them alike (ADR-0171).
      *
      * @param list<string> $covering
      */
-    public function owns(array $covering): bool
+    public function owns(array $covering, string $mutant): bool
     {
-        return $covering === [] ? $this->part->number() === 1 : $this->holds($covering[0]);
+        return $covering === []
+            ? crc32($mutant) % $this->part->parts() + 1 === $this->part->number()
+            : $this->holds($covering[0]);
     }
 
     /**
-     * How much of a mutant's covering tests the shard's part holds: every
+     * How much of this mutant's covering tests the shard's part holds: every
      * one, or some, the shard owning the mutant or not.
      *
      * @param list<string> $covering
      */
-    public function shareOf(array $covering): TestShare
+    public function shareOf(array $covering, string $mutant): TestShare
     {
         return match (true) {
             $this->within($covering) === $covering => TestShare::All,
-            $this->owns($covering) => TestShare::OwnedPart,
+            $this->owns($covering, $mutant) => TestShare::OwnedPart,
             default => TestShare::OtherPart,
         };
     }

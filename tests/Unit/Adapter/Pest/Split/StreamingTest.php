@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Streaming;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamVerdicts;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
+    CoveringFiles::forget();
     Scratch::sweep();
 });
 
@@ -52,5 +54,15 @@ it('streams no pass of killers whose ids PHPUnit could not read back from a file
     $streaming = new Streaming($directory, [], [], [], 1, 1);
 
     expect($streaming->killersPass(1, ['m1' => ['f1', 1, "P\\Tests\\MoneySpec::it adds\nand more", []]], StreamVerdicts::none()))->toEqual(NotGiven::value())
+        ->and(glob(sprintf('%s/*', $directory)))->toBe([]);
+});
+
+it('starts no stream of a pass whose tests no loaded file declares, leaving their mutants to their own runs', function (): void {
+    $directory = Scratch::directory();
+    CoveringFiles::forget(Scratch::directory());
+    $verdicts = StreamVerdicts::none();
+    $streaming = new Streaming($directory, [], ['m1' => ['Never\\Loaded::test']], [], 1, 1);
+
+    expect($streaming->pass(1, ['m1' => ['f1', 1, '', []]], $verdicts))->toBe($verdicts)
         ->and(glob(sprintf('%s/*', $directory)))->toBe([]);
 });

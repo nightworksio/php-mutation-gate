@@ -94,24 +94,26 @@ final readonly class PlannedMutants
     /**
      * The covering tests of the shard's part a stream judges a mutant by;
      * none where no stream does: one no test covers, which Pest leaves
-     * uncovered; one no stream can judge, which runs on its own in the shard
-     * that owns it and is left by every other; and one no test of the part
-     * covers, which is left to the parts that hold its tests.
+     * uncovered in the shard that owns it and every other leaves (ADR-0171);
+     * one no stream can judge, which runs on its own in the shard that owns
+     * it and is left by every other; and one no test of the part covers,
+     * which is left to the parts that hold its tests.
      *
      * @param  list<string> $covered every test that covers it
      * @return list<string>
      */
     private static function heldOf(MutationTest $test, array $covered, TestParts $parts, bool $unstreamed): array
     {
+        $mutant = $test->mutation->id;
         $held = $unstreamed ? [] : $parts->within($covered);
-        $leaves = $unstreamed ? ! $parts->owns($covered) : $held === [];
+        $leaves = $unstreamed || $covered === [] ? ! $parts->owns($covered, $mutant) : $held === [];
 
-        if ($covered !== [] && $leaves) {
+        if ($leaves) {
             Parted::unreached($test);
         }
 
         if ($held !== []) {
-            Parted::judgedBy($test, $parts->shareOf($covered), $held);
+            Parted::judgedBy($test, $parts->shareOf($covered, $mutant), $held);
         }
 
         return $held;

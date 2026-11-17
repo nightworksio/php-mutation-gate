@@ -97,8 +97,9 @@ final class CoveringFiles
     /**
      * The test files a split stream of these tests runs (ADR-0117), by the
      * file that declares each test's class: that file and every file it
-     * needs, as a narrowed run would load them, with the tests it declares;
-     * none where a test's class is not loaded.
+     * needs, as a narrowed run would load them, with the tests it declares.
+     * A test whose class no loaded file declares is left out, as no stream
+     * can run it (ADR-0171).
      *
      * @param  list<string>                                          $tests by their ids in Pest's coverage map
      * @return array<string, array{files: list<string>, tests: list<string>}>
@@ -112,7 +113,7 @@ final class CoveringFiles
             $file = $loaded->fileOf(self::classOf($test));
 
             if ($file === '') {
-                return [];
+                continue;
             }
 
             $units[$file] ??= ['files' => $loaded->needs($file), 'tests' => []];

@@ -175,7 +175,9 @@ final readonly class Streaming
 
     /**
      * What one pass of streams of the files that hold these tests found,
-     * each stream started with these arguments beside a mutant's own run's.
+     * each stream started with these arguments beside a mutant's own run's;
+     * nothing more where no loaded file holds any of them, which leaves
+     * their mutants to their own runs (ADR-0171).
      *
      * @param list<string>                                                            $tests
      * @param array<string, array<int, array{string, string, array<string, string>}>> $planned
@@ -188,7 +190,9 @@ final readonly class Streaming
         array $selecting,
         StreamVerdicts $verdicts,
     ): StreamVerdicts {
-        return $this->streamedUnits($pass, CoveringFiles::streamed($tests), $planned, $selecting, $verdicts);
+        $units = CoveringFiles::streamed($tests);
+
+        return $units === [] ? $verdicts : $this->streamedUnits($pass, $units, $planned, $selecting, $verdicts);
     }
 
     /**
