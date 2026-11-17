@@ -24,12 +24,15 @@ On one shard of the gate's own code cut to four files (`Path`, `LineTests`,
 
 | `pest.longFilter` | Shard | Controls | Longest control |
 |---|---:|---:|---:|
-| `files` | past 1,500 s, cut off | one ran 185 whole test files for minutes | minutes |
+| `files` | 1,699 s | 10, 421 s in all; six ran 1,531 to 2,497 tests and failed | 236 s |
 | `set` | 1,331 s | 6, all passed, 14 s in all | 7.1 s |
 
-Under `files` the control of one kill ran every test of 185 test files the
-mutant's run had loaded, with `--bail`, for minutes; under `set` each kill's
-control ran its killers, 10 or 23 tests in a few seconds.
+Of the 147 mutants, none was killed under one and survived under the
+other. Under `files`, 33 kills were left unjudged because a test of a
+loaded file that kills nothing failed unmutated; under `set` their killers
+passed unmutated and the kills stand, as ADR-0138 foresaw. Ten more moved
+between a kill by the analyser and a kill by a test, or to unjudged where
+a replay of the run met that same failing test.
 
 ## Decision
 
