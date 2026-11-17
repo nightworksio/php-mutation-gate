@@ -51,7 +51,8 @@ final readonly class PlannedShards
      * The units to run cut into shards, each of the project's root package,
      * where the runner has no ignore marker in them the config refuses, and
      * each shard's units the riskiest first, the order a budget runs them in,
-     * and each expecting its runner to pay this opening run first.
+     * and each expecting its runner to pay an opening run of a suite this long
+     * first, where the runner opens each shard on the whole suite.
      */
     public function of(
         Units $toRun,
@@ -59,9 +60,10 @@ final readonly class PlannedShards
         Ledgers $ledgers,
         FirstRun $firstRun,
         Cut $cut,
-        Seconds $opening,
+        Seconds $suite,
         RiskOrder $order,
     ): Shards|CannotJudge {
+        $opening = $this->adapters->runner->behaviour()->opensEachShard() ? $suite : Seconds::none();
         $unmarked = new RunnerMarkers($this->adapters, $this->settings)->refusing($toRun);
         $shards = $unmarked instanceof Units
             ? $cut->opening($opening)->cut($this->workload($unmarked, $trees, $ledgers, $firstRun), $trees)

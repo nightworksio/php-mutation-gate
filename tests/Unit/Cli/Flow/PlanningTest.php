@@ -396,7 +396,7 @@ it('names the coverage map\'s tests once, withholding what every process withhol
         ->toEqual($withoutNames instanceof Plan ? $withoutNames->keys() : $withoutNames);
 });
 
-it('says of each shard what its estimate rests on, and that its runner opens on the coverage run\'s tests', function () use (
+it('says of each shard what its estimate rests on, and that a runner opening each shard opens on the coverage run\'s tests', function () use (
     $plan,
 ): void {
     $store = new ProofStoreFake();
@@ -407,17 +407,22 @@ it('says of each shard what its estimate rests on, and that its runner opens on 
                 ->measuredBy(GateRelease::of(Flows::setup()->gate)),
         )),
     );
-    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $store, new CostModelFake(Seconds::of(8.0)));
-    $estimates = array_map(
-        static fn(Shard $shard): array => [
-            $shard->estimate()->part(CostBasis::Learned),
-            $shard->estimate()->part(CostBasis::Guessed),
-            $shard->estimate()->openingRun(),
-        ],
-        $planned instanceof Plan ? [...$planned] : [],
-    );
+    $estimates = static function (RunnerFake $runner) use ($plan, $store): array {
+        $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $store, new CostModelFake(Seconds::of(8.0)), $runner);
 
-    expect($estimates)->toEqual([[Seconds::of(50.0), Seconds::of(8.0), Seconds::of(0.2)]]);
+        return array_map(
+            static fn(Shard $shard): array => [
+                $shard->estimate()->part(CostBasis::Learned),
+                $shard->estimate()->part(CostBasis::Guessed),
+                $shard->estimate()->openingRun(),
+            ],
+            $planned instanceof Plan ? [...$planned] : [],
+        );
+    };
+
+    expect($estimates(RunnerFake::ofTheFixture()->behaving(RunnerBehaviour::standard()->openingEachShard())))
+        ->toEqual([[Seconds::of(50.0), Seconds::of(8.0), Seconds::of(0.2)]])
+        ->and($estimates(RunnerFake::ofTheFixture()))->toEqual([[Seconds::of(50.0), Seconds::of(8.0), Seconds::none()]]);
 });
 
 it('estimates a unit no shard timed by what it measured of the first run, counting with the engine', function () use (
@@ -827,7 +832,7 @@ it('cannot plan where the runner cannot look for its own ignore markers', functi
         ->toEqual(CannotJudge::because('infection.json5 cannot be read.'));
 });
 
-it('cuts to a target wall time counting the coverage run\'s tests as each shard\'s opening run', function (
+it('cuts to a target wall time counting the coverage run\'s tests as the opening run of each shard a runner opens', function (
     float $opening,
     int $count,
 ) use ($plan): void {
@@ -836,7 +841,7 @@ it('cuts to a target wall time counting the coverage run\'s tests as each shard\
         Flows::project(),
         Mode::full(),
         Cut::toTarget(Seconds::of(17.0), Seconds::of(0.0), 20),
-        new CoverageAsked(RunnerFake::ofTheFixture(), $map),
+        new CoverageAsked(RunnerFake::ofTheFixture()->behaving(RunnerBehaviour::standard()->openingEachShard()), $map),
         new CostModelFake(Seconds::of(8.0)),
     );
 
