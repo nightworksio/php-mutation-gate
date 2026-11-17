@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Noted;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnCovering;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Parted;
 use NightWorksIO\MutationGate\Core\Mutant\TestShare;
@@ -46,7 +47,7 @@ function partedBy(string $id, Closure $step, array $covering): array
 
     return [
         $test->result(),
-        is_file($killers) ? (string) file_get_contents($killers) : '',
+        Noted::taken($killers),
         OwnCovering::of($test->mutation, $covering),
     ];
 }

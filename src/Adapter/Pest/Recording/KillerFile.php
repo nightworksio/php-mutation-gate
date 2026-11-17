@@ -19,6 +19,7 @@ use function json_decode;
 use function json_encode;
 use function json_validate;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Noted;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\WholeNumber;
@@ -163,14 +164,18 @@ final readonly class KillerFile
      */
     public static function taken(string $file, string $mutated): array
     {
-        $text = is_file($file) ? file_get_contents($file) : false;
+        $noted = Noted::taken($file);
+        $written = is_file($file) ? file_get_contents($file) : false;
 
-        if ($text === false) {
+        if ($written === false && $noted === '') {
             return [];
         }
 
-        unlink($file);
-        $lines = explode(self::LINE, $text);
+        if ($written !== false) {
+            unlink($file);
+        }
+
+        $lines = explode(self::LINE, sprintf('%s%s', $noted, $written === false ? '' : $written));
         array_pop($lines);
 
         return array_merge(...array_map(static fn(string $line): array => self::recordOf($line, $mutated), $lines));

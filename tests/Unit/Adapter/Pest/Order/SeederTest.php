@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\OnSeeding;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seeder;
+use NightWorksIO\MutationGate\Adapter\Pest\Order\SeedsWaiting;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
@@ -11,6 +12,7 @@ use NightWorksIO\MutationGate\Tests\Support\Orders;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Event\Events\TestSuite\StartMutationSuiteSubscriber;
 use Pest\Mutate\Event\Facade;
+use Pest\Mutate\Support\MutationTestResult;
 
 use function Pest\version;
 
@@ -69,4 +71,29 @@ it('writes no order where it has no opening run\'s map, so each mutant runs in P
     $seeder->seed($suite);
 
     expect(Orders::seeded($order, '/tmp/mutations/m1'))->toBe('');
+});
+
+it('holds its seeding while the run splits its streams, then seeds only the mutants left for their own runs', function (): void {
+    [$seeder, $suite, $order] = Orders::project(mapped: true);
+    putenv('MUTATION_GATE_SPLIT=1');
+    putenv('MUTATION_GATE_SCHEMATA=1');
+
+    $seeder->seed($suite);
+    $held = [Orders::seeded($order, '/tmp/mutations/m1'), Orders::seeded($order, '/tmp/mutations/m2')];
+    $tests = [];
+
+    foreach ($suite->repository->all() as $collection) {
+        foreach ($collection->tests() as $test) {
+            $tests[] = $test;
+        }
+    }
+
+    $tests[0]->updateResult(MutationTestResult::Tested);
+    SeedsWaiting::seedFor($tests);
+
+    expect($held)->toBe(['', ''])
+        ->and(Orders::seeded($order, '/tmp/mutations/m1'))->toBe('')
+        ->and(Orders::seeded($order, '/tmp/mutations/m2'))->not->toBe('');
+
+    SeedsWaiting::seedFor([]);
 });

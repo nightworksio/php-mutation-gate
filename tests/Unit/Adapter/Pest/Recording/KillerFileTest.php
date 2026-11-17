@@ -6,7 +6,10 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Noted;
+use NightWorksIO\MutationGate\Tests\Support\Mutations;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Pest\Mutate\MutationTest;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -62,6 +65,33 @@ it('takes each mark a run notes of a mutant alone, of a split stream and of its 
     expect(KillerFile::marked($event))->toBe(sprintf("%s\n", $event->value))
         ->and(KillerFile::taken($file, '/m/a.php'))->toBe([RecordLine::marked('/m/a.php', $event)]);
 })->with([RecordEvent::Streamed, RecordEvent::Preloaded, RecordEvent::Unreached, RecordEvent::OwnedPart, RecordEvent::OtherPart]);
+
+it('takes what Pest\'s own process noted of a mutant ahead of what its own process wrote, once, with no file written for the notes', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    putenv(sprintf('MUTATION_GATE_RESULTS=%s', $results));
+    $test = new MutationTest(Mutations::mutation('src/Money.php', 'noted', 11, '/m/a.php'));
+    $file = KillerFile::beside($results, '/m/a.php');
+
+    try {
+        Noted::of($test, KillerFile::marked(RecordEvent::OwnedPart));
+    } finally {
+        putenv('MUTATION_GATE_RESULTS');
+    }
+
+    $noted = is_file($file);
+    file_put_contents($file, KillerFile::ran(3));
+
+    expect($noted)->toBeFalse()
+        ->and(KillerFile::taken($file, '/m/a.php'))->toBe([
+            RecordLine::marked('/m/a.php', RecordEvent::OwnedPart),
+            RecordLine::ran('/m/a.php', 3),
+        ])
+        ->and(KillerFile::taken($file, '/m/a.php'))->toBe([]);
+
+    Noted::of($test, KillerFile::marked(RecordEvent::Unreached));
+
+    expect(Noted::taken($file))->toBe('');
+});
 
 it('takes no record from a line that names no test as failed or errored, nor no place it writes, nor from a count that is no whole number', function (): void {
     $file = sprintf('%s/results.jsonl.abc.killers', Scratch::directory());

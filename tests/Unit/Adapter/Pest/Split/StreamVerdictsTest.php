@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Noted;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamVerdicts;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
@@ -49,7 +50,7 @@ function streamGiven(StreamVerdicts $verdicts, array $covering): array
 
     $killers = KillerFile::beside($results, $test->mutation->modifiedSourcePath);
 
-    return [$test->result(), is_file($killers) ? (string) file_get_contents($killers) : ''];
+    return [$test->result(), Noted::taken($killers)];
 }
 
 it('kills a mutant at a test its child failed and the parent passed, naming that test', function (): void {

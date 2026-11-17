@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Order;
 
-use function array_key_exists;
+use Closure;
+
 use function file_get_contents;
 use function getcwd;
 use function getenv;
@@ -17,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Streams;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
@@ -29,7 +31,8 @@ use function sprintf;
 
 /**
  * What the Pest plugin writes in Pest's own process once every mutant is
- * made and before any runs: each mutant's order, from the kill history the
+ * made and before any runs on its own, where the run splits its streams
+ * once they are done (see SeedsWaiting): each mutant's order, from the kill history the
  * adapter planned and the opening run's coverage map, where the mutant's own
  * process reads it (ADR-0013). Where it has no map, it writes
  * none, and each mutant runs its tests in Pest's own order.
@@ -74,8 +77,30 @@ final readonly class Seeder
         return $seeder;
     }
 
-    /** Writes the order of every mutant of a suite, as the plugin reads it in each mutant's own process. */
+    /**
+     * Writes the order of every mutant of a suite, as the plugin reads it in
+     * each mutant's own process; where the run splits its streams, of only
+     * those the streams leave for their own runs, once the streams are done
+     * (see SeedsWaiting).
+     */
     public function seed(MutationSuite $suite): void
+    {
+        if (Streams::areOn()) {
+            SeedsWaiting::hold($this, $suite);
+
+            return;
+        }
+
+        $this->seeded($suite, static fn(): bool => true);
+    }
+
+    /**
+     * Writes the order of each mutant of a suite this says to, every mutant
+     * known by its place among all the suite's.
+     *
+     * @param Closure(string): bool $wanted whether a mutant's copy, by its path, is seeded
+     */
+    public function seeded(MutationSuite $suite, Closure $wanted): void
     {
         $loaded = LoadedMap::taken();
         $coverage = $loaded instanceof CoverageFile
@@ -92,10 +117,12 @@ final readonly class Seeder
         $functions = [];
 
         foreach ($planned as $at => $mutant) {
+            if (! $wanted($mutant->mutated()->value())) {
+                continue;
+            }
+
             $file = $mutant->file()->value();
-            $functions[$file] = array_key_exists($file, $functions)
-                ? $functions[$file]
-                : Functions::in(Contents::of(sprintf('%s', file_get_contents($file))));
+            $functions[$file] ??= Functions::in(Contents::of(sprintf('%s', file_get_contents($file))));
             $in = Enclosing::of($this->root->relative($file), $functions[$file]->around($mutant->start()));
 
             Seed::write(
