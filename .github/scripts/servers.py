@@ -2,7 +2,7 @@
 """The database servers the suite's reconnecting streams are tested against, from test-services.json.
 
 Usage: servers.py services     print `services=<the services as one line of JSON>`, a job's output
-       servers.py addresses    print each server's `MUTATION_GATE_TEST_<ID>=127.0.0.1:<port>`, for $GITHUB_ENV
+       servers.py addresses    print each server's `TEST_SERVER_<ID>=127.0.0.1:<port>`, for $GITHUB_ENV
 
 test-services.json holds each server as `jobs.<job_id>.services` takes it, by
 its id, its image pinned by digest. A job starts them as its services, and
@@ -18,7 +18,7 @@ from pathlib import Path
 
 SERVICES = Path(__file__).resolve().parent.parent / "test-services.json"
 HOST = "127.0.0.1"
-VARIABLE = "MUTATION_GATE_TEST_{}"
+VARIABLE = "TEST_SERVER_{}"
 
 
 def services(document: dict) -> str:

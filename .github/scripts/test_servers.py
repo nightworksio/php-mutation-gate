@@ -20,7 +20,7 @@ class Servers(unittest.TestCase):
         document = {"postgres": {"ports": ["54321:5432", "54322:5433"]}, "mariadb": {"ports": ["33062:3306"]}}
 
         self.assertEqual(
-            ["MUTATION_GATE_TEST_MARIADB=127.0.0.1:33062", "MUTATION_GATE_TEST_POSTGRES=127.0.0.1:54321"],
+            ["TEST_SERVER_MARIADB=127.0.0.1:33062", "TEST_SERVER_POSTGRES=127.0.0.1:54321"],
             servers.addresses(document),
         )
 
@@ -43,7 +43,7 @@ class Servers(unittest.TestCase):
 
         lines = printed.getvalue().splitlines()
         self.assertTrue(lines[0].startswith("services={"))
-        self.assertIn("MUTATION_GATE_TEST_MYSQL=127.0.0.1:33061", lines)
+        self.assertIn("TEST_SERVER_MYSQL=127.0.0.1:33061", lines)
 
 
 if __name__ == "__main__":

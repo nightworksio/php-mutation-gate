@@ -44,9 +44,9 @@ final readonly class Servers
     public static function variable(Driver $driver): string
     {
         return match ($driver) {
-            Driver::MySql => 'MUTATION_GATE_TEST_MYSQL',
-            Driver::MariaDb => 'MUTATION_GATE_TEST_MARIADB',
-            Driver::Postgres => 'MUTATION_GATE_TEST_POSTGRES',
+            Driver::MySql => 'TEST_SERVER_MYSQL',
+            Driver::MariaDb => 'TEST_SERVER_MARIADB',
+            Driver::Postgres => 'TEST_SERVER_POSTGRES',
             Driver::Sqlite => '',
         };
     }
