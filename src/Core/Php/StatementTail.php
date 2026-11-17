@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_filter;
-use function count;
 use function max;
 
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use PhpToken;
 
 /**
  * The lines a statement inside a function's body spans past its first, where
@@ -39,10 +36,11 @@ final readonly class StatementTail
     {
         $tokens = $source->tokens();
         $line = $tokens->line($at);
-        $start = count(array_filter(
-            $tokens->between(0, $at),
-            static fn(PhpToken $token): bool => $token->line < $line,
-        ));
+        $start = $at;
+
+        while ($start > 0 && $tokens->line($start - 1) >= $line) {
+            --$start;
+        }
         $last = self::lastLine($tokens, $start, $line);
 
         return self::startsAStatement($source, $start) && $last > $line

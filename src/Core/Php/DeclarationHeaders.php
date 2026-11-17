@@ -10,7 +10,6 @@ use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
-use PhpToken;
 
 use function sprintf;
 
@@ -107,9 +106,9 @@ final readonly class DeclarationHeaders
     private static function declares(Tokens $tokens, int $scope, int $from, int $to, array $kinds): bool
     {
         return array_any(
-            $tokens->between($from, $to),
-            static fn(PhpToken $token, int $at): bool => $tokens->enclosing($at) === $scope
-                && $token->is($kinds)
+            $tokens->indices($from, $to),
+            static fn(int $at): bool => $tokens->enclosing($at) === $scope
+                && $tokens->is($at, ...$kinds)
                 && ! $tokens->is($at - 1, T_DOUBLE_COLON),
         );
     }

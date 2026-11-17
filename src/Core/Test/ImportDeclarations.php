@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Test;
 
-use function array_keys;
 use function array_last;
 use function explode;
 
@@ -53,7 +52,7 @@ final readonly class ImportDeclarations
     {
         $names = [];
 
-        foreach (array_keys($tokens->between($at, $end)) as $name) {
+        foreach ($tokens->indices($at, $end) as $name) {
             if ($tokens->is($name, ...Names::TOKENS) && $tokens->is($name + 1, ...Scope::CLAUSE_ENDS)) {
                 $names[] = array_last(explode('\\', $tokens->text($name)));
             }
@@ -65,7 +64,7 @@ final readonly class ImportDeclarations
     /** Where the `;` that ends the statement at an index stands, outside every bracket; none where none does. */
     private static function endOf(Tokens $tokens, int $at): int
     {
-        foreach (array_keys($tokens->between($at, $tokens->count())) as $end) {
+        foreach ($tokens->indices($at, $tokens->count()) as $end) {
             if ($tokens->is($end, ';') && $tokens->enclosing($end) === Tokens::NONE) {
                 return $end;
             }
