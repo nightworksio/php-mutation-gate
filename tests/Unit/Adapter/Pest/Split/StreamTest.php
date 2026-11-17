@@ -790,3 +790,30 @@ it('leaves a mutant to its own run where its child reaches what the test says no
         ['parent', null, 'T::shares'],
     ]);
 })->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');
+
+it('falls back on the whole test that began holding a writable file where the stream reconnects, and forks at the next test once it is closed', function (): void {
+    $root = Scratch::directory();
+    [, $results] = streamedApart(['sites' => ['f1' => [1 => ['m1', '', []]]], 'floor' => 10, 'longest' => 10, 'reconnect' => true], sprintf(<<<'PHP'
+        $file = fopen(%s, 'w');
+
+        foreach (['T::began', 'T::later'] as $test) {
+            Stream::began($test);
+
+            if (SchemaSwitch::is('f1', 1)) {
+                Stream::ended();
+            }
+
+            Stream::ended();
+            is_resource($file) ? fclose($file) : null;
+        }
+
+        Stream::finished();
+        PHP, var_export(sprintf('%s/written', $root), return: true)));
+
+    expect(streamFields($results, 'k', 'm', 't'))->toEqualCanonicalizing([
+        ['fallback', null, 'T::began'],
+        ['parent', null, 'T::began'],
+        ['child', 'm1', 'T::later'],
+        ['parent', null, 'T::later'],
+    ]);
+})->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');

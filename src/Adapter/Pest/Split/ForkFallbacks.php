@@ -52,17 +52,16 @@ final class ForkFallbacks
     }
 
     /**
-     * The test holds a descriptor a child would share as it reaches this
-     * site of this mutant: it forks the mutant nowhere else in the test,
-     * which reached the site unmutated, and the stream forks it at later
-     * tests.
+     * The stream cannot fork this site of this mutant in the parent's test:
+     * a test that started a PHP process, or began holding a descriptor a
+     * child would share, which it may hold at every site, forks nothing
+     * more; one that holds a descriptor it opened since forks the mutant
+     * nowhere else in it, which reached the site unmutated, and the stream
+     * forks it at later tests.
      */
-    public function held(CurrentTest $test, string $file, int $id, string $mutant): void
+    public function unforked(CurrentTest $test, bool $ran, string $file, int $id, string $mutant): void
     {
-        $test->forkAt($file, $id);
-        $this->mutants[$mutant] = true;
-        $this->lines->isolated($test->id);
-        $this->plan->recorded(StreamLine::fallback($test->id, $mutant));
+        $ran || $test->beganHolding() ? $this->isolated($test, parent: true) : $this->held($test, $file, $id, $mutant);
     }
 
     /**
@@ -76,6 +75,14 @@ final class ForkFallbacks
             || $killer === $test
             || array_key_exists($killer, $this->tests)
             || array_key_exists($mutant, $this->mutants);
+    }
+
+    private function held(CurrentTest $test, string $file, int $id, string $mutant): void
+    {
+        $test->forkAt($file, $id);
+        $this->mutants[$mutant] = true;
+        $this->lines->isolated($test->id);
+        $this->plan->recorded(StreamLine::fallback($test->id, $mutant));
     }
 
     private function fellBackOn(CurrentTest $test): void

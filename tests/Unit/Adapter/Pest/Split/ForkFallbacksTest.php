@@ -59,10 +59,10 @@ it('falls back on a test it cannot fork in as it begins, or that runs on its own
         ->and($fallbacks->forks('m', 'T::child', 'T::later'))->toBeFalse();
 });
 
-it('forks a mutant nowhere more in a test that held a descriptor at its site, and at later tests', function (): void {
+it('forks a mutant nowhere more in a test that opened a descriptor before its site, and at later tests', function (): void {
     [$fallbacks, $results] = forkFallbacks();
     $test = new CurrentTest('T::holds', forkable: true);
-    $fallbacks->held($test, 'f1', 1, 'm');
+    $fallbacks->unforked($test, ran: false, file: 'f1', id: 1, mutant: 'm');
 
     expect(file($results, FILE_IGNORE_NEW_LINES))->toBe(['{"k":"fallback","t":"T::holds","m":"m"}'])
         ->and($test->hasForkedAt('f1', 1))->toBeTrue()
@@ -70,3 +70,15 @@ it('forks a mutant nowhere more in a test that held a descriptor at its site, an
         ->and($fallbacks->forks('m', 'T::holds', 'T::later'))->toBeTrue()
         ->and($fallbacks->forks('n', 'T::holds', 'T::later'))->toBeFalse();
 });
+
+it('forks nothing more in a test that started a PHP process, or began holding a descriptor, and falls back on it', function (bool $ran, bool $began): void {
+    [$fallbacks, $results] = forkFallbacks();
+    $test = new CurrentTest('T::held', forkable: true, heldAtBegin: $began);
+    $fallbacks->unforked($test, ran: $ran, file: 'f1', id: 1, mutant: 'm');
+
+    expect(file($results, FILE_IGNORE_NEW_LINES))->toBe(['{"k":"fallback","t":"T::held"}'])
+        ->and($test->isForkable())->toBeFalse();
+})->with([
+    'a process ran' => [true, false],
+    'held as it began' => [false, true],
+]);

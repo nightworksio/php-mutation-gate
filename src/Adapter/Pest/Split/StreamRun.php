@@ -162,7 +162,8 @@ final class StreamRun
     /** A test begins: the sites it reaches are its own, and none of them is forked yet. */
     public function began(string $test): void
     {
-        $this->test = new CurrentTest($test, $this->plan->reconnect || ! Descriptors::held()->shares($this->start));
+        $held = Descriptors::held()->shares($this->start);
+        $this->test = new CurrentTest($test, $this->plan->reconnect || ! $held, $held);
         $this->states->began();
         $this->lines->began(parent: $this->mutant === '');
 
@@ -317,12 +318,10 @@ final class StreamRun
 
     /**
      * Forks a site's mutant: true in the child, which runs it, false in the
-     * parent; false where the test started a PHP process that ran without
-     * the child's mutant (see StartedProcesses), which then forks nothing
-     * more; and false where the test holds a descriptor a child would share
-     * (see Descriptors) and no copies stand in for it, which leaves this
-     * site's mutant to its own run of the test and forks it at no later
-     * reach of the site in it.
+     * parent; and false where the test started a PHP process that ran
+     * without the child's mutant (see StartedProcesses), or holds a
+     * descriptor a child would share (see Descriptors) and no copies stand
+     * in for it (see ForkFallbacks).
      */
     private function fork(string $file, int $id): bool
     {
@@ -333,9 +332,8 @@ final class StreamRun
 
         if (! $copies instanceof Copies) {
             $this->deciding = false;
-            $this->processes->ran()
-                ? $this->isolated()
-                : $this->fallbacks->held($this->test, $file, $id, $this->plan->sites[$file][$id][0]);
+            [$mutant] = $this->plan->sites[$file][$id];
+            $this->fallbacks->unforked($this->test, $this->processes->ran(), $file, $id, $mutant);
 
             return false;
         }

@@ -35,8 +35,11 @@ final class CurrentTest
     /** @var array<string, true> the sites forked in it, by file key and switch id */
     private array $forked = [];
 
-    public function __construct(public readonly string $id, private bool $forkable)
-    {
+    public function __construct(
+        public readonly string $id,
+        private bool $forkable,
+        private readonly bool $heldAtBegin = false,
+    ) {
         $this->started = hrtime(as_number: true);
     }
 
@@ -88,6 +91,12 @@ final class CurrentTest
     public function isForkable(): bool
     {
         return $this->forkable;
+    }
+
+    /** Whether it began holding a descriptor a child would share, which it may hold at every site. */
+    public function beganHolding(): bool
+    {
+        return $this->heldAtBegin;
     }
 
     /** It runs where no fork reaches it: the stream forks nothing more in it. */
