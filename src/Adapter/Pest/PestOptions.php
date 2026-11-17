@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
+use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -311,6 +312,22 @@ final readonly class PestOptions
         return $cores ?? $split->integer($key);
     }
 
+    /** `splitStream.judging`: `whole` or `parted`, this one where it names neither (ADR-0174). */
+    private static function judgingOf(Options $split, StreamJudging $standard): StreamJudging|Problem
+    {
+        $named = $split->text(Key::of(SplitStream::JUDGING));
+
+        return match (true) {
+            $named instanceof Problem => $named,
+            $named instanceof NotGiven => $standard,
+            default => StreamJudging::tryFrom($named) ?? Problem::mismatch(
+                sprintf('%s.%s', SplitStream::SECTION, SplitStream::JUDGING),
+                'one of its values',
+                sprintf('"%s"', $named),
+            ),
+        };
+    }
+
     /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117). */
     private static function streamsOf(Options $options): StreamSettings|Problem
     {
@@ -328,6 +345,7 @@ final readonly class PestOptions
         $bootOnce = $split->flag(Key::of(SplitStream::BOOT_ONCE));
         $reconnect = $split->flag(Key::of(SplitStream::RECONNECT));
         $standard = SplitStream::of();
+        $judging = self::judgingOf($split, $standard->judging());
 
         return match (true) {
             $enabled instanceof Problem => $enabled,
@@ -337,11 +355,13 @@ final readonly class PestOptions
             $killerStreams instanceof Problem => $killerStreams,
             $bootOnce instanceof Problem => $bootOnce,
             $reconnect instanceof Problem => $reconnect,
+            $judging instanceof Problem => $judging,
             default => StreamSettings::of(
                 $enabled === true,
                 $children instanceof NotGiven ? $standard->children() : $children,
                 $changeCheck !== false,
                 $killersFirst !== false,
+                $judging,
             )->streamingKillers($killerStreams === true)
                 ->bootingOnce($bootOnce === true)
                 ->reconnecting($reconnect !== false),

@@ -51,7 +51,7 @@ it('runs the whole suite in one part where it knows no test file', function (): 
 
 it('streams no pass of killers whose ids PHPUnit could not read back from a file, and writes none', function (): void {
     $directory = Scratch::directory();
-    $streaming = new Streaming($directory, [], [], [], 1, 1);
+    $streaming = new Streaming($directory, [], [], 1, 1);
 
     expect($streaming->killersPass(1, ['m1' => ['f1', 1, "P\\Tests\\MoneySpec::it adds\nand more", []]], StreamVerdicts::none()))->toEqual(NotGiven::value())
         ->and(glob(sprintf('%s/*', $directory)))->toBe([]);
@@ -61,8 +61,8 @@ it('starts no stream of a pass whose tests no loaded file declares, leaving thei
     $directory = Scratch::directory();
     CoveringFiles::forget(Scratch::directory());
     $verdicts = StreamVerdicts::none();
-    $streaming = new Streaming($directory, [], ['m1' => ['Never\\Loaded::test']], [], 1, 1);
+    $streaming = new Streaming($directory, [], [], 1, 1);
 
-    expect($streaming->pass(1, ['m1' => ['f1', 1, '', []]], $verdicts))->toBe($verdicts)
+    expect($streaming->pass(1, ['m1' => ['f1', 1, '', []]], ['m1' => ['Never\\Loaded::test']], $verdicts))->toBe($verdicts)
         ->and(glob(sprintf('%s/*', $directory)))->toBe([]);
 });

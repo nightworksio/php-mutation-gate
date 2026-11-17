@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function getmypid;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
-use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordingVariables;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\TestPartVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
@@ -65,7 +65,7 @@ final readonly class Told
             ...$this->patching->schemata(),
             ...$this->patching->stepVariables(),
             ...TestPartVariable::told($request->narrowing()->testPart()),
-            ...StreamSettings::recordingInto($request->narrowing()->recording()),
+            ...RecordingVariables::of($request->narrowing()->recording()),
         ];
     }
 

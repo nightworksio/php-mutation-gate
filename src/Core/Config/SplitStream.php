@@ -45,6 +45,9 @@ final readonly class SplitStream
     /** The key that says what a run that splits its streams cuts its shards by. */
     public const string SHARDING = 'sharding';
 
+    /** The key, and the Pest runner's option, that says where a run that cuts its test files judges each mutant. */
+    public const string JUDGING = 'judging';
+
     /** The section the keys are in, and the Pest runner's option that holds them. */
     public const string SECTION = 'splitStream';
 
@@ -58,6 +61,7 @@ final readonly class SplitStream
         private SplitEarly|Absent $early = new Absent(),
         private bool|Absent $bootOnce = new Absent(),
         private bool|Absent $reconnect = new Absent(),
+        private StreamJudging|Absent $judging = new Absent(),
     ) {
     }
 
@@ -71,6 +75,7 @@ final readonly class SplitStream
         SplitEarly|Absent $early = new Absent(),
         bool|Absent $bootOnce = new Absent(),
         bool|Absent $reconnect = new Absent(),
+        StreamJudging|Absent $judging = new Absent(),
     ): self {
         return new self(
             $enabled,
@@ -82,6 +87,7 @@ final readonly class SplitStream
             $early,
             $bootOnce,
             $reconnect,
+            $judging,
         );
     }
 
@@ -100,6 +106,7 @@ final readonly class SplitStream
             $none->early(),
             $none->bootOnce(),
             $none->reconnect(),
+            $none->judging(),
         );
     }
 
@@ -116,6 +123,7 @@ final readonly class SplitStream
             Absent::laid($this->early, $later->early),
             Absent::laid($this->bootOnce, $later->bootOnce),
             Absent::laid($this->reconnect, $later->reconnect),
+            Absent::laid($this->judging, $later->judging),
         );
     }
 
@@ -150,6 +158,16 @@ final readonly class SplitStream
     public function killersFirst(): bool
     {
         return $this->killersFirst !== false;
+    }
+
+    /**
+     * `splitStream.judging`: where a run that cuts its test files across its
+     * shards judges each mutant; whole, in the one part that owns it, by
+     * default (ADR-0174).
+     */
+    public function judging(): StreamJudging
+    {
+        return $this->judging instanceof StreamJudging ? $this->judging : StreamJudging::Whole;
     }
 
     /** `splitStream.sharding`: what a run that splits its streams cuts its shards by; test files by default. */
@@ -212,6 +230,7 @@ final readonly class SplitStream
             Member::of(self::KILLER_STREAMS, $this->killerStreams()),
             Member::of(self::BOOT_ONCE, $this->bootOnce()),
             Member::of(self::RECONNECT, $this->reconnect()),
+            Member::of(self::JUDGING, $this->judging()->value),
         );
 
         return Member::of(self::SECTION, $option);
@@ -234,6 +253,7 @@ final readonly class SplitStream
             Member::of(self::EARLY, $this->early instanceof SplitEarly ? $this->early->value : $this->early),
             Member::of(self::BOOT_ONCE, $this->bootOnce),
             Member::of(self::RECONNECT, $this->reconnect),
+            Member::of(self::JUDGING, $this->judging instanceof StreamJudging ? $this->judging->value : $this->judging),
         );
 
         return Member::unlessEmpty(self::SECTION, $written);
@@ -256,6 +276,7 @@ final readonly class SplitStream
             ...$this->early instanceof SplitEarly ? [$this->early->php()] : [],
             ...$this->switched($this->bootOnce, 'SplitStream::bootOnce()', 'SplitStream::bootPerTest()'),
             ...$this->switched($this->reconnect, 'SplitStream::reconnect()', 'SplitStream::connectionsFallBack()'),
+            ...$this->judging instanceof StreamJudging ? [$this->judging->php()] : [],
         );
     }
 

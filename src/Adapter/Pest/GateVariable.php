@@ -178,6 +178,9 @@ enum GateVariable: string
     /** Whether a stream's child reconnects to its own copy of each database a test holds open (ADR-0147). */
     case SplitReconnect = 'MUTATION_GATE_SPLIT_RECONNECT';
 
+    /** Where a run that cuts its test files across its shards judges each mutant (ADR-0174). */
+    case SplitJudging = 'MUTATION_GATE_SPLIT_JUDGING';
+
     /**
      * The `outbreak.so` a split stream loads, to count the forks that change
      * no state (H5), to see a test touch nondeterminism (ADR-0130), to record

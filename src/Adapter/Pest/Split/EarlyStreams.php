@@ -55,7 +55,6 @@ final readonly class EarlyStreams
         $streaming = new Streaming(
             $directory,
             $paths,
-            [],
             $arguments,
             $processes,
             $settings->children(),
@@ -64,7 +63,9 @@ final readonly class EarlyStreams
         $verdicts = $streaming->over(1, $sites, $units, StreamVerdicts::none());
         $covering = RecordedCovering::of($settings->recording(), $byId);
 
-        foreach ($byId as $mutant => $test) {
+        foreach ($byId as $test) {
+            $mutant = $test->mutation->id;
+
             if ($covering[$mutant] === []) {
                 $verdicts->uncovered($test);
 

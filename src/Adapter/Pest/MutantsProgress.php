@@ -8,7 +8,9 @@ use function array_filter;
 use function array_find;
 use function count;
 use function is_array;
+use function min;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamProgress;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 
 use function sprintf;
@@ -16,7 +18,8 @@ use function sprintf;
 /**
  * How far a Pest mutation run has come, as the results file the plugin
  * writes says, for the gate's log: how many of the mutants Pest planned it
- * has judged, and one it is running. Every look is the watch's it wraps,
+ * has judged, those its split streams decided so far among them, and one it
+ * is running. Every look is the watch's it wraps,
  * such as the hand-off to static analysis.
  *
  * @internal
@@ -53,7 +56,8 @@ final readonly class MutantsProgress implements ProcessWatch
             $unjudged,
             static fn(PlannedMutant $mutant): bool => is_array($records->runOf($mutant)->arguments()),
         );
-        $judged = sprintf(self::JUDGED, count($planned) - count($unjudged), count($planned));
+        $streamed = min(count($unjudged), StreamProgress::decided($this->results));
+        $judged = sprintf(self::JUDGED, count($planned) - count($unjudged) + $streamed, count($planned));
 
         if (! $first instanceof PlannedMutant) {
             return $judged;

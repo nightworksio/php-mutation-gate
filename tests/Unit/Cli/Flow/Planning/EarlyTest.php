@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Config\EarlyStreams;
 use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Config\SplitStream;
+use NightWorksIO\MutationGate\Config\StreamShards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -55,7 +56,7 @@ it('plans a full split-stream run early against the map the default branch keeps
     Scratch::write($project, '.mutation-gate/coverage/map.json.gz', CoverageMapFile::encode(Flows::map(), MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false)));
     new KeptMaps(Flows::adapters($project, [], $store), Flows::settings())->keep(Access::of(Scope::branch('main'), Scope::branch('main'), Writing::Auto));
     unlink(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project));
-    $settings = Flows::settings(ConfiguredRunner::uses('pest'), Pest::patched(), SplitStream::on(), SplitStream::shardingByTests(), EarlyStreams::always());
+    $settings = Flows::settings(ConfiguredRunner::uses('pest'), Pest::patched(), SplitStream::on(), StreamShards::byTests(), EarlyStreams::always());
 
     $planned = new Planning(Flows::adapters($project, [], $store), $settings, Flows::setup())
         ->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller);

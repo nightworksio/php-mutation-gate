@@ -4170,6 +4170,13 @@
                 "reconnect": {
                     "type": "boolean",
                     "default": true
+                },
+                "judging": {
+                    "enum": [
+                        "whole",
+                        "parted"
+                    ],
+                    "default": "whole"
                 }
             },
             "additionalProperties": false
@@ -8761,6 +8768,12 @@
                         },
                         "reconnect": {
                             "type": "boolean"
+                        },
+                        "judging": {
+                            "enum": [
+                                "whole",
+                                "parted"
+                            ]
                         }
                     },
                     "additionalProperties": false

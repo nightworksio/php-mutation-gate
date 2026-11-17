@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamProgress;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Tests\Support\CountedLooks;
@@ -48,4 +50,19 @@ it('tells only how many were judged where none runs, and what its watch tells wh
 
     expect(new MutantsProgress($results, new CountedLooks())->progress())->toBe('0 of 1 mutants judged')
         ->and($none->progress())->toBe('');
+});
+
+it('counts the mutants its split streams decided among those Pest has not yet judged', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $streams = Scratch::directory();
+    file_put_contents($results, implode('', [
+        RecordLine::planned(progressMutant('a', 10)),
+        RecordLine::planned(progressMutant('b', 12)),
+        RecordLine::planned(progressMutant('c', 14)),
+        RecordLine::finished('a', PestStatus::Tested, 1.5),
+    ]));
+    file_put_contents(sprintf('%s/results-1-0.jsonl', $streams), StreamLine::child('b', 'T::one', failed: true, seconds: 0.1));
+    StreamProgress::named($results, $streams);
+
+    expect(new MutantsProgress($results, new CountedLooks())->progress())->toBe('2 of 3 mutants judged');
 });

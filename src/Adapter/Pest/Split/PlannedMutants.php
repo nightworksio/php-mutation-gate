@@ -21,17 +21,18 @@ use function strval;
 
 /**
  * The mutants of a suite a split stream judges (ADR-0117): each one's site,
- * the source file of each schema, the tests of the shard's part that cover
- * each, and what each one's own run is told.
+ * the source file of each schema, the covering tests the shard judges each
+ * by, and what each one's own run is told.
  *
  * @internal
  */
 final readonly class PlannedMutants
 {
     /**
-     * Each mutant a stream of the shard's part can judge: its site, by Pest's
-     * id, the source file of each schema, by its key, the tests of the part
-     * that cover each, and each mutant.
+     * Each mutant a stream of the shard can judge: its site, by Pest's id,
+     * the source file of each schema, by its key, the covering tests the
+     * shard judges each by, each mutant, and those of its covering tests the
+     * shard's own part holds, which a first pass streams.
      *
      * @param  array<string, array<int, array<int, string>>> $coveredLines
      * @return array{
@@ -39,6 +40,7 @@ final readonly class PlannedMutants
      *     array<string, string>,
      *     array<string, list<string>>,
      *     array<string, MutationTest>,
+     *     array<string, list<string>>,
      * }
      */
     public static function of(
@@ -52,24 +54,28 @@ final readonly class PlannedMutants
         $paths = [];
         $covering = [];
         $byId = [];
+        $held = [];
 
         foreach (self::testsOf($suite) as $test) {
             $switch = $forks ? Schemata::switchOf($test->mutation) : NotGiven::value();
             $covered = self::coveringOf($test, $coveredLines);
-            $held = self::heldOf($test, $covered, $parts, $switch instanceof NotGiven);
+            $mutant = $test->mutation->id;
+            $among = $parts->killerAmong($covered);
+            $killer = $among === [] ? '' : $hints->killerOf($mutant, $among);
+            $judged = self::judgedOf($test, $covered, $killer, $parts, $switch instanceof NotGiven);
 
-            if ($switch instanceof NotGiven || $held === []) {
+            if ($switch instanceof NotGiven || $judged === []) {
                 continue;
             }
 
-            $mutant = $test->mutation->id;
             $paths[$switch[0]] = (string) $test->mutation->file->getRealPath();
-            $sites[$mutant] = [...$switch, $hints->killerOf($mutant, $held), self::variablesOf($test)];
-            $covering[$mutant] = $held;
+            $sites[$mutant] = [...$switch, $killer, self::variablesOf($test)];
+            $covering[$mutant] = $judged;
             $byId[$mutant] = $test;
+            $held[$mutant] = $parts->within($judged);
         }
 
-        return [$sites, $paths, $covering, $byId];
+        return [$sites, $paths, $covering, $byId, $held];
     }
 
     /** @return array<string, string> what a mutant's own run is told, which a child's subprocesses inherit */
@@ -92,31 +98,37 @@ final readonly class PlannedMutants
     }
 
     /**
-     * The covering tests of the shard's part a stream judges a mutant by;
-     * none where no stream does: one no test covers, which Pest leaves
-     * uncovered in the shard that owns it and every other leaves (ADR-0171);
-     * one no stream can judge, which runs on its own in the shard that owns
-     * it and is left by every other; and one no test of the part covers,
-     * which is left to the parts that hold its tests.
+     * The covering tests a stream of the shard judges a mutant by, whose
+     * likely killer this is; none where no stream does: one no test covers,
+     * which Pest leaves uncovered in the shard that owns it and every other
+     * leaves (ADR-0171); one no stream can judge, which runs on its own in
+     * the shard that owns it and is left by every other; and one the shard
+     * judges by none of its covering tests, which is left to the shard that
+     * does (ADR-0174).
      *
      * @param  list<string> $covered every test that covers it
      * @return list<string>
      */
-    private static function heldOf(MutationTest $test, array $covered, TestParts $parts, bool $unstreamed): array
-    {
+    private static function judgedOf(
+        MutationTest $test,
+        array $covered,
+        string $killer,
+        TestParts $parts,
+        bool $unstreamed,
+    ): array {
         $mutant = $test->mutation->id;
-        $held = $unstreamed ? [] : $parts->within($covered);
-        $leaves = $unstreamed || $covered === [] ? ! $parts->owns($covered, $mutant) : $held === [];
+        $judged = $unstreamed ? [] : $parts->judgedBy($covered, $mutant, $killer);
+        $leaves = $unstreamed || $covered === [] ? ! $parts->owns($covered, $mutant, $killer) : $judged === [];
 
         if ($leaves) {
             Parted::unreached($test);
         }
 
-        if ($held !== []) {
-            Parted::judgedBy($test, $parts->shareOf($covered, $mutant), $held);
+        if ($judged !== []) {
+            Parted::judgedBy($test, $parts->shareOf($covered, $mutant, $killer), $judged);
         }
 
-        return $held;
+        return $judged;
     }
 
     /**

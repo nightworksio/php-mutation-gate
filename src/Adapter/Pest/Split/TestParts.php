@@ -13,6 +13,7 @@ use function crc32;
 use function max;
 use function min;
 
+use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
@@ -26,21 +27,23 @@ use function uksort;
  * far, of those the fewest files, of those the lowest, so every shard cuts
  * the same map alike. A test belongs to the part of its file, and a test
  * of the map declared in no test file the process loaded to the first part,
- * the rest cut as ever (ADR-0171).
+ * the rest cut as ever (ADR-0171). Judging whole, the shard judges by every
+ * covering test each mutant it owns, and leaves the rest; judging parted, it
+ * judges every mutant its part's tests cover by those tests (ADR-0174).
  *
  * @internal
  */
 final readonly class TestParts
 {
     /** @param array<string, int> $parts each test's part, counted from 1, by its id */
-    private function __construct(private TestPart $part, private array $parts)
+    private function __construct(private TestPart $part, private array $parts, private StreamJudging $judging)
     {
     }
 
     /** Every test in one part: a run that cuts no test files. */
     public static function whole(): self
     {
-        return new self(TestPart::whole(), []);
+        return new self(TestPart::whole(), [], StreamJudging::Whole);
     }
 
     /**
@@ -50,7 +53,7 @@ final readonly class TestParts
      * @param array<string, array{files: list<string>, tests: list<string>}> $units by the file declaring each test
      * @param array<string, float>                                           $times each test's seconds, by its id
      */
-    public static function cut(TestPart $part, array $units, array $times): self
+    public static function cut(TestPart $part, array $units, array $times, StreamJudging $judging): self
     {
         $parts = [];
 
@@ -60,7 +63,7 @@ final readonly class TestParts
             }
         }
 
-        return new self($part, $parts);
+        return new self($part, $parts, $judging);
     }
 
     /**
@@ -123,31 +126,66 @@ final readonly class TestParts
     }
 
     /**
-     * Whether the shard owns this mutant, whose covering tests these are:
-     * its part holds the first of them, or, where there are none, its id
-     * falls to the part, so one shard judges each such mutant and the parts
-     * share them alike (ADR-0171).
+     * The covering tests the shard judges a mutant by, whose likely killer,
+     * if the ledger names one, is this: judging whole, every one where the
+     * shard owns it and none where it does not; judging parted, those its
+     * part holds.
      *
-     * @param list<string> $covering
+     * @param  list<string> $covering
+     * @return list<string>
      */
-    public function owns(array $covering, string $mutant): bool
+    public function judgedBy(array $covering, string $mutant, string $killer): array
     {
-        return $covering === []
-            ? crc32($mutant) % $this->part->parts() + 1 === $this->part->number()
-            : $this->holds($covering[0]);
+        return match (true) {
+            $this->judging === StreamJudging::Parted => $this->within($covering),
+            $this->owns($covering, $mutant, $killer) => $covering,
+            default => [],
+        };
     }
 
     /**
-     * How much of this mutant's covering tests the shard's part holds: every
-     * one, or some, the shard owning the mutant or not.
+     * The covering tests the ledger's likely killer of a mutant is sought
+     * among: judging whole, every one, so the killer names its owner;
+     * judging parted, those the shard's part holds.
+     *
+     * @param  list<string> $covering
+     * @return list<string>
+     */
+    public function killerAmong(array $covering): array
+    {
+        return $this->judging === StreamJudging::Whole ? $covering : $this->within($covering);
+    }
+
+    /**
+     * Whether the shard owns this mutant, whose covering tests these are and
+     * whose likely killer this is, '' where the ledger names none: judging
+     * whole, its part holds that killer; otherwise its part holds the first
+     * covering test; where there are none, its id falls to the part, so one
+     * shard judges each such mutant and the parts share them alike
+     * (ADR-0171, ADR-0174).
      *
      * @param list<string> $covering
      */
-    public function shareOf(array $covering, string $mutant): TestShare
+    public function owns(array $covering, string $mutant, string $killer): bool
     {
         return match (true) {
-            $this->within($covering) === $covering => TestShare::All,
-            $this->owns($covering, $mutant) => TestShare::OwnedPart,
+            $covering === [] => crc32($mutant) % $this->part->parts() + 1 === $this->part->number(),
+            $killer !== '' && $this->judging === StreamJudging::Whole => $this->holds($killer),
+            default => $this->holds($covering[0]),
+        };
+    }
+
+    /**
+     * How much of this mutant's covering tests the shard judges it by: every
+     * one, or, judging parted, its part's, the shard owning the mutant or not.
+     *
+     * @param list<string> $covering
+     */
+    public function shareOf(array $covering, string $mutant, string $killer): TestShare
+    {
+        return match (true) {
+            $this->judgedBy($covering, $mutant, $killer) === $covering => TestShare::All,
+            $this->owns($covering, $mutant, $killer) => TestShare::OwnedPart,
             default => TestShare::OtherPart,
         };
     }

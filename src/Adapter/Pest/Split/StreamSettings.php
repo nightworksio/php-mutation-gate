@@ -12,7 +12,7 @@ use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
-use NightWorksIO\MutationGate\Core\Runner\LineRecording;
+use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 use function sprintf;
@@ -45,6 +45,7 @@ final readonly class StreamSettings
         private bool $bootOnce = false,
         private string $lines = '',
         private bool $reconnect = true,
+        private StreamJudging $judging = StreamJudging::Whole,
     ) {
     }
 
@@ -54,8 +55,13 @@ final readonly class StreamSettings
     }
 
     /** Splitting so where enabled; otherwise splitting nothing, as {@see off()} does, whatever the rest says. */
-    public static function of(bool $enabled, int|StreamChildren $children, bool $changeCheck, bool $killersFirst): self
-    {
+    public static function of(
+        bool $enabled,
+        int|StreamChildren $children,
+        bool $changeCheck,
+        bool $killersFirst,
+        StreamJudging $judging = StreamJudging::Whole,
+    ): self {
         if (! $enabled) {
             return self::off();
         }
@@ -66,6 +72,7 @@ final readonly class StreamSettings
             $changeCheck,
             $killersFirst,
             TestPart::whole(),
+            judging: $judging,
         );
     }
 
@@ -91,6 +98,7 @@ final readonly class StreamSettings
             getenv(GateVariable::SplitBootOnce->value) === self::ON,
             is_string($lines) ? $lines : '',
             getenv(GateVariable::SplitReconnect->value) === self::ON,
+            StreamJudging::tryFrom((string) getenv(GateVariable::SplitJudging->value)) ?? StreamJudging::Whole,
         );
     }
 
@@ -108,6 +116,7 @@ final readonly class StreamSettings
             $this->bootOnce,
             $this->lines,
             $this->reconnect,
+            $this->judging,
         );
     }
 
@@ -125,6 +134,7 @@ final readonly class StreamSettings
             $bootOnce,
             $this->lines,
             $this->reconnect,
+            $this->judging,
         );
     }
 
@@ -146,7 +156,14 @@ final readonly class StreamSettings
             $this->bootOnce,
             $this->lines,
             $reconnect,
+            $this->judging,
         );
+    }
+
+    /** Where a run that cuts its test files across its shards judges each mutant (ADR-0174). */
+    public function judging(): StreamJudging
+    {
+        return $this->judging;
     }
 
     /** Whether a stream's child reconnects to its own copy of each database a test holds open (ADR-0147). */
@@ -189,22 +206,6 @@ final readonly class StreamSettings
     public function lines(): string
     {
         return $this->lines;
-    }
-
-    /**
-     * What a run whose streams record tells Pest's own process: the directory
-     * they record each test's lines in, as a stand-in for the suite's
-     * coverage report or for the kept map.
-     *
-     * @return array<string, string>
-     */
-    public static function recordingInto(LineRecording $recording): array
-    {
-        return match (true) {
-            $recording->standsIn() => [GateVariable::SplitRecording->value => $recording->directory()],
-            $recording->records() => [GateVariable::SplitLines->value => $recording->directory()],
-            default => [],
-        };
     }
 
     public function isOn(): bool
@@ -253,6 +254,7 @@ final readonly class StreamSettings
                 GateVariable::SplitKillerStreams->value => $this->told($this->killerStreams),
                 GateVariable::SplitBootOnce->value => $this->told($this->bootOnce),
                 GateVariable::SplitReconnect->value => $this->told($this->reconnect),
+                GateVariable::SplitJudging->value => $this->judging->value,
             ]
             : [];
     }

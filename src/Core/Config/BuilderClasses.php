@@ -77,6 +77,7 @@ final readonly class BuilderClasses
         'Shards' => self::BUILDER,
         'Source' => self::BUILDER,
         'SplitStream' => self::BUILDER,
+        'StreamShards' => self::BUILDER,
         'Suggest' => self::BUILDER,
         'Survivors' => self::BUILDER,
         'StaticCheck' => self::BUILDER,

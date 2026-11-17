@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_diff;
 use function array_diff_key;
 use function array_filter;
+use function array_flip;
 use function array_key_exists;
+use function array_keys;
+use function array_values;
 use function getcwd;
 use function getenv;
 
@@ -19,6 +23,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 use Pest\Mutate\MutationSuite;
+use Pest\Mutate\MutationTest;
 
 use function sprintf;
 
@@ -69,19 +74,20 @@ final readonly class Streams
         $hints = $forks && $settings->killersFirst()
             ? KillerHints::of($suite, getenv(GateVariable::Order->value), Root::of(sprintf('%s', getcwd())))
             : KillerHints::none();
-        $parts = self::partsOf($settings->part());
-        [$sites, $paths, $covering, $byId] = PlannedMutants::of($suite, $coveredLines, $hints, $parts, $forks);
+        $parts = self::partsOf($settings->part(), $settings);
+        [$sites, $paths, $covering, $byId, $held] = PlannedMutants::of($suite, $coveredLines, $hints, $parts, $forks);
 
         if ($byId === []) {
             return;
         }
 
         $directory = StreamDirectory::made();
+        $results = getenv(GateVariable::Results->value);
         Schemata::leftIn($directory);
+        StreamProgress::named($results, $directory);
         $streaming = new Streaming(
             $directory,
             $paths,
-            $covering,
             $arguments,
             $processes,
             $settings->children(),
@@ -89,15 +95,17 @@ final readonly class Streams
             $settings->bootsOnce(),
             $settings->reconnects(),
         );
-        [$verdicts, $unrun] = self::firstPass($streaming, $sites, $settings);
-        $again = [...self::undecided($sites, $covering, $verdicts), ...$unrun, ...self::booted($sites, $verdicts)];
-        $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $verdicts);
+        [$verdicts, $unrun] = self::firstPass($streaming, $sites, $held, $settings);
+        $again = self::undecided($byId, $sites, $covering, $held, $verdicts) + $unrun + self::booted($sites, $verdicts);
+        $left = self::left($again, $sites, $covering, $held, $unrun, $verdicts);
+        $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $left, $verdicts);
 
-        foreach ($byId as $mutant => $test) {
-            $verdicts->give($mutant, $test, $covering[$mutant]);
+        foreach ($byId as $test) {
+            $verdicts->give($test->mutation->id, $test, $covering[$test->mutation->id]);
         }
 
-        ForkStatesLine::writtenFor($verdicts, getenv(GateVariable::Results->value));
+        ForkStatesLine::writtenFor($verdicts, $results);
+        StreamProgress::unnamed($results);
 
         StreamDirectory::removed($directory);
     }
@@ -107,12 +115,15 @@ final readonly class Streams
      * `splitStream.killerStreams`, where any site has a likely killer and
      * PHPUnit selects tests by their ids, a pass that runs only those
      * killers, leaving every site without one to the second (ADR-0136);
-     * otherwise a pass of every covering test file, leaving none.
+     * otherwise a pass of the files of the shard's part that cover them,
+     * leaving none.
      *
      * @param  array<string, array{string, int, string, array<string, string>}> $sites
+     * @param  array<string, list<string>>                                       $held  each mutant's covering tests the
+     *                                                                                  shard's part holds
      * @return array{StreamVerdicts, array<string, array{string, int, string, array<string, string>}>}
      */
-    private static function firstPass(Streaming $streaming, array $sites, StreamSettings $settings): array
+    private static function firstPass(Streaming $streaming, array $sites, array $held, StreamSettings $settings): array
     {
         $hinted = array_filter($sites, static fn(array $site): bool => $site[2] !== '');
         $killed = $settings->streamsKillers() && $hinted !== []
@@ -121,15 +132,20 @@ final readonly class Streams
 
         return $killed instanceof StreamVerdicts
             ? [$killed, array_diff_key($sites, $hinted)]
-            : [$streaming->pass(1, $sites, StreamVerdicts::none()), []];
+            : [$streaming->pass(1, $sites, $held, StreamVerdicts::none()), []];
     }
 
     /** The coverage map's test files cut into the run's parts, this shard's part among them; one part of every one. */
-    private static function partsOf(TestPart $part): TestParts
+    private static function partsOf(TestPart $part, StreamSettings $settings): TestParts
     {
         return $part->isWhole()
             ? TestParts::whole()
-            : TestParts::cut($part, CoveringFiles::streamed(LoadedMap::tests()), LoadedMap::timed());
+            : TestParts::cut(
+                $part,
+                CoveringFiles::streamed(LoadedMap::tests()),
+                LoadedMap::timed(),
+                $settings->judging(),
+            );
     }
 
     /**
@@ -156,19 +172,32 @@ final readonly class Streams
     }
 
     /**
-     * The sites of the mutants forked first at a likely killer that the first
-     * pass left undecided, to fork at every covering test.
+     * The sites of the mutants the first pass left undecided that a second
+     * forks at every covering test it has not yet: one forked first at its
+     * likely killer alone, and one whose covering tests the shard's part
+     * does not hold every one of.
      *
+     * @param  array<string, MutationTest>                                      $byId
      * @param  array<string, array{string, int, string, array<string, string>}> $sites
      * @param  array<string, list<string>>                                       $covering
+     * @param  array<string, list<string>>                                       $held
      * @return array<string, array{string, int, string, array<string, string>}>
      */
-    private static function undecided(array $sites, array $covering, StreamVerdicts $verdicts): array
-    {
+    private static function undecided(
+        array $byId,
+        array $sites,
+        array $covering,
+        array $held,
+        StreamVerdicts $verdicts,
+    ): array {
         $again = [];
 
-        foreach ($sites as $mutant => [$key, $id, $hint, $variables]) {
-            if ($hint !== '' && ! $verdicts->decides($mutant, $covering[$mutant])) {
+        foreach ($byId as $test) {
+            $mutant = $test->mutation->id;
+            [$key, $id, $hint, $variables] = $sites[$mutant];
+            $unfinished = $hint !== '' || $held[$mutant] !== $covering[$mutant];
+
+            if ($unfinished && ! $verdicts->decides($mutant, $covering[$mutant])) {
                 $again[$mutant] = [$key, $id, '', $variables];
             }
         }
@@ -176,4 +205,38 @@ final readonly class Streams
         return $again;
     }
 
+    /**
+     * The covering tests a second pass streams for each of these mutants:
+     * those the first pass did not fork it at, or every one where it forked
+     * it at its likely killer alone, at none, or under an application booted
+     * once, which no forked test could reach.
+     *
+     * @param  array<string, array{string, int, string, array<string, string>}> $again
+     * @param  array<string, array{string, int, string, array<string, string>}> $sites
+     * @param  array<string, list<string>>                                       $covering
+     * @param  array<string, list<string>>                                       $held
+     * @param  array<string, array{string, int, string, array<string, string>}> $unrun
+     * @return array<string, list<string>>
+     */
+    private static function left(
+        array $again,
+        array $sites,
+        array $covering,
+        array $held,
+        array $unrun,
+        StreamVerdicts $verdicts,
+    ): array {
+        $booted = array_flip($verdicts->booted());
+        $left = [];
+
+        foreach (array_keys($again) as $mutant) {
+            $whole = $sites[$mutant][2] !== ''
+                || array_key_exists($mutant, $unrun)
+                || array_key_exists($mutant, $booted);
+            $rest = $whole ? [] : array_values(array_diff($covering[$mutant], $held[$mutant]));
+            $left[$mutant] = $rest === [] ? $covering[$mutant] : $rest;
+        }
+
+        return $left;
+    }
 }

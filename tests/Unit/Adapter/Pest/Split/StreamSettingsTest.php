@@ -5,10 +5,11 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
+use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 afterEach(function (): void {
-    foreach ([GateVariable::Split, GateVariable::SplitChildren, GateVariable::SplitChangeCheck, GateVariable::SplitKillersFirst, GateVariable::SplitKillerStreams, GateVariable::SplitPart] as $variable) {
+    foreach ([GateVariable::Split, GateVariable::SplitChildren, GateVariable::SplitChangeCheck, GateVariable::SplitKillersFirst, GateVariable::SplitKillerStreams, GateVariable::SplitPart, GateVariable::SplitJudging] as $variable) {
         putenv($variable->value);
     }
 });
@@ -27,7 +28,8 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '0',
         'MUTATION_GATE_SPLIT_BOOT_ONCE' => '0',
         'MUTATION_GATE_SPLIT_RECONNECT' => '1',
-    ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false)->variables())->toBe([
+        'MUTATION_GATE_SPLIT_JUDGING' => 'whole',
+    ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false, judging: StreamJudging::Parted)->variables())->toBe([
         'MUTATION_GATE_SPLIT' => '1',
         'MUTATION_GATE_SPLIT_CHILDREN' => '1',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
@@ -35,18 +37,19 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_KILLER_STREAMS' => '0',
         'MUTATION_GATE_SPLIT_BOOT_ONCE' => '0',
         'MUTATION_GATE_SPLIT_RECONNECT' => '1',
+        'MUTATION_GATE_SPLIT_JUDGING' => 'parted',
     ]);
 });
 
 it('reads back what it told a run', function (): void {
-    foreach (StreamSettings::of(enabled: true, children: 4, changeCheck: false, killersFirst: false)->variables() as $name => $value) {
+    foreach (StreamSettings::of(enabled: true, children: 4, changeCheck: false, killersFirst: false, judging: StreamJudging::Parted)->variables() as $name => $value) {
         putenv(sprintf('%s=%s', $name, $value));
     }
 
     $read = StreamSettings::fromEnvironment();
 
-    expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst()])
-        ->toBe([true, 4, false, false]);
+    expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst(), $read->judging()])
+        ->toBe([true, 4, false, false, StreamJudging::Parted]);
 });
 
 it('splits nothing where it is not enabled, whatever else it is given', function (): void {
@@ -110,4 +113,11 @@ it('reads back the part it told a run, and every test file where it told none th
 it('reads a run told no part as judged by every test file', function (): void {
     expect(StreamSettings::fromEnvironment()->part())->toEqual(TestPart::whole())
         ->and(StreamSettings::off()->part())->toEqual(TestPart::whole());
+});
+
+it('judges each mutant whole where the gate names no judging it knows', function (): void {
+    putenv('MUTATION_GATE_SPLIT_JUDGING=sideways');
+
+    expect(StreamSettings::fromEnvironment()->judging())->toBe(StreamJudging::Whole)
+        ->and(StreamSettings::off()->judging())->toBe(StreamJudging::Whole);
 });

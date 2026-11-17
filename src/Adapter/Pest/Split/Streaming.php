@@ -45,6 +45,7 @@ use const PHP_BINARY;
 use function sort;
 use function sprintf;
 use function str_starts_with;
+use function strval;
 
 use Symfony\Component\Process\Process;
 
@@ -72,14 +73,12 @@ final readonly class Streaming
     private const string RESULTS = '%s/results-%d-%d.jsonl';
 
     /**
-     * @param array<string, string>       $paths     each schema's source file, by its file key
-     * @param array<string, list<string>> $covering  each mutant's covering tests
-     * @param list<string>                $arguments the arguments a mutant's own run is started with
+     * @param array<string, string> $paths     each schema's source file, by its file key
+     * @param list<string>          $arguments the arguments a mutant's own run is started with
      */
     public function __construct(
         private string $directory,
         private array $paths,
-        private array $covering,
         private array $arguments,
         private int $processes,
         private int|StreamChildren $children,
@@ -90,18 +89,20 @@ final readonly class Streaming
     }
 
     /**
-     * What one pass of streams found of these sites' mutants, beside what
-     * earlier passes did.
+     * What one pass of streams of the files that hold these covering tests
+     * of these sites' mutants found of them, beside what earlier passes did.
      *
-     * @param array<string, array{string, int, string, array<string, string>}> $sites each mutant's file key, switch id,
-     *                                                                                 killer and variables
+     * @param array<string, array{string, int, string, array<string, string>}> $sites    each mutant's file key, switch
+     *                                                                                    id, killer and variables
+     * @param array<string, list<string>>                                       $covering the covering tests of each
+     *                                                                                    mutant the pass streams
      */
-    public function pass(int $pass, array $sites, StreamVerdicts $verdicts): StreamVerdicts
+    public function pass(int $pass, array $sites, array $covering, StreamVerdicts $verdicts): StreamVerdicts
     {
         $tests = [];
 
         foreach (array_keys($sites) as $mutant) {
-            $tests = [...$tests, ...$this->covering[$mutant]];
+            $tests = [...$tests, ...$covering[$mutant]];
         }
 
         return $this->streamed($pass, array_values(array_unique($tests)), $this->plannedOf($sites), [], $verdicts);
@@ -362,7 +363,8 @@ final readonly class Streaming
     {
         $planned = [];
 
-        foreach ($sites as $mutant => [$key, $id, $killer, $variables]) {
+        foreach (array_map(strval(...), array_keys($sites)) as $mutant) {
+            [$key, $id, $killer, $variables] = $sites[$mutant];
             $planned[$key][$id] = [$mutant, $killer, $variables];
         }
 

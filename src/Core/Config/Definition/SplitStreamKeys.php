@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Pest;
 use NightWorksIO\MutationGate\Core\Config\SplitEarly;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
+use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Config\StreamSharding;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
@@ -33,6 +34,7 @@ final readonly class SplitStreamKeys
         $killerStreams = Field::optional(SplitStream::KILLER_STREAMS, Flag::boolean(), $results);
         $bootOnce = Field::optional(SplitStream::BOOT_ONCE, Flag::boolean(), $results);
         $reconnect = Field::optional(SplitStream::RECONNECT, Flag::boolean(), $results);
+        $judging = Field::optional(SplitStream::JUDGING, Enumerated::of(StreamJudging::cases()), $results);
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -52,6 +54,7 @@ final readonly class SplitStreamKeys
                     $early,
                     $bootOnce,
                     $reconnect,
+                    $judging,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -62,6 +65,7 @@ final readonly class SplitStreamKeys
                     $starts = $early->read($split);
                     $booted = $bootOnce->read($split);
                     $reconnected = $reconnect->read($split);
+                    $judged = $judging->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -74,6 +78,7 @@ final readonly class SplitStreamKeys
                             $starts->value(),
                             $booted->value(),
                             $reconnected->value(),
+                            $judged->value(),
                         ))),
                         $on,
                         $most,
@@ -84,6 +89,7 @@ final readonly class SplitStreamKeys
                         $starts,
                         $booted,
                         $reconnected,
+                        $judged,
                     );
                 },
                 $enabled,
@@ -95,6 +101,7 @@ final readonly class SplitStreamKeys
                 $early,
                 $bootOnce,
                 $reconnect,
+                $judging,
             ),
         )];
     }

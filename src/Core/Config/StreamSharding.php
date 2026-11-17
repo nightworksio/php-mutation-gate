@@ -27,9 +27,9 @@ enum StreamSharding: string
     public function php(): string
     {
         return match ($this) {
-            self::Tests => 'SplitStream::shardingByTests()',
-            self::TestsEveryPart => 'SplitStream::shardingByTestsInEveryPart()',
-            self::Source => 'SplitStream::shardingBySource()',
+            self::Tests => 'StreamShards::byTests()',
+            self::TestsEveryPart => 'StreamShards::byTestsInEveryPart()',
+            self::Source => 'StreamShards::bySource()',
         };
     }
 
