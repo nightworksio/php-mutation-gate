@@ -50,15 +50,22 @@ final readonly class Streams
      * Judges every mutant of the suite a stream can, giving each its result:
      * where the ledger names a likely killer, a first stream forks it at that
      * test alone, and a second, of the tests that cover what the first left
-     * undecided, at every covering test (ADR-0117).
+     * undecided, at every covering test (ADR-0117). The run's parts are
+     * those its making cut, where it made the lines its part's tests reach
+     * (ADR-0193).
      *
      * @param array<string, array<int, array<int, string>>> $coveredLines
      * @param list<string>                                    $arguments a mutant's own run's arguments
      *
      * @throws UnmadeDirectory
      */
-    public static function judge(MutationSuite $suite, array $coveredLines, array $arguments, int $processes): void
-    {
+    public static function judge(
+        MutationSuite $suite,
+        array $coveredLines,
+        array $arguments,
+        int $processes,
+        PartLines|NotGiven $made,
+    ): void {
         $settings = StreamSettings::fromEnvironment();
 
         if ($settings->recording() !== '') {
@@ -73,7 +80,7 @@ final readonly class Streams
             ? KillerHints::of($suite, getenv(GateVariable::Order->value), Root::of(sprintf('%s', getcwd())))
             : KillerHints::none();
         $first = $ordered ? FirstForks::of($settings->pace()->firstFork, LoadedMap::timed()) : FirstForks::atKillers();
-        $parts = self::partsOf($settings->part(), $settings);
+        $parts = $made instanceof PartLines ? $made->parts() : self::partsOf($settings->part(), $settings);
         [$sites, $paths, $covering, $byId, $held, $cheapest] = PlannedMutants::of(
             $suite,
             $coveredLines,

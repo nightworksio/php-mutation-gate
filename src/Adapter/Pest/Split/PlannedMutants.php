@@ -128,8 +128,9 @@ final readonly class PlannedMutants
     /**
      * The covering tests a stream of the shard judges a mutant by, whose
      * likely killer this is; none where no stream does: one no test covers,
-     * which Pest leaves uncovered in the shard that owns it and every other
-     * leaves (ADR-0171); one no stream can judge, which runs on its own in
+     * which Pest leaves uncovered in the shard that owns it, the one its
+     * file's lines no test covers fall to, and every other leaves (ADR-0171,
+     * ADR-0193); one no stream can judge, which runs on its own in
      * the shard that owns it and is left by every other; and one the shard
      * judges by none of its covering tests, which is left to the shard that
      * does (ADR-0174).
@@ -146,7 +147,11 @@ final readonly class PlannedMutants
     ): array {
         $mutant = $test->mutation->id;
         $judged = $unstreamed ? [] : $parts->judgedBy($covered, $mutant, $killer);
-        $leaves = $unstreamed || $covered === [] ? ! $parts->owns($covered, $mutant, $killer) : $judged === [];
+        $leaves = match (true) {
+            $covered === [] => ! $parts->ownsUncovered($mutant, (string) $test->mutation->file->getRealPath()),
+            $unstreamed => ! $parts->owns($covered, $mutant, $killer),
+            default => $judged === [],
+        };
 
         if ($leaves) {
             Parted::unreached($test);

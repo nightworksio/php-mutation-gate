@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Composer\PackageSource;
 use NightWorksIO\MutationGate\Core\Composer\VendorPatch;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
@@ -460,6 +461,7 @@ final readonly class Patch
                         $coveredLines,
                         $this->originalArguments,
                         $this->getConfiguration()->processes,
+                        $part instanceof \%2$s ? $part : \%3$s::value(),
                     );
                 }
         PHP;
@@ -516,7 +518,7 @@ final readonly class Patch
                 $recorded = class_exists(\%5$s::class) ? (string) getenv('%6$s') : '';
 
                 {MARK} the lines a part of a cut run's tests makes mutants on; none where the run is not cut.
-                $part = class_exists(\%8$s::class) ? \%8$s::ofRun() : null;
+                $part = class_exists(\%8$s::class) ? \%8$s::ofRun($files, $coveredLines) : null;
 
                 {MARK} every file's mutants made side by side, a share for each core, before any is taken.
                 $made = class_exists(\%7$s::class) ? \%7$s::made(
@@ -834,7 +836,11 @@ final readonly class Patch
             Hunk::in(self::TEST_RUNNER, self::MADE_SHIPS, self::MADE_BECOMES),
             Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class, Twins::class)),
             Hunk::in(self::TEST_RUNNER, self::ORDER_SHIPS, sprintf(self::ORDER_BECOMES, Verdicts::class)),
-            Hunk::in(self::TEST_RUNNER, self::SPLIT_SHIPS, sprintf(self::SPLIT_BECOMES, Streams::class)),
+            Hunk::in(
+                self::TEST_RUNNER,
+                self::SPLIT_SHIPS,
+                sprintf(self::SPLIT_BECOMES, Streams::class, PartLines::class, NotGiven::class),
+            ),
             Hunk::in(
                 self::MUTATE_PLUGIN,
                 self::SERVE_SHIPS,

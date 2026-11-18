@@ -108,3 +108,20 @@ it('judges parted by its own part\'s covering tests, and seeks a killer among th
         ->and($second->owns($covering, 'a', 'B::one'))->toBeFalse()
         ->and(TestParts::whole()->judgedBy($covering, 'a', 'B::one'))->toBe($covering);
 });
+
+it('owns a mutant no test covers in the part its file\'s uncovered lines fall to, spread by how many each file has', function () use ($files, $times): void {
+    $parts = array_map(
+        static fn(int $number): TestParts => TestParts::cut(TestPart::of($number, 2), $files, $times, StreamJudging::Parted)
+            ->sharingUncovered(['src/b.php' => 2, 'src/a.php' => 5, 'src/c.php' => 2]),
+        [1, 2],
+    );
+    $owners = static fn(string $file): array => array_map(
+        static fn(TestParts $part): array => [$part->ownsUncovered('a', $file), $part->makesUncovered($file)],
+        $parts,
+    );
+
+    expect($owners('src/a.php'))->toBe([[true, true], [false, false]])
+        ->and($owners('src/b.php'))->toBe([[false, false], [true, true]])
+        ->and($owners('src/c.php'))->toBe([[false, false], [true, true]])
+        ->and($owners('src/d.php'))->toBe([[false, true], [true, true]]);
+});

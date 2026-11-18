@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_any;
+use function array_filter;
+
+use const ARRAY_FILTER_USE_BOTH;
+
 use function array_key_exists;
 use function array_slice;
 use function count;
@@ -45,9 +49,10 @@ use function unlink;
 
 /**
  * The lines of each file a part of a cut run's tests makes mutants on
- * (ADR-0193): those its tests cover, and those no test covers. A mutant
- * that touches none of them is covered by other parts' tests alone, so this
- * part would only leave it to them; its making and leaving are spared. Each
+ * (ADR-0193): those its tests cover, and those no test covers where that
+ * file's fall to it, each file's falling to one part alone. A mutant that
+ * touches none of them is one another part makes and owns, so this part
+ * would only leave it; its making and leaving are spared. Each
  * file made on some lines alone is listed beside the run's results, so the
  * verdict knows which mutants each part made.
  *
@@ -61,16 +66,21 @@ final readonly class PartLines
     /** How a file's line is written: on one line, a path spelt as it is, a byte that is not UTF-8 replaced. */
     private const int LINE = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE;
 
-    private function __construct(private TestParts $parts, private string $results)
+    /** @param array<string, int> $counts how many lines each source file holds, by its real path */
+    private function __construct(private TestParts $parts, private string $results, private array $counts)
     {
     }
 
     /**
-     * The lines of this run's part, its list beside the run's results begun
-     * empty; none where the run splits no streams, is not cut, records a map
-     * or makes every mutant by `splitStream.reachableOnly`.
+     * The lines of this run's part of these source files, their lines no
+     * test covers spread across the parts, its list beside the run's
+     * results begun empty; none where the run splits no streams, is not
+     * cut, records a map or makes every mutant by `splitStream.reachableOnly`.
+     *
+     * @param iterable<SplFileInfo>                         $files
+     * @param array<string, array<int, array<int, string>>> $covered the tests that cover each line, by line and file
      */
-    public static function ofRun(): self|NotGiven
+    public static function ofRun(iterable $files, array $covered): self|NotGiven
     {
         $settings = StreamSettings::fromEnvironment();
         $results = getenv(GateVariable::Results->value);
@@ -81,15 +91,40 @@ final readonly class PartLines
             return NotGiven::value();
         }
 
-        return self::cutBy(Streams::parts($settings), $results);
+        return self::cutBy(Streams::parts($settings), $results, $files, $covered);
     }
 
-    /** The lines of this part of a run's cut tests, listed beside these results, the list begun empty. */
-    public static function cutBy(TestParts $parts, string $results): self
+    /**
+     * The lines of this part of a run's cut tests in these source files,
+     * listed beside these results, the list begun empty.
+     *
+     * @param iterable<SplFileInfo>                         $files
+     * @param array<string, array<int, array<int, string>>> $covered
+     */
+    public static function cutBy(TestParts $parts, string $results, iterable $files, array $covered): self
     {
         file_put_contents(sprintf(self::LISTED, $results), '');
+        $counts = [];
+        $uncovered = [];
 
-        return new self($parts, $results);
+        foreach ($files as $file) {
+            $path = strval($file->getRealPath());
+            $counts[$path] = self::countOf($path);
+            $lines = array_key_exists($path, $covered) ? $covered[$path] : [];
+            $uncovered[$path] = $counts[$path] - count(array_filter(
+                $lines,
+                static fn(array $tests, int $line): bool => $tests !== [] && $line >= 1 && $line <= $counts[$path],
+                ARRAY_FILTER_USE_BOTH,
+            ));
+        }
+
+        return new self($parts->sharingUncovered($uncovered), $results, $counts);
+    }
+
+    /** The test files of the run cut into its parts, the lines no test covers spread across them. */
+    public function parts(): TestParts
+    {
+        return $this->parts;
     }
 
     /**
@@ -97,23 +132,24 @@ final readonly class PartLines
      * that is all of them, and none where it is none; listed beside the
      * run's results where it is some.
      *
-     * @param  array<int, array<int, string>> $covered the tests that cover each line of the file, by the line
+     * @param array<int, array<int, string>> $covered the tests that cover each line of the file, by the line
      * @return list<int>|false
      */
     public function of(SplFileInfo $file, array $covered): array|false
     {
-        $contents = file_get_contents(strval($file->getRealPath()));
-        $count = is_string($contents) ? mb_substr_count($contents, "\n") + 1 : 0;
+        $path = strval($file->getRealPath());
+        $count = array_key_exists($path, $this->counts) ? $this->counts[$path] : self::countOf($path);
+        $uncovered = $this->parts->makesUncovered($path);
         $made = [];
 
         for ($line = 1; $line <= $count; $line++) {
-            if ($this->makes($covered, $line)) {
+            if ($this->makes($covered, $line, $uncovered)) {
                 $made[] = $line;
             }
         }
 
         if (count($made) !== $count) {
-            $listed = json_encode([strval($file->getRealPath()), $count, ...$this->spans($made)], self::LINE);
+            $listed = json_encode([$path, $count, ...$this->spans($made)], self::LINE);
             file_put_contents(sprintf(self::LISTED, $this->results), sprintf("%s\n", $listed), FILE_APPEND);
         }
 
@@ -173,12 +209,21 @@ final readonly class PartLines
         return $made->with(MadeFile::of($root->relative($file->text()), Line::of($count->integer()), ...$spans));
     }
 
+    /** How many lines a file holds; none where it cannot be read. */
+    private static function countOf(string $path): int
+    {
+        $contents = file_get_contents($path);
+
+        return is_string($contents) ? mb_substr_count($contents, "\n") + 1 : 0;
+    }
+
     /** @param array<int, array<int, string>> $covered */
-    private function makes(array $covered, int $line): bool
+    private function makes(array $covered, int $line, bool $uncovered): bool
     {
         if (! array_key_exists($line, $covered) || $covered[$line] === []) {
-            return true;
+            return $uncovered;
         }
+
         return array_any($covered[$line], fn(string $test): bool => $this->parts->holds($test));
     }
 

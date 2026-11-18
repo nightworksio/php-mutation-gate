@@ -24,8 +24,14 @@ afterEach(function (): void {
     }
 });
 
-/** Part `$number` of two, ATest's tests in the first and BTest's in the second, listing beside results in this directory. */
-function partLinesOf(int $number, string $directory): PartLines
+/**
+ * Part `$number` of two, ATest's tests in the first and BTest's in the
+ * second, listing beside results in this directory, of these files covered so.
+ *
+ * @param list<SplFileInfo>                             $files
+ * @param array<string, array<int, array<int, string>>> $covered
+ */
+function partLinesOf(int $number, string $directory, array $files = [], array $covered = []): PartLines
 {
     return PartLines::cutBy(TestParts::cut(
         TestPart::of($number, 2),
@@ -35,7 +41,7 @@ function partLinesOf(int $number, string $directory): PartLines
         ],
         ['A::a' => 2.0, 'B::b' => 1.0],
         StreamJudging::Parted,
-    ), sprintf('%s/results.jsonl', $directory));
+    ), sprintf('%s/results.jsonl', $directory), $files, $covered);
 }
 
 /**
@@ -60,13 +66,19 @@ function partLinesFile(string $directory, string $name): SplFileInfo
     return new SplFileInfo(sprintf('%s/src/%s.php', $directory, $name));
 }
 
-it('makes the lines its part\'s tests cover and those no test covers, every line where that is each, none where it is none, and lists the files it made some lines of', function (): void {
+it('makes the lines its part\'s tests cover and those no test covers where its file\'s fall to it, every line where that is each, none where it is none, and lists the files it made some lines of', function (): void {
     $directory = Scratch::directory();
     $mixed = partLinesFile($directory, 'Mixed');
     $own = partLinesFile($directory, 'Own');
     $others = partLinesFile($directory, 'Others');
     $covered = [2 => ['A::a'], 3 => ['B::b'], 4 => ['A::a', 'B::b'], 5 => ['B::b'], 6 => []];
-    $first = partLinesOf(1, $directory);
+    $files = [$mixed, $own, $others];
+    $map = [
+        strval($mixed->getRealPath()) => $covered,
+        strval($own->getRealPath()) => array_fill(1, 6, ['A::a']),
+        strval($others->getRealPath()) => array_fill(1, 6, ['B::b']),
+    ];
+    $first = partLinesOf(1, $directory, $files, $map);
     $lines = [
         $first->of($mixed, $covered),
         $first->of($own, array_fill(1, 6, ['A::a'])),
@@ -78,9 +90,31 @@ it('makes the lines its part\'s tests cover and those no test covers, every line
         ->and($read)->toEqual(MadeLines::whole()
             ->with(partLinesMade('src/Mixed.php', [1, 2], [4, 4], [6, 6]))
             ->with(partLinesMade('src/Others.php')))
-        ->and(partLinesOf(2, $directory)->of($mixed, $covered))->toBe([1, 3, 4, 5, 6])
+        ->and(partLinesOf(2, $directory, $files, $map)->of($mixed, $covered))->toBe([3, 4, 5])
         ->and(PartLines::madeBeside(sprintf('%s/results.jsonl', $directory), Root::of($directory)))
-        ->toEqual(MadeLines::whole()->with(partLinesMade('src/Mixed.php', [1, 1], [3, 6])));
+        ->toEqual(MadeLines::whole()->with(partLinesMade('src/Mixed.php', [3, 5])));
+});
+
+it('spreads the lines no test covers of each file to one part alone, the file with the most first, to the part with the fewest so far', function (): void {
+    $directory = Scratch::directory();
+    $files = [partLinesFile($directory, 'Big'), partLinesFile($directory, 'Small'), partLinesFile($directory, 'Mid')];
+    $map = [
+        strval($files[0]->getRealPath()) => [],
+        strval($files[1]->getRealPath()) => array_fill(1, 5, ['A::a']),
+        strval($files[2]->getRealPath()) => array_fill(1, 3, ['B::b']),
+    ];
+    $made = static fn(int $number): array => array_map(
+        static fn(SplFileInfo $file): array|false => partLinesOf($number, $directory, $files, $map)
+            ->of($file, $map[strval($file->getRealPath())]),
+        $files,
+    );
+
+    expect($made(1))->toBe([[], [1, 2, 3, 4, 5], false])
+        ->and($made(2))->toBe([false, [6], []])
+        ->and(partLinesOf(2, $directory, $files, $map)->parts()->ownsUncovered('m', strval($files[0]->getRealPath())))
+        ->toBeFalse()
+        ->and(partLinesOf(1, $directory, $files, $map)->parts()->ownsUncovered('m', strval($files[0]->getRealPath())))
+        ->toBeTrue();
 });
 
 it('reads every file whole where the run listed none, or what it listed cannot be read, and clears a list before a run', function (string $listed): void {
@@ -116,7 +150,7 @@ it('makes every mutant where the run splits no streams, is not cut, records each
         putenv(sprintf('%s=%s', $name, $value));
     }
 
-    expect(PartLines::ofRun())->toBeInstanceOf(NotGiven::class);
+    expect(PartLines::ofRun([], []))->toBeInstanceOf(NotGiven::class);
 })->with([
     'no streams' => [static fn(): array => [GateVariable::Split->value => '0']],
     'not cut' => [static fn(): array => [GateVariable::SplitPart->value => '']],

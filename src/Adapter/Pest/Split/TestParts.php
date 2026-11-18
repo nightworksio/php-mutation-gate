@@ -29,21 +29,31 @@ use function uksort;
  * of the map declared in no test file the process loaded to the first part,
  * the rest cut as ever (ADR-0171). Judging whole, the shard judges by every
  * covering test each mutant it owns, and leaves the rest; judging parted, it
- * judges every mutant its part's tests cover by those tests (ADR-0174).
+ * judges every mutant its part's tests cover by those tests (ADR-0174). The
+ * lines of a source file no test covers fall to one part alone, where the
+ * parts make the mutants their tests reach (ADR-0193).
  *
  * @internal
  */
 final readonly class TestParts
 {
-    /** @param array<string, int> $parts each test's part, counted from 1, by its id */
-    private function __construct(private TestPart $part, private array $parts, private StreamJudging $judging)
-    {
+    /**
+     * @param array<string, int> $parts     each test's part, counted from 1, by its id
+     * @param array<string, int> $uncovered the part the lines no test covers of each source file fall to, counted
+     *                                      from 1, by its real path
+     */
+    private function __construct(
+        private TestPart $part,
+        private array $parts,
+        private StreamJudging $judging,
+        private array $uncovered,
+    ) {
     }
 
     /** Every test in one part: a run that cuts no test files. */
     public static function whole(): self
     {
-        return new self(TestPart::whole(), [], StreamJudging::Whole);
+        return new self(TestPart::whole(), [], StreamJudging::Whole, []);
     }
 
     /**
@@ -63,7 +73,57 @@ final readonly class TestParts
             }
         }
 
-        return new self($part, $parts, $judging);
+        return new self($part, $parts, $judging, []);
+    }
+
+    /**
+     * These parts, the lines no test covers of each source file falling to
+     * one part alone (ADR-0193): the file with the most such lines first,
+     * files of as many by path, each to the part with the fewest such lines
+     * so far, of those the fewest files, of those the lowest, so every
+     * shard spreads them alike.
+     *
+     * @param array<string, int> $uncovered how many lines of each source file no test covers, by its real path
+     */
+    public function sharingUncovered(array $uncovered): self
+    {
+        uksort(
+            $uncovered,
+            static fn(string $one, string $two): int => [$uncovered[$two], $one] <=> [$uncovered[$one], $two],
+        );
+        $loads = array_fill(0, $this->part->parts(), [0.0, 0]);
+        $falls = [];
+
+        foreach ($uncovered as $file => $lines) {
+            $least = self::leastOf($loads);
+            $loads[$least] = [$loads[$least][0] + $lines, $loads[$least][1] + 1];
+            $falls[$file] = $least + 1;
+        }
+
+        return new self($this->part, $this->parts, $this->judging, $falls);
+    }
+
+    /**
+     * Whether the shard's part makes the lines no test covers of this
+     * source file, by its real path: every part, where they fall to none.
+     */
+    public function makesUncovered(string $file): bool
+    {
+        return ! array_key_exists($file, $this->uncovered) || $this->uncovered[$file] === $this->part->number();
+    }
+
+    /**
+     * Whether the shard owns a mutant no test covers, of this id and in this
+     * source file, by its real path: the part its file's lines no test
+     * covers fall to (ADR-0193); where they fall to none, the part its id
+     * falls to, so one shard judges each such mutant and the parts share
+     * them alike (ADR-0171).
+     */
+    public function ownsUncovered(string $mutant, string $file): bool
+    {
+        return array_key_exists($file, $this->uncovered)
+            ? $this->uncovered[$file] === $this->part->number()
+            : crc32($mutant) % $this->part->parts() + 1 === $this->part->number();
     }
 
     /**
@@ -160,8 +220,7 @@ final readonly class TestParts
      * Whether the shard owns this mutant, whose covering tests these are and
      * whose likely killer this is, '' where the ledger names none: judging
      * whole, its part holds that killer; otherwise its part holds the first
-     * covering test; where there are none, its id falls to the part, so one
-     * shard judges each such mutant and the parts share them alike
+     * covering test; where there are none, its id falls to the part
      * (ADR-0171, ADR-0174).
      *
      * @param list<string> $covering
@@ -169,7 +228,7 @@ final readonly class TestParts
     public function owns(array $covering, string $mutant, string $killer): bool
     {
         return match (true) {
-            $covering === [] => crc32($mutant) % $this->part->parts() + 1 === $this->part->number(),
+            $covering === [] => $this->ownsUncovered($mutant, ''),
             $killer !== '' && $this->judging === StreamJudging::Whole => $this->holds($killer),
             default => $this->holds($covering[0]),
         };
