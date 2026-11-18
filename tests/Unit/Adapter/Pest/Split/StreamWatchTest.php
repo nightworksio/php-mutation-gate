@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDeadline;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPace;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSlowdown;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamStart;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamWatch;
@@ -87,10 +87,10 @@ it('starts a stream in a place one round of streams on, so its files are its own
 
 it('starts a stream in a stopped one\'s place at the backoff times the slowdown that one reached, never under as fast as the map', function (): void {
     expect([
-        new StreamDeadline(on: true)->after(1.0),
-        new StreamDeadline(on: true)->after(3.0),
-        new StreamDeadline(on: true, backoff: 1.0)->after(3.0),
-        new StreamDeadline(on: true, backoff: 3.0)->after(0.5),
-        new StreamDeadline(on: true, backoff: 0.5)->after(2.0),
+        new StreamPace(on: true)->after(1.0),
+        new StreamPace(on: true)->after(3.0),
+        new StreamPace(on: true, backoff: 1.0)->after(3.0),
+        new StreamPace(on: true, backoff: 3.0)->after(0.5),
+        new StreamPace(on: true, backoff: 0.5)->after(2.0),
     ])->toBe([2.0, 6.0, 3.0, 3.0, 2.0]);
 });

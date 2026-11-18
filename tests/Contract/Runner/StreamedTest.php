@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestSteps;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPace;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\FirstFork;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
@@ -50,6 +52,12 @@ const STREAMED_TWICE = 'P\\Tests\\MoneySpec::__pest_evaluable_it_adds_the_same_a
 
 /** The fixture's test of Money::isLarge, which covers its boundary without telling it apart. */
 const STREAMED_TELLS = 'P\\Tests\\MoneySpec::__pest_evaluable_it_tells_a_large_amount_from_a_small_one';
+
+/** The fixture's slow covering test of Cheapest, first in the suite's order. */
+const CHEAPEST_SLOW = 'P\\Tests\\CheapestSpec::__pest_evaluable_it_doubles_an_amount__triples_nothing_and_quadruples_one__slowly';
+
+/** The fixture's fast covering test of Cheapest. */
+const CHEAPEST_FAST = 'P\\Tests\\CheapestSpec::__pest_evaluable_it_doubles_and_triples_into_whole_numbers__and_quadruples_two';
 
 /** The fixture's likely killer of a change to Fallen::tripled, which holds a writable file, so no stream forks there. */
 const FALLEN_KILLER = 'P\\Tests\\FallenSpec::__pest_evaluable_it_triples_while_it_holds_a_writable_file';
@@ -241,6 +249,50 @@ it('judges a mutant alike whether its stream runs only the covering tests or the
 })->with([
     'covering tests only' => [true],
     'whole files' => [false],
+])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
+it('judges a mutant no ledger names a killer of alike whether its first pass forks it at its cheapest covering test or at every one, naming the cheapest of its killers first, under splitStream.firstFork', function (FirstFork $fork, string $killer): void {
+    $copied = [
+        'src/Cheapest.php' => 'tests/Contract/Runner/streamed/src/Cheapest.php',
+        'tests/CheapestSpec.php' => 'tests/Contract/Runner/streamed/tests/CheapestSpec.php',
+    ];
+
+    foreach ($copied as $into => $from) {
+        copy(Tree::at($from), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+    }
+
+    Library::patched();
+
+    try {
+        $result = Library::pest(Patching::on(Library::canary())->splitting(StreamSettings::of(
+            enabled: true,
+            children: 1,
+            changeCheck: false,
+            killersFirst: true,
+            pace: new StreamPace(on: true, firstFork: $fork),
+        )))->runner()->mutate(
+            MutationRequest::of(Paths::of(Path::of('src/Cheapest.php')), WholeSuite::tests())->narrowedTo(
+                Paths::of(Path::of('src/Cheapest.php')),
+                Narrowing::none()->toMutators(Mutators::named(MultiplicationToDivision::class)),
+            ),
+        );
+    } finally {
+        foreach (array_keys($copied) as $into) {
+            unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+        }
+    }
+
+    expect(streamedJudged($result))->toBe([
+        17 => [MutantStatus::Killed, [CHEAPEST_SLOW], true],
+        22 => [MutantStatus::Survived, [], true],
+        27 => [MutantStatus::Killed, [$killer], true],
+    ]);
+})->with([
+    'cheapest first' => [FirstFork::Cheapest, CHEAPEST_FAST],
+    'every test' => [FirstFork::Every, CHEAPEST_SLOW],
 ])->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',

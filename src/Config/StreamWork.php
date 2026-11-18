@@ -57,6 +57,22 @@ final readonly class StreamWork implements Setting
         return new self(Json::at('splitStream.slowdownCarry', 'none'));
     }
 
+    /**
+     * `splitStream.firstFork`, `cheapest`, as by default: a first-pass stream
+     * forks a mutant the ledger names no killer of at its covering test the
+     * map timed fastest, and the second pass at the rest where it lives.
+     */
+    public static function firstForkAtTheCheapest(): self
+    {
+        return new self(Json::at('splitStream.firstFork', 'cheapest'));
+    }
+
+    /** `splitStream.firstFork`, `every`: a first-pass stream forks such a mutant at every covering test. */
+    public static function firstForkAtEvery(): self
+    {
+        return new self(Json::at('splitStream.firstFork', 'every'));
+    }
+
     public function written(): Json
     {
         return $this->json;

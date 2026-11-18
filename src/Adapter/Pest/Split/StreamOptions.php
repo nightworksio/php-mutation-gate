@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function is_string;
 
+use NightWorksIO\MutationGate\Core\Config\FirstFork;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -48,6 +49,7 @@ final readonly class StreamOptions
         $deadline = $split->flag(Key::of(StreamWork::PARENT_DEADLINE));
         $backoff = $split->number(Key::of(StreamWork::DEADLINE_BACKOFF));
         $carry = self::carryOf($split);
+        $firstFork = self::firstForkOf($split);
         $standard = SplitStream::of();
         $judging = self::judgingOf($split, $standard->judging());
 
@@ -65,6 +67,7 @@ final readonly class StreamOptions
             $deadline instanceof Problem => $deadline,
             $backoff instanceof Problem => $backoff,
             $carry instanceof Problem => $carry,
+            $firstFork instanceof Problem => $firstFork,
             default => StreamSettings::of(
                 $enabled === true,
                 $children instanceof NotGiven ? $standard->children() : $children,
@@ -76,10 +79,11 @@ final readonly class StreamOptions
                 $killerStreams === true,
                 $bootOnce === true,
                 $reconnect !== false,
-                new StreamDeadline(
+                new StreamPace(
                     $deadline !== false,
                     $backoff instanceof NotGiven ? $standard->work()->deadlineBackoff()->times() : $backoff,
                     $carry,
+                    $firstFork,
                 ),
             ),
         };
@@ -105,6 +109,22 @@ final readonly class StreamOptions
             $named instanceof NotGiven => $standard,
             default => StreamJudging::tryFrom($named) ?? Problem::mismatch(
                 sprintf('%s.%s', SplitStream::SECTION, SplitStream::JUDGING),
+                'one of its values',
+                sprintf('"%s"', $named),
+            ),
+        };
+    }
+
+    /** `splitStream.firstFork`: where a first pass forks a mutant the ledger names no killer of (ADR-0187). */
+    private static function firstForkOf(Options $split): FirstFork|Problem
+    {
+        $named = $split->text(Key::of(StreamWork::FIRST_FORK));
+
+        return match (true) {
+            $named instanceof Problem => $named,
+            $named instanceof NotGiven => SplitStream::of()->work()->firstFork(),
+            default => FirstFork::tryFrom($named) ?? Problem::mismatch(
+                sprintf('%s.%s', SplitStream::SECTION, StreamWork::FIRST_FORK),
                 'one of its values',
                 sprintf('"%s"', $named),
             ),

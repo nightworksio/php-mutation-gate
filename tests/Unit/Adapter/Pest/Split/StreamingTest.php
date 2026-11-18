@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
-use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDeadline;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Streaming;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPace;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlanFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSlowdown;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamVerdicts;
@@ -99,7 +99,7 @@ it('starts each stream in a stopped one\'s place at the backoff times the slowdo
         file_put_contents(sprintf('%s/live-%d', $plan['live'], getmypid()), json_encode(['t' => $ids[0], 'd' => 0, 's' => $plan['slowdown'] + 0.5]));
         sleep(30);
         PHP;
-    $streaming = new Streaming($directory, [], ['-r', $stuck, '--'], 1, 1, coveringOnly: true, deadline: new StreamDeadline(on: true, backoff: 2.0));
+    $streaming = new Streaming($directory, [], ['-r', $stuck, '--'], 1, 1, coveringOnly: true, pace: new StreamPace(on: true, backoff: 2.0));
 
     $streaming->pass(1, ['m1' => ['f1', 1, '', []]], ['m1' => $tests], StreamVerdicts::none());
     $slowdowns = [];
@@ -129,7 +129,7 @@ it('starts each pass\'s streams at the highest slowdown the streams of the pass 
         1,
         1,
         coveringOnly: true,
-        deadline: new StreamDeadline(on: true),
+        pace: new StreamPace(on: true),
         slowdown: StreamSlowdown::carried(SlowdownCarry::Shard, $results),
     );
 

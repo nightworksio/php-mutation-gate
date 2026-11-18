@@ -11,6 +11,7 @@ use function is_string;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Core\Config\FirstFork;
 use NightWorksIO\MutationGate\Core\Config\SlowdownCarry;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
@@ -51,7 +52,7 @@ final readonly class StreamSettings
         private StreamJudging $judging = StreamJudging::Whole,
         private bool $fallbackOwnRun = true,
         private bool $coveringOnly = true,
-        private StreamDeadline $deadline = new StreamDeadline(on: true),
+        private StreamPace $pace = new StreamPace(on: true),
     ) {
     }
 
@@ -77,7 +78,7 @@ final readonly class StreamSettings
         bool $killerStreams = false,
         bool $bootOnce = false,
         bool $reconnect = true,
-        StreamDeadline $deadline = new StreamDeadline(on: true),
+        StreamPace $pace = new StreamPace(on: true),
     ): self {
         if (! $enabled) {
             return self::off();
@@ -95,7 +96,7 @@ final readonly class StreamSettings
             judging: $judging,
             fallbackOwnRun: $fallbackOwnRun,
             coveringOnly: $coveringOnly,
-            deadline: $deadline,
+            pace: $pace,
         );
     }
 
@@ -107,6 +108,7 @@ final readonly class StreamSettings
         $lines = getenv(GateVariable::SplitLines->value);
         $backoff = getenv(GateVariable::SplitDeadlineBackoff->value);
         $carry = getenv(GateVariable::SplitSlowdownCarry->value);
+        $firstFork = getenv(GateVariable::SplitFirstFork->value);
 
         return new self(
             getenv(GateVariable::Split->value) === self::ON,
@@ -126,10 +128,11 @@ final readonly class StreamSettings
             StreamJudging::tryFrom((string) getenv(GateVariable::SplitJudging->value)) ?? StreamJudging::Whole,
             getenv(GateVariable::SplitFallbackOwnRun->value) !== self::OFF,
             getenv(GateVariable::SplitCoveringTestsOnly->value) !== self::OFF,
-            new StreamDeadline(
+            new StreamPace(
                 getenv(GateVariable::SplitParentDeadline->value) !== self::OFF,
                 is_numeric($backoff) ? (float) $backoff : StreamWork::STANDARD_BACKOFF,
                 SlowdownCarry::tryFrom(is_string($carry) ? $carry : '') ?? new StreamWork()->slowdownCarry(),
+                FirstFork::tryFrom(is_string($firstFork) ? $firstFork : '') ?? new StreamWork()->firstFork(),
             ),
         );
     }
@@ -151,12 +154,13 @@ final readonly class StreamSettings
 
     /**
      * Whether a stream whose parent runs a test past its deadline is stopped
-     * and started again on its other tests (ADR-0182), and how much slower
-     * the stream started in its place starts (ADR-0184).
+     * and started again on its other tests (ADR-0182), how much slower the
+     * stream started in its place starts (ADR-0184), and where a first pass
+     * forks a mutant the ledger names no likely killer of (ADR-0187).
      */
-    public function deadline(): StreamDeadline
+    public function pace(): StreamPace
     {
-        return $this->deadline;
+        return $this->pace;
     }
 
     /** Whether a stream of covering tests runs only those tests, by their ids, not their whole files (ADR-0181). */
@@ -258,9 +262,10 @@ final readonly class StreamSettings
                 GateVariable::SplitJudging->value => $this->judging->value,
                 GateVariable::SplitFallbackOwnRun->value => $told($this->fallbackOwnRun),
                 GateVariable::SplitCoveringTestsOnly->value => $told($this->coveringOnly),
-                GateVariable::SplitParentDeadline->value => $told($this->deadline->on),
-                GateVariable::SplitDeadlineBackoff->value => (string) $this->deadline->backoff,
-                GateVariable::SplitSlowdownCarry->value => $this->deadline->carry->value,
+                GateVariable::SplitParentDeadline->value => $told($this->pace->on),
+                GateVariable::SplitDeadlineBackoff->value => (string) $this->pace->backoff,
+                GateVariable::SplitSlowdownCarry->value => $this->pace->carry->value,
+                GateVariable::SplitFirstFork->value => $this->pace->firstFork->value,
             ]
             : [];
     }

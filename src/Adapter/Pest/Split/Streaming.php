@@ -90,7 +90,7 @@ final readonly class Streaming
         private bool $bootOnce = false,
         private bool $reconnect = false,
         private bool $coveringOnly = false,
-        private StreamDeadline $deadline = new StreamDeadline(),
+        private StreamPace $pace = new StreamPace(),
         private PcovTests|NotGiven $pcov = new NotGiven(),
         private StreamSlowdown $slowdown = new StreamSlowdown(),
     ) {
@@ -309,7 +309,7 @@ final readonly class Streaming
             $results,
             $chosen || $start->selecting !== [] ? $tests : [],
             fn(array $left, float $slowdown): WatchedStream => $this->watched(
-                $start->next($this->deadline->after($slowdown)),
+                $start->next($this->pace->after($slowdown)),
                 $left,
                 $files,
                 chosen: true,
@@ -379,7 +379,7 @@ final readonly class Streaming
                 : sprintf(self::RECORDED, $this->recording, $pass, $at),
             'bootOnce' => $this->bootsOnceIn($pass),
             'reconnect' => $this->reconnect,
-            'deadline' => $this->deadline->on,
+            'deadline' => $this->pace->on,
             'slowdown' => $start->slowdown,
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Config\FirstFork;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Pest;
@@ -48,6 +49,11 @@ final readonly class SplitStreamKeys
             Enumerated::of(SlowdownCarry::cases()),
             Effect::DecidesHowTheGateRuns,
         );
+        $firstFork = Field::optional(
+            StreamWork::FIRST_FORK,
+            Enumerated::of(FirstFork::cases()),
+            Effect::DecidesHowTheGateRuns,
+        );
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -73,6 +79,7 @@ final readonly class SplitStreamKeys
                     $deadline,
                     $backoff,
                     $carry,
+                    $firstFork,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -90,6 +97,7 @@ final readonly class SplitStreamKeys
                     $backedOff = $backoff->read($split);
                     $times = $backedOff->value();
                     $carried = $carry->read($split);
+                    $forked = $firstFork->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -109,6 +117,7 @@ final readonly class SplitStreamKeys
                                 $deadlined->value(),
                                 $times instanceof Absent ? $times : Multiple::of($times),
                                 $carried->value(),
+                                $forked->value(),
                             ),
                         ))),
                         $on,
@@ -126,6 +135,7 @@ final readonly class SplitStreamKeys
                         $deadlined,
                         $backedOff,
                         $carried,
+                        $forked,
                     );
                 },
                 $enabled,
@@ -143,6 +153,7 @@ final readonly class SplitStreamKeys
                 $deadline,
                 $backoff,
                 $carry,
+                $firstFork,
             ),
         )];
     }

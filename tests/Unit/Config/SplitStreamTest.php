@@ -33,6 +33,8 @@ $calls = [
     'slowdownThroughTheShard' => [static fn(): Setting => StreamWork::slowdownThroughTheShard(), 'splitStream.slowdownCarry', 'shard', 'StreamWork::slowdownThroughTheShard'],
     'slowdownThroughTheRun' => [static fn(): Setting => StreamWork::slowdownThroughTheRun(), 'splitStream.slowdownCarry', 'run', 'StreamWork::slowdownThroughTheRun'],
     'slowdownPerPass' => [static fn(): Setting => StreamWork::slowdownPerPass(), 'splitStream.slowdownCarry', 'none', 'StreamWork::slowdownPerPass'],
+    'firstForkAtTheCheapest' => [static fn(): Setting => StreamWork::firstForkAtTheCheapest(), 'splitStream.firstFork', 'cheapest', 'StreamWork::firstForkAtTheCheapest'],
+    'firstForkAtEvery' => [static fn(): Setting => StreamWork::firstForkAtEvery(), 'splitStream.firstFork', 'every', 'StreamWork::firstForkAtEvery'],
     'deadlineBackoff' => [static fn(): Setting => StreamWork::deadlineBackoff(3), 'splitStream.deadlineBackoff', 3, 'StreamWork::deadlineBackoff'],
     'byTests' => [static fn(): Setting => StreamShards::byTests(), 'splitStream.sharding', 'tests', 'StreamShards::byTests'],
     'byTestsInEveryPart' => [static fn(): Setting => StreamShards::byTestsInEveryPart(), 'splitStream.sharding', 'tests-every-part', 'StreamShards::byTestsInEveryPart'],

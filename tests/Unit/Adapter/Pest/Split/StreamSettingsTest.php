@@ -3,8 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
-use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDeadline;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPace;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Core\Config\FirstFork;
 use NightWorksIO\MutationGate\Core\Config\SlowdownCarry;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
@@ -36,7 +37,8 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_PARENT_DEADLINE' => '1',
         'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF' => '2',
         'MUTATION_GATE_SPLIT_SLOWDOWN_CARRY' => 'shard',
-    ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false, deadline: new StreamDeadline(on: false, backoff: 3.0, carry: SlowdownCarry::Run))->variables())->toBe([
+        'MUTATION_GATE_SPLIT_FIRST_FORK' => 'cheapest',
+    ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false, pace: new StreamPace(on: false, backoff: 3.0, carry: SlowdownCarry::Run, firstFork: FirstFork::Every))->variables())->toBe([
         'MUTATION_GATE_SPLIT' => '1',
         'MUTATION_GATE_SPLIT_CHILDREN' => '1',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
@@ -50,18 +52,19 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_PARENT_DEADLINE' => '0',
         'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF' => '3',
         'MUTATION_GATE_SPLIT_SLOWDOWN_CARRY' => 'run',
+        'MUTATION_GATE_SPLIT_FIRST_FORK' => 'every',
     ]);
 });
 
 it('reads back what it told a run', function (): void {
-    foreach (StreamSettings::of(enabled: true, children: 4, changeCheck: false, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false, deadline: new StreamDeadline(on: false, backoff: 3.0, carry: SlowdownCarry::Run))->variables() as $name => $value) {
+    foreach (StreamSettings::of(enabled: true, children: 4, changeCheck: false, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false, pace: new StreamPace(on: false, backoff: 3.0, carry: SlowdownCarry::Run, firstFork: FirstFork::Every))->variables() as $name => $value) {
         putenv(sprintf('%s=%s', $name, $value));
     }
 
     $read = StreamSettings::fromEnvironment();
 
-    expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst(), $read->judging(), $read->fallsBackToOwnRuns(), $read->selectsCoveringTests(), $read->deadline()->on, $read->deadline()->backoff, $read->deadline()->carry])
-        ->toBe([true, 4, false, false, StreamJudging::Parted, false, false, false, 3.0, SlowdownCarry::Run]);
+    expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst(), $read->judging(), $read->fallsBackToOwnRuns(), $read->selectsCoveringTests(), $read->pace()->on, $read->pace()->backoff, $read->pace()->carry, $read->pace()->firstFork])
+        ->toBe([true, 4, false, false, StreamJudging::Parted, false, false, false, 3.0, SlowdownCarry::Run, FirstFork::Every]);
 });
 
 it('splits nothing where it is not enabled, whatever else it is given', function (): void {

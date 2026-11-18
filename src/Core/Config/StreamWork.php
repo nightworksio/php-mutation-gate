@@ -38,10 +38,17 @@ final readonly class StreamWork
      */
     public const string SLOWDOWN_CARRY = 'slowdownCarry';
 
+    /**
+     * The key, and the Pest runner's option, of where a first-pass stream forks a mutant the ledger names no likely
+     * killer of (ADR-0187).
+     */
+    public const string FIRST_FORK = 'firstFork';
+
     public function __construct(
         private bool|Absent $parentDeadline = new Absent(),
         private Multiple|Absent $deadlineBackoff = new Absent(),
         private SlowdownCarry|Absent $slowdownCarry = new Absent(),
+        private FirstFork|Absent $firstFork = new Absent(),
     ) {
     }
 
@@ -50,7 +57,7 @@ final readonly class StreamWork
     {
         $none = new self();
 
-        return new self($none->parentDeadline(), $none->deadlineBackoff(), $none->slowdownCarry());
+        return new self($none->parentDeadline(), $none->deadlineBackoff(), $none->slowdownCarry(), $none->firstFork());
     }
 
     /** This, with what a later layer sets laid over it, key by key. */
@@ -60,6 +67,7 @@ final readonly class StreamWork
             $later->parentDeadline instanceof Absent ? $this->parentDeadline : $later->parentDeadline,
             $later->deadlineBackoff instanceof Absent ? $this->deadlineBackoff : $later->deadlineBackoff,
             $later->slowdownCarry instanceof Absent ? $this->slowdownCarry : $later->slowdownCarry,
+            $later->firstFork instanceof Absent ? $this->firstFork : $later->firstFork,
         );
     }
 
@@ -96,6 +104,16 @@ final readonly class StreamWork
         return $this->slowdownCarry instanceof SlowdownCarry ? $this->slowdownCarry : SlowdownCarry::Shard;
     }
 
+    /**
+     * `splitStream.firstFork`: where a first-pass stream forks a mutant the
+     * ledger names no likely killer of (ADR-0187); at the covering test of
+     * the shard's part the map timed fastest by default.
+     */
+    public function firstFork(): FirstFork
+    {
+        return $this->firstFork instanceof FirstFork ? $this->firstFork : FirstFork::Cheapest;
+    }
+
     /** The keys of the Pest runner's `splitStream` option these give: every key at the value it takes. */
     public function option(): Json
     {
@@ -103,6 +121,7 @@ final readonly class StreamWork
             Member::of(self::PARENT_DEADLINE, $this->parentDeadline()),
             Member::of(self::DEADLINE_BACKOFF, $this->deadlineBackoff()->times()),
             Member::of(self::SLOWDOWN_CARRY, $this->slowdownCarry()->value),
+            Member::of(self::FIRST_FORK, $this->firstFork()->value),
         );
     }
 
@@ -118,6 +137,10 @@ final readonly class StreamWork
             Member::of(
                 self::SLOWDOWN_CARRY,
                 $this->slowdownCarry instanceof SlowdownCarry ? $this->slowdownCarry->value : $this->slowdownCarry,
+            ),
+            Member::of(
+                self::FIRST_FORK,
+                $this->firstFork instanceof FirstFork ? $this->firstFork->value : $this->firstFork,
             ),
         );
     }
@@ -136,6 +159,7 @@ final readonly class StreamWork
             ->and($backoff)
             ->and(PhpCalls::inWith(
                 ...$this->slowdownCarry instanceof SlowdownCarry ? [$this->slowdownCarry->php()] : [],
-            ));
+            ))
+            ->and(PhpCalls::inWith(...$this->firstFork instanceof FirstFork ? [$this->firstFork->php()] : []));
     }
 }

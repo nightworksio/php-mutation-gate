@@ -4209,6 +4209,13 @@
                         "none"
                     ],
                     "default": "shard"
+                },
+                "firstFork": {
+                    "enum": [
+                        "cheapest",
+                        "every"
+                    ],
+                    "default": "cheapest"
                 }
             },
             "additionalProperties": false
@@ -8832,6 +8839,12 @@
                                 "shard",
                                 "run",
                                 "none"
+                            ]
+                        },
+                        "firstFork": {
+                            "enum": [
+                                "cheapest",
+                                "every"
                             ]
                         }
                     },

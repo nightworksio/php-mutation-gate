@@ -104,6 +104,18 @@ final class StreamVerdicts
         return $this->firstEnding($mutant, $covering, $decided) !== '';
     }
 
+    /**
+     * Whether a child of the mutant failed a covering test the parent
+     * passed, which a first pass forking it at its cheapest one asks
+     * (ADR-0187).
+     *
+     * @param list<string> $covering the tests that cover it, by their ids
+     */
+    public function kills(string $mutant, array $covering): bool
+    {
+        return $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills()) !== '';
+    }
+
     /** Whether a stream forked nothing in this test, or this mutant nowhere in it (ADR-0117, ADR-0175). */
     public function leaves(string $mutant, string $test): bool
     {

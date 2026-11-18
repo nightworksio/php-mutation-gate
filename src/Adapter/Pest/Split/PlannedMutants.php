@@ -30,9 +30,11 @@ final readonly class PlannedMutants
 {
     /**
      * Each mutant a stream of the shard can judge: its site, by Pest's id,
-     * the source file of each schema, by its key, the covering tests the
-     * shard judges each by, each mutant, and those of its covering tests the
-     * shard's own part holds, which a first pass streams.
+     * the test a first pass forks it at among them, the source file of each
+     * schema, by its key, the covering tests the shard judges each by, each
+     * mutant, those of its covering tests the shard's own part holds, which
+     * a first pass streams, and each mutant first forked at its cheapest
+     * covering test, not at the ledger's likely killer (ADR-0187).
      *
      * @param  array<string, array<int, array<int, string>>> $coveredLines
      * @return array{
@@ -41,12 +43,14 @@ final readonly class PlannedMutants
      *     array<string, list<string>>,
      *     array<string, MutationTest>,
      *     array<string, list<string>>,
+     *     array<string, true>,
      * }
      */
     public static function of(
         MutationSuite $suite,
         array $coveredLines,
         KillerHints $hints,
+        FirstForks $first,
         TestParts $parts,
         bool $forks,
     ): array {
@@ -55,6 +59,7 @@ final readonly class PlannedMutants
         $covering = [];
         $byId = [];
         $held = [];
+        $killers = [];
 
         foreach (self::testsOf($suite) as $test) {
             $switch = $forks ? Schemata::switchOf($test->mutation) : NotGiven::value();
@@ -69,13 +74,15 @@ final readonly class PlannedMutants
             }
 
             $paths[$switch[0]] = (string) $test->mutation->file->getRealPath();
-            $sites[$mutant] = [...$switch, $killer, self::variablesOf($test)];
+            $held[$mutant] = $parts->within($judged);
+            $fork = $first->at($killer, $held[$mutant]);
+            $sites[$mutant] = [...$switch, $fork, self::variablesOf($test)];
             $covering[$mutant] = $judged;
             $byId[$mutant] = $test;
-            $held[$mutant] = $parts->within($judged);
+            $killers[$mutant] = $killer;
         }
 
-        return [$sites, $paths, $covering, $byId, $held];
+        return [$sites, $paths, $covering, $byId, $held, self::cheapestOf($sites, $killers)];
     }
 
     /** @return array<string, string> what a mutant's own run is told, which a child's subprocesses inherit */
@@ -86,6 +93,27 @@ final readonly class PlannedMutants
             Mutate::ENV_MUTATION_FILE => $test->mutation->modifiedSourcePath,
             ...Schemata::variablesOf($test->mutation),
         ];
+    }
+
+    /**
+     * Each mutant whose first fork is not the ledger's likely killer of it,
+     * which is its cheapest covering test (ADR-0187).
+     *
+     * @param  array<string, array{string, int, string, array<string, string>}> $sites
+     * @param  array<string, string>                                             $killers each mutant's likely killer
+     * @return array<string, true>
+     */
+    private static function cheapestOf(array $sites, array $killers): array
+    {
+        $cheapest = [];
+
+        foreach ($sites as $mutant => $site) {
+            if ($site[2] !== $killers[$mutant]) {
+                $cheapest[$mutant] = true;
+            }
+        }
+
+        return $cheapest;
     }
 
     /** @return list<MutationTest> every mutant of the suite, in the order Pest holds them */

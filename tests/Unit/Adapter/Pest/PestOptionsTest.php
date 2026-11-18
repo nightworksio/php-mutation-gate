@@ -115,8 +115,9 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
         'MUTATION_GATE_SPLIT_PARENT_DEADLINE' => '1',
         'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF' => '2',
         'MUTATION_GATE_SPLIT_SLOWDOWN_CARRY' => 'shard',
+        'MUTATION_GATE_SPLIT_FIRST_FORK' => 'cheapest',
     ], true])
-        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false, "parentDeadline": false, "deadlineBackoff": 1.5, "slowdownCarry": "none"}}'))->toBe([[
+        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false, "parentDeadline": false, "deadlineBackoff": 1.5, "slowdownCarry": "none", "firstFork": "every"}}'))->toBe([[
             'MUTATION_GATE_SCHEMATA' => '1',
             'MUTATION_GATE_SPLIT' => '1',
             'MUTATION_GATE_SPLIT_CHILDREN' => 'cores',
@@ -131,6 +132,7 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
             'MUTATION_GATE_SPLIT_PARENT_DEADLINE' => '0',
             'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF' => '1.5',
             'MUTATION_GATE_SPLIT_SLOWDOWN_CARRY' => 'none',
+            'MUTATION_GATE_SPLIT_FIRST_FORK' => 'every',
         ], true])
         ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
         ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
@@ -152,6 +154,7 @@ it('refuses a splitStream option written as something else', function (string $o
     'parentDeadline' => ['{"splitStream": {"parentDeadline": "yes"}}', fn(): Problem => Problem::at('splitStream.parentDeadline', 'expected true or false, got "yes"')],
     'deadlineBackoff' => ['{"splitStream": {"deadlineBackoff": "twice"}}', fn(): Problem => Problem::at('splitStream.deadlineBackoff', 'expected a number, got "twice"')],
     'slowdownCarry' => ['{"splitStream": {"slowdownCarry": "far"}}', fn(): Problem => Problem::mismatch('splitStream.slowdownCarry', 'one of its values', '"far"')],
+    'firstFork' => ['{"splitStream": {"firstFork": "dearest"}}', fn(): Problem => Problem::mismatch('splitStream.firstFork', 'one of its values', '"dearest"')],
     'judging' => ['{"splitStream": {"judging": "halved"}}', fn(): Problem => Problem::mismatch('splitStream.judging', 'one of its values', '"halved"')],
 ]);
 

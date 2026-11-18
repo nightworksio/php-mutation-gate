@@ -199,6 +199,9 @@ enum GateVariable: string
     /** Where the slowdown a pass's streams measured carries on to (ADR-0184). */
     case SplitSlowdownCarry = 'MUTATION_GATE_SPLIT_SLOWDOWN_CARRY';
 
+    /** Where a first-pass stream forks a mutant the ledger names no likely killer of (ADR-0187). */
+    case SplitFirstFork = 'MUTATION_GATE_SPLIT_FIRST_FORK';
+
     /**
      * The directory whose ini file turns pcov off, which a mutation run adds to what each process it starts scans,
      * where `pest.pcovOff` turns pcov off (ADR-0183); Pest's own mutation process keeps pcov on, as it refuses to run
