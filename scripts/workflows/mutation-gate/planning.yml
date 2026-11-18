@@ -175,7 +175,7 @@
     if: ${{ !cancelled() && needs.fetch.result != 'cancelled' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.plan-timeout }}
-    services: ${{ fromJSON(inputs.services || '{}') }}
+    services: ${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}
     # The comment's planned state goes to deliver-plan.
     permissions:
       contents: read
@@ -202,6 +202,11 @@
           ref: ${{ job.workflow_sha }}
           path: ${{ env.GATE_ACTION }}
           persist-credentials: false
+      - name: Start the services, before any of the project's code
+        env:
+          SERVICES: ${{ inputs.services }}
+          SERVICES_START: ${{ inputs.services-start }}
+        run: bash "${GATE_ACTION}/resources/action/services.sh" start "${RUNNER_TEMP}/mutation-gate-services"
       - name: Refuse an event the gate never runs under
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" guard
       # Before the project's dependencies install, so none of its code runs
@@ -226,6 +231,10 @@
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - name: Wait for every service to report healthy
+        if: inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" wait "${{ runner.temp }}/mutation-gate-services"
       - name: Prepare what the tests need besides the dependencies
         if: inputs.prepare != ''
         env:
@@ -329,16 +338,19 @@
           OPTIONS: ${{ steps.resolve.outputs.plan_options }}
           COVERAGE: ${{ inputs.coverage }}
           EARLY_ONLY: ${{ inputs.early-only }}
+          GATE_PCOV: ${{ inputs.gate-pcov }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          own=()
+          [ "${GATE_PCOV}" = "on" ] || own=(-d pcov.enabled=0)
           if [ -n "${COVERAGE}" ]; then
             arguments+=("--coverage=${HANDED}")
           fi
           if [ "${EARLY_ONLY}" = "true" ]; then
             arguments+=("--early-only")
           fi
-          "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
+          php "${own[@]}" "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
       # ADR-0106: on a pull request whose plan runs a shard, the jobs the last
       # run's survivors are re-checked in, one per file of those it takes, at
       # most survivorsFirst.shards, and the minutes each may take.
@@ -398,6 +410,10 @@
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
+      - name: Remove the services
+        if: always() && inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" stop "${{ runner.temp }}/mutation-gate-services"
 
   # The pull request comment's planned state, which the plan left in its
   # delivery, posted while the shards run. It installs and runs none of the

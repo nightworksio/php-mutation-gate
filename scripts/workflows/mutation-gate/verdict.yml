@@ -10,7 +10,7 @@
     if: ${{ !cancelled() && needs.plan.result != 'skipped' && needs.plan.outputs.waits != 'true' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.verdict-timeout }}
-    services: ${{ fromJSON(inputs.services || '{}') }}
+    services: ${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}
     permissions:
       contents: read
       actions: read
@@ -51,6 +51,11 @@
           ref: ${{ job.workflow_sha }}
           path: ${{ env.GATE_ACTION }}
           persist-credentials: false
+      - name: Start the services, before any of the project's code
+        env:
+          SERVICES: ${{ inputs.services }}
+          SERVICES_START: ${{ inputs.services-start }}
+        run: bash "${GATE_ACTION}/resources/action/services.sh" start "${RUNNER_TEMP}/mutation-gate-services"
       - name: Refuse an event the gate never runs under
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" guard
       # The two steps that hold the token come before the project's
@@ -98,6 +103,10 @@
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - name: Wait for every service to report healthy
+        if: inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" wait "${{ runner.temp }}/mutation-gate-services"
       - name: Prepare what the tests need besides the dependencies
         if: inputs.prepare != ''
         env:
@@ -338,6 +347,10 @@
         env:
           CODE: ${{ steps.verdict.outputs.code || '2' }}
         run: exit "${CODE}"
+      - name: Remove the services
+        if: always() && inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" stop "${{ runner.temp }}/mutation-gate-services"
 
   # What the verdict left for a credential: the comment on every run, and on a
   # trusted run, a push, schedule or dispatch on the default branch, the ledger

@@ -58,6 +58,14 @@ on:
           reach, as a JSON object that `jobs.<job_id>.services` takes; where empty, the default, none starts.
         type: string
         default: '{}'
+      services-start:
+        description: >-
+          background, the default: each job starts every service at once, detached, before any of the project's code,
+          a private image pulled under a Docker config removed at once, and waits for every one to report healthy
+          before the project's preparation or the gate runs; job: the job's `services` start them before its first
+          step, as GitHub starts them, one after another (ADR-0189).
+        type: string
+        default: background
       runner:
         description: pest, infection, phpunit, phpspec, codeception, testo or a registered runner's name; the config's, or zero-config's, where empty.
         type: string
@@ -105,6 +113,12 @@ on:
           map, leaving the run to a caller that hands one (ADR-0135).
         type: boolean
         default: false
+      gate-pcov:
+        description: >-
+          Whether the gate's own PHP process keeps pcov enabled as it plans and runs each shard: off, the default,
+          starts it with pcov.enabled=0; on keeps pcov as PHP is configured (ADR-0186).
+        type: string
+        default: 'off'
       watch-jobs:
         description: >-
           The names of jobs of the calling run, one per line, such as those that run the fast gates; once one concluded
