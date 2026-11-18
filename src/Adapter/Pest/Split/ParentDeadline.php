@@ -25,8 +25,9 @@ use function min;
 /**
  * The time by which a split stream's parent must end the test it runs
  * (ADR-0182): the limit a child of the test is held to, of the map's time
- * of the test times how much slower than the map the stream has run its
- * tests so far, never under the slowdown it started at (ADR-0184), and never
+ * of the test, its floor too, times how much slower than the map the stream
+ * has run its tests so far, never under the slowdown it started at
+ * (ADR-0184), and never
  * past `timeouts.most`, which it is where the map timed none, from the test's
  * start, moved on by each wait for a child's place. The parent keeps it, and
  * its slowdown, in its stream's mark, where Pest's own process reads them
@@ -118,7 +119,7 @@ final class ParentDeadline
     {
         $this->test = $test;
         $this->by = microtime(as_float: true) + (array_key_exists($test, $this->times)
-            ? min($this->limit->longest(), $this->limit->of($this->times[$test] * $this->slowdown))
+            ? min($this->limit->longest(), $this->limit->of($this->times[$test]) * $this->slowdown)
             : $this->limit->longest());
         $this->kept();
     }

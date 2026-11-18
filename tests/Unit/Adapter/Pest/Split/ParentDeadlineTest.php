@@ -16,41 +16,52 @@ $planned = static fn(bool $deadline, float $slowdown = 1.0): StreamPlan => new S
     sprintf('%s/results.jsonl', Scratch::directory()),
     [],
     [],
-    ['timed' => 2.0, 'long' => 60.0],
+    ['timed' => 2.0, 'long' => 60.0, 'short' => 0.1],
     ChildPlaces::fixed(1),
     new ChildLimit(3.0, 1.0, 300.0),
     deadline: $deadline,
     slowdown: $slowdown,
 );
 
+/**
+ * When a test began, as the times before and after it began.
+ *
+ * @return array{float, float}
+ */
+function begunAt(ParentDeadline $deadline, string $test): array
+{
+    $before = microtime(as_float: true);
+    $deadline->began($test);
+
+    return [$before, microtime(as_float: true)];
+}
+
 it('keeps the limit a child of the test is held to, of the map\'s time, or timeouts.most where it timed none, and passes it only once that time is gone', function () use ($planned): void {
     $mark = sprintf('%s/live-1', Scratch::directory());
     $deadline = ParentDeadline::of($planned(deadline: true), $mark);
-    $now = microtime(as_float: true);
 
-    $deadline->began('timed');
-    $timed = [ParentDeadline::passedIn($mark, $now + 5.5), ParentDeadline::passedIn($mark, $now + 6.5)];
-    $deadline->began('untimed');
+    [$before, $after] = begunAt($deadline, 'timed');
+    $timed = [ParentDeadline::passedIn($mark, $before + 5.5), ParentDeadline::passedIn($mark, $after + 6.5)];
+    [$before, $after] = begunAt($deadline, 'untimed');
 
     expect($timed)->toBe([false, 'timed'])
-        ->and(ParentDeadline::passedIn($mark, $now + 299.0))->toBeFalse()
-        ->and(ParentDeadline::passedIn($mark, $now + 301.0))->toBe('untimed');
+        ->and(ParentDeadline::passedIn($mark, $before + 299.0))->toBeFalse()
+        ->and(ParentDeadline::passedIn($mark, $after + 301.0))->toBe('untimed');
 });
 
 it('moves the deadline on by each wait for a child\'s place, and keeps none once the test ended', function () use ($planned): void {
     $mark = sprintf('%s/live-1', Scratch::directory());
     touch($mark);
     $deadline = ParentDeadline::of($planned(deadline: true), $mark);
-    $now = microtime(as_float: true);
 
-    $deadline->began('timed');
+    [$before] = begunAt($deadline, 'timed');
     $deadline->waited(10.0);
     $deadline->waited(-4.0);
-    $waited = ParentDeadline::passedIn($mark, $now + 15.5);
+    $waited = ParentDeadline::passedIn($mark, $before + 15.5);
     $deadline->ended(1.0);
     $deadline->waited(10.0);
 
-    expect([$waited, ParentDeadline::passedIn($mark, $now + 16.5)])->toBe([false, false])
+    expect([$waited, ParentDeadline::passedIn($mark, $before + 16.5)])->toBe([false, false])
         ->and(file_get_contents($mark))->toBe('{"m":1}')
         ->and(ParentDeadline::passedIn($mark, PHP_FLOAT_MAX))->toBeFalse();
 });
@@ -61,40 +72,39 @@ it('holds a test to its limit times how much slower than the map the stream ran 
 
     $deadline->began('timed');
     $deadline->ended(12.0);
-    $now = microtime(as_float: true);
-    $deadline->began('timed');
-    $slowed = [ParentDeadline::passedIn($mark, $now + 11.5), ParentDeadline::passedIn($mark, $now + 12.5)];
+    [$before, $after] = begunAt($deadline, 'timed');
+    $slowed = [ParentDeadline::passedIn($mark, $before + 11.5), ParentDeadline::passedIn($mark, $after + 12.5)];
     $deadline->ended(0.5);
     $deadline->ended(0.5);
     $deadline->began('untimed');
     $deadline->ended(100.0);
-    $now = microtime(as_float: true);
-    $deadline->began('timed');
+    [$before, $after] = begunAt($deadline, 'timed');
 
     expect($slowed)->toBe([false, 'timed'])
-        ->and(ParentDeadline::passedIn($mark, $now + 5.5))->toBeFalse()
-        ->and(ParentDeadline::passedIn($mark, $now + 11.0))->toBe('timed');
+        ->and(ParentDeadline::passedIn($mark, $before + 5.5))->toBeFalse()
+        ->and(ParentDeadline::passedIn($mark, $after + 11.0))->toBe('timed');
 });
 
-it('starts at the slowdown its plan gives, never falls under it, keeps it in the mark beside the deadline, and holds no test past timeouts.most', function () use ($planned): void {
+it('starts at the slowdown its plan gives, never falls under it, slows the floor too, keeps it in the mark beside the deadline, and holds no test past timeouts.most', function () use ($planned): void {
     $mark = sprintf('%s/live-1', Scratch::directory());
     $deadline = ParentDeadline::of($planned(deadline: true, slowdown: 4.0), $mark);
-    $now = microtime(as_float: true);
 
-    $deadline->began('timed');
-    $seeded = [ParentDeadline::passedIn($mark, $now + 23.5), ParentDeadline::passedIn($mark, $now + 24.5), ParentDeadline::slowdownIn($mark)];
+    [$before, $after] = begunAt($deadline, 'timed');
+    $seeded = [ParentDeadline::passedIn($mark, $before + 23.5), ParentDeadline::passedIn($mark, $after + 24.5), ParentDeadline::slowdownIn($mark)];
     $deadline->ended(0.1);
-    $now = microtime(as_float: true);
-    $deadline->began('timed');
-    $floored = [ParentDeadline::passedIn($mark, $now + 23.5), ParentDeadline::slowdownIn($mark)];
-    $deadline->began('long');
+    [$before] = begunAt($deadline, 'timed');
+    $floored = [ParentDeadline::passedIn($mark, $before + 23.5), ParentDeadline::slowdownIn($mark)];
+    [$before, $after] = begunAt($deadline, 'long');
+    $short = sprintf('%s/live-3', Scratch::directory());
+    [$shortBefore, $shortAfter] = begunAt(ParentDeadline::of($planned(deadline: true, slowdown: 4.0), $short), 'short');
+    $floored = [...$floored, ParentDeadline::passedIn($short, $shortBefore + 3.5), ParentDeadline::passedIn($short, $shortAfter + 4.5)];
     $faster = sprintf('%s/live-2', Scratch::directory());
     ParentDeadline::of($planned(deadline: true, slowdown: 0.5), $faster)->began('timed');
 
     expect($seeded)->toBe([false, 'timed', 4.0])
-        ->and($floored)->toBe([false, 4.0])
-        ->and(ParentDeadline::passedIn($mark, $now + 299.0))->toBeFalse()
-        ->and(ParentDeadline::passedIn($mark, $now + 301.0))->toBe('long')
+        ->and($floored)->toBe([false, 4.0, false, 'short'])
+        ->and(ParentDeadline::passedIn($mark, $before + 299.0))->toBeFalse()
+        ->and(ParentDeadline::passedIn($mark, $after + 301.0))->toBe('long')
         ->and(ParentDeadline::slowdownIn(sprintf('%s/none', Scratch::directory())))->toBe(1.0)
         ->and(ParentDeadline::slowdownIn($faster))->toBe(1.0);
 });

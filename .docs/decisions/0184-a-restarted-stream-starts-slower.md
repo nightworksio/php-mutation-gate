@@ -19,10 +19,15 @@ minute: about 113 restarts, each a Pest boot, each sending the stopped
 test's mutants to their own runs. Each restarted stream forgot what the
 stopped one had learnt, so the next heavy test stopped it again.
 
-With restarted streams backing off alone (decisions 1 to 5), the same run
-at the same load grew its second pass from 7 streams to 44: every stream
+With restarted streams backing off alone, the slowdown applied to the
+map's time only, the same run at the same load grew its second pass from 7
+streams to 44: every stream
 of a new pass still started as fast as the map, and each needed several
 restarts to back off to the load the first pass had already measured.
+With a pass also starting where the one before ended, it still grew from 6
+streams to 68: the tests stopped were short ones, whose deadline was
+`timeouts.testFloor`, which a slowdown applied to the map's time does not
+move.
 
 ## Decision
 
@@ -35,8 +40,13 @@ restarts to back off to the load the first pass had already measured.
 3. **A stream's slowdown never falls under the one it started at**: each
    test the map timed still moves it toward the stream's own times, but
    only upward of that start.
-4. **No deadline gives a test more than `timeouts.most`**, which a test
-   the map timed none of already has.
+4. **The slowdown multiplies the whole limit, its floor too**: a test's
+   deadline is the limit a child of it is held to, of the map's time,
+   `timeouts.testFloor` at least, times the slowdown. Most tests the map
+   times run under a second, so their limit is the floor, which a
+   slowdown applied to the map's time alone never moves until it is
+   tens of times the map's. No deadline gives a test more than
+   `timeouts.most`, which a test the map timed none of already has.
 5. **`splitStream.deadlineBackoff`** (a number of at least 1): `2`, by
    default, doubles the slowdown at each restart; `1` carries the stopped
    stream's slowdown on unchanged; a higher number backs off faster. It
