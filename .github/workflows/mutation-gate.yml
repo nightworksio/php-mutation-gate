@@ -107,6 +107,12 @@ on:
           map, leaving the run to a caller that hands one (ADR-0135).
         type: boolean
         default: false
+      gate-pcov:
+        description: >-
+          Whether the gate's own PHP process keeps pcov enabled as it plans and runs each shard: off, the default,
+          starts it with pcov.enabled=0; on keeps pcov as PHP is configured (ADR-0186).
+        type: string
+        default: 'off'
       watch-jobs:
         description: >-
           The names of jobs of the calling run, one per line, such as those that run the fast gates; once one concluded
@@ -605,16 +611,19 @@ jobs:
           OPTIONS: ${{ steps.resolve.outputs.plan_options }}
           COVERAGE: ${{ inputs.coverage }}
           EARLY_ONLY: ${{ inputs.early-only }}
+          GATE_PCOV: ${{ inputs.gate-pcov }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          own=()
+          [ "${GATE_PCOV}" = "on" ] || own=(-d pcov.enabled=0)
           if [ -n "${COVERAGE}" ]; then
             arguments+=("--coverage=${HANDED}")
           fi
           if [ "${EARLY_ONLY}" = "true" ]; then
             arguments+=("--early-only")
           fi
-          "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
+          php "${own[@]}" "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
       # ADR-0106: on a pull request whose plan runs a shard, the jobs the last
       # run's survivors are re-checked in, one per file of those it takes, at
       # most survivorsFirst.shards, and the minutes each may take.
@@ -815,6 +824,7 @@ jobs:
           cache: ${{ inputs.cache }}
           install: composer
           prepare: ${{ inputs.prepare }}
+          gate-pcov: ${{ inputs.gate-pcov }}
           judge: ${{ inputs.judge != '' && env.JUDGE || '' }}
           watch-jobs: ${{ inputs.watch-jobs }}
           composer-auth: ${{ secrets.COMPOSER_AUTH }}

@@ -191,9 +191,11 @@ download may take before it is tried once again, each in minutes,
 the plan sets up, `publish-branch` (`mutation-gate`), where publish writes
 the badge and trend, `early-only` (`false`), with which the plan plans
 nothing, and says why, where a full split-stream run cannot start without a
-fresh map, and `watch-jobs` (empty), the names of jobs of the calling run,
+fresh map, `watch-jobs` (empty), the names of jobs of the calling run,
 one per line, whose failure stops each shard before its next item
-(ADR-0135). It runs the copy of the gate the project requires with
+(ADR-0135), and `gate-pcov` (`off`), with which the gate's own PHP process
+plans and runs each shard with `pcov.enabled=0`, as every process it
+starts keeps PHP's own settings; `on` keeps pcov there (ADR-0186). It runs the copy of the gate the project requires with
 Composer, or the gate `judge` names (ADR-0140), and its `cache` is a
 boolean, where the action's is the text `true` or `false`.
 Its outputs are `verdict`, `scores`, `plan` and `suite`, true

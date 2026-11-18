@@ -84,6 +84,13 @@ inputs:
       builds or fetches it; where empty, the default, install decides.
     required: false
     default: ''
+  gate-pcov:
+    description: >-
+      Whether the gate's own PHP process, as it plans and runs a shard, keeps pcov enabled: off, the default, starts it
+      with pcov.enabled=0, as it collects no coverage itself and every process it starts keeps PHP's own settings
+      (ADR-0186); on keeps pcov as PHP is configured.
+    required: false
+    default: 'off'
   watch-jobs:
     description: >-
       The names of jobs of this run a shard watches, one per line: once one concluded in failure, the shard starts no
@@ -337,13 +344,16 @@ runs:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
         SHARD: ${{ inputs.shard }}
+        GATE_PCOV: ${{ inputs.gate-pcov }}
         MUTATION_GATE_ARTIFACT_SERVICE: ${{ runner.temp }}/mutation-gate-artifact-service.json
         MUTATION_GATE_WATCH_JOBS: ${{ inputs.watch-jobs }}
       run: |
         set -uo pipefail
         code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-        "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${arguments[@]}" || code=$?
+        own=()
+        [ "${GATE_PCOV}" = "on" ] || own=(-d pcov.enabled=0)
+        php "${own[@]}" "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${arguments[@]}" || code=$?
         if [ -f ".mutation-gate/results/${SHARD}.json" ]; then
           echo "${GITHUB_RUN_ATTEMPT}" > ".mutation-gate/results/${SHARD}.attempt"
         fi
@@ -369,11 +379,14 @@ runs:
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.plan_options }}
+        GATE_PCOV: ${{ inputs.gate-pcov }}
       run: |
         set -uo pipefail
         code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-        "${GATE}" plan --ci=github --deliver-later "${arguments[@]}" || code=$?
+        own=()
+        [ "${GATE_PCOV}" = "on" ] || own=(-d pcov.enabled=0)
+        php "${own[@]}" "${GATE}" plan --ci=github --deliver-later "${arguments[@]}" || code=$?
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # On a pull request whose plan runs a shard, the last run's survivors run
@@ -400,15 +413,18 @@ runs:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
         SHARDS: ${{ steps.plan.outputs.shards }}
+        GATE_PCOV: ${{ inputs.gate-pcov }}
       run: |
         set -uo pipefail
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+        own=()
+        [ "${GATE_PCOV}" = "on" ] || own=(-d pcov.enabled=0)
         mapfile -t shards < <(jq -r '.[].id' <<< "${SHARDS:-[]}")
         # Every shard runs, whatever one before it ended with: the verdict
         # judges the result each shard left, and one left none is cannot-judge.
         for shard in "${shards[@]}"; do
           echo "::group::Shard ${shard}"
-          "${GATE}" run --plan=.mutation-gate/plan.json --shard="${shard}" --results=.mutation-gate/results "${arguments[@]}" \
+          php "${own[@]}" "${GATE}" run --plan=.mutation-gate/plan.json --shard="${shard}" --results=.mutation-gate/results "${arguments[@]}" \
             || echo "::warning::Shard ${shard} ended with exit code $?."
           echo "::endgroup::"
         done
