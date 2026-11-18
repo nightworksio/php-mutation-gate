@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Cost\JobsLearned;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Hold\Covered;
@@ -11,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\BriefingRecord;
-use NightWorksIO\MutationGate\Core\Plan\KillsLearned;
+use NightWorksIO\MutationGate\Core\Plan\PlanLearned;
 use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -23,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 it('measures no peak and records first killers, by default', function (): void {
@@ -51,21 +53,29 @@ it('has every test judge the mutants by default, and one suite\'s tests alone wh
         ->and($suite->profile()->isSecurityOnly())->toBeFalse();
 });
 
-it('tells every shard the multiple and the pace the plan learned, which its file holds, and neither by default', function (KillsLearned $kills, array $written): void {
+it('tells every shard the multiple and the pace the plan learned, which its file holds, and neither by default', function (PlanLearned $kills, array $written): void {
     $learning = Briefing::standard()->learning($kills)->weighing(NotGiven::value())->onOwnScopeCoverage();
 
-    expect(Briefing::standard()->learned())->toEqual(KillsLearned::none())
+    expect(Briefing::standard()->learned())->toEqual(PlanLearned::none())
         ->and($learning->learned())->toEqual($kills)
         ->and(BriefingRecord::of($learning))->toMatchArray($written)
-        ->and(BriefingRecord::of(Briefing::standard()))->not->toHaveKeys(['learnedMultiple', 'learnedPace'])
+        ->and(BriefingRecord::of(Briefing::standard()))->not->toHaveKeys(['learnedMultiple', 'learnedPace', 'learnedSetup', 'learnedWindDown', 'learnedPassTwo'])
         ->and(BriefingRecord::read(Node::decode((string) json_encode(BriefingRecord::of($learning)))))
         ->toEqual($learning);
 })->with([
-    'a multiple' => [fn(): KillsLearned => KillsLearned::none()->allowing(Multiple::of(4.5)), ['learnedMultiple' => 4.5]],
-    'a pace' => [fn(): KillsLearned => KillsLearned::none()->pacing(Multiple::of(0.25)), ['learnedPace' => 0.25]],
+    'a multiple' => [fn(): PlanLearned => PlanLearned::none()->allowing(Multiple::of(4.5)), ['learnedMultiple' => 4.5]],
+    'a pace' => [fn(): PlanLearned => PlanLearned::none()->pacing(Multiple::of(0.25)), ['learnedPace' => 0.25]],
     'both' => [
-        fn(): KillsLearned => KillsLearned::none()->allowing(Multiple::of(4.5))->pacing(Multiple::of(0.25)),
+        fn(): PlanLearned => PlanLearned::none()->allowing(Multiple::of(4.5))->pacing(Multiple::of(0.25)),
         ['learnedMultiple' => 4.5, 'learnedPace' => 0.25],
+    ],
+    'what jobs take' => [
+        fn(): PlanLearned => PlanLearned::none()->timing(JobsLearned::learned(Seconds::of(52.5), Seconds::of(9.0), 0.7)),
+        ['learnedSetup' => 52.5, 'learnedWindDown' => 9.0, 'learnedPassTwo' => 0.7],
+    ],
+    'a wind-down alone' => [
+        fn(): PlanLearned => PlanLearned::none()->timing(JobsLearned::learned(NotGiven::value(), Seconds::of(9.0))),
+        ['learnedWindDown' => 9.0],
     ],
 ]);
 
@@ -92,7 +102,7 @@ it('tells every shard what the plan measured of the held units, which its file h
         ->and(BriefingRecord::of($briefing))->toMatchArray(['held' => ['src/A.php' => ['tests' => ['ATest::runs']]]])
         ->and(BriefingRecord::of(Briefing::standard()))->not->toHaveKey('held')
         ->and(BriefingRecord::read(Node::decode((string) json_encode(BriefingRecord::of($briefing)))))->toEqual($briefing)
-        ->and($briefing->learning(KillsLearned::none())->unchangedSince(
+        ->and($briefing->learning(PlanLearned::none())->unchangedSince(
             Unchanged::standing(StandsBecause::NothingReached, Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0), Instant::at(new DateTimeImmutable('2026-11-16T12:00:00Z'))),
         )->ofKind(RunProfile::standard())->recording(MatrixKind::Full)->weighing(NotGiven::value())->held())->toBe($measured);
 });

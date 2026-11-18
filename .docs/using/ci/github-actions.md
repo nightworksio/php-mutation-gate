@@ -144,9 +144,13 @@ The reusable workflow runs a `plan` job, one `shard` job per shard and a
 pass, its shard's job fails, as `run.failFast` says: by default after judging
 every unit, so the verdict names every survivor; under `stop` at once; and
 under `cancel` at once, with GitHub cancelling the other shards of the matrix.
-The verdict still runs and fails, naming the survivor. A shard stops at
-`shards.jobLimit`, `8m` by default; a `leftovers` job then cuts the mutants
-each shard left into shares, each predicted to fit a job of the same limit
+The verdict still runs and fails, naming the survivor. A shard's gate stops
+at `shards.target`, ten minutes by default, less the setup its job took
+before the gate started, the wind-down recent gates took and
+`shards.margin`
+([ADR-0196](../../decisions/0196-a-job-stops-at-its-target-less-what-it-measured.md));
+a `leftovers` job then cuts the mutants
+each shard left into shares, each predicted to fit a job of the same stop
 where 256 shares, the most a matrix holds, can hold them all, and one `leftover` job per share judges them as the shard would have, its
 result read by the verdict beside the shards'
 ([ADR-0190](../../decisions/0190-a-shard-hands-what-it-left-to-a-second-wave.md)).
@@ -198,7 +202,9 @@ download may take before it is tried once again, each in minutes,
 the plan sets up, `publish-branch` (`mutation-gate`), where publish writes
 the badge and trend, `early-only` (`false`), with which the plan plans
 nothing, and says why, where a full split-stream run cannot start without a
-fresh map, `watch-jobs` (empty), the names of jobs of the calling run,
+fresh map, `job-started` (empty), when the shard's job began, as seconds
+since the epoch, which its stop is read from (ADR-0196), `watch-jobs`
+(empty), the names of jobs of the calling run,
 one per line, whose failure stops each shard before its next item
 (ADR-0135), and `gate-pcov` (`off`), with which the gate's own PHP process
 plans and runs each shard with `pcov.enabled=0`, as every process it

@@ -22,7 +22,9 @@ use function sprintf;
  * into, for a second wave of jobs to judge (ADR-0190), as
  * `.mutation-gate/results/leftovers.json` holds them: the digest of the plan
  * they were cut from, and each share's shard, number and mutants, each
- * mutant by the gate's id, the runner's own and the file it mutates.
+ * mutant by the gate's id, the runner's own and the file it mutates; and,
+ * as they are cut, the shards that left no result, whose mutants none of
+ * them lists (ADR-0196).
  *
  * @internal the shape of the file
  */
@@ -35,9 +37,24 @@ final readonly class LeftoverShares
 
     private const string UNREAD = 'The shares of the mutants the shards left cannot be read: %s';
 
-    /** @param list<LeftoverShare> $shares */
-    private function __construct(private string $plan, private array $shares)
+    /**
+     * @param list<LeftoverShare> $shares
+     * @param list<int>           $unread the numbers of the shards that left no result to cut
+     */
+    private function __construct(private string $plan, private array $shares, private array $unread = [])
     {
+    }
+
+    /** These shares, cut with the shards of these numbers leaving no result. */
+    public function without(int ...$unread): self
+    {
+        return new self($this->plan, $this->shares, [...$this->unread, ...array_values($unread)]);
+    }
+
+    /** @return list<int> the numbers of the shards that left no result to cut, as the shares were cut */
+    public function unread(): array
+    {
+        return $this->unread;
     }
 
     /** These shares, cut from the mutants this plan's shards left. */

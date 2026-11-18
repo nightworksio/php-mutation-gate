@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Toggles;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -155,10 +157,17 @@ it('forks a first pass at each likely killer alone, and a second at every coveri
             ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large')))
             ->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, $history), MatrixKind::FirstKiller)),
     );
+    $passes = $result instanceof MutationResult ? array_values(array_filter(
+        [...$result->steps()],
+        static fn(StepTime $step): bool => $step->step() === Step::FirstPass || $step->step() === Step::SecondPass,
+    )) : [];
+
     expect(streamedJudged($result))->toBe([
         11 => [MutantStatus::Killed, [STREAMED_TWICE], true],
         16 => [MutantStatus::Survived, [], true],
-    ]);
+    ])
+        ->and(array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], $passes))
+        ->toBe([[Step::FirstPass, 2], [Step::SecondPass, 1]]);
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',

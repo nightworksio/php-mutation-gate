@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Control\AskingKinds;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlKind;
 use NightWorksIO\MutationGate\Core\Control\ControlTime;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -175,6 +176,26 @@ it('writes the gate that measured a shard, and reads it back, and reads none fro
     expect(ShardResultFile::encode($result))->toContain('"measuredBy": "nightworksio/mutation-gate 1.2.0"')
         ->and($read instanceof ShardResult ? $read->measured()->gate()->value() : $read)->toBe('nightworksio/mutation-gate 1.2.0')
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('measuredBy');
+});
+
+it('writes what its job measured of its own time and each pass\'s bound, and reads them back, and none where it measured none', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $passes = StepTimes::of(
+        StepTime::of(Step::FirstPass, Seconds::of(3.0), Seconds::of(40.0), 5)->bounded(Seconds::of(120.0)),
+        StepTime::of(Step::SecondPass, Seconds::of(43.0), Seconds::of(84.0), 2)->bounded(Seconds::of(120.0)),
+    );
+    $measured = $makeMeasured()->withSteps($passes)->timingTheJob(JobTimes::of('p', Seconds::of(52.5), Seconds::of(6.0), 0.7));
+    $result = $finished($survivor, $measured);
+    $read = ShardResultFile::decode(ShardResultFile::encode($result));
+
+    expect($read)->toEqual($result)
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'platform'))->toBe('p')
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'setup'))->toBe(52.5)
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'windDown'))->toBe(6.0)
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'passTwo'))->toBe(0.7)
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'steps', 1, 'bound'))->toBe(120.0)
+        ->and(ShardResultFile::encode($finished($survivor, $makeMeasured())))->not->toContain('windDown')
+        ->and($read instanceof ShardResult ? $read->measured()->steps()->secondPassFactor() : $read)->toBe(0.7);
 });
 
 it('writes each kill\'s evidence beside its mutant, and reads it back', function () use ($makeMeasured): void {

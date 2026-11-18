@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /** @return list<array{Step, float, float, int}> each step as its name, start, length and count */
@@ -53,4 +54,23 @@ it('times each lap from when the run began, on the runner\'s clock, in seconds o
         [Step::Reading, 1.0, 1.5, 1],
         [Step::Trials, 1.0, 4.0, 1],
     ]);
+});
+
+it('takes its second passes\' factor as their seconds over their bounds, leaving out first passes and passes of no bound', function (): void {
+    $second = static fn(float $took, float $bound): StepTime => StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of($took), 3)->bounded(Seconds::of($bound));
+    $steps = StepTimes::of(
+        StepTime::of(Step::FirstPass, Seconds::of(0.0), Seconds::of(50.0))->bounded(Seconds::of(10.0)),
+        $second(30.0, 100.0),
+        $second(5.0, 0.0),
+        StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(80.0)),
+        $second(40.0, 100.0),
+    );
+
+    expect($steps->secondPassFactor())->toBe(0.35)
+        ->and(StepTimes::of($second(5.0, 0.0))->secondPassFactor())->toBeInstanceOf(NotGiven::class)
+        ->and(StepTimes::none()->secondPassFactor())->toBeInstanceOf(NotGiven::class)
+        ->and($second(1.0, 2.0)->bound())->toEqual(Seconds::of(2.0))
+        ->and(StepTime::counted($second(1.0, 2.0), 7)->bound())->toEqual(Seconds::of(2.0))
+        ->and($second(1.0, 2.0)->later(Seconds::of(3.0))->bound())->toEqual(Seconds::of(2.0))
+        ->and(StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(1.0))->bound())->toBeInstanceOf(NotGiven::class);
 });

@@ -11,6 +11,7 @@ use function is_array;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -182,7 +183,8 @@ final readonly class LeftoverParts
             $shard,
             $result->withFlaky($result->flaky()->and($judged[1]))
                 ->withWarnings($result->warnings()->and($judged[2]))
-                ->withChecks($result->checks()->plus($judged[3])),
+                ->withChecks($result->checks()->plus($judged[3]))
+                ->withShares(...$judged[4]),
             $mutated->withMutants($mutated->mutants()->replacing($judged[0])),
         ];
     }
@@ -207,11 +209,11 @@ final readonly class LeftoverParts
 
     /**
      * The mutants the shares' results judged, those they found flaky, what
-     * they warned of and what their static checks came to; none of a share
-     * whose job left no result.
+     * they warned of, what their static checks came to and what their jobs
+     * measured of their time; none of a share whose job left no result.
      *
-     * @param  list<LeftoverShare>                                         $shares
-     * @return array{Mutants, MutantIds, Warnings, SurvivorChecks}|CannotJudge
+     * @param  list<LeftoverShare>                                                         $shares
+     * @return array{Mutants, MutantIds, Warnings, SurvivorChecks, list<JobTimes>}|CannotJudge
      */
     private static function sharesOf(
         Plan $plan,
@@ -220,7 +222,7 @@ final readonly class LeftoverParts
         Path $directory,
         Directory $project,
     ): array|CannotJudge {
-        $judged = [Mutants::none(), MutantIds::none(), Warnings::none(), SurvivorChecks::none()];
+        $judged = [Mutants::none(), MutantIds::none(), Warnings::none(), SurvivorChecks::none(), []];
 
         foreach ($shares as $share) {
             $read = LeftResults::at($plan, $shard, self::resultOf($directory, $share), $project);
@@ -235,6 +237,7 @@ final readonly class LeftoverParts
                 $judged[1]->and($left[0]->flaky()),
                 $judged[2]->and($left[0]->warnings()),
                 $judged[3]->plus($left[0]->checks()),
+                [...$judged[4], $left[0]->measured()->job()],
             ];
         }
 

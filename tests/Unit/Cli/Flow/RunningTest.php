@@ -545,7 +545,7 @@ it('runs survivors again within what the budget has left, not what the invocatio
     expect($again)->toHaveCount(2)
         ->and($again[0])->toBeLessThan($first)->toBeGreaterThan(0.0)
         ->and($again[1])->toBeLessThan($again[0])
-        ->and(array_map(static fn(array $retry): bool => $retry[4]->deadline() instanceof Seconds && $retry[4]->deadline()->seconds() < ConfiguredShards::standard()->jobLimit()->seconds(), $unbudgeted->retries()))
+        ->and(array_map(static fn(array $retry): bool => $retry[4]->deadline() instanceof Seconds && $retry[4]->deadline()->seconds() < ConfiguredShards::standard()->stop()->target()->seconds(), $unbudgeted->retries()))
         ->toBe([true, true]);
 });
 

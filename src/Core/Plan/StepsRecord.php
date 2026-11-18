@@ -27,8 +27,10 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * where it handled more than one, how many as `count`, and where it ran
  * unmutated controls, each as `controls` (ADR-0167): what asked for it,
  * `kinds`, the tests it asked for, `tests`, the test cases its log names,
- * `cases`, its `limit`, the `seconds` its process lasted and its `end`. A
- * shard that timed no step holds none.
+ * `cases`, its `limit`, the `seconds` its process lasted and its `end`; and
+ * where a pass of split streams knows it, `bound`, the wall seconds it would
+ * take were every mutant it streamed forked at each covering test
+ * (ADR-0196). A shard that timed no step holds none.
  *
  * @internal the shape of a shard result's `measured.steps`
  *
@@ -40,7 +42,14 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  *     seconds?: float,
  *     end: string,
  * }
- * @phpstan-type StepRow array{step: string, since: float, seconds: float, count?: int, controls?: list<ControlRow>}
+ * @phpstan-type StepRow array{
+ *     step: string,
+ *     since: float,
+ *     seconds: float,
+ *     count?: int,
+ *     controls?: list<ControlRow>,
+ *     bound?: float,
+ * }
  */
 final readonly class StepsRecord
 {
@@ -66,21 +75,27 @@ final readonly class StepsRecord
 
     private const string END = 'end';
 
+    private const string BOUND = 'bound';
+
     /** @return list<StepRow> */
     public static function of(StepTimes $steps): array
     {
-        return array_map(
-            static fn(StepTime $step): array => [
-                self::STEP => $step->step()->value,
-                self::SINCE => $step->since()->seconds(),
-                self::SECONDS => $step->took()->seconds(),
-                ...$step->count() === 1 ? [] : [self::COUNT => $step->count()],
-                ...count($step->controls()) === 0
-                    ? []
-                    : [self::CONTROLS => array_map(self::controlOf(...), [...$step->controls()])],
-            ],
-            [...$steps],
-        );
+        return array_map(self::rowOf(...), [...$steps]);
+    }
+
+    /** @return StepRow one step as a result holds it */
+    public static function rowOf(StepTime $step): array
+    {
+        return [
+            self::STEP => $step->step()->value,
+            self::SINCE => $step->since()->seconds(),
+            self::SECONDS => $step->took()->seconds(),
+            ...$step->count() === 1 ? [] : [self::COUNT => $step->count()],
+            ...count($step->controls()) === 0
+                ? []
+                : [self::CONTROLS => array_map(self::controlOf(...), [...$step->controls()])],
+            ...$step->bound() instanceof Seconds ? [self::BOUND => $step->bound()->seconds()] : [],
+        ];
     }
 
     /**
@@ -97,20 +112,27 @@ final readonly class StepsRecord
         return StepTimes::of(...array_map(self::stepIn(...), $section->items()));
     }
 
-    /** @throws NotInShape */
-    private static function stepIn(Node $item): StepTime
+    /**
+     * One step as a result holds it.
+     *
+     * @throws NotInShape
+     */
+    public static function stepIn(Node $item): StepTime
     {
         $count = $item->field(self::COUNT);
 
         $controls = $item->field(self::CONTROLS);
+        $bound = $item->field(self::BOUND);
 
-        return StepTime::of(
+        $step = StepTime::of(
             Step::tryFrom($item->field(self::STEP)->text())
                 ?? throw NotInShape::at($item->field(self::STEP)->at(), 'a step'),
             Seconds::of($item->field(self::SINCE)->number()),
             Seconds::of($item->field(self::SECONDS)->number()),
             $count->isPresent() ? $count->integer() : 1,
         )->controlling(...$controls->isPresent() ? array_map(self::controlIn(...), $controls->items()) : []);
+
+        return $bound->isPresent() ? $step->bounded(Seconds::of($bound->number())) : $step;
     }
 
     /** @return ControlRow */

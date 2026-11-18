@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
  * the map its own scope keeps (ADR-0023), and, for a plan that
  * runs nothing because nothing the gate judges changed, the commit whose
  * verdict stands ({@see Unchanged}), and what it learned from the ledgers'
- * kills ({@see KillsLearned}).
+ * kills ({@see PlanLearned}).
  */
 final readonly class Briefing
 {
@@ -28,7 +28,7 @@ final readonly class Briefing
         private RunProfile $kind,
         private bool $ownScopeCoverage,
         private Unchanged|NotGiven $unchanged,
-        private KillsLearned $kills,
+        private PlanLearned $kills,
         private bool $early = false,
         private bool $waits = false,
         private MeasuredHolds|NotGiven $held = new NotGiven(),
@@ -46,7 +46,7 @@ final readonly class Briefing
             RunProfile::standard(),
             ownScopeCoverage: false,
             unchanged: NotGiven::value(),
-            kills: KillsLearned::none(),
+            kills: PlanLearned::none(),
         );
     }
 
@@ -191,7 +191,7 @@ final readonly class Briefing
     }
 
     /** This briefing, telling its shards what the plan learned from the ledgers' kills. */
-    public function learning(KillsLearned $kills): self
+    public function learning(PlanLearned $kills): self
     {
         return new self(
             $this->peak,
@@ -205,8 +205,9 @@ final readonly class Briefing
         );
     }
 
+
     /** What the plan learned from the ledgers' kills: the `timeouts.multiple` and the pace, where it learned each. */
-    public function learned(): KillsLearned
+    public function learned(): PlanLearned
     {
         return $this->kills;
     }

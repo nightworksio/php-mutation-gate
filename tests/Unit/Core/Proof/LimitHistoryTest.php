@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
+use NightWorksIO\MutationGate\Core\Cost\JobsLearned;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Bound;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 $killed = static fn(float ...$times): LimitHistory => LimitHistory::none()->afterKills(...array_map(Multiple::of(...), $times));
 
@@ -90,4 +94,19 @@ it('reads another scope\'s kills or runs where this one learned none of them', f
     expect($ours->and($theirs))->toEqual($ours->afterRuns(ShardsAtOnce::of(4)))
         ->and(LimitHistory::none()->and($theirs))->toEqual($theirs)
         ->and($theirs->and($ours))->toEqual($theirs);
+});
+
+it('learns what the jobs on one platform took, keeping only the newest jobs, and each history\'s jobs where the other learned none', function (): void {
+    $job = static fn(string $platform, float $setup): JobTimes => JobTimes::of($platform, Seconds::of($setup), NotGiven::value(), NotGiven::value());
+    $history = LimitHistory::none()->afterJobs($job('p', 40.0), $job('q', 90.0), $job('p', 55.0));
+    $many = LimitHistory::none()->afterJobs(...array_map(static fn(int $at): JobTimes => $job('p', (float) $at), range(1, LimitHistory::JOBS + 5)));
+    $kept = $many->keepingLast(Bound::atMost(1), Bound::atMost(1));
+
+    expect($history->jobsOn(Digest::of('p'))->setup())->toEqual(Seconds::of(55.0))
+        ->and($history->jobsOn(Digest::of('q'))->setup())->toEqual(Seconds::of(90.0))
+        ->and($history->jobsOn(Digest::of('r')))->toEqual(JobsLearned::none())
+        ->and([...$kept->jobs()])->toHaveCount(LimitHistory::JOBS)
+        ->and([...$kept->jobs()][0])->toEqual($job('p', 6.0))
+        ->and(LimitHistory::none()->and($history)->jobs())->toEqual($history->jobs())
+        ->and($history->afterKills(Multiple::of(2.0))->afterRuns(ShardsAtOnce::of(3))->jobs())->toEqual($history->jobs());
 });

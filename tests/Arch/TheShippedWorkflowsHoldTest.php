@@ -429,7 +429,7 @@ it('gives the action\'s token only to naming the default branch, reading what th
         ->and(Lenient::text($steps[$installs]->field('if')))->toBe("inputs.deliver != 'true'");
 });
 
-it('stops a shard by shards.jobLimit before its job is cancelled', function (): void {
+it('stops a shard by its target before its job is cancelled', function (): void {
     $shards = (string) file_get_contents(Tree::at('scripts/workflows/mutation-gate/shards.yml'));
     $trigger = (string) file_get_contents(Tree::at('scripts/workflows/mutation-gate/trigger.yml'));
     $pattern = '/^      shard-timeout:\n(?:        \S.*\n)*?        default: (?<minutes>\d+)$/mu';
@@ -437,7 +437,7 @@ it('stops a shard by shards.jobLimit before its job is cancelled', function (): 
 
     expect($shards)->toContain("  shard:\n    name: shard \${{ matrix.shard.id }} (\${{ matrix.shard.label }})\n    needs: [fetch, plan, judge]\n")
         ->and($shards)->toContain('    timeout-minutes: ${{ inputs.shard-timeout }}')
-        ->and(Shards::standard()->jobLimit()->seconds())->toBeLessThan($minutes * 60.0);
+        ->and(Shards::standard()->stop()->target()->seconds())->toBeLessThan($minutes * 60.0);
 });
 
 it('hands what the shards left at their deadline to a second wave, whose results the verdict reads beside theirs', function (): void {

@@ -6,15 +6,20 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_diff_key;
 use function array_filter;
+use function array_key_exists;
 use function array_keys;
+use function count;
 use function getcwd;
 use function getenv;
+use function max;
+use function microtime;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\PcovTests;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
+use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
@@ -114,11 +119,16 @@ final readonly class Streams
             PcovTests::of($coveredLines),
             StreamSlowdown::carried($settings->pace()->carry, $results),
         );
+        $bound = self::boundOf($covering, $processes);
+        $from = microtime(as_float: true);
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, self::firstHeld($held, $sites, $cheapest), $settings);
+        StreamPasses::ended($results, Step::FirstPass, microtime(as_float: true) - $from, count($sites), $bound);
         [$again, $left] = new SecondPass($sites, $covering, $held, $cheapest)->of($byId, $unrun, $verdicts, $settings);
         $settled = $settings->pace()->earlyVerdicts ? SettledFirst::of($byId, $covering, $again, $left) : [];
         self::given($verdicts, $settled, $covering);
+        $from = microtime(as_float: true);
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $left, $verdicts);
+        StreamPasses::ended($results, Step::SecondPass, microtime(as_float: true) - $from, count($again), $bound);
         self::given($verdicts, array_diff_key($byId, $settled), $covering);
 
         ForkStatesLine::writtenFor($verdicts, $results);
@@ -131,6 +141,27 @@ final readonly class Streams
     public static function parts(StreamSettings $settings): TestParts
     {
         return self::partsOf($settings->part(), $settings);
+    }
+
+    /**
+     * The wall seconds a pass would take were each mutant forked at every
+     * covering test the shard judges it by, those tests' seconds by the map
+     * shared by the run's processes (ADR-0196).
+     *
+     * @param array<string, list<string>> $covering
+     */
+    private static function boundOf(array $covering, int $processes): float
+    {
+        $times = LoadedMap::timed();
+        $seconds = 0.0;
+
+        foreach ($covering as $tests) {
+            foreach ($tests as $test) {
+                $seconds += array_key_exists($test, $times) ? $times[$test] : 0.0;
+            }
+        }
+
+        return $seconds / max(1, $processes);
     }
 
     /**

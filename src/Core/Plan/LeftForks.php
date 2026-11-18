@@ -10,9 +10,11 @@ use function array_sum;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
- * The seconds a left mutant's forks are priced at (ADR-0195): its fork at
- * the likely killer the ledger names, where it names one, and otherwise its
- * covering tests', at each of which a second pass forks it.
+ * The seconds a left mutant's forks are priced at (ADR-0195, ADR-0196): its
+ * first pass's fork at the likely killer the ledger names, where it names
+ * one, and its covering tests', at each of which a second pass forks it
+ * where the first left it, as it may whether the ledger names a killer or
+ * not.
  *
  * @internal
  */
@@ -22,10 +24,10 @@ final readonly class LeftForks
     {
     }
 
-    /** A mutant the ledger names a likely killer of, taking these seconds. */
-    public static function atKiller(float $seconds): self
+    /** A mutant the ledger names a likely killer of, taking these seconds, its covering tests taking these. */
+    public static function atKiller(float $seconds, float $covering = 0.0): self
     {
-        return new self($seconds, 0.0);
+        return new self($seconds, $covering);
     }
 
     /** A mutant the ledger names no likely killer of, whose covering tests take these seconds together. */
@@ -36,7 +38,7 @@ final readonly class LeftForks
 
     /**
      * A mutant's forks: at the first of its likely killers that covers it,
-     * or at every covering test where none does.
+     * where one does, and at every covering test.
      *
      * @param array<string, float> $seconds each covering test's seconds, by its id
      */
@@ -44,7 +46,7 @@ final readonly class LeftForks
     {
         foreach ($killers as $killer) {
             if (array_key_exists($killer->value(), $seconds)) {
-                return self::atKiller($seconds[$killer->value()]);
+                return self::atKiller($seconds[$killer->value()], array_sum($seconds));
             }
         }
 

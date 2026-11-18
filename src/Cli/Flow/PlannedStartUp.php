@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Proof\JobTimesRecord;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -41,7 +42,7 @@ final readonly class PlannedStartUp
 
     private const string RUNNER = 'runner';
 
-    private const string PLATFORM = 'platform';
+    private const string PLATFORM = JobTimesRecord::PLATFORM;
 
     private const string SECONDS = 'seconds';
 

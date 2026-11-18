@@ -768,6 +768,9 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
+      - name: Note when the job began, which its gate's stop is read from
+        id: began
+        run: echo "at=$(date +%s)" >> "${GITHUB_OUTPUT}"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -843,6 +846,7 @@ jobs:
           ini-values: ${{ inputs.ini-values }}
           runner: ${{ inputs.runner }}
           shard: ${{ matrix.shard.id }}
+          job-started: ${{ steps.began.outputs.at }}
           mode: ${{ inputs.mode }}
           changed-since: ${{ inputs.changed-since }}
           budget: ${{ inputs.budget }}
@@ -1017,6 +1021,9 @@ jobs:
       matrix:
         share: ${{ fromJSON(needs.leftovers.outputs.shares) }}
     steps:
+      - name: Note when the job began, which its gate's stop is read from
+        id: began
+        run: echo "at=$(date +%s)" >> "${GITHUB_OUTPUT}"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -1103,6 +1110,7 @@ jobs:
           runner: ${{ inputs.runner }}
           shard: ${{ matrix.share.shard }}
           leftover: ${{ matrix.share.share }}
+          job-started: ${{ steps.began.outputs.at }}
           mode: ${{ inputs.mode }}
           changed-since: ${{ inputs.changed-since }}
           budget: ${{ inputs.budget }}

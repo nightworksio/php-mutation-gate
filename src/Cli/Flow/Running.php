@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use DateTimeImmutable;
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
 use NightWorksIO\MutationGate\Adapter\GitHub\ProgressReporter;
 use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -28,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\NoProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
@@ -243,14 +246,14 @@ final readonly class Running
         $exchange = $this->adapters->exchange;
 
         if ($followed instanceof Plan && $id instanceof ShardId && LeftoverScope::of($this->share)->pulls($followed)) {
-            $deadline = ShardDeadline::of($this->settings, $this->setup->clock->now());
+            $deadline = $this->shardDeadline($followed);
 
             return new PulledRuns($this->adapters, $this->settings, $exchange, $this->setup->clock)->left(
                 $followed,
                 $id,
                 $results,
                 $service,
-                $deadline,
+                $deadline->deadline(),
                 fn(ShardId $item): ShardResult|CannotJudge => $this->resultLeft($followed, $item, $results, $deadline),
             );
         }
@@ -261,7 +264,7 @@ final readonly class Running
             $followed instanceof CannotJudge => $followed,
             $id instanceof CannotJudge => $id,
             $stopped !== '' => CannotJudge::because($stopped),
-            default => $this->resultOf($followed, $id, ShardDeadline::of($this->settings, $this->setup->clock->now())),
+            default => $this->resultOf($followed, $id, $this->shardDeadline($followed)),
         };
 
         if ($followed instanceof Plan && $id instanceof ShardId) {
@@ -271,12 +274,23 @@ final readonly class Running
         return ShardLeft::after($result, $this->written($result, $results));
     }
 
+    /** When a shard of this plan whose gate starts now stops, in the job the environment describes. */
+    private function shardDeadline(Plan $plan): ShardDeadline
+    {
+        return ShardDeadline::of(
+            $this->settings,
+            $plan->briefing()->learned()->jobs(),
+            $this->adapters->environment,
+            $this->setup->clock->now(),
+        );
+    }
+
     /** What one shard of a plan came to, with what its streams recorded left where the run reads it. */
     private function resultLeft(
         Plan $plan,
         ShardId $id,
         Path $results,
-        Deadline|Unlimited $deadline,
+        Deadline|ShardDeadline|Unlimited $deadline,
     ): ShardResult|CannotJudge {
         $result = $this->resultOf($plan, $id, $deadline);
         $this->recording()->left($plan, $id, $results);
@@ -299,9 +313,16 @@ final readonly class Running
         );
     }
 
-    /** What one shard of a plan came to, or why it has no result. */
-    private function resultOf(Plan $plan, ShardId $id, Deadline|Unlimited $deadline): ShardResult|CannotJudge
-    {
+    /**
+     * What one shard of a plan came to, with what its job measured of its
+     * own time where it stops at a shard's deadline; or why it has no result.
+     */
+    private function resultOf(
+        Plan $plan,
+        ShardId $id,
+        Deadline|ShardDeadline|Unlimited $stop,
+    ): ShardResult|CannotJudge {
+        $deadline = $stop instanceof ShardDeadline ? $stop->deadline() : $stop;
         $shard = $plan->shards()->numbered($id);
 
         if ($shard instanceof CannotJudge) {
@@ -351,13 +372,41 @@ final readonly class Running
             $outcome instanceof CannotJudge ? $outcome : $outcome->result,
             Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended))
                 ->withSteps($stopwatch->steps())
-                ->measuredBy(GateRelease::of($this->setup->gate)),
+                ->measuredBy(GateRelease::of($this->setup->gate))
+                ->timingTheJob($this->jobTimes($stop, $identity, $stopwatch, $ended)),
         );
         $result = $this->left($result, $outcome);
 
         return $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
             Warning::noting(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
         ) : Warnings::none())->and(Unsplit::warnings($this->settings, $id)));
+    }
+
+    /**
+     * What a job whose gate stops at a shard's deadline measured of its own
+     * time, as the shard's result was made at this instant: the platform its
+     * runner runs on, its setup, how long past the deadline the result came,
+     * where it did, and its second passes' factor; nothing of a run with no
+     * such deadline.
+     */
+    private function jobTimes(
+        Deadline|ShardDeadline|Unlimited $stop,
+        Identity|CannotJudge $identity,
+        Stopwatch $stopwatch,
+        DateTimeImmutable $ended,
+    ): JobTimes {
+        if (! $stop instanceof ShardDeadline) {
+            return JobTimes::none();
+        }
+
+        $deadline = $stop->deadline();
+
+        return JobTimes::of(
+            $identity instanceof Identity ? $identity->platform()->value() : '',
+            $stop->setup(),
+            $deadline->hasPassed($ended) ? Seconds::of($deadline->overrunAt($ended)) : NotGiven::value(),
+            $stopwatch->steps()->secondPassFactor(),
+        );
     }
 
     /** The result with what the shard's mutating left beside its mutants, warnings too: none where it cannot judge. */

@@ -33,6 +33,12 @@ final class AnalyserWarmUp
     {
     }
 
+    /** Whether the run over the originals was made already. */
+    public function isMade(): bool
+    {
+        return $this->made !== [];
+    }
+
     public function of(
         StaticChecker $checker,
         AnalyserIdentity $identity,

@@ -85,7 +85,13 @@ it('runs the mutants again in one run of their files with their mutators, naming
         ->leavingOut(Paths::of(Path::of('src/Held')))
         ->within(Seconds::of(42.0));
     $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), Narrowing::none()->toMutators(Mutators::named(PestCases::RUN_PLUS)));
-    $retried = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
+    $stopped = new class implements Clock {
+        public function seconds(): float
+        {
+            return 0.0;
+        }
+    };
+    $retried = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $stopped)
         ->retry($invocation, Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0));
     $notFound = Reason::that('Run again alone, Pest made no mutant with this id.');
 
@@ -385,7 +391,7 @@ it('runs the tests of every narrowed kill\'s files alone side by side, one place
         ->toBe([[PestCases::spec($at)], [sprintf('%s/tests/OtherSpec.php', $at->root())]]);
 });
 
-it('bounds the run of a narrowed kill\'s files alone, and its run again, by the time left of the deadline', function (): void {
+it('bounds the mutation run, the run of a narrowed kill\'s files alone and its run again, each by the time left of the deadline as it starts', function (): void {
     $at = PestCases::project();
     $shell = PestCases::narrowedKill($at, passAlone: false);
     $clock = new class implements Clock {
@@ -400,7 +406,7 @@ it('bounds the run of a narrowed kill\'s files alone, and its run again, by the 
     new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of(200.0)));
 
     expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $shell->commands()))
-        ->toEqual([Seconds::of(200.0), Seconds::of(100.0), Seconds::of(70.0)]);
+        ->toEqual([Seconds::of(180.0), Seconds::of(80.0), Seconds::of(30.0)]);
 });
 
 it('names the steps a patched run\'s time went to, each timed from when the run began', function (): void {

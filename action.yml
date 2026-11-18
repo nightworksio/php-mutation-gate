@@ -95,6 +95,13 @@ inputs:
       (ADR-0186); on keeps pcov as PHP is configured.
     required: false
     default: 'off'
+  job-started:
+    description: >-
+      When the shard's job began, as seconds since the epoch: the shard stops at shards.target less the time since
+      then, the wind-down recent jobs measured and shards.margin (ADR-0196). Where empty, the default, it takes the
+      longest setup recent jobs measured, or shards.setup.
+    required: false
+    default: ''
   watch-jobs:
     description: >-
       The names of jobs of this run a shard watches, one per line: once one concluded in failure, the shard starts no
@@ -365,6 +372,7 @@ runs:
         GATE_PCOV: ${{ inputs.gate-pcov }}
         MUTATION_GATE_ARTIFACT_SERVICE: ${{ runner.temp }}/mutation-gate-artifact-service.json
         MUTATION_GATE_WATCH_JOBS: ${{ inputs.watch-jobs }}
+        MUTATION_GATE_JOB_STARTED: ${{ inputs.job-started }}
       run: |
         set -uo pipefail
         code=0

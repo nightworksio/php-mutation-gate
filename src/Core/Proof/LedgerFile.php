@@ -203,6 +203,7 @@ final readonly class LedgerFile
             ->withLearned(LimitsRecord::read(
                 $file->field(LimitsRecord::KILLS),
                 $file->field(LimitsRecord::CONCURRENCY),
+                $file->field(LimitsRecord::JOBS),
             ))
             ->withLearned(SubsumptionRecord::read($file->field(SubsumptionRecord::SECTION)));
     }

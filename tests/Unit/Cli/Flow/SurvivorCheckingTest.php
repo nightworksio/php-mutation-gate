@@ -33,6 +33,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -147,6 +149,25 @@ function checkWatch(): Stopwatch
     $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
 
     return new Stopwatch($clock, $clock->now());
+}
+
+/**
+ * The files of the mutants the checks left unjudged for a later run to check.
+ *
+ * @return list<string>
+ */
+function checkedLate(Checked $checked): array
+{
+    $late = array_filter(
+        [...$checked->mutants],
+        static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Unjudged
+            && $mutant->reason() instanceof Reason
+            && $mutant->reason()->outOfTime() === OutOfTime::BeforeChecking,
+    );
+    $files = array_map(static fn(Mutant $mutant): string => $mutant->location()->file()->value(), array_values($late));
+    sort($files);
+
+    return $files;
 }
 
 /** @return list<string> each warning the checks raise */
@@ -385,8 +406,29 @@ it('runs nothing where the time budget has already run out, and leaves every sur
     ])
         ->and($checker->warmUps())->toBe([])
         ->and($checker->asked())->toBe([])
-        ->and($checked->unchecked->for(Unchecked::OutOfTime))->toEqual($checked->examinedIds());
+        ->and($checked->unchecked->for(Unchecked::OutOfTime))->toEqual($checked->examinedIds())
+        ->and(checkedLate($checked))->toBe(['src/Held.php', 'src/Money.php']);
 });
+
+it('starts no run over the originals the time left has no room for, at the time the plan measured it, and leaves every survivor unjudged for a later run to check', function (int $planned, bool $fits): void {
+    $project = Scratch::directory();
+    $checker = checkedBy($project, [CheckedFiles::original(checkedSurvivor(checkedMutants(), 'src/Money.php')->id())->value() => checkedOriginals()]);
+    Scratch::write($project, '.mutation-gate/warm-up.json', (string) json_encode([
+        'analyser' => 'fake',
+        'version' => '1.0.0',
+        'config' => Digest::sha256Of('{}')->value(),
+        'seconds' => $planned,
+    ]));
+    $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(600.0));
+
+    $checked = checking($project, $checker, ScriptedRunner::fixture(), $deadline)->checked(checkedMutants(), MutantIds::none());
+
+    expect($checker->warmUps() !== [])->toBe($fits)
+        ->and(checkedLate($checked))->toBe($fits ? [] : ['src/Held.php', 'src/Money.php']);
+})->with([
+    'a planned run of 900s, past the 600s left' => [900, false],
+    'a planned run of 30s, inside them' => [30, true],
+]);
 
 it('starts as many checks as the time left has room for, each as long as the run over the originals took, as many at once as there are cores', function (
     ScriptedClock $clock,

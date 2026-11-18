@@ -49,8 +49,9 @@ final readonly class PlanEstimates
         SAID;
 
     private const string PAST_THE_LIMIT = <<<'SAID'
-        shards.jobLimit is %s, and at %d %s the longest is expected to take %s.
-        A shard stops at the limit with what it judged, and the run cannot pass on what it left.
+        A shard stops after %s, shards.target less its setup, its wind-down and shards.margin, or shards.jobLimit,
+        and at %d %s the longest is expected to take %s.
+        A shard stops there with what it judged, and the second wave judges what it left.
         Raise shards.max, or spend less on the longest shard, to fit it.
         SAID;
 
@@ -147,7 +148,7 @@ final readonly class PlanEstimates
      * what that rests on; where it rests on a measured first run, how many
      * mutants each shard's runner is taken to run at once; where
      * `shards.target` cannot be met under `shards.max`, a line that says so;
-     * and where the longest shard is expected past `shards.jobLimit`, a line
+     * and where the longest shard is expected past its stop (ADR-0196), a line
      * that says so.
      *
      * @return list<string>

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_filter;
+use function array_map;
+use function array_values;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
@@ -16,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -30,8 +34,10 @@ use Psr\Clock\ClockInterface;
  * with the files it can break where it changes what its file declares and
  * the analyser reads them. A
  * survivor with an error its original does not have is killed by static
- * analysis. One the analyser cannot check, or the time budget has no room
- * for, stays a survivor, and the checks say why. A survivor printed as its
+ * analysis. One the analyser cannot check stays a survivor, and the checks
+ * say why; one the time left has no room for, the analyser's run over the
+ * originals at the time the plan measured it among it, is unjudged, for a
+ * later run to check (ADR-0196). A survivor printed as its
  * runner prints its mutants is judged against its original printed the same
  * way, which must first analyse as the file itself does. The checks record
  * their time alone (ADR-0020), and each round of them is timed
@@ -71,8 +77,20 @@ final readonly class SurvivorChecking
             ? new Checked($mutants, SurvivorChecks::none(), $survivors, UncheckedIds::none())
             : $this->warmedUp($checker, $mutants, $survivors);
         $this->stopwatch->handled(Step::StaticCheck, $from, $survivors->count());
+        $late = $checked->unchecked->for(Unchecked::OutOfTime);
 
-        return $checked;
+        return new Checked(
+            $checked->mutants->replacing(Mutants::of(...array_map(
+                static fn(Mutant $mutant): Mutant => $mutant->unjudged(OutOfTime::BeforeChecking),
+                array_values(array_filter(
+                    [...$checked->mutants],
+                    static fn(Mutant $mutant): bool => $late->has($mutant->id()),
+                )),
+            ))),
+            $checked->checks,
+            $checked->examined,
+            $checked->unchecked,
+        );
     }
 
     /**
@@ -85,10 +103,29 @@ final readonly class SurvivorChecking
 
         return match (true) {
             ! $identity instanceof AnalyserIdentity => Checked::leaving($mutants, $survivors, Unchecked::Unidentified),
-            $this->deadline instanceof Deadline && $this->deadline->hasPassed($this->clock->now())
-                => Checked::leaving($mutants, $survivors, Unchecked::OutOfTime),
+            ! $this->fits($identity) => Checked::leaving($mutants, $survivors, Unchecked::OutOfTime),
             default => $this->warmed($checker, $identity, $mutants, $survivors),
         };
+    }
+
+    /**
+     * Whether the time left has room for the analyser's run over the
+     * originals, at the time the plan measured it, where one was made yet and
+     * the plan measured it; any time left where it did not; always without a
+     * deadline.
+     */
+    private function fits(AnalyserIdentity $identity): bool
+    {
+        if (! $this->deadline instanceof Deadline) {
+            return true;
+        }
+
+        $left = $this->deadline->left($this->clock->now())->seconds();
+        $warm = $this->warmUp->isMade()
+            ? NotGiven::value()
+            : PlannedWarmUp::secondsFor($this->adapters->project, $identity);
+
+        return $left > ($warm instanceof Seconds ? $warm->seconds() : 0.0);
     }
 
     /**

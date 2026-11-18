@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Ledgers;
+use NightWorksIO\MutationGate\Cli\Flow\LeftoverParts;
 use NightWorksIO\MutationGate\Cli\Flow\Recorded;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Controls as ControlsBuilder;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistories;
@@ -19,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Cost\MutatorTally;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
@@ -47,7 +50,11 @@ use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
+use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
+use NightWorksIO\MutationGate\Core\Plan\LeftoverShares;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Proof\KillPace;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
@@ -71,6 +78,8 @@ use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
+use NightWorksIO\MutationGate\Tests\Support\LeftAtTheDeadline;
+use NightWorksIO\MutationGate\Tests\Support\MeasuredFields;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -413,3 +422,53 @@ it('learns which mutant subsumes which from a run that records every killer, and
     'every killer' => [MatrixKind::Full, true],
     'the first killer' => [MatrixKind::FirstKiller, false],
 ]);
+
+it('learns what each job measured of its own time, a second pass\'s factor only of a job of the second wave', function () use ($map, $run, $ledgers): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+    RecordedRuns::ran($project, ScriptedRunner::fixture(), $map());
+    $file = Workspace::result(Workspace::results(), ShardId::of(1))->value();
+    Scratch::write($project, $file, MeasuredFields::added((string) file_get_contents(sprintf('%s/%s', $project, $file)), ['platform' => 'p', 'setup' => 48.0, 'windDown' => 7.0, 'passTwo' => 0.2]));
+
+    new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(
+        $plan,
+        MeasuredFields::results($plan, $project),
+        JudgedMutants::none(),
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+        RecordedRuns::lastRun(),
+        Untimed::run(),
+    );
+    $limits = LedgerRead::ledger($store->read(Scope::branch('main')))->learned()->limits();
+
+    expect([...$limits->jobs()])->toEqual([JobTimes::of('p', Seconds::of(48.0), Seconds::of(7.0), NotGiven::value())]);
+});
+
+it('learns a second pass\'s factor of a job that judged a share of the second wave', function () use ($run, $ledgers): void {
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    $store = new ProofStoreFake();
+    $left = LeftAtTheDeadline::listed($whole, ...LeftAtTheDeadline::LEFT);
+    Scratch::write($project, LeftoverParts::file(Workspace::results())->value(), LeftoverShares::cut($plan->digest(), LeftoverShare::of(ShardId::of(1), 1, ...$left))->encode());
+    $held = static fn(Mutant $mutant): ?Mutant => in_array($mutant->nativeId(), LeftAtTheDeadline::LEFT, strict: true) ? $mutant : null;
+    Scratch::write(
+        $project,
+        LeftoverParts::resultOf(Workspace::results(), LeftoverShare::of(ShardId::of(1), 1))->value(),
+        MeasuredFields::added(ShardResultFile::encode(LeftAtTheDeadline::resultOf($whole, $held)), ['platform' => 'p', 'passTwo' => 0.6]),
+    );
+
+    new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(
+        $plan,
+        MeasuredFields::results($plan, $project),
+        JudgedMutants::none(),
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+        RecordedRuns::lastRun(),
+        Untimed::run(),
+    );
+
+    expect([...LedgerRead::ledger($store->read(Scope::branch('main')))->learned()->limits()->jobs()])
+        ->toEqual([JobTimes::of('p', NotGiven::value(), NotGiven::value(), 0.6)]);
+});

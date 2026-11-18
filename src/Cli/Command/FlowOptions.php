@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\JobStop;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
@@ -318,7 +319,8 @@ final readonly class FlowOptions
             : Cut::bySize((int) $shards->seconds()->seconds(), $shards->setup(), $shards->max());
 
         return self::parting(
-            $cut->cuttingAt($shards->planning()->cutAt())->withinJobLimit($shards->jobLimit()),
+            $cut->cuttingAt($shards->planning()->cutAt())
+                ->withinJobLimit($shards->stop()->after($shards->setup(), Seconds::of(JobStop::WIND_DOWN_SECONDS))),
             $settings,
         );
     }

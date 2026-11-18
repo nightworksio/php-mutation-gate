@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\JobStop;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
@@ -125,7 +126,7 @@ it('runs the whole suite under coverage into the workspace, unless a map is name
 it('cuts shards by the config\'s size, setup and most, or into as many as asked', function () use ($given): void {
     $settings = Flows::settings(Shards::seconds(600), Shards::setup('90s'), Shards::max(12));
 
-    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::bySize(600, Seconds::of(90.0), 12)->withinJobLimit(Seconds::minutes(8)))
+    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::bySize(600, Seconds::of(90.0), 12)->withinJobLimit(Seconds::of(600.0 - 90.0 - JobStop::WIND_DOWN_SECONDS - 45.0)))
         ->and(FlowOptions::cut($given(['--shards' => '3']), $settings))->toEqual(Cut::exactly(3))
         ->and(FlowOptions::cut($given(['--shards' => '12']), $settings))->toEqual(Cut::exactly(12));
 });
@@ -135,7 +136,7 @@ it('cuts shards to the config\'s target wall time, with its setup, unless a coun
 ): void {
     $settings = Flows::settings(Shards::target('20m'), Shards::setup('90s'), Shards::max(12));
 
-    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::toTarget(Seconds::of(1200.0), Seconds::of(90.0), 12)->withinJobLimit(Seconds::minutes(8)))
+    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::toTarget(Seconds::of(1200.0), Seconds::of(90.0), 12)->withinJobLimit(Seconds::of(1200.0 - 90.0 - JobStop::WIND_DOWN_SECONDS - 45.0)))
         ->and(FlowOptions::cut($given(['--shards' => '3']), $settings))->toEqual(Cut::exactly(3));
 });
 

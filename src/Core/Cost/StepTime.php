@@ -6,12 +6,15 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 
 use NightWorksIO\MutationGate\Core\Control\ControlTime;
 use NightWorksIO\MutationGate\Core\Control\ControlTimes;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * One stretch of a shard's time: the step it went to, how long after the
  * shard began it started, how long it took, how many it handled, and where
- * a step runs unmutated controls, where each one's time went (ADR-0167).
+ * a step runs unmutated controls, where each one's time went (ADR-0167);
+ * and where a pass of split streams knows it, the wall seconds it would take
+ * were every mutant it streamed forked at each covering test (ADR-0196).
  */
 final readonly class StepTime
 {
@@ -21,6 +24,7 @@ final readonly class StepTime
         private Seconds $took,
         private int $count,
         private ControlTimes $controls,
+        private Seconds|NotGiven $bound = new NotGiven(),
     ) {
     }
 
@@ -33,13 +37,32 @@ final readonly class StepTime
     /** A step as it was timed, having handled this many: a count known only once the step is over. */
     public static function counted(self $timed, int $count): self
     {
-        return new self($timed->step, $timed->since, $timed->took, $count, $timed->controls);
+        return new self($timed->step, $timed->since, $timed->took, $count, $timed->controls, $timed->bound);
     }
 
     /** The same step, having run these controls. */
     public function controlling(ControlTime ...$controls): self
     {
-        return new self($this->step, $this->since, $this->took, $this->count, ControlTimes::of(...$controls));
+        return new self(
+            $this->step,
+            $this->since,
+            $this->took,
+            $this->count,
+            ControlTimes::of(...$controls),
+            $this->bound,
+        );
+    }
+
+    /** The same step, which would take this long were every mutant it streamed forked at each covering test. */
+    public function bounded(Seconds $bound): self
+    {
+        return new self($this->step, $this->since, $this->took, $this->count, $this->controls, $bound);
+    }
+
+    /** How long the step would take were every mutant it streamed forked at each covering test; none where unknown. */
+    public function bound(): Seconds|NotGiven
+    {
+        return $this->bound;
     }
 
     /** The controls the step ran, each with where its time went; none where it ran none. */
@@ -82,6 +105,7 @@ final readonly class StepTime
             $this->took,
             $this->count,
             $this->controls,
+            $this->bound,
         );
     }
 }

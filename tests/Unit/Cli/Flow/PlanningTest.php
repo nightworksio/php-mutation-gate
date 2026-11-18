@@ -956,7 +956,7 @@ it('keys the project\'s coverage entries once a plan, for measuring against the 
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner, $store);
 
     expect($planned)->toBeInstanceOf(Plan::class)
-        ->and($runner->identified())->toHaveCount(3);
+        ->and($runner->identified())->toHaveCount(4);
 });
 
 it('briefs a plan measured against the map its own scope keeps as such, and one measured against the default branch\'s as not', function (

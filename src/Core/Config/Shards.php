@@ -35,11 +35,8 @@ final readonly class Shards implements Part
     /** The minutes each shard's CI setup takes before the gate starts, where the config does not say. */
     private const int SETUP_MINUTES = 1;
 
-    /**
-     * The minutes a shard is cut to fit and stops at, where the config does not say: with its set-up, a job of ten
-     * minutes, its left mutants judged by a second wave (ADR-0190).
-     */
-    private const int JOB_LIMIT_MINUTES = 8;
+    /** The seconds a job's gate keeps clear of its target past its own wind-down, where the config does not say. */
+    private const int MARGIN_SECONDS = 45;
 
     /** The minutes between two progress artifacts a CI shard leaves, where the config does not say (ADR-0157). */
     private const int PROGRESS_MINUTES = 3;
@@ -56,6 +53,7 @@ final readonly class Shards implements Part
         private Seconds|Absent $jobLimit,
         private Pulling $pulling,
         private Seconds|Absent $progress,
+        private Seconds|Absent $margin,
     ) {
     }
 
@@ -83,6 +81,7 @@ final readonly class Shards implements Part
         int|float|Absent $shardOverhead = new Absent(),
         Pulling|Absent $pulling = new Absent(),
         Seconds|Absent $progress = new Absent(),
+        Seconds|Absent $margin = new Absent(),
     ): self {
         return new self(
             $seconds,
@@ -104,6 +103,7 @@ final readonly class Shards implements Part
             $jobLimit,
             $pulling instanceof Pulling ? $pulling : Pulling::of(),
             $progress,
+            $margin,
         );
     }
 
@@ -125,9 +125,10 @@ final readonly class Shards implements Part
             LearnedStatistic::Max,
             Planning::standard(),
             Outbreak::of(),
-            $none->jobLimit(),
+            new Absent(),
             Pulling::of($none->pulling()->pull()),
             $none->progress(),
+            $none->stop()->margin(),
         );
     }
 
@@ -156,6 +157,7 @@ final readonly class Shards implements Part
             Absent::laid($this->jobLimit, $later->jobLimit),
             $this->pulling->over($later->pulling),
             Absent::laid($this->progress, $later->progress),
+            Absent::laid($this->margin, $later->margin),
         );
     }
 
@@ -208,10 +210,15 @@ final readonly class Shards implements Part
         return $this->pulling;
     }
 
-    /** `shards.jobLimit`: how long a shard's job can run: it is cut to fit it, and stops at it with what it judged. */
-    public function jobLimit(): Seconds
+    /** When a job's gate stops: `shards.target`, `shards.margin` and `shards.jobLimit` (ADR-0196). */
+    public function stop(): JobStop
     {
-        return $this->jobLimit instanceof Seconds ? $this->jobLimit : Seconds::minutes(self::JOB_LIMIT_MINUTES);
+        return new JobStop(
+            $this->target instanceof Seconds ? $this->target : Seconds::of(self::SECONDS),
+            $this->margin instanceof Seconds ? $this->margin : Seconds::of(self::MARGIN_SECONDS),
+            $this->jobLimit,
+            limitAlone: $this->target instanceof Absent && $this->jobLimit instanceof Seconds,
+        );
     }
 
     /**
@@ -251,6 +258,7 @@ final readonly class Shards implements Part
                         'progress',
                         $this->progress instanceof Seconds ? $this->progress->written() : $this->progress,
                     ),
+                    Member::of('margin', $this->margin instanceof Seconds ? $this->margin->written() : $this->margin),
                 ),
             ),
             $this->costs->written($origin),
@@ -275,6 +283,9 @@ final readonly class Shards implements Part
                 : [],
             ...$this->progress instanceof Seconds
                 ? [sprintf('Shards::progress(%s)', PhpCalls::literal($this->progress->written()))]
+                : [],
+            ...$this->margin instanceof Seconds
+                ? [sprintf('Shards::margin(%s)', PhpCalls::literal($this->margin->written()))]
                 : [],
         ];
 

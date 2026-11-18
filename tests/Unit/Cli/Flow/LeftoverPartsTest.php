@@ -7,20 +7,24 @@ use NightWorksIO\MutationGate\Cli\Flow\LeftoverParts;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShares;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Tests\Support\LeftAtTheDeadline;
+use NightWorksIO\MutationGate\Tests\Support\MeasuredFields;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -197,4 +201,23 @@ it('joins what a share\'s job warned of to its shard\'s warnings', function (): 
 
     expect($results instanceof Results ? array_map(static fn(Warning $warning): string => $warning->text(), [...$results->warnings()]) : $results)
         ->toContain('The share\'s job warned.');
+});
+
+it('carries what each share\'s job measured of its own time onto its shard\'s result', function (): void {
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    leftoverShares($project, $plan, $whole, [1 => LeftAtTheDeadline::LEFT], []);
+    $held = static fn(Mutant $mutant): ?Mutant => in_array($mutant->nativeId(), LeftAtTheDeadline::LEFT, strict: true) ? $mutant : null;
+    Scratch::write(
+        $project,
+        LeftoverParts::resultOf(Workspace::results(), LeftoverShare::of(ShardId::of(1), 1))->value(),
+        MeasuredFields::added(ShardResultFile::encode(LeftAtTheDeadline::resultOf($whole, $held)), ['platform' => 'p', 'setup' => 40.0, 'passTwo' => 0.6]),
+    );
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+    $shares = [];
+
+    foreach ($results instanceof Results ? $results->shards() : [] as [, $result]) {
+        $shares = [...$shares, ...$result->measured()->shares()];
+    }
+
+    expect($shares)->toEqual([JobTimes::of('p', Seconds::of(40.0), NotGiven::value(), 0.6)]);
 });

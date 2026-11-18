@@ -43,6 +43,20 @@ enum Step: string
      */
     case Mutation = 'mutation';
 
+    /**
+     * A split stream run's first pass, within the mutation step: its parents
+     * running their test files and forking each mutant at its first test
+     * (ADR-0196).
+     */
+    case FirstPass = 'first pass';
+
+    /**
+     * A split stream run's second pass, within the mutation step: each
+     * mutant the first left forked at every covering test it did not run
+     * (ADR-0196).
+     */
+    case SecondPass = 'second pass';
+
     /** Reading what the mutants' runs left, with any run that shows why a run failed. */
     case Reading = 'reading';
 

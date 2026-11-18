@@ -84,6 +84,19 @@ it('prints the second wave\'s matrix of the shares it cut and wrote beside the r
     'none stopped' => [false, '[]'],
 ]);
 
+it('names the shards that left no result on its error output, cutting nothing of them', function (): void {
+    [$project, $composition] = leftoversRan('shards');
+    unlink(sprintf('%s/shards/2.json', $project));
+
+    $cut = FlowCommands::run(LeftoversCommand::command($composition), '--results=shards');
+
+    expect([$cut->code, $cut->output, $cut->errors])->toBe([
+        0,
+        "[]\n",
+        "Shards 2 left no result, so no share holds their mutants and the verdict cannot judge them.\n",
+    ]);
+});
+
 it('cannot cut without a plan', function (): void {
     $ran = leftoversRan('.mutation-gate/results');
     unlink(sprintf('%s/.mutation-gate/plan.json', $ran[0]));

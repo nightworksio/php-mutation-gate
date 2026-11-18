@@ -25,8 +25,9 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
  * narrowed nor sampled down to a part of its mutators or tests, what each
  * mutant came to and which subsumes which, what each shard taught the cost
  * model and each mutator's mutants cost (ADR-0025, ADR-0076, ADR-0079);
- * and in every run the first killer of each mutant killed, and how many
- * shards ran at once (ADR-0013, ADR-0073).
+ * and in every run the first killer of each mutant killed, how many
+ * shards ran at once (ADR-0013, ADR-0073), and what each job measured of
+ * its own time (ADR-0196).
  *
  * @internal
  */
@@ -57,7 +58,7 @@ final readonly class Learning
             : $proved;
         $ledger = $this->taught($learned, $fresh);
 
-        return $ledger instanceof Ledger ? $this->paced($ledger, $timings) : $ledger;
+        return $ledger instanceof Ledger ? $this->jobsTaught($this->paced($ledger, $timings), $results) : $ledger;
     }
 
     /**
@@ -189,5 +190,25 @@ final readonly class Learning
         return $timings instanceof RunTimings && $timings->isSharded()
             ? $ledger->withLearned($ledger->learned()->limits()->afterRuns($timings->mostAtOnce()))
             : $ledger;
+    }
+
+    /**
+     * The ledger, having learned what each job of the run measured of its
+     * time: its setup and its wind-down, and, of a job that judged a share of
+     * a second wave, its second pass's factor (ADR-0196).
+     */
+    private function jobsTaught(Ledger $ledger, Results $results): Ledger
+    {
+        $paces = [];
+
+        foreach ($results->shards() as [, $result]) {
+            $paces[] = $result->measured()->job()->pace(share: false);
+
+            foreach ($result->measured()->shares() as $share) {
+                $paces[] = $share->pace(share: true);
+            }
+        }
+
+        return $ledger->withLearned($ledger->learned()->limits()->afterJobs(...$paces));
     }
 }

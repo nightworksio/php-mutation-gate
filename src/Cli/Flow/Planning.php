@@ -241,7 +241,11 @@ final readonly class Planning
         }
 
         $judges = MapJudges::of($this->adapters->runner, $map);
-        $learned = LearnedLimits::of($this->settings, $ledgers);
+        $learned = LearnedLimits::of(
+            $this->settings,
+            $ledgers,
+            $this->adapters->runner->identity($this->adapters->withheld),
+        );
         $keying = Keying::of(
             $this->adapters,
             $this->settings,

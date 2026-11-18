@@ -145,7 +145,7 @@ it('warns where shards.max stops the plan meeting shards.target', function () us
     $planned = $plan(FlowCommands::project('"shards": {"target": "30s", "max": 1}'), '', ScriptedRunner::fixture(), Flows::ci());
 
     expect($planned->code)->toBe(0)
-        ->and($planned->errors)->toEndWith(<<<'SAID'
+        ->and($planned->errors)->toContain(<<<'SAID'
             shards.target is 30s, and at shards.max of 1 the longest is expected to take 1m.
             Raise shards.max, or shards.target, to meet it.
 

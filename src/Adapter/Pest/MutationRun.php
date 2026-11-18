@@ -14,6 +14,7 @@ use function dirname;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\PartLines;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPasses;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamReach;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
@@ -329,13 +330,14 @@ final readonly class MutationRun
         $told = $this->told($request, $results, $handOff, $bounds);
         $this->warmFor($request, $command, $results);
         PartLines::cleared($results);
+        StreamPasses::cleared($results);
         $drivers = CoverageDrivers::of(
             $this->patching,
             ToldExtension::recordsWithPcov($this->extension, $request->narrowing()->part()->recording()),
             $this->project,
         );
         $ran = $this->shell->run(
-            $drivers->mutating($command->with($told)),
+            $drivers->mutating($command->with($told)->within($this->left($request, $started))),
             new MutantsProgress($results, $handOff instanceof HandOff ? $handOff : new Unwatched()),
         );
         $mutation = $laps->lap(Step::Mutation, $from);
@@ -364,7 +366,9 @@ final readonly class MutationRun
         }
 
         $read = $result
-            ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading))
+            ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())))
+                ->and(StreamPasses::within($results, $mutation))
+                ->and(StepTimes::of($reading)))
             ->withWarnings($warned);
 
         return $this->patching->steps()->on(Toggle::PestTrials)

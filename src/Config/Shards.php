@@ -64,10 +64,16 @@ final readonly class Shards implements Setting
         return new self(Json::object(Member::of('shards', Json::object(Member::of('target', $duration)))));
     }
 
-    /** `shards.jobLimit`: how long a shard's job can run, such as `50m`: it is cut to fit it, and stops at it. */
+    /** `shards.jobLimit`: the longest a shard's gate runs, such as `50m`, past what its target leaves it. */
     public static function jobLimit(string $duration): self
     {
         return new self(Json::object(Member::of('shards', Json::object(Member::of('jobLimit', $duration)))));
+    }
+
+    /** `shards.margin`: how long a job's gate keeps clear of its target past its own wind-down, such as `45s`. */
+    public static function margin(string $duration): self
+    {
+        return new self(Json::at('shards.margin', $duration));
     }
 
     /** `shards.progress`: how long a CI shard waits between two artifacts saying how far it got; `0s` for none. */

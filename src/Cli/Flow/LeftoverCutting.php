@@ -44,7 +44,8 @@ use function sprintf;
  * shares of a job's capacity: the job's limit less the time the shard took
  * to start judging, written where the second wave's jobs and the verdict
  * read them. A shard that left no result, or one that cannot be judged, has
- * none cut; a test the map has no time for is predicted to take none.
+ * none cut, and those that left none are named; a test the map has no time
+ * for is predicted to take none.
  *
  * @internal
  */
@@ -68,16 +69,18 @@ final readonly class LeftoverCutting
         $map = $this->mapIn($coverage);
         $left = [];
         $capacity = [];
+        $unread = [];
 
         foreach ($plan as $shard) {
             $read = LeftResults::of($plan, $shard, $results, $this->adapters->project);
             $number = $shard->id()->number();
+            $unread = $read instanceof Path ? [...$unread, $number] : $unread;
             $history = $this->historyIn($coverage, $shard->id());
             $left[$number] = is_array($read) ? $this->leftIn($map, $history, [...$read[1]->mutants()]) : [];
             $capacity[$number] = is_array($read) ? $this->capacityOf($read[0], $limit) : $limit;
         }
 
-        $shares = LeftoverCut::of($plan->digest(), $left, $this->filesOf($map), $capacity, $wall);
+        $shares = LeftoverCut::of($plan->digest(), $left, $this->filesOf($map), $capacity, $wall)->without(...$unread);
         $written = $this->adapters->project->write(LeftoverParts::file($results), Contents::of($shares->encode()));
 
         return $written instanceof Written ? $shares : $written;

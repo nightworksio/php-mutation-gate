@@ -70,6 +70,12 @@ final readonly class Deadline
         };
     }
 
+    /** How long past the deadline this moment is; none before it. */
+    public function overrunAt(DateTimeImmutable $moment): float
+    {
+        return max(0.0, self::epochOf($moment) - $this->at);
+    }
+
     /** Whether the deadline has passed at this moment. */
     public function hasPassed(DateTimeImmutable $now): bool
     {

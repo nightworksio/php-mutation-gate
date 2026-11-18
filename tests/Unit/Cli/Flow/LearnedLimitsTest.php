@@ -9,16 +9,21 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\JobsLearned;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
-use NightWorksIO\MutationGate\Core\Plan\KillsLearned;
+use NightWorksIO\MutationGate\Core\Plan\PlanLearned;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
+use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
@@ -58,7 +63,7 @@ it('learns the multiple from its own scope\'s kills, and the most shards from th
         ),
     );
 
-    expect($learned->briefing(Briefing::standard())->learned())->toEqual(KillsLearned::none()->allowing(Multiple::of(5.0))->pacing(Multiple::of(4.5)))
+    expect($learned->briefing(Briefing::standard())->learned())->toEqual(PlanLearned::none()->allowing(Multiple::of(5.0))->pacing(Multiple::of(4.5)))
         ->and($learned->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 7))
         ->and($learned->cut(Cut::exactly(12)))->toEqual(Cut::exactly(12))
         ->and($learned->lines())->toBe([
@@ -85,7 +90,7 @@ it('reads the default branch\'s kills where its own scope holds none, the median
 it('takes the fixed limits from a cold ledger, and says so', function (): void {
     $learned = LearnedLimits::of(learningSettings(), learnedLedgers(LimitHistory::none(), LimitHistory::none()));
 
-    expect($learned->briefing(Briefing::standard())->learned())->toEqual(KillsLearned::none()->allowing(Multiple::of(3.0)))
+    expect($learned->briefing(Briefing::standard())->learned())->toEqual(PlanLearned::none()->allowing(Multiple::of(3.0)))
         ->and($learned->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 20))
         ->and($learned->lines())->toBe([
             'timeouts.seconds learned: 3 times each shard\'s start-up, at least 1 s; 10 s where none is measured.',
@@ -138,4 +143,27 @@ it('says nothing of a pace while the ledger holds no kill', function (): void {
 
     expect($learned->lines())->toBe([])
         ->and($learned->briefing(Briefing::standard()))->toEqual(Briefing::standard());
+});
+
+it('learns what jobs on the plan\'s platform took from its own scope\'s jobs, or else the default branch\'s, tells every job, cuts to the stop it leaves, and says so', function (): void {
+    $job = static fn(string $platform, float $setup, float $windDown, float $passTwo): JobTimes => JobTimes::of($platform, Seconds::of($setup), Seconds::of($windDown), $passTwo);
+    $main = LimitHistory::none()->afterJobs($job('php', 50.0, 9.0, 0.6), $job('php', 40.0, 12.0, 0.8), $job('other', 300.0, 99.0, 9.0));
+    $runner = Identity::of('pest', Versions::none(), Digest::of('php'));
+    $learned = LearnedLimits::of(Configs::settings(['runner' => 'pest']), learnedLedgers(LimitHistory::none(), $main), $runner);
+    $own = LearnedLimits::of(Configs::settings(['runner' => 'pest']), learnedLedgers(LimitHistory::none()->afterJobs($job('php', 20.0, 1.0, 0.1)), $main), $runner);
+    $unknown = LearnedLimits::of(Configs::settings(['runner' => 'pest']), learnedLedgers(LimitHistory::none(), $main));
+    $stop = 600.0 - 50.0 - 12.0 - 45.0;
+
+    expect($learned->jobs())->toEqual(JobsLearned::learned(Seconds::of(50.0), Seconds::of(12.0), 0.7))
+        ->and($learned->briefing(Briefing::standard())->learned()->jobs())->toEqual($learned->jobs())
+        ->and($learned->stop())->toEqual(Seconds::of($stop))
+        ->and($learned->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 20)->withinJobLimit(Seconds::of($stop)))
+        ->and($learned->lines())->toContain(
+            'shards.setup learned: 50 s, the longest of the recent jobs on this platform.',
+            'the wind-down learned: 12 s, the longest a recent gate went on for past its stop.',
+            'the second pass learned: 0.7 times its covering tests\' seconds, the median of recent second-wave jobs.',
+        )
+        ->and($own->jobs())->toEqual(JobsLearned::learned(Seconds::of(20.0), Seconds::of(1.0), 0.1))
+        ->and($unknown->jobs())->toEqual(JobsLearned::none())
+        ->and($unknown->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 20));
 });
