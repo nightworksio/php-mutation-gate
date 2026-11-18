@@ -154,7 +154,7 @@ final class Schemata
 
         foreach (self::$switched as $mutant => [$path, $id]) {
             $switched[] = in_array($path, $written, strict: true)
-                ? [Member::of(sprintf('%s', $mutant), Json::items(ByteText::of($path), $id))]
+                ? [Member::of(strval($mutant), Json::items(ByteText::of($path), $id))]
                 : [];
         }
 

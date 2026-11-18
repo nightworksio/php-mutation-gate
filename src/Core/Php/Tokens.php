@@ -251,13 +251,13 @@ final readonly class Tokens implements Countable
     /** The byte the token at an index begins at, from 0. */
     public function offset(int $at): int
     {
-        return self::unpacked($this->offsets, $at);
+        return $this->unpacked($this->offsets, $at);
     }
 
     /** The line the token at an index begins on, from 1. */
     public function line(int $at): int
     {
-        return self::unpacked($this->lines, $at);
+        return $this->unpacked($this->lines, $at);
     }
 
     /** Where the bracket a token stands inside opens, or an index no token has where none encloses it. */
@@ -282,7 +282,7 @@ final readonly class Tokens implements Countable
         $end = PHP_INT_MAX;
 
         foreach ($this->indices($from, $to) as $at) {
-            $offset = self::unpacked($this->offsets, $at);
+            $offset = $this->unpacked($this->offsets, $at);
             $spelt = sprintf('%s%s%s', $spelt, $offset > $end ? ' ' : '', $this->texts[$at]);
             $end = $offset + Bytes::length($this->texts[$at]);
         }
@@ -303,7 +303,7 @@ final readonly class Tokens implements Countable
     }
 
     /** The integer packed at a token's index. */
-    private static function unpacked(string $packed, int $at): int
+    private function unpacked(string $packed, int $at): int
     {
         $read = unpack(self::PACKED, $packed, $at * self::PACKED_BYTES);
 

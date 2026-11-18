@@ -22,6 +22,7 @@ use function pathinfo;
 use const PATHINFO_FILENAME;
 
 use function sprintf;
+use function strval;
 
 /**
  * Files, each with the files it names: those that declare a name it
@@ -77,7 +78,7 @@ final readonly class NamedFiles
         $files = [];
 
         foreach ($mentions as $file => $names) {
-            $file = sprintf('%s', $file);
+            $file = strval($file);
             $naming[$file] = self::declaringAny($names, $declaring);
 
             foreach ($naming[$file] as $named) {

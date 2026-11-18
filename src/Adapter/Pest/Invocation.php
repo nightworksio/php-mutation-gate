@@ -316,14 +316,14 @@ final readonly class Invocation
         $within = $request->files();
 
         if (! $tests instanceof TestPaths) {
-            return [...$within instanceof Paths ? self::pathsOf($within) : [], ...$this->narrowedTo($tests)];
+            return [...$within instanceof Paths ? $this->pathsOf($within) : [], ...$this->narrowedTo($tests)];
         }
 
-        return [...self::pathsOf($tests->files()), PhpUnitOption::DoNotFailOnEmptyTestSuite->value];
+        return [...$this->pathsOf($tests->files()), PhpUnitOption::DoNotFailOnEmptyTestSuite->value];
     }
 
     /** @return list<string> these files, as paths from the project's root */
-    private static function pathsOf(Paths $files): array
+    private function pathsOf(Paths $files): array
     {
         return array_map(static fn(Path $file): string => $file->value(), [...$files]);
     }

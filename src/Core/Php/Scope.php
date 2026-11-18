@@ -21,6 +21,7 @@ use PhpToken;
 
 use function sprintf;
 use function str_starts_with;
+use function strval;
 
 /**
  * The namespace a file declares and the names it imports, which together say
@@ -120,7 +121,7 @@ final readonly class Scope
                 $names,
                 static fn(string $name): bool => mb_strtolower(array_last(explode('\\', $name))) === $lower,
             );
-            $aliases = $ends ? [...$aliases, sprintf('%s', $alias)] : $aliases;
+            $aliases = $ends ? [...$aliases, strval($alias)] : $aliases;
         }
 
         return $aliases;

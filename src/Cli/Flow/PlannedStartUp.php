@@ -80,15 +80,15 @@ final readonly class PlannedStartUp
         $runner = $this->adapters->runner->identity($this->adapters->withheld);
         $measured = $runner instanceof Identity && $this->settings->toggles()->on(Toggle::TimeoutsStartUpAtPlan)
             ? new StartUpTiming($this->adapters, $this->settings->shards()->planning()->startUpSamples())
-                ->of($map, self::unitsOf($plan))
+                ->of($map, $this->unitsOf($plan))
             : NotGiven::value();
 
         return $runner instanceof Identity && $measured instanceof Seconds
-            ? $this->adapters->project->write(self::file(), self::written($runner, $measured))
+            ? $this->adapters->project->write(self::file(), $this->written($runner, $measured))
             : $this->adapters->project->remove(self::file());
     }
 
-    private static function unitsOf(Plan $plan): Units
+    private function unitsOf(Plan $plan): Units
     {
         $units = Units::none();
 
@@ -99,7 +99,7 @@ final readonly class PlannedStartUp
         return $units;
     }
 
-    private static function written(Identity $runner, Seconds $measured): Contents
+    private function written(Identity $runner, Seconds $measured): Contents
     {
         return Contents::of(Json::object(
             Member::of(self::RUNNER, $runner->runner()),

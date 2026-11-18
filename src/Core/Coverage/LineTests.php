@@ -29,7 +29,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function range;
 use function sort;
-use function sprintf;
+use function strval;
 
 use Traversable;
 
@@ -103,7 +103,7 @@ final readonly class LineTests
         }
 
         $known = $this->knowing(...array_map(
-            static fn(int|string $test): TestId => TestId::of(sprintf('%s', $test)),
+            static fn(int|string $test): TestId => TestId::of(strval($test)),
             array_keys($tests),
         ));
         $placed = [];
