@@ -74,6 +74,18 @@ final readonly class LeftResults
             : self::readOf($plan, $shard, Workspace::result($directory, $shard->id()), $project);
     }
 
+    /**
+     * A result of the shard read from this file, as a job of the second wave
+     * that judged a share of the mutants it left leaves one (ADR-0190); or
+     * why it cannot be judged; or the file, where it is missing.
+     *
+     * @return array{ShardResult, MutationResult}|CannotJudge|Path
+     */
+    public static function at(Plan $plan, Shard $shard, Path $file, Directory $project): array|CannotJudge|Path
+    {
+        return self::readOf($plan, $shard, $file, $project);
+    }
+
     /** @return array{ShardResult, MutationResult}|CannotJudge|Path the result; or the file it is missing from */
     private static function readOf(Plan $plan, Shard $shard, Path $file, Directory $project): array|CannotJudge|Path
     {

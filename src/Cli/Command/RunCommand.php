@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function getenv;
+use function intval;
 use function is_array;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
 use NightWorksIO\MutationGate\Cli\ExitCode;
@@ -14,6 +16,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
+use NightWorksIO\MutationGate\Cli\Flow\LeftoverParts;
 use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Raising;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
@@ -26,10 +29,15 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Verb;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 use NightWorksIO\MutationGate\Core\Written;
+
+use function sprintf;
+
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -39,8 +47,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `mutation-gate run --plan=<file>` mutates one shard of a plan and leaves
  * its result; once the result is written it exits 1 where a survivor leaves
  * the run no way to pass, as `run.failFast` says (ADR-0103), and 0 whatever
- * else its mutants did. Without `--plan` it plans, runs every shard and judges them in one
- * process, as `mutation-gate` with no command does, leaving its plan and
+ * else its mutants did; with `--leftover=<k>` too, it judges share k of the
+ * mutants that shard left at its deadline (ADR-0190). Without `--plan` it
+ * plans, runs every shard and judges them in one process, as
+ * `mutation-gate` with no command does, leaving its plan and
  * results in the workspace for `explain`; run in full outside CI,
  * it then writes every floor it raised, and every missing one, into the
  * baseline, and says which lines to commit. With `--output=problems` it
@@ -56,12 +66,24 @@ final readonly class RunCommand
     private const string SUITE_WITH_PLAN
         = 'A shard runs the tests its plan was made for, so run --plan takes no --suite. Give it to plan.';
 
+    private const string LEFTOVER = 'leftover';
+
+    private const string NOT_A_SHARE = '--leftover=%s is not a share number.';
+
+    private const string LEFTOVER_WITHOUT_SHARD
+        = 'A job of the second wave judges a share of one shard\'s left mutants, so run --leftover takes --shard too.';
+
     public static function command(Composition $composition): Command
     {
         return PublishDir::option(FlowOptions::editing(FlowOptions::planning(new Command(Verb::Run->value))))
             ->setDescription('Plan, run and judge in one process; or, with --plan, run one shard of a plan')
             ->addOption(FlowOptions::PLAN, mode: InputOption::VALUE_REQUIRED, description: 'Run one shard of this plan')
             ->addOption(FlowOptions::SHARD, mode: InputOption::VALUE_REQUIRED, description: 'The shard to run')
+            ->addOption(
+                self::LEFTOVER,
+                mode: InputOption::VALUE_REQUIRED,
+                description: 'Judge this share of the mutants the shard left at its deadline (ADR-0190)',
+            )
             ->addOption(
                 FlowOptions::RESULTS,
                 mode: InputOption::VALUE_REQUIRED,
@@ -95,11 +117,13 @@ final readonly class RunCommand
     ): int {
         $plan = VerdictCommand::planIn($composed, FlowOptions::path($input, FlowOptions::PLAN, Workspace::plan()));
         $shard = FlowOptions::shard($input);
+        $leftover = self::leftover($input);
         $results = FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results());
         $written = match (true) {
             $plan instanceof CannotJudge => $plan,
             $shard instanceof CannotJudge => $shard,
-            default => self::ranShard($composed->following($plan), $plan, $shard, $results, $service),
+            $leftover instanceof CannotJudge => $leftover,
+            default => self::ranShard($composed->following($plan), $plan, $shard, $leftover, $results, $service),
         };
 
         if ($written instanceof CannotJudge) {
@@ -117,17 +141,47 @@ final readonly class RunCommand
         return ExitCode::Failed->value;
     }
 
-    /** One shard of a plan run as the plan was made, narrowed where it was made with `--security`. */
+    /**
+     * One shard of a plan run as the plan was made, narrowed where it was
+     * made with `--security`; over the share of its left mutants `--leftover`
+     * names, where it names one (ADR-0190).
+     */
     private static function ranShard(
         Composed|CannotJudge $following,
         Plan $plan,
         ShardId|Absent $shard,
+        int|Absent $leftover,
         Path $results,
         ArtifactAccess|CannotJudge|NotGiven $service,
     ): ShardLeft|ShardsLeft|CannotJudge {
-        return $following instanceof Composed
-            ? Running::composed($following)->run($plan, $shard, $results, $service)
-            : $following;
+        if (! $following instanceof Composed) {
+            return $following;
+        }
+
+        if ($leftover instanceof Absent) {
+            return Running::composed($following)->run($plan, $shard, $results, $service);
+        }
+
+        $share = $shard instanceof ShardId
+            ? LeftoverParts::share($plan, $shard, $leftover, $results, $following->adapters->project)
+            : CannotJudge::because(self::LEFTOVER_WITHOUT_SHARD);
+
+        return $share instanceof LeftoverShare
+            ? Running::composed($following)->judging($share)->run($plan, $shard, $results, $service)
+            : $share;
+    }
+
+    /** The share `--leftover` names; absent where it names none. */
+    private static function leftover(InputInterface $input): int|Absent|CannotJudge
+    {
+        $share = $input->getOption(self::LEFTOVER);
+        $share = is_string($share) ? $share : '';
+
+        return match (true) {
+            $share === '' => Absent::setting(),
+            WholeNumber::isPositive($share) => intval($share),
+            default => CannotJudge::because(sprintf(self::NOT_A_SHARE, $share)),
+        };
     }
 
     private static function allInOne(Composed $composed, InputInterface $input, OutputInterface $output): int

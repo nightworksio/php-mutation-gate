@@ -88,7 +88,7 @@ final readonly class SettingsCases
             "learnedFrom": "max",
             "setup": "1m",
             "cutAt": 2.0,
-            "jobLimit": "5h40m",
+            "jobLimit": "8m",
             "pull": "auto",
             "progress": "3m"
         },

@@ -79,6 +79,7 @@ jobs:
 | `ini-values` | none; PHP ini values to set, as setup-php takes them, such as `memory_limit=2G` |
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
+| `leftover` | none: the shard itself; with `shard`, the share of the mutants that shard left at its deadline to judge, as `leftovers` cut them ([ADR-0190](../../decisions/0190-a-shard-hands-what-it-left-to-a-second-wave.md)) |
 | `mode` | `auto`: change-scoped on pull requests, merge groups and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed`, or `sampled`: what `auto` considers, with the units no run knows exactly sampled, as `--sample` asks |
 | `changed-since` | on `pull_request`, the commit its merge checkout merges it onto, the merge's first parent, which is where its base branch stands now (its base's sha where the checkout is no merge); the group's `merge_group.base_sha` on `merge_group`, the default branch on any other branch, `last-passed` on the default branch; used when the mode is change-scoped |
 | `budget` | none |
@@ -143,7 +144,13 @@ The reusable workflow runs a `plan` job, one `shard` job per shard and a
 pass, its shard's job fails, as `run.failFast` says: by default after judging
 every unit, so the verdict names every survivor; under `stop` at once; and
 under `cancel` at once, with GitHub cancelling the other shards of the matrix.
-The verdict still runs and fails, naming the survivor. A last job, `publish`, runs on the default branch only and
+The verdict still runs and fails, naming the survivor. A shard stops at
+`shards.jobLimit`, `8m` by default; a `leftovers` job then cuts the mutants
+each shard left into shares, each predicted to fit a job of the same limit,
+and one `leftover` job per share judges them as the shard would have, its
+result read by the verdict beside the shards'
+([ADR-0190](../../decisions/0190-a-shard-hands-what-it-left-to-a-second-wave.md)).
+A last job, `publish`, runs on the default branch only and
 publishes the badge and trend.
 
 ```yaml
@@ -224,8 +231,8 @@ with no secret, like the tests.
 
 A project whose tests reach a server, such as a database, names the
 containers as `services`, a JSON object in the shape `jobs.<job_id>.services`
-takes, and the `plan`, `shard`, `survivors`, `survivors-report` and `verdict`
-jobs each start them
+takes, and the `plan`, `shard`, `leftover`, `survivors`, `survivors-report`
+and `verdict` jobs each start them
 ([ADR-0153](../../decisions/0153-a-caller-starts-the-services-its-tests-reach.md)).
 Under `services-start: background`, the default, a job starts every
 container at once, detached, before PHP, the dependencies or any of the
@@ -255,8 +262,8 @@ it:
 
 Service containers run on Linux runners only.
 
-The `plan`, `shard`, `survivors`, `survivors-report` and `verdict` jobs run on
-`ubuntu-latest` unless `runs-on` names another runner: a label, such as
+The `plan`, `shard`, `leftovers`, `leftover`, `survivors`, `survivors-report`
+and `verdict` jobs run on `ubuntu-latest` unless `runs-on` names another runner: a label, such as
 `runs-on: ubuntu-24.04-arm`, or a JSON list of labels a runner must all have,
 such as `runs-on: '["self-hosted", "linux"]'`. They all run on it, because a
 proof's key holds the machine's architecture. Changing the architecture makes
@@ -323,8 +330,8 @@ reads it, which wins over anything the caller passes, so these secrets stay in
 the environments below and never in the repository. The alerts and the trace
 are passed the same way, under the names listed in step 3.
 
-The `plan`, `shard` and `verdict` jobs run the project's own code, so they hold
-no secret and no token that can write. Whatever needs a credential runs in a
+The `plan`, `shard`, `leftovers`, `leftover` and `verdict` jobs run the
+project's own code, so they hold no secret and no token that can write. Whatever needs a credential runs in a
 job that installs none of the project's code and runs the gate from its own
 installation, at the workflow's commit:
 

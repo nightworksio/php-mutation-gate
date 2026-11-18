@@ -90,6 +90,9 @@ final readonly class Results
             };
         }
 
+        $over = LeftoverParts::over($plan, $read, $directory, $project);
+        $unjudged = $over instanceof CannotJudge ? [...$unjudged, $over->why()] : $unjudged;
+        $read = $over instanceof CannotJudge ? $read : $over;
         $stopped = Stopped::among($read, $missing->shards());
         $why = [...$unjudged, ...$stopped->isDoomed() ? [] : $missing->why()];
         $units = $why === [] ? MergedUnits::of($plan, $read) : CannotJudge::because(implode("\n", $why));

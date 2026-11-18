@@ -269,6 +269,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\Shards':
                     - MOST # shards
                     - PROGRESS_MINUTES # minutes between a shard's progress artifacts, not letters per edit
+                    - JOB_LIMIT_MINUTES # minutes a shard's job runs before it hands what it left on, not a packed token's bytes
                 'NightWorksIO\MutationGate\Core\Config\TimeoutLimits':
                     - TIMEOUT # seconds a mutant may run
                     - MOST # seconds a mutant may run

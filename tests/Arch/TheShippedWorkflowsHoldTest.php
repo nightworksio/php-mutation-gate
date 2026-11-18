@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\LeftoverParts;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
@@ -9,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Workspace as FileWorkspace;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
@@ -178,13 +180,13 @@ it('hands the install credentials to the steps that install the project\'s depen
         }
     }
 
-    $shard = jobSteps($jobs['shard']);
-    $action = $shard[WorkflowFile::stepsWhere($jobs['shard']->field('steps'), 'uses', static fn(string $uses): bool => str_starts_with($uses, './'))[0]];
+    $action = static fn(string $job): Node => jobSteps($jobs[$job])[WorkflowFile::stepsWhere($jobs[$job]->field('steps'), 'uses', static fn(string $uses): bool => str_starts_with($uses, './'))[0]];
 
-    expect(array_column($installing, 0))->toBe(['plan', 'survivors', 'survivors-report', 'verdict'])
+    expect(array_column($installing, 0))->toBe(['plan', 'leftovers', 'survivors', 'survivors-report', 'verdict'])
         ->and(array_map(static fn(array $one): array => array_map(Lenient::text(...), $one[1]), $installing))
         ->each->toBe([INSTALL_CREDENTIALS => sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS)])
-        ->and(Lenient::text($action->field('with')->field('composer-auth')))->toBe(sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS));
+        ->and(Lenient::text($action('shard')->field('with')->field('composer-auth')))->toBe(sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS))
+        ->and(Lenient::text($action('leftover')->field('with')->field('composer-auth')))->toBe(sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS));
 });
 
 it('alerts and traces from the deliver step alone', function (): void {
@@ -331,7 +333,8 @@ it('starts the services before any of the project\'s code and waits for every on
     $actionWait = WorkflowFile::stepsWhere($action, 'run', static fn(string $run): bool => str_contains($run, 'services.sh" wait'));
     $actionInstall = WorkflowFile::stepsWhere($action, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@'));
     $actionPrepare = WorkflowFile::stepsWhere($action, 'name', static fn(string $name): bool => $name === 'Prepare what the tests need besides the dependencies');
-    [$waits, $waited, $before] = $job === 'shard'
+    $runsTheAction = in_array($job, ['shard', 'leftover'], strict: true);
+    [$waits, $waited, $before] = $runsTheAction
         ? [$action, $actionWait, firstStep($actionPrepare)]
         : [$steps, $wait, min(firstStep($prepare), firstStep($gate))];
     $told = static fn(Node $steps, int $at): Node => Lenient::items($steps)[$at];
@@ -342,15 +345,15 @@ it('starts the services before any of the project\'s code and waits for every on
         ->and(Lenient::text($told($steps, $start[0])->field('env')->field('SERVICES_START')))->toBe('${{ inputs.services-start }}')
         ->and($waited)->toHaveCount(1)
         ->and($waited[0])->toBeLessThan($before)
-        ->and($job === 'shard' ? $waited[0] : 0)->toBeGreaterThan($job === 'shard' ? firstStep($actionInstall) : -1)
+        ->and($runsTheAction ? $waited[0] : 0)->toBeGreaterThan($runsTheAction ? firstStep($actionInstall) : -1)
         ->and(Lenient::text($told($waits, $waited[0])->field('shell')))->toBe($clean)
         ->and($told($waits, $waited[0])->field('env')->kind())->toBe(Kind::Nothing)
         ->and($stop)->toHaveCount(1)
         ->and(Lenient::text($told($steps, $stop[0])->field('if')))->toStartWith('always()')
         ->and(Lenient::text($told($steps, $stop[0])->field('shell')))->toBe($clean)
-        ->and($job === 'shard' ? Lenient::text($told($steps, $code[0])->field('with')->field('wait-for-services')) : '')
-        ->toBe($job === 'shard' ? "\${{ inputs.services-start != 'job' }}" : '');
-})->with(['plan', 'shard', 'survivors', 'survivors-report', 'verdict']);
+        ->and($runsTheAction ? Lenient::text($told($steps, $code[0])->field('with')->field('wait-for-services')) : '')
+        ->toBe($runsTheAction ? "\${{ inputs.services-start != 'job' }}" : '');
+})->with(['plan', 'shard', 'leftover', 'survivors', 'survivors-report', 'verdict']);
 
 it('checks the workflow out under .mutation-gate, which the gate leaves out of every change and key', function (): void {
     expect(Lenient::text(WorkflowFile::at(REUSABLE)->field('env')->field('GATE_ACTION')))->toStartWith('.mutation-gate/');
@@ -435,6 +438,36 @@ it('stops a shard by shards.jobLimit before its job is cancelled', function (): 
     expect($shards)->toContain("  shard:\n    name: shard \${{ matrix.shard.id }} (\${{ matrix.shard.label }})\n    needs: [fetch, plan, judge]\n")
         ->and($shards)->toContain('    timeout-minutes: ${{ inputs.shard-timeout }}')
         ->and(Shards::standard()->jobLimit()->seconds())->toBeLessThan($minutes * 60.0);
+});
+
+it('hands what the shards left at their deadline to a second wave, whose results the verdict reads beside theirs', function (): void {
+    $jobs = WorkflowFile::at(REUSABLE)->field('jobs');
+    $cutting = $jobs->field('leftovers');
+    $wave = $jobs->field('leftover');
+    $step = static fn(Node $job, string $field, Closure $picks): Node => jobSteps($job)[WorkflowFile::stepsWhere($job->field('steps'), $field, $picks)[0]];
+    $cut = $step($cutting, 'id', static fn(string $id): bool => $id === 'cut');
+    $uploads = static fn(Node $job): Node => $step($job, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/upload-artifact@'))->field('with');
+    $runs = $step($wave, 'uses', static fn(string $uses): bool => $uses === './.mutation-gate/workflow')->field('with');
+    $results = 'mutation-gate-result-${{ needs.plan.outputs.attempt }}-*';
+    $share = LeftoverShare::of(ShardId::of(7), 3);
+    $shareResult = str_replace(['7', '3'], ['${{ matrix.share.shard }}', '${{ matrix.share.share }}'], LeftoverParts::resultOf(Workspace::results(), $share)->value());
+    $action = (string) file_get_contents(Tree::at('action.yml'));
+
+    // ADR-0190
+    expect(array_map(Lenient::text(...), Lenient::items($cutting->field('needs'))))->toContain('shard')
+        ->and(Lenient::text($cut->field('run')))->toContain('leftovers --plan=.mutation-gate/plan.json --results=.mutation-gate/results')
+        ->and(Lenient::text($cutting->field('outputs')->field('shares')))->toBe('${{ steps.cut.outputs.shares }}')
+        ->and(Lenient::text($uploads($cutting)->field('path')))->toBe(LeftoverParts::file(Workspace::results())->value())
+        ->and(fnmatch($results, Lenient::text($uploads($cutting)->field('name'))))->toBeTrue()
+        ->and(array_map(Lenient::text(...), Lenient::items($wave->field('needs'))))->toContain('leftovers')
+        ->and(Lenient::text($wave->field('strategy')->field('matrix')->field('share')))->toBe('${{ fromJSON(needs.leftovers.outputs.shares) }}')
+        ->and(Lenient::text($wave->field('timeout-minutes')))->toBe('${{ inputs.shard-timeout }}')
+        ->and([Lenient::text($runs->field('shard')), Lenient::text($runs->field('leftover'))])->toBe(['${{ matrix.share.shard }}', '${{ matrix.share.share }}'])
+        ->and(Lenient::text($uploads($wave)->field('path')))->toBe($shareResult)
+        ->and(fnmatch($results, Lenient::text($uploads($wave)->field('name'))))->toBeTrue()
+        ->and(array_map(Lenient::text(...), Lenient::items($jobs->field('verdict')->field('needs'))))->toContain('leftovers', 'leftover')
+        ->and($action)->toContain('[ -z "${LEFTOVER}" ] || share=(--leftover="${LEFTOVER}")')
+        ->and($action)->toContain('        LEFTOVER: ${{ inputs.leftover }}');
 });
 
 it('installs the gate the action delivers with from its own lock alone, running none of its scripts or plugins', function (): void {

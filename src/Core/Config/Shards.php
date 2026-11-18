@@ -31,8 +31,11 @@ final readonly class Shards implements Part
     /** The minutes each shard's CI setup takes before the gate starts, where the config does not say. */
     private const int SETUP_MINUTES = 1;
 
-    /** The minutes a shard is cut to fit and stops at, where the config does not say: under a hosted job's 360. */
-    private const int JOB_LIMIT_MINUTES = 340;
+    /**
+     * The minutes a shard is cut to fit and stops at, where the config does not say: with its set-up, a job of ten
+     * minutes, its left mutants judged by a second wave (ADR-0190).
+     */
+    private const int JOB_LIMIT_MINUTES = 8;
 
     /** The minutes between two progress artifacts a CI shard leaves, where the config does not say (ADR-0157). */
     private const int PROGRESS_MINUTES = 3;

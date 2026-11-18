@@ -48,6 +48,7 @@ DOWNLOADS = (
     ("mutation-gate-plan-", "plan", "the plan"),
     ("mutation-gate-judge-", "judge", "the judge's PHAR"),
     ("mutation-gate-coverage-", "coverage", "the plan's coverage maps"),
+    ("mutation-gate-result-${{ needs.plan.outputs.attempt }}-leftovers", "shares", "the shares of what the shards left"),
     ("mutation-gate-result-", "results", "the shards' results"),
     ("mutation-gate-publish-", "publish", "what the verdict publishes"),
 )

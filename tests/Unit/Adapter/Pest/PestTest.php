@@ -65,10 +65,12 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MadeMutants;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\PartNarrowing;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
@@ -524,13 +526,29 @@ it('hands the patched plugin the mutators the request leaves out of its unchange
 it('tells the plugin the part of the test files whose tests judge the request\'s mutants, and nothing of every test file', function (): void {
     $at = PestCases::project();
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
-    $request = PestCases::money()->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->inTestPart(TestPart::of(2, 3)));
+    $request = PestCases::money()->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->within(PartNarrowing::whole()->inTestPart(TestPart::of(2, 3))));
 
     new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
         PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))->with([GateVariable::SplitPart->value => '2/3']),
     ]);
+});
+
+it('tells the plugin the only mutants the request makes, and nothing where it makes every one', function (): void {
+    $at = PestCases::project();
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+    $request = PestCases::money()->narrowedTo(
+        Paths::of(Path::of('src/Money.php')),
+        Narrowing::none()->within(PartNarrowing::whole()->making(MadeMutants::only('n1', 'n9'))),
+    );
+
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+    expect($shell->commands())->toEqual([
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))->with([GateVariable::Only->value => sprintf('%s.only', PestCases::results($at))]),
+    ])->and(file_get_contents(sprintf('%s.only', PestCases::results($at))))->toBe("n1\nn9")
+        ->and([...MadeMutants::every()])->toBe([]);
 });
 
 it('hands a patched plugin\'s mutants to static analysis before their tests, where the gate checks them so, and never an unpatched one\'s', function (): void {

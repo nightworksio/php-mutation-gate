@@ -44,6 +44,7 @@ use NightWorksIO\MutationGate\Core\Runner\LineRecording;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\PartNarrowing;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
@@ -412,11 +413,11 @@ it('reports the same records for every mutant Pest makes of the library\'s files
         Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in($handed)->value())),
         CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::of(), Unplaced::map()),
     );
-    $narrowing = $recording ? Narrowing::none()->recordingInto(LineRecording::standingIn(Scratch::directory())) : Narrowing::none();
-    $run = static fn(TestPart $part): MutationResult|CannotJudge => $library->mutate(
-        sprintf('every mutant, split, part %d of %d%s', $part->number(), $part->parts(), $recording ? ', recording' : ''),
+    $part = $recording ? PartNarrowing::whole()->recordingInto(LineRecording::standingIn(Scratch::directory())) : PartNarrowing::whole();
+    $run = static fn(TestPart $testPart): MutationResult|CannotJudge => $library->mutate(
+        sprintf('every mutant, split, part %d of %d%s', $testPart->number(), $testPart->parts(), $recording ? ', recording' : ''),
         MutationRequest::of($files, WholeSuite::tests())
-            ->narrowedTo($files, $narrowing->inTestPart($part))
+            ->narrowedTo($files, Narrowing::none()->within($part->inTestPart($testPart)))
             ->across(Pool::of(ProcessCount::of(2), Workers::Fork))
             ->reusingCoverage(Handed::maps($handed, $handed)),
     );
@@ -483,9 +484,9 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     $recorded = $library->mutate(
         sprintf('every mutant, split, its streams recording %s', $standsIn ? 'standing in' : 'for the map'),
         MutationRequest::of($files, WholeSuite::tests())
-            ->narrowedTo($files, Narrowing::none()->recordingInto(
+            ->narrowedTo($files, Narrowing::none()->within(PartNarrowing::whole()->recordingInto(
                 $standsIn ? LineRecording::standingIn($into) : LineRecording::forTheMap($into),
-            ))
+            )))
             ->across(Pool::of(ProcessCount::of(2), Workers::Fork))
             ->reusingCoverage(Handed::maps($handed, $handed)),
     );

@@ -451,6 +451,20 @@
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },
+    "mutation/leftovers": {
+      "check": "mutation / leftovers",
+      "checks": "G8: the mutants each shard left at shards.jobLimit, cut into shares a second wave of jobs judges, each predicted to end inside the limit (ADR-0190).",
+      "reproduce": "bin/mutation-gate leftovers --plan=.mutation-gate/plan.json --results=.mutation-gate/results --coverage=.mutation-gate/coverage",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/leftover": {
+      "check": "mutation / leftover ${{ matrix.share.shard }}.${{ matrix.share.share }}",
+      "checks": "G8: one share of the mutants a shard left, judged as the shard would have judged them, its result beside the shards' for the verdict (ADR-0190).",
+      "reproduce": "bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id> --leftover=<share> --results=.mutation-gate/results",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
     "mutation/watch": {
       "check": "mutation / watch",
       "checks": "On a run that names `watch-jobs`, it watches those jobs of the calling run and, once one concluded in failure, tells every shard to start no further item (ADR-0135).",
@@ -532,6 +546,20 @@
       "check": "mutation-early / shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})",
       "checks": "G8: one shard of the plan, each of its mutants run against the tests that reach it.",
       "reproduce": "bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id> --results=.mutation-gate/results",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/leftovers": {
+      "check": "mutation-early / leftovers",
+      "checks": "G8: the mutants each shard left at shards.jobLimit, cut into shares a second wave of jobs judges, each predicted to end inside the limit (ADR-0190).",
+      "reproduce": "bin/mutation-gate leftovers --plan=.mutation-gate/plan.json --results=.mutation-gate/results --coverage=.mutation-gate/coverage",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation-early/leftover": {
+      "check": "mutation-early / leftover ${{ matrix.share.shard }}.${{ matrix.share.share }}",
+      "checks": "G8: one share of the mutants a shard left, judged as the shard would have judged them, its result beside the shards' for the verdict (ADR-0190).",
+      "reproduce": "bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id> --leftover=<share> --results=.mutation-gate/results",
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },

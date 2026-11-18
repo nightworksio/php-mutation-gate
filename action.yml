@@ -33,6 +33,10 @@ inputs:
     description: The id of the one shard of `.mutation-gate/plan.json` to run; the whole gate runs where empty.
     required: false
     default: ''
+  leftover:
+    description: The share of the mutants `shard` left at its deadline to judge, as `mutation-gate leftovers` cut them into `.mutation-gate/results/leftovers.json` (ADR-0190); the shard itself where empty.
+    required: false
+    default: ''
   mode:
     description: auto (change-scoped on pull requests, merge groups and pushes, full on schedules, manual runs, releases and tags), full, changed, sampled (as auto, sampling the units no proof covers), or unproven (every unit, taking no proof, so every unit runs).
     required: false
@@ -346,8 +350,9 @@ runs:
           fs.writeFileSync(process.env.SERVICE_FILE, JSON.stringify(service), { mode: 0o600, flag: 'w' });
           fs.chmodSync(process.env.SERVICE_FILE, 0o600);
 
-    # One shard of a plan the reusable workflow made: its result, beside the
-    # attempt that wrote it, is the verdict's to judge.
+    # One shard of a plan the reusable workflow made, or one share of the
+    # mutants it left (ADR-0190): its result, beside the attempt that wrote a
+    # shard's, is the verdict's to judge.
     - name: Run shard ${{ inputs.shard }}
       id: shard
       if: inputs.deliver != 'true' && inputs.shard != ''
@@ -356,6 +361,7 @@ runs:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
         SHARD: ${{ inputs.shard }}
+        LEFTOVER: ${{ inputs.leftover }}
         GATE_PCOV: ${{ inputs.gate-pcov }}
         MUTATION_GATE_ARTIFACT_SERVICE: ${{ runner.temp }}/mutation-gate-artifact-service.json
         MUTATION_GATE_WATCH_JOBS: ${{ inputs.watch-jobs }}
@@ -365,8 +371,10 @@ runs:
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
         own=()
         [ "${GATE_PCOV}" = "on" ] || own=(-d pcov.enabled=0)
-        php "${own[@]}" "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${arguments[@]}" || code=$?
-        if [ -f ".mutation-gate/results/${SHARD}.json" ]; then
+        share=()
+        [ -z "${LEFTOVER}" ] || share=(--leftover="${LEFTOVER}")
+        php "${own[@]}" "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${share[@]}" "${arguments[@]}" || code=$?
+        if [ -z "${LEFTOVER}" ] && [ -f ".mutation-gate/results/${SHARD}.json" ]; then
           echo "${GITHUB_RUN_ATTEMPT}" > ".mutation-gate/results/${SHARD}.attempt"
         fi
         echo "code=${code}" >> "${GITHUB_OUTPUT}"

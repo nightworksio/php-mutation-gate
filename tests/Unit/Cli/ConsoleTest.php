@@ -47,6 +47,7 @@ it('offers every command the command-line reference lists', function (string $co
     'coverage',
     'reproduce',
     'survivors',
+    'leftovers',
     'explain',
     'digest',
     'tests',

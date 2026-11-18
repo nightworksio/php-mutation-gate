@@ -281,7 +281,7 @@ it('asks the runner to stop a shard named at shards.jobLimit, or a budget that c
     'the limit' => [fn(): Settings => Flows::settings(ConfiguredShards::jobLimit('1h')), 3600.0],
     'the limit before a later budget' => [fn(): Settings => Flows::settings(ConfiguredShards::jobLimit('1h'), Budget::of('2h')), 3600.0],
     'a limit with no room for its first unit' => [fn(): Settings => Flows::settings(ConfiguredShards::jobLimit('1s')), 1.0],
-    'the default' => [fn(): Settings => Flows::settings(), 20400.0],
+    'the default' => [fn(): Settings => Flows::settings(), 480.0],
 ]);
 
 it('leaves what a runner that could not judge had left, past shards.jobLimit, and cannot judge one before it', function (string $limit, bool $judged): void {

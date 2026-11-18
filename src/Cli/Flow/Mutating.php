@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\LineRecording;
+use NightWorksIO\MutationGate\Core\Runner\MadeMutants;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
@@ -64,6 +65,7 @@ final readonly class Mutating
         private BatchEnds $ends,
         private ProcessLog $log,
         private ShardRecording $recording,
+        private MadeMutants $made,
     ) {
     }
 
@@ -118,6 +120,7 @@ final readonly class Mutating
                     $this->ends,
                     $this->log,
                     $this->recording,
+                    $this->made,
                 )->mutatedKept($plan, $part, $map, $held, $search, $deadline, $stopwatch),
             );
     }
@@ -305,8 +308,9 @@ final readonly class Mutating
      * by the whole suite, reading the maps the plan handed the shard, each
      * mutant's killers looked for as asked, leaving the mutators the plan
      * prunes out of the files it prunes them in, its mutants judged by the
-     * shard's part of the test files (ADR-0117); in a run planned without a
-     * fresh map, its streams recording each test's lines (ADR-0135).
+     * shard's part of the test files (ADR-0117), making the mutants it is
+     * told to (ADR-0190); in a run planned without a fresh map, its streams
+     * recording each test's lines (ADR-0135).
      */
     private function requestFor(
         Units $units,
@@ -325,18 +329,18 @@ final readonly class Mutating
         }
 
         $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
-        $narrowing = $request->narrowing()
-            ->pruning($pruned)
-            ->inTestPart($this->partOf(! $judgedBy instanceof WholeSuite, $shard));
-        $narrowing = match (true) {
-            $early => $narrowing->recordingInto(LineRecording::standingIn($this->recording->directory($shard))),
-            $this->recording->recordsLines() => $narrowing->recordingInto(
+        $part = $request->narrowing()->part()
+            ->inTestPart($this->partOf(! $judgedBy instanceof WholeSuite, $shard))
+            ->making($this->made);
+        $part = match (true) {
+            $early => $part->recordingInto(LineRecording::standingIn($this->recording->directory($shard))),
+            $this->recording->recordsLines() => $part->recordingInto(
                 LineRecording::forTheMap($this->recording->directory($shard)),
             ),
-            default => $narrowing,
+            default => $part,
         };
 
-        return $request->narrowedTo($files, $narrowing)
+        return $request->narrowedTo($files, $request->narrowing()->pruning($pruned)->within($part))
             ->across($pool)
             ->reusingCoverage(
                 Handed::maps(Workspace::shardCoverage($shard->id()), Workspace::coverage())

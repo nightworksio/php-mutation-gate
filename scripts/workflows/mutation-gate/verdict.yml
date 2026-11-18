@@ -4,7 +4,7 @@
   # judge makes it cannot-judge, and so does a shard that left no result.
   verdict:
     name: verdict
-    needs: [fetch, judge, plan, shard, survivors, survivors-report]
+    needs: [fetch, judge, plan, shard, leftovers, leftover, survivors, survivors-report]
     # A plan that waits for a caller that hands a fresh map judges nothing,
     # and leaves no verdict that could pass (ADR-0135).
     if: ${{ !cancelled() && needs.plan.result != 'skipped' && needs.plan.outputs.waits != 'true' }}

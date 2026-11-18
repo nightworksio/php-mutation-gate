@@ -301,7 +301,7 @@ it('tells the runner of each invocation the shard\'s part of the test files, and
     new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::of($shard(1), $shard(2))), ShardId::of(2), Workspace::results());
 
-    expect(array_map(static fn(MutationRequest $request): TestPart => $request->narrowing()->testPart(), $runner->requests()))
+    expect(array_map(static fn(MutationRequest $request): TestPart => $request->narrowing()->part()->testPart(), $runner->requests()))
         ->toEqual([TestPart::whole(), TestPart::of(2, 2)]);
 });
 

@@ -329,7 +329,7 @@ final readonly class MutationRun
         $this->warmFor($request, $command, $results);
         $drivers = CoverageDrivers::of(
             $this->patching,
-            ToldExtension::recordsWithPcov($this->extension, $request->narrowing()->recording()),
+            ToldExtension::recordsWithPcov($this->extension, $request->narrowing()->part()->recording()),
             $this->project,
         );
         $ran = $this->shell->run(
@@ -389,7 +389,7 @@ final readonly class MutationRun
         HandOff|NotGiven $handOff,
         LimitBounds $bounds,
     ): array {
-        $recording = $request->narrowing()->recording();
+        $recording = $request->narrowing()->part()->recording();
         $withPcov = ToldExtension::recordsWithPcov($this->extension, $recording);
 
         return [

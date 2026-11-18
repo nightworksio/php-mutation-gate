@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -58,4 +59,17 @@ it('leaves more units unjudged, keeping all else', function () use ($group): voi
     expect(array_map(static fn(Unit $unit): string => $unit->path()->value(), [...$left->unjudged]))->toBe(['src/A.php', 'src/C.php'])
         ->and($left->result)->toEqual($group('src/A.php')->result)
         ->and($left->flaky)->toEqual($group('src/A.php')->flaky);
+});
+
+it('keeps only these of its mutants and of its flaky ones, all else as it was', function () use ($group): void {
+    $whole = $group('src/A.php');
+    $first = [...$whole->result->mutants()][0];
+    $flaky = MutantIds::of(MutantId::firstOf(Path::of('src/A.php'), 'Minus', '-a +b'));
+    $kept = $whole->keeping(MutantIds::of($first->id(), ...$flaky));
+
+    expect(array_map(static fn(Mutant $mutant): MutantId => $mutant->id(), [...$kept->result->mutants()]))->toEqual([$first->id()])
+        ->and($kept->flaky)->toEqual($flaky)
+        ->and($whole->keeping(MutantIds::of($first->id()))->flaky)->toEqual(MutantIds::none())
+        ->and($kept->result->warnings())->toEqual($whole->result->warnings())
+        ->and([$kept->unjudged, $kept->checks, $kept->doomed])->toEqual([$whole->unjudged, $whole->checks, $whole->doomed]);
 });

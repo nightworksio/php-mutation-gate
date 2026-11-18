@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
+use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -54,7 +55,8 @@ use function sprintf;
  * orders its tests as though no test had killed anything yet, and one whose
  * history cannot be read does too, and warns of it. A pull request's shard
  * runs in chunks, and stops once a survivor makes its run certain to fail,
- * naming that survivor in its result (ADR-0008). Each kill's
+ * naming that survivor in its result (ADR-0008). A job of the second wave
+ * runs the shard over one share of the mutants it left (ADR-0190). Each kill's
  * evidence the runner gave is left beside its mutant, what a process printed
  * kept only where it holds no secret the gate withholds (ADR-0014).
  *
@@ -79,6 +81,7 @@ final readonly class Running
         private Ruling $ruling = new Ruling(),
         private BatchEnds $ends = new BatchEnds(),
         private ProcessLog $log = new NoProcessLog(),
+        private LeftoverShare|NotGiven $share = new NotGiven(),
     ) {
     }
 
@@ -105,6 +108,7 @@ final readonly class Running
             $this->ruling,
             $this->ends,
             $this->log,
+            $this->share,
         );
     }
 
@@ -119,6 +123,27 @@ final readonly class Running
             $this->ruling,
             $ends,
             $this->log,
+            $this->share,
+        );
+    }
+
+    /**
+     * The same, judging only this share of the mutants the shard left at its
+     * deadline (ADR-0190): the shard's units that hold them, making only
+     * them, every other step of a shard's run as it is, its result keeping
+     * them alone, left where the verdict reads the share's.
+     */
+    public function judging(LeftoverShare $share): self
+    {
+        return new self(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            $this->interruption,
+            $this->ruling,
+            $this->ends,
+            $this->log,
+            $share,
         );
     }
 
@@ -217,7 +242,7 @@ final readonly class Running
     ): ShardLeft|ShardsLeft|CannotJudge {
         $exchange = $this->adapters->exchange;
 
-        if ($followed instanceof Plan && $id instanceof ShardId && $followed->shards()->pulls()) {
+        if ($followed instanceof Plan && $id instanceof ShardId && LeftoverScope::of($this->share)->pulls($followed)) {
             $deadline = ShardDeadline::of($this->settings, $this->setup->clock->now());
 
             return new PulledRuns($this->adapters, $this->settings, $exchange, $this->setup->clock)->left(
@@ -269,7 +294,7 @@ final readonly class Running
     private function written(ShardResult|CannotJudge $result, Path $results): Written|CannotJudge
     {
         return $result instanceof CannotJudge ? $result : $this->adapters->project->write(
-            Workspace::result($results, $result->shard()),
+            LeftoverScope::of($this->share)->resultIn($results, $result->shard()),
             Contents::of(ShardResultFile::encode($result)),
         );
     }
@@ -301,6 +326,7 @@ final readonly class Running
         $search = KillSearch::of($ordering, $plan->briefing()->profile()->matrix())
             ->controllingKills($this->settings->triage()->flaky()->killControls());
         $search = $held instanceof Subsumption ? $search->holdingBack($held) : $search;
+        $scope = LeftoverScope::of($this->share);
         $outcome = $map instanceof CoverageMap
             ? new Mutating(
                 $this->adapters,
@@ -311,8 +337,10 @@ final readonly class Running
                 $this->ends,
                 $this->log,
                 $this->recording(),
-            )->mutated($plan, $shard, $map, $search, $deadline, $stopwatch)
+                $scope->made(),
+            )->mutated($plan, $scope->shardOf($shard), $map, $search, $deadline, $stopwatch)
             : $map;
+        $outcome = $scope->kept($outcome);
         $ended = $this->setup->clock->now();
         $spent = Seconds::between($started, $ended);
         $identity = $this->adapters->runner->identity($this->adapters->withheld);

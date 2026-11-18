@@ -20,7 +20,7 @@ use function strval;
 /**
  * What a mutation run tells the patched plugin through Pest's environment,
  * each list written beside the run's results: the only mutants a run again
- * makes (see OnlyList), the mutators it prunes (see PrunedFile), whether each
+ * makes, or else those its request makes (see OnlyList), the mutators it prunes (see PrunedFile), whether each
  * mutant's own run is narrowed (see CoveringFiles), where it waits for the
  * gate's verdicts (see Verdicts), where its warm workers share their files
  * (see Warm\Pool), the bounds of each mutant's limits, and the part of
@@ -48,11 +48,12 @@ final readonly class Told
     public function of(MutationRequest $request, string $results, bool $handsOff, LimitBounds $bounds): array
     {
         $pruned = $request->narrowing()->pruned();
+        $only = $this->only === [] ? [...$request->narrowing()->part()->made()] : $this->only;
 
         return [
-            ...$this->only === []
+            ...$only === []
                 ? []
-                : [GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only)],
+                : [GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$only)],
             ...$this->pruning($pruned, $results),
             ...$this->narrows ? [GateVariable::Narrow->value => '1'] : [],
             ...$handsOff ? [GateVariable::Verdicts->value => Verdicts::beside($results)] : [],
@@ -64,8 +65,8 @@ final readonly class Told
             ...$this->patching->bounding($bounds),
             ...$this->patching->schemata(),
             ...$this->patching->stepVariables(),
-            ...TestPartVariable::told($request->narrowing()->testPart()),
-            ...RecordingVariables::of($request->narrowing()->recording()),
+            ...TestPartVariable::told($request->narrowing()->part()->testPart()),
+            ...RecordingVariables::of($request->narrowing()->part()->recording()),
         ];
     }
 
