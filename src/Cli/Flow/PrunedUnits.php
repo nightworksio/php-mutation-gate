@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Pruning\Pruner;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
 
 use function sprintf;
 
@@ -47,7 +48,9 @@ final readonly class PrunedUnits
         $since = Instant::at($this->setup->clock->now()->sub($audit));
         $never = MutatorNames::of(...$this->adapters->security);
 
-        return Pruner::of($pruning, $this->settings->runner()->name(), $never, $since)->pruned(
+        $triage = MutantTriage::under($this->settings->triage()->timeouts());
+
+        return Pruner::of($pruning, $this->settings->runner()->name(), $never, $since, $triage)->pruned(
             $ledgers->own()->and($ledgers->defaultBranch())->learned()->survival(),
             $toRun,
             $newest,
