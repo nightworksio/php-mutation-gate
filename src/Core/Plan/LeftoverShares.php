@@ -30,6 +30,9 @@ final readonly class LeftoverShares
 {
     private const int FORMAT = 1;
 
+    /** The field of a share holding the wall seconds its job's passes were predicted to take. */
+    private const string PREDICTED = 'predicted';
+
     private const string UNREAD = 'The shares of the mutants the shards left cannot be read: %s';
 
     /** @param list<LeftoverShare> $shares */
@@ -94,7 +97,14 @@ final readonly class LeftoverShares
         ));
     }
 
-    /** @return array{shard: int, share: int, mutants: list<array{id: string, native: string, file: string}>} */
+    /**
+     * @return array{
+     *     shard: int,
+     *     share: int,
+     *     mutants: list<array{id: string, native: string, file: string}>,
+     *     predicted: array{first: float, second: float},
+     * }
+     */
     private function shareRecord(LeftoverShare $share): array
     {
         $mutants = [];
@@ -107,7 +117,12 @@ final readonly class LeftoverShares
             ];
         }
 
-        return ['shard' => $share->shard()->number(), 'share' => $share->number(), 'mutants' => $mutants];
+        return [
+            'shard' => $share->shard()->number(),
+            'share' => $share->number(),
+            'mutants' => $mutants,
+            self::PREDICTED => $share->predicted()->record(),
+        ];
     }
 
     /** @throws NotInShape */
@@ -140,10 +155,12 @@ final readonly class LeftoverShares
             );
         }
 
+        $predicted = PassSeconds::read($share->field(self::PREDICTED));
+
         return LeftoverShare::of(
             ShardId::of($share->field('shard')->integer()),
             $share->field('share')->integer(),
             ...$mutants,
-        );
+        )->predicting($predicted->first(), $predicted->second());
     }
 }

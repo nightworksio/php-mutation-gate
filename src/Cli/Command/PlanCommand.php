@@ -20,8 +20,10 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
+use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Sample\SampleText;
 use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Written;
@@ -85,6 +87,8 @@ final readonly class PlanCommand
     {
         $mode = FlowOptions::mode($input, $composed->settings);
         $cut = FlowOptions::pulled(FlowOptions::cut($input, $composed->settings), $composed);
+        $wall = StreamWall::of($composed->adapters->processes()->count());
+        $cut = $cut instanceof Cut ? $cut->streamedOver($wall) : $cut;
         $matrix = FlowOptions::killMatrix($input);
 
         return match (true) {

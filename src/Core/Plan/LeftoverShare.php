@@ -11,24 +11,42 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * One share of the mutants a shard left at its deadline, which one job of
  * the second wave judges (ADR-0190): the shard, the share's number among
- * that shard's shares, counted from 1, and the mutants it lists.
+ * that shard's shares, counted from 1, the mutants it lists and the wall
+ * seconds its job's passes were predicted to take (ADR-0195).
  *
  * @internal
  */
 final readonly class LeftoverShare
 {
     /** @param list<LeftMutant> $mutants */
-    private function __construct(private ShardId $shard, private int $number, private array $mutants)
-    {
+    private function __construct(
+        private ShardId $shard,
+        private int $number,
+        private array $mutants,
+        private PassSeconds $predicted,
+    ) {
     }
 
     public static function of(ShardId $shard, int $number, LeftMutant ...$mutants): self
     {
-        return new self($shard, $number, array_values($mutants));
+        return new self($shard, $number, array_values($mutants), PassSeconds::none());
+    }
+
+    /** This share, its job's passes predicted to take these wall seconds (ADR-0195). */
+    public function predicting(Seconds $first, Seconds $second): self
+    {
+        return new self($this->shard, $this->number, $this->mutants, PassSeconds::of($first, $second));
+    }
+
+    /** The wall seconds its job's passes were predicted to take; none where the cut predicted none. */
+    public function predicted(): PassSeconds
+    {
+        return $this->predicted;
     }
 
     public function shard(): ShardId

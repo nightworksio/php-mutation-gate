@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -480,3 +481,27 @@ it('pulls one item of a package that costs nothing and is lowered to no shard, w
 
     expect($cut instanceof Shards ? count(iterator_to_array($cut, preserve_keys: false)) : $cut)->toBe(1);
 });
+
+it('cuts a run that streams its test parts to the fewest shards whose wall time fits the target, its cost spread over the processes and its second pass scaled, past shards.max and a learned max', function (
+    Cut $cut,
+    int $count,
+) use ($weighed, $makeSrc, $shards): void {
+    $work = Workload::of($weighed('src/A.php', 4000.0), $weighed('src/B.php', 4000.0));
+
+    expect($shards($cut->cut($work, $makeSrc())))->toHaveCount($count);
+})->with([
+    'four processes, ten minutes by default, one minute of setup' => [
+        fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 2)->cuttingTestFiles()->streamedOver(StreamWall::of(4))->atMost(2),
+        4,
+    ],
+    'one process' => [fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 2)->cuttingTestFiles()->streamedOver(StreamWall::of(1)), 15],
+    'a second pass taking half its covering tests' => [
+        fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 2)->cuttingTestFiles()->streamedOver(StreamWall::of(1, 0.5)),
+        8,
+    ],
+    'a target set' => [
+        fn(): Cut => Cut::toTarget(Seconds::of(1060.0), Seconds::of(60.0), 2)->cuttingTestFiles()->streamedOver(StreamWall::of(4)),
+        2,
+    ],
+    'not cutting test files: as sized, a unit a shard' => [fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 20)->streamedOver(StreamWall::of(4)), 2],
+]);

@@ -13,6 +13,7 @@ use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
@@ -29,10 +30,14 @@ final readonly class ShardSizing
     /** How many times its overhead a shard's share of the cost must be at least, for the cut to make it. */
     public const float WORK_PER_OVERHEAD = 2.0;
 
+    /** The least second pass's factor a cut scales by, so a measured factor of none cuts no shard of no size. */
+    private const float LEAST_PASS_TWO = 0.05;
+
     /**
      * @param Seconds|Absent $size     the size of a shard, where the config sets it; none where the workload decides
      * @param Seconds|Absent $target   the wall time the shards are cut to fit, where the config asks for one
      * @param Seconds|Absent $jobLimit the longest a shard's job may run, where the config sets it
+     * @param float          $scale    how many seconds of the cost a second of a shard's wall time holds
      */
     private function __construct(
         private Seconds|Absent $size,
@@ -42,6 +47,8 @@ final readonly class ShardSizing
         private Seconds $overhead,
         private float $workPerOverhead = self::WORK_PER_OVERHEAD,
         private Seconds|Absent $jobLimit = new Absent(),
+        private float $scale = 1.0,
+        private bool $streamed = false,
     ) {
     }
 
@@ -75,10 +82,13 @@ final readonly class ShardSizing
         return $this->most;
     }
 
-    /** This sizing, at most this many shards; a count asked for is kept as asked. */
+    /**
+     * This sizing, at most this many shards; a count asked for, or one of
+     * streamed shards, which one matrix of jobs bounds, is kept as it is.
+     */
     public function atMost(int $most): self
     {
-        return $this->exact
+        return $this->exact || $this->streamed
             ? $this
             : new self(
                 $this->size,
@@ -88,6 +98,8 @@ final readonly class ShardSizing
                 $this->overhead,
                 $this->workPerOverhead,
                 $this->jobLimit,
+                $this->scale,
+                $this->streamed,
             );
     }
 
@@ -102,6 +114,8 @@ final readonly class ShardSizing
             $this->overhead,
             $times,
             $this->jobLimit,
+            $this->scale,
+            $this->streamed,
         );
     }
 
@@ -118,6 +132,8 @@ final readonly class ShardSizing
                 $this->overhead,
                 $this->workPerOverhead,
                 $limit,
+                $this->scale,
+                $this->streamed,
             );
     }
 
@@ -132,7 +148,34 @@ final readonly class ShardSizing
             Seconds::of($this->overhead->seconds() + $run->seconds()),
             $this->workPerOverhead,
             $this->jobLimit,
+            $this->scale,
+            $this->streamed,
         );
+    }
+
+    /**
+     * This sizing for shards whose split streams judge one part of the test
+     * files each (ADR-0195): fitted to the target, `shards.target` or ten
+     * minutes where it sets none, a shard's wall seconds being its share of
+     * the cost spread over these streams' processes, its second pass scaled,
+     * and as many shards as one matrix of jobs holds, those past what runs
+     * at once waiting their turn; a count asked for is kept as asked.
+     */
+    public function streamedOver(StreamWall $wall): self
+    {
+        return $this->exact
+            ? $this
+            : new self(
+                Absent::setting(),
+                LeftoverCut::MATRIX_MOST,
+                $this->exact,
+                $this->target instanceof Seconds ? $this->target : Seconds::of(Shards::SECONDS),
+                $this->overhead,
+                $this->workPerOverhead,
+                $this->jobLimit,
+                $wall->processes() / max($wall->passTwo(), self::LEAST_PASS_TWO),
+                streamed: true,
+            );
     }
 
     /**
@@ -164,7 +207,9 @@ final readonly class ShardSizing
     /** This size, no more than a shard's job can spend on its share of the cost once its overhead is paid. */
     private function withinTheLimit(float $size): float
     {
-        $room = $this->jobLimit instanceof Seconds ? $this->jobLimit->seconds() - $this->overhead->seconds() : 0.0;
+        $room = $this->jobLimit instanceof Seconds
+            ? ($this->jobLimit->seconds() - $this->overhead->seconds()) * $this->scale
+            : 0.0;
 
         return $room > 0.0 ? min($size, $room) : $size;
     }
@@ -180,7 +225,7 @@ final readonly class ShardSizing
      */
     private function worthCutting(array $packages, array $counts): array
     {
-        $least = $this->overhead->seconds() * $this->workPerOverhead;
+        $least = $this->overhead->seconds() * $this->workPerOverhead * $this->scale;
 
         return array_map(
             static fn(PackageWork $package, int $count): int => $least > 0.0
@@ -207,7 +252,7 @@ final readonly class ShardSizing
      */
     private function sizeToFit(Seconds $target, float $cost): float
     {
-        $room = $target->seconds() - $this->overhead->seconds();
+        $room = ($target->seconds() - $this->overhead->seconds()) * $this->scale;
         $count = $room > 0.0 ? ceil($cost / $room) : $this->most;
 
         return $cost / max(1, min($count, $this->most));

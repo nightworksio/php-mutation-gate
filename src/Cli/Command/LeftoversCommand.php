@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShares;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -70,6 +71,7 @@ final readonly class LeftoversCommand
             FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results()),
             FlowOptions::path($input, FlowOptions::COVERAGE, Workspace::coverage()),
             $composed->settings->shards()->jobLimit(),
+            StreamWall::of($composed->adapters->processes()->count()),
         ) : $plan;
     }
 }

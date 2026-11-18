@@ -730,6 +730,10 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\StreamWork':
                     - STANDARD_BACKOFF # the times a restarted stream's slowdown starts over its stopped one's, not a shard's work per overhead
                     - STANDARD_PARTS_PER_PROCESS # parts a pass cuts for each stream it runs at once, not a packed token's bytes
+                'NightWorksIO\MutationGate\Core\Plan\LeftoverCut':
+                    - OFFERED # open shares a group is offered to, not a signal number
+                'NightWorksIO\MutationGate\Core\Plan\PassSeconds':
+                    - FIRST # a record's field of a first pass, not an owner mention
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())

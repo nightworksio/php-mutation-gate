@@ -22,8 +22,12 @@ use function sprintf;
  */
 final readonly class Shards implements Part
 {
-    /** The seconds of work one shard is cut to, where the config does not say. */
-    private const int SECONDS = 600;
+    /**
+     * The seconds one shard is cut to where the config does not say: of
+     * work, or, where its streams judge a part of the test files, of wall
+     * time (ADR-0195).
+     */
+    public const int SECONDS = 600;
 
     /** The most shards a plan cuts, where the config does not say. */
     private const int MOST = 20;

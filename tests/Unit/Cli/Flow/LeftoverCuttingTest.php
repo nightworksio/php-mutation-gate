@@ -18,11 +18,15 @@ use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShares;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
+use NightWorksIO\MutationGate\Core\Proof\KillHistoryFile;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -112,7 +116,7 @@ it('cuts the mutants each shard left by the seconds the plan\'s map timed the te
         leftoverCuttingMap($project, $tests);
     }
 
-    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of($limit));
+    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of($limit), StreamWall::of(1, 0.0));
     $written = LeftoverShares::decode((string) file_get_contents(sprintf('%s/%s', $project, LeftoverParts::file(Workspace::results())->value())));
 
     expect($cut instanceof LeftoverShares ? leftoverCutNatives($cut->ofShard(ShardId::of(1)), $natives) : $cut)->toBe($expected)
@@ -142,7 +146,7 @@ it('prices a mutant over several lines by the test files covering any of them, t
     leftoverCuttingApart($project, $whole, $last);
     leftoverCuttingMap($project, ['MoneyTest::spans' => [70.0, 'src/Money.php', 17]]);
 
-    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(60.0));
+    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(60.0), StreamWall::of(1, 0.0));
 
     expect($cut instanceof LeftoverShares ? count($cut->ofShard(ShardId::of(1))) : $cut)->toBe($shares);
 })->with([
@@ -167,11 +171,37 @@ it('gives a job of the second wave the limit less the time its shard took to sta
     )) : '');
     leftoverCuttingMap($project, ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]]);
 
-    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(100.0));
+    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(100.0), StreamWall::of(1, 0.0));
 
     expect($cut instanceof LeftoverShares ? count($cut->ofShard(ShardId::of(1))) : $cut)->toBe($shares);
 })->with([
     'no opening: the whole limit' => [0.0, 1],
     'opened 30 s: 70 s left' => [30.0, 2],
     'opened past the limit: a share each' => [150.0, 2],
+]);
+
+it('prices a left mutant\'s forks at the likely killer its shard\'s handed ledger names among its covering tests, and at every covering test otherwise', function (bool $named, int $shares): void {
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    leftoverCuttingApart($project, $whole);
+    leftoverCuttingMap($project, [
+        'MoneyTest::compares' => [50.0, 'src/Money.php', 16],
+        'MoneyTest::checks' => [10.0, 'src/Money.php', 16],
+        'OtherTest::subtracts' => [40.0, 'src/Other.php', 21],
+    ]);
+    $history = KillHistory::none();
+
+    foreach (LeftAtTheDeadline::mutantsOf($whole) as $mutant) {
+        $history = $named && $mutant->nativeId() === 'GreaterThan-16'
+            ? $history->withMutant($mutant->id(), Ranking::none()->killedBy(TestId::of('MoneyTest::checks')))
+            : $history;
+    }
+
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', KillHistoryFile::encode($history));
+
+    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(160.0), StreamWall::of(1));
+
+    expect($cut instanceof LeftoverShares ? count($cut->ofShard(ShardId::of(1))) : $cut)->toBe($shares);
+})->with([
+    'a killer named: its fork alone, one share' => [true, 1],
+    'none named: every covering test, a share each' => [false, 2],
 ]);

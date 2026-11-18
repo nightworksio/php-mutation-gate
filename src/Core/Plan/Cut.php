@@ -75,6 +75,17 @@ final readonly class Cut
         return new self($this->sizing->atMost($most), $this->testParts, $this->item, $this->heldWhole);
     }
 
+    /**
+     * This cut, where its shards stream a part of the test files each, fitted
+     * to a target by the wall seconds these streams take (ADR-0195).
+     */
+    public function streamedOver(StreamWall $wall): self
+    {
+        return $this->testParts
+            ? new self($this->sizing->streamedOver($wall), $this->testParts, $this->item, $this->heldWhole)
+            : $this;
+    }
+
     /** This cut, making no shard whose share of the cost is below this many times its overhead: `shards.cutAt`. */
     public function cuttingAt(float $times): self
     {
