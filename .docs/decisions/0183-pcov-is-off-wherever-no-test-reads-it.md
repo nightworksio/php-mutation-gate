@@ -64,8 +64,12 @@ Two things set limits on where pcov may be off:
    PHP as it is configured** (`Withholding`, `IniScan::restored`): a
    coverage run that a test starts, through the gate's own code, collects
    as it does anywhere else.
-5. **`Recorded::usable()` reads `pcov.enabled` alone.**
-6. **`pest.pcovOff`** (`true`, `false`): `true`, by default, does the
+5. **A run whose PHP prepends a file to every script keeps pcov on**
+   (`auto_prepend_file` set): that file runs in every process, before any
+   test, and may read the coverage driver, as a coverage harness that
+   records each process's lines does; a test file names nothing of it.
+6. **`Recorded::usable()` reads `pcov.enabled` alone.**
+7. **`pest.pcovOff`** (`true`, `false`): `true`, by default, does the
    above; `false` leaves pcov as PHP is configured in every process.
 
 ## Why no verdict moves

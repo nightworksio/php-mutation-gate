@@ -186,13 +186,22 @@ final readonly class PestCases
         return Invocation::of($at);
     }
 
-    /** A project in a new directory, by its real path, holding src/Money.php, that installs its packages in `vendor` or another directory. */
-    public static function project(string $vendor = 'vendor'): Project
+    /**
+     * A project in a new directory, by its real path, holding src/Money.php, that installs its packages in `vendor`
+     * or another directory, its PHP prepending this file to every script, none by default.
+     */
+    public static function project(string $vendor = 'vendor', string $prepended = ''): Project
     {
         $root = (string) realpath(Scratch::directory());
         Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
 
-        return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of($vendor));
+        return Project::at(
+            $root,
+            Paths::of(Path::of('tests')),
+            Path::of('.mutation-gate'),
+            Path::of($vendor),
+            prepended: $prepended,
+        );
     }
 
     /** What Pest and the plugin leave when a run mutates src/Money.php's line 11 once, and a test it names kills it. */

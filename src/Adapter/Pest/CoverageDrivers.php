@@ -18,7 +18,9 @@ use NightWorksIO\MutationGate\Core\Runner\IniScan;
  * The coverage drivers a mutation run and every process it starts run with
  * (ADR-0147, ADR-0183): pcov off under `pest.pcovOff`, by an ini file in a
  * directory PHP scans after those it scans already, unless the run's streams
- * record lines with pcov; and Xdebug's mode off under `pest.xdebugOff`. A
+ * record lines with pcov or PHP prepends a file to every script, which runs
+ * in every process and may read the driver; and Xdebug's mode off under
+ * `pest.xdebugOff`. A
  * mutation run reads no coverage but what its streams record. pcov reads no
  * variable of its own, and `pcov.enabled` can be set only as PHP starts, so
  * the scanned file is what reaches every process a run starts by its script.
@@ -43,11 +45,12 @@ final readonly class CoverageDrivers
     /**
      * What a mutation run sets, where its streams record lines with pcov or
      * not, its ini file written in the project; pcov as PHP is configured
-     * where the file cannot be written.
+     * where the file cannot be written, and where the project's PHP prepends
+     * a file to every script.
      */
     public static function of(Patching $patching, bool $recordsWithPcov, Project $project): self
     {
-        $ini = ! $recordsWithPcov && $patching->steps()->on(Toggle::PestPcovOff)
+        $ini = ! $recordsWithPcov && $project->prepended() === '' && $patching->steps()->on(Toggle::PestPcovOff)
             ? $project->written(self::INI, self::PCOV_OFF)
             : '';
 

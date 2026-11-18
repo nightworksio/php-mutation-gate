@@ -6,7 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use Closure;
 
+use function ini_get;
 use function is_bool;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamOptions;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -205,7 +207,15 @@ final readonly class PestOptions
             return $read;
         }
 
-        $project = Project::at(self::ROOT, $read->tests, Workspace::root(), $vendor, $placing);
+        $prepended = ini_get('auto_prepend_file');
+        $project = Project::at(
+            self::ROOT,
+            $read->tests,
+            Workspace::root(),
+            $vendor,
+            $placing,
+            is_string($prepended) ? $prepended : '',
+        );
         $loading = $archive instanceof OwnArchive
             ? ArchiveLoading::writtenFor($project, $archive, GatePlugins::listedIn($project, $packages), $plugin)
             : NotGiven::value();

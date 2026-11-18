@@ -48,6 +48,16 @@ it('turns pcov off under pest.pcovOff by an ini file scanned after what the comm
     'Xdebug left' => [true, false, false, [IniScan::KEPT => 'set:/etc/php.d', IniScan::ADDED => '{scanned}', IniScan::VARIABLE => '/etc/php.d:{scanned}']],
 ]);
 
+it('leaves pcov on where PHP prepends a file to every script, which may read the driver in every process', function (): void {
+    $at = PestCases::project(prepended: '/etc/php/prepend.php');
+    $command = Command::of('php')->with([IniScan::VARIABLE => '/etc/php.d']);
+    $drivers = CoverageDrivers::of(PestCases::drivenBy(pcovOff: true, xdebugOff: false), recordsWithPcov: false, project: $at);
+
+    expect($drivers->onto($command)->environment())->toBe([IniScan::VARIABLE => '/etc/php.d'])
+        ->and($drivers->isNone())->toBeTrue()
+        ->and(is_file(sprintf('%s/pcov-off/pcov.ini', $at->workspace())))->toBeFalse();
+});
+
 it('writes the ini file that turns pcov off, and a PHP started with it has pcov off, as one started from it by the gate has it on again', function (): void {
     $at = PestCases::project();
     $off = CoverageDrivers::of(PestCases::drivenBy(pcovOff: true, xdebugOff: false), recordsWithPcov: false, project: $at)

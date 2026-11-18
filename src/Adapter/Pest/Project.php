@@ -64,13 +64,15 @@ final readonly class Project
         private Path $workspace,
         private Path $vendor,
         private PlacesMutants|NotGiven $placing,
+        private string $prepended,
     ) {
     }
 
     /**
      * The project at a root, as the runner spells it (owner: flows), held as
      * its real path, serving a mutant where this places it from its root,
-     * tests, vendor and gate's directories.
+     * tests, vendor and gate's directories, its PHP prepending this file to
+     * every script, '' where it prepends none.
      */
     public static function at(
         string $root,
@@ -78,8 +80,15 @@ final readonly class Project
         Path $workspace,
         Path $vendor,
         PlacesMutants|NotGiven $placing = new NotGiven(),
+        string $prepended = '',
     ): self {
-        return new self(Root::of(self::real($root)), $tests, $workspace, $vendor, $placing);
+        return new self(Root::of(self::real($root)), $tests, $workspace, $vendor, $placing, $prepended);
+    }
+
+    /** The file the project's PHP prepends to every script, `auto_prepend_file`; '' where it prepends none. */
+    public function prepended(): string
+    {
+        return $this->prepended;
     }
 
     /** The gate's directory, where the adapter keeps what it writes. */
@@ -94,7 +103,14 @@ final readonly class Project
      */
     public function in(Path $directory, Paths $tests): self
     {
-        return self::at($this->absolute($directory), $tests, $this->workspace, $this->vendor, $this->placing);
+        return self::at(
+            $this->absolute($directory),
+            $tests,
+            $this->workspace,
+            $this->vendor,
+            $this->placing,
+            $this->prepended,
+        );
     }
 
     /**

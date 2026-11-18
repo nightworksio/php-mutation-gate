@@ -25,7 +25,7 @@ return static function (string $into, string $root): void {
     $fresh = $runner === 'fresh.php';
     $autoload = sprintf('%s/vendor/autoload.php', getcwd());
 
-    if (! is_dir($into) || ! function_exists('pcov\collect')) {
+    if (! is_dir($into) || ! function_exists('pcov\collect') || ini_get('pcov.enabled') !== '1') {
         return;
     }
 
