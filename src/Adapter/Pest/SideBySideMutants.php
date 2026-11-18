@@ -75,8 +75,10 @@ final readonly class SideBySideMutants
     /**
      * @param array<string, list<Mutation>>                         $made   each file's mutants a child made, by path
      * @param Closure(SplFileInfo, list<int>): array<int, Mutation> $making a file's mutants, as Pest makes them
+     * @param array<string, list<int>|false>                       $lines  each file's lines to mutate, false where
+     *                                                                     none, by path
      */
-    private function __construct(private array $made, private Closure $making)
+    private function __construct(private array $made, private Closure $making, private array $lines)
     {
     }
 
@@ -90,9 +92,11 @@ final readonly class SideBySideMutants
     public static function made(iterable $files, Closure $lines, Closure $making): self
     {
         $jobs = [];
+        $mutating = [];
 
         foreach ($files as $file) {
             $mutated = $lines($file);
+            $mutating[strval($file->getRealPath())] = $mutated;
             $jobs = $mutated === false ? $jobs : [...$jobs, [$file, $mutated]];
         }
 
@@ -100,11 +104,13 @@ final readonly class SideBySideMutants
             ? min(count($jobs), new CpuCoreCounter()->getCountWithFallback(1))
             : 1;
 
-        return new self($cores < 2 ? [] : self::left($jobs, self::shares($jobs, $cores), $making), $making);
+        return new self($cores < 2 ? [] : self::left($jobs, self::shares($jobs, $cores), $making), $making, $mutating);
     }
 
     /**
-     * A file's mutants: as a child made them, or made here of these lines where no child made them.
+     * A file's mutants: as a child made them, or made here of the lines the
+     * run asked for, these where it asked for none; none of a file it asked
+     * for no lines of.
      *
      * @param  list<int>            $lines
      * @return array<int, Mutation>
@@ -112,8 +118,13 @@ final readonly class SideBySideMutants
     public function of(SplFileInfo $file, array $lines): array
     {
         $path = strval($file->getRealPath());
+        $mutated = array_key_exists($path, $this->lines) ? $this->lines[$path] : $lines;
 
-        return array_key_exists($path, $this->made) ? $this->made[$path] : ($this->making)($file, $lines);
+        return match (true) {
+            array_key_exists($path, $this->made) => $this->made[$path],
+            $mutated === false => [],
+            default => ($this->making)($file, $mutated),
+        };
     }
 
     /**

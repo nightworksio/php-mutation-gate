@@ -30,6 +30,7 @@ final readonly class StreamPace
         public SlowdownCarry $carry = SlowdownCarry::Shard,
         public FirstFork $firstFork = FirstFork::Cheapest,
         public int $partsPerProcess = StreamWork::STANDARD_PARTS_PER_PROCESS,
+        public bool $reachableOnly = true,
     ) {
     }
 

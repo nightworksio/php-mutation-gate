@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnCovering;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\PartLines;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Streams;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
@@ -514,11 +515,14 @@ final readonly class Patch
                 {MARK} the file the gate records the run in; none where it records nothing.
                 $recorded = class_exists(\%5$s::class) ? (string) getenv('%6$s') : '';
 
+                {MARK} the lines a part of a cut run's tests makes mutants on; none where the run is not cut.
+                $part = class_exists(\%8$s::class) ? \%8$s::ofRun() : null;
+
                 {MARK} every file's mutants made side by side, a share for each core, before any is taken.
                 $made = class_exists(\%7$s::class) ? \%7$s::made(
                     $files,
                     fn ($file): array|false => ! $this->getConfiguration()->coveredOnly
-                        ? []
+                        ? ($part instanceof \%8$s ? $part->of($file, $coveredLines[$file->getRealPath()] ?? []) : [])
                         : (isset($coveredLines[$file->getRealPath()])
                             ? array_keys($coveredLines[$file->getRealPath()])
                             : false),
@@ -824,6 +828,7 @@ final readonly class Patch
                     Twins::class,
                     GateVariable::Results->value,
                     SideBySideMutants::class,
+                    PartLines::class,
                 ),
             ),
             Hunk::in(self::TEST_RUNNER, self::MADE_SHIPS, self::MADE_BECOMES),

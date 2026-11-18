@@ -50,6 +50,12 @@ final readonly class StreamWork
      */
     public const string PARTS_PER_PROCESS = 'partsPerProcess';
 
+    /**
+     * Whether a part of a cut run's tests makes only the mutants its tests
+     * can reach, those of lines they cover or no test covers (ADR-0193).
+     */
+    public const string REACHABLE_ONLY = 'reachableOnly';
+
     /** `splitStream.partsPerProcess` where no layer sets it. */
     public const int STANDARD_PARTS_PER_PROCESS = 4;
 
@@ -59,6 +65,7 @@ final readonly class StreamWork
         private SlowdownCarry|Absent $slowdownCarry = new Absent(),
         private FirstFork|Absent $firstFork = new Absent(),
         private PartsPerProcess|Absent $partsPerProcess = new Absent(),
+        private bool|Absent $reachableOnly = new Absent(),
     ) {
     }
 
@@ -73,6 +80,7 @@ final readonly class StreamWork
             $none->slowdownCarry(),
             $none->firstFork(),
             PartsPerProcess::of($none->partsPerProcess()),
+            $none->reachableOnly(),
         );
     }
 
@@ -85,6 +93,7 @@ final readonly class StreamWork
             $later->slowdownCarry instanceof Absent ? $this->slowdownCarry : $later->slowdownCarry,
             $later->firstFork instanceof Absent ? $this->firstFork : $later->firstFork,
             $later->partsPerProcess instanceof Absent ? $this->partsPerProcess : $later->partsPerProcess,
+            $later->reachableOnly instanceof Absent ? $this->reachableOnly : $later->reachableOnly,
         );
     }
 
@@ -143,6 +152,17 @@ final readonly class StreamWork
             : self::STANDARD_PARTS_PER_PROCESS;
     }
 
+    /**
+     * `splitStream.reachableOnly`: whether a part of a cut run's tests makes
+     * only the mutants of the lines its tests cover and of those no test
+     * covers, and the verdict checks the parts made every line together
+     * (ADR-0193); on by default. Off, each part makes every mutant.
+     */
+    public function reachableOnly(): bool
+    {
+        return $this->reachableOnly !== false;
+    }
+
     /** The keys of the Pest runner's `splitStream` option these give: every key at the value it takes. */
     public function option(): Json
     {
@@ -152,6 +172,7 @@ final readonly class StreamWork
             Member::of(self::SLOWDOWN_CARRY, $this->slowdownCarry()->value),
             Member::of(self::FIRST_FORK, $this->firstFork()->value),
             Member::of(self::PARTS_PER_PROCESS, $this->partsPerProcess()),
+            Member::of(self::REACHABLE_ONLY, $this->reachableOnly()),
         );
     }
 
@@ -178,6 +199,7 @@ final readonly class StreamWork
                     ? $this->partsPerProcess->count()
                     : $this->partsPerProcess,
             ),
+            Member::of(self::REACHABLE_ONLY, $this->reachableOnly),
         );
     }
 
@@ -200,6 +222,7 @@ final readonly class StreamWork
             ->and(PhpCalls::inWith(...$this->partsPerProcess instanceof PartsPerProcess ? [sprintf(
                 'StreamWork::partsPerProcess(%d)',
                 $this->partsPerProcess->count(),
-            )] : []));
+            )] : []))
+            ->and(PhpCalls::flag($this->reachableOnly, 'StreamWork::reachableOnly()', 'StreamWork::everyMutant()'));
     }
 }

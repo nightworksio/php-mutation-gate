@@ -119,6 +119,12 @@ final readonly class Streams
         StreamDirectory::removed($directory);
     }
 
+    /** The map's test files cut into the run's parts as these settings cut them, this shard's part among them. */
+    public static function parts(StreamSettings $settings): TestParts
+    {
+        return self::partsOf($settings->part(), $settings);
+    }
+
     /**
      * The first pass's verdicts, and the sites it left for the second: under
      * `splitStream.killerStreams`, where any site has a likely killer and

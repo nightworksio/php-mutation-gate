@@ -13,6 +13,7 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\PartLines;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamReach;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
@@ -327,6 +328,7 @@ final readonly class MutationRun
         $handOff = $this->handOff($request, $results, $shared);
         $told = $this->told($request, $results, $handOff, $bounds);
         $this->warmFor($request, $command, $results);
+        PartLines::cleared($results);
         $drivers = CoverageDrivers::of(
             $this->patching,
             ToldExtension::recordsWithPcov($this->extension, $request->narrowing()->part()->recording()),

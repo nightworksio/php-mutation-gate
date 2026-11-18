@@ -4221,6 +4221,10 @@
                     "type": "integer",
                     "minimum": 1,
                     "default": 4
+                },
+                "reachableOnly": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -8855,6 +8859,9 @@
                         "partsPerProcess": {
                             "type": "integer",
                             "minimum": 1
+                        },
+                        "reachableOnly": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false

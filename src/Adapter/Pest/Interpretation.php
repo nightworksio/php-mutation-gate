@@ -10,6 +10,7 @@ use function implode;
 use function is_array;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\PartLines;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -90,9 +91,7 @@ final readonly class Interpretation
         };
 
         $counted = $records instanceof Records ? $records->forkStates() : NotGiven::value();
-        $result = $result instanceof MutationResult && is_array($counted)
-            ? $result->withWarnings(Warnings::of(Warning::that(sprintf(self::FORK_STATES, $counted[0], $counted[1]))))
-            : $result;
+        $result = $result instanceof MutationResult ? $this->besides($result, $counted, $results) : $result;
 
         return $result instanceof MutationResult && $ran->wasStopped() ? $result->stoppedAtDeadline() : $result;
     }
@@ -108,6 +107,22 @@ final readonly class Interpretation
             MutantStatus::Unjudged,
             $mutant->duration(),
         )->because($reason);
+    }
+
+    /**
+     * A run's result with what the run left beside its records: the warning
+     * of the states its forks left, where it counted them, and the lines it
+     * made each file on (ADR-0193).
+     *
+     * @param array{int, int}|NotGiven $counted
+     */
+    private function besides(MutationResult $result, array|NotGiven $counted, string $results): MutationResult
+    {
+        $made = $result->withMade(PartLines::madeBeside($results, Root::of($this->project->root())));
+
+        return is_array($counted)
+            ? $made->withWarnings(Warnings::of(Warning::that(sprintf(self::FORK_STATES, $counted[0], $counted[1]))))
+            : $made;
     }
 
     private function mutants(Records $records, Covering $coverage): MutationResult|CannotJudge

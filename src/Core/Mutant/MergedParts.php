@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
+use function array_map;
 use function array_values;
 use function count;
 use function in_array;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sort;
 use function sprintf;
+use function strval;
 
 /**
  * A unit's mutants as each shard that holds it judged them, merged into one
@@ -24,7 +26,8 @@ use function sprintf;
  * part that reached it let it survive; and a status every part gives alike,
  * such as uncovered, merges to one. A shard's not-reached outcome is no
  * answer: a mutant no part reached cannot be judged, nor can parts that hold
- * other mutants than each other. Each mutant keeps the record of the first
+ * other mutants than each other, or, where a part made some lines alone,
+ * other mutants than the lines each made say (ADR-0193). Each mutant keeps the record of the first
  * shard, in their order, whose status it takes; the mutants of one shard are
  * its own.
  *
@@ -76,13 +79,32 @@ final readonly class MergedParts
         return $statuses;
     }
 
-    /** The unit's mutants, each with the status that stands among its parts'. */
+    /** The unit's mutants, each with the status that stands among its parts', each part having made them whole. */
     public static function of(Path $unit, Mutants ...$parts): Mutants|CannotJudge
     {
-        $parts = array_values($parts);
+        $whole = static fn(Mutants $part): array => [$part, MadeLines::whole()];
 
-        if ($parts === [] || count($parts) === 1) {
-            return $parts === [] ? Mutants::none() : $parts[0];
+        return self::made($unit, array_map($whole, array_values($parts)));
+    }
+
+    /**
+     * The unit's mutants merged as `of` merges them, each part having made
+     * the mutants of the lines it lists alone (ADR-0193): each part holds
+     * exactly the mutants of all parts that touch a line it made, and the
+     * parts together made every line of each of the unit's files.
+     *
+     * @param list<array{Mutants, MadeLines}> $parts
+     */
+    public static function made(Path $unit, array $parts): Mutants|CannotJudge
+    {
+        $unmade = MadeAcross::of($unit, ...array_map(static fn(array $part): MadeLines => $part[1], $parts));
+
+        if ($unmade instanceof CannotJudge || $parts === []) {
+            return $unmade instanceof CannotJudge ? $unmade : Mutants::none();
+        }
+
+        if (count($parts) === 1) {
+            return $parts[0][0];
         }
 
         $outcomes = self::byId($unit, $parts);
@@ -92,25 +114,26 @@ final readonly class MergedParts
 
     /**
      * Each mutant's outcome in every part, by its id, in the order the first
-     * part holds them; or why the parts cannot be merged.
+     * part holds them; or why the parts cannot be merged, where one does not
+     * hold exactly the mutants that touch a line it made.
      *
-     * @param  non-empty-list<Mutants>          $parts
+     * @param  list<array{Mutants, MadeLines}> $parts
      * @return array<string, list<Mutant>>|CannotJudge
      */
     private static function byId(Path $unit, array $parts): array|CannotJudge
     {
         $outcomes = [];
+        $located = [];
 
-        foreach ($parts as $part) {
+        foreach ($parts as [$part]) {
             foreach ($part as $mutant) {
                 $outcomes[$mutant->id()->value()][] = $mutant;
+                $located[$mutant->id()->value()] = $mutant->location();
             }
         }
 
-        $first = self::idsOf($parts[0]);
-
-        foreach ($parts as $part) {
-            if (self::idsOf($part) !== $first) {
+        foreach ($parts as [$part, $lines]) {
+            if (self::idsOf($part) !== self::madeBy($lines, $located)) {
                 return CannotJudge::because(sprintf(self::OTHER_MUTANTS, $unit->value()));
             }
         }
@@ -157,6 +180,27 @@ final readonly class MergedParts
         }
 
         return NotGiven::value();
+    }
+
+    /**
+     * The ids of the mutants a part made, of those located so, in byte order.
+     *
+     * @param  array<string, Location> $located
+     * @return list<string>
+     */
+    private static function madeBy(MadeLines $lines, array $located): array
+    {
+        $made = [];
+
+        foreach ($located as $id => $location) {
+            $made = $lines->makes($location->file(), $location->start(), $location->last())
+                ? [...$made, strval($id)]
+                : $made;
+        }
+
+        sort($made);
+
+        return $made;
     }
 
     /**

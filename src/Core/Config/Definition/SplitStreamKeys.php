@@ -56,6 +56,7 @@ final readonly class SplitStreamKeys
             Effect::DecidesHowTheGateRuns,
         );
         $parts = Field::optional(StreamWork::PARTS_PER_PROCESS, Integer::atLeast(1), Effect::DecidesHowTheGateRuns);
+        $reachable = Field::optional(StreamWork::REACHABLE_ONLY, Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -83,6 +84,7 @@ final readonly class SplitStreamKeys
                     $carry,
                     $firstFork,
                     $parts,
+                    $reachable,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -103,6 +105,7 @@ final readonly class SplitStreamKeys
                     $forked = $firstFork->read($split);
                     $queued = $parts->read($split);
                     $count = $queued->value();
+                    $reached = $reachable->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -124,6 +127,7 @@ final readonly class SplitStreamKeys
                                 $carried->value(),
                                 $forked->value(),
                                 $count instanceof Absent ? $count : PartsPerProcess::of($count),
+                                $reached->value(),
                             ),
                         ))),
                         $on,
@@ -143,6 +147,7 @@ final readonly class SplitStreamKeys
                         $carried,
                         $forked,
                         $queued,
+                        $reached,
                     );
                 },
                 $enabled,
@@ -162,6 +167,7 @@ final readonly class SplitStreamKeys
                 $carry,
                 $firstFork,
                 $parts,
+                $reachable,
             ),
         )];
     }

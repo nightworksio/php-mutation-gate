@@ -106,14 +106,20 @@ it('hands on a mutant whose diff or copy holds bytes that are not UTF-8 as the c
     expect([$mutant->diff, $mutant->modifiedSourcePath])->toBe(["- '\xE9t\xE9'", "/copies/\xE9"]);
 })->skip(fn(): bool => ! function_exists('pcntl_fork'), 'The process cannot fork.');
 
-it('makes each file\'s mutants as it is taken where the gate does not ask, and those of a file it mutates no line of', function (): void {
+it('makes each file\'s mutants of the lines the run asked for as it is taken where the gate does not ask, and none of a file it asked for no line of', function (): void {
     $files = madeFiles();
     $makers = new ArrayObject();
-    $made = SideBySideMutants::made($files, static fn(): false => false, countedMaking($makers));
+    $made = SideBySideMutants::made(
+        $files,
+        static fn(SplFileInfo $file): array|false => $file === $files[0] ? false : [5, 6],
+        countedMaking($makers),
+    );
     $unasked = $makers->getArrayCopy();
-    $made->of($files[0], []);
 
     expect($unasked)->toBe([])
+        ->and($made->of($files[0], []))->toBe([])
+        ->and($makers->getArrayCopy())->toBe([])
+        ->and(array_map(static fn(Mutation $mutant): int => $mutant->startLine, $made->of($files[1], [])))->toBe([5, 6])
         ->and($makers->getArrayCopy())->toBe([posix_getpid()]);
 });
 

@@ -401,7 +401,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
 
 // Every part reads one coverage map, handed over as a plan hands its shards
 // theirs, so each cuts the test files alike.
-it('reports the same records for every mutant Pest makes of the library\'s files from split streams across parts of the test files, merged as the verdict merges them, as from one part, whether or not they record each test\'s lines', function (int $parts, bool $recording): void {
+it('reports the same records for every mutant Pest makes of the library\'s files from split streams across parts of the test files, each part making the mutants of its tests\' lines and of lines no test covers alone, merged as the verdict merges them, as from one part, whether or not they record each test\'s lines', function (int $parts, bool $recording): void {
     Library::patched();
     $files = Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php'));
     $library = Library::pest(Patching::on(Library::canary())->splitting(
@@ -427,6 +427,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
 
     $unrun = [];
     $unreached = 0;
+    $partial = 0;
 
     foreach (range(1, $parts) as $number) {
         $shard = Shard::of(
@@ -448,6 +449,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
         $measured = Measurement::of(Seconds::of(1.0), 'pest', Instant::at(new DateTimeImmutable()));
         $read[] = [$shard, ShardResult::of(Digest::sha256Of('plan'), $shard->id(), Keys::none(), $mutated, $measured), $mutated];
         $unreached += $mutated->mutants()->counting(MutantStatus::NotReached);
+        $partial += $mutated->made()->isWhole() ? 0 : 1;
     }
 
     $merged = MergedUnits::of(Plan::of(Revision::ref('HEAD'), Digest::sha256Of('base'), Keys::none(), Shards::of(...$shards)), $read);
@@ -459,7 +461,8 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     expect($unrun)->toBe([])
         ->and($records)->toEqualCanonicalizing($whole instanceof MutationResult ? Library::records($whole->mutants()) : [$whole])
         ->and($whole instanceof MutationResult ? $whole->mutants()->counting(MutantStatus::NotReached) : 1)->toBe(0)
-        ->and($unreached > 0)->toBe(! $recording);
+        ->and($unreached > 0)->toBe(! $recording)
+        ->and($partial > 0)->toBe(! $recording);
 })->with([
     'two parts' => [2, false],
     'three parts' => [3, false],

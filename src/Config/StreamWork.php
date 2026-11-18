@@ -23,6 +23,21 @@ final readonly class StreamWork implements Setting
         return new self(Json::at('splitStream.parentDeadline', value: true));
     }
 
+    /**
+     * `splitStream.reachableOnly`, as by default: a part of a cut run's tests
+     * makes only the mutants of lines its tests cover or no test covers.
+     */
+    public static function reachableOnly(): self
+    {
+        return new self(Json::at('splitStream.reachableOnly', value: true));
+    }
+
+    /** `splitStream.reachableOnly` off: every part of a cut run's tests makes every mutant. */
+    public static function everyMutant(): self
+    {
+        return new self(Json::at('splitStream.reachableOnly', value: false));
+    }
+
     /** `splitStream.parentDeadline` off: a stream runs each test for as long as it takes. */
     public static function noParentDeadline(): self
     {

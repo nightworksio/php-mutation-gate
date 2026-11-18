@@ -5,7 +5,10 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\LineSpan;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\MadeFile;
+use NightWorksIO\MutationGate\Core\Mutant\MadeLines;
 use NightWorksIO\MutationGate\Core\Mutant\MergedParts;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -34,6 +37,30 @@ function mergedPart(int $line, MutantStatus $status, string $native = ''): Mutan
         $status,
         Unmeasured::duration(),
     );
+}
+
+/**
+ * A part's made lines: these spans of src/Money.php, each a first and last line, of a file of this many lines.
+ *
+ * @param list<array{int, int}> $spans
+ */
+function mergedMade(int $last, array $spans): MadeLines
+{
+    return mergedMadeIn(mergedUnit(), $last, $spans);
+}
+
+/**
+ * A part's made lines: these spans of a file, each a first and last line, of a file of this many lines.
+ *
+ * @param list<array{int, int}> $spans
+ */
+function mergedMadeIn(Path $file, int $last, array $spans): MadeLines
+{
+    return MadeLines::whole()->with(MadeFile::of(
+        $file,
+        Line::of($last),
+        ...array_map(static fn(array $span): LineSpan => LineSpan::of(Line::of($span[0]), Line::of($span[1])), $spans),
+    ));
 }
 
 /**
@@ -127,4 +154,55 @@ it('holds every status but a shard\'s not-reached outcome as one a mutant\'s fin
     expect(MergedParts::statuses())->not->toContain(MutantStatus::NotReached)
         ->and(MergedParts::statuses())->toHaveCount(count(MutantStatus::cases()) - 1)
         ->and(MergedParts::statuses()[0])->toBe(MutantStatus::cases()[0]);
+});
+
+it('merges parts that each made the mutants of some lines of a file alone, where each holds every mutant touching a line it made and together they made every line', function (): void {
+    $first = mergedMade(20, [[1, 10]]);
+    $second = mergedMade(20, [[8, 20]]);
+
+    $merged = MergedParts::made(mergedUnit(), [
+        [Mutants::of(mergedPart(5, MutantStatus::Killed), mergedPart(8, MutantStatus::Survived), mergedPart(10, MutantStatus::NotReached)), $first],
+        [Mutants::of(mergedPart(8, MutantStatus::Survived), mergedPart(10, MutantStatus::Survived), mergedPart(15, MutantStatus::Survived)), $second],
+    ]);
+
+    expect(mergedOutcomes($merged))->toEqualCanonicalizing([[5, 'killed'], [8, 'survived'], [10, 'survived'], [15, 'survived']]);
+});
+
+it('cannot merge parts made on some lines alone where a part lacks a mutant touching a line it made, they left a line unmade, count a file\'s lines apart, or one part alone made some', function (Closure $parts, string $why): void {
+    /** @var list<array{Mutants, MadeLines}> $made */
+    $made = $parts();
+    $merged = MergedParts::made(mergedUnit(), $made);
+
+    expect($merged instanceof CannotJudge ? $merged->why() : 'merged')->toContain($why);
+})->with([
+    'a mutant on a line it made, lacking' => [static fn(): array => [
+        [Mutants::of(mergedPart(5, MutantStatus::Killed)), mergedMade(20, [[1, 10]])],
+        [Mutants::of(mergedPart(9, MutantStatus::Survived), mergedPart(15, MutantStatus::Survived)), mergedMade(20, [[8, 20]])],
+    ], 'hold other mutants'],
+    'a line no part made' => [static fn(): array => [
+        [Mutants::of(mergedPart(5, MutantStatus::Killed)), mergedMade(20, [[1, 10]])],
+        [Mutants::of(mergedPart(15, MutantStatus::Survived)), mergedMade(20, [[12, 20]])],
+    ], 'made the mutants of every line of src/Money.php'],
+    'the last line no part made' => [static fn(): array => [
+        [Mutants::of(mergedPart(5, MutantStatus::Killed)), mergedMade(20, [[1, 10]])],
+        [Mutants::of(mergedPart(15, MutantStatus::Survived)), mergedMade(20, [[11, 19]])],
+    ], 'made the mutants of every line of src/Money.php'],
+    'lines counted apart' => [static fn(): array => [
+        [Mutants::of(mergedPart(5, MutantStatus::Killed)), mergedMade(20, [[1, 10]])],
+        [Mutants::of(mergedPart(15, MutantStatus::Survived)), mergedMade(21, [[11, 21]])],
+    ], 'count the lines of src/Money.php apart'],
+    'one part alone, made on some lines' => [static fn(): array => [
+        [Mutants::of(mergedPart(5, MutantStatus::Killed)), mergedMade(20, [[1, 10]])],
+    ], 'made the mutants of every line of src/Money.php'],
+]);
+
+it('reads a part that made a file whole as making every mutant of it, and a file outside the unit as none of its business', function (): void {
+    $elsewhere = mergedMadeIn(Path::of('src/Tax.php'), 9, [[1, 2]]);
+
+    $merged = MergedParts::made(mergedUnit(), [
+        [Mutants::of(mergedPart(5, MutantStatus::Killed), mergedPart(15, MutantStatus::NotReached)), $elsewhere],
+        [Mutants::of(mergedPart(15, MutantStatus::Survived)), mergedMade(20, [[11, 20]])->and($elsewhere)],
+    ]);
+
+    expect(mergedOutcomes($merged))->toEqualCanonicalizing([[5, 'killed'], [15, 'survived']]);
 });

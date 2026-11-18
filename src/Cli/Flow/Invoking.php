@@ -132,7 +132,8 @@ final readonly class Invoking
         return $all instanceof CannotJudge ? $all : new Invoked(
             MutationResult::of($all->mutants, $result->skipped())
                 ->withWarnings($result->warnings())
-                ->withEvidence($controlled->evidence),
+                ->withEvidence($controlled->evidence)
+                ->withMade($result->made()),
             $all->flaky,
             $all->equivalent,
             $all->checks,

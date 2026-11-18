@@ -23,7 +23,10 @@ use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\LineSpan;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\MadeFile;
+use NightWorksIO\MutationGate\Core\Mutant\MadeLines;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -351,6 +354,26 @@ it('lists what the shard warns of, and reads it back', function () use ($finishe
     expect($written)->toEndWith("    \"warnings\": [\n        \"One.\",\n        \"Two.\"\n    ]\n}")
         ->and(ShardResultFile::decode($written))->toEqual($result)
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"warnings"');
+});
+
+it('lists the lines its run made each file on where it made some on some lines alone, and reads them back', function () use ($makeSurvivor, $makeMeasured): void {
+    $made = MadeLines::whole()
+        ->with(MadeFile::of(Path::of('src/Money.php'), Line::of(30), LineSpan::of(Line::of(1), Line::of(12)), LineSpan::of(Line::of(20), Line::of(30))))
+        ->with(MadeFile::of(Path::of('src/Limit.php'), Line::of(9)));
+    $result = ShardResult::of(
+        Digest::of('9c1e'),
+        ShardId::of(2),
+        Keys::none(),
+        MutationResult::of(Mutants::of($makeSurvivor()), 0)->withMade($made),
+        $makeMeasured(),
+    );
+    $written = ShardResultFile::encode($result);
+    $read = ShardResultFile::decode($written);
+    $whole = ShardResult::of(Digest::of('9c1e'), ShardId::of(2), Keys::none(), MutationResult::of(Mutants::of($makeSurvivor()), 0), $makeMeasured());
+
+    expect($written)->toContain("    \"madeLines\": {\n        \"src/Money.php\": [\n            30,")
+        ->and($read instanceof ShardResult ? $read->outcome() : $read)->toEqual($result->outcome())
+        ->and(ShardResultFile::encode($whole))->not->toContain('"madeLines"');
 });
 
 it('lists the units its budget ran out before, and reads them back', function () use ($finished, $makeSurvivor, $makeMeasured): void {

@@ -37,7 +37,10 @@ use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\LineSpan;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\MadeFile;
+use NightWorksIO\MutationGate\Core\Mutant\MadeLines;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -405,6 +408,30 @@ it('leaves every invocation\'s mutants in one result, with what each skipped add
     expect($outcome instanceof MutationResult ? $outcome->skipped() : $outcome)->toBe(4)
         ->and($outcome instanceof MutationResult ? count($outcome->mutants()) : $outcome)->toBe(2)
         ->and($runner->retries())->toBe([]);
+});
+
+it('leaves in its result the lines its runner made each file\'s mutants on, where it made some on some lines alone', function () use (
+    $makeResultIn,
+): void {
+    $resultIn = $makeResultIn();
+    $project = Flows::project();
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+        'Plus-1',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    );
+    $made = MadeLines::whole()->with(MadeFile::of(Path::of('src/Money.php'), Line::of(9), LineSpan::of(Line::of(1), Line::of(3))));
+    $runner = ScriptedRunner::fixture()->answeringInTurn(MutationResult::skippingNone(Mutants::of($killed))->withMade($made));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
+
+    expect($outcome instanceof MutationResult ? $outcome->made() : $outcome)->toEqual($made);
 });
 
 it('runs each survivor once more and keeps those killed then as flaky', function (MutantStatus $killed) use ($makeResultIn, $makeFlaky): void {

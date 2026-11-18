@@ -118,6 +118,7 @@ final readonly class ShardResultFile
                     [...$outcome->mutants()],
                 ),
                 'skipped' => $outcome->skipped(),
+                ...MadeRecord::of($outcome->made()),
             ],
             ...array_filter([
                 self::FLAKY => array_map(static fn(MutantId $id): string => $id->value(), [...$result->flaky()]),
@@ -250,7 +251,8 @@ final readonly class ShardResultFile
         }
 
         return MutationResult::of(Mutants::of(...$mutants), $file->field('skipped')->integer())
-            ->withEvidence(Evidences::collected($evidence));
+            ->withEvidence(Evidences::collected($evidence))
+            ->withMade(MadeRecord::read($file->field(MadeRecord::SECTION)));
     }
 
     /** @throws NotInShape */

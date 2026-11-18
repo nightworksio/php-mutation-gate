@@ -229,7 +229,8 @@ final readonly class Mutating
         return new Mutated(
             MutationResult::of($mutants, $spent->skipped)
                 ->withWarnings($spent->warnings)
-                ->withEvidence($evidence),
+                ->withEvidence($evidence)
+                ->withMade($spent->made),
             $spent->flaky,
             $held,
             $spent->unjudged,

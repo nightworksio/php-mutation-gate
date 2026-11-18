@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\LeftoverCut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
@@ -59,7 +60,7 @@ use function sprintf;
 final readonly class GitHubPlan implements CiPlan, Configurable
 {
     /** GitHub's limit of jobs in one matrix, which caps `shards.max` here. */
-    public const int MOST_JOBS = 256;
+    public const int MOST_JOBS = LeftoverCut::MATRIX_MOST;
 
     /** How `GITHUB_WORKFLOW_REF` spells the workflow: owner, repository, then its path before the ref. */
     public const string WORKFLOW = '~^[^/]+/[^/]+/(?<path>[^@]+)@~';

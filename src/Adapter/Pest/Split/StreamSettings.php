@@ -135,6 +135,7 @@ final readonly class StreamSettings
                 SlowdownCarry::tryFrom(is_string($carry) ? $carry : '') ?? new StreamWork()->slowdownCarry(),
                 FirstFork::tryFrom(is_string($firstFork) ? $firstFork : '') ?? new StreamWork()->firstFork(),
                 is_numeric($parts) ? max(1, (int) $parts) : StreamWork::STANDARD_PARTS_PER_PROCESS,
+                getenv(GateVariable::SplitReachableOnly->value) !== self::OFF,
             ),
         );
     }
@@ -270,6 +271,7 @@ final readonly class StreamSettings
                 GateVariable::SplitSlowdownCarry->value => $this->pace->carry->value,
                 GateVariable::SplitFirstFork->value => $this->pace->firstFork->value,
                 GateVariable::SplitPartsPerProcess->value => (string) $this->pace->partsPerProcess,
+                GateVariable::SplitReachableOnly->value => $told($this->pace->reachableOnly),
             ]
             : [];
     }

@@ -112,10 +112,10 @@ final readonly class MergedUnits
         $mutants = [];
 
         foreach ($parts as [, $mutated]) {
-            $mutants[] = self::mutantsOf($unit, $mutated->mutants());
+            $mutants[] = [self::mutantsOf($unit, $mutated->mutants()), $mutated->made()];
         }
 
-        $merged = MergedParts::of($unit->path(), ...$mutants);
+        $merged = MergedParts::made($unit->path(), $mutants);
         $flaky = MutantIds::none();
 
         foreach ($parts as [$result]) {

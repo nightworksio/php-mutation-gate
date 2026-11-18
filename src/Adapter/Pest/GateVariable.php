@@ -202,6 +202,9 @@ enum GateVariable: string
     /** Where a first-pass stream forks a mutant the ledger names no likely killer of (ADR-0187). */
     case SplitFirstFork = 'MUTATION_GATE_SPLIT_FIRST_FORK';
 
+    /** Whether a part of a cut run's tests makes only the mutants its tests can reach (ADR-0193). */
+    case SplitReachableOnly = 'MUTATION_GATE_SPLIT_REACHABLE_ONLY';
+
     /** How many parts a pass cuts its tests into for each stream it runs at once (ADR-0188). */
     case SplitPartsPerProcess = 'MUTATION_GATE_SPLIT_PARTS_PER_PROCESS';
 

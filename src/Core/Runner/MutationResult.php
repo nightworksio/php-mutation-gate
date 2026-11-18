@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\MadeLines;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
@@ -29,12 +30,13 @@ final readonly class MutationResult
         private Warnings $warnings,
         private StepTimes $steps,
         private Evidences $evidence,
+        private MadeLines $made,
     ) {
     }
 
     public static function of(Mutants $mutants, int $skipped): self
     {
-        return new self($mutants, $skipped, Warnings::none(), StepTimes::none(), Evidences::none());
+        return new self($mutants, $skipped, Warnings::none(), StepTimes::none(), Evidences::none(), MadeLines::whole());
     }
 
     /** These mutants, none skipped. */
@@ -52,7 +54,7 @@ final readonly class MutationResult
     {
         $evidence = $this->evidence->keptFor($this->mutants, $mutants);
 
-        return new self($mutants, $this->skipped, $this->warnings, $this->steps, $evidence);
+        return new self($mutants, $this->skipped, $this->warnings, $this->steps, $evidence, $this->made);
     }
 
     /**
@@ -90,13 +92,21 @@ final readonly class MutationResult
             $this->warnings->and($later->warnings),
             $this->steps->and($later->steps),
             $this->evidence->and($later->evidence),
+            $this->made->and($later->made),
         );
     }
 
     /** This result, warning of these as well, after what it warned of already. */
     public function withWarnings(Warnings $warnings): self
     {
-        return new self($this->mutants, $this->skipped, $this->warnings->and($warnings), $this->steps, $this->evidence);
+        return new self(
+            $this->mutants,
+            $this->skipped,
+            $this->warnings->and($warnings),
+            $this->steps,
+            $this->evidence,
+            $this->made,
+        );
     }
 
     /** What the run warns of beside its mutants, such as a warm worker its guard dropped (ADR-0023). */
@@ -108,13 +118,27 @@ final readonly class MutationResult
     /** This result, its time having gone to these steps as well, after those it named already. */
     public function withSteps(StepTimes $steps): self
     {
-        return new self($this->mutants, $this->skipped, $this->warnings, $this->steps->and($steps), $this->evidence);
+        return new self(
+            $this->mutants,
+            $this->skipped,
+            $this->warnings,
+            $this->steps->and($steps),
+            $this->evidence,
+            $this->made,
+        );
     }
 
     /** This result, its time having gone to these steps first, before those it named already. */
     public function withStepsBefore(StepTimes $earlier): self
     {
-        return new self($this->mutants, $this->skipped, $this->warnings, $earlier->and($this->steps), $this->evidence);
+        return new self(
+            $this->mutants,
+            $this->skipped,
+            $this->warnings,
+            $earlier->and($this->steps),
+            $this->evidence,
+            $this->made,
+        );
     }
 
     /** The steps the run's time went to, timed from when it began; none where the runner times none. */
@@ -126,13 +150,39 @@ final readonly class MutationResult
     /** This result, with the evidence of these kills as well, the later winning for a mutant both name. */
     public function withEvidence(Evidences $evidence): self
     {
-        return new self($this->mutants, $this->skipped, $this->warnings, $this->steps, $this->evidence->and($evidence));
+        return new self(
+            $this->mutants,
+            $this->skipped,
+            $this->warnings,
+            $this->steps,
+            $this->evidence->and($evidence),
+            $this->made,
+        );
     }
 
     /** The evidence of its kills, by each mutant's id; none of a mutant the runner gave none of. */
     public function evidence(): Evidences
     {
         return $this->evidence;
+    }
+
+    /** This result, its runner having made the mutants of these lines alone (ADR-0193). */
+    public function withMade(MadeLines $made): self
+    {
+        return new self(
+            $this->mutants,
+            $this->skipped,
+            $this->warnings,
+            $this->steps,
+            $this->evidence,
+            $made,
+        );
+    }
+
+    /** The lines the runner made mutants on, where it made some files on some lines alone. */
+    public function made(): MadeLines
+    {
+        return $this->made;
     }
 
     public function mutants(): Mutants
