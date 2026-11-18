@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Test\JUnitFailures;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
  * The tests a JUnit log of these test cases names as failed, as the coverage map names them.
@@ -75,4 +76,24 @@ it('counts the test cases a log names and those that passed, neither failed, err
     expect([JUnitFailures::cases($log), JUnitFailures::passed($log)])->toBe([5, 2])
         ->and([JUnitFailures::cases(log: false), JUnitFailures::passed(log: false), JUnitFailures::cases(''), JUnitFailures::cases('<testsuites/>')])
         ->toBe([0, 0, 0, 0]);
+});
+
+it('reads the order a log names its test cases in, up to the last of the tests given, and none where it names none of them', function (): void {
+    $log = sprintf('<?xml version="1.0"?><testsuites><testsuite name="T">%s</testsuite></testsuites>', <<<'XML'
+        <testcase name="testA" file="tests/ATest.php" class="Tests\ATest"/>
+        <testcase name="testB" file="tests/ATest.php" class="Tests\ATest"><failure>x</failure></testcase>
+        <testcase name="testC" file="tests/ATest.php" class="Tests\ATest"/>
+        <testcase name="testD" file="tests/ATest.php" class="Tests\ATest"><error>x</error></testcase>
+        <testcase name="testE" file="tests/ATest.php" class="Tests\ATest"/>
+        XML);
+    $read = static fn(string ...$tests): array => array_map(
+        static fn(TestId $test): string => $test->value(),
+        [...JUnitFailures::upToLastOf($log, TestIds::of(...array_map(TestId::of(...), $tests)))],
+    );
+
+    expect($read('Tests\ATest::testB', 'Tests\ATest::testD'))
+        ->toBe(['Tests\ATest::testA', 'Tests\ATest::testB', 'Tests\ATest::testC', 'Tests\ATest::testD'])
+        ->and($read('Tests\ATest::testB'))->toBe(['Tests\ATest::testA', 'Tests\ATest::testB'])
+        ->and($read('Tests\ATest::testZ'))->toBe([])
+        ->and([...JUnitFailures::upToLastOf(log: false, tests: TestIds::of(TestId::of('Tests\ATest::testA')))])->toBe([]);
 });

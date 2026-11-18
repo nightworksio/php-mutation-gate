@@ -410,3 +410,30 @@ it('controls a kill whose run left its filter out by its killers under until-kil
     expect($controlled(LongFilter::UntilKiller))->toEqual(NotGiven::value())
         ->and($controlled(LongFilter::Files))->toEqual(Paths::of(Path::of('tests/LoopTest.php')));
 });
+
+it('replays a kill whose evidence holds an order its runner did not replay in that order, even of a run that loaded every test file, and the others by their killers', function (KillControl $control, array $asked): void {
+    $ordered = killedBy('src/Loop.php', '1', MutantStatus::Killed, 'LoopTest::b');
+    $mutants = Mutants::of($ordered, killedBy('src/Tax.php', '2', MutantStatus::Killed, 'LoopTest::c'));
+    $fresh = Evidence::none()->takingOrder(TestIds::of(TestId::of('LoopTest::a'), TestId::of('LoopTest::b')))
+        ->loadingUnfiltered(WholeSuite::tests());
+    $controls = KillControls::of(
+        $mutants,
+        Evidences::none()->with($ordered->id(), $fresh),
+        killersMap(),
+        HeldCovered::none(),
+        new ReplayingRun(),
+        killBounds(),
+        $control,
+    );
+
+    expect(array_map(
+        static fn(Control $control): array => [
+            array_map(static fn(TestId $test): string => $test->value(), [...$control->tests()]),
+            $control->selected() instanceof NotGiven,
+        ],
+        [...$controls->asked()],
+    ))->toBe($asked);
+})->with([
+    'replaying orders' => [KillControl::Order, [[['LoopTest::c'], true], [['LoopTest::a', 'LoopTest::b'], true]]],
+    'killers alone' => [KillControl::Alone, [[['LoopTest::b'], false], [['LoopTest::c'], true]]],
+]);

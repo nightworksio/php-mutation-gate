@@ -212,6 +212,19 @@ it('leaves a verdict that needs no control as it is, whatever the unmutated run 
     $ran = Ran::finished(succeeded: false, output: 'FAILED');
     $killed = freshVerdictOf($ran, served: true, log: freshLog(freshCase('it adds', '<failure>x</failure>')));
 
-    expect($killed->controlledBy(Ran::finished(succeeded: false, output: '')))->toBe($killed)
-        ->and($killed->evidence($ran)->isEmpty())->toBeTrue();
+    expect($killed->controlledBy(Ran::finished(succeeded: false, output: '')))->toBe($killed);
+});
+
+it('gives a kill its covering tests named the order its run took up to the last of them, which its control replays, and no other verdict any', function (): void {
+    $ran = Ran::finished(succeeded: false, output: 'FAILED');
+    $order = static fn(FreshVerdict $verdict): mixed => $verdict->evidence($ran)->order();
+    $killed = freshVerdictOf($ran, served: true, log: freshLog(
+        sprintf('%s%s%s', freshCase('it subtracts'), freshCase('it adds', '<failure>x</failure>'), freshCase('it divides')),
+    ));
+    $survived = freshVerdictOf(Ran::finished(succeeded: true, output: ''), served: true, log: freshLog(freshCase('it adds')));
+
+    expect($order($killed))->toEqual(TestIds::of(freshTest('it subtracts'), freshTest('it adds')))
+        ->and($killed->evidence($ran)->isEmpty())->toBeFalse()
+        ->and($order($survived))->toEqual(NotGiven::value())
+        ->and($survived->evidence($ran)->isEmpty())->toBeTrue();
 });

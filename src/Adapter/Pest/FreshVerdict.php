@@ -35,7 +35,9 @@ use function trim;
  * - A run whose wrapper never served the mutated file is unjudged: its tests
  *   ran the original code.
  * - A run that failed on exactly the memory cap is out of memory.
- * - A covering test that failed or errored kills it, by those tests.
+ * - A covering test that failed or errored kills it, by those tests; the
+ *   tests the log names up to the last of them, in its order, are the order
+ *   the kill's control replays (ADR-0192).
  * - A run that passed with a test that passed survived; one that passed with
  *   no test run, or every test skipped, is unjudged.
  * - A run that failed with no test case logged, as one that failed before
@@ -73,6 +75,7 @@ final readonly class FreshVerdict
         private TestIds $killers,
         private bool $unnamed,
         private bool $vouched,
+        private TestIds $order,
     ) {
     }
 
@@ -92,11 +95,23 @@ final readonly class FreshVerdict
             ! $guard->served() => self::unjudged(Reason::that(self::NEVER_SERVED)),
             ! $ran->succeeded() && Exhaustion::isOf(Exhaustion::in($ran->output()), $cap)
                 => self::judged(MutantStatus::OutOfMemory),
-            count($killers) > 0 => new self(MutantStatus::Killed, $killers, unnamed: false, vouched: false),
+            count($killers) > 0 => new self(
+                MutantStatus::Killed,
+                $killers,
+                unnamed: false,
+                vouched: false,
+                order: JUnitFailures::upToLastOf($log, $killers),
+            ),
             $ran->succeeded() && JUnitFailures::passed($log) > 0 => self::judged(MutantStatus::Survived),
             $ran->succeeded() => self::unjudged(Reason::that($cases === 0 ? self::NO_TEST_RAN : self::SKIPPED)),
             count($failed) > 0 || $cases === 0
-                => new self(MutantStatus::Killed, TestIds::none(), unnamed: true, vouched: false),
+                => new self(
+                    MutantStatus::Killed,
+                    TestIds::none(),
+                    unnamed: true,
+                    vouched: false,
+                    order: TestIds::none(),
+                ),
             default => self::unjudged(self::said($ran)),
         };
     }
@@ -117,7 +132,13 @@ final readonly class FreshVerdict
         return match (true) {
             ! $this->needsControl() => $this,
             $control instanceof NotGiven => self::unjudged(Reason::that(self::UNCONTROLLED)),
-            $control->succeeded() => new self(MutantStatus::Killed, TestIds::none(), unnamed: true, vouched: true),
+            $control->succeeded() => new self(
+                MutantStatus::Killed,
+                TestIds::none(),
+                unnamed: true,
+                vouched: true,
+                order: TestIds::none(),
+            ),
             default => self::unjudged(Reason::that(self::CONTROL_FAILS)),
         };
     }
@@ -150,23 +171,27 @@ final readonly class FreshVerdict
 
     /**
      * The evidence of its kill: how a run that killed it with no test named
-     * ended, which its unmutated run vouched for; none of any other verdict.
+     * ended, which its unmutated run vouched for; the tests a run that named
+     * its killers took up to the last of them, in its order, which the kill's
+     * control replays (ADR-0192); none of any other verdict.
      */
     public function evidence(Ran $ran): Evidence
     {
-        return $this->unnamed && $this->vouched
-            ? Evidence::none()->withEnded(Ended::ofRun($ran))->vouched()
-            : Evidence::none();
+        return match (true) {
+            $this->unnamed && $this->vouched => Evidence::none()->withEnded(Ended::ofRun($ran))->vouched(),
+            count($this->order) > 0 => Evidence::none()->takingOrder($this->order),
+            default => Evidence::none(),
+        };
     }
 
     private static function judged(MutantStatus $status): self
     {
-        return new self($status, TestIds::none(), unnamed: false, vouched: false);
+        return new self($status, TestIds::none(), unnamed: false, vouched: false, order: TestIds::none());
     }
 
     private static function unjudged(Reason $reason): self
     {
-        return new self($reason, TestIds::none(), unnamed: false, vouched: false);
+        return new self($reason, TestIds::none(), unnamed: false, vouched: false, order: TestIds::none());
     }
 
     /** Why a run that failed with no test failing judged nothing, with what Pest said, where it said anything. */

@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -124,6 +125,7 @@ it('runs a preloaded mutant again in a fresh Pest process that prepends the over
     $mutant = [...$judged->mutants()][0];
 
     expect([$mutant->status(), $mutant->killers()->has(freshRunsTest())])->toBe([MutantStatus::Killed, true])
+        ->and($judged->evidence()->of($mutant->id())->order())->toEqual(TestIds::of(freshRunsTest()))
         ->and(array_slice($command->arguments(), 1, 4))->toBe(['-d', 'opcache.enable_cli=0', '-d', sprintf('auto_prepend_file=%s/.gate/pest/override.php', $at->root())])
         ->and(is_file(sprintf('%s/.gate/pest/override.php', $at->root())))->toBeTrue()
         ->and($environment[Variable::Mutant->value])->toBe(sprintf('%s/src/Money.php', $at->root()))

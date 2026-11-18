@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Test;
 
 use function array_filter;
+use function array_slice;
 use function count;
 
 use DOMDocument;
@@ -52,6 +53,24 @@ final readonly class JUnitFailures
         }
 
         return TestIds::of(...$failed);
+    }
+
+    /**
+     * The tests a log's text names, in its order, up to the last of these
+     * tests among them, which is the order a run that stops at its first
+     * failure took up to its killers; none where none of these is named.
+     */
+    public static function upToLastOf(string|false $log, TestIds $tests): TestIds
+    {
+        $order = [];
+        $last = 0;
+
+        foreach (self::casesIn($log) as $case) {
+            $order[] = self::idOf($case);
+            $last = $tests->has($order[count($order) - 1]) ? count($order) : $last;
+        }
+
+        return TestIds::of(...array_slice($order, 0, $last));
     }
 
     /** How many test cases a log's text names; none where it could not be read. */

@@ -194,6 +194,7 @@ final readonly class Evidence
             && ! $this->vouched
             && $this->unfiltered instanceof NotGiven
             && ! $this->streamed
-            && $this->share->isWhole();
+            && $this->share->isWhole()
+            && $this->order instanceof NotGiven;
     }
 }

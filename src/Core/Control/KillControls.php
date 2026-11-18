@@ -33,19 +33,21 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * selected; a file's kills are first controlled by the longest of its
  * orders that starts with a kill's own, which vouches for every shorter one
  * (ADR-0089). A runner that replays each kill's order itself, before this,
- * and `flaky.killControls: alone`, have this control run the tests that
- * killed it instead. A kill whose own run left its filter out, as
- * too long to pass, is controlled as that run selected its tests, by the
- * test files it loaded, its limit that of those files' tests. A file's
- * kills are first controlled together, and where that control passes every
- * one of them stands (ADR-0033): those chosen by their tests' names by every
- * test that killed any of them, and those whose runs left their filter out
- * by every test file any of those runs loaded. Where it does not, each kill
- * is controlled on its own, once for each file and set of killers, and
- * stands only where its own passes; where that fails, runs out of the limit
- * or never runs, nothing tells the mutant from its original, and it is
- * unjudged, saying why. A kill no test is named for is controlled by its
- * covering tests instead (see UnnamedKillControls).
+ * has this control run the tests that killed it instead, as
+ * `flaky.killControls: alone` has for every kill; a kill whose evidence
+ * holds an order its runner did not replay, as a fresh Pest run's, is still
+ * replayed in it (ADR-0192). A kill whose own run left its filter out, as
+ * too long to pass, and whose order is not known, is controlled as that run
+ * selected its tests, by the test files it loaded, its limit that of those
+ * files' tests. A file's kills are first controlled together, and where
+ * that control passes every one of them stands (ADR-0033): those chosen by
+ * their tests' names by every test that killed any of them, and those whose
+ * runs left their filter out by every test file any of those runs loaded.
+ * Where it does not, each kill is controlled on its own, once for each file
+ * and set of killers, and stands only where its own passes; where that
+ * fails, runs out of the limit or never runs, nothing tells the mutant from
+ * its original, and it is unjudged, saying why. A kill no test is named for
+ * is controlled by its covering tests instead (see UnnamedKillControls).
  *
  * @internal
  */
@@ -78,7 +80,9 @@ final readonly class KillControls implements ControlJudge
     /**
      * The controls of each of these mutants killed by a test named, each
      * limit within these bounds: each kill's run replayed in its order, or
-     * its killers alone where the config or the runner says so.
+     * its killers alone where the config or the runner says so; a kill whose
+     * evidence holds its order, which its runner did not replay, is replayed
+     * in that order under `flaky.killControls: order` (ADR-0192).
      */
     public static function of(
         Mutants $mutants,
@@ -90,28 +94,13 @@ final readonly class KillControls implements ControlJudge
         KillControl $control = KillControl::Order,
         LongFilter $long = LongFilter::DEFAULT,
     ): self {
-        if ($control === KillControl::Alone || $run->replaysKills()) {
-            $replayed = $run->replaysKills() && $long === LongFilter::UntilKiller;
-
-            $alone = KillersAlone::of($mutants, $evidence, $map, $run, $bounds, $replayed);
-
-            return new self($alone->files(), $alone->kills());
-        }
-
-        $tests = [];
-
-        foreach ($mutants as $mutant) {
-            if ($mutant->status() === MutantStatus::Killed && count($mutant->killers()) > 0) {
-                $tests[$mutant->id()->key()] = [
-                    $mutant->location()->file(),
-                    self::testsOf($mutant, $evidence->of($mutant->id()), $map, $held, $run),
-                ];
-            }
-        }
+        [$tests, $alone] = self::split($mutants, $evidence, $map, $held, $run, $control);
+        $replayed = $run->replaysKills() && $long === LongFilter::UntilKiller;
+        $killers = KillersAlone::of(Mutants::of(...$alone), $evidence, $map, $run, $bounds, $replayed);
 
         return new self(
-            self::controlled(KillOrders::vouchingFor($tests, alone: false), $map, $bounds),
-            self::controlled($tests, $map, $bounds),
+            $killers->files() + self::controlled(KillOrders::vouchingFor($tests, alone: false), $map, $bounds),
+            $killers->kills() + self::controlled($tests, $map, $bounds),
         );
     }
 
@@ -180,6 +169,47 @@ final readonly class KillControls implements ControlJudge
     {
         return KillReasons::of(self::FAILS_UNMUTATED, self::OUT_OF_MEMORY, self::RAN_OUT, self::UNRUN)
             ->judged($mutant, $run, $control->tests());
+    }
+
+    /**
+     * Each kill a test is named for, split: what replays each kill in its
+     * order, by the mutant's gate id; and the kills controlled by their
+     * killers alone, as the config or the runner says, but for a kill whose
+     * evidence holds an order its runner did not replay (ADR-0192).
+     *
+     * @return array{array<string, array{Path, TestIds|RunTests}>, list<Mutant>}
+     */
+    private static function split(
+        Mutants $mutants,
+        Evidences $evidence,
+        CoverageMap $map,
+        HeldCovered $held,
+        RunSelection $run,
+        KillControl $control,
+    ): array {
+        $tests = [];
+        $alone = [];
+
+        foreach ($mutants as $mutant) {
+            $found = $evidence->of($mutant->id());
+
+            if ($mutant->status() !== MutantStatus::Killed || count($mutant->killers()) === 0) {
+                continue;
+            }
+
+            if ($control === KillControl::Alone || ($run->replaysKills() && ! $found->order() instanceof TestIds)) {
+                $alone[] = $mutant;
+
+                continue;
+            }
+
+            $tests[$mutant->id()->key()] = [
+                $mutant->location()->file(),
+                self::testsOf($mutant, $found, $map, $held, $run),
+            ];
+        }
+
+        return [$tests, $alone];
     }
 
     /**
