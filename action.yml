@@ -103,6 +103,13 @@ inputs:
       tests need besides them; where empty, the default, none runs.
     required: false
     default: ''
+  wait-for-services:
+    description: >-
+      true where an earlier step started the service containers the tests reach, as the reusable workflow does: the
+      action waits until each reports healthy right before `prepare`, and fails where no list of them was left
+      (ADR-0189); false, the default, waits for none.
+    required: false
+    default: 'false'
   composer-auth:
     description: >-
       The credentials Composer installs the project's dependencies with, as COMPOSER_AUTH holds them, for a private
@@ -196,6 +203,11 @@ runs:
       uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       env:
         COMPOSER_AUTH: ${{ inputs.composer-auth }}
+
+    - name: Wait for every service to report healthy
+      if: inputs.deliver != 'true' && inputs.wait-for-services == 'true'
+      shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+      run: /bin/bash --noprofile --norc "${{ github.action_path }}/resources/action/services.sh" wait "${{ runner.temp }}/mutation-gate-services"
 
     - name: Prepare what the tests need besides the dependencies
       if: inputs.deliver != 'true' && inputs.prepare != ''

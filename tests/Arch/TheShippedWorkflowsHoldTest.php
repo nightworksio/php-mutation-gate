@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Workspace as FileWorkspace;
+use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -305,6 +306,51 @@ it('hands each shard the plan\'s whole map beside its own, removing only the oth
         ->and($paths)->toContain(sprintf('%s/', $coverage))
         ->and($excluded)->toBe([]);
 });
+
+/**
+ * The first of these steps by position, past every step where there are none.
+ *
+ * @param list<int> $steps
+ */
+function firstStep(array $steps): int
+{
+    return $steps === [] ? PHP_INT_MAX : min($steps);
+}
+
+it('starts the services before any of the project\'s code and waits for every one in a clean shell that is told nothing of them, the job starting them under services-start: job', function (string $job): void {
+    $node = WorkflowFile::at(REUSABLE)->field('jobs')->field($job);
+    $steps = $node->field('steps');
+    $action = WorkflowFile::at('action.yml')->field('runs')->field('steps');
+    $clean = '/usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}';
+    $start = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, 'services.sh" start'));
+    $stop = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, 'services.sh" stop'));
+    $code = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@') || $uses === './.mutation-gate/workflow');
+    $wait = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, 'services.sh" wait'));
+    $prepare = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Prepare what the tests need besides the dependencies');
+    $gate = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, '"${GATE}"') || str_contains($run, '${GATE} '));
+    $actionWait = WorkflowFile::stepsWhere($action, 'run', static fn(string $run): bool => str_contains($run, 'services.sh" wait'));
+    $actionInstall = WorkflowFile::stepsWhere($action, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@'));
+    $actionPrepare = WorkflowFile::stepsWhere($action, 'name', static fn(string $name): bool => $name === 'Prepare what the tests need besides the dependencies');
+    [$waits, $waited, $before] = $job === 'shard'
+        ? [$action, $actionWait, firstStep($actionPrepare)]
+        : [$steps, $wait, min(firstStep($prepare), firstStep($gate))];
+    $told = static fn(Node $steps, int $at): Node => Lenient::items($steps)[$at];
+
+    expect(Lenient::text($node->field('services')))->toBe("\${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}")
+        ->and($start)->toHaveCount(1)
+        ->and($start[0])->toBeLessThan(firstStep($code))
+        ->and(Lenient::text($told($steps, $start[0])->field('env')->field('SERVICES_START')))->toBe('${{ inputs.services-start }}')
+        ->and($waited)->toHaveCount(1)
+        ->and($waited[0])->toBeLessThan($before)
+        ->and($job === 'shard' ? $waited[0] : 0)->toBeGreaterThan($job === 'shard' ? firstStep($actionInstall) : -1)
+        ->and(Lenient::text($told($waits, $waited[0])->field('shell')))->toBe($clean)
+        ->and($told($waits, $waited[0])->field('env')->kind())->toBe(Kind::Nothing)
+        ->and($stop)->toHaveCount(1)
+        ->and(Lenient::text($told($steps, $stop[0])->field('if')))->toStartWith('always()')
+        ->and(Lenient::text($told($steps, $stop[0])->field('shell')))->toBe($clean)
+        ->and($job === 'shard' ? Lenient::text($told($steps, $code[0])->field('with')->field('wait-for-services')) : '')
+        ->toBe($job === 'shard' ? "\${{ inputs.services-start != 'job' }}" : '');
+})->with(['plan', 'shard', 'survivors', 'survivors-report', 'verdict']);
 
 it('checks the workflow out under .mutation-gate, which the gate leaves out of every change and key', function (): void {
     expect(Lenient::text(WorkflowFile::at(REUSABLE)->field('env')->field('GATE_ACTION')))->toStartWith('.mutation-gate/');

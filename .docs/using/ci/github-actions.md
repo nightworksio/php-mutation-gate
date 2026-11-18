@@ -225,8 +225,21 @@ with no secret, like the tests.
 A project whose tests reach a server, such as a database, names the
 containers as `services`, a JSON object in the shape `jobs.<job_id>.services`
 takes, and the `plan`, `shard`, `survivors`, `survivors-report` and `verdict`
-jobs each start them beside it, waiting for each health check
+jobs each start them
 ([ADR-0153](../../decisions/0153-a-caller-starts-the-services-its-tests-reach.md)).
+Under `services-start: background`, the default, a job starts every
+container at once, detached, before PHP, the dependencies or any of the
+project's code, masking a private image's password and the services' `env`
+values, and pulling a private image under a Docker config it removes at once;
+it leaves only a list of the containers' names. Right before the project's
+`prepare` or the gate, it waits, in a shell that inherits nothing of the
+job's environment, for each container to report healthy, or to run where it
+has no health check; one that exits, is unhealthy or is not healthy within
+300 s fails the job with its log. `services-start: job` has the job's
+`services` start them before its first step, one after another, as GitHub
+starts them; use it where a step reads `job.services`, which the background
+start leaves empty
+([ADR-0189](../../decisions/0189-a-job-starts-its-services-in-the-background.md)).
 Pin each image by digest, publish a port the tests know, and hand the
 address on through `prepare`, which writes it where the later steps read
 it:

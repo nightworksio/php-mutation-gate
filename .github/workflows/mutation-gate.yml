@@ -60,6 +60,14 @@ on:
           reach, as a JSON object that `jobs.<job_id>.services` takes; where empty, the default, none starts.
         type: string
         default: '{}'
+      services-start:
+        description: >-
+          background, the default: each job starts every service at once, detached, before any of the project's code,
+          a private image pulled under a Docker config removed at once, and waits for every one to report healthy
+          before the project's preparation or the gate runs; job: the job's `services` start them before its first
+          step, as GitHub starts them, one after another (ADR-0189).
+        type: string
+        default: background
       runner:
         description: pest, infection, phpunit, phpspec, codeception, testo or a registered runner's name; the config's, or zero-config's, where empty.
         type: string
@@ -426,7 +434,7 @@ jobs:
     if: ${{ !cancelled() && needs.fetch.result != 'cancelled' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.plan-timeout }}
-    services: ${{ fromJSON(inputs.services || '{}') }}
+    services: ${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}
     # The comment's planned state goes to deliver-plan.
     permissions:
       contents: read
@@ -453,6 +461,11 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: ${{ env.GATE_ACTION }}
           persist-credentials: false
+      - name: Start the services, before any of the project's code
+        env:
+          SERVICES: ${{ inputs.services }}
+          SERVICES_START: ${{ inputs.services-start }}
+        run: bash "${GATE_ACTION}/resources/action/services.sh" start "${RUNNER_TEMP}/mutation-gate-services"
       - name: Refuse an event the gate never runs under
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" guard
       # Before the project's dependencies install, so none of its code runs
@@ -477,6 +490,10 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - name: Wait for every service to report healthy
+        if: inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" wait "${{ runner.temp }}/mutation-gate-services"
       - name: Prepare what the tests need besides the dependencies
         if: inputs.prepare != ''
         env:
@@ -683,6 +700,10 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
+      - name: Remove the services
+        if: always() && inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" stop "${{ runner.temp }}/mutation-gate-services"
 
   # The pull request comment's planned state, which the plan left in its
   # delivery, posted while the shards run. It installs and runs none of the
@@ -737,7 +758,7 @@ jobs:
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.shards != '[]' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.shard-timeout }}
-    services: ${{ fromJSON(inputs.services || '{}') }}
+    services: ${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}
     permissions:
       contents: read
     # ADR-0103: a doomed shard fails as `run.failFast` says; under `cancel`
@@ -756,6 +777,11 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: ${{ env.GATE_ACTION }}
           persist-credentials: false
+      - name: Start the services, before any of the project's code
+        env:
+          SERVICES: ${{ inputs.services }}
+          SERVICES_START: ${{ inputs.services-start }}
+        run: bash "${GATE_ACTION}/resources/action/services.sh" start "${RUNNER_TEMP}/mutation-gate-services"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         id: download-plan
         timeout-minutes: ${{ inputs.download-timeout }}
@@ -825,6 +851,7 @@ jobs:
           install: composer
           prepare: ${{ inputs.prepare }}
           gate-pcov: ${{ inputs.gate-pcov }}
+          wait-for-services: ${{ inputs.services-start != 'job' }}
           judge: ${{ inputs.judge != '' && env.JUDGE || '' }}
           watch-jobs: ${{ inputs.watch-jobs }}
           composer-auth: ${{ secrets.COMPOSER_AUTH }}
@@ -841,6 +868,10 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
+      - name: Remove the services
+        if: always() && inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" stop "${{ runner.temp }}/mutation-gate-services"
 
   # ADR-0135: the jobs `watch-jobs` names, read by a job that runs none of
   # the project's code and alone holds `actions: read`. Once one concluded in
@@ -898,7 +929,7 @@ jobs:
     if: ${{ !cancelled() && needs.plan.result == 'success' && github.event_name == 'pull_request' && needs.plan.outputs.survivor-shares != '' && needs.plan.outputs.survivor-shares != '[]' && needs.plan.outputs.shards != '[]' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ fromJSON(needs.plan.outputs.survivor-minutes) }}
-    services: ${{ fromJSON(inputs.services || '{}') }}
+    services: ${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}
     permissions:
       contents: read
     strategy:
@@ -915,6 +946,11 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: ${{ env.GATE_ACTION }}
           persist-credentials: false
+      - name: Start the services, before any of the project's code
+        env:
+          SERVICES: ${{ inputs.services }}
+          SERVICES_START: ${{ inputs.services-start }}
+        run: bash "${GATE_ACTION}/resources/action/services.sh" start "${RUNNER_TEMP}/mutation-gate-services"
       - name: Refuse an event the gate never runs under
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" guard
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
@@ -926,6 +962,10 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - name: Wait for every service to report healthy
+        if: inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" wait "${{ runner.temp }}/mutation-gate-services"
       - name: Prepare what the tests need besides the dependencies
         if: inputs.prepare != ''
         env:
@@ -1060,6 +1100,10 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
           retention-days: 1
+      - name: Remove the services
+        if: always() && inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" stop "${{ runner.temp }}/mutation-gate-services"
 
   # The re-check's shares, paired again with the survivors they were taken
   # for, a share that left nothing read as not reached, and the comment's
@@ -1072,7 +1116,7 @@ jobs:
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.survivors.result != 'skipped' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 30
-    services: ${{ fromJSON(inputs.services || '{}') }}
+    services: ${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}
     permissions:
       contents: read
     outputs:
@@ -1088,6 +1132,11 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: ${{ env.GATE_ACTION }}
           persist-credentials: false
+      - name: Start the services, before any of the project's code
+        env:
+          SERVICES: ${{ inputs.services }}
+          SERVICES_START: ${{ inputs.services-start }}
+        run: bash "${GATE_ACTION}/resources/action/services.sh" start "${RUNNER_TEMP}/mutation-gate-services"
       - name: Refuse an event the gate never runs under
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" guard
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
@@ -1098,6 +1147,10 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - name: Wait for every service to report healthy
+        if: inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" wait "${{ runner.temp }}/mutation-gate-services"
       - name: Prepare what the tests need besides the dependencies
         if: inputs.prepare != ''
         env:
@@ -1205,6 +1258,10 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
+      - name: Remove the services
+        if: always() && inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" stop "${{ runner.temp }}/mutation-gate-services"
 
   # The comment's "survivors re-checked" state, which survivors-report left,
   # written only over its planned state, so the verdict's is never replaced.
@@ -1266,7 +1323,7 @@ jobs:
     if: ${{ !cancelled() && needs.plan.result != 'skipped' && needs.plan.outputs.waits != 'true' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.verdict-timeout }}
-    services: ${{ fromJSON(inputs.services || '{}') }}
+    services: ${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}
     permissions:
       contents: read
       actions: read
@@ -1307,6 +1364,11 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: ${{ env.GATE_ACTION }}
           persist-credentials: false
+      - name: Start the services, before any of the project's code
+        env:
+          SERVICES: ${{ inputs.services }}
+          SERVICES_START: ${{ inputs.services-start }}
+        run: bash "${GATE_ACTION}/resources/action/services.sh" start "${RUNNER_TEMP}/mutation-gate-services"
       - name: Refuse an event the gate never runs under
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" guard
       # The two steps that hold the token come before the project's
@@ -1354,6 +1416,10 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - name: Wait for every service to report healthy
+        if: inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" wait "${{ runner.temp }}/mutation-gate-services"
       - name: Prepare what the tests need besides the dependencies
         if: inputs.prepare != ''
         env:
@@ -1647,6 +1713,10 @@ jobs:
         env:
           CODE: ${{ steps.verdict.outputs.code || '2' }}
         run: exit "${CODE}"
+      - name: Remove the services
+        if: always() && inputs.services-start != 'job'
+        shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
+        run: /bin/bash --noprofile --norc "${{ github.workspace }}/${{ env.GATE_ACTION }}/resources/action/services.sh" stop "${{ runner.temp }}/mutation-gate-services"
 
   # What the verdict left for a credential: the comment on every run, and on a
   # trusted run, a push, schedule or dispatch on the default branch, the ledger
