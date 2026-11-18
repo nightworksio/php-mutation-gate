@@ -470,11 +470,11 @@ it('leaves unjudged the kills a failed assertion made, and doubts those only err
         ->and($kills->sets())->toBe(3);
 });
 
-it('replays the narrowed kills of one file whose runs were to take one whole order once, to its end, and replays each kill on its own only where that does not stand', function (ReplayVerdict $whole, bool $stands): void {
+it('replays the narrowed kills of one file whose runs were to take one whole order once, up to the last killer of the longest, and replays each kill on its own only where that does not stand', function (ReplayVerdict $whole, bool $stands): void {
     $alone = $stands ? ['native-3', 'native-4'] : ['native-1', 'native-2', 'native-3', 'native-4'];
     $at = PestCases::project();
     $loaded = sprintf('%s/tests/ASpec.php', $at->root());
-    $planned = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'), TestId::of('T::b'))->value();
+    $planned = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'), TestId::of('T::b'), TestId::of('T::c'))->value();
     $other = OrderDigest::of(TestId::of('T::b'), TestId::of('T::a'))->value();
     $arguments = ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded];
     $kill = static fn(string $native, string $killer, int $position, string $whole, float $limit): array => [
@@ -482,7 +482,7 @@ it('replays the narrowed kills of one file whose runs were to take one whole ord
         PestRun::narrowed($native, [$loaded]),
         rtrim(RecordLine::arguments(PestRun::mutated($native), $arguments)),
         rtrim(RecordLine::limited(PestRun::mutated($native), $limit)),
-        rtrim(RecordLine::ordered(PestRun::mutated($native), 3, $whole)),
+        rtrim(RecordLine::ordered(PestRun::mutated($native), 4, $whole)),
     ];
     $file = sprintf('%s/results.jsonl', Scratch::directory());
     PestRun::write($file, [
@@ -515,7 +515,7 @@ it('replays the narrowed kills of one file whose runs were to take one whole ord
         return count($asked) === 1 ? [$whole] : array_fill(0, count($replays), ReplayVerdict::OtherOrder);
     });
 
-    expect($asked[0])->toBe([['src/Money.php', PestRun::mutated('native-1'), 3, '5']])
+    expect($asked[0])->toBe([['src/Money.php', PestRun::mutated('native-2'), 3, '5']])
         ->and(array_column($asked[1], 1))->toBe(array_map(PestRun::mutated(...), $alone))
         ->and(array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$unvouched->unjudged()]))->toBe($alone);
 })->with([
