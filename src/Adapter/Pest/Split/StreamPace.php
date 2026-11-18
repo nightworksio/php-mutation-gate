@@ -31,6 +31,7 @@ final readonly class StreamPace
         public FirstFork $firstFork = FirstFork::Cheapest,
         public int $partsPerProcess = StreamWork::STANDARD_PARTS_PER_PROCESS,
         public bool $reachableOnly = true,
+        public bool $earlyVerdicts = true,
     ) {
     }
 

@@ -52,6 +52,7 @@ final readonly class StreamOptions
         $firstFork = self::firstForkOf($split);
         $parts = self::partsOf($split);
         $reachable = $split->flag(Key::of(StreamWork::REACHABLE_ONLY));
+        $early = $split->flag(Key::of(StreamWork::EARLY_VERDICTS));
         $standard = SplitStream::of();
         $judging = self::judgingOf($split, $standard->judging());
 
@@ -72,6 +73,7 @@ final readonly class StreamOptions
             $firstFork instanceof Problem => $firstFork,
             $parts instanceof Problem => $parts,
             $reachable instanceof Problem => $reachable,
+            $early instanceof Problem => $early,
             default => StreamSettings::of(
                 $enabled === true,
                 $children instanceof NotGiven ? $standard->children() : $children,
@@ -90,6 +92,7 @@ final readonly class StreamOptions
                     $firstFork,
                     $parts,
                     $reachable !== false,
+                    $early !== false,
                 ),
             ),
         };

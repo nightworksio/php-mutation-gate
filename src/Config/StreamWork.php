@@ -38,6 +38,21 @@ final readonly class StreamWork implements Setting
         return new self(Json::at('splitStream.reachableOnly', value: false));
     }
 
+    /**
+     * `splitStream.earlyVerdicts`, as by default: a mutant the first pass of
+     * split streams settled is given its result before the second starts.
+     */
+    public static function earlyVerdicts(): self
+    {
+        return new self(Json::at('splitStream.earlyVerdicts', value: true));
+    }
+
+    /** `splitStream.earlyVerdicts` off: every mutant is given its result once the last pass ended. */
+    public static function verdictsAtTheEnd(): self
+    {
+        return new self(Json::at('splitStream.earlyVerdicts', value: false));
+    }
+
     /** `splitStream.parentDeadline` off: a stream runs each test for as long as it takes. */
     public static function noParentDeadline(): self
     {

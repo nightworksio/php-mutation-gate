@@ -205,6 +205,9 @@ enum GateVariable: string
     /** Whether a part of a cut run's tests makes only the mutants its tests can reach (ADR-0193). */
     case SplitReachableOnly = 'MUTATION_GATE_SPLIT_REACHABLE_ONLY';
 
+    /** Whether a mutant the first pass settled is given its result before the second starts (ADR-0194). */
+    case SplitEarlyVerdicts = 'MUTATION_GATE_SPLIT_EARLY_VERDICTS';
+
     /** How many parts a pass cuts its tests into for each stream it runs at once (ADR-0188). */
     case SplitPartsPerProcess = 'MUTATION_GATE_SPLIT_PARTS_PER_PROCESS';
 

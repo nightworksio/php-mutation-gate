@@ -57,6 +57,7 @@ final readonly class SplitStreamKeys
         );
         $parts = Field::optional(StreamWork::PARTS_PER_PROCESS, Integer::atLeast(1), Effect::DecidesHowTheGateRuns);
         $reachable = Field::optional(StreamWork::REACHABLE_ONLY, Flag::boolean(), Effect::DecidesHowTheGateRuns);
+        $settled = Field::optional(StreamWork::EARLY_VERDICTS, Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -85,6 +86,7 @@ final readonly class SplitStreamKeys
                     $firstFork,
                     $parts,
                     $reachable,
+                    $settled,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -106,6 +108,7 @@ final readonly class SplitStreamKeys
                     $queued = $parts->read($split);
                     $count = $queued->value();
                     $reached = $reachable->read($split);
+                    $given = $settled->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -128,6 +131,7 @@ final readonly class SplitStreamKeys
                                 $forked->value(),
                                 $count instanceof Absent ? $count : PartsPerProcess::of($count),
                                 $reached->value(),
+                                $given->value(),
                             ),
                         ))),
                         $on,
@@ -148,6 +152,7 @@ final readonly class SplitStreamKeys
                         $forked,
                         $queued,
                         $reached,
+                        $given,
                     );
                 },
                 $enabled,
@@ -168,6 +173,7 @@ final readonly class SplitStreamKeys
                 $firstFork,
                 $parts,
                 $reachable,
+                $settled,
             ),
         )];
     }

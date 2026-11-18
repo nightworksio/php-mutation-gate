@@ -4225,6 +4225,10 @@
                 "reachableOnly": {
                     "type": "boolean",
                     "default": true
+                },
+                "earlyVerdicts": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -8861,6 +8865,9 @@
                             "minimum": 1
                         },
                         "reachableOnly": {
+                            "type": "boolean"
+                        },
+                        "earlyVerdicts": {
                             "type": "boolean"
                         }
                     },

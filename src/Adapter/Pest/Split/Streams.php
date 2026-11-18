@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 use Pest\Mutate\MutationSuite;
+use Pest\Mutate\MutationTest;
 
 use function sprintf;
 
@@ -50,9 +51,10 @@ final readonly class Streams
      * Judges every mutant of the suite a stream can, giving each its result:
      * where the ledger names a likely killer, a first stream forks it at that
      * test alone, and a second, of the tests that cover what the first left
-     * undecided, at every covering test (ADR-0117). The run's parts are
-     * those its making cut, where it made the lines its part's tests reach
-     * (ADR-0193).
+     * undecided, at every covering test (ADR-0117). A mutant the first pass
+     * settled is given its result before the second starts, under
+     * `splitStream.earlyVerdicts` (ADR-0194). The run's parts are those its
+     * making cut, where it made the lines its part's tests reach (ADR-0193).
      *
      * @param array<string, array<int, array<int, string>>> $coveredLines
      * @param list<string>                                    $arguments a mutant's own run's arguments
@@ -114,11 +116,10 @@ final readonly class Streams
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, self::firstHeld($held, $sites, $cheapest), $settings);
         [$again, $left] = new SecondPass($sites, $covering, $held, $cheapest)->of($byId, $unrun, $verdicts, $settings);
+        $settled = $settings->pace()->earlyVerdicts ? SettledFirst::of($byId, $covering, $again, $left) : [];
+        self::given($verdicts, $settled, $covering);
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $left, $verdicts);
-
-        foreach ($byId as $test) {
-            $verdicts->give($test->mutation->id, $test, $covering[$test->mutation->id]);
-        }
+        self::given($verdicts, array_diff_key($byId, $settled), $covering);
 
         ForkStatesLine::writtenFor($verdicts, $results);
         StreamProgress::unnamed($results);
@@ -130,6 +131,20 @@ final readonly class Streams
     public static function parts(StreamSettings $settings): TestParts
     {
         return self::partsOf($settings->part(), $settings);
+    }
+
+    /**
+     * Gives each of these mutants its result, as the streams' verdicts so
+     * far judged it, each written as it is given.
+     *
+     * @param array<string, MutationTest> $mutants
+     * @param array<string, list<string>> $covering
+     */
+    private static function given(StreamVerdicts $verdicts, array $mutants, array $covering): void
+    {
+        foreach ($mutants as $test) {
+            $verdicts->give($test->mutation->id, $test, $covering[$test->mutation->id]);
+        }
     }
 
     /**

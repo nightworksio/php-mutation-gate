@@ -118,8 +118,9 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
         'MUTATION_GATE_SPLIT_FIRST_FORK' => 'cheapest',
         'MUTATION_GATE_SPLIT_PARTS_PER_PROCESS' => '4',
         'MUTATION_GATE_SPLIT_REACHABLE_ONLY' => '1',
+        'MUTATION_GATE_SPLIT_EARLY_VERDICTS' => '1',
     ], true])
-        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false, "parentDeadline": false, "deadlineBackoff": 1.5, "slowdownCarry": "none", "firstFork": "every", "partsPerProcess": 1, "reachableOnly": false}}'))->toBe([[
+        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false, "parentDeadline": false, "deadlineBackoff": 1.5, "slowdownCarry": "none", "firstFork": "every", "partsPerProcess": 1, "reachableOnly": false, "earlyVerdicts": false}}'))->toBe([[
             'MUTATION_GATE_SCHEMATA' => '1',
             'MUTATION_GATE_SPLIT' => '1',
             'MUTATION_GATE_SPLIT_CHILDREN' => 'cores',
@@ -137,6 +138,7 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
             'MUTATION_GATE_SPLIT_FIRST_FORK' => 'every',
             'MUTATION_GATE_SPLIT_PARTS_PER_PROCESS' => '1',
             'MUTATION_GATE_SPLIT_REACHABLE_ONLY' => '0',
+            'MUTATION_GATE_SPLIT_EARLY_VERDICTS' => '0',
         ], true])
         ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
         ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
@@ -160,6 +162,7 @@ it('refuses a splitStream option written as something else', function (string $o
     'slowdownCarry' => ['{"splitStream": {"slowdownCarry": "far"}}', fn(): Problem => Problem::mismatch('splitStream.slowdownCarry', 'one of its values', '"far"')],
     'firstFork' => ['{"splitStream": {"firstFork": "dearest"}}', fn(): Problem => Problem::mismatch('splitStream.firstFork', 'one of its values', '"dearest"')],
     'reachableOnly' => ['{"splitStream": {"reachableOnly": "yes"}}', fn(): Problem => Problem::at('splitStream.reachableOnly', 'expected true or false, got "yes"')],
+    'earlyVerdicts' => ['{"splitStream": {"earlyVerdicts": "yes"}}', fn(): Problem => Problem::at('splitStream.earlyVerdicts', 'expected true or false, got "yes"')],
     'partsPerProcess' => ['{"splitStream": {"partsPerProcess": "many"}}', fn(): Problem => Problem::mismatch('splitStream.partsPerProcess', 'a whole number', '"many"')],
     'judging' => ['{"splitStream": {"judging": "halved"}}', fn(): Problem => Problem::mismatch('splitStream.judging', 'one of its values', '"halved"')],
 ]);

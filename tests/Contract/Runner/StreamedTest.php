@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Arithmetic\MultiplicationToDivision;
@@ -462,6 +463,67 @@ it('judges by its own run a mutant a test reaches only in a PHP process it start
     'reached only in the process it started' => ['SpawnedOnlySpec', 'adds_two_numbers_in_a_process_of_its_own', true],
     'reached after the process it started' => ['SpawnedSpec', 'adds_zeros_here_and_two_numbers_in_a_process_of_its_own', false],
 ])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
+)->group(...$holds);
+
+it('gives a mutant the first pass settled its verdict before the second pass starts, so a run its deadline stops in the second judges it as a whole run does, under splitStream.earlyVerdicts', function (): void {
+    $copied = [
+        'src/Settled.php' => 'tests/Contract/Runner/streamed/src/Settled.php',
+        'src/Waited.php' => 'tests/Contract/Runner/streamed/src/Waited.php',
+        'tests/SettledSpec.php' => 'tests/Contract/Runner/streamed/tests/SettledSpec.php',
+        'tests/WaitedSpec.php' => 'tests/Contract/Runner/streamed/tests/WaitedSpec.php',
+        'tests/WaitedSlowSpec.php' => 'tests/Contract/Runner/streamed/tests/WaitedSlowSpec.php',
+    ];
+
+    foreach ($copied as $into => $from) {
+        copy(Tree::at($from), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+    }
+
+    Library::patched();
+    $files = Paths::of(Path::of('src/Settled.php'), Path::of('src/Waited.php'));
+    $run = static fn(MutationRequest $request): MutationResult|CannotJudge => Library::pest(Patching::on(Library::canary())->splitting(StreamSettings::of(
+        enabled: true,
+        children: 1,
+        changeCheck: false,
+        killersFirst: true,
+        pace: new StreamPace(on: false, firstFork: FirstFork::Cheapest, earlyVerdicts: true),
+    )))->runner()->mutate($request);
+    $request = MutationRequest::of($files, WholeSuite::tests())
+        ->narrowedTo($files, Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)));
+
+    try {
+        $whole = $run($request);
+        putenv('LIBRARY_STALL=1');
+        $stopped = $run($request->within(Seconds::of(30.0)));
+    } finally {
+        putenv('LIBRARY_STALL');
+
+        foreach (array_keys($copied) as $into) {
+            unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
+        }
+    }
+
+    $judged = static fn(MutationResult|CannotJudge $result): array|string => $result instanceof MutationResult
+        ? array_combine(
+            array_map(static fn(Mutant $mutant): string => sprintf('%s:%d', $mutant->location()->file()->value(), $mutant->location()->start()->number()), [...$result->mutants()]),
+            array_map(static fn(Mutant $mutant): array => [
+                $mutant->status(),
+                array_map(static fn(TestId $killer): string => $killer->value(), [...$mutant->killers()]),
+                $result->evidence()->of($mutant->id())->isStreamed(),
+            ], [...$result->mutants()]),
+        )
+        : $result->why();
+    $settled = [MutantStatus::Killed, ['P\\Tests\\SettledSpec::__pest_evaluable_it_adds_one'], true];
+
+    expect($judged($whole))->toBe([
+        'src/Settled.php:15' => $settled,
+        'src/Waited.php:16' => [MutantStatus::Killed, ['P\\Tests\\WaitedSlowSpec::__pest_evaluable_it_doubles_two_into_four__slowly'], true],
+    ])->and($judged($stopped))->toBe([
+        'src/Settled.php:15' => $settled,
+        'src/Waited.php:16' => [MutantStatus::Unjudged, [], false],
+    ]);
+})->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);

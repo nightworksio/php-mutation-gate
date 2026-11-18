@@ -8,7 +8,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 final readonly class SettingsCases
 {
     /** The options the Pest runner reads where a config sets none of them. */
-    public const string PEST_DEFAULTS = '{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "set", "preloaded": "fresh", "childProcesses": "serve", "pcovKept": [], "splitStream": {"enabled": false, "children": "cores", "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": true, "judging": "whole", "fallbackOwnRun": true, "coveringTestsOnly": true, "parentDeadline": true, "deadlineBackoff": 2.0, "slowdownCarry": "shard", "firstFork": "cheapest", "partsPerProcess": 4, "reachableOnly": true}, "outbreak": {"enabled": true, "timeout": 300.0, "equivalence": true, "forkStates": false, "recheckTouchedKills": true, "lines": true, "steps": true, "stepFloor": 10000000, "cache": {"store": "auto", "trust": "default-branch"}}, "duplicates": "judge-once", "trials": true, "valueReaders": true, "narrow": true, "shardScan": true, "readyAtPlan": true, "makeSideBySide": true, "longestFirst": true, "remember": true, "overlapSteps": true, "pcovOff": true, "xdebugOff": true}';
+    public const string PEST_DEFAULTS = '{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "set", "preloaded": "fresh", "childProcesses": "serve", "pcovKept": [], "splitStream": {"enabled": false, "children": "cores", "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": true, "judging": "whole", "fallbackOwnRun": true, "coveringTestsOnly": true, "parentDeadline": true, "deadlineBackoff": 2.0, "slowdownCarry": "shard", "firstFork": "cheapest", "partsPerProcess": 4, "reachableOnly": true, "earlyVerdicts": true}, "outbreak": {"enabled": true, "timeout": 300.0, "equivalence": true, "forkStates": false, "recheckTouchedKills": true, "lines": true, "steps": true, "stepFloor": 10000000, "cache": {"store": "auto", "trust": "default-branch"}}, "duplicates": "judge-once", "trials": true, "valueReaders": true, "narrow": true, "shardScan": true, "readyAtPlan": true, "makeSideBySide": true, "longestFirst": true, "remember": true, "overlapSteps": true, "pcovOff": true, "xdebugOff": true}';
 
     /** The effective config of `{"runner": "pest"}`: every other setting at its default. */
     public const string DEFAULTS = <<<'JSON'
@@ -327,7 +327,8 @@ final readonly class SettingsCases
             "slowdownCarry": "shard",
             "firstFork": "cheapest",
             "partsPerProcess": 4,
-            "reachableOnly": true
+            "reachableOnly": true,
+            "earlyVerdicts": true
         },
         "staticCheck": {
             "tool": "auto",

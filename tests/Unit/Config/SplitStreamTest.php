@@ -37,6 +37,8 @@ $calls = [
     'firstForkAtEvery' => [static fn(): Setting => StreamWork::firstForkAtEvery(), 'splitStream.firstFork', 'every', 'StreamWork::firstForkAtEvery'],
     'reachableOnly' => [static fn(): Setting => StreamWork::reachableOnly(), 'splitStream.reachableOnly', true, 'StreamWork::reachableOnly'],
     'everyMutant' => [static fn(): Setting => StreamWork::everyMutant(), 'splitStream.reachableOnly', false, 'StreamWork::everyMutant'],
+    'earlyVerdicts' => [static fn(): Setting => StreamWork::earlyVerdicts(), 'splitStream.earlyVerdicts', true, 'StreamWork::earlyVerdicts'],
+    'verdictsAtTheEnd' => [static fn(): Setting => StreamWork::verdictsAtTheEnd(), 'splitStream.earlyVerdicts', false, 'StreamWork::verdictsAtTheEnd'],
     'partsPerProcess' => [static fn(): Setting => StreamWork::partsPerProcess(2), 'splitStream.partsPerProcess', 2, 'StreamWork::partsPerProcess'],
     'deadlineBackoff' => [static fn(): Setting => StreamWork::deadlineBackoff(3), 'splitStream.deadlineBackoff', 3, 'StreamWork::deadlineBackoff'],
     'byTests' => [static fn(): Setting => StreamShards::byTests(), 'splitStream.sharding', 'tests', 'StreamShards::byTests'],

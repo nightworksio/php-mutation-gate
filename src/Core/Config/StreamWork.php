@@ -56,6 +56,12 @@ final readonly class StreamWork
      */
     public const string REACHABLE_ONLY = 'reachableOnly';
 
+    /**
+     * Whether a mutant the first pass of split streams settled is given its
+     * result before the second starts (ADR-0194).
+     */
+    public const string EARLY_VERDICTS = 'earlyVerdicts';
+
     /** `splitStream.partsPerProcess` where no layer sets it. */
     public const int STANDARD_PARTS_PER_PROCESS = 4;
 
@@ -66,6 +72,7 @@ final readonly class StreamWork
         private FirstFork|Absent $firstFork = new Absent(),
         private PartsPerProcess|Absent $partsPerProcess = new Absent(),
         private bool|Absent $reachableOnly = new Absent(),
+        private bool|Absent $earlyVerdicts = new Absent(),
     ) {
     }
 
@@ -81,6 +88,7 @@ final readonly class StreamWork
             $none->firstFork(),
             PartsPerProcess::of($none->partsPerProcess()),
             $none->reachableOnly(),
+            $none->earlyVerdicts(),
         );
     }
 
@@ -94,6 +102,7 @@ final readonly class StreamWork
             $later->firstFork instanceof Absent ? $this->firstFork : $later->firstFork,
             $later->partsPerProcess instanceof Absent ? $this->partsPerProcess : $later->partsPerProcess,
             $later->reachableOnly instanceof Absent ? $this->reachableOnly : $later->reachableOnly,
+            $later->earlyVerdicts instanceof Absent ? $this->earlyVerdicts : $later->earlyVerdicts,
         );
     }
 
@@ -163,6 +172,18 @@ final readonly class StreamWork
         return $this->reachableOnly !== false;
     }
 
+    /**
+     * `splitStream.earlyVerdicts`: whether a mutant the first pass of split
+     * streams settled, one the second streams no site of and runs no test
+     * file of a covering test of, is given its result before the second
+     * starts, so a run stopped in the second keeps it (ADR-0194); on by
+     * default. Off, every mutant is given its result once the last pass ended.
+     */
+    public function earlyVerdicts(): bool
+    {
+        return $this->earlyVerdicts !== false;
+    }
+
     /** The keys of the Pest runner's `splitStream` option these give: every key at the value it takes. */
     public function option(): Json
     {
@@ -173,6 +194,7 @@ final readonly class StreamWork
             Member::of(self::FIRST_FORK, $this->firstFork()->value),
             Member::of(self::PARTS_PER_PROCESS, $this->partsPerProcess()),
             Member::of(self::REACHABLE_ONLY, $this->reachableOnly()),
+            Member::of(self::EARLY_VERDICTS, $this->earlyVerdicts()),
         );
     }
 
@@ -200,6 +222,7 @@ final readonly class StreamWork
                     : $this->partsPerProcess,
             ),
             Member::of(self::REACHABLE_ONLY, $this->reachableOnly),
+            Member::of(self::EARLY_VERDICTS, $this->earlyVerdicts),
         );
     }
 
@@ -223,6 +246,11 @@ final readonly class StreamWork
                 'StreamWork::partsPerProcess(%d)',
                 $this->partsPerProcess->count(),
             )] : []))
-            ->and(PhpCalls::flag($this->reachableOnly, 'StreamWork::reachableOnly()', 'StreamWork::everyMutant()'));
+            ->and(PhpCalls::flag($this->reachableOnly, 'StreamWork::reachableOnly()', 'StreamWork::everyMutant()'))
+            ->and(PhpCalls::flag(
+                $this->earlyVerdicts,
+                'StreamWork::earlyVerdicts()',
+                'StreamWork::verdictsAtTheEnd()',
+            ));
     }
 }

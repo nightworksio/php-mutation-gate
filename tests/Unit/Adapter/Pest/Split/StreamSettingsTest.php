@@ -40,7 +40,8 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_FIRST_FORK' => 'cheapest',
         'MUTATION_GATE_SPLIT_PARTS_PER_PROCESS' => '4',
         'MUTATION_GATE_SPLIT_REACHABLE_ONLY' => '1',
-    ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false, pace: new StreamPace(on: false, backoff: 3.0, carry: SlowdownCarry::Run, firstFork: FirstFork::Every, partsPerProcess: 2, reachableOnly: false))->variables())->toBe([
+        'MUTATION_GATE_SPLIT_EARLY_VERDICTS' => '1',
+    ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false, pace: new StreamPace(on: false, backoff: 3.0, carry: SlowdownCarry::Run, firstFork: FirstFork::Every, partsPerProcess: 2, reachableOnly: false, earlyVerdicts: false))->variables())->toBe([
         'MUTATION_GATE_SPLIT' => '1',
         'MUTATION_GATE_SPLIT_CHILDREN' => '1',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
@@ -57,18 +58,19 @@ it('tells a run that splits its streams how, at least one child at once', functi
         'MUTATION_GATE_SPLIT_FIRST_FORK' => 'every',
         'MUTATION_GATE_SPLIT_PARTS_PER_PROCESS' => '2',
         'MUTATION_GATE_SPLIT_REACHABLE_ONLY' => '0',
+        'MUTATION_GATE_SPLIT_EARLY_VERDICTS' => '0',
     ]);
 });
 
 it('reads back what it told a run', function (): void {
-    foreach (StreamSettings::of(enabled: true, children: 4, changeCheck: false, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false, pace: new StreamPace(on: false, backoff: 3.0, carry: SlowdownCarry::Run, firstFork: FirstFork::Every, partsPerProcess: 2, reachableOnly: false))->variables() as $name => $value) {
+    foreach (StreamSettings::of(enabled: true, children: 4, changeCheck: false, killersFirst: false, judging: StreamJudging::Parted, fallbackOwnRun: false, coveringOnly: false, pace: new StreamPace(on: false, backoff: 3.0, carry: SlowdownCarry::Run, firstFork: FirstFork::Every, partsPerProcess: 2, reachableOnly: false, earlyVerdicts: false))->variables() as $name => $value) {
         putenv(sprintf('%s=%s', $name, $value));
     }
 
     $read = StreamSettings::fromEnvironment();
 
-    expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst(), $read->judging(), $read->fallsBackToOwnRuns(), $read->selectsCoveringTests(), $read->pace()->on, $read->pace()->backoff, $read->pace()->carry, $read->pace()->firstFork, $read->pace()->partsPerProcess, $read->pace()->reachableOnly])
-        ->toBe([true, 4, false, false, StreamJudging::Parted, false, false, false, 3.0, SlowdownCarry::Run, FirstFork::Every, 2, false]);
+    expect([$read->isOn(), $read->children(), $read->checksChanges(), $read->killersFirst(), $read->judging(), $read->fallsBackToOwnRuns(), $read->selectsCoveringTests(), $read->pace()->on, $read->pace()->backoff, $read->pace()->carry, $read->pace()->firstFork, $read->pace()->partsPerProcess, $read->pace()->reachableOnly, $read->pace()->earlyVerdicts])
+        ->toBe([true, 4, false, false, StreamJudging::Parted, false, false, false, 3.0, SlowdownCarry::Run, FirstFork::Every, 2, false, false]);
 });
 
 it('splits nothing where it is not enabled, whatever else it is given', function (): void {
