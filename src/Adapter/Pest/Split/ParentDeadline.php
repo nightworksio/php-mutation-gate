@@ -20,14 +20,17 @@ use const JSON_UNESCAPED_UNICODE;
 
 use function max;
 use function microtime;
+use function min;
 
 /**
  * The time by which a split stream's parent must end the test it runs
  * (ADR-0182): the limit a child of the test is held to, of the map's time
  * of the test times how much slower than the map the stream has run its
- * tests so far, or `timeouts.most` where the map timed none, from the test's
- * start, moved on by each wait for a child's place. The parent keeps it in
- * its stream's mark, where Pest's own process reads it (see StreamWatch).
+ * tests so far, never under the slowdown it started at (ADR-0184), and never
+ * past `timeouts.most`, which it is where the map timed none, from the test's
+ * start, moved on by each wait for a child's place. The parent keeps it, and
+ * its slowdown, in its stream's mark, where Pest's own process reads them
+ * (see StreamWatch).
  *
  * @internal
  */
@@ -37,14 +40,16 @@ final class ParentDeadline
 
     private const string BY = 'd';
 
+    private const string SLOWDOWN = 's';
+
     /** How far each test the map timed moves the stream's slowdown toward its own. */
     private const float WEIGHT = 0.2;
 
     /** The least time the map gave a test whose own time moves the slowdown, as shorter ones are mostly start-up. */
     private const float MEASURABLE = 0.05;
 
-    /** How much slower than the map the stream runs its tests, never less than as fast. */
-    private float $slowdown = 1.0;
+    /** How much slower than the map the stream runs its tests, never less than it started at. */
+    private float $slowdown;
 
     private float $by = 0.0;
 
@@ -55,13 +60,19 @@ final class ParentDeadline
         private readonly string $mark,
         private readonly ChildLimit $limit,
         private readonly array $times,
+        private readonly float $least,
     ) {
+        $this->slowdown = $least;
     }
 
-    /** The deadline of the parent of the stream this plan runs, kept in this mark; none kept where no mark is given. */
+    /**
+     * The deadline of the parent of the stream this plan runs, kept in this
+     * mark, its slowdown starting where the plan says; none kept where no
+     * mark is given.
+     */
     public static function of(StreamPlan $plan, string $mark): self
     {
-        return new self($plan->deadline ? $mark : '', $plan->limit, $plan->times);
+        return new self($plan->deadline ? $mark : '', $plan->limit, $plan->times, max(1.0, $plan->slowdown));
     }
 
     /** The test that passed the deadline kept in this mark by this time; false where none did, or none is kept. */
@@ -74,12 +85,21 @@ final class ParentDeadline
         return is_string($test) && (is_float($by) || is_int($by)) && $now > $by ? $test : false;
     }
 
-    /** The parent began this test: its deadline is the test's limit from now. */
+    /** The slowdown the stream reached as it kept its deadline in this mark; as fast as the map where it keeps none. */
+    public static function slowdownIn(string $mark): float
+    {
+        $read = is_file($mark) ? json_decode((string) file_get_contents($mark), associative: true) : null;
+        $slowdown = is_array($read) && array_key_exists(self::SLOWDOWN, $read) ? $read[self::SLOWDOWN] : null;
+
+        return is_float($slowdown) || is_int($slowdown) ? (float) $slowdown : 1.0;
+    }
+
+    /** The parent began this test: its deadline is the test's limit from now, never past `timeouts.most`. */
     public function began(string $test): void
     {
         $this->test = $test;
         $this->by = microtime(as_float: true) + (array_key_exists($test, $this->times)
-            ? $this->limit->of($this->times[$test] * $this->slowdown)
+            ? min($this->limit->longest(), $this->limit->of($this->times[$test] * $this->slowdown))
             : $this->limit->longest());
         $this->kept();
     }
@@ -103,7 +123,7 @@ final class ParentDeadline
     {
         $timed = array_key_exists($this->test, $this->times) ? $this->times[$this->test] : 0.0;
         $this->slowdown = $timed >= self::MEASURABLE
-            ? max(1.0, $this->slowdown + self::WEIGHT * ($own / $timed - $this->slowdown))
+            ? max($this->least, $this->slowdown + self::WEIGHT * ($own / $timed - $this->slowdown))
             : $this->slowdown;
         $this->test = '';
 
@@ -118,7 +138,7 @@ final class ParentDeadline
             return;
         }
 
-        $kept = [self::TEST => $this->test, self::BY => $this->by];
+        $kept = [self::TEST => $this->test, self::BY => $this->by, self::SLOWDOWN => $this->slowdown];
         file_put_contents($this->mark, (string) json_encode($kept, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 }

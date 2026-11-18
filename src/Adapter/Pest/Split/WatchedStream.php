@@ -33,7 +33,9 @@ final readonly class WatchedStream
 
     /**
      * @param list<string>                                 $tests the tests it runs, by their ids; none for whole files
-     * @param Closure(list<string>): (WatchedStream|NotGiven) $again what starts a stream of some of them in its place
+     * @param Closure(list<string>, float): (WatchedStream|NotGiven) $again what starts a stream of some of them in its
+     *                                                                place, its parent's deadline at a slowdown after
+     *                                                                this one's
      */
     public function __construct(
         public Process $process,
@@ -56,14 +58,14 @@ final readonly class WatchedStream
 
     /**
      * A stream started in this one's place, once it was stopped in this
-     * test, of each of its tests its parent had not ended but that one;
-     * none where it runs whole files, or no test is left.
+     * test at this slowdown, of each of its tests its parent had not ended
+     * but that one; none where it runs whole files, or no test is left.
      */
-    public function againWithout(string $stopped): self|NotGiven
+    public function againWithout(string $stopped, float $slowdown): self|NotGiven
     {
         $left = array_values(array_diff($this->tests, [...$this->ended(), $stopped]));
 
-        return $this->tests === [] || $left === [] ? NotGiven::value() : ($this->again)($left);
+        return $this->tests === [] || $left === [] ? NotGiven::value() : ($this->again)($left, $slowdown);
     }
 
     /**

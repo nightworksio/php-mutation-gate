@@ -30,6 +30,7 @@ $calls = [
     'connectionsFallBack' => [static fn(): Setting => SplitStream::connectionsFallBack(), 'splitStream.reconnect', false, 'SplitStream::connectionsFallBack'],
     'parentDeadline' => [static fn(): Setting => StreamWork::parentDeadline(), 'splitStream.parentDeadline', true, 'StreamWork::parentDeadline'],
     'noParentDeadline' => [static fn(): Setting => StreamWork::noParentDeadline(), 'splitStream.parentDeadline', false, 'StreamWork::noParentDeadline'],
+    'deadlineBackoff' => [static fn(): Setting => StreamWork::deadlineBackoff(3), 'splitStream.deadlineBackoff', 3, 'StreamWork::deadlineBackoff'],
     'byTests' => [static fn(): Setting => StreamShards::byTests(), 'splitStream.sharding', 'tests', 'StreamShards::byTests'],
     'byTestsInEveryPart' => [static fn(): Setting => StreamShards::byTestsInEveryPart(), 'splitStream.sharding', 'tests-every-part', 'StreamShards::byTestsInEveryPart'],
     'bySource' => [static fn(): Setting => StreamShards::bySource(), 'splitStream.sharding', 'source', 'StreamShards::bySource'],

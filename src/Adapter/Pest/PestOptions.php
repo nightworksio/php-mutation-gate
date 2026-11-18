@@ -9,6 +9,7 @@ use Closure;
 use function is_bool;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDeadline;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
@@ -348,6 +349,7 @@ final readonly class PestOptions
         $fallbackOwnRun = $split->flag(Key::of(SplitStream::FALLBACK_OWN_RUN));
         $coveringOnly = $split->flag(Key::of(SplitStream::COVERING_TESTS_ONLY));
         $deadline = $split->flag(Key::of(StreamWork::PARENT_DEADLINE));
+        $backoff = $split->number(Key::of(StreamWork::DEADLINE_BACKOFF));
         $standard = SplitStream::of();
         $judging = self::judgingOf($split, $standard->judging());
 
@@ -363,6 +365,7 @@ final readonly class PestOptions
             $fallbackOwnRun instanceof Problem => $fallbackOwnRun,
             $coveringOnly instanceof Problem => $coveringOnly,
             $deadline instanceof Problem => $deadline,
+            $backoff instanceof Problem => $backoff,
             default => StreamSettings::of(
                 $enabled === true,
                 $children instanceof NotGiven ? $standard->children() : $children,
@@ -374,7 +377,10 @@ final readonly class PestOptions
                 $killerStreams === true,
                 $bootOnce === true,
                 $reconnect !== false,
-                $deadline !== false,
+                new StreamDeadline(
+                    $deadline !== false,
+                    $backoff instanceof NotGiven ? $standard->work()->deadlineBackoff()->times() : $backoff,
+                ),
             ),
         };
     }

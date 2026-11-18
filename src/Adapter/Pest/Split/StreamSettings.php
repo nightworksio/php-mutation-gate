@@ -13,6 +13,7 @@ use function max;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
+use NightWorksIO\MutationGate\Core\Config\StreamWork;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 use function sprintf;
@@ -49,7 +50,7 @@ final readonly class StreamSettings
         private StreamJudging $judging = StreamJudging::Whole,
         private bool $fallbackOwnRun = true,
         private bool $coveringOnly = true,
-        private bool $parentDeadline = true,
+        private StreamDeadline $deadline = new StreamDeadline(on: true),
     ) {
     }
 
@@ -75,7 +76,7 @@ final readonly class StreamSettings
         bool $killerStreams = false,
         bool $bootOnce = false,
         bool $reconnect = true,
-        bool $parentDeadline = true,
+        StreamDeadline $deadline = new StreamDeadline(on: true),
     ): self {
         if (! $enabled) {
             return self::off();
@@ -93,7 +94,7 @@ final readonly class StreamSettings
             judging: $judging,
             fallbackOwnRun: $fallbackOwnRun,
             coveringOnly: $coveringOnly,
-            parentDeadline: $parentDeadline,
+            deadline: $deadline,
         );
     }
 
@@ -103,6 +104,7 @@ final readonly class StreamSettings
         $children = getenv(GateVariable::SplitChildren->value);
         $recording = getenv(GateVariable::SplitRecording->value);
         $lines = getenv(GateVariable::SplitLines->value);
+        $backoff = getenv(GateVariable::SplitDeadlineBackoff->value);
 
         return new self(
             getenv(GateVariable::Split->value) === self::ON,
@@ -122,7 +124,10 @@ final readonly class StreamSettings
             StreamJudging::tryFrom((string) getenv(GateVariable::SplitJudging->value)) ?? StreamJudging::Whole,
             getenv(GateVariable::SplitFallbackOwnRun->value) !== self::OFF,
             getenv(GateVariable::SplitCoveringTestsOnly->value) !== self::OFF,
-            getenv(GateVariable::SplitParentDeadline->value) !== self::OFF,
+            new StreamDeadline(
+                getenv(GateVariable::SplitParentDeadline->value) !== self::OFF,
+                is_numeric($backoff) ? (float) $backoff : StreamWork::STANDARD_BACKOFF,
+            ),
         );
     }
 
@@ -141,16 +146,17 @@ final readonly class StreamSettings
         return $this->fallbackOwnRun;
     }
 
-    /** Whether a stream of covering tests runs only those tests, by their ids, not their whole files (ADR-0181). */
     /**
      * Whether a stream whose parent runs a test past its deadline is stopped
-     * and started again on its other tests (ADR-0182).
+     * and started again on its other tests (ADR-0182), and how much slower
+     * the stream started in its place starts (ADR-0184).
      */
-    public function stopsAtDeadlines(): bool
+    public function deadline(): StreamDeadline
     {
-        return $this->parentDeadline;
+        return $this->deadline;
     }
 
+    /** Whether a stream of covering tests runs only those tests, by their ids, not their whole files (ADR-0181). */
     public function selectsCoveringTests(): bool
     {
         return $this->coveringOnly;
@@ -249,7 +255,8 @@ final readonly class StreamSettings
                 GateVariable::SplitJudging->value => $this->judging->value,
                 GateVariable::SplitFallbackOwnRun->value => $told($this->fallbackOwnRun),
                 GateVariable::SplitCoveringTestsOnly->value => $told($this->coveringOnly),
-                GateVariable::SplitParentDeadline->value => $told($this->parentDeadline),
+                GateVariable::SplitParentDeadline->value => $told($this->deadline->on),
+                GateVariable::SplitDeadlineBackoff->value => (string) $this->deadline->backoff,
             ]
             : [];
     }

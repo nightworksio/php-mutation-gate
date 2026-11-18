@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDeadline;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamStart;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamWatch;
@@ -31,10 +32,12 @@ it('stops a stream whose parent passed its deadline, with what it started, and s
     $results = sprintf('%s/results-1-0.jsonl', $directory);
     file_put_contents($results, StreamLine::parent('a', passed: true, seconds: 0.1));
     $stuck = watchedProcess('pcntl_fork(); sleep(60);');
-    file_put_contents(sprintf('%s/live-%d', $directory, $stuck->getPid()), '{"t": "stuck", "d": 0}');
+    file_put_contents(sprintf('%s/live-%d', $directory, $stuck->getPid()), '{"t": "stuck", "d": 0, "s": 3.5}');
     $left = [];
-    $again = static function (array $tests) use (&$left, $directory): WatchedStream {
+    $slowed = 0.0;
+    $again = static function (array $tests, float $slowdown) use (&$left, &$slowed, $directory): WatchedStream {
         $left = $tests;
+        $slowed = $slowdown;
 
         return new WatchedStream(watchedProcess(''), sprintf('%s/results-1-2.jsonl', $directory), [], static fn(): NotGiven => NotGiven::value());
     };
@@ -42,7 +45,7 @@ it('stops a stream whose parent passed its deadline, with what it started, and s
 
     $wrote = new StreamWatch($directory)->ended([new WatchedStream($stuck, $results, ['a', 'stuck', 'b'], $again)]);
 
-    expect([$wrote, $left, $stuck->isRunning()])->toBe([[$results, sprintf('%s/results-1-2.jsonl', $directory)], ['b'], false])
+    expect([$wrote, $left, $slowed, $stuck->isRunning()])->toBe([[$results, sprintf('%s/results-1-2.jsonl', $directory)], ['b'], 3.5, false])
         ->and(microtime(as_float: true) - $started)->toBeLessThan(30.0)
         ->and(glob(sprintf('%s/live-*', $directory)))->toBe([])
         ->and(shell_exec(sprintf('pgrep -f %s', escapeshellarg('pcntl_fork(); sleep(60);'))))->toBeNull();
@@ -73,10 +76,20 @@ it('waits for a stream within its deadline, takes away the mark one leaves, and 
         ->and(glob(sprintf('%s/live-*', $directory)))->toBe([]);
 });
 
-it('starts a stream in a place one round of streams on, so its files are its own', function (): void {
-    $next = new StreamStart(2, 1, 4, [], ['t' => 1.0], 8, ['--x'])->next();
+it('starts a stream in a place one round of streams on, so its files are its own, at the slowdown it is given', function (): void {
+    $next = new StreamStart(2, 1, 4, [], ['t' => 1.0], 8, ['--x'], keepsPcov: true)->next(2.0);
 
-    expect([$next->pass, $next->at, $next->round, $next->times, $next->cores, $next->selecting])
-        ->toBe([2, 5, 4, ['t' => 1.0], 8, ['--x']])
-        ->and($next->next()->at)->toBe(9);
+    expect([$next->pass, $next->at, $next->round, $next->times, $next->cores, $next->selecting, $next->keepsPcov, $next->slowdown])
+        ->toBe([2, 5, 4, ['t' => 1.0], 8, ['--x'], true, 2.0])
+        ->and($next->next(4.0)->at)->toBe(9);
+});
+
+it('starts a stream in a stopped one\'s place at the backoff times the slowdown that one reached, never under as fast as the map', function (): void {
+    expect([
+        new StreamDeadline(on: true)->after(1.0),
+        new StreamDeadline(on: true)->after(3.0),
+        new StreamDeadline(on: true, backoff: 1.0)->after(3.0),
+        new StreamDeadline(on: true, backoff: 3.0)->after(0.5),
+        new StreamDeadline(on: true, backoff: 0.5)->after(2.0),
+    ])->toBe([2.0, 6.0, 3.0, 3.0, 2.0]);
 });

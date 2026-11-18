@@ -4189,6 +4189,11 @@
                 "parentDeadline": {
                     "type": "boolean",
                     "default": true
+                },
+                "deadlineBackoff": {
+                    "type": "number",
+                    "minimum": 1,
+                    "default": 2.0
                 }
             },
             "additionalProperties": false
@@ -8795,6 +8800,10 @@
                         },
                         "parentDeadline": {
                             "type": "boolean"
+                        },
+                        "deadlineBackoff": {
+                            "type": "number",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false

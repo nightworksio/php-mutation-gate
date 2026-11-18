@@ -19,6 +19,7 @@ it('reads a stream\'s plan as Pest\'s own process wrote it, each part typed', fu
         'multiple' => 3,
         'floor' => 1.5,
         'longest' => 30,
+        'slowdown' => 2.5,
     ]));
 
     expect(StreamPlanFile::read(sprintf('%s/plan.json', $root)))->toEqual(new StreamPlan(
@@ -28,6 +29,7 @@ it('reads a stream\'s plan as Pest\'s own process wrote it, each part typed', fu
         ['T::kills' => 0.25, 'T::slow' => 2.0],
         ChildPlaces::fixed(3),
         new ChildLimit(3.0, 1.5, 30.0),
+        slowdown: 2.5,
     ));
 });
 

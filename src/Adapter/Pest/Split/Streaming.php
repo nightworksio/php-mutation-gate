@@ -90,7 +90,7 @@ final readonly class Streaming
         private bool $bootOnce = false,
         private bool $reconnect = false,
         private bool $coveringOnly = false,
-        private bool $deadline = false,
+        private StreamDeadline $deadline = new StreamDeadline(),
         private PcovTests|NotGiven $pcov = new NotGiven(),
     ) {
     }
@@ -278,7 +278,8 @@ final readonly class Streaming
      * alone, named in a file of their ids, where it is chosen so, and on
      * the pass's selecting arguments otherwise. A stream stopped in a test
      * is started again in its place, of its tests but that one, at the
-     * place one round of streams on (ADR-0182).
+     * place one round of streams on (ADR-0182), its parent's deadline
+     * starting after the slowdown the stopped one reached (ADR-0184).
      *
      * @param list<string> $tests
      * @param list<string> $files
@@ -294,7 +295,12 @@ final readonly class Streaming
             $this->started($start, $results, $arguments),
             $results,
             $chosen || $start->selecting !== [] ? $tests : [],
-            fn(array $left): WatchedStream => $this->watched($start->next(), $left, $files, chosen: true),
+            fn(array $left, float $slowdown): WatchedStream => $this->watched(
+                $start->next($this->deadline->after($slowdown)),
+                $left,
+                $files,
+                chosen: true,
+            ),
         );
     }
 
@@ -360,7 +366,8 @@ final readonly class Streaming
                 : sprintf(self::RECORDED, $this->recording, $pass, $at),
             'bootOnce' => $this->bootsOnceIn($pass),
             'reconnect' => $this->reconnect,
-            'deadline' => $this->deadline,
+            'deadline' => $this->deadline->on,
+            'slowdown' => $start->slowdown,
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 

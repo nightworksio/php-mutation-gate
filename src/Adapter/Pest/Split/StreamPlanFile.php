@@ -49,6 +49,7 @@ final readonly class StreamPlanFile
             self::flag($read, 'bootOnce'),
             self::flag($read, 'reconnect'),
             self::flag($read, 'deadline'),
+            max(1.0, self::number($read, 'slowdown')),
         );
     }
 

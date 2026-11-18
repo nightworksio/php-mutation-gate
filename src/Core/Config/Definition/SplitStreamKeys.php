@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Config\StreamSharding;
 use NightWorksIO\MutationGate\Core\Config\StreamWork;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 
 /**
  * How the `splitStream` keys a config writes are read into its `Pest` part
@@ -39,6 +41,7 @@ final readonly class SplitStreamKeys
         $fallbackOwnRun = Field::optional(SplitStream::FALLBACK_OWN_RUN, Flag::boolean(), $results);
         $coveringOnly = Field::optional(SplitStream::COVERING_TESTS_ONLY, Flag::boolean(), $results);
         $deadline = Field::optional(StreamWork::PARENT_DEADLINE, Flag::boolean(), Effect::DecidesHowTheGateRuns);
+        $backoff = Field::optional(StreamWork::DEADLINE_BACKOFF, Number::atLeast(1), Effect::DecidesHowTheGateRuns);
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -62,6 +65,7 @@ final readonly class SplitStreamKeys
                     $fallbackOwnRun,
                     $coveringOnly,
                     $deadline,
+                    $backoff,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -76,6 +80,8 @@ final readonly class SplitStreamKeys
                     $ownRun = $fallbackOwnRun->read($split);
                     $selected = $coveringOnly->read($split);
                     $deadlined = $deadline->read($split);
+                    $backedOff = $backoff->read($split);
+                    $times = $backedOff->value();
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -91,7 +97,10 @@ final readonly class SplitStreamKeys
                             $judged->value(),
                             $ownRun->value(),
                             $selected->value(),
-                            new StreamWork($deadlined->value()),
+                            new StreamWork(
+                                $deadlined->value(),
+                                $times instanceof Absent ? $times : Multiple::of($times),
+                            ),
                         ))),
                         $on,
                         $most,
@@ -106,6 +115,7 @@ final readonly class SplitStreamKeys
                         $ownRun,
                         $selected,
                         $deadlined,
+                        $backedOff,
                     );
                 },
                 $enabled,
@@ -121,6 +131,7 @@ final readonly class SplitStreamKeys
                 $fallbackOwnRun,
                 $coveringOnly,
                 $deadline,
+                $backoff,
             ),
         )];
     }

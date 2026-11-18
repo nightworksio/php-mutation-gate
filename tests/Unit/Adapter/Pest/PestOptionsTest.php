@@ -113,8 +113,9 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
         'MUTATION_GATE_SPLIT_FALLBACK_OWN_RUN' => '1',
         'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY' => '1',
         'MUTATION_GATE_SPLIT_PARENT_DEADLINE' => '1',
+        'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF' => '2',
     ], true])
-        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false, "parentDeadline": false}}'))->toBe([[
+        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false, "parentDeadline": false, "deadlineBackoff": 1.5}}'))->toBe([[
             'MUTATION_GATE_SCHEMATA' => '1',
             'MUTATION_GATE_SPLIT' => '1',
             'MUTATION_GATE_SPLIT_CHILDREN' => 'cores',
@@ -127,6 +128,7 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
             'MUTATION_GATE_SPLIT_FALLBACK_OWN_RUN' => '0',
             'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY' => '0',
             'MUTATION_GATE_SPLIT_PARENT_DEADLINE' => '0',
+            'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF' => '1.5',
         ], true])
         ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
         ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
@@ -146,6 +148,7 @@ it('refuses a splitStream option written as something else', function (string $o
     'fallbackOwnRun' => ['{"splitStream": {"fallbackOwnRun": "yes"}}', fn(): Problem => Problem::at('splitStream.fallbackOwnRun', 'expected true or false, got "yes"')],
     'coveringTestsOnly' => ['{"splitStream": {"coveringTestsOnly": "yes"}}', fn(): Problem => Problem::at('splitStream.coveringTestsOnly', 'expected true or false, got "yes"')],
     'parentDeadline' => ['{"splitStream": {"parentDeadline": "yes"}}', fn(): Problem => Problem::at('splitStream.parentDeadline', 'expected true or false, got "yes"')],
+    'deadlineBackoff' => ['{"splitStream": {"deadlineBackoff": "twice"}}', fn(): Problem => Problem::at('splitStream.deadlineBackoff', 'expected a number, got "twice"')],
     'judging' => ['{"splitStream": {"judging": "halved"}}', fn(): Problem => Problem::mismatch('splitStream.judging', 'one of its values', '"halved"')],
 ]);
 

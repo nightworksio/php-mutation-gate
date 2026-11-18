@@ -49,7 +49,7 @@ reads a sibling's answer, or waits on a socket no daemon will answer.
 3. **Pest's own process watches every stream of a pass at once**
    (`StreamWatch`), in place of waiting for each in turn. A stream whose
    parent passed its test's deadline is stopped with every process under
-   it (`ProcessTree`, ADR-0158's freeze-then-kill), and a stream of the
+   it (`ProcessTable`, ADR-0158's freeze-then-kill), and a stream of the
    tests it had not ended, but that one, starts in its place, under a
    place one round of streams on, so its plan, ids and results files are
    its own. Where a stream runs whole files, its tests are not named by

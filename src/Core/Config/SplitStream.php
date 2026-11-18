@@ -286,8 +286,7 @@ final readonly class SplitStream
             Member::of(self::JUDGING, $this->judging()->value),
             Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun()),
             Member::of(self::COVERING_TESTS_ONLY, $this->coveringTestsOnly()),
-            ...$this->work->option(),
-        );
+        )->merged($this->work->option());
 
         return Member::of(self::SECTION, $option);
     }
@@ -312,8 +311,7 @@ final readonly class SplitStream
             Member::of(self::JUDGING, $this->judging instanceof StreamJudging ? $this->judging->value : $this->judging),
             Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun),
             Member::of(self::COVERING_TESTS_ONLY, $this->coveringTestsOnly),
-            ...$this->work->written(),
-        );
+        )->merged($this->work->written());
 
         return Member::unlessEmpty(self::SECTION, $written);
     }

@@ -18,8 +18,9 @@ use const LOCK_EX;
  * process wrote: where it writes its results, each site's mutant, likely
  * killer and variables, the source file each schema stands for, each test's
  * own time by the coverage map, how many children it holds at once (see
- * ChildPlaces) and each child's limit; and, in a run that plans without a fresh map, where the
- * parent records the lines each test executed (ADR-0135).
+ * ChildPlaces) and each child's limit; in a run that plans without a fresh map, where the
+ * parent records the lines each test executed (ADR-0135); and the slowdown its parent's deadline starts at
+ * (ADR-0184).
  *
  * @internal
  */
@@ -44,6 +45,7 @@ final readonly class StreamPlan
         public bool $bootOnce = false,
         public bool $reconnect = false,
         public bool $deadline = false,
+        public float $slowdown = 1.0,
     ) {
     }
 

@@ -29,6 +29,16 @@ final readonly class StreamWork implements Setting
         return new self(Json::at('splitStream.parentDeadline', value: false));
     }
 
+    /**
+     * `splitStream.deadlineBackoff`: the times its slowdown a stream started
+     * in a stopped one's place starts at, over the slowdown the stopped one
+     * reached; 2 by default, 1 to carry it on unchanged.
+     */
+    public static function deadlineBackoff(int|float $times): self
+    {
+        return new self(Json::at('splitStream.deadlineBackoff', value: $times));
+    }
+
     public function written(): Json
     {
         return $this->json;

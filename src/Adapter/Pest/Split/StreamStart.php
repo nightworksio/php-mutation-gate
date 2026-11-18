@@ -8,8 +8,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
  * Where one stream of a pass starts (ADR-0182): its pass, its place among
  * the pass's streams and how many places one round of them takes, the
  * sites it forks at, the map's times, the cores, the arguments that select
- * the pass's tests, and whether it keeps pcov on, as its tests read the
- * coverage driver (ADR-0183).
+ * the pass's tests, whether it keeps pcov on, as its tests read the
+ * coverage driver (ADR-0183), and the slowdown its parent's deadline starts
+ * at (ADR-0184).
  *
  * @internal
  */
@@ -29,11 +30,15 @@ final readonly class StreamStart
         public int $cores,
         public array $selecting,
         public bool $keepsPcov = false,
+        public float $slowdown = 1.0,
     ) {
     }
 
-    /** The start of a stream in this one's place, one round of streams on, so its files are its own. */
-    public function next(): self
+    /**
+     * The start of a stream in this one's place, one round of streams on, so
+     * its files are its own, its parent's deadline starting at this slowdown.
+     */
+    public function next(float $slowdown): self
     {
         return new self(
             $this->pass,
@@ -44,6 +49,7 @@ final readonly class StreamStart
             $this->cores,
             $this->selecting,
             $this->keepsPcov,
+            $slowdown,
         );
     }
 }

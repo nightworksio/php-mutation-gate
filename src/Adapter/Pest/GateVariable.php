@@ -191,6 +191,12 @@ enum GateVariable: string
     case SplitParentDeadline = 'MUTATION_GATE_SPLIT_PARENT_DEADLINE';
 
     /**
+     * The times its slowdown a stream started in a stopped one's place starts at,
+     * over the stopped one's (ADR-0184).
+     */
+    case SplitDeadlineBackoff = 'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF';
+
+    /**
      * The directory whose ini file turns pcov off, which a mutation run adds to what each process it starts scans,
      * where `pest.pcovOff` turns pcov off (ADR-0183); Pest's own mutation process keeps pcov on, as it refuses to run
      * without a coverage driver.

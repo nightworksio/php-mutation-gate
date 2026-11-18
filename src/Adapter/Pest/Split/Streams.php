@@ -98,7 +98,7 @@ final readonly class Streams
             $settings->bootsOnce(),
             $settings->reconnects(),
             $settings->selectsCoveringTests(),
-            $settings->stopsAtDeadlines(),
+            $settings->deadline(),
             PcovTests::of($coveredLines),
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $held, $settings);

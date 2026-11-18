@@ -8,8 +8,9 @@ use function is_file;
 use function is_int;
 use function microtime;
 
-use NightWorksIO\MutationGate\Adapter\Process\ProcessTree;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
+use Symfony\Component\Process\Process;
 
 use function unlink;
 use function usleep;
@@ -18,8 +19,10 @@ use function usleep;
  * Pest's own process waiting for the streams of a pass (ADR-0182): a stream
  * whose parent ran a test past its deadline (see ParentDeadline) is stopped
  * with every process under it, and a stream of the tests it had not ended
- * but that one starts in its place, so no test holds a stream. Each stream
- * that ended has its mark taken away, as one a signal ended leaves it.
+ * but that one starts in its place, so no test holds a stream, its parent's
+ * deadline starting after the slowdown the stopped one reached (ADR-0184).
+ * Each stream that ended has its mark taken away, as one a signal ended
+ * leaves it.
  *
  * @internal
  */
@@ -81,14 +84,24 @@ final readonly class StreamWatch
         }
 
         if ($passed !== '' && is_int($pid)) {
-            ProcessTree::of($pid)->stop(leads: false);
+            ProcessTable::stop($pid, $this->ran(...));
         }
 
         $stream->waited();
+        $slowdown = ParentDeadline::slowdownIn($mark);
         $this->unmarked($mark);
-        $again = $passed === '' ? NotGiven::value() : $stream->againWithout($passed);
+        $again = $passed === '' ? NotGiven::value() : $stream->againWithout($passed, $slowdown);
 
         return [$again instanceof WatchedStream ? [$again] : [], [$stream->results]];
+    }
+
+    /** @param list<string> $command */
+    private function ran(array $command): string
+    {
+        $process = new Process($command);
+        $process->run();
+
+        return $process->getOutput();
     }
 
     private function unmarked(string $mark): void
