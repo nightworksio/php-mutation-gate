@@ -28,11 +28,14 @@ final readonly class ProcessTable
     /** A line of the listing: a process and its parent. */
     private const string ROW = '/^\s*(?<pid>\d+)\s+(?<parent>\d+)\s*$/m';
 
+    /** The program that signals processes. */
+    private const string SIGNALS = 'kill';
+
     /** The command that stops processes at once, before their ids. */
-    private const array KILL = ['kill', '-KILL'];
+    private const array KILL = [self::SIGNALS, '-KILL'];
 
     /** The command that freezes processes where they stand, so none starts another, before their ids. */
-    private const array FREEZE = ['kill', '-STOP'];
+    private const array FREEZE = [self::SIGNALS, '-STOP'];
 
     /**
      * The lowest id that names one process the gate may stop: 1 is the

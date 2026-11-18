@@ -171,6 +171,10 @@ services:
                 'NightWorksIO\MutationGate\Core\Cost\Step':
                     - Coverage # the step that readies coverage, not the directory a coverage run writes in
                 'NightWorksIO\MutationGate\Core\Plan\StepsRecord':
+                    - CONTROLS # a key of a shard result's step, not a cost step
+                    - TESTS # a key of a shard result's step, not a reporter, a sharding or a hold's field
+                    - LIMIT # a key of a shard result's step, not a mutant's limit field
+                    - END # a key of a shard result's step, not a Pest record's event or field
                     - SECONDS # a key of a shard result's step, not of Pest's records
                     - COUNT # a key of a shard result's step, not of Pest's records or an uncovered count
                 'NightWorksIO\MutationGate\Core\Telemetry\Metrics':
@@ -375,6 +379,7 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Pest\Project':
                     - ORDER # the workspace directory of the plugin's orders, not a field of a Pest results file
                 'NightWorksIO\MutationGate\Core\Proof\ProofRecord':
+                    - JUDGING # a proof's field of how its mutants were judged, not the splitStream key
                     - AT # when a run was, not where a killer stood in a Pest results file
                 'NightWorksIO\MutationGate\Core\Mutant\Prefix':
                     - KEPT # hex digits of a prefix's key, not a mutant id's length
@@ -431,6 +436,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Mutant\DiffPatch':
                     - NO_NEWLINE # a unified diff's note on a missing line break
                 'NightWorksIO\MutationGate\Core\Mutant\MutantRecord':
+                    - KILLED # fields a killed record holds, not the bytes a packed line takes
                     - SECONDS # a field of a shard result
                     - MUTATOR # a field of a shard result
                     - ID # a field of a shard result
@@ -439,6 +445,7 @@ services:
                     - DIFF # a field of a shard result
                     - FILE # a field of a shard result
                 'NightWorksIO\MutationGate\Core\Mutant\RejectionRecord':
+                    - ANALYSER # a field of a rejection, not the plan's warm-up field
                     - CODE # a field of a rejection, not the exit code a Pest results file records
                 'NightWorksIO\MutationGate\Core\Proof\PlacedRankings':
                     - FIELDS # the fields of a placed ranking, not letters per edit
@@ -529,6 +536,7 @@ services:
                     - PRE_PUSH_MINUTES # a budget, in minutes
                     - WATCH_SECONDS # a watch round's budget, in seconds, not a probe's limit
                 'NightWorksIO\MutationGate\Core\Runner\ProcessTable':
+                    - SIGNALS # the program that signals processes, not a control's kind
                     - LOWEST # the lowest process id that names one process, not an exit code or an argument
                 'NightWorksIO\MutationGate\Core\Runner\Headroom':
                     - TIMES # times a suite's peak memory a cap holds
@@ -557,7 +565,6 @@ services:
                     - MUTANTS # a share's mutants made, not the kill history's section
                     - UNREACHED # a share's mutants no test reached, not a recorded event
                 'NightWorksIO\MutationGate\Adapter\Pest\Split\Children':
-                    - SLOT # where a child's slot of limits sits, not a mutant record's field
                     - WAIT # microseconds between a stream parent's looks, not trend points kept
                 'NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDirectory':
                     - RANDOM # random bytes that name a stream directory, not a span id's length
@@ -604,6 +611,7 @@ services:
                     - INDENTED # a progress report's indented line, not a found tree's item
                     - LAST_LINES # the gate's lines a progress report repeats, not the presets shipped
                 'NightWorksIO\MutationGate\Adapter\GitHub\ProgressReporter':
+                    - LOOK # seconds between two looks at a reporter, not the least map time a slowdown learns from
                     - GRACE # seconds a reporter has to delete its artifact, not the serve daemon's start wait
                 'NightWorksIO\MutationGate\Adapter\Process\RunCgroup':
                     - JOINS # the shell a run joins its cgroup by, not git's settings or a warm worker's shell
@@ -637,6 +645,7 @@ services:
                 'NightWorksIO\MutationGate\Core\File\FileDescriptor':
                     - FIRST # the first descriptor past the standard streams, not letters per edit
                 'NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\LaravelDatabases':
+                    - CONFIG # Laravel's config service, not the plan's warm-up field
                     - APART # a database config's keys that read and write apart, not a run's option
                 'NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\CopyName':
                     - KEPT # characters of an original's name a copy keeps, not a chart's height
@@ -692,6 +701,32 @@ services:
                     - OPTION # the option that names a report's tests, not a reporter or a digest kind
                 'NightWorksIO\MutationGate\Core\Test\JUnitFailures':
                     - SKIPPED # the JUnit element of a skipped test case, not a mutant's status
+                'NightWorksIO\MutationGate\Core\Plan\MeasuredHoldsRecord':
+                    - FIELD # the plan's field of measured holds, not a library change's kind
+                    - TESTS # a measured hold's tests, not a reporter, a sharding or a step's field
+                    - FAILED # a measured hold's failed tests, not an alert, a check or a status
+                'NightWorksIO\MutationGate\Core\Mutant\LimitRecord':
+                    - LIMIT # a mutant's limit field, not a shard result's step key
+                'NightWorksIO\MutationGate\Core\Proof\LimitsRecord':
+                    - KILLS # the ledger's kills a limit is learned from, not a control's kind
+                'NightWorksIO\MutationGate\Core\Mutant\Marker':
+                    - DESCRIBED # where a marker is, then what it says, not a progress line's parts
+                'NightWorksIO\MutationGate\Cli\Flow\PlannedWarmUp':
+                    - ANALYSER # a field of the plan's warm-up, not a rejection's
+                    - SECONDS # a field of the plan's warm-up, not a Pest record's or the start-up's
+                'NightWorksIO\MutationGate\Cli\Flow\PlannedStartUp':
+                    - RUNNER # a field of the plan's start-up, not a builder method, a test order or a key
+                    - SECONDS # a field of the plan's start-up, not a Pest record's
+                'NightWorksIO\MutationGate\Adapter\Pest\SideBySideMutants':
+                    - MADE # the field of mutants made side by side, not a Pest record's event
+                    - SCHEMATA # the field of the schemata kept beside them, not the pest.schemata key
+                'NightWorksIO\MutationGate\Core\Runner\IniScan':
+                    - BETWEEN # two directories PHP scans, as PHP_INI_SCAN_DIR joins them, not a test's name
+                'NightWorksIO\MutationGate\Adapter\Pest\Split\ParentDeadline':
+                    - WEIGHT # how far a timed test moves a stream's slowdown, not seconds a line
+                    - MEASURABLE # the least map time whose own time moves a slowdown, not a reporter's look
+                'NightWorksIO\MutationGate\Core\Config\StreamWork':
+                    - STANDARD_BACKOFF # the times a restarted stream's slowdown starts over its stopped one's, not a shard's work per overhead
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())

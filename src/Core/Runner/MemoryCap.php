@@ -25,7 +25,7 @@ final readonly class MemoryCap
     public const string NONE = '-1';
 
     /** The variable PHP reads the directories of its extra ini files from. */
-    public const string SCAN_DIR = 'PHP_INI_SCAN_DIR';
+    public const string SCAN_DIR = IniScan::VARIABLE;
 
     /** The ini file that sets the cap, in a directory of its own for `PHP_INI_SCAN_DIR` to name. */
     public const string FILE = 'memory-cap.ini';
