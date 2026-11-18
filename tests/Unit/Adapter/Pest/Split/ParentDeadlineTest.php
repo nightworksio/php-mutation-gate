@@ -51,7 +51,8 @@ it('moves the deadline on by each wait for a child\'s place, and keeps none once
     $deadline->waited(10.0);
 
     expect([$waited, ParentDeadline::passedIn($mark, $now + 16.5)])->toBe([false, false])
-        ->and(file_get_contents($mark))->toBe('');
+        ->and(file_get_contents($mark))->toBe('{"m":1}')
+        ->and(ParentDeadline::passedIn($mark, PHP_FLOAT_MAX))->toBeFalse();
 });
 
 it('holds a test to its limit times how much slower than the map the stream ran the timed tests before it, never less than the map\'s', function () use ($planned): void {
@@ -96,6 +97,22 @@ it('starts at the slowdown its plan gives, never falls under it, keeps it in the
         ->and(ParentDeadline::passedIn($mark, $now + 301.0))->toBe('long')
         ->and(ParentDeadline::slowdownIn(sprintf('%s/none', Scratch::directory())))->toBe(1.0)
         ->and(ParentDeadline::slowdownIn($faster))->toBe(1.0);
+});
+
+it('keeps how slow the stream measured itself beside the slowdown it holds its tests to, which falls under the start where its tests run faster', function () use ($planned): void {
+    $mark = sprintf('%s/live-1', Scratch::directory());
+    $deadline = ParentDeadline::of($planned(deadline: true, slowdown: 4.0), $mark);
+
+    $deadline->began('timed');
+    $started = ParentDeadline::measuredIn($mark);
+    $deadline->ended(2.0);
+    $ended = [ParentDeadline::measuredIn($mark), ParentDeadline::slowdownIn($mark)];
+    $deadline->began('timed');
+
+    expect($started)->toBe(4.0)
+        ->and($ended)->toBe([3.4, 1.0])
+        ->and([ParentDeadline::measuredIn($mark), ParentDeadline::slowdownIn($mark)])->toBe([3.4, 4.0])
+        ->and(ParentDeadline::measuredIn(sprintf('%s/none', Scratch::directory())))->toBe(1.0);
 });
 
 it('keeps nothing where the plan sets no deadline, or the stream has no mark, and reads none from a mark that holds none', function () use ($planned): void {

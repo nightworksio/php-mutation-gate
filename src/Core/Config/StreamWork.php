@@ -32,9 +32,16 @@ final readonly class StreamWork
     /** `splitStream.deadlineBackoff` where no layer sets it: a restarted stream starts twice as slow. */
     public const float STANDARD_BACKOFF = 2.0;
 
+    /**
+     * The key, and the Pest runner's option, of where the slowdown a pass's streams measured carries on to, as
+     * the next pass's start (ADR-0184).
+     */
+    public const string SLOWDOWN_CARRY = 'slowdownCarry';
+
     public function __construct(
         private bool|Absent $parentDeadline = new Absent(),
         private Multiple|Absent $deadlineBackoff = new Absent(),
+        private SlowdownCarry|Absent $slowdownCarry = new Absent(),
     ) {
     }
 
@@ -43,7 +50,7 @@ final readonly class StreamWork
     {
         $none = new self();
 
-        return new self($none->parentDeadline(), $none->deadlineBackoff());
+        return new self($none->parentDeadline(), $none->deadlineBackoff(), $none->slowdownCarry());
     }
 
     /** This, with what a later layer sets laid over it, key by key. */
@@ -52,6 +59,7 @@ final readonly class StreamWork
         return new self(
             $later->parentDeadline instanceof Absent ? $this->parentDeadline : $later->parentDeadline,
             $later->deadlineBackoff instanceof Absent ? $this->deadlineBackoff : $later->deadlineBackoff,
+            $later->slowdownCarry instanceof Absent ? $this->slowdownCarry : $later->slowdownCarry,
         );
     }
 
@@ -77,12 +85,24 @@ final readonly class StreamWork
         return $this->deadlineBackoff instanceof Absent ? Multiple::of(self::STANDARD_BACKOFF) : $this->deadlineBackoff;
     }
 
+    /**
+     * `splitStream.slowdownCarry`: where the highest slowdown a pass's
+     * streams measured themselves at carries on to, as the slowdown the next
+     * pass's streams start at (ADR-0184); through the shard by default, so
+     * its next run starts there too.
+     */
+    public function slowdownCarry(): SlowdownCarry
+    {
+        return $this->slowdownCarry instanceof SlowdownCarry ? $this->slowdownCarry : SlowdownCarry::Shard;
+    }
+
     /** The keys of the Pest runner's `splitStream` option these give: every key at the value it takes. */
     public function option(): Json
     {
         return Json::object(
             Member::of(self::PARENT_DEADLINE, $this->parentDeadline()),
             Member::of(self::DEADLINE_BACKOFF, $this->deadlineBackoff()->times()),
+            Member::of(self::SLOWDOWN_CARRY, $this->slowdownCarry()->value),
         );
     }
 
@@ -94,6 +114,10 @@ final readonly class StreamWork
             Member::of(
                 self::DEADLINE_BACKOFF,
                 $this->deadlineBackoff instanceof Absent ? $this->deadlineBackoff : $this->deadlineBackoff->times(),
+            ),
+            Member::of(
+                self::SLOWDOWN_CARRY,
+                $this->slowdownCarry instanceof SlowdownCarry ? $this->slowdownCarry->value : $this->slowdownCarry,
             ),
         );
     }
@@ -109,6 +133,9 @@ final readonly class StreamWork
             ));
 
         return PhpCalls::flag($this->parentDeadline, 'StreamWork::parentDeadline()', 'StreamWork::noParentDeadline()')
-            ->and($backoff);
+            ->and($backoff)
+            ->and(PhpCalls::inWith(
+                ...$this->slowdownCarry instanceof SlowdownCarry ? [$this->slowdownCarry->php()] : [],
+            ));
     }
 }

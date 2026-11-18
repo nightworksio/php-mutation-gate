@@ -42,6 +42,8 @@ final class ParentDeadline
 
     private const string SLOWDOWN = 's';
 
+    private const string MEASURED = 'm';
+
     /** How far each test the map timed moves the stream's slowdown toward its own. */
     private const float WEIGHT = 0.2;
 
@@ -50,6 +52,9 @@ final class ParentDeadline
 
     /** How much slower than the map the stream runs its tests, never less than it started at. */
     private float $slowdown;
+
+    /** How much slower than the map the stream ran its timed tests, as they measured it, never less than as fast. */
+    private float $measured;
 
     private float $by = 0.0;
 
@@ -63,6 +68,7 @@ final class ParentDeadline
         private readonly float $least,
     ) {
         $this->slowdown = $least;
+        $this->measured = $least;
     }
 
     /**
@@ -94,6 +100,19 @@ final class ParentDeadline
         return is_float($slowdown) || is_int($slowdown) ? (float) $slowdown : 1.0;
     }
 
+    /**
+     * How much slower than the map the stream ran its timed tests, as they
+     * measured it, whatever it started at, kept in this mark (ADR-0184); as
+     * fast as the map where it keeps none.
+     */
+    public static function measuredIn(string $mark): float
+    {
+        $read = is_file($mark) ? json_decode((string) file_get_contents($mark), associative: true) : null;
+        $measured = is_array($read) && array_key_exists(self::MEASURED, $read) ? $read[self::MEASURED] : null;
+
+        return is_float($measured) || is_int($measured) ? (float) $measured : 1.0;
+    }
+
     /** The parent began this test: its deadline is the test's limit from now, never past `timeouts.most`. */
     public function began(string $test): void
     {
@@ -117,18 +136,24 @@ final class ParentDeadline
 
     /**
      * The parent ended its test, taking this many seconds of its own: it runs
-     * none past a deadline, and a test the map timed moves the slowdown.
+     * none past a deadline, a test the map timed moves the slowdown, and the
+     * mark keeps only how slow the stream measured itself.
      */
     public function ended(float $own): void
     {
         $timed = array_key_exists($this->test, $this->times) ? $this->times[$this->test] : 0.0;
-        $this->slowdown = $timed >= self::MEASURABLE
-            ? max($this->least, $this->slowdown + self::WEIGHT * ($own / $timed - $this->slowdown))
+        $measurable = $timed >= self::MEASURABLE;
+        $ratio = $measurable ? $own / $timed : 0.0;
+        $this->slowdown = $measurable
+            ? max($this->least, $this->slowdown + self::WEIGHT * ($ratio - $this->slowdown))
             : $this->slowdown;
+        $this->measured = $measurable
+            ? max(1.0, $this->measured + self::WEIGHT * ($ratio - $this->measured))
+            : $this->measured;
         $this->test = '';
 
         if ($this->mark !== '' && is_file($this->mark)) {
-            file_put_contents($this->mark, '');
+            file_put_contents($this->mark, (string) json_encode([self::MEASURED => $this->measured]));
         }
     }
 
@@ -138,7 +163,12 @@ final class ParentDeadline
             return;
         }
 
-        $kept = [self::TEST => $this->test, self::BY => $this->by, self::SLOWDOWN => $this->slowdown];
+        $kept = [
+            self::TEST => $this->test,
+            self::BY => $this->by,
+            self::SLOWDOWN => $this->slowdown,
+            self::MEASURED => $this->measured,
+        ];
         file_put_contents($this->mark, (string) json_encode($kept, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 }

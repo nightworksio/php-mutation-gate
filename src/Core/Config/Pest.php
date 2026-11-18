@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -43,9 +44,11 @@ final readonly class Pest implements Part
         private LongFilter|Absent $longFilter,
         private Preloaded|Absent $preloaded,
         private ChildProcesses|Absent $childProcesses,
+        private PcovKept $pcovKept,
     ) {
     }
 
+    /** @param Listed<Glob>|Absent $pcovKept */
     public static function of(
         bool|Absent $patch = new Absent(),
         Group|Absent $canary = new Absent(),
@@ -58,6 +61,7 @@ final readonly class Pest implements Part
         bool|Absent $bootChunks = new Absent(),
         Preloaded|Absent $preloaded = new Absent(),
         ChildProcesses|Absent $childProcesses = new Absent(),
+        Listed|Absent $pcovKept = new Absent(),
     ): self {
         return new self(
             $patch,
@@ -68,6 +72,7 @@ final readonly class Pest implements Part
             $longFilter,
             $preloaded,
             $childProcesses,
+            PcovKept::of($pcovKept),
         );
     }
 
@@ -76,7 +81,7 @@ final readonly class Pest implements Part
     {
         $none = new Absent();
 
-        return new self($none, $none, PestWorkers::of(), $splitStream, $none, $none, $none, $none);
+        return new self($none, $none, PestWorkers::of(), $splitStream, $none, $none, $none, $none, PcovKept::of());
     }
 
     public static function none(): self
@@ -116,6 +121,7 @@ final readonly class Pest implements Part
                 Absent::laid($this->longFilter, $later->longFilter),
                 Absent::laid($this->preloaded, $later->preloaded),
                 Absent::laid($this->childProcesses, $later->childProcesses),
+                $this->pcovKept->over($later->pcovKept),
             )
             : $this;
     }
@@ -211,6 +217,7 @@ final readonly class Pest implements Part
                 Member::of(self::LONG_FILTER, $this->longFilter()->value),
                 Member::of(self::PRELOADED, $this->preloaded()->value),
                 Member::of(self::CHILD_PROCESSES, $this->childProcesses()->value),
+                $this->pcovKept->option(),
                 $this->splitStream->option(),
             );
 
@@ -248,6 +255,7 @@ final readonly class Pest implements Part
                             ? $this->childProcesses->value
                             : $this->childProcesses,
                     ),
+                    $this->pcovKept->written($origin),
                 ),
             ),
             $this->splitStream->written(),
@@ -267,6 +275,7 @@ final readonly class Pest implements Part
                 ...$this->preloaded instanceof Preloaded ? [$this->preloaded->php()] : [],
                 ...$this->childProcesses instanceof ChildProcesses ? [$this->childProcesses->php()] : [],
             ]))
+            ->and($this->pcovKept->php($origin))
             ->and($this->splitStream->php());
     }
 }

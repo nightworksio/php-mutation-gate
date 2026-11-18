@@ -7,10 +7,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use Closure;
 
 use function is_bool;
-use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDeadline;
-use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamOptions;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -25,14 +23,12 @@ use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Config\Mutants;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\PcovKept;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
 use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Config\Preloaded;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
-use NightWorksIO\MutationGate\Core\Config\StreamChildren;
-use NightWorksIO\MutationGate\Core\Config\StreamJudging;
-use NightWorksIO\MutationGate\Core\Config\StreamWork;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -110,10 +106,11 @@ final readonly class PestOptions
         $schemata = $options->flag(Key::of(PestWorkers::SCHEMATA));
         $bootMutants = $options->flag(Key::of(PestWorkers::BOOT_MUTANTS));
         $bootChunks = $options->flag(Key::of(PestWorkers::BOOT_CHUNKS));
+        $pcovKept = $options->texts(Key::of(PcovKept::KEY));
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $bounds = BoundsOptions::read($options);
-        $streams = self::streamsOf($options);
+        $streams = StreamOptions::read($options);
         $toggles = self::togglesOf($options);
         $vouching = self::chosen(
             $options,
@@ -139,6 +136,7 @@ final readonly class PestOptions
             $schemata instanceof Problem => Invalid::because($schemata),
             $bootMutants instanceof Problem => Invalid::because($bootMutants),
             $bootChunks instanceof Problem => Invalid::because($bootChunks),
+            $pcovKept instanceof Problem => Invalid::because($pcovKept),
             $tests instanceof Problem => Invalid::because($tests),
             $mutators instanceof Problem => Invalid::because($mutators),
             $bounds instanceof Problem => Invalid::because($bounds),
@@ -167,6 +165,7 @@ final readonly class PestOptions
                             $bootChunks === true,
                             $rejudging,
                             $serving,
+                            $pcovKept instanceof Listed ? [...$pcovKept] : [],
                         ),
                     ),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
@@ -302,86 +301,5 @@ final readonly class PestOptions
         }
 
         return $toggles;
-    }
-
-    /** `splitStream.children`: a count, or `cores` (ADR-0173). */
-    private static function childrenOf(Options $split): int|StreamChildren|NotGiven|Problem
-    {
-        $key = Key::of(SplitStream::CHILDREN);
-        $text = $split->text($key);
-        $cores = is_string($text) ? StreamChildren::tryFrom($text) : null;
-
-        return $cores ?? $split->integer($key);
-    }
-
-    /** `splitStream.judging`: `whole` or `parted`, this one where it names neither (ADR-0174). */
-    private static function judgingOf(Options $split, StreamJudging $standard): StreamJudging|Problem
-    {
-        $named = $split->text(Key::of(SplitStream::JUDGING));
-
-        return match (true) {
-            $named instanceof Problem => $named,
-            $named instanceof NotGiven => $standard,
-            default => StreamJudging::tryFrom($named) ?? Problem::mismatch(
-                sprintf('%s.%s', SplitStream::SECTION, SplitStream::JUDGING),
-                'one of its values',
-                sprintf('"%s"', $named),
-            ),
-        };
-    }
-
-    /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117). */
-    private static function streamsOf(Options $options): StreamSettings|Problem
-    {
-        $split = $options->object(Key::of(SplitStream::SECTION));
-
-        if (! $split instanceof Options) {
-            return $split instanceof Problem ? $split : StreamSettings::off();
-        }
-
-        $enabled = $split->flag(Key::of(SplitStream::ENABLED));
-        $children = self::childrenOf($split);
-        $changeCheck = $split->flag(Key::of(SplitStream::CHANGE_CHECK));
-        $killersFirst = $split->flag(Key::of(SplitStream::KILLERS_FIRST));
-        $killerStreams = $split->flag(Key::of(SplitStream::KILLER_STREAMS));
-        $bootOnce = $split->flag(Key::of(SplitStream::BOOT_ONCE));
-        $reconnect = $split->flag(Key::of(SplitStream::RECONNECT));
-        $fallbackOwnRun = $split->flag(Key::of(SplitStream::FALLBACK_OWN_RUN));
-        $coveringOnly = $split->flag(Key::of(SplitStream::COVERING_TESTS_ONLY));
-        $deadline = $split->flag(Key::of(StreamWork::PARENT_DEADLINE));
-        $backoff = $split->number(Key::of(StreamWork::DEADLINE_BACKOFF));
-        $standard = SplitStream::of();
-        $judging = self::judgingOf($split, $standard->judging());
-
-        return match (true) {
-            $enabled instanceof Problem => $enabled,
-            $children instanceof Problem => $children,
-            $changeCheck instanceof Problem => $changeCheck,
-            $killersFirst instanceof Problem => $killersFirst,
-            $killerStreams instanceof Problem => $killerStreams,
-            $bootOnce instanceof Problem => $bootOnce,
-            $reconnect instanceof Problem => $reconnect,
-            $judging instanceof Problem => $judging,
-            $fallbackOwnRun instanceof Problem => $fallbackOwnRun,
-            $coveringOnly instanceof Problem => $coveringOnly,
-            $deadline instanceof Problem => $deadline,
-            $backoff instanceof Problem => $backoff,
-            default => StreamSettings::of(
-                $enabled === true,
-                $children instanceof NotGiven ? $standard->children() : $children,
-                $changeCheck !== false,
-                $killersFirst !== false,
-                $judging,
-                $fallbackOwnRun !== false,
-                $coveringOnly !== false,
-                $killerStreams === true,
-                $bootOnce === true,
-                $reconnect !== false,
-                new StreamDeadline(
-                    $deadline !== false,
-                    $backoff instanceof NotGiven ? $standard->work()->deadlineBackoff()->times() : $backoff,
-                ),
-            ),
-        };
     }
 }

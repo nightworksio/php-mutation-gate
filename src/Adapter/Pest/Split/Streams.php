@@ -100,6 +100,7 @@ final readonly class Streams
             $settings->selectsCoveringTests(),
             $settings->deadline(),
             PcovTests::of($coveredLines),
+            StreamSlowdown::carried($settings->deadline()->carry, $results),
         );
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, $held, $settings);
         $undecided = self::undecided($byId, $sites, $covering, $held, $verdicts);

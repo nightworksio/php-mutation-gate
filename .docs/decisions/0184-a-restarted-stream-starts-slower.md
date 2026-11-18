@@ -19,6 +19,11 @@ minute: about 113 restarts, each a Pest boot, each sending the stopped
 test's mutants to their own runs. Each restarted stream forgot what the
 stopped one had learnt, so the next heavy test stopped it again.
 
+With restarted streams backing off alone (decisions 1 to 5), the same run
+at the same load grew its second pass from 7 streams to 44: every stream
+of a new pass still started as fast as the map, and each needed several
+restarts to back off to the load the first pass had already measured.
+
 ## Decision
 
 1. **A stream's parent keeps its slowdown in its stream's mark** beside
@@ -36,6 +41,21 @@ stopped one had learnt, so the next heavy test stopped it again.
    default, doubles the slowdown at each restart; `1` carries the stopped
    stream's slowdown on unchanged; a higher number backs off faster. It
    decides how the gate runs and moves no verdict, so it is in no key.
+6. **A pass's streams start at the slowdown the pass before measured.**
+   Beside the slowdown it holds its tests to, a stream's parent keeps how
+   slow it measured itself (`m` in its mark, also once a test ended): the
+   same moving average, started where the stream started, but free to fall
+   under that start where its tests run faster. As each stream of a pass
+   ends, Pest's own process takes the highest such slowdown, and the next
+   pass's streams start there. Where it carries through the shard, it is
+   kept beside the run's results (`<results>.slowdown`), so the shard's
+   next run, the main run after a held unit's, starts its first pass
+   there too.
+7. **`splitStream.slowdownCarry`** (`shard`, `run`, `none`): `shard`, by
+   default, carries it to the next pass and the shard's next run; `run`
+   to the next pass of the same run alone; `none` starts every pass as
+   fast as the map. It decides how the gate runs and moves no verdict, so
+   it is in no key.
 
 ## Why restarts converge
 
@@ -59,7 +79,12 @@ the slowdown.
 ## Consequences
 
 - Restarts on a loaded machine fall from the dozens per pass to a few: a
-  chain backs off in a handful of steps.
+  chain backs off in a handful of steps, and a pass starts where the one
+  before ended.
+- The highest slowdown a pass measured sets the next pass's start for
+  every stream, which holds a stream with lighter tests to a later
+  deadline than it needs; that costs only a test that never ends, which
+  is stopped within `timeouts.most` still.
 - A stream that a test really holds still stops within `timeouts.most`.
 
 ## Alternatives considered
@@ -67,6 +92,7 @@ the slowdown.
 | Alternative | Why not |
 |---|---|
 | **Start the restarted stream at the stopped one's slowdown** (`deadlineBackoff: 1`) | The slowdown was what proved too low; the same heavy tests stop the stream again. Kept as a setting. |
-| **One slowdown shared by every stream of the run** | Streams run different tests; one with heavy forks would slow every other one's deadline. |
+| **One slowdown shared by every stream as it runs** | Streams run different tests; one with heavy forks would slow every other one's deadline while it runs. A pass only starts where the last ended, and each stream then moves on its own. |
+| **The mean of a pass's slowdowns as the next start** | Half the streams would start under the load they meet and be stopped once each. |
 | **Drop the deadline in the second pass** | A test that never ends would hold the pass again (ADR-0182). |
 | **Raise the deadline's multiple for every stream** | It lengthens the wait for a stuck test in every stream, where a restart shows which stream needs it. |

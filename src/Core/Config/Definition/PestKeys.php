@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\PathOrigin;
+use NightWorksIO\MutationGate\Core\Config\PcovKept;
 use NightWorksIO\MutationGate\Core\Config\Pest;
 use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Config\Preloaded;
@@ -25,9 +27,10 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 final readonly class PestKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(): array
+    public static function fields(PathOrigin $origin): array
     {
         $results = Effect::AffectsResults;
+        $pcovKept = Field::optional(PcovKept::KEY, Items::of(Pattern::glob($origin)), $results);
         $patch = Field::optional('patch', Flag::boolean(), $results);
         $canary = Field::optional('canary', Text::word('a group name'), $results);
         $bootTail = Field::optional(PestWorkers::BOOT_TAIL, Flag::boolean(), $results);
@@ -57,12 +60,14 @@ final readonly class PestKeys
                     $longFilter,
                     $preloaded,
                     $children,
+                    $pcovKept,
                 ): Layer|Invalid {
                     $switched = $toggles->read($pest);
                     $vouching = $narrowedKills->read($pest);
                     $selecting = $longFilter->read($pest);
                     $rejudging = $preloaded->read($pest);
                     $serving = $children->read($pest);
+                    $keeping = $pcovKept->read($pest);
                     $patched = $patch->read($pest);
                     $group = $canary->read($pest);
                     $booted = $bootTail->read($pest);
@@ -86,6 +91,7 @@ final readonly class PestKeys
                                 $kept->value(),
                                 $rejudging->value(),
                                 $serving->value(),
+                                $keeping->value(),
                             ),
                             $toggles->set($switched),
                         ),
@@ -100,6 +106,7 @@ final readonly class PestKeys
                         $kept,
                         $rejudging,
                         $serving,
+                        $keeping,
                         ...$switched,
                     );
                 },
@@ -114,6 +121,7 @@ final readonly class PestKeys
                 $longFilter,
                 $preloaded,
                 $children,
+                $pcovKept,
                 ...$toggles->fields(),
             ),
         )];

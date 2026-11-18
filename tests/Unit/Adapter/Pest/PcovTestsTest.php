@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\PcovTests;
 use NightWorksIO\MutationGate\Core\Runner\IniScan;
@@ -10,6 +11,7 @@ use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
+    CoveringFiles::forget();
     Scratch::sweep();
 });
 
@@ -32,6 +34,42 @@ it('finds the tests that execute a file that reads the coverage driver, in each 
     'asks whether pcov is on' => ["ini_get( 'pcov.enabled');"],
     'asks whether pcov is loaded' => ['extension_loaded("pcov");'],
 ]);
+
+it('finds the tests that execute a file, or are declared in one, that pest.pcovKept names, from the project\'s root or as their paths are, and no other', function (): void {
+    $directory = Scratch::directory();
+    Scratch::write($directory, 'Kept.php', "<?php\necho 'plain';\n");
+    Scratch::write($directory, 'Plain.php', "<?php\necho 'plain';\n");
+    Scratch::write($directory, 'KeptCase.php', "<?php\nfinal class PcovKeptCase extends PHPUnit\\Framework\\TestCase\n{\n}\n");
+
+    if (! class_exists('PcovKeptCase', autoload: false)) {
+        require sprintf('%s/KeptCase.php', $directory);
+    }
+
+    CoveringFiles::forget($directory);
+    $declared = 'PcovKeptCase::declared';
+    $map = [
+        sprintf('%s/Kept.php', realpath($directory)) => [2 => ['T::kept']],
+        sprintf('%s/Plain.php', realpath($directory)) => [2 => ['T::plain', $declared]],
+    ];
+    $found = static fn(string $globs): ArrayObject => Environment::during(
+        [GateVariable::PcovKept->value => $globs],
+        static function () use ($map, $declared, $directory): ArrayObject {
+            $was = (string) getcwd();
+            chdir($directory);
+
+            try {
+                return new ArrayObject(array_map(PcovTests::found($map)->readBy(...), [['T::kept'], ['T::plain'], [$declared]]));
+            } finally {
+                chdir($was);
+            }
+        },
+    );
+
+    expect($found('**/Kept.php')->getArrayCopy())->toBe([true, false, false])
+        ->and($found('Kept.php')->getArrayCopy())->toBe([true, false, false])
+        ->and($found("\n**/KeptCase.php\n")->getArrayCopy())->toBe([false, false, true])
+        ->and($found('')->getArrayCopy())->toBe([false, false, false]);
+});
 
 it('takes a source file that names a run collecting coverage for no reader, as the gate starts such a run with pcov as configured', function (): void {
     $directory = Scratch::directory();

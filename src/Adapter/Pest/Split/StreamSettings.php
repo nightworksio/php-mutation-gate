@@ -11,6 +11,7 @@ use function is_string;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Core\Config\SlowdownCarry;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Config\StreamWork;
@@ -105,6 +106,7 @@ final readonly class StreamSettings
         $recording = getenv(GateVariable::SplitRecording->value);
         $lines = getenv(GateVariable::SplitLines->value);
         $backoff = getenv(GateVariable::SplitDeadlineBackoff->value);
+        $carry = getenv(GateVariable::SplitSlowdownCarry->value);
 
         return new self(
             getenv(GateVariable::Split->value) === self::ON,
@@ -127,6 +129,7 @@ final readonly class StreamSettings
             new StreamDeadline(
                 getenv(GateVariable::SplitParentDeadline->value) !== self::OFF,
                 is_numeric($backoff) ? (float) $backoff : StreamWork::STANDARD_BACKOFF,
+                SlowdownCarry::tryFrom(is_string($carry) ? $carry : '') ?? new StreamWork()->slowdownCarry(),
             ),
         );
     }
@@ -257,6 +260,7 @@ final readonly class StreamSettings
                 GateVariable::SplitCoveringTestsOnly->value => $told($this->coveringOnly),
                 GateVariable::SplitParentDeadline->value => $told($this->deadline->on),
                 GateVariable::SplitDeadlineBackoff->value => (string) $this->deadline->backoff,
+                GateVariable::SplitSlowdownCarry->value => $this->deadline->carry->value,
             ]
             : [];
     }

@@ -6,7 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDeadline;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Streaming;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlanFile;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSlowdown;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamVerdicts;
+use NightWorksIO\MutationGate\Core\Config\SlowdownCarry;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -109,4 +111,37 @@ it('starts each stream in a stopped one\'s place at the backoff times the slowdo
 
     expect($slowdowns)->toBe([1.0, 3.0, 7.0])
         ->and(is_file(sprintf('%s/plan-1-3.json', $directory)))->toBeFalse();
+});
+
+it('starts each pass\'s streams at the highest slowdown the streams of the pass before measured themselves at', function (): void {
+    $directory = Scratch::directory();
+    $results = sprintf('%s/results.json', Scratch::directory());
+    $class = $this::class;
+    CoveringFiles::forget(Tree::at('tests/Unit/Adapter/Pest/Split'));
+    $measured = <<<'PHP'
+        $plan = json_decode((string) file_get_contents((string) getenv('MUTATION_GATE_SPLIT_PLAN')), true);
+        file_put_contents(sprintf('%s/live-%d', $plan['live'], getmypid()), json_encode(['m' => $plan['slowdown'] + 1.5]));
+        PHP;
+    $streaming = new Streaming(
+        $directory,
+        [],
+        ['-r', $measured, '--'],
+        1,
+        1,
+        coveringOnly: true,
+        deadline: new StreamDeadline(on: true),
+        slowdown: StreamSlowdown::carried(SlowdownCarry::Shard, $results),
+    );
+
+    $streaming->pass(1, ['m1' => ['f1', 1, '', []]], ['m1' => [sprintf('%s::first', $class)]], StreamVerdicts::none());
+    $streaming->pass(2, ['m1' => ['f1', 1, '', []]], ['m1' => [sprintf('%s::first', $class)]], StreamVerdicts::none());
+    $slowdowns = [];
+
+    foreach ([1, 2] as $pass) {
+        $plan = StreamPlanFile::read(sprintf('%s/plan-%d-0.json', $directory, $pass));
+        $slowdowns[] = $plan === false ? 0.0 : $plan->slowdown;
+    }
+
+    expect($slowdowns)->toBe([1.0, 2.5])
+        ->and(StreamSlowdown::carried(SlowdownCarry::Shard, $results)->start())->toBe(4.0);
 });

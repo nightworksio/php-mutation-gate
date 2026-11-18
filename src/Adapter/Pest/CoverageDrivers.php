@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_filter;
 use function dirname;
 use function getenv;
+use function implode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Config\Toggle;
@@ -34,7 +35,8 @@ final readonly class CoverageDrivers
 
     private const string XDEBUG_OFF = Xdebug::OFF;
 
-    private function __construct(private string $pcovOff, private bool $xdebugOff)
+    /** @param list<string> $kept the globs of the files whose tests keep pcov on, as `pest.pcovKept` lists them */
+    private function __construct(private string $pcovOff, private bool $xdebugOff, private array $kept = [])
     {
     }
 
@@ -52,6 +54,7 @@ final readonly class CoverageDrivers
         return new self(
             is_string($ini) && $ini !== '' ? dirname($ini) : '',
             $patching->steps()->on(Toggle::PestXdebugOff),
+            $patching->steps()->pcovKept(),
         );
     }
 
@@ -65,12 +68,16 @@ final readonly class CoverageDrivers
      * A mutation run's command, its processes started with these drivers:
      * Pest's own mutation process keeps pcov on, as it refuses to mutate
      * without a coverage driver, and is told the directory each process it
-     * starts adds to what it scans (see PcovTests).
+     * starts adds to what it scans, and the globs whose tests keep pcov on
+     * (see PcovTests).
      */
     public function mutating(Command $command): Command
     {
         return $command->with([
             ...$this->pcovOff === '' ? [] : [GateVariable::PcovOff->value => $this->pcovOff],
+            ...$this->pcovOff === '' || $this->kept === []
+                ? []
+                : [GateVariable::PcovKept->value => implode("\n", $this->kept)],
             ...$this->xdebugOff ? [Xdebug::MODE_VARIABLE => self::XDEBUG_OFF] : [],
         ]);
     }

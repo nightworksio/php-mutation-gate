@@ -196,12 +196,21 @@ enum GateVariable: string
      */
     case SplitDeadlineBackoff = 'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF';
 
+    /** Where the slowdown a pass's streams measured carries on to (ADR-0184). */
+    case SplitSlowdownCarry = 'MUTATION_GATE_SPLIT_SLOWDOWN_CARRY';
+
     /**
      * The directory whose ini file turns pcov off, which a mutation run adds to what each process it starts scans,
      * where `pest.pcovOff` turns pcov off (ADR-0183); Pest's own mutation process keeps pcov on, as it refuses to run
      * without a coverage driver.
      */
     case PcovOff = 'MUTATION_GATE_PCOV_OFF';
+
+    /**
+     * The globs of the files whose tests keep pcov as PHP is configured where `pest.pcovOff` turns it off, one to a
+     * line, as `pest.pcovKept` lists them (ADR-0185).
+     */
+    case PcovKept = 'MUTATION_GATE_PCOV_KEPT_GLOBS';
 
     /**
      * The `outbreak.so` a split stream loads, to count the forks that change

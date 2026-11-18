@@ -114,8 +114,9 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
         'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY' => '1',
         'MUTATION_GATE_SPLIT_PARENT_DEADLINE' => '1',
         'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF' => '2',
+        'MUTATION_GATE_SPLIT_SLOWDOWN_CARRY' => 'shard',
     ], true])
-        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false, "parentDeadline": false, "deadlineBackoff": 1.5}}'))->toBe([[
+        ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false, "parentDeadline": false, "deadlineBackoff": 1.5, "slowdownCarry": "none"}}'))->toBe([[
             'MUTATION_GATE_SCHEMATA' => '1',
             'MUTATION_GATE_SPLIT' => '1',
             'MUTATION_GATE_SPLIT_CHILDREN' => 'cores',
@@ -129,6 +130,7 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
             'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY' => '0',
             'MUTATION_GATE_SPLIT_PARENT_DEADLINE' => '0',
             'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF' => '1.5',
+            'MUTATION_GATE_SPLIT_SLOWDOWN_CARRY' => 'none',
         ], true])
         ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
         ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
@@ -149,8 +151,21 @@ it('refuses a splitStream option written as something else', function (string $o
     'coveringTestsOnly' => ['{"splitStream": {"coveringTestsOnly": "yes"}}', fn(): Problem => Problem::at('splitStream.coveringTestsOnly', 'expected true or false, got "yes"')],
     'parentDeadline' => ['{"splitStream": {"parentDeadline": "yes"}}', fn(): Problem => Problem::at('splitStream.parentDeadline', 'expected true or false, got "yes"')],
     'deadlineBackoff' => ['{"splitStream": {"deadlineBackoff": "twice"}}', fn(): Problem => Problem::at('splitStream.deadlineBackoff', 'expected a number, got "twice"')],
+    'slowdownCarry' => ['{"splitStream": {"slowdownCarry": "far"}}', fn(): Problem => Problem::mismatch('splitStream.slowdownCarry', 'one of its values', '"far"')],
     'judging' => ['{"splitStream": {"judging": "halved"}}', fn(): Problem => Problem::mismatch('splitStream.judging', 'one of its values', '"halved"')],
 ]);
+
+it('reads the globs of pest.pcovKept, none where it lists none, and refuses one written as something else', function (): void {
+    $kept = static function (string $options): mixed {
+        $read = PestOptions::read(Configs::options($options));
+
+        return $read instanceof PestOptions ? $read->patching()->steps()->pcovKept() : $read;
+    };
+
+    expect($kept('{"pcovKept": ["tests/Legacy/**", "src/Coverage/*.php"]}'))->toBe(['tests/Legacy/**', 'src/Coverage/*.php'])
+        ->and($kept('{}'))->toBe([])
+        ->and($kept('{"pcovKept": "tests/Legacy/**"}'))->toEqual(Invalid::because(Problem::at('pcovKept', 'expected a list of text, got "tests/Legacy/**"')));
+});
 
 it('stays unpatched when the config says so', function (): void {
     $read = PestOptions::read(Configs::options('{"patch": false, "canary": "smoke"}'));

@@ -113,6 +113,15 @@ final readonly class PestSpeedUps implements Setting
         return new self(Json::at('pest.pcovOff', value: false));
     }
 
+    /**
+     * `pest.pcovKept`: the globs of the test files and source files whose tests keep pcov as PHP is configured where
+     * `pest.pcovOff` turns it off, beside the tests the gate finds reading the coverage driver; none by default.
+     */
+    public static function pcovKept(string ...$globs): self
+    {
+        return new self(Json::at('pest.pcovKept', Json::items(...$globs)));
+    }
+
     /** `pest.xdebugOff`, `true`: a mutation run starts with Xdebug's mode off, as by default. */
     public static function xdebugOff(): self
     {

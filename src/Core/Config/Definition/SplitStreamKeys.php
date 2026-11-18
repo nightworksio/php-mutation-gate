@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Pest;
+use NightWorksIO\MutationGate\Core\Config\SlowdownCarry;
 use NightWorksIO\MutationGate\Core\Config\SplitEarly;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
@@ -42,6 +43,11 @@ final readonly class SplitStreamKeys
         $coveringOnly = Field::optional(SplitStream::COVERING_TESTS_ONLY, Flag::boolean(), $results);
         $deadline = Field::optional(StreamWork::PARENT_DEADLINE, Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $backoff = Field::optional(StreamWork::DEADLINE_BACKOFF, Number::atLeast(1), Effect::DecidesHowTheGateRuns);
+        $carry = Field::optional(
+            StreamWork::SLOWDOWN_CARRY,
+            Enumerated::of(SlowdownCarry::cases()),
+            Effect::DecidesHowTheGateRuns,
+        );
         $early = Field::optional(
             SplitStream::EARLY,
             Enumerated::of(SplitEarly::cases()),
@@ -66,6 +72,7 @@ final readonly class SplitStreamKeys
                     $coveringOnly,
                     $deadline,
                     $backoff,
+                    $carry,
                 ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
@@ -82,6 +89,7 @@ final readonly class SplitStreamKeys
                     $deadlined = $deadline->read($split);
                     $backedOff = $backoff->read($split);
                     $times = $backedOff->value();
+                    $carried = $carry->read($split);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::splitting(SplitStream::of(
@@ -100,6 +108,7 @@ final readonly class SplitStreamKeys
                             new StreamWork(
                                 $deadlined->value(),
                                 $times instanceof Absent ? $times : Multiple::of($times),
+                                $carried->value(),
                             ),
                         ))),
                         $on,
@@ -116,6 +125,7 @@ final readonly class SplitStreamKeys
                         $selected,
                         $deadlined,
                         $backedOff,
+                        $carried,
                     );
                 },
                 $enabled,
@@ -132,6 +142,7 @@ final readonly class SplitStreamKeys
                 $coveringOnly,
                 $deadline,
                 $backoff,
+                $carry,
             ),
         )];
     }

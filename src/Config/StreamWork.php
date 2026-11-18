@@ -39,6 +39,24 @@ final readonly class StreamWork implements Setting
         return new self(Json::at('splitStream.deadlineBackoff', value: $times));
     }
 
+    /** `splitStream.slowdownCarry`, `shard`, as by default: a pass starts where the shard's last pass ended. */
+    public static function slowdownThroughTheShard(): self
+    {
+        return new self(Json::at('splitStream.slowdownCarry', 'shard'));
+    }
+
+    /** `splitStream.slowdownCarry`, `run`: a pass's streams start where the run's last pass ended. */
+    public static function slowdownThroughTheRun(): self
+    {
+        return new self(Json::at('splitStream.slowdownCarry', 'run'));
+    }
+
+    /** `splitStream.slowdownCarry`, `none`: every pass's streams start as fast as the map. */
+    public static function slowdownPerPass(): self
+    {
+        return new self(Json::at('splitStream.slowdownCarry', 'none'));
+    }
+
     public function written(): Json
     {
         return $this->json;

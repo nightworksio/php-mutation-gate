@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Config\Toggles;
  */
 final readonly class PestSteps
 {
+    /** @param list<string> $pcovKept */
     private function __construct(
         private Toggles $toggles,
         private NarrowedKillTrust $narrowedKills,
@@ -31,6 +32,7 @@ final readonly class PestSteps
         private bool $bootChunks = false,
         private Preloaded $preloaded = Preloaded::Fresh,
         private ChildProcesses $childProcesses = ChildProcesses::Serve,
+        private array $pcovKept = [],
     ) {
     }
 
@@ -39,6 +41,7 @@ final readonly class PestSteps
         return new self(Toggles::none(), NarrowedKillTrust::Vouch, LongFilter::DEFAULT, Duplicates::JudgeOnce);
     }
 
+    /** @param list<string> $pcovKept */
     public static function of(
         Toggles $toggles,
         NarrowedKillTrust $narrowedKills,
@@ -47,8 +50,29 @@ final readonly class PestSteps
         bool $bootChunks = false,
         Preloaded $preloaded = Preloaded::Fresh,
         ChildProcesses $childProcesses = ChildProcesses::Serve,
+        array $pcovKept = [],
     ): self {
-        return new self($toggles, $narrowedKills, $longFilter, $duplicates, $bootChunks, $preloaded, $childProcesses);
+        return new self(
+            $toggles,
+            $narrowedKills,
+            $longFilter,
+            $duplicates,
+            $bootChunks,
+            $preloaded,
+            $childProcesses,
+            $pcovKept,
+        );
+    }
+
+    /**
+     * The globs of the files whose tests keep pcov as PHP is configured where
+     * `pest.pcovOff` turns it off, as `pest.pcovKept` lists them (ADR-0185).
+     *
+     * @return list<string>
+     */
+    public function pcovKept(): array
+    {
+        return $this->pcovKept;
     }
 
     /** Whether the PHP processes a mutant's tests start run it too, as `pest.childProcesses` says (ADR-0150). */

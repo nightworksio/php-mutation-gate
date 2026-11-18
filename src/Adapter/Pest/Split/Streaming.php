@@ -92,6 +92,7 @@ final readonly class Streaming
         private bool $coveringOnly = false,
         private StreamDeadline $deadline = new StreamDeadline(),
         private PcovTests|NotGiven $pcov = new NotGiven(),
+        private StreamSlowdown $slowdown = new StreamSlowdown(),
     ) {
     }
 
@@ -259,16 +260,28 @@ final readonly class Streaming
 
         foreach ($parts as $at => $part) {
             $streams[] = $this->watched(
-                new StreamStart($pass, $at, count($parts), $planned, $times, $cores, $selecting, $at < $kept),
+                new StreamStart(
+                    $pass,
+                    $at,
+                    count($parts),
+                    $planned,
+                    $times,
+                    $cores,
+                    $selecting,
+                    $at < $kept,
+                    $this->slowdown->start(),
+                ),
                 $part['tests'],
                 $part['files'],
                 $selects,
             );
         }
 
-        foreach (new StreamWatch($this->directory)->ended($streams) as $results) {
+        foreach (new StreamWatch($this->directory, $this->slowdown)->ended($streams) as $results) {
             $verdicts = $verdicts->reading($results);
         }
+
+        $this->slowdown->passed();
 
         return $verdicts;
     }

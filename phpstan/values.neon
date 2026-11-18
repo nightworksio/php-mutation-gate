@@ -507,6 +507,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Coverage\MeasuredAt':
                     - COMMIT # a field of the coverage map, not of a proof's digests
                 'NightWorksIO\MutationGate\Cli\Command\FlowOptions':
+                    - SHARD # the run command's --shard option, not where a slowdown carries
                     - COVERAGE # an option of the gate's commands
                     - FULL # an option of the gate's commands
                     - KILL_MATRIX # an option of the gate's commands, not the report's name

@@ -118,12 +118,18 @@ final readonly class PestCases
     }
 
     /** A patched run whose pcov and Xdebug steps are on or off. */
-    public static function drivenBy(bool $pcovOff, bool $xdebugOff): Patching
+    /** @param list<string> $pcovKept */
+    public static function drivenBy(bool $pcovOff, bool $xdebugOff, array $pcovKept = []): Patching
     {
         $toggles = Toggles::of(Toggle::PestPcovOff, $pcovOff)->with(Toggle::PestXdebugOff, $xdebugOff);
 
-        return Patching::on(Group::named('mutation-canary'))
-            ->stepping(PestSteps::of($toggles, NarrowedKillTrust::Vouch, LongFilter::Files, Duplicates::JudgeOnce));
+        return Patching::on(Group::named('mutation-canary'))->stepping(PestSteps::of(
+            $toggles,
+            NarrowedKillTrust::Vouch,
+            LongFilter::Files,
+            Duplicates::JudgeOnce,
+            pcovKept: $pcovKept,
+        ));
     }
 
     public static function listingFile(Project $at): string

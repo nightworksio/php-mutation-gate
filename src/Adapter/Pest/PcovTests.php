@@ -31,10 +31,11 @@ use function sprintf;
  * that executes a file, or is declared in one, that starts, stops or reads
  * pcov or Xdebug's coverage, picks a driver through php-code-coverage, or
  * asks whether pcov or Xdebug is on; and each declared in a test file that
- * starts a run that collects coverage itself. A process that
- * runs any of them starts with pcov as PHP is configured, where the run turns
- * it off in its other processes, so each such test runs as it runs anywhere
- * else.
+ * starts a run that collects coverage itself; and each that executes a
+ * file, or is declared in one, that `pest.pcovKept` names (ADR-0185). A
+ * process that runs any of them starts with pcov as PHP is configured, where
+ * the run turns it off in its other processes, so each such test runs as it
+ * runs anywhere else.
  *
  * @internal
  */
@@ -116,23 +117,25 @@ final class PcovTests
 
     /**
      * The tests that read it, of each file of a map, and of each test file
-     * that declares a test of the map.
+     * that declares a test of the map: those the files' code says read it,
+     * and those of the files the run was told keep it.
      *
      * @param array<string, array<int, array<int, string>>> $coveredLines
      */
     public static function found(array $coveredLines): self
     {
+        $kept = PcovKeptFiles::told();
         $tests = [];
         $covering = [];
 
         foreach ($coveredLines as $file => $lines) {
             $tested = self::testsOf($lines);
             $covering += $tested;
-            $tests += self::holds($file, self::READS) ? $tested : [];
+            $tests += self::holds($file, self::READS) || $kept->names($file) ? $tested : [];
         }
 
         foreach (CoveringFiles::streamed(array_keys($covering)) as $file => $unit) {
-            $reads = self::holds($file, [...self::READS, ...self::COLLECTS]);
+            $reads = self::holds($file, [...self::READS, ...self::COLLECTS]) || $kept->names($file);
             $tests += $reads ? array_fill_keys($unit['tests'], value: true) : [];
         }
 

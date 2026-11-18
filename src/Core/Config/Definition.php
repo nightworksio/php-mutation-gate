@@ -168,7 +168,7 @@ final readonly class Definition
             ...OutputsKeys::fields(),
             ...CommentKeys::fields(),
             ...PublishingKeys::fields($origin),
-            ...PestKeys::fields(),
+            ...PestKeys::fields($origin),
             ToggleFields::in('controls')->section(),
             ...MutantsKeys::fields(),
             ...SplitStreamKeys::fields(),

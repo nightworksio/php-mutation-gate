@@ -72,3 +72,18 @@ it('leaves pcov on in Pest\'s own mutation process, which refuses to mutate with
         'XDEBUG_MODE' => 'off',
     ])->and($on->mutating($command)->environment())->toBe([IniScan::VARIABLE => '/etc/php.d']);
 });
+
+it('tells Pest\'s own mutation process the globs whose tests keep pcov, one to a line, where it turns pcov off, and none otherwise', function (): void {
+    $at = PestCases::project();
+    $command = Command::of('php');
+    $kept = ['tests/Legacy/**', 'src/Coverage/*.php'];
+    $off = CoverageDrivers::of(PestCases::drivenBy(pcovOff: true, xdebugOff: false, pcovKept: $kept), recordsWithPcov: false, project: $at);
+    $on = CoverageDrivers::of(PestCases::drivenBy(pcovOff: false, xdebugOff: false, pcovKept: $kept), recordsWithPcov: false, project: $at);
+    $recording = CoverageDrivers::of(PestCases::drivenBy(pcovOff: true, xdebugOff: false, pcovKept: $kept), recordsWithPcov: true, project: $at);
+
+    expect($off->mutating($command)->environment())->toBe([
+        GateVariable::PcovOff->value => sprintf('%s/pcov-off', $at->workspace()),
+        GateVariable::PcovKept->value => "tests/Legacy/**\nsrc/Coverage/*.php",
+    ])->and($on->mutating($command)->environment())->toBe([])
+        ->and($recording->mutating($command)->environment())->toBe([]);
+});

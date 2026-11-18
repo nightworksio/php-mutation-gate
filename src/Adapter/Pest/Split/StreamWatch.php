@@ -20,7 +20,9 @@ use function usleep;
  * whose parent ran a test past its deadline (see ParentDeadline) is stopped
  * with every process under it, and a stream of the tests it had not ended
  * but that one starts in its place, so no test holds a stream, its parent's
- * deadline starting after the slowdown the stopped one reached (ADR-0184).
+ * deadline starting after the slowdown the stopped one reached, and the
+ * slowdown each stream measured itself at counted for the next pass
+ * (ADR-0184).
  * Each stream that ended has its mark taken away, as one a signal ended
  * leaves it.
  *
@@ -31,7 +33,7 @@ final readonly class StreamWatch
     /** How long it waits between two looks at the streams still running, in microseconds. */
     private const int BETWEEN = 50_000;
 
-    public function __construct(private string $directory)
+    public function __construct(private string $directory, private StreamSlowdown $slowdown)
     {
     }
 
@@ -89,6 +91,7 @@ final readonly class StreamWatch
 
         $stream->waited();
         $slowdown = ParentDeadline::slowdownIn($mark);
+        $this->slowdown->seen(ParentDeadline::measuredIn($mark));
         $this->unmarked($mark);
         $again = $passed === '' ? NotGiven::value() : $stream->againWithout($passed, $slowdown);
 

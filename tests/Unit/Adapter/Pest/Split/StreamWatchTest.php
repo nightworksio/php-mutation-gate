@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamDeadline;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSlowdown;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamStart;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamWatch;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\WatchedStream;
@@ -43,7 +44,7 @@ it('stops a stream whose parent passed its deadline, with what it started, and s
     };
     $started = microtime(as_float: true);
 
-    $wrote = new StreamWatch($directory)->ended([new WatchedStream($stuck, $results, ['a', 'stuck', 'b'], $again)]);
+    $wrote = new StreamWatch($directory, new StreamSlowdown())->ended([new WatchedStream($stuck, $results, ['a', 'stuck', 'b'], $again)]);
 
     expect([$wrote, $left, $slowed, $stuck->isRunning()])->toBe([[$results, sprintf('%s/results-1-2.jsonl', $directory)], ['b'], 3.5, false])
         ->and(microtime(as_float: true) - $started)->toBeLessThan(30.0)
@@ -68,7 +69,7 @@ it('waits for a stream within its deadline, takes away the mark one leaves, and 
     $done = new WatchedStream(watchedProcess('pcntl_fork(); sleep(60);'), $ended, ['a'], $never);
     file_put_contents(sprintf('%s/live-%d', $directory, (int) $done->pid), '{"t": "a", "d": 0}');
 
-    $wrote = new StreamWatch($directory)->ended([$running, $whole, $done]);
+    $wrote = new StreamWatch($directory, new StreamSlowdown())->ended([$running, $whole, $done]);
 
     expect($wrote)->toEqualCanonicalizing(['running', 'whole', $ended])
         ->and($started)->toBe([])

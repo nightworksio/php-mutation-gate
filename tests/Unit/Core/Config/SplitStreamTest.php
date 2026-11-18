@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Pest;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\SlowdownCarry;
 use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\Config\StreamChildren;
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
@@ -38,12 +39,12 @@ it('writes the keys a layer sets, and nothing where it sets none', function (): 
         ->and(Json::object(SplitStream::of(children: StreamChildren::Cores)->written())->line())
         ->toBe('{"splitStream":{"children":"cores"}}')
         ->and(Json::object(SplitStream::standard()->written())->line())
-        ->toBe('{"splitStream":{"enabled":false,"children":"cores","changeCheck":true,"killersFirst":true,"sharding":"tests","killerStreams":false,"early":"no-match","bootOnce":false,"reconnect":true,"judging":"whole","fallbackOwnRun":true,"coveringTestsOnly":true,"parentDeadline":true,"deadlineBackoff":2.0}}');
+        ->toBe('{"splitStream":{"enabled":false,"children":"cores","changeCheck":true,"killersFirst":true,"sharding":"tests","killerStreams":false,"early":"no-match","bootOnce":false,"reconnect":true,"judging":"whole","fallbackOwnRun":true,"coveringTestsOnly":true,"parentDeadline":true,"deadlineBackoff":2.0,"slowdownCarry":"shard"}}');
 });
 
 it('writes each key set as the PHP config calls it', function (): void {
     expect([
-        SplitStream::of(enabled: true, children: 3, changeCheck: true, killersFirst: true, sharding: StreamSharding::Tests, killerStreams: true, judging: StreamJudging::Parted, fallbackOwnRun: true, coveringTestsOnly: true, work: new StreamWork(parentDeadline: true, deadlineBackoff: Multiple::of(3.0)))->php(),
+        SplitStream::of(enabled: true, children: 3, changeCheck: true, killersFirst: true, sharding: StreamSharding::Tests, killerStreams: true, judging: StreamJudging::Parted, fallbackOwnRun: true, coveringTestsOnly: true, work: new StreamWork(parentDeadline: true, deadlineBackoff: Multiple::of(3.0), slowdownCarry: SlowdownCarry::Run))->php(),
         SplitStream::of(enabled: false, changeCheck: false, killersFirst: false, sharding: StreamSharding::Source, killerStreams: false, fallbackOwnRun: false, coveringTestsOnly: false, work: new StreamWork(parentDeadline: false))->php(),
         SplitStream::of()->php(),
     ])->toEqual([
@@ -59,6 +60,7 @@ it('writes each key set as the PHP config calls it', function (): void {
             'SplitStream::coveringTestsOnly()',
             'StreamWork::parentDeadline()',
             'StreamWork::deadlineBackoff(3.0)',
+            'StreamWork::slowdownThroughTheRun()',
         ),
         PhpCalls::inWith(
             'SplitStream::off()',
@@ -79,7 +81,7 @@ it('is held by the Pest part, laid beneath the Pest runner\'s options and writte
 
     expect($pest->splitStream()->enabled())->toBeTrue()
         ->and($pest->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": true, "children": 2, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": true, "judging": "whole", "fallbackOwnRun": true, "coveringTestsOnly": true, "parentDeadline": true, "deadlineBackoff": 2.0}, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "set", "preloaded": "fresh", "childProcesses": "serve"}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": true, "children": 2, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": true, "judging": "whole", "fallbackOwnRun": true, "coveringTestsOnly": true, "parentDeadline": true, "deadlineBackoff": 2.0, "slowdownCarry": "shard"}, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "set", "preloaded": "fresh", "childProcesses": "serve", "pcovKept": []}')))
         ->and($pest->written(ProjectRoot::origin())->line())
         ->toBe('{"pest":{"patch":true},"splitStream":{"enabled":true,"children":2}}')
         ->and($pest->php(ProjectRoot::origin()))
