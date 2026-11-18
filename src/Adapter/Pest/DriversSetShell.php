@@ -40,6 +40,12 @@ final readonly class DriversSetShell implements Shell, StartsCommands
         return $drivers->isNone() ? $shell : new self($shell, $drivers);
     }
 
+    /** That shell, its commands started with the coverage drivers a mutation run of this project sets. */
+    public static function asMutating(Shell $shell, Patching $patching, Project $project): Shell
+    {
+        return self::over($shell, CoverageDrivers::of($patching, recordsWithPcov: false, project: $project));
+    }
+
     public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran
     {
         return $this->shell->run($this->drivers->onto($command), $watch);

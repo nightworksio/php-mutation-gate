@@ -504,19 +504,17 @@ final readonly class MutationRun
     /** The shell the request's verification tail runs Pest in (see TailShell). */
     private function tail(MutationRequest $request): Shell
     {
-        return DriversSetShell::over(
+        return DriversSetShell::asMutating(
             TailShell::of($this->shell, $this->project, $this->patching, $request),
-            CoverageDrivers::of($this->patching, recordsWithPcov: false, project: $this->project),
+            $this->patching,
+            $this->project,
         );
     }
 
     /** The shell the run's other processes start in, with the coverage drivers a mutation run sets (ADR-0147). */
     private function driven(): Shell
     {
-        return DriversSetShell::over(
-            $this->shell,
-            CoverageDrivers::of($this->patching, recordsWithPcov: false, project: $this->project),
-        );
+        return DriversSetShell::asMutating($this->shell, $this->patching, $this->project);
     }
 
     private function shardMap(): ShardMap

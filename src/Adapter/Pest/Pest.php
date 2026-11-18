@@ -245,10 +245,18 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
         return $this->runs->through($this->shell)->checkingWith($preChecker)->of($request);
     }
 
-    /** What each unmutated control finds, its file served through Pest's override (see UnmutatedRuns). */
+    /**
+     * What each unmutated control finds, its file served through Pest's
+     * override (see UnmutatedRuns), its processes started with the coverage
+     * drivers a mutation run sets (ADR-0183).
+     */
     public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
     {
-        $shell = TailShell::of($this->shell, $this->project, $this->patching, $request);
+        $shell = DriversSetShell::asMutating(
+            TailShell::of($this->shell, $this->project, $this->patching, $request),
+            $this->patching,
+            $this->project,
+        );
 
         return new UnmutatedRuns(
             $this->project,
@@ -261,11 +269,15 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
     /**
      * The same controls started now, their workers and places apart from the
      * survivors' runs again that start beside them, taken once the gate needs
-     * them.
+     * them, with the coverage drivers a mutation run sets.
      */
     public function controlsStarted(MutationRequest $request, Controls $controls): PendingControls
     {
-        $shell = TailShell::apart($this->shell, $this->project, $this->patching, $request);
+        $shell = DriversSetShell::asMutating(
+            TailShell::apart($this->shell, $this->project, $this->patching, $request),
+            $this->patching,
+            $this->project,
+        );
 
         return new UnmutatedRuns(
             $this->project,
@@ -394,4 +406,5 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
             )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
     }
+
 }

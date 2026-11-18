@@ -36,7 +36,10 @@ Two things set limits on where pcov may be off:
    in its workspace, and each process it starts scans that directory after
    every directory it scans already (`IniScan::adding`). The run keeps
    what `PHP_INI_SCAN_DIR` held before, and the directory it added, in
-   variables of its own.
+   variables of its own. The unmutated controls a shard runs for its kills
+   and timeouts, at once or beside its survivors' runs again, start the
+   same way, as the runs of a mutation run's verification tail do
+   (`DriversSetShell::asMutating`).
 2. **Pest's own mutation process keeps pcov on**, and is told the
    directory (`MUTATION_GATE_PCOV_OFF`), which every process it starts
    adds: each stream, and so each child forked from it, each own run, and

@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\OwnScript;
+use NightWorksIO\MutationGate\Core\Runner\IniScan;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
@@ -159,6 +160,22 @@ it('runs each control with its file served unmutated through Pest\'s override', 
 
     expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::ofProcess(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)), TestIds::none()));
 });
+
+it('starts each control, and each control started beside the survivors\' runs again, with pcov off as a mutation run sets it, and with it where the run keeps it', function (bool $pcovOff): void {
+    $at = PestCases::project();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
+    $pest = new Pest($at, $shell, PestCases::drivenBy(pcovOff: $pcovOff, xdebugOff: false), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
+
+    $pest->controls(PestCases::money(), UnmutatedControls::of($control));
+    $pest->controlsStarted(PestCases::money(), UnmutatedControls::of($control))->taken();
+    $scanned = array_map(
+        static fn(Command $command): bool => str_contains((string) ($command->environment()[IniScan::VARIABLE] ?? ''), sprintf('%s/pcov-off', $at->workspace())),
+        $shell->commands(),
+    );
+
+    expect($scanned)->toBe([$pcovOff, $pcovOff]);
+})->with(['pcov off' => [true], 'pcov kept' => [false]]);
 
 it('runs each control through the client of a warm worker where runner.workers forks the tail under pest.patch', function (Workers $workers, bool $forked): void {
     $at = PestCases::project();
