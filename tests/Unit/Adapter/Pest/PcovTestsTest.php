@@ -31,9 +31,14 @@ it('finds the tests that execute a file that reads the coverage driver, in each 
     'picks a driver' => ['new SebastianBergmann\\CodeCoverage\\Driver\\Selector();'],
     'asks whether pcov is on' => ["ini_get( 'pcov.enabled');"],
     'asks whether pcov is loaded' => ['extension_loaded("pcov");'],
-    'collects coverage in a run' => ["\$run = ['--coverage-php=x'];"],
-    'collects path coverage' => ["\$run = ['--path-coverage'];"],
 ]);
+
+it('takes a source file that names a run collecting coverage for no reader, as the gate starts such a run with pcov as configured', function (): void {
+    $directory = Scratch::directory();
+    Scratch::write($directory, 'Option.php', "<?php\n\$run = ['--coverage-php=x', '--path-coverage'];\n");
+
+    expect(PcovTests::found([sprintf('%s/Option.php', $directory) => [2 => ['T::option']]])->readBy(['T::option']))->toBeFalse();
+});
 
 it('starts a process of tests that read the driver with pcov as PHP is configured, and every other with pcov off where the run turns it off', function (): void {
     $directory = Scratch::directory();

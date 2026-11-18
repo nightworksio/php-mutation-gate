@@ -47,8 +47,13 @@ Two things set limits on where pcov may be off:
    pcov as PHP is configured** (`PcovTests`). A test reads it where it
    executes, by the map, or is declared in, a file that starts, stops or
    reads pcov or Xdebug's coverage, picks a driver through
-   php-code-coverage, asks whether pcov is on or loaded, or starts a run
-   with `--coverage-*` or `--path-coverage`. The streams of a pass put the
+   php-code-coverage, or asks whether pcov or Xdebug is on or loaded; or
+   where its own test file starts a run with `--coverage-*` or
+   `--path-coverage`. A source file that only names those options does not
+   count: a run the gate's own code starts collects as PHP is configured
+   (decision 4), and counting the gate's own option names made nearly every
+   test of its shard 9 a reader, so every own run left the warm workers and
+   the shard's preparation took 872 s where it took 257 s. The streams of a pass put the
    units of such tests in parts of their own, their share of the map's
    time of the pass's processes, at least one and leaving one where there
    are others; those streams keep pcov. A mutant whose covering tests hold

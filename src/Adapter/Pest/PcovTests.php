@@ -29,8 +29,9 @@ use function sprintf;
 /**
  * The tests of a run that read the coverage driver (ADR-0183): each test
  * that executes a file, or is declared in one, that starts, stops or reads
- * pcov or Xdebug's coverage, picks a driver through php-code-coverage, asks
- * whether pcov is on, or starts a run that collects coverage. A process that
+ * pcov or Xdebug's coverage, picks a driver through php-code-coverage, or
+ * asks whether pcov or Xdebug is on; and each declared in a test file that
+ * starts a run that collects coverage itself. A process that
  * runs any of them starts with pcov as PHP is configured, where the run turns
  * it off in its other processes, so each such test runs as it runs anywhere
  * else.
@@ -41,15 +42,20 @@ final class PcovTests
 {
     /** The variable a command is started with where its tests read the driver, so it keeps pcov on. */
     public const string KEPT = 'MUTATION_GATE_PCOV_KEPT';
-    /** What a file holds where it reads the coverage driver, any one of these. */
+    /** What a file holds where its code reads the coverage driver, any one of these. */
     private const array READS = [
         'pcov\\\\{1,2}(?:start|stop|collect|clear|waiting|memory)\\b',
         'xdebug_(?:start|stop|get)_code_coverage\\b',
         'CodeCoverage\\\\{1,2}Driver\\\\{1,2}',
         '(?:ini_get|extension_loaded)\\(\\s*[\'"](?:pcov|xdebug)',
-        '--coverage-',
-        '--path-coverage',
     ];
+
+    /**
+     * What a test file holds where its tests start a run that collects
+     * coverage themselves, any one of these; a run the gate's own code
+     * starts collects as PHP is configured (see IniScan).
+     */
+    private const array COLLECTS = ['--coverage-', '--path-coverage'];
 
     /** The file beside a run's results that lists them, for the gate's own processes after the run. */
     private const string LISTED = '%s.pcov-tests';
@@ -122,11 +128,12 @@ final class PcovTests
         foreach ($coveredLines as $file => $lines) {
             $tested = self::testsOf($lines);
             $covering += $tested;
-            $tests += self::reads($file) ? $tested : [];
+            $tests += self::holds($file, self::READS) ? $tested : [];
         }
 
         foreach (CoveringFiles::streamed(array_keys($covering)) as $file => $unit) {
-            $tests += self::reads($file) ? array_fill_keys($unit['tests'], value: true) : [];
+            $reads = self::holds($file, [...self::READS, ...self::COLLECTS]);
+            $tests += $reads ? array_fill_keys($unit['tests'], value: true) : [];
         }
 
         return new self($tests);
@@ -220,11 +227,16 @@ final class PcovTests
         return [$reading, array_diff_key($units, $reading)];
     }
 
-    private static function reads(string $file): bool
+    /**
+     * Whether a file holds any of these.
+     *
+     * @param list<string> $patterns
+     */
+    private static function holds(string $file, array $patterns): bool
     {
-        $reads = sprintf('~%s~', implode('|', self::READS));
+        $pattern = sprintf('~%s~', implode('|', $patterns));
 
-        return is_file($file) && preg_match($reads, (string) file_get_contents($file)) === 1;
+        return is_file($file) && preg_match($pattern, (string) file_get_contents($file)) === 1;
     }
 
     /**
