@@ -728,6 +728,7 @@ services:
                     - MEASURABLE # the least map time whose own time moves a slowdown, not a reporter's look
                 'NightWorksIO\MutationGate\Core\Config\StreamWork':
                     - STANDARD_BACKOFF # the times a restarted stream's slowdown starts over its stopped one's, not a shard's work per overhead
+                    - STANDARD_PARTS_PER_PROCESS # parts a pass cuts for each stream it runs at once, not a packed token's bytes
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())

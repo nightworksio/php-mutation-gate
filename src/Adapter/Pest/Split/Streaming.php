@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_count_values;
 use function array_fill;
 use function array_filter;
 use function array_keys;
@@ -110,15 +111,9 @@ final readonly class Streaming
      */
     public function pass(int $pass, array $sites, array $covering, StreamVerdicts $verdicts): StreamVerdicts
     {
-        $tests = [];
-
-        foreach (array_keys($sites) as $mutant) {
-            $tests = [...$tests, ...$covering[$mutant]];
-        }
-
         return $this->streamed(
             $pass,
-            array_values(array_unique($tests)),
+            PartCosts::forksOf(array_map(strval(...), array_keys($sites)), $covering),
             $this->plannedOf($sites),
             [],
             $verdicts,
@@ -138,7 +133,7 @@ final readonly class Streaming
      */
     public function over(int $pass, array $sites, array $units, StreamVerdicts $verdicts): StreamVerdicts
     {
-        return $this->streamedUnits($pass, $units, $this->plannedOf($sites), [], $verdicts);
+        return $this->streamedUnits($pass, $units, [], $this->plannedOf($sites), [], $verdicts);
     }
 
     /**
@@ -151,9 +146,9 @@ final readonly class Streaming
      */
     public function killersPass(int $pass, array $sites, StreamVerdicts $verdicts): StreamVerdicts|NotGiven
     {
-        $killers = array_values(array_unique(array_map(static fn(array $site): string => $site[2], $sites)));
+        $forks = array_count_values(array_map(static fn(array $site): string => $site[2], $sites));
         $file = IdsFile::written(
-            TestIds::of(...array_map(TestId::of(...), $killers)),
+            TestIds::of(...array_map(TestId::of(...), array_map(strval(...), array_keys($forks)))),
             sprintf(self::KILLERS, $this->directory, $pass),
         );
 
@@ -161,7 +156,7 @@ final readonly class Streaming
             ? $file
             : $this->streamed(
                 $pass,
-                $killers,
+                $forks,
                 $this->plannedOf($sites),
                 [PhpUnitOption::TestIdFilterFile->value, $file],
                 $verdicts,
@@ -210,74 +205,85 @@ final readonly class Streaming
      * nothing more where no loaded file holds any of them, which leaves
      * their mutants to their own runs (ADR-0171).
      *
-     * @param list<string>                                                            $tests
+     * @param array<string, int>                                                      $forks    how many mutants the
+     *                                                                                          pass forks at each test
      * @param array<string, array<int, array{string, string, array<string, string>}>> $planned
      * @param list<string>                                                            $selecting
      */
     private function streamed(
         int $pass,
-        array $tests,
+        array $forks,
         array $planned,
         array $selecting,
         StreamVerdicts $verdicts,
         bool $selects = false,
     ): StreamVerdicts {
-        $units = CoveringFiles::streamed($tests);
+        $units = CoveringFiles::streamed(array_map(strval(...), array_keys($forks)));
 
         return $units === []
             ? $verdicts
-            : $this->streamedUnits($pass, $units, $planned, $selecting, $verdicts, $selects);
+            : $this->streamedUnits($pass, $units, $forks, $planned, $selecting, $verdicts, $selects);
     }
 
     /**
      * What one pass of streams of these test files found, each stream started
      * with these arguments beside a mutant's own run's, and, where it selects
-     * them, the ids of its part's tests the units name.
+     * them, the ids of its part's tests the units name: the files cut into
+     * `splitStream.partsPerProcess` parts for each process by their tests'
+     * cost, a test's map time once for its parent and once more for each
+     * mutant the pass forks at it, the costliest part started first and the
+     * next as one ends, no more running at once than there are processes
+     * (ADR-0188).
      *
      * @param array<string, array{files: list<string>, tests: list<string>}>          $units
+     * @param array<string, int>                                                      $forks
      * @param array<string, array<int, array{string, string, array<string, string>}>> $planned
      * @param list<string>                                                            $selecting
      */
     private function streamedUnits(
         int $pass,
         array $units,
+        array $forks,
         array $planned,
         array $selecting,
         StreamVerdicts $verdicts,
         bool $selects = false,
     ): StreamVerdicts {
         $times = LoadedMap::timed();
+        $costs = PartCosts::of($times, $forks);
         $cores = new CpuCoreCounter()->getCountWithFallback(1);
+        $depth = max(1, $this->pace->partsPerProcess);
         [$reading, $others] = $this->pcov instanceof PcovTests ? $this->pcov->split($units) : [[], $units];
         $readers = PcovTests::processesFor($reading, $others, $times, $this->processes);
-        $keeping = $reading === [] ? [] : self::cut($reading, $times, $readers);
+        $keeping = $reading === [] ? [] : self::cut($reading, $costs->byTest(), $readers * $depth);
         $parts = [
             ...$keeping,
-            ...$others === [] && $reading !== [] ? [] : self::cut($others, $times, max(1, $this->processes - $readers)),
+            ...$others === [] && $reading !== []
+                ? []
+                : self::cut($others, $costs->byTest(), max(1, $this->processes - $readers) * $depth),
         ];
         $kept = count($keeping);
-        $streams = [];
+        $queued = [];
 
-        foreach ($parts as $at => $part) {
-            $streams[] = $this->watched(
-                new StreamStart(
-                    $pass,
-                    $at,
-                    count($parts),
-                    $planned,
-                    $times,
-                    $cores,
-                    $selecting,
-                    $at < $kept,
-                    $this->slowdown->start(),
-                ),
-                $part['tests'],
-                $part['files'],
-                $selects,
+        foreach ($costs->costliestFirst($parts) as $at) {
+            $part = $parts[$at];
+            $start = new StreamStart(
+                $pass,
+                $at,
+                count($parts),
+                $planned,
+                $times,
+                $cores,
+                $selecting,
+                $at < $kept,
+                $this->slowdown->start(),
             );
+            $queued[] = fn(): WatchedStream => $this->watched($start, $part['tests'], $part['files'], $selects);
         }
 
-        foreach (new StreamWatch($this->directory, $this->slowdown)->ended($streams) as $results) {
+        $watch = new StreamWatch($this->directory, $this->slowdown);
+
+        foreach ($watch->ended($queued, max(1, $this->processes)) as $results) {
             $verdicts = $verdicts->reading($results);
         }
 

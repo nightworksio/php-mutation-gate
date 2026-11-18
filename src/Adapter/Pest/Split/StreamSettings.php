@@ -109,6 +109,7 @@ final readonly class StreamSettings
         $backoff = getenv(GateVariable::SplitDeadlineBackoff->value);
         $carry = getenv(GateVariable::SplitSlowdownCarry->value);
         $firstFork = getenv(GateVariable::SplitFirstFork->value);
+        $parts = getenv(GateVariable::SplitPartsPerProcess->value);
 
         return new self(
             getenv(GateVariable::Split->value) === self::ON,
@@ -133,6 +134,7 @@ final readonly class StreamSettings
                 is_numeric($backoff) ? (float) $backoff : StreamWork::STANDARD_BACKOFF,
                 SlowdownCarry::tryFrom(is_string($carry) ? $carry : '') ?? new StreamWork()->slowdownCarry(),
                 FirstFork::tryFrom(is_string($firstFork) ? $firstFork : '') ?? new StreamWork()->firstFork(),
+                is_numeric($parts) ? max(1, (int) $parts) : StreamWork::STANDARD_PARTS_PER_PROCESS,
             ),
         );
     }
@@ -155,8 +157,9 @@ final readonly class StreamSettings
     /**
      * Whether a stream whose parent runs a test past its deadline is stopped
      * and started again on its other tests (ADR-0182), how much slower the
-     * stream started in its place starts (ADR-0184), and where a first pass
-     * forks a mutant the ledger names no likely killer of (ADR-0187).
+     * stream started in its place starts (ADR-0184), where a first pass
+     * forks a mutant the ledger names no likely killer of (ADR-0187), and
+     * how many parts a pass cuts for each stream it runs at once (ADR-0188).
      */
     public function pace(): StreamPace
     {
@@ -266,6 +269,7 @@ final readonly class StreamSettings
                 GateVariable::SplitDeadlineBackoff->value => (string) $this->pace->backoff,
                 GateVariable::SplitSlowdownCarry->value => $this->pace->carry->value,
                 GateVariable::SplitFirstFork->value => $this->pace->firstFork->value,
+                GateVariable::SplitPartsPerProcess->value => (string) $this->pace->partsPerProcess,
             ]
             : [];
     }

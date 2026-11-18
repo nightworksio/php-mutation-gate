@@ -44,11 +44,21 @@ final readonly class StreamWork
      */
     public const string FIRST_FORK = 'firstFork';
 
+    /**
+     * The key, and the Pest runner's option, of how many parts a pass cuts its covering test files into for each
+     * stream it runs at once, the next started as one ends (ADR-0188).
+     */
+    public const string PARTS_PER_PROCESS = 'partsPerProcess';
+
+    /** `splitStream.partsPerProcess` where no layer sets it. */
+    public const int STANDARD_PARTS_PER_PROCESS = 4;
+
     public function __construct(
         private bool|Absent $parentDeadline = new Absent(),
         private Multiple|Absent $deadlineBackoff = new Absent(),
         private SlowdownCarry|Absent $slowdownCarry = new Absent(),
         private FirstFork|Absent $firstFork = new Absent(),
+        private PartsPerProcess|Absent $partsPerProcess = new Absent(),
     ) {
     }
 
@@ -57,7 +67,13 @@ final readonly class StreamWork
     {
         $none = new self();
 
-        return new self($none->parentDeadline(), $none->deadlineBackoff(), $none->slowdownCarry(), $none->firstFork());
+        return new self(
+            $none->parentDeadline(),
+            $none->deadlineBackoff(),
+            $none->slowdownCarry(),
+            $none->firstFork(),
+            PartsPerProcess::of($none->partsPerProcess()),
+        );
     }
 
     /** This, with what a later layer sets laid over it, key by key. */
@@ -68,6 +84,7 @@ final readonly class StreamWork
             $later->deadlineBackoff instanceof Absent ? $this->deadlineBackoff : $later->deadlineBackoff,
             $later->slowdownCarry instanceof Absent ? $this->slowdownCarry : $later->slowdownCarry,
             $later->firstFork instanceof Absent ? $this->firstFork : $later->firstFork,
+            $later->partsPerProcess instanceof Absent ? $this->partsPerProcess : $later->partsPerProcess,
         );
     }
 
@@ -114,6 +131,18 @@ final readonly class StreamWork
         return $this->firstFork instanceof FirstFork ? $this->firstFork : FirstFork::Cheapest;
     }
 
+    /**
+     * `splitStream.partsPerProcess`: how many parts a pass cuts its covering
+     * test files into for each stream it runs at once, longest first, the
+     * next started as one ends (ADR-0188); 4 by default, at least 1.
+     */
+    public function partsPerProcess(): int
+    {
+        return $this->partsPerProcess instanceof PartsPerProcess
+            ? $this->partsPerProcess->count()
+            : self::STANDARD_PARTS_PER_PROCESS;
+    }
+
     /** The keys of the Pest runner's `splitStream` option these give: every key at the value it takes. */
     public function option(): Json
     {
@@ -122,6 +151,7 @@ final readonly class StreamWork
             Member::of(self::DEADLINE_BACKOFF, $this->deadlineBackoff()->times()),
             Member::of(self::SLOWDOWN_CARRY, $this->slowdownCarry()->value),
             Member::of(self::FIRST_FORK, $this->firstFork()->value),
+            Member::of(self::PARTS_PER_PROCESS, $this->partsPerProcess()),
         );
     }
 
@@ -142,6 +172,12 @@ final readonly class StreamWork
                 self::FIRST_FORK,
                 $this->firstFork instanceof FirstFork ? $this->firstFork->value : $this->firstFork,
             ),
+            Member::of(
+                self::PARTS_PER_PROCESS,
+                $this->partsPerProcess instanceof PartsPerProcess
+                    ? $this->partsPerProcess->count()
+                    : $this->partsPerProcess,
+            ),
         );
     }
 
@@ -160,6 +196,10 @@ final readonly class StreamWork
             ->and(PhpCalls::inWith(
                 ...$this->slowdownCarry instanceof SlowdownCarry ? [$this->slowdownCarry->php()] : [],
             ))
-            ->and(PhpCalls::inWith(...$this->firstFork instanceof FirstFork ? [$this->firstFork->php()] : []));
+            ->and(PhpCalls::inWith(...$this->firstFork instanceof FirstFork ? [$this->firstFork->php()] : []))
+            ->and(PhpCalls::inWith(...$this->partsPerProcess instanceof PartsPerProcess ? [sprintf(
+                'StreamWork::partsPerProcess(%d)',
+                $this->partsPerProcess->count(),
+            )] : []));
     }
 }

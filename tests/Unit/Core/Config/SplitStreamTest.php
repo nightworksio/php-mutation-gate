@@ -39,7 +39,7 @@ it('writes the keys a layer sets, and nothing where it sets none', function (): 
         ->and(Json::object(SplitStream::of(children: StreamChildren::Cores)->written())->line())
         ->toBe('{"splitStream":{"children":"cores"}}')
         ->and(Json::object(SplitStream::standard()->written())->line())
-        ->toBe('{"splitStream":{"enabled":false,"children":"cores","changeCheck":true,"killersFirst":true,"sharding":"tests","killerStreams":false,"early":"no-match","bootOnce":false,"reconnect":true,"judging":"whole","fallbackOwnRun":true,"coveringTestsOnly":true,"parentDeadline":true,"deadlineBackoff":2.0,"slowdownCarry":"shard","firstFork":"cheapest"}}');
+        ->toBe('{"splitStream":{"enabled":false,"children":"cores","changeCheck":true,"killersFirst":true,"sharding":"tests","killerStreams":false,"early":"no-match","bootOnce":false,"reconnect":true,"judging":"whole","fallbackOwnRun":true,"coveringTestsOnly":true,"parentDeadline":true,"deadlineBackoff":2.0,"slowdownCarry":"shard","firstFork":"cheapest","partsPerProcess":4}}');
 });
 
 it('writes each key set as the PHP config calls it', function (): void {
@@ -81,7 +81,7 @@ it('is held by the Pest part, laid beneath the Pest runner\'s options and writte
 
     expect($pest->splitStream()->enabled())->toBeTrue()
         ->and($pest->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": true, "children": 2, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": true, "judging": "whole", "fallbackOwnRun": true, "coveringTestsOnly": true, "parentDeadline": true, "deadlineBackoff": 2.0, "slowdownCarry": "shard", "firstFork": "cheapest"}, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "set", "preloaded": "fresh", "childProcesses": "serve", "pcovKept": []}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": true, "children": 2, "changeCheck": true, "killersFirst": true, "killerStreams": false, "bootOnce": false, "reconnect": true, "judging": "whole", "fallbackOwnRun": true, "coveringTestsOnly": true, "parentDeadline": true, "deadlineBackoff": 2.0, "slowdownCarry": "shard", "firstFork": "cheapest", "partsPerProcess": 4}, "bootChunks": false, "narrowedKills": "vouch", "longFilter": "set", "preloaded": "fresh", "childProcesses": "serve", "pcovKept": []}')))
         ->and($pest->written(ProjectRoot::origin())->line())
         ->toBe('{"pest":{"patch":true},"splitStream":{"enabled":true,"children":2}}')
         ->and($pest->php(ProjectRoot::origin()))

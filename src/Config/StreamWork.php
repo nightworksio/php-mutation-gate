@@ -73,6 +73,16 @@ final readonly class StreamWork implements Setting
         return new self(Json::at('splitStream.firstFork', 'every'));
     }
 
+    /**
+     * `splitStream.partsPerProcess`: how many parts a pass cuts its covering
+     * test files into for each stream it runs at once, longest first, the
+     * next started as one ends; 4 by default, 1 for one part a stream.
+     */
+    public static function partsPerProcess(int $parts): self
+    {
+        return new self(Json::at('splitStream.partsPerProcess', value: $parts));
+    }
+
     public function written(): Json
     {
         return $this->json;

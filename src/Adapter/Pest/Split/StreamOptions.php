@@ -50,6 +50,7 @@ final readonly class StreamOptions
         $backoff = $split->number(Key::of(StreamWork::DEADLINE_BACKOFF));
         $carry = self::carryOf($split);
         $firstFork = self::firstForkOf($split);
+        $parts = self::partsOf($split);
         $standard = SplitStream::of();
         $judging = self::judgingOf($split, $standard->judging());
 
@@ -68,6 +69,7 @@ final readonly class StreamOptions
             $backoff instanceof Problem => $backoff,
             $carry instanceof Problem => $carry,
             $firstFork instanceof Problem => $firstFork,
+            $parts instanceof Problem => $parts,
             default => StreamSettings::of(
                 $enabled === true,
                 $children instanceof NotGiven ? $standard->children() : $children,
@@ -84,6 +86,7 @@ final readonly class StreamOptions
                     $backoff instanceof NotGiven ? $standard->work()->deadlineBackoff()->times() : $backoff,
                     $carry,
                     $firstFork,
+                    $parts,
                 ),
             ),
         };
@@ -129,6 +132,14 @@ final readonly class StreamOptions
                 sprintf('"%s"', $named),
             ),
         };
+    }
+
+    /** `splitStream.partsPerProcess`: how many parts a pass cuts for each stream it runs at once (ADR-0188). */
+    private static function partsOf(Options $split): int|Problem
+    {
+        $parts = $split->integer(Key::of(StreamWork::PARTS_PER_PROCESS));
+
+        return $parts instanceof NotGiven ? SplitStream::of()->work()->partsPerProcess() : $parts;
     }
 
     /** `splitStream.slowdownCarry`: where the slowdown a pass's streams measured carries on to (ADR-0184). */

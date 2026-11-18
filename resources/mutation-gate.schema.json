@@ -4216,6 +4216,11 @@
                         "every"
                     ],
                     "default": "cheapest"
+                },
+                "partsPerProcess": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 4
                 }
             },
             "additionalProperties": false
@@ -8846,6 +8851,10 @@
                                 "cheapest",
                                 "every"
                             ]
+                        },
+                        "partsPerProcess": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false

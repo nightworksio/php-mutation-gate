@@ -94,3 +94,28 @@ it('starts a stream in a stopped one\'s place at the backoff times the slowdown 
         new StreamPace(on: true, backoff: 0.5)->after(2.0),
     ])->toBe([2.0, 6.0, 3.0, 3.0, 2.0]);
 });
+
+it('runs no more queued streams at once than it is given, starting the next, in the queue\'s order, as one ends', function (): void {
+    $directory = Scratch::directory();
+    $never = static fn(): NotGiven => NotGiven::value();
+    $started = [];
+    $most = 0;
+    $live = [];
+    $queued = [];
+
+    foreach (['first', 'second', 'third'] as $name) {
+        $queued[] = static function () use ($name, $never, &$started, &$most, &$live): WatchedStream {
+            $live = array_values(array_filter($live, static fn(Process $process): bool => $process->isRunning()));
+            $process = watchedProcess('usleep(200000);');
+            $live[] = $process;
+            $started[] = $name;
+            $most = max($most, count($live));
+
+            return new WatchedStream($process, $name, [], $never);
+        };
+    }
+
+    $wrote = new StreamWatch($directory, new StreamSlowdown())->ended($queued, 2);
+
+    expect([$wrote, $started, $most])->toBe([['first', 'second', 'third'], ['first', 'second', 'third'], 2]);
+});

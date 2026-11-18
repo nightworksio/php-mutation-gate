@@ -202,6 +202,9 @@ enum GateVariable: string
     /** Where a first-pass stream forks a mutant the ledger names no likely killer of (ADR-0187). */
     case SplitFirstFork = 'MUTATION_GATE_SPLIT_FIRST_FORK';
 
+    /** How many parts a pass cuts its tests into for each stream it runs at once (ADR-0188). */
+    case SplitPartsPerProcess = 'MUTATION_GATE_SPLIT_PARTS_PER_PROCESS';
+
     /**
      * The directory whose ini file turns pcov off, which a mutation run adds to what each process it starts scans,
      * where `pest.pcovOff` turns pcov off (ADR-0183); Pest's own mutation process keeps pcov on, as it refuses to run
