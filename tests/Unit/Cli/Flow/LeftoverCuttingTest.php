@@ -51,7 +51,53 @@ function leftoverCutNatives(array $shares, array $natives): array
     );
 }
 
-it('cuts the mutants each shard left by the seconds the plan\'s map timed their covering tests at, and writes the shares where they are read', function (bool $mapped, array $expected): void {
+/**
+ * The fixture's result with both mutants left at the deadline, Minus-21
+ * moved to src/Other.php so each is a source file of its own, and
+ * GreaterThan-16 spanning these lines, written where the shard leaves it.
+ */
+function leftoverCuttingApart(string $project, ShardResult $whole, int $last = 16): void
+{
+    $left = static fn(Mutant $mutant, string $file, int $start, int $end): Mutant => Mutant::of(
+        $mutant->id(),
+        $mutant->nativeId(),
+        Location::of(Path::of($file), Line::of($start), Line::of($end)),
+        $mutant->mutation(),
+        $mutant->status(),
+        $mutant->duration(),
+    )->unjudged(OutOfTime::BeforeRunning);
+    Scratch::write($project, sprintf('%s/1.json', Workspace::results()->value()), ShardResultFile::encode(
+        LeftAtTheDeadline::resultOf($whole, static fn(Mutant $mutant): Mutant => match ($mutant->nativeId()) {
+            'Minus-21' => $left($mutant, 'src/Other.php', 21, 21),
+            'GreaterThan-16' => $left($mutant, 'src/Money.php', 16, $last),
+            default => $mutant,
+        }),
+    ));
+}
+
+/**
+ * The map, timing each test at its seconds and placing each on its file and line, written where the plan leaves it.
+ *
+ * @param array<string, array{float, string, int}> $tests by each test's id; a test of no file covers no line
+ */
+function leftoverCuttingMap(string $project, array $tests): void
+{
+    $map = CoverageMap::of();
+
+    foreach ($tests as $test => [$seconds, $file, $line]) {
+        $map = $map->timed(TestId::of($test), Seconds::of($seconds));
+        $map = $file === '' ? $map : $map->covered(Path::of($file), Line::of($line), TestId::of($test));
+    }
+
+    Scratch::write(
+        $project,
+        '.mutation-gate/coverage/map.json.gz',
+        CoverageMapFile::encode($map, MeasuredAt::of(Revision::ref(str_repeat('a', 40)), dirty: false)),
+    );
+}
+
+it('cuts the mutants each shard left by the seconds the plan\'s map timed the test files covering them at, and writes the shares where they are read', function (array $tests, float $limit, array $expected): void {
+    /** @var array<string, array{float, string, int}> $tests */
     /** @var list<list<string>> $expected */
     [$project, $plan, $whole] = LeftAtTheDeadline::run();
     $natives = [];
@@ -60,64 +106,53 @@ it('cuts the mutants each shard left by the seconds the plan\'s map timed their 
         $natives[$mutant->id()->value()] = $mutant->nativeId();
     }
 
-    if ($mapped) {
-        $map = CoverageMap::of()
-            ->covered(Path::of('src/Money.php'), Line::of(16), TestId::of('MoneyTest::compares'))
-            ->covered(Path::of('src/Money.php'), Line::of(21), TestId::of('MoneyTest::subtracts'))
-            ->timed(TestId::of('MoneyTest::compares'), Seconds::of(50.0))
-            ->timed(TestId::of('MoneyTest::subtracts'), Seconds::of(40.0));
-        Scratch::write(
-            $project,
-            '.mutation-gate/coverage/map.json.gz',
-            CoverageMapFile::encode($map, MeasuredAt::of(Revision::ref(str_repeat('a', 40)), dirty: false)),
-        );
+    leftoverCuttingApart($project, $whole);
+
+    if ($tests !== []) {
+        leftoverCuttingMap($project, $tests);
     }
 
-    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(60.0));
+    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of($limit));
     $written = LeftoverShares::decode((string) file_get_contents(sprintf('%s/%s', $project, LeftoverParts::file(Workspace::results())->value())));
 
     expect($cut instanceof LeftoverShares ? leftoverCutNatives($cut->ofShard(ShardId::of(1)), $natives) : $cut)->toBe($expected)
         ->and($cut instanceof LeftoverShares ? $cut->ofShard(ShardId::of(2)) : $cut)->toBe([])
         ->and($written)->toEqual($cut);
 })->with([
-    'timed by the map: a share each' => [true, [['GreaterThan-16'], ['Minus-21']]],
-    'no map: one share' => [false, [['GreaterThan-16', 'Minus-21']]],
+    'timed by the map: a share each' => [
+        ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]],
+        60.0,
+        [['GreaterThan-16'], ['Minus-21']],
+    ],
+    'no map: one share' => [[], 60.0, [['GreaterThan-16', 'Minus-21']]],
+    'one test file covering both: one share' => [
+        ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'MoneyTest::subtracts' => [40.0, 'src/Other.php', 21]],
+        100.0,
+        [['GreaterThan-16', 'Minus-21']],
+    ],
+    'a file timed by every test in it, covering or not' => [
+        ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'MoneyTest::adds' => [30.0, '', 0], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]],
+        100.0,
+        [['GreaterThan-16'], ['Minus-21']],
+    ],
 ]);
 
-it('predicts a mutant over several lines by the tests covering any of them, to its last', function (): void {
+it('prices a mutant over several lines by the test files covering any of them, to its last', function (int $last, int $shares): void {
     [$project, $plan, $whole] = LeftAtTheDeadline::run();
-    $spanning = static fn(Mutant $mutant): Mutant => $mutant->nativeId() === 'GreaterThan-16'
-        ? Mutant::of(
-            $mutant->id(),
-            $mutant->nativeId(),
-            Location::of(Path::of('src/Money.php'), Line::of(16), Line::of(17)),
-            $mutant->mutation(),
-            $mutant->status(),
-            $mutant->duration(),
-        )->unjudged(OutOfTime::BeforeRunning)
-        : $mutant;
-    $stopped = LeftAtTheDeadline::resultOf($whole, $spanning);
-    Scratch::write($project, sprintf('%s/1.json', Workspace::results()->value()), ShardResultFile::encode(
-        LeftAtTheDeadline::resultOf($stopped, static fn(Mutant $mutant): Mutant => $mutant->nativeId() === 'Minus-21'
-            ? $mutant->unjudged(OutOfTime::BeforeRunning)
-            : $mutant),
-    ));
-    $map = CoverageMap::of()
-        ->covered(Path::of('src/Money.php'), Line::of(17), TestId::of('MoneyTest::spans'))
-        ->timed(TestId::of('MoneyTest::spans'), Seconds::of(70.0));
-    Scratch::write(
-        $project,
-        '.mutation-gate/coverage/map.json.gz',
-        CoverageMapFile::encode($map, MeasuredAt::of(Revision::ref(str_repeat('a', 40)), dirty: false)),
-    );
+    leftoverCuttingApart($project, $whole, $last);
+    leftoverCuttingMap($project, ['MoneyTest::spans' => [70.0, 'src/Money.php', 17]]);
 
     $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(60.0));
 
-    expect($cut instanceof LeftoverShares ? count($cut->ofShard(ShardId::of(1))) : $cut)->toBe(2);
-});
+    expect($cut instanceof LeftoverShares ? count($cut->ofShard(ShardId::of(1))) : $cut)->toBe($shares);
+})->with([
+    'to line 17: over the capacity' => [17, 2],
+    'line 16 alone: uncovered' => [16, 1],
+]);
 
 it('gives a job of the second wave the limit less the time its shard took to start judging', function (float $opening, int $shares): void {
     [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    leftoverCuttingApart($project, $whole);
     $file = sprintf('%s/1.json', Workspace::results()->value());
     $stopped = ShardResultFile::decode((string) file_get_contents(sprintf('%s/%s', $project, $file)));
     $steps = $opening > 0.0
@@ -130,16 +165,7 @@ it('gives a job of the second wave the limit less the time its shard took to sta
         $stopped->outcome(),
         $stopped->measured()->withSteps($steps),
     )) : '');
-    $map = CoverageMap::of()
-        ->covered(Path::of('src/Money.php'), Line::of(16), TestId::of('MoneyTest::compares'))
-        ->covered(Path::of('src/Money.php'), Line::of(21), TestId::of('MoneyTest::subtracts'))
-        ->timed(TestId::of('MoneyTest::compares'), Seconds::of(50.0))
-        ->timed(TestId::of('MoneyTest::subtracts'), Seconds::of(40.0));
-    Scratch::write(
-        $project,
-        '.mutation-gate/coverage/map.json.gz',
-        CoverageMapFile::encode($map, MeasuredAt::of(Revision::ref(str_repeat('a', 40)), dirty: false)),
-    );
+    leftoverCuttingMap($project, ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]]);
 
     $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(100.0));
 

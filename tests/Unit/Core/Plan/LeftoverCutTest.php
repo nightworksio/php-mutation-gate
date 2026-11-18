@@ -17,10 +17,15 @@ function leftoverCutId(int $line): MutantId
     return MutantId::hash(Path::of('src/Money.php'), 'Minus', '- a + b', $line);
 }
 
-/** The mutant on this line of src/Money.php, as a share lists it. */
-function leftoverCutMutant(int $line): LeftMutant
+/**
+ * The mutant on this line of a source file, as a share lists it, with the test files covering it.
+ *
+ * @param  list<string>                          $covering
+ * @return array{LeftMutant, list<string>}
+ */
+function leftoverCutMutant(int $line, string $file = 'src/Money.php', array $covering = []): array
 {
-    return LeftMutant::of(leftoverCutId($line), sprintf('Minus-%d', $line), Path::of('src/Money.php'));
+    return [LeftMutant::of(leftoverCutId($line), sprintf('Minus-%d', $line), Path::of($file)), $covering];
 }
 
 /**
@@ -45,31 +50,79 @@ function leftoverCutShares(array $shares): array
     ), $shares);
 }
 
-it('cuts each shard\'s left mutants into as many shares as their seconds fill jobs, costliest first to the share that ends first', function (): void {
+it('cuts each shard\'s left mutants by source file, priced by the test files covering them, each to the share it adds least to that it fits', function (): void {
+    $files = ['T1' => 30.0, 'T2' => 20.0, 'T3' => 40.0, 'T4' => 10.0, 'T5' => 5.0];
     $cut = LeftoverCut::of(Digest::sha256Of('plan'), [
-        3 => [[leftoverCutMutant(1), 10.0], [leftoverCutMutant(2), 50.0], [leftoverCutMutant(3), 30.0], [leftoverCutMutant(4), 25.0], [leftoverCutMutant(5), 5.0]],
-        7 => [[leftoverCutMutant(6), 1.0], [leftoverCutMutant(7), 2.0]],
+        3 => [
+            leftoverCutMutant(1, 'src/A.php', ['T1']),
+            leftoverCutMutant(2, 'src/B.php', ['T1']),
+            leftoverCutMutant(3, 'src/A.php', ['T2']),
+            leftoverCutMutant(4, 'src/C.php', ['T3']),
+            leftoverCutMutant(5, 'src/D.php', ['T4']),
+            leftoverCutMutant(10, 'src/G.php', ['T4']),
+            leftoverCutMutant(9, 'src/F.php', ['T5']),
+        ],
+        7 => [leftoverCutMutant(6, 'src/H.php', ['T3', 'T4']), leftoverCutMutant(7, 'src/I.php', ['T1', 'T2']), leftoverCutMutant(8, 'src/J.php', ['T2'])],
         9 => [],
-    ], [3 => Seconds::of(60.0), 7 => Seconds::of(60.0), 9 => Seconds::of(60.0)]);
+    ], $files, [3 => Seconds::of(60.0), 7 => Seconds::of(70.0), 9 => Seconds::of(60.0)]);
 
-    expect(leftoverCutShares($cut->ofShard(ShardId::of(3))))->toBe(['3.1: 2 1', '3.2: 3 4 5'])
-        ->and(leftoverCutShares($cut->ofShard(ShardId::of(7))))->toBe(['7.1: 7 6'])
+    expect(leftoverCutShares($cut->ofShard(ShardId::of(3))))->toBe(['3.1: 1 3 2 5 10', '3.2: 4 9'])
+        ->and(leftoverCutShares($cut->ofShard(ShardId::of(7))))->toBe(['7.1: 6', '7.2: 7 8'])
         ->and($cut->ofShard(ShardId::of(9)))->toBe([])
         ->and($cut->cutFrom(Digest::sha256Of('plan')))->toBeTrue();
 });
 
-it('gives a mutant no more than a share of its own, however long it is predicted to take', function (): void {
-    $cut = LeftoverCut::of(Digest::sha256Of('plan'), [1 => [[leftoverCutMutant(1), 900.0], [leftoverCutMutant(2), 800.0]]], [1 => Seconds::of(60.0)]);
+it('gives a source file\'s mutants no more than a share of their own, however long their tests are predicted to take', function (): void {
+    $cut = LeftoverCut::of(Digest::sha256Of('plan'), [1 => [
+        leftoverCutMutant(1, 'src/A.php', ['Slow']),
+        leftoverCutMutant(2, 'src/B.php', ['Slower']),
+        leftoverCutMutant(3, 'src/B.php', ['Slow']),
+    ]], ['Slow' => 900.0, 'Slower' => 800.0], [1 => Seconds::of(60.0)]);
 
-    expect(leftoverCutShares($cut->ofShard(ShardId::of(1))))->toBe(['1.1: 1', '1.2: 2']);
+    expect(leftoverCutShares($cut->ofShard(ShardId::of(1))))->toBe(['1.1: 2 3', '1.2: 1']);
 });
 
-it('gives a shard a further share for seconds past a whole job, and one share to mutants predicted to take none', function (): void {
+it('puts mutants no test file is timed for in one share, and gives a shard with no capacity left a second for each', function (): void {
     $cut = LeftoverCut::of(Digest::sha256Of('plan'), [
-        1 => [[leftoverCutMutant(1), 31.0], [leftoverCutMutant(2), 30.0]],
-        2 => [[leftoverCutMutant(3), 0.0], [leftoverCutMutant(4), 0.0]],
-    ], [1 => Seconds::of(60.0), 2 => Seconds::of(60.0)]);
+        1 => [leftoverCutMutant(1, 'src/A.php', ['Untimed']), leftoverCutMutant(2, 'src/B.php')],
+        2 => [leftoverCutMutant(3, 'src/A.php', ['T1']), leftoverCutMutant(4, 'src/B.php', ['T2'])],
+    ], ['T1' => 1.0, 'T2' => 1.0], [1 => Seconds::of(60.0)]);
 
     expect(leftoverCutShares([...$cut->ofShard(ShardId::of(1)), ...$cut->ofShard(ShardId::of(2))]))
-        ->toBe(['1.1: 1', '1.2: 2', '2.1: 3 4']);
+        ->toBe(['1.1: 1 2', '2.1: 3', '2.2: 4']);
+});
+
+it('never cuts more shares than one matrix of jobs holds, growing every capacity until they fit', function (): void {
+    $left = [];
+    $files = [];
+
+    foreach (range(1, 19) as $shard) {
+        foreach (range(1, 3200) as $mutant) {
+            $file = sprintf('Test%d_%d', $shard, $mutant);
+            $files[$file] = 100.0;
+            $left[$shard][] = [
+                LeftMutant::of(MutantId::hash(Path::of('src/Money.php'), 'Minus', $file, $mutant), $file, Path::of(sprintf('src/S%d_%d.php', $shard, intdiv($mutant, 100)))),
+                [$file],
+            ];
+        }
+    }
+
+    $cut = LeftoverCut::of(Digest::sha256Of('plan'), $left, $files, array_fill(1, 19, Seconds::of(60.0)));
+    $shares = array_merge(...array_map(static fn(int $shard): array => $cut->ofShard(ShardId::of($shard)), range(1, 19)));
+
+    expect(count($shares))->toBeLessThanOrEqual(LeftoverCut::MATRIX_MOST)->toBeGreaterThan(19)
+        ->and(array_sum(array_map(static fn(LeftoverShare $share): int => count($share->mutants()), $shares)))->toBe(19 * 3200);
+});
+
+it('stops growing at a share for each shard, where the shards alone are more than one matrix holds, from no capacity at all', function (): void {
+    $left = [];
+
+    foreach (range(1, LeftoverCut::MATRIX_MOST + 4) as $shard) {
+        $left[$shard] = [leftoverCutMutant(1, 'src/A.php', ['T1']), leftoverCutMutant(2, 'src/B.php', ['T2'])];
+    }
+
+    $cut = LeftoverCut::of(Digest::sha256Of('plan'), $left, ['T1' => 50.0, 'T2' => 50.0], []);
+
+    expect(count($cut->matrix()))->toBe(LeftoverCut::MATRIX_MOST + 4)
+        ->and(leftoverCutShares($cut->ofShard(ShardId::of(1))))->toBe(['1.1: 1 2']);
 });

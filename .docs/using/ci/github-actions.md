@@ -146,8 +146,8 @@ every unit, so the verdict names every survivor; under `stop` at once; and
 under `cancel` at once, with GitHub cancelling the other shards of the matrix.
 The verdict still runs and fails, naming the survivor. A shard stops at
 `shards.jobLimit`, `8m` by default; a `leftovers` job then cuts the mutants
-each shard left into shares, each predicted to fit a job of the same limit,
-and one `leftover` job per share judges them as the shard would have, its
+each shard left into shares, each predicted to fit a job of the same limit
+where 256 shares, the most a matrix holds, can hold them all, and one `leftover` job per share judges them as the shard would have, its
 result read by the verdict beside the shards'
 ([ADR-0190](../../decisions/0190-a-shard-hands-what-it-left-to-a-second-wave.md)).
 A last job, `publish`, runs on the default branch only and

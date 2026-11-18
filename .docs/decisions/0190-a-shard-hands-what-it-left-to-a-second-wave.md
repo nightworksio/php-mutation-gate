@@ -24,17 +24,23 @@ while every other job of the run has ended.
 1. **A shard's left mutants are cut into shares** by `mutation-gate
    leftovers`, after every shard, each share listing its mutants by the
    gate's id, the runner's own and the file each mutates: the mutants of each shard's result that
-   the deadline left unjudged (`OutOfTime::left`), each predicted to take
-   the seconds the plan's coverage map timed the tests covering its lines
-   at, to its last line. A shard gets as many shares as those seconds fill
-   jobs of its capacity, at most one for each mutant, and at least one; each
-   mutant, costliest first, goes to the share predicted to end first. A
-   share's capacity is `shards.jobLimit` less the time its shard took to
-   start judging, the `since` of its first mutation step, so a share's job
+   the deadline left unjudged (`OutOfTime::left`). A share is priced as a
+   stream runs it: the seconds the plan's coverage map timed every test of
+   the test files covering any of its mutants' lines, to each mutant's last,
+   each file once, a test's class standing for its file. A shard's mutants
+   go in groups of one source file each, costliest first, each to the share
+   it adds the fewest seconds to that it still fits the shard's capacity in,
+   the first of those, else to a new share; a group over the capacity alone
+   is a share of its own. A share's capacity is `shards.jobLimit` less the
+   time its shard took to start judging, the `since` of its first mutation step, so a share's job
    is expected to end inside the limit as its shard's job would have. The
    shares are written to `results/leftovers.json`, with the digest of the
    plan they were cut from, and the command prints the matrix of the second
-   wave's jobs: each share's shard and number.
+   wave's jobs: each share's shard and number. GitHub makes no job of a
+   matrix over 256 entries, so where every shard's shares come to more,
+   every capacity grows by a quarter and the mutants are cut again, until
+   they come to 256 or fewer, or each shard has one share. No cap stops the
+   cut short: a share never leaves work unjudged by design.
 2. **The verdict judges a shard's left mutants by its shares' results**, each
    share's job leaving `results/<shard>.leftover-<share>.json`, a result of
    that shard read with every check a shard's own result gets. Each share's
@@ -83,6 +89,18 @@ also leaves unjudged stays unjudged.
 - **Cut more shards at plan time**: each shard pays its set-up and its
   making again for mutants that a cheap first pass judges in minutes; the
   tail is in the survivors, which the plan cannot tell apart before the run.
+- **Price each mutant at the seconds of all its covering tests** and pack
+  mutants alone: that is a mutant's own run, but a stream runs each covering
+  test once for every mutant of its part, so a heavily covered mutant
+  outgrew a share alone. On the gate's own probe 10,096 left mutants made
+  1,625 shares, and GitHub made no job of the matrix.
+- **Cap the shares at the plan's concurrency** (20 jobs on the Free plan):
+  jobs past it queue, so the cap buys nothing, and a share over its capacity
+  leaves work unjudged by design.
+- **Split a source file's group into its mutants** where the group is over
+  the capacity: a mutant of a heavily covered file is covered by nearly the
+  same files as the group, so each becomes a share as long as the group's;
+  on the probe's leftovers that made 732 shares where groups made 159.
 - **Steal work between running shards** (`shards.pull`, ADR-0134): items
   are whole parts, and a part's tail is still judged by the job that holds
   it.
