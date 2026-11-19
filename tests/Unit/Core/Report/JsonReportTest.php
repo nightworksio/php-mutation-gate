@@ -577,8 +577,8 @@ it('writes what to try with a survivor in the JSON report, and nothing with a ki
 
 it('writes the minutes the CI bills, priced where the team gives a rate, as the schema holds them', function (): void {
     $billed = Cost::of(
-        RunTime::estimated(Seconds::of(420.0), Seconds::of(900.0))->billing(16),
-        RunTime::measured(Seconds::of(360.0), Seconds::of(840.0))->billing(15),
+        RunTime::estimated(Seconds::of(420.0), Seconds::of(900.0), 16),
+        RunTime::measured(Seconds::of(360.0), Seconds::of(840.0), 15),
         Seconds::of(0.0),
         Seconds::of(60.0),
     )->pricedAt(Rate::perMinute(0.5, 'EUR'));

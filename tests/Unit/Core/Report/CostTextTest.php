@@ -48,8 +48,8 @@ it('shows the team\'s currency as text, which mentions no one, links nowhere and
 });
 
 it('says what the CI bills against what the plan expected, priced at the team\'s rate, and nothing of it for a run on no CI', function (): void {
-    $planned = RunTime::estimated(Seconds::of(420.0), Seconds::of(900.0))->billing(16);
-    $billed = Cost::of($planned, RunTime::measured(Seconds::of(360.0), Seconds::of(840.0))->billing(15), Seconds::of(0.0), Seconds::of(60.0));
+    $planned = RunTime::estimated(Seconds::of(420.0), Seconds::of(900.0), 16);
+    $billed = Cost::of($planned, RunTime::measured(Seconds::of(360.0), Seconds::of(840.0), 15), Seconds::of(0.0), Seconds::of(60.0));
     $local = Cost::of($planned, RunTime::measured(Seconds::of(360.0), Seconds::of(840.0)), Seconds::of(0.0), Seconds::of(60.0));
 
     expect(CostText::markdown($billed))->toContain('The CI bills 15 runner minutes, each job rounded up; the plan expected 16.')

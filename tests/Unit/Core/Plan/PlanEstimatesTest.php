@@ -58,7 +58,7 @@ it('expects the longest job as wall time and every job as runner time, each with
     $plan = estimatedPlan(estimatedShard(1, 100.0, 0.0, 20.0), estimatedShard(2, 0.0, 300.0, 20.0), Shard::empty(ShardId::of(3)));
 
     expect(PlanEstimates::of($plan, Seconds::of(60.0), StreamWall::of(1))->runTime())
-        ->toEqual(RunTime::estimated(Seconds::of(380.0), Seconds::of(560.0))->billing(3 + 7));
+        ->toEqual(RunTime::estimated(Seconds::of(380.0), Seconds::of(560.0), 3 + 7));
 });
 
 it('expects a shard that judges one part of the test files at the wall its streams take its cost in, and a whole shard at its cost', function (): void {
@@ -66,9 +66,9 @@ it('expects a shard that judges one part of the test files at the wall its strea
     $whole = estimatedShard(2, 0.0, 400.0, 20.0);
 
     expect(PlanEstimates::of(estimatedPlan($parted), Seconds::of(60.0), StreamWall::of(4))->runTime())
-        ->toEqual(RunTime::estimated(Seconds::of(180.0), Seconds::of(180.0)))
+        ->toEqual(RunTime::estimated(Seconds::of(180.0), Seconds::of(180.0), 3))
         ->and(PlanEstimates::of(estimatedPlan($whole), Seconds::of(60.0), StreamWall::of(4))->runTime())
-        ->toEqual(RunTime::estimated(Seconds::of(480.0), Seconds::of(480.0)));
+        ->toEqual(RunTime::estimated(Seconds::of(480.0), Seconds::of(480.0), 8));
 });
 
 it('says what share of the units\' time each basis gives, and none of a plan of no time', function (): void {
@@ -162,9 +162,9 @@ it('says each shard\'s runner is taken to run as many mutants at once as this ma
 
 it('expects a plan of shards under a second at their own time, and no time of a plan of none', function (): void {
     expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.0, 0.5, 0.0)), Seconds::of(0.0), StreamWall::of(1))->runTime())
-        ->toEqual(RunTime::estimated(Seconds::of(0.5), Seconds::of(0.5))->billing(1))
+        ->toEqual(RunTime::estimated(Seconds::of(0.5), Seconds::of(0.5), 1))
         ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0), StreamWall::of(1))->runTime())
-        ->toEqual(RunTime::estimated(Seconds::of(0.0), Seconds::of(0.0))->billing(0));
+        ->toEqual(RunTime::estimated(Seconds::of(0.0), Seconds::of(0.0), 0));
 });
 
 it('gives the whole share to the one basis of a plan of a microsecond', function (): void {

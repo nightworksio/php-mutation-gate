@@ -22,20 +22,26 @@ final readonly class RunTime
         private Seconds $wall,
         private Seconds $runner,
         private bool $measured,
-        private int|NotGiven $billed = new NotGiven(),
+        private int|NotGiven $billed,
     ) {
     }
 
-    /** A run time the CI's own job times gave, or the gate's clock on a run with no CI job to set up. */
-    public static function measured(Seconds $wall, Seconds $runner): self
+    /**
+     * A run time the CI's own job times gave, or the gate's clock on a run
+     * with no CI job to set up, whose jobs a CI bills for these minutes.
+     */
+    public static function measured(Seconds $wall, Seconds $runner, int|NotGiven $billed = new NotGiven()): self
     {
-        return new self($wall, $runner, measured: true);
+        return new self($wall, $runner, measured: true, billed: $billed);
     }
 
-    /** A run time from the gate's own timings, with each job's setup taken from `shards.setup`. */
-    public static function estimated(Seconds $wall, Seconds $runner): self
+    /**
+     * A run time from the gate's own timings, with each job's setup taken
+     * from `shards.setup`, whose jobs a CI bills for these minutes.
+     */
+    public static function estimated(Seconds $wall, Seconds $runner, int|NotGiven $billed = new NotGiven()): self
     {
-        return new self($wall, $runner, measured: false);
+        return new self($wall, $runner, measured: false, billed: $billed);
     }
 
     /** The minutes a CI bills for each of these jobs' times, each rounded up to a whole minute (ADR-0240). */
@@ -48,12 +54,6 @@ final readonly class RunTime
         }
 
         return $minutes;
-    }
-
-    /** This run time, whose jobs a CI bills for this many minutes. */
-    public function billing(int $minutes): self
-    {
-        return new self($this->wall, $this->runner, $this->measured, $minutes);
     }
 
     /** The minutes the run's CI jobs bill, each job rounded up to a whole minute; none for a run on no CI. */

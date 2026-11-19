@@ -69,8 +69,7 @@ final readonly class VerdictTimings
         $wall = Seconds::of(Seconds::between($first, $now)->seconds() + $each);
         $spent = match (true) {
             $measured instanceof RunTimes => $measured->spent(),
-            $setup instanceof Seconds => RunTime::estimated($wall, Seconds::of($runner))
-                ->billing(RunTime::billedFor(...$jobs)),
+            $setup instanceof Seconds => RunTime::estimated($wall, Seconds::of($runner), RunTime::billedFor(...$jobs)),
             default => RunTime::measured($wall, Seconds::of($runner)),
         };
         $plan = $measured instanceof RunTimes ? $measured->plan() : $measured;

@@ -82,7 +82,7 @@ final readonly class PlanEstimates
             $jobs[] = Seconds::of($job);
         }
 
-        return RunTime::estimated(Seconds::of($wall), Seconds::of($runner))->billing(RunTime::billedFor(...$jobs));
+        return RunTime::estimated(Seconds::of($wall), Seconds::of($runner), RunTime::billedFor(...$jobs));
     }
 
     /** The share of the units' time that rests on this basis; none of a plan with no units' time. */

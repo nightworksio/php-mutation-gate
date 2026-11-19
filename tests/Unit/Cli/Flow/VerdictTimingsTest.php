@@ -156,7 +156,7 @@ it('takes the minutes the CI\'s API said the jobs bill', function (): void {
     $read = RunTimes::read(Contents::of('{"wallSeconds": 600, "runnerSeconds": 1500, "billedMinutes": 27}'));
 
     expect($read instanceof RunTimes ? $read->spent() : $read)
-        ->toEqual(RunTime::measured(Seconds::of(600.0), Seconds::of(1_500.0))->billing(27));
+        ->toEqual(RunTime::measured(Seconds::of(600.0), Seconds::of(1_500.0), 27));
 });
 
 it('reads nothing of what the jobs took from what cannot be read', function (Contents|Missing $file): void {
