@@ -224,22 +224,30 @@ final readonly class ShardsKeys
         $judges = Effect::JudgesOrReportsOnly;
         $newest = Field::optional('newest', Number::aboveAndAtMost(0, 1), $judges);
         $samples = Field::optional('startUpSamples', Integer::atLeast(1), $judges);
+        $steps = Field::optional('planSteps', Flag::boolean(), $judges);
 
         return Section::of(
-            static function (Node $timing) use ($newest, $samples): Layer|Invalid {
+            static function (Node $timing) use ($newest, $samples, $steps): Layer|Invalid {
                 $weight = $newest->read($timing);
                 $runs = $samples->read($timing);
+                $timed = $steps->read($timing);
 
                 return Reading::built(
                     static fn(): Layer => Layer::of(Shards::of(
-                        planning: Planning::of(newest: $weight->value(), startUpSamples: $runs->value()),
+                        planning: Planning::of(
+                            newest: $weight->value(),
+                            startUpSamples: $runs->value(),
+                            planSteps: $timed->value(),
+                        ),
                     )),
                     $weight,
                     $runs,
+                    $timed,
                 );
             },
             $newest,
             $samples,
+            $steps,
         );
     }
 
