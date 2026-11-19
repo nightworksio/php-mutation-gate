@@ -530,11 +530,11 @@ final readonly class Fixtures
 
                 namespace NightWorksIO\MutationGate\Core;
 
-                use Symfony\Component\Finder\Finder;
+                use JsonSchema\Validator;
 
                 final readonly class PlantedDevOnly
                 {
-                    public function __construct(private Finder $finder) {}
+                    public function __construct(private Validator $validator) {}
                 }
                 PHP),
             Fixture::suite('G5', 'tests/Unit/Core/PlantedAssertTest.php', <<<'PHP'
