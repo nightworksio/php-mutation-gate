@@ -49,12 +49,12 @@ $holds = [
 
 /**
  * What a fixture's parts are judged within: limits a loaded machine has room to finish in, each laid on a start-up of
- * five seconds, and a most that one test's limit fits and no two tests' do. Each mutant's own run keeps the tight
- * bounds its runner was given, which a loaded machine only times out sooner.
+ * a second, and a most that one test's limit fits and no two tests' do. Each mutant's own run keeps the tight bounds
+ * its runner was given, which a loaded machine only times out sooner.
  */
 function heavyJudging(float $most): LimitBounds
 {
-    return LimitBounds::between(Seconds::of(1.0), Seconds::of($most))->startingIn(Seconds::of(5.0));
+    return LimitBounds::between(Seconds::of(1.0), Seconds::of($most))->startingIn(Seconds::of(1.0));
 }
 
 /**
@@ -144,11 +144,11 @@ function heavyRun(Runner $runner, LimitBounds $judging, string $file, string $mu
     return [$mutants, ...heavyJudged($runner, $request, $atTheMost, $map, $judging, ...$specs)];
 }
 
-// Four tests of most of two seconds each judge the comparison in
-// src/Heavy.php: together they run past the most of six seconds a mutant is
-// allowed. Only the slowest, which runs last, kills the mutant that weighs a
-// kilogram heavy. The mutant's own run times out at the most, and judged part
-// after part, each part a test, it is killed by that test.
+// Four tests of about a second each judge the comparison in src/Heavy.php:
+// together they run past the most of 2.75 seconds a mutant is allowed. Only
+// the slowest, which runs last, kills the mutant that weighs a kilogram
+// heavy. The mutant's own run times out at the most, and judged part after
+// part, each part a test, it is killed by that test.
 it('kills a mutant whose tests run past the most only together, by its last part, with patched Pest', function (): void {
     $copied = ['src/Heavy.php', 'tests/HeavySpec.php'];
 
@@ -157,10 +157,10 @@ it('kills a mutant whose tests run past the most only together, by its last part
     }
 
     Library::patched();
-    $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1));
+    $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(2.75))->startingIn(Seconds::of(0.1));
     $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, heavy')->runner();
     try {
-        [$mutants, $judged, $rounds] = heavyRun($runner, heavyJudging(24.0), 'src/Heavy.php', GreaterToGreaterOrEqual::class, 'tests/HeavySpec.php');
+        [$mutants, $judged, $rounds] = heavyRun($runner, heavyJudging(7.8), 'src/Heavy.php', GreaterToGreaterOrEqual::class, 'tests/HeavySpec.php');
     } finally {
         foreach ($copied as $file) {
             unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
@@ -251,11 +251,11 @@ it('judges the parts of one mutant at once as it does one after another, with pa
     }
 
     Library::patched();
-    $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1));
+    $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(2.75))->startingIn(Seconds::of(0.1));
     $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, heavy at once')->runner();
 
     try {
-        [$alone, $together, $failing, $oneAfterAnother, $atOnce] = heavyPartsAtOnce($runner, heavyJudging(24.0));
+        [$alone, $together, $failing, $oneAfterAnother, $atOnce] = heavyPartsAtOnce($runner, heavyJudging(7.8));
     } finally {
         foreach ($copied as $file) {
             unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
@@ -283,12 +283,12 @@ it('splits a part that runs out unmutated too by its files, and kills by the hal
     }
 
     Library::patched();
-    $bounds = LimitBounds::between(Seconds::of(4.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1));
+    $bounds = LimitBounds::between(Seconds::of(3.0), Seconds::of(4.0))->startingIn(Seconds::of(0.1));
     $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, split')->runner();
     try {
         [$mutants, $judged, $rounds] = heavyRun(
             $runner,
-            heavyJudging(21.0),
+            heavyJudging(9.0),
             'src/Split.php',
             GreaterOrEqualToGreater::class,
             'tests/SplitASpec.php',
