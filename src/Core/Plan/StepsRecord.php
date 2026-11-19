@@ -55,11 +55,11 @@ final readonly class StepsRecord
 {
     public const string SECTION = 'steps';
 
-    private const string STEP = 'step';
+    public const string STEP = 'step';
 
-    private const string SINCE = 'since';
+    public const string SINCE = 'since';
 
-    private const string SECONDS = 'seconds';
+    public const string SECONDS = 'seconds';
 
     private const string COUNT = 'count';
 

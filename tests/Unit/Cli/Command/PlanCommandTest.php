@@ -12,14 +12,17 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Cost\PlanLap;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+use NightWorksIO\MutationGate\Core\Plan\PlanStepsRecord;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -49,6 +52,13 @@ $plan = static fn(
     $input,
 );
 
+/** What the plan says of its steps on a clock that stands still, every step under a tenth of a second (ADR-0220). */
+$timed = <<<'SAID'
+    The plan took 0.0 s, in these steps, each that took less than 0.1 s left out:
+    Wrote .mutation-gate/plan-steps.json.
+
+    SAID;
+
 /** The unpatched Pest line, for a plan of this many shards. */
 $unpatched = static fn(int $shards): string => sprintf(<<<'SAID'
     Pest runs without the gate's patch, so each of the %d shards pays a full opening run under coverage.
@@ -56,7 +66,7 @@ $unpatched = static fn(int $shards): string => sprintf(<<<'SAID'
 
     SAID, $shards);
 
-it('writes the plan, hands it to the CI, and hands each shard its map', function () use ($plan): void {
+it('writes the plan, hands it to the CI, and hands each shard its map', function () use ($plan, $timed): void {
     $project = FlowCommands::project();
     $ci = Flows::ci();
 
@@ -65,7 +75,7 @@ it('writes the plan, hands it to the CI, and hands each shard its map', function
 
     expect($planned->code)->toBe(0)
         ->and($planned->output)->toBe('')
-        ->and($planned->errors)->toBe(<<<'SAID'
+        ->and($planned->errors)->toBe(sprintf('%s%s', <<<'SAID'
             Coverage: there is no kept map, so every test was measured.
             Reach
               No commit of this scope has passed yet, so the run considers every unit.
@@ -74,11 +84,24 @@ it('writes the plan, hands it to the CI, and hands each shard its map', function
             Shard 2 (src, part 2 of 2): about 1m, guessed.
             The plan expects about 1m of wall time and 2m of runner time: 0% learned, 0% measured, 100% guessed.
 
-            SAID)
+            SAID, $timed))
         ->and($written)->toBeInstanceOf(Plan::class)
         ->and($ci->published)->toEqual([$written])
         ->and($written instanceof Plan ? count($written) : $written)->toBe(2)
         ->and(is_file(sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz', $project)))->toBeTrue();
+});
+
+it('records each step of the plan beside it, in the order they ran, every second of the plan in one', function () use ($plan): void {
+    $project = FlowCommands::project();
+    $plan($project, '--shards=2', ScriptedRunner::fixture(), Flows::ci());
+    $recorded = PlanStepsRecord::read(Node::decode((string) file_get_contents(sprintf('%s/.mutation-gate/plan-steps.json', $project))));
+
+    expect(array_map(static fn(PlanLap $lap): string => $lap->step()->value, [...$recorded]))->toBe([
+        'composing', 'inventory', 'ledgers', 'unchanged', 'early start', 'suites', 'name graph', 'entries', 'coverage', 'map',
+        'cap', 'keying', 'reach', 'unit digests', 'considering', 'unit keys', 'packs', 'proving', 'new code lines', 'sampling', 'pruning',
+        'first run', 'cutting', 'briefing', 'held coverage', 'naming', 'warm-up begun', 'whole map begun', 'opening',
+        'handoff', 'warm-up', 'start-up timing', 'publishing',
+    ]);
 });
 
 it('leaves standard output to the plan a CI reads from it, and says what it wrote on standard error', function (
@@ -221,12 +244,13 @@ it('cannot plan where the CI cannot take the plan', function () use ($plan): voi
 it('says each shard pays a full opening run where Pest runs sharded without the patch', function () use (
     $plan,
     $unpatched,
+    $timed,
 ): void {
     $planned = $plan(FlowCommands::project(), '--shards=2', ScriptedRunner::fixture()->likePest(), Flows::ci());
 
     expect($planned->code)->toBe(0)
         ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with 2 shards.\n")
-        ->and($planned->errors)->toEndWith($unpatched(2));
+        ->and($planned->errors)->toEndWith(sprintf('%s%s', $unpatched(2), $timed));
 });
 
 it('says nothing of the patch where the plan has one shard, or no shard pays its own opening run', function (
@@ -253,7 +277,7 @@ it('asks the runner who it is withholding every CI\'s tokens', function () use (
         ->and(preg_match($identified[0]->pattern(), 'CI_JOB_TOKEN'))->toBe(1);
 });
 
-it('writes the sticky comment in its planned state on a pull request\'s run, and says what it said', function (): void {
+it('writes the sticky comment in its planned state on a pull request\'s run, and says what it said', function () use ($timed): void {
     $project = FlowCommands::project('"ci": {"plan": "json"}');
     $composition = FlowCommands::over(
         Flows::trees(),
@@ -269,7 +293,7 @@ it('writes the sticky comment in its planned state on a pull request\'s run, and
     );
 
     expect($planned->code)->toBe(0)
-        ->and($planned->errors)->toEndWith("This run is not for a pull request, so there is no comment to write.\n");
+        ->and($planned->errors)->toEndWith(sprintf("This run is not for a pull request, so there is no comment to write.\n%s", $timed));
 });
 
 it('writes no planned state where the run is not a pull request\'s', function () use ($plan): void {

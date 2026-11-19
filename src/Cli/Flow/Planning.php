@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\PlanLaps;
+use NightWorksIO\MutationGate\Core\Cost\PlanStep;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
@@ -68,8 +70,21 @@ final readonly class Planning
         A full kill matrix needs Infection to keep running after a failure, which it cannot.
         SAID;
 
-    public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
+    private PlanStopwatch $stopwatch;
+
+    public function __construct(
+        private Adapters $adapters,
+        private Settings $settings,
+        private Setup $setup,
+        PlanStopwatch|NotGiven $stopwatch = new NotGiven(),
+    ) {
+        $this->stopwatch = PlanStopwatch::given($stopwatch, $setup->clock);
+    }
+
+    /** Every step the plan ended, in the order they began (ADR-0220). */
+    public function laps(): PlanLaps
     {
+        return $this->stopwatch->laps();
     }
 
     /**
@@ -91,6 +106,7 @@ final readonly class Planning
         $inventory = $this->adapters->runner->behaviour()->records($matrix)
             ? Inventory::forKeys($this->adapters, $this->settings)
             : CannotJudge::because(self::NOT_FULL);
+        $this->stopwatch->lap(PlanStep::Inventory);
 
         if ($inventory instanceof CannotJudge) {
             return $inventory;
@@ -103,14 +119,17 @@ final readonly class Planning
             $writing,
             $mode->takes($this->settings->proofs()->taken()),
         );
+        $this->stopwatch->lap(PlanStep::Ledgers);
         $unchanged = new UnchangedPlan($this->adapters, $this->settings, $this->setup)
             ->of($inventory, $ledgers, $mode, $matrix);
+        $this->stopwatch->lap(PlanStep::Unchanged);
 
         if ($unchanged instanceof PlanMade) {
             return $unchanged;
         }
 
         $early = $this->early($inventory, $ledgers, $mode, $coverage);
+        $this->stopwatch->lap(PlanStep::Early);
 
         return match (true) {
             $early instanceof CoverageMeasured
@@ -225,16 +244,22 @@ final readonly class Planning
         WarmingUp|NotGiven $warming,
     ): PlanMade|CannotJudge {
         $suites = SuiteCoverage::of($this->adapters, $inventory, $this->settings->proofs()->coverageCompressionLevel());
+        $this->stopwatch->lap(PlanStep::Suites);
         $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
         $names = new NameGraph($this->adapters)->named($inventory->suite);
+        $this->stopwatch->lap(PlanStep::NameGraph);
         $entries = $kept->entries($inventory, $names);
+        $this->stopwatch->lap(PlanStep::Entries);
         $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap, $suites, $quick);
+        $this->stopwatch->lap(PlanStep::Coverage);
         $request = $measured->request();
         $map = $kept->mapOf($measured, $suites);
+        $this->stopwatch->lap(PlanStep::Map);
 
         $peak = $coverage instanceof CoverageRun ? $this->setup->memory->peak() : NotGiven::value();
         $cap = new CoverageCap($this->adapters, $this->settings);
         $map = $map instanceof CoverageMap ? $cap->holding($map, $peak) : $map;
+        $this->stopwatch->lap(PlanStep::Cap);
 
         if ($map instanceof CannotJudge) {
             return $map;
@@ -255,6 +280,7 @@ final readonly class Planning
             $names,
             $learned->multiple(),
         );
+        $this->stopwatch->lap(PlanStep::Keying);
         $at = Measuring::of($this->adapters, $request);
         $saved = $quick instanceof QuickRound ? $quick->saved($entries, $judges->map()) : Saved::none();
 
@@ -330,8 +356,10 @@ final readonly class Planning
                 $this->setup->config,
             )
             : Reached::everything($inventory->trees, $base);
+        $this->stopwatch->lap(PlanStep::Reach);
         $ownOnly = $reached->ownOnly();
         $now = $keying->digestsOf($inventory->units);
+        $this->stopwatch->lap(PlanStep::Digests);
         $considering = $ledgers->considering(
             $inventory->units,
             $reached->reach(),
@@ -344,14 +372,19 @@ final readonly class Planning
             : $considering;
         $carried = $this->unitsOf($considering->carried());
         $carriedOwn = $carried->within($ownOnly);
+        $this->stopwatch->lap(PlanStep::Considering);
         $keys = $keying->keysOf($considering->considered());
+        $this->stopwatch->lap(PlanStep::Keys);
         $cache = new CachedPacks($this->adapters, $this->settings);
         $cache->pulled($inventory->standing, $keying->base());
+        $this->stopwatch->lap(PlanStep::Packs);
         $taken = $mode->takes($this->settings->proofs()->taken());
         $served = ServedProofs::read($this->adapters, $taken, $ledgers, $keys);
         $proving = $ledgers->caching($cache->read($inventory->standing, $keying->base())->serving($served))
             ->proving($considering->considered(), $keys, $keying->base(), $kind);
+        $this->stopwatch->lap(PlanStep::Proving);
         $changed = $this->newCode($inventory->standing, $reached);
+        $this->stopwatch->lap(PlanStep::NewCode);
         $auto = AutoSampling::of(
             $this->adapters,
             $this->settings,
@@ -366,10 +399,13 @@ final readonly class Planning
         $sample = new Sampled($this->adapters, $this->settings, $this->setup)
             ->drawn($auto->mode(), $inventory, $proving->toRun(), $reached, $changed, $ledgers->newest($kind), $base);
         $toRun = $sample instanceof Sample ? $sample->running($proving->toRun()) : $proving->toRun();
+        $this->stopwatch->lap(PlanStep::Sampling);
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
             ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
+        $this->stopwatch->lap(PlanStep::Pruning);
         $opening = $map->durations()->total();
         $firstRun = $this->firstRun($quick, $map, $ledgers->costs($this->setup->gate)->untimed($toRun));
+        $this->stopwatch->lap(PlanStep::FirstRun);
         $planned = new PlannedShards($this->adapters, $this->settings, $this->setup);
         $shards = $planned->of(
             $toRun,
@@ -380,6 +416,7 @@ final readonly class Planning
             $opening,
             $planned->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun)->saving($saved),
         );
+        $this->stopwatch->lap(PlanStep::Cutting);
         $digests = $this->committed($now, $inventory->standing->head());
         $reasons = KeysApart::said(
             OwnScopeStanding::said(
@@ -401,6 +438,7 @@ final readonly class Planning
             $proving->ownScopeProofs() + $considering->ownScopeProofs(),
             count($proving->proved()),
         );
+        $this->stopwatch->lap(PlanStep::Briefing);
 
         return match (true) {
             $shards instanceof CannotJudge => $shards,
@@ -410,10 +448,7 @@ final readonly class Planning
                 $entryKeys,
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
                     ->on($inventory->standing->runOn())
-                    ->briefed(
-                        new HeldCoverage($this->adapters, $this->settings->reach()->held()->coverage())
-                            ->briefed($standing, $shards, $map),
-                    )
+                    ->briefed($this->heldBriefed($standing, $shards, $map))
                     ->digesting($digests)
                     ->considering(
                         Considered::everything()
@@ -468,10 +503,21 @@ final readonly class Planning
         Subsumption|NotGiven $held,
         WarmingUp|NotGiven $warming,
     ): Plan|CannotJudge {
-        $handed = new ShardHandoff($this->adapters, $this->settings, $this->setup)
+        $this->stopwatch->lap(PlanStep::Naming);
+        $handed = new ShardHandoff($this->adapters, $this->settings, $this->setup, $this->stopwatch)
             ->of($plan, $map, $history, $at, $keys, $held, $warming);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
+    }
+
+    /** The plan's briefing, with what the holding tests of each held unit its shards hold cover (ADR-0161). */
+    private function heldBriefed(Briefing $standing, Shards $shards, CoverageMap $map): Briefing
+    {
+        $briefed = new HeldCoverage($this->adapters, $this->settings->reach()->held()->coverage())
+            ->briefed($standing, $shards, $map);
+        $this->stopwatch->lap(PlanStep::HeldCoverage);
+
+        return $briefed;
     }
 
     /**

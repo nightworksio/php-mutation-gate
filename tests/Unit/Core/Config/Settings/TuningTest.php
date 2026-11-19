@@ -27,7 +27,7 @@ it('reads how a run plans its work and learns what it costs, each key at its def
     $set = $settings([
         'shards' => ['cutAt' => 3.5],
         'plan' => ['chunkMinutes' => 30, 'provingRange' => 5],
-        'timing' => ['newest' => 0.5, 'startUpSamples' => 7],
+        'timing' => ['newest' => 0.5, 'startUpSamples' => 7, 'planSteps' => false],
     ])->shards()->planning();
 
     expect($standard->chunk())->toEqual(Seconds::minutes(15))
@@ -35,18 +35,20 @@ it('reads how a run plans its work and learns what it costs, each key at its def
         ->and($standard->cutAt())->toBe(2.0)
         ->and($standard->newest())->toEqual(TimingWeight::of(0.9))
         ->and($standard->startUpSamples()->runs())->toBe(3)
+        ->and($standard->planSteps())->toBeTrue()
         ->and($set->chunk())->toEqual(Seconds::minutes(30))
         ->and($set->provingRange()->farthest())->toBe(5)
         ->and($set->cutAt())->toBe(3.5)
         ->and($set->newest())->toEqual(TimingWeight::of(0.5))
-        ->and($set->startUpSamples()->runs())->toBe(7);
+        ->and($set->startUpSamples()->runs())->toBe(7)
+        ->and($set->planSteps())->toBeFalse();
 });
 
 it('reads each key of a planning no layer set at its default', function (): void {
     $none = Planning::of();
 
-    expect([$none->chunk(), $none->provingRange()->farthest(), $none->cutAt(), $none->newest(), $none->startUpSamples()->runs()])
-        ->toEqual([Seconds::minutes(15), 20, 2.0, TimingWeight::of(0.9), 3]);
+    expect([$none->chunk(), $none->provingRange()->farthest(), $none->cutAt(), $none->newest(), $none->startUpSamples()->runs(), $none->planSteps()])
+        ->toEqual([Seconds::minutes(15), 20, 2.0, TimingWeight::of(0.9), 3, true]);
 });
 
 it('reads how a runner paces its work, each key at its default where no layer sets it', function () use ($settings): void {
@@ -143,6 +145,7 @@ it('writes each key into a config written as PHP, through the builder that reads
     'plan.provingRange' => [['plan' => ['provingRange' => 5]], 'Plan::provingRange(5)'],
     'timing.newest' => [['timing' => ['newest' => 0.5]], 'Timing::newest(0.5)'],
     'timing.startUpSamples' => [['timing' => ['startUpSamples' => 7]], 'Timing::startUpSamples(7)'],
+    'timing.planSteps' => [['timing' => ['planSteps' => false]], 'Timing::planSteps(false)'],
     'timeouts.startUp' => [['timeouts' => ['startUp' => '9s']], "Timeouts::startUp('9s')"],
     'staticCheck.opcache.batch' => [['staticCheck' => ['opcache' => ['batch' => 50]]], 'StaticCheck::opcacheBatch(50)'],
     'staticCheck.opcache.limit' => [['staticCheck' => ['opcache' => ['limit' => '30s']]], "StaticCheck::opcacheLimit('30s')"],

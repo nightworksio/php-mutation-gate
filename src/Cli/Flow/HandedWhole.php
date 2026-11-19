@@ -59,7 +59,7 @@ final readonly class HandedWhole
         EntryKeys|NotGiven $keys,
         int $level,
     ): self {
-        $child = Forking::isAvailable() ? pcntl_fork() : -1;
+        $child = Forking::besideTheGate() ? pcntl_fork() : -1;
         $whole = new self($project, $map, $at, $keys, $level, $child);
 
         if ($child === 0) {
