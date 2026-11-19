@@ -25,7 +25,7 @@ final readonly class Forking
      * Whether this process can fork a child that goes on loading the gate's
      * classes beside it: not where the gate runs from its PHAR, whose open
      * archive a child shares with its parent, so that a class each loads at
-     * once reads as corrupt.
+     * once reads as corrupt (ADR-0224).
      */
     public static function besideTheGate(): bool
     {
