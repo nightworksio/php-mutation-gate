@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Definition\ContextsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\Placement;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\ShippedSchema;
 
 it('reads a block for each context, each as a layer reads its keys, and keeps only the blocks written', function (): void {
     $layer = Configs::layer(['contexts' => [
@@ -70,4 +72,9 @@ it('is an object of blocks, whose settings it leaves to the layer a run lays', f
         ->and($shape->effects())->toBe([])
         ->and(Configs::problems(Configs::layer(['contexts' => ['ci' => ['budget' => 5]]])))
         ->toBe(['contexts.ci.budget: expected a duration such as 90s, 15m, 1h30m or 7d, got 5']);
+});
+
+it('writes the schema of each of its keys as the package ships it', function (): void {
+    expect(ShippedSchema::written(ContextsKeys::fields(Definition::block(ProjectRoot::origin())), Placement::TopLevel))
+        ->toBe(ShippedSchema::holds(['contexts'], Placement::TopLevel));
 });

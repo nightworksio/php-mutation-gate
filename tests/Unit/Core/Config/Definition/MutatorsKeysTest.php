@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorSetName;
+use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\Placement;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\ShippedSchema;
 
 it('reads the sets turned on and the mutators turned off, each once', function (): void {
     $settings = Configs::settings([
@@ -44,4 +47,9 @@ it('describes a set\'s name to the schema, never the set this repository ships',
         '{"type":"string","minLength":1,"pattern":"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$","not":{"const":"default"}}',
     )->and(MutatorSetName::turnedOn()->expected())->toBe("a mutator set's name: lower case letters and digits, joined by single hyphens")
         ->and(MutatorSetName::turnedOn()->effects())->toBe([]);
+});
+
+it('writes the schema of each of its keys as the package ships it', function (): void {
+    expect(ShippedSchema::written(MutatorsKeys::fields(), Placement::TopLevel))
+        ->toBe(ShippedSchema::holds(['mutators'], Placement::TopLevel));
 });

@@ -3,10 +3,14 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\Definition\PathsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\Placement;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Runner\PathRuleMode;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\ShippedSchema;
 
 it('reads each paths entry: its glob and what it sets of the mutators, the timeouts and the static check', function (): void {
     $entry = [
@@ -53,4 +57,9 @@ it('declares paths and runner.pathRules in the schema', function (): void {
         ->and(Decoded::keys($schema, 'properties', 'paths', 'items', 'properties'))
         ->toBe(['glob', 'mutators', 'timeouts', 'staticCheck'])
         ->and(Decoded::at($schema, '$defs', 'contextBlock', 'properties', 'paths', 'items', 'required'))->toBe(['glob']);
+});
+
+it('writes the schema of each of its keys as the package ships it', function (): void {
+    expect(ShippedSchema::written(PathsKeys::fields(ProjectRoot::origin()), Placement::TopLevel))
+        ->toBe(ShippedSchema::holds(['paths'], Placement::TopLevel));
 });
