@@ -74,6 +74,13 @@ it('runs over its suites a group whose tests the runner lists none of, and a fil
     'a filter' => [fn(): Filter => Filter::matching('Held')],
 ]);
 
+it('runs over its suites a group whose tests the runner cannot list', function (): void {
+    $runner = new CoverageAsked(RunnerFake::ofTheFixture()->listingIn(Suites::all(), CannotJudge::because('the runner cannot list')), CoverageMap::of());
+    HeldRun::of(Flows::adapters(Flows::project(), [], $runner), heldBy(Group::named('holds:src/Held.php')))->coverage(Group::named('holds:src/Held.php'), Path::of('held'));
+
+    expect(heldRunFiles($runner))->toEqual([NotGiven::value()]);
+});
+
 it('runs over its suites a group one of whose tests the runner places in no file', function (): void {
     $listed = TestListing::of(TestIds::of(TestId::of('HeldTest::doubles'), TestId::of('Unnamed::test')))
         ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('HeldTest::doubles'), TestId::of('Unnamed::test')));

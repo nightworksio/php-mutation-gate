@@ -39,3 +39,25 @@ it('serves the schema a mutant\'s run was told, its switch in force by the schem
     'an id of nought' => ['there', '0', false],
     'an id that is no whole number' => ['there', '7 or so', false],
 ]);
+
+it('gives a pure expression\'s site its mutated value where its mutant is in force, its original\'s elsewhere, and a split stream\'s choice where none of its file is', function (): void {
+    $original = static fn(): string => 'original';
+    $mutated = static fn(): string => 'mutated';
+    SchemaSwitch::on('a money test', 4);
+    $inForce = [SchemaSwitch::value('a money test', 4, $original, $mutated), SchemaSwitch::value('a money test', 5, $original, $mutated)];
+    SchemaSwitch::off('a money test');
+    $unsplit = SchemaSwitch::value('a money test', 4, $original, $mutated);
+    $seen = [];
+    SchemaSwitch::splitting(
+        static fn(string $file, int $id): bool => $file === 'a money test' && $id === 4,
+        static function (string $file, int $id, mixed $value, Closure $mutated) use (&$seen): mixed {
+            $seen = [$file, $id, $value, $mutated()];
+
+            return 'chosen';
+        },
+    );
+    $split = SchemaSwitch::value('a tax test', 6, $original, $mutated);
+    SchemaSwitch::unsplit();
+
+    expect([$inForce, $unsplit, $split, $seen])->toBe([['mutated', 'original'], 'original', 'chosen', ['a tax test', 6, 'original', 'mutated']]);
+});

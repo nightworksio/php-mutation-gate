@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Fidry\CpuCoreCounter\CpuCoreCounter;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Adapter\Pest\SideBySideMutants;
@@ -141,6 +142,33 @@ it('makes here the mutants of the files a child failed to make', function (): vo
     expect($taken)->toBe(madeFields(countedMaking(new ArrayObject())($files[1], [])))
         ->and($makers->getArrayCopy())->toBe([$parent]);
 })->skip(fn(): bool => ! function_exists('pcntl_fork'), 'The process cannot fork.');
+
+it('makes here the mutants of the files whose child left nothing whole, though a file it cannot read lies where that child would have left its own', function (): void {
+    putenv(sprintf('%s=1', GateVariable::MakingSideBySide->value));
+    $files = madeFiles();
+    $parent = posix_getpid();
+    $stale = array_map(
+        static fn(int $share): string => sprintf('%s/mutation-gate-made-%d-%d.json', sys_get_temp_dir(), $parent, $share),
+        array_keys($files),
+    );
+    array_map(static fn(string $left): int|false => file_put_contents($left, '{"made": "unreadable"}'), $stale);
+    $makers = new ArrayObject();
+    $counted = countedMaking($makers);
+    $made = SideBySideMutants::made(
+        $files,
+        static fn(): array => [],
+        static fn(SplFileInfo $file, array $lines): array => posix_getpid() === $parent
+            ? $counted($file, $lines)
+            : throw NotInShape::missing('the child'),
+    );
+    $taken = array_map(static fn(SplFileInfo $file): array => madeFields($made->of($file, [])), $files);
+    $left = array_values(array_filter($stale, is_file(...)));
+    array_map(unlink(...), $left);
+
+    expect($taken)->toBe(array_map(static fn(SplFileInfo $file): array => madeFields(countedMaking(new ArrayObject())($file, [])), $files))
+        ->and($makers->getArrayCopy())->toBe([$parent, $parent, $parent])
+        ->and($left)->toBe([]);
+})->skip(fn(): bool => ! function_exists('pcntl_fork') || new CpuCoreCounter()->getCountWithFallback(1) < 3, 'The process cannot fork, or has fewer cores than files.');
 
 it('hands on the schemata a child wrote, so the run tells each mutant its schema, though its id is all digits', function (): void {
     putenv(sprintf('%s=1', GateVariable::MakingSideBySide->value));

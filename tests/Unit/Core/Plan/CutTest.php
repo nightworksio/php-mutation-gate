@@ -504,4 +504,5 @@ it('cuts a run that streams its test parts to the fewest shards whose wall time 
         2,
     ],
     'not cutting test files: as sized, a unit a shard' => [fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 20)->streamedOver(StreamWall::of(4)), 2],
+    'a count asked for: as asked' => [fn(): Cut => Cut::exactly(3)->cuttingTestFiles()->streamedOver(StreamWall::of(4)), 3],
 ]);
