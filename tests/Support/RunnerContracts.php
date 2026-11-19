@@ -44,6 +44,13 @@ final readonly class RunnerContracts
 {
     /** What a run of the Infection library warns of while its Infection is not patched. */
     public const string INFECTION_UNPATCHED = 'Unpatched, Infection gave each mutant its own limit, with no floor. doctor says how to patch it.';
+
+    /** The seconds a contract's run is allowed to start in where nothing measured its start-up, `timeouts.startUp`. */
+    public const float START_UP = 1.0;
+
+    /** The seconds `timeouts.tighter` keeps the silence limit of its mutators above in a contract's bounds. */
+    public const float TIGHTER = 2.0;
+
     /**
      * Which of the fixtures' marks a run leaves: whether it loaded MoneySpec,
      * loaded it through a user-space `file://` wrapper, and ran one of its tests.
@@ -135,8 +142,8 @@ final readonly class RunnerContracts
 
     /**
      * What each mutant of the change named comes to, run on the library under a
-     * floor of ten seconds, where timeouts.tighter gives the mutator that change
-     * is made by, by its short name, a floor of seven.
+     * floor of five seconds, where timeouts.tighter gives the mutator that change
+     * is made by, by its short name, a floor of two.
      *
      * @return list<array{MutantStatus, float, string}> each mutant's status, seconds and reason
      */
@@ -152,11 +159,14 @@ final readonly class RunnerContracts
         );
     }
 
-    /** The bounds of a floor of ten seconds, the silence limit of a mutator by this short name kept above seven. */
+    /**
+     * The bounds of a floor of five seconds, the silence limit of a mutator by this short name kept above two, a run
+     * allowed the contracts' start-up.
+     */
     public static function tighterBounds(string $mutator): LimitBounds
     {
-        return LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))
-            ->tighterFor(TighterSilence::of(Seconds::of(7.0), $mutator));
+        return LimitBounds::between(Seconds::of(5.0), Seconds::of(300.0), self::START_UP)
+            ->tighterFor(TighterSilence::of(Seconds::of(self::TIGHTER), $mutator));
     }
 
     /**

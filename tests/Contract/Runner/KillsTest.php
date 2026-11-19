@@ -243,7 +243,7 @@ it('stops a mutant\'s run where no test of it starts or ends for its silence lim
     $spec = Tree::at(sprintf('%s/tests/StallSpec.php', Library::PHPUNIT_DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/stall/src/Stall.php'), $source);
     copy(Tree::at('tests/Contract/Runner/stall/phpunit/StallSpec.php'), $spec);
-    $library = Library::phpunitWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)), 'phpunit under a floor of a second');
+    $library = Library::phpunitWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0), RunnerContracts::START_UP), 'phpunit under a floor of a second');
 
     try {
         $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Stall.php')), WholeSuite::tests())
@@ -259,9 +259,9 @@ it('stops a mutant\'s run where no test of it starts or ends for its silence lim
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
-        ->each->toBeGreaterThan(11.0)
+        ->each->toBeGreaterThan(6.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
-        ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
+        ->each->toBeGreaterThan(2.5)->toBeLessThan(5.5)
         ->and(array_map(
             static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
             $mutants,
@@ -277,7 +277,7 @@ it('stops a mutant\'s run where no example of it starts or ends for its silence 
     $spec = Tree::at(sprintf('%s/tests/StallSpec.php', Library::PHPSPEC_DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/stall/src/Stall.php'), $source);
     copy(Tree::at('tests/Contract/Runner/stall/phpspec/StallSpec.php'), $spec);
-    $library = Library::phpspecWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)), 'phpspec under a floor of a second');
+    $library = Library::phpspecWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0), RunnerContracts::START_UP), 'phpspec under a floor of a second');
 
     try {
         $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Stall.php')), WholeSuite::tests())
@@ -292,9 +292,9 @@ it('stops a mutant\'s run where no example of it starts or ends for its silence 
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
-        ->each->toBeGreaterThan(11.0)
+        ->each->toBeGreaterThan(6.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
-        ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
+        ->each->toBeGreaterThan(2.5)->toBeLessThan(5.5)
         ->and(array_map(
             static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
             $mutants,
@@ -307,7 +307,7 @@ it('stops a mutant\'s run where no test of it starts or ends for its silence lim
     $spec = Tree::at(sprintf('%s/tests/StallTest.php', Library::CODECEPTION_DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/stall/src/Stall.php'), $source);
     copy(Tree::at('tests/Contract/Runner/stall/codeception/StallTest.php'), $spec);
-    $library = Library::codeceptionWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)), 'codeception under a floor of a second');
+    $library = Library::codeceptionWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0), RunnerContracts::START_UP), 'codeception under a floor of a second');
 
     try {
         $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Stall.php')), WholeSuite::tests())
@@ -322,9 +322,9 @@ it('stops a mutant\'s run where no test of it starts or ends for its silence lim
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
-        ->each->toBeGreaterThan(11.0)
+        ->each->toBeGreaterThan(6.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
-        ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
+        ->each->toBeGreaterThan(2.5)->toBeLessThan(5.5)
         ->and(array_map(
             static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
             $mutants,
