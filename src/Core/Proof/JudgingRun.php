@@ -12,8 +12,6 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * of every input it read, its address as its CI names it, and whether it
  * carried no unit's result, each judged or proved by a proof whose key
  * matched.
- *
- * @internal
  */
 final readonly class JudgingRun
 {

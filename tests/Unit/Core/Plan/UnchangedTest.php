@@ -130,8 +130,8 @@ it('reuses a pass whose run read identical inputs, naming where it was read, the
         ->passedAt($at)
         ->judgedIn(JudgingRun::of($inputs, '', whole: false));
     $judged = $passed->judgedIn(JudgingRun::of($inputs, 'https://github.com/octo/gate/actions/runs/9', whole: true));
-    $reused = Unchanged::reusing(ReusablePass::ofPullRequest($judged, unchangedPullRequest(7)), $at);
-    $own = Unchanged::reusing(ReusablePass::inScope($passed, Scope::branch('main')), $at);
+    $reused = Unchanged::standing(StandsBecause::IdenticalInputs, $judged, $at, ReusablePass::ofPullRequest($judged, unchangedPullRequest(7))->from());
+    $own = Unchanged::standing(StandsBecause::IdenticalInputs, $passed, $at, ReusablePass::inScope($passed, Scope::branch('main'))->from());
     $recorded = $reused->passing(Revision::ref(str_repeat('c', 40)), $instant('2026-11-19T13:00:00Z'));
 
     expect($reused->reason()->text())->toBe(sprintf(

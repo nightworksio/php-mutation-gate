@@ -311,7 +311,7 @@ it('says an alert goes nowhere where its channel\'s own variable is not set', fu
 
 it('comments on the pull request its own event names, in its own repository', function (): void {
     $event = Scratch::directory();
-    Scratch::write($event, 'event.json', '{"pull_request": {"number": 7, "head": {"repo": {"fork": false}}}}');
+    Scratch::write($event, 'event.json', '{"pull_request": {"number": 7, "head": {"repo": {"full_name": "octo/gate"}}, "base": {"repo": {"full_name": "octo/gate"}}}}');
     $user = new MockResponse('{"login": "github-actions[bot]"}');
     $listed = new MockResponse('[]');
     $posted = new MockResponse('{"html_url": "https://github.com/octo/gate/pull/7#issuecomment-1"}');
