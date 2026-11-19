@@ -8,7 +8,6 @@ use function array_map;
 use function array_sum;
 use function ceil;
 use function count;
-use function floor;
 use function max;
 use function min;
 
@@ -46,6 +45,7 @@ final readonly class ShardSizing
         private Seconds|Absent $jobLimit = new Absent(),
         private float $scale = 1.0,
         private bool $streamed = false,
+        private bool $billed = false,
     ) {
     }
 
@@ -97,6 +97,7 @@ final readonly class ShardSizing
                 $this->jobLimit,
                 $this->scale,
                 $this->streamed,
+                $this->billed,
             );
     }
 
@@ -113,6 +114,7 @@ final readonly class ShardSizing
             $this->jobLimit,
             $this->scale,
             $this->streamed,
+            $this->billed,
         );
     }
 
@@ -131,6 +133,7 @@ final readonly class ShardSizing
                 $limit,
                 $this->scale,
                 $this->streamed,
+                $this->billed,
             );
     }
 
@@ -147,6 +150,7 @@ final readonly class ShardSizing
             $this->jobLimit,
             $this->scale,
             $this->streamed,
+            $this->billed,
         );
     }
 
@@ -172,6 +176,31 @@ final readonly class ShardSizing
                 $this->jobLimit,
                 $wall->scale(),
                 streamed: true,
+                billed: $this->billed,
+            );
+    }
+
+    /**
+     * This sizing, each package's count the one its jobs bill the fewest
+     * minutes at, each job's time rounded up to a whole minute, from the
+     * count it fits in up to what the most there may be leaves room for; a
+     * tie goes to more shards, and a count asked for is kept as asked (ADR-0240).
+     */
+    public function billedByTheMinute(): self
+    {
+        return $this->exact
+            ? $this
+            : new self(
+                $this->size,
+                $this->most,
+                $this->exact,
+                $this->target,
+                $this->overhead,
+                $this->workPerOverhead,
+                $this->jobLimit,
+                $this->scale,
+                $this->streamed,
+                billed: true,
             );
     }
 
@@ -198,7 +227,14 @@ final readonly class ShardSizing
             $counts = $this->countsAt($packages, $size);
         }
 
-        return $this->exact ? $counts : $this->worthCutting($packages, $counts);
+        if ($this->exact) {
+            return $counts;
+        }
+
+        $overheads = ShardOverheads::of($this->overhead, $this->workPerOverhead, $this->scale);
+        $worth = $overheads->worthCutting($packages, $counts);
+
+        return $this->billed ? $overheads->fewestMinutes($packages, $worth, $this->most) : $worth;
     }
 
     /** This size, no more than a shard's job can spend on its share of the cost once its overhead is paid. */
@@ -209,28 +245,6 @@ final readonly class ShardSizing
             : 0.0;
 
         return $room > 0.0 ? min($size, $room) : $size;
-    }
-
-    /**
-     * These counts, each lowered to the most shards whose share of the
-     * package's cost is at least `shards.cutAt` times their overhead. A package lowered to
-     * none still runs, in one shard, as each package does.
-     *
-     * @param  list<PackageWork> $packages
-     * @param  list<int>         $counts
-     * @return list<int>
-     */
-    private function worthCutting(array $packages, array $counts): array
-    {
-        $least = $this->overhead->seconds() * $this->workPerOverhead * $this->scale;
-
-        return array_map(
-            static fn(PackageWork $package, int $count): int => $least > 0.0
-                ? min($count, (int) floor($package->cost()->seconds() / $least))
-                : $count,
-            $packages,
-            $counts,
-        );
     }
 
     /**

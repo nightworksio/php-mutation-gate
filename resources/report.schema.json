@@ -1620,7 +1620,28 @@
                             "type": "number",
                             "minimum": 0
                         },
+                        "billedMinutes": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
                         "price": {
+                            "type": "object",
+                            "properties": {
+                                "amount": {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                "currency": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "amount",
+                                "currency"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "billedPrice": {
                             "type": "object",
                             "properties": {
                                 "amount": {
@@ -1655,7 +1676,28 @@
                             "type": "number",
                             "minimum": 0
                         },
+                        "billedMinutes": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
                         "price": {
+                            "type": "object",
+                            "properties": {
+                                "amount": {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                "currency": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "amount",
+                                "currency"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "billedPrice": {
                             "type": "object",
                             "properties": {
                                 "amount": {

@@ -46,3 +46,15 @@ it('shows the team\'s currency as text, which mentions no one, links nowhere and
         ->and($markdown)->not->toContain('@org')
         ->and($markdown)->not->toContain('![](');
 });
+
+it('says what the CI bills against what the plan expected, priced at the team\'s rate, and nothing of it for a run on no CI', function (): void {
+    $planned = RunTime::estimated(Seconds::of(420.0), Seconds::of(900.0))->billing(16);
+    $billed = Cost::of($planned, RunTime::measured(Seconds::of(360.0), Seconds::of(840.0))->billing(15), Seconds::of(0.0), Seconds::of(60.0));
+    $local = Cost::of($planned, RunTime::measured(Seconds::of(360.0), Seconds::of(840.0)), Seconds::of(0.0), Seconds::of(60.0));
+
+    expect(CostText::markdown($billed))->toContain('The CI bills 15 runner minutes, each job rounded up; the plan expected 16.')
+        ->and(CostText::markdown($billed))->not->toContain('the billed minutes cost')
+        ->and(CostText::markdown($billed->pricedAt(Rate::perMinute(0.2, 'EUR'))))
+        ->toContain("the plan expected 16.\nAt 0.20 EUR a runner minute, the billed minutes cost 3.00 EUR.")
+        ->and(CostText::markdown($local))->not->toContain('The CI bills');
+});

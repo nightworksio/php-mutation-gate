@@ -1134,6 +1134,13 @@
                     "type": "number",
                     "minimum": 1,
                     "default": 2.5
+                },
+                "mode": {
+                    "enum": [
+                        "wall",
+                        "minutes"
+                    ],
+                    "default": "wall"
                 }
             },
             "additionalProperties": false
@@ -6126,6 +6133,12 @@
                         "shardOverhead": {
                             "type": "number",
                             "minimum": 1
+                        },
+                        "mode": {
+                            "enum": [
+                                "wall",
+                                "minutes"
+                            ]
                         }
                     },
                     "additionalProperties": false

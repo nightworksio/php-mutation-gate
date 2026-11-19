@@ -506,3 +506,49 @@ it('cuts a run that streams its test parts to the fewest shards whose wall time 
     'not cutting test files: as sized, a unit a shard' => [fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 20)->streamedOver(StreamWall::of(4)), 2],
     'a count asked for: as asked' => [fn(): Cut => Cut::exactly(3)->cuttingTestFiles()->streamedOver(StreamWall::of(4)), 3],
 ]);
+
+it('cuts each package, where the minutes are billed, at the count whose jobs bill the fewest whole minutes, a tie going to more shards', function (
+    Cut $cut,
+    array $costs,
+) use ($weighed, $makeSrc, $shards): void {
+    $work = Workload::of($weighed('src/A.php', 50.0), $weighed('src/B.php', 50.0));
+
+    expect(array_column($shards($cut->cut($work, $makeSrc())), 2))->toBe($costs);
+})->with([
+    'the one shard that fits, billed two minutes' => [
+        fn(): Cut => Cut::toTarget(Seconds::of(120.0), Seconds::of(10.0), 20),
+        [100.0],
+    ],
+    'two shards billed a minute each, as fast for no more minutes' => [
+        fn(): Cut => Cut::toTarget(Seconds::of(120.0), Seconds::of(10.0), 20)->billedByTheMinute(),
+        [50.0, 50.0],
+    ],
+    'no more shards than the most there may be' => [
+        fn(): Cut => Cut::toTarget(Seconds::of(120.0), Seconds::of(10.0), 1)->billedByTheMinute(),
+        [100.0],
+    ],
+    'more shards that would bill more minutes' => [
+        fn(): Cut => Cut::toTarget(Seconds::of(120.0), Seconds::of(40.0), 20)->billedByTheMinute(),
+        [100.0],
+    ],
+    'a count asked for' => [fn(): Cut => Cut::exactly(1)->billedByTheMinute(), [100.0]],
+]);
+
+it('cuts no more shards, where the minutes are billed, than shards.cutAt allows', function () use ($weighed, $makeSrc, $shards): void {
+    $work = Workload::of($weighed('src/A.php', 50.0), $weighed('src/B.php', 50.0));
+
+    expect(array_column($shards(Cut::toTarget(Seconds::of(120.0), Seconds::of(10.0), 20)->cuttingAt(6.0)->billedByTheMinute()->cut($work, $makeSrc())), 2))
+        ->toBe([100.0]);
+});
+
+it('gives the room the most there may be leaves, where the minutes are billed, to the packages in path order', function () use ($weighed, $shards): void {
+    $work = Workload::of(
+        $weighed('packages/a/src/A.php', 50.0, 'packages/a'),
+        $weighed('packages/a/src/B.php', 50.0, 'packages/a'),
+        $weighed('src/C.php', 50.0),
+        $weighed('src/D.php', 50.0),
+    );
+
+    expect(array_column($shards(Cut::toTarget(Seconds::of(120.0), Seconds::of(10.0), 3)->billedByTheMinute()->cut($work, Trees::none())), 3))
+        ->toBe(['.', '.', 'packages/a']);
+});

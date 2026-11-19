@@ -48,11 +48,14 @@ final readonly class RunTimes
         try {
             $file = Node::decode($contents->text());
 
+            $spent = RunTime::measured(
+                Seconds::of($file->field('wallSeconds')->number()),
+                Seconds::of($file->field('runnerSeconds')->number()),
+            );
+            $billed = $file->field('billedMinutes');
+
             return new self(
-                RunTime::measured(
-                    Seconds::of($file->field('wallSeconds')->number()),
-                    Seconds::of($file->field('runnerSeconds')->number()),
-                ),
+                $billed->isPresent() ? $spent->billing($billed->integer()) : $spent,
                 self::planIn($file->field('plan')),
             );
         } catch (NotInShape) {

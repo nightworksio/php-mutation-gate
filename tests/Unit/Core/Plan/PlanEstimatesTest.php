@@ -54,11 +54,11 @@ function estimatedPlan(Shard ...$shards): Plan
     return Plan::of(Revision::ref('head'), Digest::sha256Of('base'), Keys::none(), Shards::of(...$shards));
 }
 
-it('expects the longest job as wall time and every job as runner time, each with its opening run and setup', function (): void {
+it('expects the longest job as wall time and every job as runner time, each with its opening run and setup, and each job\'s whole minutes billed', function (): void {
     $plan = estimatedPlan(estimatedShard(1, 100.0, 0.0, 20.0), estimatedShard(2, 0.0, 300.0, 20.0), Shard::empty(ShardId::of(3)));
 
     expect(PlanEstimates::of($plan, Seconds::of(60.0), StreamWall::of(1))->runTime())
-        ->toEqual(RunTime::estimated(Seconds::of(380.0), Seconds::of(560.0)));
+        ->toEqual(RunTime::estimated(Seconds::of(380.0), Seconds::of(560.0))->billing(3 + 7));
 });
 
 it('expects a shard that judges one part of the test files at the wall its streams take its cost in, and a whole shard at its cost', function (): void {
@@ -162,9 +162,9 @@ it('says each shard\'s runner is taken to run as many mutants at once as this ma
 
 it('expects a plan of shards under a second at their own time, and no time of a plan of none', function (): void {
     expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.0, 0.5, 0.0)), Seconds::of(0.0), StreamWall::of(1))->runTime())
-        ->toEqual(RunTime::estimated(Seconds::of(0.5), Seconds::of(0.5)))
+        ->toEqual(RunTime::estimated(Seconds::of(0.5), Seconds::of(0.5))->billing(1))
         ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0), StreamWall::of(1))->runTime())
-        ->toEqual(RunTime::estimated(Seconds::of(0.0), Seconds::of(0.0)));
+        ->toEqual(RunTime::estimated(Seconds::of(0.0), Seconds::of(0.0))->billing(0));
 });
 
 it('gives the whole share to the one basis of a plan of a microsecond', function (): void {

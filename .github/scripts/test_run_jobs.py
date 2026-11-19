@@ -190,7 +190,7 @@ class RunTimesStep(unittest.TestCase):
 class RunTimes(unittest.TestCase):
     NOW = datetime(2026, 11, 7, 12, 0, 0, tzinfo=timezone.utc)
 
-    def test_sums_each_job_and_spans_the_run_counting_a_running_job_up_to_now(self):
+    def test_sums_each_job_and_its_billed_minutes_and_spans_the_run_counting_a_running_job_up_to_now(self):
         jobs = [
             {"started_at": "2026-11-07T11:00:00Z", "completed_at": "2026-11-07T11:10:00Z"},
             {"started_at": "2026-11-07T11:05:00Z", "completed_at": "2026-11-07T11:20:00Z"},
@@ -198,7 +198,7 @@ class RunTimes(unittest.TestCase):
         ]
 
         self.assertEqual(
-            {"wallSeconds": 3600.0, "runnerSeconds": 600.0 + 900.0 + 60.0},
+            {"wallSeconds": 3600.0, "runnerSeconds": 600.0 + 900.0 + 60.0, "billedMinutes": 10 + 15 + 1},
             run_jobs.run_times(jobs, self.NOW),
         )
 
@@ -217,7 +217,7 @@ class RunTimes(unittest.TestCase):
         started = {"started_at": "2026-11-07T11:00:00Z", "completed_at": "2026-11-07T11:00:30Z"}
 
         self.assertEqual(
-            {"wallSeconds": 30.0, "runnerSeconds": 30.0},
+            {"wallSeconds": 30.0, "runnerSeconds": 30.0, "billedMinutes": 1},
             run_jobs.run_times([started, {"started_at": None}, {"started_at": "not a time"}], self.NOW),
         )
         self.assertIsNone(run_jobs.run_times([{"started_at": None}], self.NOW))

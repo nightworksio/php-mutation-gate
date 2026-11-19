@@ -574,3 +574,20 @@ it('writes what to try with a survivor in the JSON report, and nothing with a ki
     expect($mutants[0]['try'] ?? null)->toBe('use `$a` at 3.')
         ->and($mutants[1])->not->toHaveKey('try');
 });
+
+it('writes the minutes the CI bills, priced where the team gives a rate, as the schema holds them', function (): void {
+    $billed = Cost::of(
+        RunTime::estimated(Seconds::of(420.0), Seconds::of(900.0))->billing(16),
+        RunTime::measured(Seconds::of(360.0), Seconds::of(840.0))->billing(15),
+        Seconds::of(0.0),
+        Seconds::of(60.0),
+    )->pricedAt(Rate::perMinute(0.5, 'EUR'));
+    $report = JsonReport::encode(Verdicts::failing()->withAccount(Verdicts::account()->withCost($billed)));
+    $euros = static fn(float $amount): array => ['amount' => $amount, 'currency' => 'EUR'];
+
+    expect(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and(Decoded::at($report, 'cost', 'planned'))
+        ->toBe(['wallSeconds' => 420.0, 'runnerSeconds' => 900.0, 'billedMinutes' => 16, 'price' => $euros(7.5), 'billedPrice' => $euros(8.0)])
+        ->and(Decoded::at($report, 'cost', 'measured'))
+        ->toBe(['wallSeconds' => 360.0, 'runnerSeconds' => 840.0, 'billedMinutes' => 15, 'price' => $euros(7.0), 'billedPrice' => $euros(7.5)]);
+});

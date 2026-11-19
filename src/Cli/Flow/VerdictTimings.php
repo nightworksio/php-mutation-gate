@@ -31,7 +31,8 @@ use function sprintf;
  * the first job's setup to now, and the runner time of every shard and the
  * verdict together, each with its setup. A run on no CI has no job to set up,
  * so its clock measures what it took. Where the CI's API said what the jobs
- * took, that is what the run took (ADR-0017).
+ * took, that is what the run took (ADR-0017). On a CI, each job's time is
+ * also rounded up to the whole minutes the CI bills (ADR-0240).
  *
  * @internal
  */
@@ -49,6 +50,7 @@ final readonly class VerdictTimings
         $verdict = Seconds::between($began, $now);
         $first = $began;
         $runner = $verdict->seconds() + $each;
+        $jobs = [Seconds::of($verdict->seconds() + $each)];
         $shards = [];
 
         foreach ($results->shards() as [, $result]) {
@@ -56,6 +58,7 @@ final readonly class VerdictTimings
             $start = self::start($result, $spent, $began);
             $first = min($first, $start);
             $runner += $spent->seconds() + $each;
+            $jobs[] = Seconds::of($spent->seconds() + $each);
             $shards[] = ShardTiming::of(
                 $result->shard()->number(),
                 Phase::of(Instant::at($start), $spent),
@@ -66,7 +69,8 @@ final readonly class VerdictTimings
         $wall = Seconds::of(Seconds::between($first, $now)->seconds() + $each);
         $spent = match (true) {
             $measured instanceof RunTimes => $measured->spent(),
-            $setup instanceof Seconds => RunTime::estimated($wall, Seconds::of($runner)),
+            $setup instanceof Seconds => RunTime::estimated($wall, Seconds::of($runner))
+                ->billing(RunTime::billedFor(...$jobs)),
             default => RunTime::measured($wall, Seconds::of($runner)),
         };
         $plan = $measured instanceof RunTimes ? $measured->plan() : $measured;
