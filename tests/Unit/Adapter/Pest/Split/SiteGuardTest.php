@@ -9,8 +9,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\Kills;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\SiteGuard;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan;
 
-$holds = ['holds:src/Adapter/Pest/Split/SiteGuard.php'];
-
 afterEach(function (): void {
     SchemaSwitch::unsplit();
 });
@@ -28,4 +26,4 @@ it('holds every site of its plan undecided, and decides each once its mutant is 
     expect($planned)->toBe(['f1' => [1 => true, 2 => true], 'f2' => [4 => true]])
         ->and(SchemaSwitch::$live)->toBe(['f1' => [1 => true], 'f2' => [4 => true]])
         ->and($kills->taken())->toBe([]);
-})->group(...$holds);
+});
