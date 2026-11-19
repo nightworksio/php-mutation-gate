@@ -240,7 +240,8 @@ final readonly class FreshRuns
         $batch->children->remove();
 
         return $this->settled($result, $judged, $runs, $ended, $controlled, $batch->request->memory())
-            ->withSteps($steps);
+            ->withSteps($steps)
+            ->withWarnings($batch->order->notes());
     }
 
     /**
