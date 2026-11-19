@@ -42,6 +42,7 @@ jobs:
     outputs:
       jobs: ${{ steps.proven.outputs.jobs || steps.diff.outputs.jobs }}
       runners: ${{ steps.diff.outputs.runners }}
+      legs: ${{ steps.diff.outputs.legs }}
       warm: ${{ steps.diff.outputs.warm }}
       hooks: ${{ steps.diff.outputs.hooks }}
       builds: ${{ steps.diff.outputs.builds }}
@@ -608,7 +609,7 @@ jobs:
   # runs the newest (ADR-0017). The suite runs serially: a Pest under paratest
   # takes itself for a worker. `runner contracts` reads every leg's log.
   runner-contract:
-    name: runner contract
+    name: runner contract (${{ matrix.leg.name }})
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.runners != '[]') }}
     runs-on: ubuntu-24.04-arm
@@ -616,9 +617,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The runners whose legs this run reaches, every one where `what
-        # changed` could not say.
-        runner: ${{ fromJSON(needs.scope.outputs.runners || '["pest", "infection-13", "infection-12", "phpunit", "phpspec", "codeception", "testo", "analysers"]') }}
+        # The jobs of the runners whose legs this run reaches, each with its
+        # runners (legs.json), every one where `what changed` could not say.
+        leg: ${{ fromJSON(needs.scope.outputs.legs || '[{"name":"pest","runners":"pest"},{"name":"infection-13","runners":"infection-13"},{"name":"infection-12","runners":"infection-12"},{"name":"phpunit","runners":"phpunit"},{"name":"phpspec-codeception-testo","runners":"phpspec codeception testo"},{"name":"analysers","runners":"analysers"}]') }}
     env:
       RESOLUTIONS: highest lowest
     steps:
@@ -639,17 +640,19 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.composer-files.outputs.dir }}
-          key: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-${{ hashFiles('tests/Contract/**/composer.json', 'tests/Contract/**/composer.lock', 'composer.lock') }}
-          restore-keys: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-
-      # Each leg in turn, whether or not the one before it passed.
+          key: runner-fixture-${{ runner.os }}-${{ matrix.leg.name }}-${{ hashFiles('tests/Contract/**/composer.json', 'tests/Contract/**/composer.lock', 'composer.lock') }}
+          restore-keys: runner-fixture-${{ runner.os }}-${{ matrix.leg.name }}-
+      # Each runner's legs in turn, whether or not the one before passed.
       - id: contract
         env:
-          RUNNER: ${{ matrix.runner }}
+          RUNNERS: ${{ matrix.leg.runners }}
         run: |
           failed=0
-          for resolution in ${RESOLUTIONS}; do
-            echo "${RUNNER} at its ${resolution} releases"
-            .github/scripts/leg.sh "${RUNNER}" "${resolution}" || failed=1
+          for runner in ${RUNNERS}; do
+            for resolution in ${RESOLUTIONS}; do
+              echo "${runner} at its ${resolution} releases"
+              .github/scripts/leg.sh "${runner}" "${resolution}" || failed=1
+            done
           done
           exit "${failed}"
       # The test support the legs' tests use is the support legs.json lists,
@@ -657,15 +660,20 @@ jobs:
       - name: the legs' test support is listed
         if: ${{ !cancelled() }}
         env:
-          RUNNER: ${{ matrix.runner }}
-        run: python3 .github/scripts/leg_support.py check "${RUNNER}"
+          RUNNERS: ${{ matrix.leg.runners }}
+        run: |
+          failed=0
+          for runner in ${RUNNERS}; do
+            python3 .github/scripts/leg_support.py check "${runner}" || failed=1
+          done
+          exit "${failed}"
       # Each leg's log and its suite's outcome, by the leg's name, which
       # `runner contracts` reads as its evidence.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
-          name: runner-contract-${{ matrix.runner }}
-          path: evidence/raw/${{ matrix.runner }}-*
+          name: runner-contract-${{ matrix.leg.name }}
+          path: evidence/raw/
           if-no-files-found: error
           retention-days: 1
       - name: what failed

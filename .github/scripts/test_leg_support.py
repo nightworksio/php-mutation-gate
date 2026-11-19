@@ -47,7 +47,7 @@ class Support(unittest.TestCase):
 class TheTable(unittest.TestCase):
     def test_holds_every_key_a_leg_s_steps_read_and_a_sorted_list_of_existing_support(self):
         for runner, leg in leg_support.legs().items():
-            self.assertEqual(sorted(leg), sorted([*leg_support.FIXTURE, "support"]), runner)
+            self.assertEqual(sorted(leg), sorted([*leg_support.FIXTURE, "job", "support"]), runner)
             self.assertTrue((leg_support.ROOT / leg["dir"]).is_dir(), runner)
             self.assertEqual(leg["support"], sorted(leg["support"]), runner)
             for path in leg["support"]:

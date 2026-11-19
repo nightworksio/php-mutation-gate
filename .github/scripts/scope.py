@@ -14,6 +14,10 @@ Run by `what changed`. It prints the job's outputs, one `name=value` per line:
   of each, as a JSON list. A runner's legs run where its adapter or its
   fixture changed, the test support its own tests use (legs.json), or what
   every runner runs through.
+- `legs`: the jobs of `runner contract` those runners' legs run in, as a JSON
+  list of objects, each with the job's `name` and its `runners` in the order
+  their legs run, space-separated. A runner runs in the job legs.json names
+  for it, so runners whose suites are short share one job and its set-up.
 - `warm`: whether end-to-end's `warm workers` runs. It measures the PHPUnit
   runner's warm workers in another project, so it runs where that runner,
   its worker, what every runner runs through or the measuring script changed.
@@ -484,8 +488,23 @@ def own_streams() -> str:
     return str(streams(config)).lower()
 
 
+def legs_of(runners: list[str]) -> list[dict[str, str]]:
+    """The jobs these runners' legs run in, by the name legs.json gives each, with its runners in their order."""
+    jobs: dict[str, list[str]] = {}
+    for runner in runners:
+        jobs.setdefault(LEG_TABLE[runner]["job"], []).append(runner)
+    return [{"name": name, "runners": " ".join(members)} for name, members in jobs.items()]
+
+
 def everything() -> dict[str, str]:
-    return {"jobs": json.dumps(list(GATED)), "runners": json.dumps(list(RUNNERS)), "warm": "true", "hooks": "true", "builds": "true"}
+    return {
+        "jobs": json.dumps(list(GATED)),
+        "runners": json.dumps(list(RUNNERS)),
+        "legs": json.dumps(legs_of(list(RUNNERS))),
+        "warm": "true",
+        "hooks": "true",
+        "builds": "true",
+    }
 
 
 def outputs(
@@ -526,6 +545,7 @@ def outputs(
     return {
         "jobs": json.dumps(run),
         "runners": json.dumps(runners),
+        "legs": json.dumps(legs_of(runners)),
         "warm": str(warm).lower(),
         "hooks": str(hooks).lower(),
         "builds": str(builds).lower(),
