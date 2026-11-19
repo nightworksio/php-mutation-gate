@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Cost;
 
 use function array_values;
-use function count;
 
-use Countable;
 use IteratorAggregate;
 use Traversable;
 
@@ -16,7 +14,7 @@ use Traversable;
  *
  * @implements IteratorAggregate<int, RouteCost>
  */
-final readonly class RouteCosts implements Countable, IteratorAggregate
+final readonly class RouteCosts implements IteratorAggregate
 {
     /** @param list<RouteCost> $items */
     private function __construct(private array $items)
@@ -26,11 +24,6 @@ final readonly class RouteCosts implements Countable, IteratorAggregate
     public static function of(RouteCost ...$items): self
     {
         return new self(array_values($items));
-    }
-
-    public function count(): int
-    {
-        return count($this->items);
     }
 
     /** @return Traversable<int, RouteCost> */
