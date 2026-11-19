@@ -136,6 +136,9 @@ enum GateVariable: string
      */
     case SourcePinned = 'MUTATION_GATE_SOURCE_PINNED';
 
+    /** Set where a patched run's schemata guard each switch, so a decided site makes no call (ADR-0204). */
+    case SwitchGuard = 'MUTATION_GATE_SWITCH_GUARD';
+
     /** Set where a patched run makes every file's mutants side by side (see SideBySideMutants). */
     case MakingSideBySide = 'MUTATION_GATE_MAKING_SIDE_BY_SIDE';
 

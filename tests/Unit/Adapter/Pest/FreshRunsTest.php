@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -28,6 +30,9 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\Native\Variable;
+use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
+use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -80,7 +85,7 @@ function freshRunsTest(): TestId
 }
 
 /** The result judged again through this shell, the time left to start a run in being this. */
-function freshRunsOf(Project $at, ShellFake $shell, MutationResult $result, Seconds|Unlimited $left = new Unlimited(), string $refused = ''): MutationResult
+function freshRunsOf(Project $at, ShellFake $shell, MutationResult $result, Seconds|Unlimited $left = new Unlimited(), string $refused = '', bool $killersFirst = false): MutationResult
 {
     $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(2), freshRunsTest());
     $laps = Laps::since(static fn(): Seconds => Seconds::of(0.0), Seconds::of(0.0));
@@ -89,10 +94,13 @@ function freshRunsOf(Project $at, ShellFake $shell, MutationResult $result, Seco
     $placement = $refused === '' ? $placed : new RefusingPlacement($placed, $refused);
     $bounds = LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0));
 
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    $searching = KillSearch::of(Ordering::of(TestOrder::KillersFirst, KillHistory::none()), MatrixKind::FirstKiller);
+
     return new FreshRuns($at, $placement, $shell, new CapDirectory(), Patching::on(Group::named('canary')), $bounds)
         ->judged(
             $result,
-            MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()),
+            $killersFirst ? $request->searching($searching) : $request,
             new HandedOver($map, $at),
             static fn(): Seconds|Unlimited => $left,
             $laps,
@@ -190,6 +198,20 @@ it('survives a preloaded mutant whose fresh run served it and passed every cover
 
     expect($mutant->status())->toBe(MutantStatus::Survived);
 });
+
+it('notes that its fresh runs keep Pest\'s own order where the killers come first and Pest\'s own version is unread', function (bool $killersFirst, int $notes): void {
+    $shell = new ShellFake(static function (Command $command): Ran {
+        freshServed($command);
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+    $result = freshRunsOf(freshProject(), $shell, MutationResult::skippingNone(Mutants::of(freshRunsMutant())), killersFirst: $killersFirst);
+
+    expect(count($result->warnings()->notes()))->toBe($notes);
+})->with([
+    'killers first' => [true, 1],
+    'the runner\'s order' => [false, 0],
+]);
 
 it('leaves a preloaded mutant unjudged, saying why, where its file cannot be printed, and starts no run', function (): void {
     $at = freshProject();

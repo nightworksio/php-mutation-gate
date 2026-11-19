@@ -1941,6 +1941,10 @@
                 "startUpAtPlan": {
                     "type": "boolean",
                     "default": true
+                },
+                "heavyBeside": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -4095,6 +4099,14 @@
                     "type": "boolean",
                     "default": true
                 },
+                "freshOrder": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "freshRace": {
+                    "type": "boolean",
+                    "default": true
+                },
                 "shardScan": {
                     "type": "boolean",
                     "default": true
@@ -4116,6 +4128,10 @@
                     "default": true
                 },
                 "overlapSteps": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "switchGuard": {
                     "type": "boolean",
                     "default": true
                 },
@@ -6706,6 +6722,9 @@
                         },
                         "startUpAtPlan": {
                             "type": "boolean"
+                        },
+                        "heavyBeside": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false
@@ -8801,6 +8820,12 @@
                         "narrow": {
                             "type": "boolean"
                         },
+                        "freshOrder": {
+                            "type": "boolean"
+                        },
+                        "freshRace": {
+                            "type": "boolean"
+                        },
                         "shardScan": {
                             "type": "boolean"
                         },
@@ -8817,6 +8842,9 @@
                             "type": "boolean"
                         },
                         "overlapSteps": {
+                            "type": "boolean"
+                        },
+                        "switchGuard": {
                             "type": "boolean"
                         },
                         "pcovOff": {

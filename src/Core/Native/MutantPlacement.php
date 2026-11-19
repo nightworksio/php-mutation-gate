@@ -36,8 +36,17 @@ interface MutantPlacement
      */
     public function serving(string $original, string $mutated, string $guard): string;
 
-    /** The files of a mutant whose mutated file holds this code, for a run of the tests this selection lists. */
-    public function placed(Mutant $mutant, Contents $code, Selection $selection): PlacedMutant|CannotJudge;
+    /**
+     * The files of a mutant whose mutated file holds this code, for a run of
+     * the tests this selection lists; in a part of the mutant's own directory
+     * of this name, where one is given, for a run beside another of it.
+     */
+    public function placed(
+        Mutant $mutant,
+        Contents $code,
+        Selection $selection,
+        string $part = '',
+    ): PlacedMutant|CannotJudge;
 
     /** A file of this name in the placement's own directory, removed if it was there; or why it cannot be. */
     public function fresh(string $name): string|CannotJudge;

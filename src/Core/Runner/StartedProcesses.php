@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use Closure;
+
 /**
  * Commands started side by side without waiting for them, each looked at,
  * and so held to its deadline and its silence limit, only while their ends
@@ -19,6 +21,16 @@ interface StartedProcesses
      * once every one has ended: those not yet started start as places free.
      */
     public function ends(): ProcessEnds;
+
+    /**
+     * How each command started ended, as {@see ends()} gives them, those this
+     * names as settled, by their positions, from the ends so far, each time
+     * one more has ended, let go: stopped where they run, and never started
+     * where they wait, ending as stopped.
+     *
+     * @param Closure(array<int, Ran>): list<int> $settled
+     */
+    public function endsSettling(Closure $settled): ProcessEnds;
 
     /** Each command still running stopped with every process it started, and none started after. */
     public function stop(): void;

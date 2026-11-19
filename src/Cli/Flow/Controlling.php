@@ -45,8 +45,10 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * vouch for it, and each mutant out of memory judged by its tests run
  * unmutated, those that fit in the time left side by side, the controls of
  * the request's first files first, and each heavy timeout by its parts
- * after them (see PartedRuns). A split stream's verdicts need no control
- * (ADR-0117).
+ * (see PartedRuns), the first round of them queued in the controls' pool
+ * behind the controls, so the pool's places the controls leave idle run
+ * them (ADR-0201), and the later rounds after them. A split stream's
+ * verdicts need no control (ADR-0117).
  *
  * @internal
  */
@@ -68,7 +70,8 @@ final readonly class Controlling
      * test is named for whose ending does not vouch for it, and each mutant
      * out of memory judged by its unmutated control (see TimeoutControls,
      * KillControls, UnnamedKillControls and MemoryControls), and each heavy
-     * timeout by its parts after them (see PartedRuns), with the
+     * timeout by its parts, the first round of them run beside the controls
+     * and the rest after them (see PartedRuns), with the
      * evidence of each unnamed kill its control vouches for, a control
      * two of them share run once: those that fit in the time left run side
      * by side, in the request's pool, and the rest are unjudged. Under
@@ -91,7 +94,9 @@ final readonly class Controlling
             return $this->partedIn(new Controlled($mutants, $evidence), $heavy, $request);
         }
 
-        [$runs, $left] = $this->ranWith($asked, $request, $overlap, $kinds);
+        $first = $this->parted->firstRound($heavy, $request->pool()->processes());
+        $kinds = $kinds->asking(ControlKind::HeavyPart, Controls::of(...$first));
+        [$runs, $left] = $this->ranWith($asked, $request, $overlap, $kinds, $first);
         $fallback = $runs instanceof CannotJudge ? [] : [...$kills->fallback($runs, $left)];
         [$again, $leftAgain] = $fallback === []
             ? [ControlRuns::none(), Controls::none()]
@@ -118,7 +123,7 @@ final readonly class Controlling
             $unnamed->vouching($mutants, $evidence, $runs, $left),
         );
 
-        return $this->partedIn($controlled, $heavy, $request);
+        return $this->partedIn($controlled, $heavy, $request, $runs);
     }
 
     /**
@@ -220,6 +225,7 @@ final readonly class Controlling
      * again taken, and the rest run now, as {@see ranOf()} runs them.
      *
      * @param  non-empty-list<Control>                  $asked
+     * @param  list<Control>                            $beside the first round of the heavy mutants' parts
      * @return array{ControlRuns|CannotJudge, Controls}
      */
     private function ranWith(
@@ -227,13 +233,14 @@ final readonly class Controlling
         MutationRequest $request,
         StepsOverlap $overlap,
         ControlKinds $kinds,
+        array $beside,
     ): array {
         $started = $overlap->taken($this->stopwatch);
 
         if (! $started instanceof ControlRuns) {
             return $started instanceof CannotJudge
                 ? [$started, Controls::none()]
-                : $this->ranOf($asked, $request, $kinds);
+                : $this->ranOf($asked, $request, $kinds, Step::Controls, $beside);
         }
 
         $rest = array_values(array_filter($asked, static fn(Control $control): bool => ! $started->holds($control)));
@@ -242,7 +249,7 @@ final readonly class Controlling
             return [$started, Controls::none()];
         }
 
-        [$runs, $left] = $this->ranOf($rest, $request, $kinds);
+        [$runs, $left] = $this->ranOf($rest, $request, $kinds, Step::Controls, $beside);
 
         return [$runs instanceof CannotJudge ? $runs : $started->and($runs), $left];
     }
@@ -261,11 +268,16 @@ final readonly class Controlling
         return Mutants::of(...$controllable);
     }
 
-    /** What the controls found, each heavy mutant judged by its parts; or why a part cannot be judged. */
+    /**
+     * What the controls found, each heavy mutant judged by its parts, those
+     * of its parts that ran beside the controls taken as found; or why a part
+     * cannot be judged.
+     */
     private function partedIn(
         Controlled $controlled,
         HeavyMutants $heavy,
         MutationRequest $request,
+        ControlRuns|NotGiven $found = new NotGiven(),
     ): Controlled|CannotJudge {
         $mutants = $this->parted->judged(
             $controlled->mutants,
@@ -278,6 +290,7 @@ final readonly class Controlling
                 Step::HeavyParts,
                 $ahead,
             ),
+            $found,
         );
 
         return $mutants instanceof CannotJudge ? $mutants : new Controlled($mutants, $controlled->evidence);

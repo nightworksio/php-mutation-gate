@@ -11,6 +11,7 @@ use Closure;
 use function file_put_contents;
 
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
+use NightWorksIO\MutationGate\Adapter\Pest\Schemata as GateSchemata;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Schema;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Site;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\SwitchCall;
@@ -35,11 +36,12 @@ final class Schemata
      *
      * @param Closure(Nodes): list<Site> $sites
      */
-    public static function of(string $code, Closure $sites, bool $valuing = false): Schema
+    public static function of(string $code, Closure $sites, bool $valuing = false, bool $guarded = false): Schema
     {
         $statements = new ParserFactory()->createForNewestSupportedVersion()->parse($code) ?? [];
         new NodeTraverser(new NameResolver(null, ['replaceNodes' => false]), new ParentConnectingVisitor())->traverse($statements);
         $switch = SwitchCall::of(self::switch());
+        $switch = $guarded ? $switch->guarded(self::guard()) : $switch;
 
         return Schema::of(
             $code,
@@ -52,6 +54,12 @@ final class Schemata
     public static function valued(): string
     {
         return sprintf("\\%s::value('%s', %%1\$d, fn () => (%%2\$s), fn () => (%%3\$s))", SchemaSwitch::class, self::KEY);
+    }
+
+    /** The guard in front of a test's schemata's switches, `%d` where it takes the id (ADR-0204). */
+    public static function guard(): string
+    {
+        return sprintf(GateSchemata::GUARD, SchemaSwitch::class, self::KEY);
     }
 
     /** The call a test's schemata switch by, `%d` where it takes the id. */

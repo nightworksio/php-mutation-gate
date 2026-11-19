@@ -49,6 +49,7 @@ parameters:
             - tests/Contract/Runner/interceptor
             - tests/Contract/Runner/twins
             - tests/Contract/Runner/streamed
+            - tests/Contract/Runner/fresh-order
             - tests/Contract/Runner/spawned
             - tests/Contract/Runner/phpunit-fixture
             - tests/Contract/Runner/phpspec-fixture

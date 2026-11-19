@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use Closure;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\StartedProcesses;
 
@@ -27,6 +28,14 @@ final readonly class TailStarted implements StartedProcesses
     public function ends(): ProcessEnds
     {
         $ends = $this->started->ends();
+        $this->workers->cleared();
+
+        return $ends;
+    }
+
+    public function endsSettling(Closure $settled): ProcessEnds
+    {
+        $ends = $this->started->endsSettling($settled);
         $this->workers->cleared();
 
         return $ends;

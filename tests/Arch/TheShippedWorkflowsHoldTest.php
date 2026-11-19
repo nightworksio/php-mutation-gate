@@ -481,7 +481,7 @@ it('installs the gate the action delivers with from its own lock alone, running 
         ->and($script)->toContain('COMPOSER="${manifest}" composer install --working-dir="${gate}" --no-dev --no-scripts --no-plugins');
 });
 
-it('restores PHPStan\'s result cache in every run but a delivery\'s, and keeps the one the run left under its own digest', function (): void {
+it('restores PHPStan\'s result cache in every run but a delivery\'s and one handed the plan\'s, and keeps the one a run that restored left under its own digest', function (): void {
     $steps = WorkflowFile::at('action.yml')->field('runs')->field('steps');
     $named = static fn(string $wanted): Node => Lenient::items($steps)[WorkflowFile::stepsWhere(
         $steps,
@@ -492,12 +492,13 @@ it('restores PHPStan\'s result cache in every run but a delivery\'s, and keeps t
     $save = $named('Save the static analyser\'s result cache');
     $digest = "hashFiles('.mutation-gate/phpstan/resultCache.php')";
 
-    expect(Lenient::text($restore->field('if')))->toBe("inputs.deliver != 'true'")
+    expect(Lenient::text($restore->field('if')))->toBe(sprintf("inputs.deliver != 'true' && %s == ''", $digest))
         ->and(Lenient::text($restore->field('with')->field('path')))->toBe('.mutation-gate/phpstan/resultCache.php')
         ->and(Lenient::text($restore->field('with')->field('key')))->toEndWith('-${{ github.run_id }}')
         ->and(Lenient::text($save->field('with')->field('key')))->toEndWith(sprintf('-${{ %s }}', $digest))
         ->and(Lenient::text($save->field('if')))->toContain(sprintf("%s != ''", $digest))
-        ->and(Lenient::text($save->field('if')))->toContain('steps.analysed.outputs.cache-matched-key');
+        ->and(Lenient::text($save->field('if')))->toContain('steps.analysed.outputs.cache-matched-key')
+        ->and(Lenient::text($save->field('if')))->toContain("steps.analysed.outcome == 'success'");
 });
 
 it('caches the ledger and the kept coverage map the verdict left, keyed by both, in the action and the reusable workflow', function (): void {
