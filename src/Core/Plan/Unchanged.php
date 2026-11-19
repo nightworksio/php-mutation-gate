@@ -15,7 +15,6 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Key\RunInputs;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
-use NightWorksIO\MutationGate\Core\Proof\ReusablePass;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Time\Day;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -55,12 +54,6 @@ final readonly class Unchanged
         string $from = '',
     ): self {
         return new self($base, $at, $because, $from);
-    }
-
-    /** The verdict of a pass whose run read inputs identical to the run's, read from where it says (ADR-0198). */
-    public static function reusing(ReusablePass $pass, Instant $at): self
-    {
-        return new self($pass->passed(), $at, StandsBecause::IdenticalInputs, $pass->from());
     }
 
     /** Where the pass whose verdict is reused was read; empty where the verdict is not reused. */

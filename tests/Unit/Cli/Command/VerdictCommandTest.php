@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Measuring;
 use NightWorksIO\MutationGate\Cli\InstalledGate;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -39,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
+use NightWorksIO\MutationGate\Core\Proof\JudgingRun;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -362,7 +364,7 @@ it('plans nothing and passes, recording the commit, where only files that do not
         ->and($verdict->output)->toContain(sprintf("The earlier verdict at %s stands.\n", $base))
         ->and($verdict->output)->not->toContain('The project has nothing to mutate.')
         ->and($again instanceof Verdict ? [$again->judgement(), count($again->trees())] : $again)->toBe([Judgement::Passed, 0])
-        ->and(LedgerRead::ledger($proofs->read(Scope::branch('main')))->runs()->passed())
+        ->and(verdictJudgedIn(LedgerRead::ledger($proofs->read(Scope::branch('main')))->runs()->passed()))
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(InstalledGate::version())));
 });
 
@@ -382,7 +384,11 @@ it('stands on the verdict the default branch passed where a pull request reaches
         new CiPlanFake(RunOn::at(Scope::pullRequest(516), Scope::branch('main'))),
         Variables::of([]),
         RepositoryFake::onMain(Revision::ref($merge)),
-        new ChangeSourceFake(Revision::ref($base), Changes::of(Change::modified(Path::of('.github/workflows/scorecard.yml'), Lines::none())), $files),
+        new ChangeSourceFake(
+            Revision::ref($base),
+            Changes::of(Change::modified(Path::of('.github/workflows/scorecard.yml'), Lines::none())),
+            [...$files, Revision::workingTree()->name() => [...Flows::FILES, '.github/workflows/scorecard.yml' => "on: push\n"]],
+        ),
     );
     FlowCommands::run(PlanCommand::command($main), '--shards=1 --full');
     FlowCommands::run(RunCommand::command($main), '--plan=.mutation-gate/plan.json --shard=1 --results=.mutation-gate/results');
@@ -401,7 +407,7 @@ it('stands on the verdict the default branch passed where a pull request reaches
         ->and($verdict->output)->toContain(sprintf('The change since %s, whose verdict passed at %s, reaches no unit, so its verdict stands.', $base, Instant::at(new DateTimeImmutable(Configs::NOW))->value()))
         ->and($verdict->output)->toContain(sprintf("The default branch's earlier verdict at %s stands.\n", $base))
         ->and($verdict->output)->not->toContain('The project has nothing to mutate.')
-        ->and(LedgerRead::ledger($proofs->read(Scope::pullRequest(516)))->runs()->passed())
+        ->and(verdictJudgedIn(LedgerRead::ledger($proofs->read(Scope::pullRequest(516)))->runs()->passed()))
         ->toEqual(Passed::of(Revision::ref($merge), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(InstalledGate::version())));
 });
 
@@ -440,6 +446,16 @@ it('cannot judge a run planned without a fresh map where a shard left no recorde
 ]);
 
 /** A plan of two shards made in a project, briefed as planned without a fresh map, and both its shards run. */
+/** A pass as the ledger records it, the run that judged it left out once it recorded that run's inputs. */
+function verdictJudgedIn(Passed|CannotTell $passed): Passed|CannotTell|string
+{
+    return match (true) {
+        ! $passed instanceof Passed => $passed,
+        $passed->judging()->inputs() instanceof Digest => $passed->judgedIn(JudgingRun::unrecorded()),
+        default => 'the pass records no inputs',
+    };
+}
+
 function verdictPlannedEarly(Composition $composition, string $project): void
 {
     FlowCommands::run(PlanCommand::command($composition), '--shards=2');

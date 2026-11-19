@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Key\RunInputs;
@@ -208,7 +209,9 @@ final readonly class IdenticalPlan
             && $judging->readSame($inputs)
             && $passed->check() === $this->settings->ci()->check()
             && (! $full || $judging->isWhole());
-        $unchanged = $stands ? Unchanged::reusing($pass, $at) : NotGiven::value();
+        $unchanged = $stands
+            ? Unchanged::standing(StandsBecause::IdenticalInputs, $pass->passed(), $at, $pass->from())
+            : NotGiven::value();
         $expired = $unchanged instanceof Unchanged
             ? $unchanged->expiredBy($this->settings->ignores()->entries(), $this->setup->clock->now())
             : NotGiven::value();
