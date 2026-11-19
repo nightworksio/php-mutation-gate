@@ -415,7 +415,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
         StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true),
     ));
     $handed = Path::of('.mutation-gate/parted');
-    $measured = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handed));
+    $measured = $library->covered('the whole suite, handed to the parts', CoverageRun::of(WholeSuite::tests(), $handed));
     $map = $measured instanceof CoverageMap ? $measured : CoverageMap::of();
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in($handed)->value())),
@@ -511,7 +511,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     $streams = StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: false);
     $library = Library::pest(Patching::on(Library::canary())->splitting($streams));
     $handed = Path::of('.mutation-gate/recorded-map');
-    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handed));
+    $map = $library->covered('the whole suite, handed to the recording streams', CoverageRun::of(WholeSuite::tests(), $handed));
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in($handed)->value())),
         CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::of(), Unplaced::map()),
