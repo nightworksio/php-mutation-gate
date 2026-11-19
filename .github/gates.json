@@ -205,8 +205,8 @@
       "evidence": "none",
       "why": "Each platform's leg runs on a runner of its own, and docker's log, which the job shows, names the step of the Dockerfile that failed."
     },
-    "runner-contract": {
-      "check": "runner contract",
+    "runner-contract/legs": {
+      "check": "runner-contract / ${{ matrix.leg.name }}",
       "checks": "One runner's two legs of runner contracts: its contracts, Pest's, Infection's with PHPUnit 13 or 12, PHPUnit's, PhpSpec's, Codeception's or the analysers', at each resolution of its fixture, the highest its committed lock holds and the lowest the package supports.",
       "reproduce": ".github/scripts/leg.sh <runner> <highest or lowest>, which empties tests/Contract of what is untracked and installs the leg's fixture (composer install for the locked highest, composer update --prefer-lowest for the lowest); ANALYSER_CONTRACTS=1 for the analysers",
       "evidence": "none",
