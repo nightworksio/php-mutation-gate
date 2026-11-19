@@ -36,6 +36,9 @@ enum Toggle: string
     /** A mutant's start-up is measured once, as the plan is made, for every shard of its platform (ADR-0165). */
     case TimeoutsStartUpAtPlan = 'timeouts.startUpAtPlan';
 
+    /** The first round of an invocation's heavy mutants' parts runs in its controls' pool, behind them (ADR-0201). */
+    case TimeoutsHeavyBeside = 'timeouts.heavyBeside';
+
     /** The verdict notes each loose value in force (ADR-0142). */
     case SuggestLooseValues = 'suggest.looseValues';
 
@@ -101,6 +104,7 @@ enum Toggle: string
             self::StaticCheckAfter,
             self::TimeoutsParts,
             self::TimeoutsStartUpAtPlan,
+            self::TimeoutsHeavyBeside,
             self::SuggestLooseValues,
             self::StaticCheckTurbo,
             self::StaticCheckWarmAtPlan => false,
@@ -122,6 +126,7 @@ enum Toggle: string
             self::StaticCheckTurbo,
             self::StaticCheckWarmAtPlan,
             self::TimeoutsStartUpAtPlan,
+            self::TimeoutsHeavyBeside,
             self::PestShardScan,
             self::PestReadyAtPlan,
             self::PestMakeSideBySide,
@@ -172,7 +177,8 @@ enum Toggle: string
             self::PestXdebugOff,
             self::StaticCheckTurbo,
             self::StaticCheckWarmAtPlan,
-            self::TimeoutsStartUpAtPlan => false,
+            self::TimeoutsStartUpAtPlan,
+            self::TimeoutsHeavyBeside => false,
         };
     }
 
@@ -188,6 +194,7 @@ enum Toggle: string
             self::StaticCheckAfter => 'CheckTiming::checkingSurvivors()',
             self::TimeoutsParts => 'Timeouts::inParts()',
             self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringAtPlan()',
+            self::TimeoutsHeavyBeside => 'HeavyMutants::firstRoundBesideControls()',
             self::SuggestLooseValues => 'Suggest::looseValuesNoted()',
             self::StaticCheckTurbo => 'StaticCheck::turbo()',
             self::StaticCheckWarmAtPlan => 'StaticCheck::warmingAtPlan()',
@@ -214,6 +221,7 @@ enum Toggle: string
             self::StaticCheckAfter => 'CheckTiming::survivorsUnchecked()',
             self::TimeoutsParts => 'Timeouts::neverInParts()',
             self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringInEachShard()',
+            self::TimeoutsHeavyBeside => 'HeavyMutants::firstRoundAfterControls()',
             self::SuggestLooseValues => 'Suggest::looseValuesSilent()',
             self::StaticCheckTurbo => 'StaticCheck::withoutTurbo()',
             self::StaticCheckWarmAtPlan => 'StaticCheck::warmingInEachShard()',

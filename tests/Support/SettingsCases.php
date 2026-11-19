@@ -215,7 +215,8 @@ final readonly class SettingsCases
             },
             "heavyFill": true,
             "parts": true,
-            "startUpAtPlan": true
+            "startUpAtPlan": true,
+            "heavyBeside": true
         },
         "flaky": {
             "confirmSurvivors": true,

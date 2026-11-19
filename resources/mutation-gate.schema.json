@@ -1968,6 +1968,10 @@
                 "startUpAtPlan": {
                     "type": "boolean",
                     "default": true
+                },
+                "heavyBeside": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -6760,6 +6764,9 @@
                             "type": "boolean"
                         },
                         "startUpAtPlan": {
+                            "type": "boolean"
+                        },
+                        "heavyBeside": {
                             "type": "boolean"
                         }
                     },

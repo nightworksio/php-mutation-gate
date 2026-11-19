@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\Saying;
+use NightWorksIO\MutationGate\Core\Runner\CoreTimes;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Remaining;
@@ -11,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Tests\Support\GaugeFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedClock;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedGauge;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -92,5 +94,26 @@ it('says what the machine has left of its memory, swap and disk on each line, as
 
     expect(saidAt($file))->toBe([
         'mutation-gate: 0 of 1 processes ended, 1 running; memory 9.2 of 16.7 GB free, swap 0.0 of 3.2 GB used, disk 113.9 GB free; the longest for 1m: php one.php',
+    ]);
+});
+
+it('says how many cores were busy since the wait began, then since the line before', function (): void {
+    $file = sprintf('%s/said.log', Scratch::directory());
+    $command = [ProcessCommand::of('/p', 'php', 'one.php')];
+    $gauge = new ScriptedGauge(
+        Remaining::unknown()->withCores(CoreTimes::of(1_000, 10_000, 4)),
+        Remaining::unknown()->withCores(CoreTimes::of(2_500, 16_000, 4)),
+        Remaining::unknown()->withCores(CoreTimes::of(8_500, 22_000, 4)),
+    );
+    Saying::on(ErrorOutputLog::to($file), new ScriptedClock('2026-10-26T10:00:00Z', 0, 30, 61, 90, 122), $gauge)
+        ->at([], $command, 0, new Unwatched())
+        ->at([0], $command, 0, new Unwatched())
+        ->at([0], $command, 0, new Unwatched())
+        ->at([0], $command, 0, new Unwatched())
+        ->at([0], $command, 0, new Unwatched());
+
+    expect(saidAt($file))->toBe([
+        'mutation-gate: 0 of 1 processes ended, 1 running; cores 1.0 of 4 busy; the longest for 31s: php one.php',
+        'mutation-gate: 0 of 1 processes ended, 1 running; cores 4.0 of 4 busy; the longest for 2m: php one.php',
     ]);
 });
