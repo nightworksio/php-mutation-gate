@@ -444,6 +444,17 @@ mod tests {
             assert!(matches!(waiting(line), Some(Err(_))), "{line}");
         }
 
+        assert_eq!(
+            waiting(r#"changed {"since": 0, "wait": 0}"#),
+            Some(Err(String::from("the request: expected paths")))
+        );
+        assert!(
+            waiting(r#"changed {"paths": [1], "since": 0, "wait": 0}"#)
+                .is_some_and(|read| read
+                    .is_err_and(|why| why.starts_with("the request: expected ")
+                        && why.contains(" at byte ")))
+        );
+
         assert_eq!(changed(4, 1), r#"{"outbreak":1,"changed":4}"#);
         assert_eq!(
             unwatched("no \"inotify\"", 1),
