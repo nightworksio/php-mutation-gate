@@ -60,7 +60,7 @@ it('serves each heavy mutant as its runner gives it to a static analyser, and ju
     $rounds = [];
 
     $judged = $parted->judged(Mutants::of(partedRunsHeavy()), $heavy, static function (array $asked) use (&$rounds): array {
-        $rounds[] = array_map(static fn(Control $control): ?Contents => $control->served() instanceof Contents ? $control->served() : null, $asked);
+        $rounds[] = array_map(static fn(Control $control): Contents|false => $control->served() instanceof Contents ? $control->served() : false, $asked);
         $runs = ControlRuns::none();
 
         foreach ($asked as $control) {
@@ -70,7 +70,7 @@ it('serves each heavy mutant as its runner gives it to a static analyser, and ju
         return [$runs, Controls::none()];
     });
 
-    expect($rounds)->toEqual([[$checkable instanceof CannotJudge ? null : $checkable->mutant()], [$checkable instanceof CannotJudge ? null : $checkable->mutant()]])
+    expect($rounds)->toEqual([[$checkable instanceof CannotJudge ? false : $checkable->mutant()], [$checkable instanceof CannotJudge ? false : $checkable->mutant()]])
         ->and($judged instanceof Mutants ? array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$judged]) : $judged)
         ->toBe([MutantStatus::Killed])
         ->and($parted->judged(Mutants::of(partedRunsHeavy()), $heavy, static fn(): array => [CannotJudge::because('no runner'), Controls::none()]))
