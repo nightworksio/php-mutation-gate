@@ -7,8 +7,6 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Change\CannotTell;
-use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
@@ -16,7 +14,6 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
-use NightWorksIO\MutationGate\Core\Coverage\Untested;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Local\LocalSwitch;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
@@ -41,8 +38,6 @@ use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
-use function sprintf;
-
 /**
  * `plan`: the units of the trees, what the change reaches, each considered
  * unit's key, and the shards the units no proof covers are cut into. A shard
@@ -58,18 +53,16 @@ final readonly class Planning
         so it plans nothing: the caller that hands a fresh map runs it (ADR-0135).
         SAID;
 
-    private const string NO_NEW_CODE = <<<'SAID'
-        A pull request's or merge group's new code is judged against %s, and git cannot tell what changed since it,
-        so no floor for new code can be held. %s
-        Fetch it into the checkout before the plan.
-        SAID;
-
     private const string NOT_FULL = <<<'SAID'
         A full kill matrix needs Infection to keep running after a failure, which it cannot.
         SAID;
 
-    public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
-    {
+    public function __construct(
+        private Adapters $adapters,
+        private Settings $settings,
+        private Setup $setup,
+        private bool $selectionOnly = false,
+    ) {
     }
 
     /**
@@ -351,7 +344,7 @@ final readonly class Planning
         $served = ServedProofs::read($this->adapters, $taken, $ledgers, $keys);
         $proving = $ledgers->caching($cache->read($inventory->standing, $keying->base())->serving($served))
             ->proving($considering->considered(), $keys, $keying->base(), $kind);
-        $changed = $this->newCode($inventory->standing, $reached);
+        $changed = new NewCode($this->adapters)->of($inventory->standing, $reached);
         $auto = AutoSampling::of(
             $this->adapters,
             $this->settings,
@@ -368,6 +361,34 @@ final readonly class Planning
         $toRun = $sample instanceof Sample ? $sample->running($proving->toRun()) : $proving->toRun();
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
             ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
+        $reasons = KeysApart::said(
+            OwnScopeStanding::said(
+                $reached->reach()->reasons(),
+                $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+            ),
+            $proving->toRun(),
+            $ledgers->defaultBranch(),
+            $kind,
+            $now,
+            $ledgers->readsOwnScope() && $this->settings->effective()->output()->reports()->suggest()->enabled(),
+        );
+        $selection = Selection::of(
+            $toRun,
+            Considered::everything()
+                ->proving($this->unitsOf($proving->proved()))
+                ->carrying($carried)
+                ->carryingOwn($carriedOwn)
+                ->pruning($pruned),
+            $changed,
+            $auto->said($reasons),
+            $map,
+            $sample,
+        );
+
+        if ($this->selectionOnly) {
+            return $selection->alone($inventory->standing, $keying->base(), $keys);
+        }
+
         $opening = $map->durations()->total();
         $firstRun = $this->firstRun($quick, $map, $ledgers->costs($this->setup->gate)->untimed($toRun));
         $planned = new PlannedShards($this->adapters, $this->settings, $this->setup);
@@ -381,17 +402,6 @@ final readonly class Planning
             $planned->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun)->saving($saved),
         );
         $digests = $this->committed($now, $inventory->standing->head());
-        $reasons = KeysApart::said(
-            OwnScopeStanding::said(
-                $reached->reach()->reasons(),
-                $proving->ownScopeProofs() + $considering->ownScopeProofs(),
-            ),
-            $proving->toRun(),
-            $ledgers->defaultBranch(),
-            $kind,
-            $now,
-            $ledgers->readsOwnScope() && $this->settings->effective()->output()->reports()->suggest()->enabled(),
-        );
         $standing = new NothingReached($this->adapters, $this->settings, $this->setup)->briefing(
             $shards,
             $inventory,
@@ -402,10 +412,11 @@ final readonly class Planning
             count($proving->proved()),
         );
 
+        $considered = $selection->considered();
+
         return match (true) {
             $shards instanceof CannotJudge => $shards,
-            $changed instanceof CannotJudge => $changed,
-            $sample instanceof CannotJudge => $sample,
+            $considered instanceof CannotJudge => $considered,
             default => $this->handed(
                 $entryKeys,
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
@@ -415,16 +426,7 @@ final readonly class Planning
                             ->briefed($standing, $shards, $map),
                     )
                     ->digesting($digests)
-                    ->considering(
-                        Considered::everything()
-                            ->reaching($changed, $auto->said($reasons))
-                            ->untesting(Untested::of($changed, $map))
-                            ->proving($this->unitsOf($proving->proved()))
-                            ->carrying($carried)
-                            ->carryingOwn($carriedOwn)
-                            ->pruning($pruned)
-                            ->sampling($sample),
-                    )
+                    ->considering($considered)
                     ->naming($this->adapters->runner->names($map->tests(), $this->adapters->withheld)),
                 $map,
                 $at,
@@ -473,31 +475,6 @@ final readonly class Planning
 
         return $handed instanceof CannotJudge ? $handed : $plan;
     }
-
-    /**
-     * The lines the verdict holds to the floor for new code: those the change
-     * added or modified. A pull request's or merge group's new code is judged
-     * whatever the run considers, so where the run does not know its lines,
-     * as a full run does not, they are those since its base: the branch a
-     * pull request merges into, or the commit a merge group was built on.
-     */
-    private function newCode(Standing $standing, Reached $reached): Changes|CannotJudge
-    {
-        $changed = $reached->changed();
-        $fetched = $standing->proposedBase();
-        $changed = $changed instanceof CannotTell && $standing->runOn()->isProposed()
-            ? Reached::linesSince($fetched, $this->adapters)
-            : $changed;
-
-        return match (true) {
-            $changed instanceof Changes => $changed,
-            $standing->runOn()->isProposed() => CannotJudge::because(
-                sprintf(self::NO_NEW_CODE, $fetched->name(), $changed->why()),
-            ),
-            default => Changes::none(),
-        };
-    }
-
 
     private function unitsOf(UnitResults $results): Units
     {

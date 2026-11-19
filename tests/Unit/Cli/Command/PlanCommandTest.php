@@ -6,6 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
+use NightWorksIO\MutationGate\Cli\Command\RunCommand;
+use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
+use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -97,6 +100,39 @@ it('leaves standard output to the plan a CI reads from it, and says what it wrot
     'circleci' => [fn(): CircleCiPlan => CircleCiPlan::in(Variables::of([]))],
     'buildkite' => [fn(): BuildkitePlan => BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))],
 ]);
+
+it('stops at the selection, hands it to no CI, and leaves a plan no shard and no verdict follows', function () use (
+    $plan,
+): void {
+    $project = FlowCommands::project();
+    $ci = Flows::ci();
+    $composition = static fn(): Composition => FlowCommands::composition($project, ScriptedRunner::fixture(), new ProofStoreFake(), $ci);
+    $refused = <<<'SAID'
+        This plan stops at its selection (plan --selection-only): it holds no timings and no mutant time limits,
+        so no shard runs it. Plan again without --selection-only.
+
+        SAID;
+
+    $planned = $plan($project, '--shards=2 --selection-only', ScriptedRunner::fixture(), $ci);
+    $written = (string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project));
+    $shard = FlowCommands::run(RunCommand::command($composition()), '--plan=.mutation-gate/plan.json --shard=1');
+    $verdict = FlowCommands::run(VerdictCommand::command($composition()), '--plan=.mutation-gate/plan.json');
+
+    expect($planned->code)->toBe(0)
+        ->and($planned->output)->toBe('')
+        ->and($planned->errors)->toBe(<<<'SAID'
+            Coverage: there is no kept map, so every test was measured.
+            Reach
+              No commit of this scope has passed yet, so the run considers every unit.
+            Wrote .mutation-gate/plan.json, the selection alone, with 2 units to run: no shard runs it.
+
+            SAID)
+        ->and($written)->toContain('"selectionOnly": true')
+        ->and($ci->published)->toBe([])
+        ->and(is_dir(sprintf('%s/.mutation-gate/coverage/shard-1', $project)))->toBeFalse()
+        ->and([$shard->code, $shard->errors])->toBe([2, $refused])
+        ->and([$verdict->code, $verdict->errors])->toBe([2, $refused]);
+});
 
 it('says which ledger the store could not read before the lines of the plan made without it', function (): void {
     $unread = Unreadable::because(UnreadReason::Malformed, 's3://ledgers/refs/heads/main/ledger.json.gz', 'The ledger is of a format this gate does not read.');

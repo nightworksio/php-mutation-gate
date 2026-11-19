@@ -20,9 +20,12 @@ job's 45 minutes. The job printed nothing until the timeout.
    units to run as a plan does: the reach, the proofs, sampling and pruning.
    It writes them with their reasons as one uncut shard. It measures no
    held coverage, hands nothing off and takes no timings.
-2. **A selection is never run.** `plan.json` marks it `selectionOnly`, and
-   `run` and every shard command refuse a plan so marked, saying so. With no
-   timings, a selection holds no mutant time limit.
+2. **A selection is never run.** `plan.json` marks it `selectionOnly`,
+   inside the plan's digest, and every command that reads a plan, `run
+   --plan`, `verdict`, `leftovers` and `survivors`, refuses a plan so marked,
+   saying so. `run` without a plan takes no `--selection-only`. With no
+   timings, a selection holds no mutant time limit. `plan --selection-only`
+   hands the selection to no CI and writes no comment.
 3. **Replay plans the selection alone, in a clone of its own.**
    `replay.py` runs `plan --selection-only` in a `git clone --local` under
    a temporary directory, so the job's checkout and its branches stay as

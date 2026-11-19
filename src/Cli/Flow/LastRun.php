@@ -35,6 +35,12 @@ final readonly class LastRun
         return $project->write(Workspace::plan(), Contents::of(PlanFile::encode($plan)));
     }
 
+    /** Leave a plan that stops at its selection, marked so that every later read of it refuses it (ADR-0290). */
+    public static function keepSelection(Directory $project, Plan $plan): Written|CannotJudge
+    {
+        return $project->write(Workspace::plan(), Contents::of(PlanFile::encodeSelection($plan)));
+    }
+
     /** The plan a file holds; where there is none, where it would have been. */
     public static function planAt(Directory $project, Path $file): Plan|Missing|CannotJudge
     {
