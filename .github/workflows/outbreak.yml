@@ -298,7 +298,7 @@ jobs:
             git diff "$(git merge-base "$BASE" HEAD)" HEAD -- . > "${RUNNER_TEMP}/change.diff"
             scope=(--in-diff "${RUNNER_TEMP}/change.diff")
           fi
-          cargo mutants --workspace --no-shuffle --shard "${SHARD}/${SHARDS}" "${scope[@]}" \
+          cargo mutants --workspace --in-place --no-shuffle --shard "${SHARD}/${SHARDS}" "${scope[@]}" \
             --exclude 'crates/outbreak-ext/src/{engine,lib,program,state,value}.rs'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
