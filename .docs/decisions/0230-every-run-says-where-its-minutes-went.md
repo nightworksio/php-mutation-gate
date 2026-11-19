@@ -17,6 +17,7 @@ cost two to three times that.
 
 What a run spends beyond that floor is spread over the ways a mutant can
 be judged, its routes:
+
 - forked by a split stream in its first pass (ADR-0117, ADR-0187) or its
   second (ADR-0196);
 - a fresh run, a process of its own for a mutant whose file was loaded
