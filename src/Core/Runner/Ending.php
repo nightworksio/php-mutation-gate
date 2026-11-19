@@ -21,4 +21,11 @@ enum Ending
      * test of it ran past the limit of its own (see SilenceLimit).
      */
     case Silenced;
+
+    /**
+     * It was halted where it ran past the time its pool started no more
+     * commands by its grace, before its own deadline: its run tells nothing
+     * (ADR-0197).
+     */
+    case Halted;
 }

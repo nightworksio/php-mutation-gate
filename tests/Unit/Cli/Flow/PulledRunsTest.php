@@ -39,14 +39,17 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** A plan of two items whose shards pull their work, the first listed for job 1 and the second for job 2. */
-function pulledPlan(): Plan
+/**
+ * A plan of two items whose shards pull their work, each expected to take this long, the first listed for job 1 and
+ * the second for job 2.
+ */
+function pulledPlan(float $each = 1.0): Plan
 {
     $item = static fn(int $number): Shard => Shard::of(
         ShardId::of($number),
         Package::at(Path::root()),
         Units::of(Unit::file(Path::of(sprintf('src/%d.php', $number)))),
-        Seconds::of(1.0),
+        Seconds::of($each),
         'src',
     )->workedBy(ShardId::of($number));
 
@@ -55,12 +58,18 @@ function pulledPlan(): Plan
 
 /**
  * What job 1 left of the items it took through this cloud, watching a job or none, and the items it ran, its deadline
- * this many seconds after the clock's moment; where the results are blocked, a file stands where they go.
+ * this many seconds after the clock's moment, each item expected to take this long; where the results are blocked, a
+ * file stands where they go.
  *
  * @return array{ShardsLeft|CannotJudge, list<int>}
  */
-function pulledBy(Cloud $cloud, string $watching = '', bool $blocked = false, float $deadlineIn = 60.0): array
-{
+function pulledBy(
+    Cloud $cloud,
+    string $watching = '',
+    bool $blocked = false,
+    float $deadlineIn = 60.0,
+    float $each = 1.0,
+): array {
     $project = Scratch::directory();
 
     if ($blocked) {
@@ -73,7 +82,7 @@ function pulledBy(Cloud $cloud, string $watching = '', bool $blocked = false, fl
 
     $at = new DateTimeImmutable(PULLED_AT);
     $left = new PulledRuns($adapters, Flows::settings(), $cloud->exchange(), new StoppedClock(PULLED_AT))->left(
-        pulledPlan(),
+        pulledPlan($each),
         ShardId::of(1),
         Path::of('results'),
         $service,
@@ -112,6 +121,22 @@ it('starts no item once its deadline passed, and says so', function (float $dead
     'passed' => [-1.0, [], true],
     'at the moment' => [0.0, [], true],
     'ahead' => [1.0, [1], false],
+]);
+
+it('takes a further item only where the wall time the plan expects of it fits the time left', function (float $each, array $items, bool $said): void {
+    $cloud = new Cloud()
+        ->answering(sprintf('%sListArtifacts', PULLED_SERVICE), 200, '{"artifacts": []}')
+        ->answering(sprintf('%sCreateArtifact', PULLED_SERVICE), 200, '{"ok": true, "signed_upload_url": "https://blob.example/upload"}')
+        ->answering(sprintf('%sFinalizeArtifact', PULLED_SERVICE), 200, '{"ok": true}');
+
+    [$left, $ran] = pulledBy($cloud, deadlineIn: 60.0, each: $each);
+
+    expect($left instanceof ShardsLeft && str_contains($left->said(), sprintf(PulledRuns::UNFIT, 1, 2, (int) ceil($each), 60)))->toBe($said)
+        ->and($ran)->toBe($items);
+})->with([
+    'fitting' => [59.5, [1, 2], false],
+    'as long as the time left' => [60.0, [1, 2], false],
+    'past it, its own item taken all the same' => [60.5, [1], true],
 ]);
 
 it('runs its own items alone, saying why, where it cannot claim one', function (): void {

@@ -58,6 +58,12 @@ final readonly class ShardsLeft
         return new self($this->job, $this->each, [...$this->notes, $why]);
     }
 
+    /** Whether the job ran any item. */
+    public function ranAny(): bool
+    {
+        return $this->each !== [];
+    }
+
     /** Where each result was written, and why the job ran its own items alone, where it did. */
     public function said(): string
     {

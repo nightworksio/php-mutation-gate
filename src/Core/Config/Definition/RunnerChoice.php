@@ -61,6 +61,7 @@ final readonly class RunnerChoice implements Shape
         $poll = Field::optional('poll', Number::aboveAndAtMost(0, Seconds::PER_MINUTE), $judges);
         $processes = Field::optional('processes', Integer::atLeast(1), $judges);
         $workerWait = Field::optional('workerWait', Duration::written(), $judges);
+        $grace = Field::optional('deadlineGrace', Duration::written(), $judges);
 
         return new self(
             Adapter::choosing($builtins),
@@ -78,6 +79,7 @@ final readonly class RunnerChoice implements Shape
                     $poll,
                     $processes,
                     $workerWait,
+                    $grace,
                 ): Setup|Invalid {
                     $named = $use->read($at);
                     $withheld = $withhold->read($at);
@@ -89,6 +91,7 @@ final readonly class RunnerChoice implements Shape
                     $polled = $poll->read($at);
                     $counted = $processes->read($at);
                     $waits = $workerWait->read($at);
+                    $halts = $grace->read($at);
 
                     return Reading::built(
                         static fn(): Setup|Invalid => self::object(
@@ -105,6 +108,7 @@ final readonly class RunnerChoice implements Shape
                                 $polled->value(),
                                 $counted->value(),
                                 $waits->value(),
+                                $halts->value(),
                             ),
                         ),
                         $named,
@@ -118,6 +122,7 @@ final readonly class RunnerChoice implements Shape
                         $polled,
                         $counted,
                         $waits,
+                        $halts,
                     );
                 },
                 $use,
@@ -131,6 +136,7 @@ final readonly class RunnerChoice implements Shape
                 $poll,
                 $processes,
                 $workerWait,
+                $grace,
             ),
             $builtins,
         );
@@ -164,6 +170,7 @@ final readonly class RunnerChoice implements Shape
             Member::of('poll', Number::aboveAndAtMost(0, Seconds::PER_MINUTE)->schema()),
             Member::of('processes', Integer::atLeast(1)->schema()),
             Member::of('workerWait', Duration::written()->schema()),
+            Member::of('deadlineGrace', Duration::written()->schema()),
         );
 
         return Json::object(Member::of(
@@ -196,6 +203,7 @@ final readonly class RunnerChoice implements Shape
             '.poll' => Effect::JudgesOrReportsOnly,
             '.processes' => Effect::JudgesOrReportsOnly,
             '.workerWait' => Effect::JudgesOrReportsOnly,
+            '.deadlineGrace' => Effect::JudgesOrReportsOnly,
         ];
     }
 

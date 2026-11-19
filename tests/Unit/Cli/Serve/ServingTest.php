@@ -161,7 +161,7 @@ it('starts a daemon for watch where none runs and local.serveStart lets it, and 
 
 it('starts the PHP daemon alone for watch where outbreak serve did not listen in time, and runs in it', function (): void {
     $binary = OutbreakStandIn::answering('{"outbreak": 1}')->binary();
-    $serving = standInServing(sprintf('"outbreak": {"enabled": true, "binary": "%s", "serve": {"enabled": true}}, "local": {"serveStartWait": "1s"}', $binary));
+    $serving = standInServing(sprintf('"outbreak": {"enabled": true, "binary": "%s", "serve": {"enabled": true}}, "local": {"serveStartWait": "3s"}', $binary));
 
     expect($serving->forwarded('watch', new ArgvInput(['gate', 'watch']), new BufferedOutput()))->toBe(7);
 });

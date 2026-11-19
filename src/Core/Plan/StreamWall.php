@@ -23,6 +23,9 @@ final readonly class StreamWall
     /** The second pass's factor where no run has measured one: every mutant is forked at each covering test. */
     public const float STANDARD_PASS_TWO = 1.0;
 
+    /** The least second pass's factor a wall scales by, so a measured factor of none prices no work at no time. */
+    public const float LEAST_PASS_TWO = 0.05;
+
     private function __construct(private int $processes, private float $passTwo)
     {
     }
@@ -41,6 +44,12 @@ final readonly class StreamWall
     public function passTwo(): float
     {
         return $this->passTwo;
+    }
+
+    /** How many seconds of the cost model's a second of this wall holds: its processes', its second pass scaled. */
+    public function scale(): float
+    {
+        return $this->processes / max($this->passTwo, self::LEAST_PASS_TWO);
     }
 
     /**

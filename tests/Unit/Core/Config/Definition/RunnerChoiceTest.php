@@ -27,5 +27,6 @@ it('keeps the effect of each option its adapters take, and lets what a runner wi
             '.poll' => Effect::JudgesOrReportsOnly,
             '.processes' => Effect::JudgesOrReportsOnly,
             '.workerWait' => Effect::JudgesOrReportsOnly,
+            '.deadlineGrace' => Effect::JudgesOrReportsOnly,
         ]);
 });

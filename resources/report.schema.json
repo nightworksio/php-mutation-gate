@@ -1526,7 +1526,8 @@
                                                             "failed",
                                                             "ran-out",
                                                             "out-of-memory",
-                                                            "unrun"
+                                                            "unrun",
+                                                            "halted"
                                                         ]
                                                     }
                                                 },

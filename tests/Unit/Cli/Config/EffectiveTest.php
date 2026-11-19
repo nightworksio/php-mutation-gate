@@ -88,7 +88,7 @@ it('finds the preset and the runner of a project with no config', function () us
 
     expect($shown($settings))->toMatchArray([
         'preset' => 'laravel',
-        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
         'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'], 'lockMoves' => 'everything', 'changedTests' => 'narrow', 'fixtures' => [], 'defaultBranchSince' => 'judged'],
         'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true, 'headroom' => TimeoutHeadroom::STANDARD, 'startUpMultiple' => MutantLimit::FACTOR, 'parts' => true, 'startUpAtPlan' => true],
@@ -104,7 +104,7 @@ it('lays the config file over its presets, and the command line over both', func
 
     expect($shown($settings))->toMatchArray([
         'preset' => 'symfony',
-        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
         'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**'], 'lockMoves' => 'everything', 'changedTests' => 'narrow', 'fixtures' => [], 'defaultBranchSince' => 'judged'],
@@ -198,7 +198,7 @@ it('chooses the library preset for a project without composer.json', function ()
 
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'preset' => 'library',
-        'runner' => ['use' => 'infection', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
+        'runner' => ['use' => 'infection', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => []]],
         'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true, 'headroom' => TimeoutHeadroom::STANDARD, 'startUpMultiple' => MutantLimit::FACTOR, 'parts' => true, 'startUpAtPlan' => true],
     ]);
@@ -333,7 +333,7 @@ it('reads the config file --config names', function () use ($effective, $shown):
     Scratch::write($project, 'ci/gate.neon', "runner: pest\nbudget: 90s\n");
 
     expect($shown($effective($project)->settings(CommandLine::nothing()->withConfig('ci/gate.neon'))))
-        ->toMatchArray(['runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01], 'budget' => '1m30s']);
+        ->toMatchArray(['runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'], 'budget' => '1m30s']);
 });
 
 it('cannot judge a project whose composer.json it cannot read, where it must choose the preset', function () use (

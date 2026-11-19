@@ -216,13 +216,13 @@ describe('Settings', function (): void {
     it('shows what the runner withholds, its memory cap, how workers start and how it applies paths', function (): void {
         $withholding = Configs::settings(['runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*']]]);
 
-        expect(Configs::shown($withholding, 'runner'))->toBe(['use' => 'pest', 'withhold' => ['DEPLOY_*'], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
+        expect(Configs::shown($withholding, 'runner'))->toBe(['use' => 'pest', 'withhold' => ['DEPLOY_*'], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'])
             ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest']]), 'runner'))
-            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
+            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'])
             ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest', 'memory' => '-1']]), 'runner'))
-            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '-1', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
+            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '-1', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'])
             ->and(Configs::shown(Configs::settings(SettingsCases::EVERYTHING), 'runner'))
-            ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M', 'workers' => 'fresh', 'pathRules' => 'partitioned', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05]);
+            ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M', 'workers' => 'fresh', 'pathRules' => 'partitioned', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05, 'deadlineGrace' => '15s']);
     });
 
     it('refuses a runner that withholds without naming the runner, or withholds anything but names', function (
@@ -298,7 +298,7 @@ describe('Settings', function (): void {
     it('keys a default written out the same as the default left unset, and reads its own effective config back', function (): void {
         $default = Configs::settings(['runner' => 'pest']);
         $written = Configs::settings([
-            'runner' => ['use' => 'pest', 'withhold' => [], 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
+            'runner' => ['use' => 'pest', 'withhold' => [], 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'],
             'timeouts' => ['multiple' => 3],
             'shards' => ['learnedFrom' => 'max'],
         ]);

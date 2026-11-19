@@ -40,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -157,6 +158,24 @@ it('leaves a timeout unjudged where its tests fail unmutated too, and too slow t
         fn(): string => sprintf(TimeoutControls::UNRUN, 'the file is gone'),
     ],
 ]);
+
+it('leaves a timeout unjudged out of time, for the second wave, where its control was halted past the deadline, never timed out', function () use (
+    $makeResultIn,
+    $moneyControl,
+): void {
+    $resultIn = $makeResultIn();
+
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->controlling(ControlRuns::none()->with($moneyControl(), ControlRun::ofProcess(Ran::halted(''), TestIds::none())));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $timedOut = controlMutantIn($resultIn($project, 1), 'Decrement-27');
+
+    expect(controlKeysAsked($runner))->toContain($moneyControl()->key())
+        ->and($timedOut->status())->toBe(MutantStatus::Unjudged)
+        ->and($timedOut->reason())->toEqual(OutOfTime::BeforeControlling->reason());
+});
 
 // The held unit's run selects its holding tests alone. A test that covers
 // the line from outside the group never ran with the mutant in place, so

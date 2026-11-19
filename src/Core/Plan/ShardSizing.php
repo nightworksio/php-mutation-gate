@@ -30,9 +30,6 @@ final readonly class ShardSizing
     /** How many times its overhead a shard's share of the cost must be at least, for the cut to make it. */
     public const float WORK_PER_OVERHEAD = 2.0;
 
-    /** The least second pass's factor a cut scales by, so a measured factor of none cuts no shard of no size. */
-    private const float LEAST_PASS_TWO = 0.05;
-
     /**
      * @param Seconds|Absent $size     the size of a shard, where the config sets it; none where the workload decides
      * @param Seconds|Absent $target   the wall time the shards are cut to fit, where the config asks for one
@@ -173,7 +170,7 @@ final readonly class ShardSizing
                 $this->overhead,
                 $this->workPerOverhead,
                 $this->jobLimit,
-                $wall->processes() / max($wall->passTwo(), self::LEAST_PASS_TWO),
+                $wall->scale(),
                 streamed: true,
             );
     }

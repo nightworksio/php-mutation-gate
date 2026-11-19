@@ -12,9 +12,6 @@ use function fclose;
 use function feof;
 use function filesize;
 use function getenv;
-
-use const INF;
-
 use function is_dir;
 use function is_file;
 use function is_int;
@@ -49,8 +46,10 @@ use function usleep;
 
 /**
  * A process started in one place, until its command's deadline, or until it
- * has made no progress for its silence limit where it has one, on a clock
- * read in seconds. What it prints is read as it prints it, so a wait on
+ * has made no progress for its silence limit where it has one, or, where its
+ * command is held to a grace, until that long past the time its pool starts
+ * no more commands, if that comes first (ADR-0197), on a clock read in
+ * seconds. What it prints is read as it prints it, so a wait on
  * running processes ends as soon as one prints or ends. It leads a session
  * of its own and runs in a cgroup of its own where the gate holds its
  * processes so (ADR-0158), and whatever it left is killed once it ends.
@@ -94,6 +93,7 @@ final class Running
         private readonly int $place,
         private readonly float $started,
         private readonly float $until,
+        private readonly bool $halts,
         private readonly SilenceLimit|NotGiven $silence,
         private Progress|NotGiven $progress,
         private array $pipes,
@@ -106,10 +106,16 @@ final class Running
 
     /**
      * A command started in a place, by its position among the places, at a
-     * time; or how it ended, where it could not be started.
+     * time, its pool starting no more commands from a time on; or how it
+     * ended, where it could not be started.
      */
-    public static function start(ProcessCommand $command, int $place, WorkerSlot $slot, float $now): self|Ran
-    {
+    public static function start(
+        ProcessCommand $command,
+        int $place,
+        WorkerSlot $slot,
+        float $now,
+        float $startBy,
+    ): self|Ran {
         $arguments = [...$command->arguments()];
 
         if (! is_dir($command->directory())) {
@@ -146,14 +152,14 @@ final class Running
             stream_set_blocking($pipe, enable: false);
         }
 
-        $deadline = $command->deadline();
         $silence = $command->silence();
 
         return new self(
             $process,
             $place,
             $now,
-            $deadline instanceof Seconds ? $now + $deadline->seconds() : INF,
+            $command->stopAt($now, $startBy),
+            $command->haltsAt($now, $startBy),
             $silence,
             Progress::of($silence),
             $pipes,
@@ -204,7 +210,8 @@ final class Running
     /**
      * How it ended by a time: exited, or stopped with every process it started
      * where it runs past its deadline, has stalled or a test of it has run
-     * past its own limit; nothing where it runs on.
+     * past its own limit, or halted where it ran past its grace; nothing where
+     * it runs on.
      */
     public function endedBy(float $now): Ran|NotGiven
     {
@@ -218,7 +225,11 @@ final class Running
                 now: $now,
                 pid: $status['pid'],
             ),
-            $now >= $this->until => $this->stopped(Ran::stopped(...), $now, $status['pid']),
+            $now >= $this->until => $this->stopped(
+                $this->halts ? Ran::halted(...) : Ran::stopped(...),
+                $now,
+                $status['pid'],
+            ),
             $this->hasStalled($now) => $this->stopped(Ran::silenced(...), $now, $status['pid']),
             default => $this->overranBy($now, $status['pid']),
         };

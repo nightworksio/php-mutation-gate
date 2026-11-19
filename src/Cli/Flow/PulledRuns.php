@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function ceil;
+
 use Closure;
+
+use function floor;
+
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
 use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactClaims;
 use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
@@ -20,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use Psr\Clock\ClockInterface;
 
@@ -31,7 +37,9 @@ use function sprintf;
  * left, one leaves the run no way to pass, the job the run watches failed
  * (ADR-0134, ADR-0135), or its deadline passed (ADR-0114): an item it took
  * then would only be stopped at once, and the job past its limit loses
- * every result it wrote.
+ * every result it wrote. Once it ran an item, it takes the next only where
+ * the wall time the plan expects of it fits the time left (ADR-0197), and
+ * leaves it, untouched, to its own job or the second wave otherwise.
  *
  * @internal
  */
@@ -39,6 +47,9 @@ final readonly class PulledRuns
 {
     /** Why a job takes no further item once its deadline passed. */
     public const string PAST = 'Shard %d starts no further item: its deadline passed.';
+
+    /** Why a job takes no further item whose expected wall time does not fit the time left. */
+    public const string UNFIT = 'Shard %d starts no further item: item %d is expected to take %ds, and %ds are left.';
 
     public function __construct(
         private Adapters $adapters,
@@ -74,11 +85,22 @@ final readonly class PulledRuns
             $job,
         );
         $watched = WatchedJob::of($this->adapters->environment, $service, $this->exchange);
+        $streams = StreamWall::of($this->adapters->processes()->count());
 
         while ($pulled instanceof PulledItems && ($item = $pulled->next()) instanceof Shard) {
-            $pulled = $deadline->hasPassed($this->clock->now())
-                ? $pulled->left()->stopped(sprintf(self::PAST, $job->number()))
-                : $this->claimed($pulled, $item, $watched, $results, $ran);
+            $left = $deadline->left($this->clock->now());
+            $wall = $item->wall($streams);
+            $pulled = match (true) {
+                $left->seconds() <= 0.0 => $pulled->left()->stopped(sprintf(self::PAST, $job->number())),
+                $pulled->left()->ranAny() && $wall->seconds() > $left->seconds() => $pulled->left()->stopped(sprintf(
+                    self::UNFIT,
+                    $job->number(),
+                    $item->id()->number(),
+                    (int) ceil($wall->seconds()),
+                    (int) floor($left->seconds()),
+                )),
+                default => $this->claimed($pulled, $item, $watched, $results, $ran),
+            };
         }
 
         return $pulled instanceof PulledItems ? $pulled->left() : $pulled;

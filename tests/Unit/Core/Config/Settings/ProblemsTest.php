@@ -339,6 +339,7 @@ it('leaves the options of a class or another extension\'s adapter to it', functi
             'recycleAfter' => 16,
             'warmSlack' => '1m',
             'poll' => 0.01,
+            'deadlineGrace' => '15s',
         ]);
 });
 

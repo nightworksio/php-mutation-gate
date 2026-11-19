@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
@@ -180,6 +181,22 @@ it('starts no command once its time to start has run out, and ends those started
     $ends = new LocalProcesses($clock)->sideBySide(WorkerSlots::alone(), Seconds::of(50.0), $said, $said, $said);
 
     expect(array_map(static fn(Ran $ran): string => $ran->output(), [...$ends]))->toBe(['said']);
+})->group(...$holds);
+
+it('halts a command held to a grace once that long past its time to start, before its own deadline, and leaves the others to theirs', function (): void {
+    $directory = Scratch::directory();
+    $sleeps = static fn(float $seconds): ProcessCommand => ProcessCommand::of($directory, PHP_BINARY, '-r', sprintf('usleep(%d);', (int) ($seconds * 1000000)));
+    $ends = [...new LocalProcesses(new SystemClock())->sideBySide(
+        WorkerSlots::of(ProcessCount::of(3), 'test'),
+        Seconds::of(0.5),
+        $sleeps(30.0)->within(Seconds::of(20.0))->haltedPast(Seconds::of(0.5)),
+        $sleeps(30.0)->within(Seconds::of(0.3))->haltedPast(Seconds::of(0.5)),
+        $sleeps(1.5)->within(Seconds::of(20.0)),
+    )];
+
+    expect(array_map(static fn(Ran $ran): array => [$ran->ending() === Ending::Halted, $ran->wasStopped(), $ran->succeeded()], $ends))
+        ->toBe([[true, false, false], [false, true, false], [false, false, true]])
+        ->and(Measured::of($ends[0])->seconds())->toBeLessThan(10.0);
 })->group(...$holds);
 
 it('starts no command at the moment its time to start runs out', function (): void {

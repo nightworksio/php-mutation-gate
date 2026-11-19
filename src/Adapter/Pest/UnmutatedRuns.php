@@ -41,8 +41,9 @@ use function strval;
  * with its file served unmutated through Pest's override (see
  * ServedOriginal), under the request's memory cap and allowed its limit;
  * side by side in the places of the request's pool, none started once the
- * request's deadline has passed, each forked from a warm worker where the
- * shell forks the tail (see TailShell). Its tests' time is the time its
+ * request's deadline has passed, each still running `runner.deadlineGrace`
+ * past it halted, its run telling nothing (ADR-0197), each forked from a
+ * warm worker where the shell forks the tail (see TailShell). Its tests' time is the time its
  * process took, and its peak the larger of what the launcher it starts
  * through measured (see PeakLauncher) and what its forked child held.
  *
@@ -189,7 +190,8 @@ final readonly class UnmutatedRuns
                     ),
                 ])
                 ->launchedBy($launcher, $files->peak());
-            $commands[$control->key()] = $this->silenced($command, $control, $files->events());
+            $commands[$control->key()] = $this->silenced($command, $control, $files->events())
+                ->haltedPast($request->pool()->pace()->deadlineGrace());
             $ranWith[$control->key()] = [$control, $files];
         }
 

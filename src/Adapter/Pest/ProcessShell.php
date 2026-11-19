@@ -113,7 +113,9 @@ final readonly class ProcessShell implements Shell, StartsCommands
             ->with(EnvironmentRead::of($command->environment()))
             ->within($command->deadline());
         $silence = $command->silence();
+        $grace = $command->grace();
+        $process = $silence instanceof SilenceLimit ? $process->silencedAfter($silence) : $process;
 
-        return $silence instanceof SilenceLimit ? $process->silencedAfter($silence) : $process;
+        return $grace instanceof Seconds ? $process->haltedPast($grace) : $process;
     }
 }

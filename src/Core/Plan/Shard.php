@@ -129,6 +129,18 @@ final readonly class Shard
         return $this->estimate->units();
     }
 
+    /**
+     * The wall seconds the plan expects its job to spend on it: its cost, that
+     * cost spread over these streams' processes where it judges by one part of
+     * the test files, as the plan cut it to fit (ADR-0195).
+     */
+    public function wall(StreamWall $streams): Seconds
+    {
+        $cost = $this->cost()->seconds();
+
+        return Seconds::of($this->part->isWhole() ? $cost : $cost / $streams->scale());
+    }
+
     /** What the plan expects of the shard, what that rests on, and its opening run. */
     public function estimate(): ShardEstimate
     {

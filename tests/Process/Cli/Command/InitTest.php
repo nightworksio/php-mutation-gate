@@ -285,7 +285,7 @@ it('reads the config it wrote at --config back into the preset and runner, the t
 
     $effective = json_decode($shown->output, associative: true);
 
-    expect($effective)->toMatchArray(['preset' => 'laravel', 'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01]])
+    expect($effective)->toMatchArray(['preset' => 'laravel', 'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s']])
         ->and(is_array($effective) && array_key_exists('trees', $effective))->toBeFalse();
 })->group(...$holds);
 

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use const INF;
+
+use function min;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -11,8 +15,10 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 /**
  * A program to run as a process: its arguments, the directory it runs in,
  * what it is told on top of the environment it inherits, how long it may
- * run before it is stopped with every process it started, and how long it
- * may go without progress, where it has a silence limit.
+ * run before it is stopped with every process it started, how long it
+ * may go without progress, where it has a silence limit, and how long it
+ * may run past the time its pool starts no more commands before it is
+ * halted, where it is held to that (ADR-0197).
  */
 final readonly class ProcessCommand
 {
@@ -22,6 +28,7 @@ final readonly class ProcessCommand
         private Environment $environment,
         private Seconds|Unlimited $deadline,
         private SilenceLimit|NotGiven $silence,
+        private Seconds|NotGiven $grace = new NotGiven(),
     ) {
     }
 
@@ -58,19 +65,50 @@ final readonly class ProcessCommand
             $this->environment->and($environment),
             $this->deadline,
             $this->silence,
+            $this->grace,
         );
     }
 
     /** This command, stopped once it has run this long. */
     public function within(Seconds|Unlimited $deadline): self
     {
-        return new self($this->arguments, $this->directory, $this->environment, $deadline, $this->silence);
+        return new self(
+            $this->arguments,
+            $this->directory,
+            $this->environment,
+            $deadline,
+            $this->silence,
+            $this->grace,
+        );
     }
 
     /** This command, also stopped once it has made no progress for its silence limit. */
     public function silencedAfter(SilenceLimit $silence): self
     {
-        return new self($this->arguments, $this->directory, $this->environment, $this->deadline, $silence);
+        return new self(
+            $this->arguments,
+            $this->directory,
+            $this->environment,
+            $this->deadline,
+            $silence,
+            $this->grace,
+        );
+    }
+
+    /**
+     * This command, also halted once it has run this long past the time its
+     * pool starts no more commands, its run then telling nothing (ADR-0197).
+     */
+    public function haltedPast(Seconds $grace): self
+    {
+        return new self(
+            $this->arguments,
+            $this->directory,
+            $this->environment,
+            $this->deadline,
+            $this->silence,
+            $grace,
+        );
     }
 
     /** This command as it runs in one of several places side by side: told what that place tells it. */
@@ -103,5 +141,37 @@ final readonly class ProcessCommand
     public function silence(): SilenceLimit|NotGiven
     {
         return $this->silence;
+    }
+
+    /** How long it may run past the time its pool starts no more commands; none where nothing halts it then. */
+    public function grace(): Seconds|NotGiven
+    {
+        return $this->grace;
+    }
+
+    /**
+     * When it is stopped, started at this time in a pool that starts none
+     * from that one: at its deadline, or its grace past that time where that
+     * comes first; never where neither bounds it.
+     */
+    public function stopAt(float $started, float $startBy): float
+    {
+        return min($this->deadlineAt($started), $this->haltAt($startBy));
+    }
+
+    /** Whether, started at this time in a pool that starts none from that one, it is halted before its deadline. */
+    public function haltsAt(float $started, float $startBy): bool
+    {
+        return $this->haltAt($startBy) < $this->deadlineAt($started);
+    }
+
+    private function deadlineAt(float $started): float
+    {
+        return $this->deadline instanceof Seconds ? $started + $this->deadline->seconds() : INF;
+    }
+
+    private function haltAt(float $startBy): float
+    {
+        return $this->grace instanceof Seconds ? $startBy + $this->grace->seconds() : INF;
     }
 }

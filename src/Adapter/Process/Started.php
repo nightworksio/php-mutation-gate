@@ -172,7 +172,7 @@ final class Started implements StartedProcesses
         while ($this->free !== [] && $this->waiting !== []) {
             $place = array_key_first($this->free);
             $at = array_key_first($this->waiting);
-            $started = Running::start($this->waiting[$at], $place, $this->free[$place], $this->now());
+            $started = Running::start($this->waiting[$at], $place, $this->free[$place], $this->now(), $this->startBy);
             unset($this->waiting[$at]);
 
             if (! $started instanceof Running) {

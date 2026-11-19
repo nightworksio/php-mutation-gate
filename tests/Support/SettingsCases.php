@@ -22,7 +22,8 @@ final readonly class SettingsCases
             "pathRules": "partitioned",
             "recycleAfter": 16,
             "warmSlack": "1m",
-            "poll": 0.01
+            "poll": 0.01,
+            "deadlineGrace": "15s"
         },
         "mutators": {
             "sets": [],

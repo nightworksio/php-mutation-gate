@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\UnmutatedFailure;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -22,8 +23,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * What an unmutated control found (see Control): its tests passed, in the
  * seconds the runner timed them; a test failed; they ran out of its limit,
- * with the test it was running where its events tell; or it never ran, and
- * why.
+ * with the test it was running where its events tell; it was halted past
+ * the run's deadline (ADR-0197); or it never ran, and why.
  */
 final readonly class ControlRun
 {
@@ -101,7 +102,8 @@ final readonly class ControlRun
 
     /**
      * What a control found that ran as a process of its own, by how the
-     * process ended: ran out where it was stopped at its limit, out of memory
+     * process ended: halted where it was halted past the run's deadline,
+     * ran out where it was stopped at its limit, out of memory
      * where PHP says it ran out of its memory limit, passed, in the time it
      * took, where it succeeded, and failed otherwise, these tests failing as
      * its log records them; how long its process lasted whatever its end, and
@@ -110,6 +112,12 @@ final readonly class ControlRun
     public static function ofProcess(Ran $ran, TestIds $failing, int|NotGiven $cases = new NotGiven()): self
     {
         $found = match (true) {
+            $ran->ending() === Ending::Halted => new self(
+                ControlEnd::Halted,
+                Unmeasured::duration(),
+                NotGiven::value(),
+                TestIds::none(),
+            ),
             $ran->wasStopped() => self::ranOut(),
             Exhaustion::in($ran->output()) instanceof MemoryCap => self::outOfMemory(),
             $ran->succeeded() => self::passed($ran->duration()),

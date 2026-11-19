@@ -88,6 +88,10 @@
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -145,6 +149,10 @@
                             "minimum": 1
                         },
                         "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
@@ -208,6 +216,10 @@
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -265,6 +277,10 @@
                             "minimum": 1
                         },
                         "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
@@ -328,6 +344,10 @@
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -385,6 +405,10 @@
                             "minimum": 1
                         },
                         "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
@@ -459,6 +483,10 @@
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
                         "with": {
                             "type": "object"
                         }
@@ -514,6 +542,10 @@
                         "workerWait": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         }
                     },
                     "minProperties": 1,
@@ -527,7 +559,8 @@
                 "pathRules": "partitioned",
                 "recycleAfter": 16,
                 "warmSlack": "1m",
-                "poll": 0.01
+                "poll": 0.01,
+                "deadlineGrace": "15s"
             }
         },
         "treeSource": {
@@ -5103,6 +5136,10 @@
                                     "type": "string",
                                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -5160,6 +5197,10 @@
                                     "minimum": 1
                                 },
                                 "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
                                     "type": "string",
                                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
@@ -5223,6 +5264,10 @@
                                     "type": "string",
                                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -5280,6 +5325,10 @@
                                     "minimum": 1
                                 },
                                 "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
                                     "type": "string",
                                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
@@ -5343,6 +5392,10 @@
                                     "type": "string",
                                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -5400,6 +5453,10 @@
                                     "minimum": 1
                                 },
                                 "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
                                     "type": "string",
                                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
@@ -5474,6 +5531,10 @@
                                     "type": "string",
                                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
                                 "with": {
                                     "type": "object"
                                 }
@@ -5527,6 +5588,10 @@
                                     "minimum": 1
                                 },
                                 "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
                                     "type": "string",
                                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 }

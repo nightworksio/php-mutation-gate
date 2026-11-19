@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Order\RiskOrder;
 use NightWorksIO\MutationGate\Core\Plan\Invocations;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -84,3 +85,15 @@ it('is judged by every test file unless it is put in a part, which it keeps howe
         ->and([$held->id(), $held->label(), $held->cost()])->toEqual([ShardId::of(2), 'src, part 2 of 3', Seconds::of(6.0)])
         ->and($parted->estimated($parted->estimate())->testPart())->toEqual(TestPart::of(2, 3));
 });
+
+it('is expected to take its cost as its wall time, spread over the streams\' processes where it is a part of the test files', function (int $processes, float $passTwo, float $whole, float $parted): void {
+    $shard = Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Unit::file(Path::of('src/A.php'))), Seconds::of(1600.0), 'src');
+    $streams = StreamWall::of($processes, $passTwo);
+
+    expect($shard->wall($streams))->toEqual(Seconds::of($whole))
+        ->and($shard->inPart(TestPart::of(1, 76))->wall($streams))->toEqual(Seconds::of($parted));
+})->with([
+    'four processes' => [4, 1.0, 1600.0, 400.0],
+    'a second pass half as long' => [4, 0.5, 1600.0, 200.0],
+    'a measured factor of none, held to the least' => [4, 0.0, 1600.0, 20.0],
+]);

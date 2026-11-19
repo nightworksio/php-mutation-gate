@@ -49,7 +49,7 @@ it('stops a stream whose parent passed its deadline, with what it started, and s
     expect([$wrote, $left, $slowed, $stuck->isRunning()])->toBe([[$results, sprintf('%s/results-1-2.jsonl', $directory)], ['b'], 3.5, false])
         ->and(microtime(as_float: true) - $started)->toBeLessThan(30.0)
         ->and(glob(sprintf('%s/live-*', $directory)))->toBe([])
-        ->and(shell_exec(sprintf('pgrep -f %s', escapeshellarg('pcntl_fork(); sleep(60);'))))->toBeNull();
+        ->and(ServedProjects::until(static fn(): bool => shell_exec(sprintf('pgrep -f %s', escapeshellarg('pcntl_fork(); sleep(60);'))) === null))->toBeTrue();
 });
 
 it('waits for a stream within its deadline, takes away the mark one leaves, and starts none in the place of one that ran whole files or ended every test', function (): void {

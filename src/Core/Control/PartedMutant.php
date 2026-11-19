@@ -230,6 +230,7 @@ final readonly class PartedMutant
             ),
             ControlEnd::OutOfMemory => $this->ending($this->mutant->unjudged($this->said(self::OUT_OF_MEMORY))),
             ControlEnd::Unrun => $this->ending($this->mutant->unjudged($this->unrun($run))),
+            ControlEnd::Halted => $this->outOfTime(),
         };
     }
 
@@ -251,6 +252,7 @@ final readonly class PartedMutant
             ),
             ControlEnd::OutOfMemory => $this->onward($this->said(self::OUT_OF_MEMORY)),
             ControlEnd::Unrun => $this->ending($this->mutant->unjudged($this->unrun($run))),
+            ControlEnd::Halted => $this->outOfTime(),
         };
     }
 
