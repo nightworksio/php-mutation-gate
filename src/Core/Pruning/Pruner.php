@@ -32,7 +32,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Scoring;
  * (ADR-0106). A run with no base, a held unit, a unit whose result is older,
  * of other code or tests or holds a mutant triage does not count as killed (a
  * survivor, an uncovered or an unjudged mutant, or one too slow or too heavy
- * to judge, ADR-0162), and every unit where pruning is off, run every mutator.
+ * to judge, ADR-0243), and every unit where pruning is off, run every mutator.
  *
  * @internal
  */

@@ -1,4 +1,4 @@
-# ADR-0162: Pruning never carries a mutant triage does not count as killed
+# ADR-0243: Pruning never carries a mutant triage does not count as killed
 
 **Status:** Accepted
 **Date:** 2026-11-18
