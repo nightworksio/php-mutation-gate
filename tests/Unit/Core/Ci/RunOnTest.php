@@ -31,7 +31,7 @@ it('is a pull request, scoped by its number, where the CI may not name the defau
 });
 
 it('merges into the branch its CI names, which every copy of the run keeps, and a branch run merges into none', function (): void {
-    $run = RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), RunOn::branchNamed('release/2.x'));
+    $run = RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), Scope::branchNamed('release/2.x'));
     $branch = RunOn::branch('feature', Scope::branch('main'));
 
     expect($run instanceof RunOn ? [
@@ -42,21 +42,21 @@ it('merges into the branch its CI names, which every copy of the run keeps, and 
         ->and($branch instanceof RunOn ? $branch->target() : null)->toEqual(CannotTell::because(
             'The run is on no pull request, or its CI names no branch it merges into.',
         ))
-        ->and(RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), RunOn::branchNamed('a b')))
-        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), RunOn::branchNamed('')));
+        ->and(RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), Scope::branchNamed('a b')))
+        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), Scope::branchNamed('')));
 });
 
 it('cannot tell the scope of a ref that is not a branch or a pull request', function (): void {
     expect(RunOn::branch('a b', Scope::branch('main')))->toEqual(CannotTell::because(
         '"refs/heads/a b" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
-    ))->and(RunOn::pullRequest(PullRequestNumber::parse('twelve'), Scope::branch('main'), RunOn::branchNamed('main')))->toEqual(CannotTell::because(
+    ))->and(RunOn::pullRequest(PullRequestNumber::parse('twelve'), Scope::branch('main'), Scope::branchNamed('main')))->toEqual(CannotTell::because(
         '"twelve" is not the number of a pull request.',
     ));
 });
 
 it('reads a default branch the CI names', function (): void {
-    expect(RunOn::branchNamed('main'))->toEqual(Scope::of('refs/heads/main'))
-        ->and(RunOn::branchNamed(''))->toEqual(CannotTell::because(
+    expect(Scope::branchNamed('main'))->toEqual(Scope::of('refs/heads/main'))
+        ->and(Scope::branchNamed(''))->toEqual(CannotTell::because(
             '"refs/heads/" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
         ));
 });
@@ -65,13 +65,6 @@ it('is a ref already read as a scope, a pull request where the scope says so', f
     expect(RunOn::at(Scope::pullRequest(12), Scope::branch('main'))->isPullRequest())->toBeTrue()
         ->and(RunOn::at(Scope::branch('feature'), Scope::branch('main'))->isPullRequest())->toBeFalse()
         ->and(RunOn::at(Scope::branch('feature'), Scope::branch('main'))->scope())->toEqual(Scope::branch('feature'));
-});
-
-it('is a full ref under the scope it spells, and detached for a tag', function (): void {
-    expect(RunOn::onRef('refs/heads/feature/money', Scope::branch('main')))
-        ->toEqual(RunOn::at(Scope::branch('feature/money'), Scope::branch('main')))
-        ->and(RunOn::onRef('refs/tags/v1.0.0', Scope::branch('main')))->toEqual(RunOn::detached(Scope::branch('main')))
-        ->and(RunOn::onRef('', Scope::branch('main')))->toEqual(RunOn::detached(Scope::branch('main')));
 });
 
 it('is a detached HEAD, with no scope and never a pull request', function (): void {
@@ -144,4 +137,17 @@ it('is proposed on a pull request or a merge group, and on nothing else', functi
         RunOn::detached(Scope::branch('main'))->groupBase() instanceof Revision,
     ])->toBe([true, false, false, false])
         ->and(RunOn::detached(Scope::branch('main'))->groupBase())->toEqual(NotGiven::value());
+});
+
+it('is from a fork only once told, which every copy of it keeps', function (): void {
+    $pull = RunOn::at(Scope::pullRequest(12), Scope::branch('main'));
+    $fork = $pull->fromAFork();
+
+    expect([$pull->isFromAFork(), $fork->isFromAFork()])->toBe([false, true])
+        ->and([
+            $fork->withTarget(Scope::branch('main'))->isFromAFork(),
+            $fork->withDefaultBranch(Scope::branch('trunk'))->isFromAFork(),
+            $fork->withCommit(Revision::ref('5eeca8f'))->isFromAFork(),
+            $fork->atCheckout(Revision::ref('5eeca8f'))->isFromAFork(),
+        ])->toBe([true, true, true, true]);
 });

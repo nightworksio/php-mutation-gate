@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -146,13 +147,13 @@ final readonly class GitLabPlan implements CiPlan, Configurable
     public function runOn(): RunOn|CannotTell
     {
         $variables = $this->job->variables();
-        $defaultBranch = RunOn::branchNamed($variables->valueOf('CI_DEFAULT_BRANCH'));
+        $defaultBranch = Scope::branchNamed($variables->valueOf('CI_DEFAULT_BRANCH'));
 
         return match (true) {
             $variables->has('CI_MERGE_REQUEST_IID') => RunOn::pullRequest(
                 PullRequestNumber::parse($variables->valueOf('CI_MERGE_REQUEST_IID')),
                 $defaultBranch,
-                RunOn::branchNamed($variables->valueOf('CI_MERGE_REQUEST_TARGET_BRANCH_NAME')),
+                Scope::branchNamed($variables->valueOf('CI_MERGE_REQUEST_TARGET_BRANCH_NAME')),
             ),
             $variables->has('CI_COMMIT_TAG') => RunOn::detached($defaultBranch),
             default => RunOn::branch($variables->valueOf('CI_COMMIT_REF_NAME'), $defaultBranch),

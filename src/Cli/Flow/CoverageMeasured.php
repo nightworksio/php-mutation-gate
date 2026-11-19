@@ -51,7 +51,7 @@ final readonly class CoverageMeasured
     /** A plan's briefing, saying the run was measured against its own scope's map where it was. */
     public function briefing(Briefing $briefing): Briefing
     {
-        return $this->ownScope ? $briefing->onOwnScopeCoverage() : $briefing;
+        return $this->ownScope ? $briefing->reading($briefing->inputs()->onOwnScopeCoverage()) : $briefing;
     }
 
     public function request(): CoverageRun|CoverageRead

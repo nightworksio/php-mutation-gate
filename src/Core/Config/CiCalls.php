@@ -22,18 +22,6 @@ final readonly class CiCalls
         return $text instanceof Absent ? [] : [sprintf($call, PhpCalls::literal($text))];
     }
 
-    /** @return list<string> the builder's call that sets `ci.trustMergedPullRequests`, where a layer sets it */
-    public static function trust(MergedTrust|Absent $trust): array
-    {
-        return $trust instanceof MergedTrust ? [$trust->php()] : [];
-    }
-
-    /** @return list<string> the builder's call that sets `ci.mergedOwnScopeProofs`, where a layer sets it */
-    public static function ownScope(OwnScopeTrust|Absent $trust): array
-    {
-        return $trust instanceof OwnScopeTrust ? [$trust->php()] : [];
-    }
-
     /** A path as the config writes it, where a layer sets it. */
     public static function path(PathOrigin $origin, Path|Absent $path): string|Absent
     {

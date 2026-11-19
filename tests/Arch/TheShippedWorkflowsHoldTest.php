@@ -716,3 +716,16 @@ it('signs, attests and pushes only the PHARs whose SHA-256s build named', functi
         ['DIGEST' => ['digest', 'build/mutation-gate.phar']],
     ],
 ]);
+
+it('keeps each pull request\'s pass and reads it on the push that merged it by default, so reuse.identical finds it', function (): void {
+    $reusable = WorkflowFile::at(REUSABLE)->field('on')->field('workflow_call')->field('inputs')->field('merged-records');
+    $action = WorkflowFile::at('action.yml')->field('inputs')->field('merged-records');
+
+    // ADR-0198
+    expect($reusable->field('default')->boolean())->toBeTrue()
+        ->and(Lenient::text($action->field('default')))->toBe('true')
+        ->and(Lenient::text($reusable->field('description')))->toContain('reuse.identical')
+        ->and(Lenient::text($action->field('description')))->toContain('reuse.identical')
+        ->and(Lenient::text(WorkflowFile::at(REUSABLE)->field('jobs')->field('fetch')->field('permissions')->field('actions')))->toBe('read')
+        ->and(Lenient::text(WorkflowFile::at(REUSABLE)->field('jobs')->field('fetch')->field('permissions')->field('pull-requests')))->toBe('read');
+});

@@ -11,6 +11,16 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Proof\JudgingRunRecord':
+                    - INPUTS # a passed record's digest of its run's inputs, not the ledger's section of proof inputs
+                    - ADDRESS # the field of the run that judged a pass, not a verb, a recording field or an origin
+                    - WHOLE # whether that run carried no unit, not a stream's judging
+                'NightWorksIO\MutationGate\Core\Plan\BriefingRecord':
+                    - FROM # where a reused verdict's pass was read, not a command's option
+                'NightWorksIO\MutationGate\Core\Plan\RunOnRecord':
+                    - FORK # a pull request from a fork, not a worker that forks
+                'NightWorksIO\MutationGate\Core\Proof\Key\RunInputs':
+                    - SHORT # the characters an inputs digest is shown by, not a mutant id's length
                 'NightWorksIO\MutationGate\Core\Cost\FirstRunShape':
                     - TESTS_BEFORE_A_KILL # tests a first estimate expects a killed mutant to run, not a ranking's top
                 'NightWorksIO\MutationGate\Core\Runner\RunnerPace':
@@ -349,6 +359,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Proof\LedgerRetention':
                     - BASES # bases kept
                     - PROOFS # proofs kept
+                    - PASSED # how many passes a ledger keeps for reuse, not how many presets ship
                 'NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig':
                     - INDENT # spaces
                     - NESTED # levels

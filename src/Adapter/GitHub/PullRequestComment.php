@@ -106,7 +106,7 @@ final readonly class PullRequestComment implements Commenting, CommentThread, Co
         $target = match (true) {
             $commentedOn instanceof NotGiven => NotWritten::because(CommentStates::NOT_A_PULL_REQUEST),
             $read('GITHUB_TOKEN') === '' => NotWritten::because(self::NO_TOKEN),
-            self::isFork($payload) => NotWritten::because(self::FORK),
+            Forked::pull($payload) => NotWritten::because(self::FORK),
             default => $commentedOn,
         };
 
@@ -319,14 +319,4 @@ final readonly class PullRequestComment implements Commenting, CommentThread, Co
         }
     }
 
-    /** Whether the pull request's head is in another repository than its base. */
-    private static function isFork(Node $payload): bool
-    {
-        try {
-            return $payload->field('head')->field('repo')->field('full_name')->text()
-                !== $payload->field('base')->field('repo')->field('full_name')->text();
-        } catch (NotInShape) {
-            return false;
-        }
-    }
 }

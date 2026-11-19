@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\PublishingKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReachKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReportsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\ReuseKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\SamplingKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\SetupKeys;
@@ -158,6 +159,7 @@ final readonly class Definition
             ...ShardsKeys::fields($origin),
             ...ProcessesKeys::fields(),
             ...CiKeys::fields($origin, $placement),
+            ...ReuseKeys::fields(),
             ...ProofsKeys::fields($origin),
             ...TriageKeys::fields(),
             ...IgnoresKeys::fields($origin),

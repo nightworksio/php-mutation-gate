@@ -52,3 +52,14 @@ it('writes a merge group\'s base alone, with no ref', function (): void {
 it('refuses a merge group that names no full commit, such as an option git would read', function (string $base): void {
     RunOnRecord::read(Node::decode((string) json_encode(['mergeGroup' => $base])));
 })->throws(NotInShape::class)->with(['--output=/tmp/x', '85c3298', '']);
+
+it('writes a pull request from a fork as one, and reads it back so', function (): void {
+    $fork = RunOn::at(Scope::pullRequest(12), Scope::branch('main'))->fromAFork();
+    $own = RunOn::at(Scope::pullRequest(12), Scope::branch('main'));
+
+    expect(RunOnRecord::of($fork))->toMatchArray(['fork' => true])
+        ->and(RunOnRecord::of($own))->not->toHaveKey('fork')
+        ->and(RunOnRecord::read(Node::decode((string) json_encode(RunOnRecord::of($fork)))))->toEqual($fork)
+        ->and(RunOnRecord::read(Node::decode((string) json_encode(RunOnRecord::of($fork))))->isFromAFork())->toBeTrue()
+        ->and(static fn(): RunOn => RunOnRecord::read(Node::decode('{"ref": "refs/pull/12", "fork": false}')))->toThrow(NotInShape::class);
+});

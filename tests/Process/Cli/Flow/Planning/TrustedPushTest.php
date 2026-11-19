@@ -14,10 +14,10 @@ use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Equivalence;
+use NightWorksIO\MutationGate\Config\Reuse as ReuseSetting;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
-use NightWorksIO\MutationGate\Core\Config\MergedTrust;
-use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
+use NightWorksIO\MutationGate\Core\Config\Reuse;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -25,7 +25,10 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
+use NightWorksIO\MutationGate\Core\Proof\JudgingRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -41,6 +44,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\JudgingRuns;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -77,7 +81,7 @@ function trustedPushHead(Repository $repository): string
 
 function trustedPushSettings(): Settings
 {
-    return JudgingRuns::settings(Ci::check(TRUSTED_PUSH_CHECK), Ci::trustingMergedPullRequests(), Equivalence::notProvenStatically());
+    return JudgingRuns::settings(Ci::check(TRUSTED_PUSH_CHECK), ReuseSetting::delta(), Equivalence::notProvenStatically());
 }
 
 /**
@@ -95,7 +99,7 @@ function trustedPushGitHub(string $base, string $head, string $pullHead, string 
         sprintf('%s/commits/%s/pulls', TRUSTED_PUSH_API, $head) => [[
             'number' => 7,
             'merged_at' => '2026-11-07T10:00:00Z',
-            'head' => ['sha' => $pullHead],
+            'head' => ['sha' => $pullHead, 'repo' => ['full_name' => 'octo/gate']],
             'base' => ['ref' => 'main', 'repo' => ['full_name' => 'octo/gate', 'default_branch' => 'main']],
         ]],
         sprintf('%s/git/commits/%s', TRUSTED_PUSH_API, $pullHead) => ['tree' => ['sha' => $pullTree]],
@@ -110,11 +114,12 @@ function trustedPushGitHub(string $base, string $head, string $pullHead, string 
 }
 
 /**
- * The ports of a push at the repository's head, reading GitHub only where a client is given.
+ * The ports of a push at the repository's head, reading GitHub only where a client is given, a merged pull
+ * request's pass proving its commit under `reuse.delta` unless told otherwise.
  *
  * @return list<object>
  */
-function trustedPushPorts(Repository $repository, ProofStore $store, MockHttpClient|NotGiven $github): array
+function trustedPushPorts(Repository $repository, ProofStore $store, MockHttpClient|NotGiven $github, bool $delta = true): array
 {
     $git = Git::at($repository->root);
     $over = $github instanceof MockHttpClient ? PassedPullRequests::over(
@@ -124,7 +129,7 @@ function trustedPushPorts(Repository $repository, ProofStore $store, MockHttpCli
         TRUSTED_PUSH_CHECK,
     ) : $git;
 
-    return [$over instanceof PassedPullRequests ? $over->trusting($store, MergedTrust::Tree, OwnScopeTrust::Reach) : $over, $store, JudgingRuns::tree(Floor::of(0))];
+    return [$over instanceof PassedPullRequests ? $over->trusting($store, Reuse::of(delta: $delta)) : $over, $store, JudgingRuns::tree(Floor::of(0))];
 }
 
 /** @param list<object> $ports */
@@ -314,4 +319,47 @@ it('finds the ledger a pull request\'s delivery left with its pass, handed throu
 
     expect(trustedPushRan($plan))->toBe([])
         ->and($read instanceof Ledger ? count([...$read->proofs()]) : $read)->toBe(0);
+});
+
+it('reuses on a push the verdict of the merged pull request whose run read identical inputs, and judges where they differ', function () use ($test): void {
+    [$repository, $store, $github] = trustedPushMerged($test);
+    $mode = Mode::since(Mode::LAST_PASSED);
+    $judging = trustedPushPlan($repository, $mode, trustedPushPorts($repository, $store, $github, delta: false));
+    $inputs = $judging->briefing()->inputs()->digest();
+    $pullHead = Revision::ref(str_repeat('e7', 20));
+    $recorded = static fn(Digest $read): Passed => Passed::of($pullHead, TRUSTED_PUSH_CHECK, 0)
+        ->passedAt(Moment::at('2026-11-07T10:00:00Z'))
+        ->judgedIn(JudgingRun::of($read, 'https://github.com/octo/gate/actions/runs/7', whole: false));
+
+    expect($inputs)->toBeInstanceOf(Digest::class)
+        ->and(trustedPushRan($judging))->toBe(['src/Money.php']);
+
+    trustedPushRecorded($repository, $store, $recorded(Digest::sha256Of('other inputs')));
+    $other = trustedPushPlan($repository, $mode, trustedPushPorts($repository, $store, $github, delta: false));
+
+    trustedPushRecorded($repository, $store, $recorded($inputs instanceof Digest ? $inputs : Digest::ofNothing()));
+    $reused = trustedPushPlan($repository, $mode, trustedPushPorts($repository, $store, $github, delta: false));
+    $standing = $reused->briefing()->unchanged();
+
+    expect(trustedPushRan($other))->toBe(['src/Money.php'])
+        ->and($other->briefing()->unchanged())->toBeInstanceOf(NotGiven::class)
+        ->and(trustedPushRan($reused))->toBe([])
+        ->and($standing instanceof Unchanged ? [$standing->because(), $standing->from(), $standing->base()->judging()->address()] : $standing)
+        ->toBe([StandsBecause::IdenticalInputs, 'pull request #7', 'https://github.com/octo/gate/actions/runs/7'])
+        ->and($reused->briefing()->inputs()->digest())->toEqual($inputs);
+});
+
+it('records with a passing verdict the inputs its run read, the run, and that it carried no unit', function () use ($test): void {
+    [$repository, $store, $github] = trustedPushMerged($test);
+    $ports = trustedPushPorts($repository, $store, $github, delta: false);
+    $plan = trustedPushPlan($repository, Mode::full(), $ports);
+
+    trustedPushJudged($repository, $plan, $ports);
+    $main = $store->read(Scope::branch('main'));
+    $passed = $main instanceof Ledger ? $main->runs()->passed() : $main;
+
+    expect($passed instanceof Passed ? [$passed->judging()->inputs(), $passed->judging()->isWhole()] : $passed)
+        ->toEqual([$plan->briefing()->inputs()->digest(), true])
+        ->and($main instanceof Ledger ? $main->runs()->reusable()->count() : $main)->toBe(2)
+        ->and($main instanceof Ledger ? [...$main->runs()->reusable()][0] : $main)->toEqual($passed);
 });

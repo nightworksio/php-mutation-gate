@@ -8,6 +8,7 @@ use function count;
 use function getenv;
 use function json_encode;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -102,11 +104,11 @@ final readonly class AzurePlan implements CiPlan, Configurable
             ? RunOn::pullRequest(
                 PullRequestNumber::parse($number),
                 $defaultBranch,
-                RunOn::branchNamed(
+                Scope::branchNamed(
                     (string) preg_replace(self::BRANCH_REF, '', $variables->valueOf('SYSTEM_PULLREQUEST_TARGETBRANCH')),
                 ),
             )
-            : RunOn::onRef($variables->valueOf('BUILD_SOURCEBRANCH'), $defaultBranch);
+            : $this->onRef(Scope::parse($variables->valueOf('BUILD_SOURCEBRANCH')), $defaultBranch);
     }
 
     /**
@@ -122,6 +124,15 @@ final readonly class AzurePlan implements CiPlan, Configurable
     public static function marker(): CiMarker
     {
         return CiMarker::setting(Variables::TF_BUILD);
+    }
+
+    /**
+     * The run on a full ref, as Azure names the branch it builds: under the scope the ref spells, and detached for a
+     * tag or any other ref no proof is kept under.
+     */
+    private function onRef(Scope|CannotJudge $scope, Scope|CannotTell $defaultBranch): RunOn
+    {
+        return $scope instanceof Scope ? RunOn::at($scope, $defaultBranch) : RunOn::detached($defaultBranch);
     }
 
     /** `{"s1": {"SHARD": "1"}, …}`, or one leg that runs nothing where the plan holds no shard. */

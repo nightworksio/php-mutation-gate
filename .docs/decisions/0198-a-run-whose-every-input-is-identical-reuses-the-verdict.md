@@ -28,40 +28,64 @@ the pull request's run under keys that still match.
 1. **The run's inputs have one digest.** It covers what every proof's key
    reads first (the gate's verdict code, the effective config, the runner's
    identity with its PHP build, the analyser and the installed packages),
-   every file of the repository by content, the gate's full release, the
-   runner's image (`ImageOS`, `ImageVersion`, `RUNNER_OS`, `RUNNER_ARCH`
-   where set) and the variables `reuse.environment` names, by value. The
-   passed record and the `mutation-gate-passed` artifact carry it as
-   `inputs`, and the ledger keeps the newest passed records by it.
+   every file of the repository by content, but the gate's own workspace,
+   the gate's full release, the runner's image (`ImageOS`, `ImageVersion`,
+   `RUNNER_OS`, `RUNNER_ARCH` where set) and the variables `reuse.environment`
+   names, by value. Every plan reads it and hands it to the verdict, and a
+   passing verdict records it as `inputs` in its passed record, beside the
+   run that judged it and whether that run carried no unit's result
+   (`whole`). The ledger keeps the newest such passes, one a digest, in
+   `reusable`, as many as `reuse.passes` says, ten by default.
 2. **`reuse.identical` reuses a verdict whose inputs match.** `on`, the
    default, reuses on pull requests and on the default branch; `pulls` on
    pull requests alone, so the default branch always judges; `off` never.
-   The early plan computes the digest before any map. Where a passed record
-   the repository's own workflow wrote holds the same digest, the plan runs
-   nothing, the verdict stands and is recorded for the head, and the step
-   summary, the JSON report (`reused`) and `doctor` name the run, its
-   commit and its source: a pull request or the default branch.
+   The plan looks before any map, so an early plan runs nothing too. Where
+   a pass the run's own scope or the default branch keeps, or the pass of
+   the pull request a push lands or a merge group was built for, holds the
+   same digest, under the run's own check, and no ignore that applied then
+   has expired, the plan runs nothing, the verdict stands and is recorded
+   for the head, and every report's reach and the JSON report's `reused`
+   name the run that judged it, its commit, where the pass was read and the
+   digest of its inputs. A run of
+   every unit reuses only a pass whose run carried no unit's result; a run
+   sampled, taking no proof, or recording more than first killers reuses
+   none.
 3. **A record from a fork's run is never read unless `reuse.forks` is
    true.** A fork is a pull request whose head repository is not the base
-   repository. `true` loosens the gate (ADR-0142) and is named as a loose
-   value.
-4. **The default branch takes the merged pull request's matching proofs
-   (C1).** Where the landed tree differs from the head a same-repository
-   pull request passed at, the default branch takes the per-unit proofs
-   that run wrote and judges only what their keys no longer match. Nothing
-   in the merged range is marked proved for it.
+   repository, or is gone. On a fork's pull request the run's own scope's
+   passes are not read; the default branch's are. `true` loosens the gate
+   (ADR-0142) and is named as a loose value.
+4. **The default branch borrows the merged pull request's matching proofs
+   (C1).** A same-repository pull request merged since the default branch's
+   last pass, whose verdict passed at its head, lends the default branch
+   the results its ledger holds, as `reuse.ownScopeProofs` takes them. A
+   lent result proves a unit only where its key matches, after the default
+   branch's own; it is never carried to a unit the change does not reach,
+   and never written. Nothing in the merged range is marked proved, so the
+   range is judged as ever.
 5. **The older settings move into `reuse` with no alias.**
    `ci.mergedOwnScopeProofs` becomes `reuse.ownScopeProofs` (`reach` by
-   default, `refuse`, `trust`); the `delta` of `ci.trustMergedPullRequests`
+   default, `refuse`, `trust`); the proving of a merged range by a pull
+   request's pass, the `true` and `delta` of `ci.trustMergedPullRequests`,
    becomes `reuse.delta` (`false` by default; `true` loosens). The gate has
    no release yet, so neither old key is read.
+6. **The workflows read the merged pull requests' passes by default.** The
+   action's and the reusable workflow's `merged-records` input is `true` by
+   default, and the reusable workflow's `fetch` job reads those passes on a
+   push to the default branch and on a merge group whatever the store.
+   Without `actions: read` and `pull-requests: read`, no pass is read, the
+   run warns so, and it judges as ever.
 
 ## Why no verdict moves
 
 A verdict is a function of its inputs. Equal digests mean byte-identical
-inputs, so the reused verdict is the one the run would reach. A proof taken
-under rule 4 is used only where its key, which holds everything the unit's
-result reads (ADR-0007), matches; everything else is judged.
+inputs, so the reused verdict is the one the run would reach; a run of
+every unit takes only a verdict whose run judged or proved by key every
+unit, as its own would. A proof lent under rule 4 is used only where its
+key, which holds everything the unit's result reads (ADR-0007), matches;
+it is never carried to a unit no change reaches, where a pull request
+judged on an older base could stand for code the default branch moved
+since, and everything else is judged.
 
 ## Alternatives considered
 
@@ -71,13 +95,20 @@ result reads (ADR-0007), matches; everything else is judged.
   chose; the repository's workflow did not write it.
 - **Keep `ci.trustMergedPullRequests` beside `reuse`**: two settings would
   decide one thing.
+- **Carry a merged pull request's results onto the default branch's ledger
+  whatever the tree**: an unreached unit carries the newest result of its
+  path whatever its key, so a pull request judged on an older base would
+  out-date the default branch's own.
 
 ## Consequences
 
 - A pull request pushed again with an identical tree, a re-land and a
   revert cost a plan, not a run.
-- The default branch's push of a squash onto a moved main judges only the
-  units the other commits moved.
+- The default branch's push of a squash onto a moved main runs only the
+  units whose keys the other commits moved.
+- A push to the default branch and a merge group run the `fetch` job under
+  `merged-records`, about a minute, and every plan reads one more digest
+  over files it already fingerprints.
 
 ## Related
 

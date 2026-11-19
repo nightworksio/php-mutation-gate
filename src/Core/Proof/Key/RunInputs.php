@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Proof\Key;
 use function count;
 use function hash_update;
 use function ksort;
+use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -31,6 +32,15 @@ final readonly class RunInputs
 {
     /** What the digest means; it changes whenever what it holds does, so an older one never matches a newer one. */
     public const string FORMAT = 'mutation-gate run inputs 1';
+
+    /** How many characters of the digest name it where a person reads it. */
+    public const int SHORT = 12;
+
+    /** The digest as a person reads it: its first characters. */
+    public static function short(Digest $inputs): string
+    {
+        return mb_substr($inputs->value(), 0, self::SHORT);
+    }
 
     /**
      * @param array<string, string> $image       what the runner's image says of itself, by name

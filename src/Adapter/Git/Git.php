@@ -17,7 +17,6 @@ use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
-use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -234,7 +233,7 @@ final readonly class Git implements ChangeSource, Repository
         return match (true) {
             $name instanceof CannotTell => $name,
             trim($name) === Revision::HEAD => Detached::head(),
-            default => RunOn::branchNamed(trim($name)),
+            default => Scope::branchNamed(trim($name)),
         };
     }
 
@@ -244,7 +243,7 @@ final readonly class Git implements ChangeSource, Repository
 
         return $target instanceof CannotTell
             ? CannotTell::because(sprintf(self::NO_ORIGIN_HEAD, self::ORIGIN_HEAD))
-            : RunOn::branchNamed(mb_substr(trim($target), mb_strlen(self::ORIGIN)));
+            : Scope::branchNamed(mb_substr(trim($target), mb_strlen(self::ORIGIN)));
     }
 
     /** The URL git's `origin` remote fetches from, as git spells it. */

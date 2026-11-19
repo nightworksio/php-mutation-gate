@@ -24,6 +24,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Proof\JudgingRun;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
@@ -39,6 +43,7 @@ use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -573,4 +578,28 @@ it('writes what to try with a survivor in the JSON report, and nothing with a ki
 
     expect($mutants[0]['try'] ?? null)->toBe('use `$a` at 3.')
         ->and($mutants[1])->not->toHaveKey('try');
+});
+
+it('names the pass whose verdict a run reused, its inputs identical, and names none for a verdict that stands for another reason', function (): void {
+    $at = Instant::at(new DateTimeImmutable('2026-11-19T12:00:00Z'));
+    $inputs = Digest::sha256Of('every input');
+    $passed = Passed::of(Revision::ref(str_repeat('a', 40)), 'mutation / verdict', 0)
+        ->passedAt($at)
+        ->judgedIn(JudgingRun::of($inputs, '', whole: false));
+    $reported = static fn(Passed $passed): string => JsonReport::encode(Verdict::of(TreeVerdicts::standingOn(
+        Unchanged::standing(StandsBecause::IdenticalInputs, $passed, $at, 'pull request #7'),
+    )));
+    $judged = $reported($passed->judgedIn(JudgingRun::of($inputs, 'https://github.com/octo/gate/actions/runs/9', whole: true)));
+    $stood = JsonReport::encode(Verdict::of(TreeVerdicts::standingOn(Unchanged::since($passed, $at))));
+
+    expect(Decoded::at($judged, 'reused'))->toBe([
+        'commit' => str_repeat('a', 40),
+        'from' => 'pull request #7',
+        'inputs' => $inputs->value(),
+        'run' => 'https://github.com/octo/gate/actions/runs/9',
+    ])
+        ->and(Decoded::at($reported($passed), 'reused'))->toBe(['commit' => str_repeat('a', 40), 'from' => 'pull request #7', 'inputs' => $inputs->value()])
+        ->and(Decoded::keys($stood))->not->toContain('reused')
+        ->and(Schema::errors($judged, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and(Schema::errors($reported($passed), Schema::at('resources/report.schema.json')))->toBe([]);
 });

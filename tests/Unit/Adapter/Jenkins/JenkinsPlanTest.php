@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
@@ -50,7 +51,7 @@ it('reads a pull request from its number, and the branch a multibranch build bui
     $push = Variables::of(['BRANCH_NAME' => 'feature/money']);
 
     expect(jenkinsPlanIn($pullRequest)->runOn())
-        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), jenkinsUnnamed(), RunOn::branchNamed('main')))
+        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), jenkinsUnnamed(), Scope::branchNamed('main')))
         ->and(jenkinsPlanIn($push)->runOn())->toEqual(RunOn::branch('feature/money', jenkinsUnnamed()));
 });
 

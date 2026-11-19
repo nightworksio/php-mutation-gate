@@ -65,7 +65,7 @@ final readonly class TalliedLedger
     private static function file(Composed $composed, Path $file): Ledger|CannotJudge
     {
         $proofs = $composed->settings->proofs();
-        $limits = LedgerLimits::kept($proofs->retained());
+        $limits = LedgerLimits::kept($proofs->retained(), $composed->settings->ci()->reuse()->passes());
         $codec = LedgerCodec::of($proofs->compression(), $proofs->compressionLevel(), ZstdHere::found());
         $directory = $file->isAbsolute() ? Directory::at($file->base()) : $composed->adapters->project;
         $bytes = $directory->readAtMost($file->fromBase(), $limits->packed());

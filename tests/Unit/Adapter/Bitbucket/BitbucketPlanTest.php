@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
@@ -57,7 +58,7 @@ it('reads a pull request from its id, and the branch it builds otherwise', funct
     $push = Variables::of(['BITBUCKET_BRANCH' => 'feature/money']);
 
     expect(bitbucketPlanIn($pullRequest)->runOn())
-        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), bitbucketUnnamed(), RunOn::branchNamed('release/2.x')))
+        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), bitbucketUnnamed(), Scope::branchNamed('release/2.x')))
         ->and(bitbucketPlanIn($push)->runOn())->toEqual(RunOn::branch('feature/money', bitbucketUnnamed()));
 });
 

@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
+use NightWorksIO\MutationGate\Core\Plan\InputsRead;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
@@ -603,21 +604,21 @@ it('refuses a plan whose security field is anything but true', function (string 
 
 it('writes a plan measured against its own scope\'s coverage map within its digest, reads it back, and reads none without the field', function (): void {
     $plan = planFileEmpty()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->briefed(Briefing::standard()->onOwnScopeCoverage());
+        ->briefed(Briefing::standard()->reading(InputsRead::none()->onOwnScopeCoverage()));
     $written = PlanFile::encode($plan);
     $read = PlanFile::decode($written);
     $plain = PlanFile::decode(PlanFile::encode(planFileEmpty()));
 
     expect($read)->toEqual($plan)
-        ->and($read instanceof Plan ? $read->briefing()->isOnOwnScopeCoverage() : $read)->toBeTrue()
+        ->and($read instanceof Plan ? $read->briefing()->inputs()->isOnOwnScopeCoverage() : $read)->toBeTrue()
         ->and($written)->toContain('"ownScopeCoverage": true')
         ->and($plan->digest())->not->toEqual(planFileEmpty()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))->digest())
-        ->and($plain instanceof Plan ? $plain->briefing()->isOnOwnScopeCoverage() : $plain)->toBeFalse();
+        ->and($plain instanceof Plan ? $plain->briefing()->inputs()->isOnOwnScopeCoverage() : $plain)->toBeFalse();
 });
 
 it('refuses a plan whose own-scope coverage field is anything but true', function (): void {
     $written = str_replace('"ownScopeCoverage": true', '"ownScopeCoverage": false', PlanFile::encode(
-        planFileEmpty()->briefed(Briefing::standard()->onOwnScopeCoverage()),
+        planFileEmpty()->briefed(Briefing::standard()->reading(InputsRead::none()->onOwnScopeCoverage())),
     ));
 
     expect(PlanFile::decode($written))->toEqual(CannotJudge::because(

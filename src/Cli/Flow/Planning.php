@@ -45,7 +45,9 @@ use function sprintf;
 
 /**
  * `plan`: the units of the trees, what the change reaches, each considered
- * unit's key, and the shards the units no proof covers are cut into. A shard
+ * unit's key, and the shards the units no proof covers are cut into; or a
+ * plan that runs nothing, where a passed verdict whose inputs are identical
+ * stands (ADR-0198). Every plan says the digest of the run's inputs. A shard
  * of a package other than the project's root cannot be planned: the runner
  * runs the root package's suite, which does not judge another package's code.
  *
@@ -103,21 +105,30 @@ final readonly class Planning
             $writing,
             $mode->takes($this->settings->proofs()->taken()),
         );
-        $unchanged = new UnchangedPlan($this->adapters, $this->settings, $this->setup)
-            ->of($inventory, $ledgers, $mode, $matrix);
+        $reads = Keying::readsOf(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            LearnedLimits::of($this->settings, $ledgers)->multiple(),
+        );
+        $identical = new IdenticalPlan($this->adapters, $this->settings, $this->setup);
+        $inputs = $identical->inputs($inventory, $reads);
+        $standing = $identical->standing($inventory, $ledgers, $mode, $matrix, $inputs);
 
-        if ($unchanged instanceof PlanMade) {
-            return $unchanged;
+        if ($standing instanceof PlanMade) {
+            return $standing;
         }
 
-        $early = $this->early($inventory, $ledgers, $mode, $coverage);
+        $early = $this->early($inventory, $ledgers, $mode, $coverage, $reads);
 
-        return match (true) {
+        $made = match (true) {
             $early instanceof CoverageMeasured
                 => $this->plannedEarly($inventory, $writing, $mode, $early, $cut, $matrix, $ownMap, $quick),
             $earlyOnly => $this->waiting($inventory),
             default => $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap, $quick),
         };
+
+        return IdenticalPlan::briefed($made, $inputs);
     }
 
     /** The plan of a run that waits for a fresh map, planning nothing: the caller that hands one runs it. */
@@ -161,6 +172,7 @@ final readonly class Planning
         Ledgers $ledgers,
         Mode $mode,
         CoverageRun|CoverageRead $coverage,
+        Digest|CannotJudge $reads,
     ): CoverageMeasured|NotGiven {
         $pest = $this->settings->effective()->running()->pest();
 
@@ -170,12 +182,6 @@ final readonly class Planning
             return NotGiven::value();
         }
 
-        $reads = Keying::readsOf(
-            $this->adapters,
-            $this->settings,
-            $this->setup,
-            LearnedLimits::of($this->settings, $ledgers)->multiple(),
-        );
         $match = ! $reads instanceof Digest
             || $ledgers->own()->proofs()->mayShareReads($reads)
             || $ledgers->defaultBranch()->proofs()->mayShareReads($reads);

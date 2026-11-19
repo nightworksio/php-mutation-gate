@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 
 use function preg_match;
 use function sprintf;
@@ -39,6 +40,14 @@ final readonly class Scope
     public static function branch(string $branch): self
     {
         return new self(sprintf('refs/heads/%s', $branch));
+    }
+
+    /** A branch as a CI or git names it, which may name none: its scope, or why it has none. */
+    public static function branchNamed(string $branch): self|CannotTell
+    {
+        $scope = self::parse(sprintf('refs/heads/%s', $branch));
+
+        return $scope instanceof CannotJudge ? CannotTell::because($scope->why()) : $scope;
     }
 
     public static function pullRequest(int $number): self
