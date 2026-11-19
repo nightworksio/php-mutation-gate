@@ -326,9 +326,11 @@ runs:
     # run on this machine's kind of runner and PHP left it, so the warm-up
     # analyses only what changed since. PHPStan checks the cache against the
     # code and its own config, and analyses afresh what it no longer holds.
+    # ADR-0199: a job handed the cache the plan warmed (ADR-0164) keeps it,
+    # and restores none over it.
     - name: Restore the static analyser's result cache
       id: analysed
-      if: inputs.deliver != 'true'
+      if: inputs.deliver != 'true' && hashFiles('.mutation-gate/phpstan/resultCache.php') == ''
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: .mutation-gate/phpstan/resultCache.php
@@ -477,10 +479,11 @@ runs:
     # The result cache the run's warm-up left, kept where it differs from the
     # one restored. A cache is kept for the ref that ran, so a pull request's
     # is read by that pull request alone, and the default branch's by every
-    # ref.
+    # ref. A job that kept the plan's restored none, and keeps none: the plan
+    # kept its own.
     - name: Save the static analyser's result cache
       if: >-
-        ${{ !cancelled() && inputs.deliver != 'true'
+        ${{ !cancelled() && inputs.deliver != 'true' && steps.analysed.outcome == 'success'
         && hashFiles('.mutation-gate/phpstan/resultCache.php') != ''
         && format('mutation-gate-phpstan-{0}-{1}-{2}-{3}', runner.os, runner.arch, inputs.php-version, hashFiles('.mutation-gate/phpstan/resultCache.php')) != steps.analysed.outputs.cache-matched-key }}
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
