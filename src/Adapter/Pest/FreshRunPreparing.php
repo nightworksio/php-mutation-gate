@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_map;
 
-use NightWorksIO\MutationGate\Adapter\Native\MutantFiles;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -14,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Native\MutantDirectory;
 use NightWorksIO\MutationGate\Core\Native\MutantPlacement;
 use NightWorksIO\MutationGate\Core\Native\PlacedMutant;
 use NightWorksIO\MutationGate\Core\Native\Selection as NativeSelection;
@@ -95,7 +95,7 @@ final readonly class FreshRunPreparing
         FreshBatch $batch,
     ): FreshRun|CannotJudge {
         $selection = $this->patching->selecting($covering, $batch->suite);
-        $directory = MutantFiles::directoryOf($mutant->id()->value(), $part);
+        $directory = MutantDirectory::of($mutant->id()->value(), $part);
         $files = $this->written($mutant, $this->listing($covering, $selection->fits()), $part, $directory);
 
         return $files instanceof CannotJudge
