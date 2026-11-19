@@ -35,19 +35,21 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** A project holding `src/Money.php`, with Pest of this version installed, or none listed where it is ''. */
-function freshOrderProject(string $pest): Project
+/**
+ * A project holding `src/Money.php`, its Pest installed as this release and naming itself by this version in its
+ * `Pest\version()`, or with no such function where that is ''.
+ */
+function freshOrderProject(string $names, string $release = 'v5.3.4'): Project
 {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', "<?php\nfunction add(){return 1+1;}\n");
     $packages = array_map(
-        static fn(string $name): array => ['name' => $name, 'version' => $pest, 'source' => ['reference' => 'abc']],
+        static fn(string $name): array => ['name' => $name, 'version' => $release, 'source' => ['reference' => 'abc']],
         ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/phpunit', 'phpunit/php-code-coverage'],
     );
-
-    if ($pest !== '') {
-        Scratch::write($root, 'vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
-    }
+    Scratch::write($root, 'vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
+    $declared = $names === '' ? '' : sprintf("function version(): string\n{\n    return '%s';\n}\n", $names);
+    Scratch::write($root, 'vendor/pestphp/pest/src/Pest.php', sprintf("<?php\n\nnamespace Pest;\n\n%s", $declared));
 
     return Project::at($root, Paths::none(), Path::of('.gate'), Path::of('vendor'));
 }
@@ -71,9 +73,9 @@ function freshOrderMutant(): Mutant
  *
  * @return array{list<string>, mixed}
  */
-function freshOrderAsked(string $pest, TestOrder $order, bool $on): array
+function freshOrderAsked(string $pest, TestOrder $order, bool $on, string $release = 'v5.3.4'): array
 {
-    $at = freshOrderProject($pest);
+    $at = freshOrderProject($pest, $release);
     $history = KillHistory::none()->withMutant(freshOrderMutant()->id(), Ranking::of(Kills::first(TestId::of('T::slow'))));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->searching(KillSearch::of(Ordering::of($order, $history), MatrixKind::FirstKiller));
@@ -88,7 +90,7 @@ function freshOrderAsked(string $pest, TestOrder $order, bool $on): array
 }
 
 it('asks a fresh run for its likely killers first and the rest fastest first, as its own run\'s seed says them', function (): void {
-    [$options, $history] = freshOrderAsked('v5.3.4', TestOrder::KillersFirst, on: true);
+    [$options, $history] = freshOrderAsked('5.3.4', TestOrder::KillersFirst, on: true);
 
     expect($options)->toHaveCount(3)
         ->and(array_slice($options, 1))->toBe(['--record-test-run-history', '--order-by=duration-ascending,defects'])
@@ -100,11 +102,33 @@ it('asks a fresh run for its likely killers first and the rest fastest first, as
         ]);
 });
 
-it('leaves a fresh run in Pest\'s own order under pest.freshOrder off, tests.order runner, or where Pest\'s release is unknown', function (string $pest, TestOrder $order, bool $on): void {
+it('stamps a fresh run\'s history with the version Pest names itself by, not the release Composer installed', function (string $release): void {
+    [, $history] = freshOrderAsked('5.0.5', TestOrder::KillersFirst, on: true, release: $release);
+
+    expect(is_array($history) ? $history['version'] ?? null : null)->toBe('pest_5.0.5');
+})->with([
+    'a release that names itself otherwise' => ['v5.1.0'],
+    'a branch of Pest' => ['dev-main'],
+]);
+
+it('leaves a fresh run in Pest\'s own order under pest.freshOrder off, tests.order runner, or where Pest\'s own version is unknown', function (string $pest, TestOrder $order, bool $on): void {
     expect(freshOrderAsked($pest, $order, $on))->toBe([[], []]);
 })->with([
-    'pest.freshOrder off' => ['v5.3.4', TestOrder::KillersFirst, false],
-    'tests.order runner' => ['v5.3.4', TestOrder::Runner, true],
-    'no installed Pest' => ['', TestOrder::KillersFirst, true],
-    'a branch of Pest' => ['dev-main', TestOrder::KillersFirst, true],
+    'pest.freshOrder off' => ['5.3.4', TestOrder::KillersFirst, false],
+    'tests.order runner' => ['5.3.4', TestOrder::Runner, true],
+    'no version Pest names itself by' => ['', TestOrder::KillersFirst, true],
+]);
+
+it('notes once that fresh runs keep Pest\'s own order where the order is asked for and Pest\'s own version is unread', function (string $names, bool $on, int $notes): void {
+    $at = freshOrderProject($names);
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, KillHistory::none()), MatrixKind::FirstKiller));
+    $placement = Placement::inPestRunner($at->root(), Paths::none(), Path::of('vendor'), Path::of('.gate'));
+    $said = FreshOrder::of($at, $placement, $request, TestDurations::none(), $on)->notes();
+
+    expect([count($said), count($said->notes())])->toBe([$notes, $notes]);
+})->with([
+    'unread, asked for' => ['', true, 1],
+    'read' => ['5.3.4', true, 0],
+    'unread, pest.freshOrder off' => ['', false, 0],
 ]);

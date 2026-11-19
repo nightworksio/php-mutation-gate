@@ -32,9 +32,17 @@ fresh process and judged nothing.
 2. **Its control asks for the same order** from a copy of its own. PHPUnit
    writes its history back as a run ends, so each run reads its own copy.
 3. **`pest.freshOrder`**, on by default, turns it off. So does
-   `tests.order: runner`. A project whose installed Pest is a branch rather
-   than a release keeps Pest's own order, because Pest reads a history only
-   when it names Pest's release.
+   `tests.order: runner`.
+4. **The history is stamped with the version the project's Pest names
+   itself by**, what its `Pest\version()` returns, because Pest reads a
+   history only under that stamp. It can differ from the release Composer
+   installed: Pest 5.1.0 names itself 5.0.5. The gate reads it from the
+   installed Pest's source, as the literal its `Pest\version()` returns: the
+   gate's process does not load the project's autoloader, and asking Pest
+   would boot one more process per request. Where no literal can be read,
+   as where Pest computes the value or moves the function, no history is
+   written: each fresh run keeps Pest's own order, judged alike and only
+   slower, and the run says so once in its notes.
 
 ## Which verdicts can differ
 

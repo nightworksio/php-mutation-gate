@@ -12,8 +12,6 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Reordering;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
-use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Coverage\TestDurations;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -27,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 use function sprintf;
 
@@ -35,9 +35,10 @@ use function sprintf;
  * killers-first` and `pest.freshOrder`, a mutant's likely killers first, as
  * the kill history ranks them, and the rest of its covering tests fastest
  * first by the map's times, written as the history its own run's seed is (see
- * Seed); its control asks for the same order from a copy of its own. None,
- * so Pest keeps its own order, where the order is off, Pest's version cannot
- * be read, or the history cannot be written.
+ * Seed), stamped with the version the project's Pest names itself by (see
+ * PestVersion); its control asks for the same order from a copy of its own.
+ * None, so Pest keeps its own order, where the order is off, that version
+ * cannot be read, or the history cannot be written.
  *
  * @internal
  */
@@ -49,12 +50,16 @@ final readonly class FreshOrder
     /** Where it is written for its control. */
     private const string UNMUTATED = '%s/order/unmutated/%s';
 
+    /** Why fresh runs keep Pest's own order where `pest.freshOrder` asks for the killers first. */
+    private const string UNREAD = "Pest's own version is unread, so fresh runs keep its order: same verdicts, slower.";
+
     private function __construct(
         private Project $project,
         private MutantPlacement $placement,
         private KillHistory|NotGiven $history,
         private string $version,
         private TestDurations $times,
+        private bool $unread = false,
     ) {
     }
 
@@ -67,16 +72,23 @@ final readonly class FreshOrder
         bool $on,
     ): self {
         $ordering = $request->search()->ordering();
-        $version = self::pestIn($project);
-        $ordered = $on && $ordering->putsKillersFirst() && is_string($version);
+        $wanted = $on && $ordering->putsKillersFirst();
+        $version = $wanted ? PestVersion::of($project) : NotGiven::value();
 
         return new self(
             $project,
             $placement,
-            $ordered ? $ordering->history() : NotGiven::value(),
+            is_string($version) ? $ordering->history() : NotGiven::value(),
             is_string($version) ? $version : '',
             $times,
+            unread: $wanted && ! is_string($version),
         );
+    }
+
+    /** What the runs note of their order: that they keep Pest's own where Pest's own version is unread. */
+    public function notes(): Warnings
+    {
+        return $this->unread ? Warnings::of(Warning::noting(self::UNREAD)) : Warnings::none();
     }
 
     /**
@@ -123,24 +135,6 @@ final readonly class FreshOrder
         $written = $this->placement->written($name, $history);
 
         return $written instanceof CannotJudge ? [] : Reordering::reading(dirname($written));
-    }
-
-    /** The release of Pest the project installed, as Pest names its own; none where it cannot be read. */
-    private static function pestIn(Project $project): string|NotGiven
-    {
-        $versions = Installed::versionsIn($project->absolute(ComposerInstalled::fileIn($project->vendor())));
-
-        if ($versions instanceof CannotJudge) {
-            return NotGiven::value();
-        }
-
-        foreach ($versions as $version) {
-            if ($version->package() === Package::Pest->value && $version->isRelease()) {
-                return $version->release();
-            }
-        }
-
-        return NotGiven::value();
     }
 
     /** The function the mutant is in, as the history ranks its killers by; nameless where its file cannot be read. */
