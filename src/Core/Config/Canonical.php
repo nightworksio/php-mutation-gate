@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_any;
+use function array_filter;
 use function array_key_exists;
 use function array_keys;
 
@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
-use function str_starts_with;
 
 /**
  * A config's settings of one kind, serialised canonically: one line of JSON
@@ -33,11 +32,14 @@ use function str_starts_with;
  */
 final readonly class Canonical
 {
-    /** How a list's entries are named in a setting's path: `trees[].path`. */
-    private const string EACH = '[]';
-
     /** The key an adapter chosen by an object names it by. */
     private const string USE = 'use';
+
+    /** The paths some setting is declared under. */
+    private SettingPaths $declared;
+
+    /** The paths some kept setting is under. */
+    private SettingPaths $held;
 
     /**
      * @param array<string, Effect>  $effects every setting, by its path, with what it can change
@@ -45,6 +47,8 @@ final readonly class Canonical
      */
     private function __construct(private array $effects, private Closure $keeps)
     {
+        $this->declared = SettingPaths::of(...array_keys($effects));
+        $this->held = SettingPaths::of(...array_keys(array_filter($effects, $keeps)));
     }
 
     /**
@@ -141,7 +145,7 @@ final readonly class Canonical
 
         foreach ($entries as $entryKey => $member) {
             $key = sprintf('%s', $entryKey);
-            $under = $path === '' ? $key : sprintf('%s.%s', $path, $key);
+            $under = SettingPaths::member($path, $key);
             $effect = $this->effect($under);
             $kept = match (true) {
                 $whole && $effect instanceof Effect && ! ($this->keeps)($effect) => Absent::setting(),
@@ -157,7 +161,7 @@ final readonly class Canonical
     /** @return list<Json|string|int|float|bool> */
     private function items(Node $at, Json $as, string $path, bool $whole): array
     {
-        $each = sprintf('%s%s', $path, self::EACH);
+        $each = SettingPaths::each($path);
         $items = [];
         $written = [...$as];
 
@@ -189,22 +193,12 @@ final readonly class Canonical
     /** Whether some setting under a path is kept. */
     private function holds(string $path): bool
     {
-        return array_any(
-            $this->effects,
-            fn(Effect $effect, string $setting): bool => $this->isUnder($setting, $path) && ($this->keeps)($effect),
-        );
+        return $this->held->under($path);
     }
 
     /** Whether some setting is declared under a path, as every one is under the top. */
     private function declaresUnder(string $path): bool
     {
-        return array_any(array_keys($this->effects), fn(string $setting): bool => $this->isUnder($setting, $path));
-    }
-
-    private function isUnder(string $setting, string $path): bool
-    {
-        return $path === ''
-            || str_starts_with($setting, sprintf('%s.', $path))
-            || str_starts_with($setting, sprintf('%s%s', $path, self::EACH));
+        return $this->declared->under($path);
     }
 }
