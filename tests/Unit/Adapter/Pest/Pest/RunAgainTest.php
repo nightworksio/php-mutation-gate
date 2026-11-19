@@ -133,7 +133,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
             'MUTATION_GATE_MUTANT_FLOOR' => '10.000000',
             'MUTATION_GATE_MUTANT_CAP' => '20.000000',
             ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()),
-            'MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_LONG_FILTER' => 'set', 'MUTATION_GATE_MAKING_SIDE_BY_SIDE' => '1',
+            'MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_SWITCH_GUARD' => '1', 'MUTATION_GATE_LONG_FILTER' => 'set', 'MUTATION_GATE_MAKING_SIDE_BY_SIDE' => '1',
         ]));
 });
 

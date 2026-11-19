@@ -79,7 +79,7 @@ it('compiles schemata under the patch unless the options turn them off, and neve
     $unpatched = PestOptions::read(Configs::options('{"patch": false, "schemata": true}'));
 
     expect(array_map(static fn(PestOptions|Invalid $read): array => $read instanceof PestOptions ? $read->patching()->schemata() : [], [$compiling, $off, $unpatched]))
-        ->toBe([['MUTATION_GATE_SCHEMATA' => '1'], [], []])
+        ->toBe([['MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_SWITCH_GUARD' => '1'], [], []])
         ->and(PestOptions::read(Configs::options('{"schemata": "yes"}')))
         ->toEqual(Invalid::because(Problem::at('schemata', 'expected true or false, got "yes"')));
 });
@@ -101,7 +101,7 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
         : [];
 
     expect($variables('{"patch": true, "splitStream": {"enabled": true, "children": 2, "changeCheck": false}}'))->toBe([[
-        'MUTATION_GATE_SCHEMATA' => '1',
+        'MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_SWITCH_GUARD' => '1',
         'MUTATION_GATE_SPLIT' => '1',
         'MUTATION_GATE_SPLIT_CHILDREN' => '2',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '0',
@@ -121,7 +121,7 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
         'MUTATION_GATE_SPLIT_EARLY_VERDICTS' => '1',
     ], true])
         ->and($variables('{"patch": true, "splitStream": {"enabled": true, "killersFirst": false, "killerStreams": true, "judging": "parted", "fallbackOwnRun": false, "coveringTestsOnly": false, "parentDeadline": false, "deadlineBackoff": 1.5, "slowdownCarry": "none", "firstFork": "every", "partsPerProcess": 1, "reachableOnly": false, "earlyVerdicts": false}}'))->toBe([[
-            'MUTATION_GATE_SCHEMATA' => '1',
+            'MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_SWITCH_GUARD' => '1',
             'MUTATION_GATE_SPLIT' => '1',
             'MUTATION_GATE_SPLIT_CHILDREN' => 'cores',
             'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
@@ -140,8 +140,8 @@ it('splits a patched run\'s streams as the options say, and never unpatched or w
             'MUTATION_GATE_SPLIT_REACHABLE_ONLY' => '0',
             'MUTATION_GATE_SPLIT_EARLY_VERDICTS' => '0',
         ], true])
-        ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
-        ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1'], false])
+        ->and($variables('{"patch": true, "splitStream": {"enabled": false}}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_SWITCH_GUARD' => '1'], false])
+        ->and($variables('{"patch": true}'))->toBe([['MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_SWITCH_GUARD' => '1'], false])
         ->and($variables('{"patch": true, "schemata": false, "splitStream": {"enabled": true}}'))->toBe([[], false])
         ->and($variables('{"patch": false, "splitStream": {"enabled": true}}'))->toBe([[], false]);
 });
