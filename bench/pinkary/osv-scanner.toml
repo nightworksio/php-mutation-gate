@@ -5,3 +5,8 @@
 [[IgnoredVulns]]
 id = "GHSA-rj75-hqrm-r3gf"
 reason = "A build-time dependency of the benchmark's third-party fixture at its pinned commit, which pins the vulnerable release exactly; the gate never ships or runs it."
+
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2027-01-01
+reason = "build-time only, never shipped or run by the gate; no fixed release"

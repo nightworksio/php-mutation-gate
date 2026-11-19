@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Pruning;
+use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -15,8 +16,10 @@ use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Pruning\Pruner;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 
@@ -47,6 +50,7 @@ $pruner = static fn(Pruning|Absent $settings = new Absent()): Pruner => Pruner::
     Name::of('pest'),
     MutatorNames::of('Secure'),
     Moment::at('2026-10-01T00:00:00Z'),
+    MutantTriage::under(TimeoutMode::Confirm),
 );
 $makeProofs = static fn(): Proofs => Proofs::of(
     PruningCases::proof('src/A.php', '2026-10-05T00:00:00Z', 'a', Mutants::none()),
@@ -73,6 +77,20 @@ it('prunes in no unit whose result is of another mutant set', function () use ($
     expect(prunedOver($pruner(), $proofs))->toBe([[], ['Plus']]);
 });
 
+it('prunes in no unit whose result holds a timeout triage does not count as killed, and in one whose control finished within its limit', function (float $need, array $files) use ($pruner): void {
+    $timedOut = PruningCases::mutant('src/A.php', 'Plus', 2, MutantStatus::TimedOut)->withLimit(Seconds::of(10.0));
+    $proofs = Proofs::of(PruningCases::proof('src/A.php', '2026-10-05T00:00:00Z', 'a', Mutants::of(
+        PruningCases::mutant('src/A.php', 'Plus', 1),
+        $need > 0 ? $timedOut->withUnmutatedNeed(Seconds::of($need)) : $timedOut,
+    )));
+
+    expect(prunedOver($pruner(), $proofs))->toBe([$files, ['Plus']]);
+})->with([
+    'a control that finished within the limit' => [1.0, ['src/A.php']],
+    'a control that needed more than the limit' => [11.0, []],
+    'a control that ran out of the limit too' => [0.0, []],
+]);
+
 it('prunes in no unit whose result let a mutant through, and in one whose result killed every mutant', function (MutantStatus $status, array $files) use ($pruner): void {
     $proofs = Proofs::of(PruningCases::proof('src/A.php', '2026-10-05T00:00:00Z', 'a', Mutants::of(
         PruningCases::mutant('src/A.php', 'Plus', 1),
@@ -84,8 +102,10 @@ it('prunes in no unit whose result let a mutant through, and in one whose result
     'a survivor' => [MutantStatus::Survived, []],
     'an uncovered mutant' => [MutantStatus::Uncovered, []],
     'an unjudged mutant' => [MutantStatus::Unjudged, []],
+    'a mutant out of memory that no control weighed' => [MutantStatus::OutOfMemory, []],
     'a kill by static analysis' => [MutantStatus::KilledByStaticAnalysis, ['src/A.php']],
-    'a timeout' => [MutantStatus::TimedOut, ['src/A.php']],
+    'an errored mutant' => [MutantStatus::Errored, ['src/A.php']],
+    'a mutant its marker ignores' => [MutantStatus::IgnoredByMarker, ['src/A.php']],
 ]);
 
 it('carries a result made at the audit\'s very start', function () use ($pruner): void {

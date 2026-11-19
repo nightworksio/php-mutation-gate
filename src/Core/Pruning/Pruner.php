@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Pruning;
 
-use function array_any;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Config\Name;
@@ -12,15 +11,17 @@ use NightWorksIO\MutationGate\Core\Config\Pruning;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
+use NightWorksIO\MutationGate\Core\Verdict\Scoring;
 
 /**
  * Which mutators a run with a base leaves out of which of the units it runs
@@ -29,8 +30,9 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * whose newest full result is of its code and mutant set as they are now,
  * was made since the audit's start and let nothing through (ADR-0106). A run
  * with no base, a held unit, a unit whose result is older, of other code or
- * holds a survivor, an uncovered or an unjudged mutant, and every unit where
- * pruning is off, run every mutator.
+ * holds a mutant triage does not count as killed (a survivor, an uncovered or
+ * an unjudged mutant, or one too slow or too heavy to judge, ADR-0162), and
+ * every unit where pruning is off, run every mutator.
  *
  * @internal
  */
@@ -41,16 +43,23 @@ final readonly class Pruner
         private Name $runner,
         private MutatorNames $never,
         private Instant $since,
+        private MutantTriage $triage,
     ) {
     }
 
     /**
      * A pruner by these settings, for this runner, never pruning these
-     * mutators, carrying no result made before this instant.
+     * mutators, carrying no result made before this instant, and judging
+     * a result's mutants by this triage.
      */
-    public static function of(Pruning $settings, Name $runner, MutatorNames $never, Instant $since): self
-    {
-        return new self($settings, $runner, $never, $since);
+    public static function of(
+        Pruning $settings,
+        Name $runner,
+        MutatorNames $never,
+        Instant $since,
+        MutantTriage $triage,
+    ): self {
+        return new self($settings, $runner, $never, $since, $triage);
     }
 
     /**
@@ -87,10 +96,16 @@ final readonly class Pruner
             && $now->mutation()->value() === $inputs->mutation()->value();
     }
 
-    /** Whether a result holds a mutant that let the change through, which a run judges again rather than carry. */
+    /** Whether a result holds a mutant triage does not count as killed, which a run judges again rather than carry. */
     private function letThrough(Proof $proof): bool
     {
-        return array_any([...$proof->reported()], static fn(Mutant $mutant): bool => $mutant->status()->letsThrough());
+        foreach ($proof->reported() as $mutant) {
+            if ($this->triage->judged($mutant)->scoring(Uncovered::Count) === Scoring::NotKilled) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

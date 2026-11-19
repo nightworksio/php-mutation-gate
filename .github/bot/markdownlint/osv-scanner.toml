@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2027-01-01
+reason = "build-time only, never shipped or run by the gate; no fixed release"
