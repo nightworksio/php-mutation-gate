@@ -14,6 +14,7 @@ use function count;
 use function getmypid;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -136,15 +137,24 @@ final readonly class FreshRuns
         MemoryScan $scan,
         ServedChildren $children,
     ): FreshBatch {
+        $map = $coverage->map($this->project);
+
         return new FreshBatch(
             $request,
             $coverage,
-            $coverage->map($this->project),
+            $map,
             Suite::of($coverage->tests()),
             $request->pool()->bounding($this->bounds),
             $override,
             $scan,
             $children,
+            FreshOrder::of(
+                $this->project,
+                $this->placement,
+                $request,
+                $map->durations(),
+                $this->patching->steps()->on(Toggle::PestFreshOrder),
+            ),
         );
     }
 

@@ -129,10 +129,10 @@ final readonly class FreshRunPreparing
         $suites = PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy));
         $placed = $files->placed;
         $logging = sprintf('%s=%s', PhpUnitOption::LogJunit->value, $files->log);
-        $serving = fn(string $served, string $guarded, string ...$logging): Command => $batch->children->onto(
+        $serving = fn(string $served, string $guarded, string ...$options): Command => $batch->children->onto(
             $batch->scan->onto(
                 Invocation::of($this->project)
-                ->judging($tests, $judgedBy, $request->withheld(), ...$suites, ...$logging)
+                ->judging($tests, $judgedBy, $request->withheld(), ...$suites, ...$options)
                 ->startingPhpWith(...$this->placement->startingPhp($batch->override))
                 ->with([
                     Variable::Mutant->value => $placed->original(),
@@ -146,8 +146,8 @@ final readonly class FreshRunPreparing
             $mutant,
             $covering,
             $placed,
-            $serving($placed->mutated(), $placed->guard(), $logging),
-            $serving($files->unmutated, $files->controlGuard),
+            $serving($placed->mutated(), $placed->guard(), $logging, ...$batch->order->ofRun($mutant, $covering)),
+            $serving($files->unmutated, $files->controlGuard, ...$batch->order->ofControl($mutant, $covering)),
             $files->log,
             $limit,
             $selection->fits(),

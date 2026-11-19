@@ -183,6 +183,7 @@ const WIRED_PEST_TOGGLES = [
     'trials' => true,
     'valueReaders' => true,
     'narrow' => true,
+    'freshOrder' => true,
     'shardScan' => true,
     'readyAtPlan' => true,
     'makeSideBySide' => true,

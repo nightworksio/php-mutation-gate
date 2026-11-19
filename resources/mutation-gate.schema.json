@@ -4126,6 +4126,10 @@
                     "type": "boolean",
                     "default": true
                 },
+                "freshOrder": {
+                    "type": "boolean",
+                    "default": true
+                },
                 "shardScan": {
                     "type": "boolean",
                     "default": true
@@ -8861,6 +8865,9 @@
                             "type": "boolean"
                         },
                         "narrow": {
+                            "type": "boolean"
+                        },
+                        "freshOrder": {
                             "type": "boolean"
                         },
                         "shardScan": {
