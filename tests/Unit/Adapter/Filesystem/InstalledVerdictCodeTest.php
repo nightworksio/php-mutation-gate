@@ -36,6 +36,7 @@ function installedAt(array $packages): InstalledVerdictCode
 
     return InstalledVerdictCode::at(
         static fn(string $package): string => $roots[$package],
+        time(...),
         ...array_map(strval(...), array_keys($roots)),
     );
 }
@@ -71,6 +72,7 @@ it('reads the code of each of the gate\'s mutator packages installed, and nothin
     $withPlugin = installedAt([ThisPackage::COMPOSER => $gate, $plugin => ['src/Acme.php' => '<?php // acme']])->of('pest');
     $notInstalled = InstalledVerdictCode::at(
         static fn(): null => null,
+        time(...),
         ThisPackage::COMPOSER,
         $plugin,
     )->of('pest');
@@ -80,7 +82,7 @@ it('reads the code of each of the gate\'s mutator packages installed, and nothin
         ->not->toEqual($withPlugin)
         ->and(installedAt([ThisPackage::COMPOSER => $gate, 'acme/other' => ['src/Acme.php' => '<?php // acme']])->of('pest'))
         ->toEqual($alone)
-        ->and($notInstalled)->toEqual(InstalledVerdictCode::at(static fn(): null => null)->of('pest'));
+        ->and($notInstalled)->toEqual(InstalledVerdictCode::at(static fn(): null => null, time(...))->of('pest'));
 });
 
 it('moves with every file of a mutator package, and with the gate\'s own code beside one', function () use ($gate): void {
@@ -102,4 +104,60 @@ it('digests the same code alike, whichever order its packages are installed in',
 
     expect(installedAt([ThisPackage::COMPOSER => $gate, $acme => ['src/A.php' => '<?php // a'], $zeta => ['src/Z.php' => '<?php // z']])->of('pest'))
         ->toEqual(installedAt([$zeta => ['src/Z.php' => '<?php // z'], ThisPackage::COMPOSER => $gate, $acme => ['src/A.php' => '<?php // a']])->of('pest'));
+});
+
+it('digests the gate\'s code again where a file of it is written in the second it was digested, its size kept', function () use ($gate): void {
+    $root = Scratch::directory();
+
+    foreach ($gate as $path => $contents) {
+        Scratch::write($root, $path, $contents);
+    }
+
+    $installed = InstalledVerdictCode::at(static fn(): string => $root, time(...), ThisPackage::COMPOSER);
+    $digest = $installed->of('phpunit');
+    Scratch::write($root, 'src/Core/Mutant/Mutant.php', '<?php // b mutant');
+
+    expect($installed->of('phpunit'))->not->toEqual($digest)
+        ->and($installed->of('phpunit'))->toEqual(installedAt([ThisPackage::COMPOSER => [...$gate, 'src/Core/Mutant/Mutant.php' => '<?php // b mutant']])->of('phpunit'));
+});
+
+it('digests the gate\'s code it kept again once a file of it is added, written or removed', function () use ($gate): void {
+    $root = Scratch::directory();
+
+    foreach ($gate as $path => $contents) {
+        Scratch::write($root, $path, $contents);
+    }
+
+    $installed = InstalledVerdictCode::at(static fn(): string => $root, static fn(): int => time() + 60, ThisPackage::COMPOSER);
+    $digest = $installed->of('phpunit');
+    $kept = $installed->of('phpunit');
+    Scratch::write($root, 'src/Core/Mutant/Added.php', '<?php // added');
+    $added = $installed->of('phpunit');
+    unlink(sprintf('%s/src/Core/Mutant/Added.php', $root));
+    $removed = $installed->of('phpunit');
+    Scratch::write($root, 'src/Core/Mutant/Mutant.php', '<?php // a longer mutant');
+    $written = $installed->of('phpunit');
+
+    expect($kept)->toEqual($digest)
+        ->and($added)->toEqual(installedAt([ThisPackage::COMPOSER => [...$gate, 'src/Core/Mutant/Added.php' => '<?php // added']])->of('phpunit'))
+        ->and($removed)->toEqual($digest)
+        ->and($written)->toEqual(installedAt([ThisPackage::COMPOSER => [...$gate, 'src/Core/Mutant/Mutant.php' => '<?php // a longer mutant']])->of('phpunit'))
+        ->and($written)->not->toEqual($digest);
+});
+
+it('reads a link to a file as the file it names, and nothing under a link to a directory', function () use ($gate): void {
+    $root = Scratch::directory();
+    $elsewhere = Scratch::directory();
+
+    foreach ($gate as $path => $contents) {
+        Scratch::write($root, $path, $contents);
+    }
+
+    Scratch::write($elsewhere, 'Linked.php', '<?php // linked');
+    Scratch::write($elsewhere, 'Deeper/Under.php', '<?php // under');
+    symlink(sprintf('%s/Linked.php', $elsewhere), sprintf('%s/src/Core/Mutant/Linked.php', $root));
+    symlink(sprintf('%s/Deeper', $elsewhere), sprintf('%s/src/Core/Mutant/Deeper', $root));
+
+    expect(InstalledVerdictCode::at(static fn(): string => $root, time(...), ThisPackage::COMPOSER)->of('phpunit'))
+        ->toEqual(installedAt([ThisPackage::COMPOSER => [...$gate, 'src/Core/Mutant/Linked.php' => '<?php // linked']])->of('phpunit'));
 });
