@@ -136,7 +136,7 @@ final readonly class ProgressReporter
         Closure $run,
         Seconds $grace,
     ): self {
-        $said = $service instanceof ArtifactAccess && $every->seconds() > 0 && Forking::isAvailable()
+        $said = $service instanceof ArtifactAccess && $every->seconds() > 0 && Forking::besideTheGate()
             ? tempnam(sys_get_temp_dir(), self::KEPT)
             : false;
 

@@ -100,7 +100,7 @@ final readonly class PlannedWarmUp
      */
     public function begun(): WarmingUp
     {
-        $child = Forking::isAvailable() ? pcntl_fork() : -1;
+        $child = Forking::besideTheGate() ? pcntl_fork() : -1;
 
         if ($child === 0) {
             try {
