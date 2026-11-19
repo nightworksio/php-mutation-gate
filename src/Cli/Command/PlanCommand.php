@@ -10,17 +10,19 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Console\Indented;
 use NightWorksIO\MutationGate\Adapter\Filesystem\PublicationFile;
-use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
+use NightWorksIO\MutationGate\Cli\Flow\PlanStopwatch;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Config\JobStop;
+use NightWorksIO\MutationGate\Core\Cost\PlanStep;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
@@ -66,6 +68,7 @@ final readonly class PlanCommand
                 description: 'Plan nothing where the run cannot start without a fresh coverage map',
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
+                $began = $composition->now();
                 $composed = DeliverLater::composed(
                     FlowOptions::narrowed($composition->compose($input), $input),
                     $input,
@@ -76,17 +79,22 @@ final readonly class PlanCommand
                     return Failed::because($output, $composed);
                 }
 
-                $made = self::planOf($composed, $input);
+                $stopwatch = PlanStopwatch::since($composed->setup->clock, $began);
+                $stopwatch->lap(PlanStep::Composing);
+                $made = self::planOf($composed, $input, $stopwatch);
 
                 return $made instanceof PlanMade
-                    ? self::published($composed, $made, $output)
+                    ? self::published($composed, $made, $output, $stopwatch)
                     : Failed::because($output, $made);
             });
     }
 
     /** The plan the options ask for, with how its coverage map was measured; or why there is none. */
-    public static function planOf(Composed $composed, InputInterface $input): PlanMade|CannotJudge
-    {
+    public static function planOf(
+        Composed $composed,
+        InputInterface $input,
+        PlanStopwatch|NotGiven $stopwatch = new NotGiven(),
+    ): PlanMade|CannotJudge {
         $mode = FlowOptions::mode($input, $composed->settings);
         $cut = FlowOptions::pulled(FlowOptions::cut($input, $composed->settings), $composed);
         $wall = StreamWall::of($composed->adapters->processes()->count());
@@ -97,7 +105,7 @@ final readonly class PlanCommand
             $mode instanceof CannotJudge => $mode,
             $cut instanceof CannotJudge => $cut,
             $matrix instanceof CannotJudge => $matrix,
-            default => new Planning($composed->adapters, $composed->settings, $composed->setup)
+            default => new Planning($composed->adapters, $composed->settings, $composed->setup, $stopwatch)
                 ->plan(
                     $mode,
                     FlowOptions::coverage($input),
@@ -126,8 +134,12 @@ final readonly class PlanCommand
      * Write the plan, hand it to the CI and write the pull request comment
      * in its planned state; or say why it cannot be.
      */
-    private static function published(Composed $composed, PlanMade $made, OutputInterface $output): int
-    {
+    private static function published(
+        Composed $composed,
+        PlanMade $made,
+        OutputInterface $output,
+        PlanStopwatch $stopwatch,
+    ): int {
         $plan = $made->plan();
         $written = LastRun::keep($composed->adapters->project, $plan);
         $commands = $composed->setup->command->jobs();
@@ -142,6 +154,7 @@ final readonly class PlanCommand
             return Failed::because($output, $commented);
         }
 
+        $stopwatch->lap(PlanStep::Publishing);
         $aside = Aside::of($output);
 
         foreach ($made->unread() as $warning) {
@@ -162,7 +175,12 @@ final readonly class PlanCommand
             $aside->writeln($said, OutputInterface::OUTPUT_RAW);
         }
 
-        return ExitCode::Passed->value;
+        return PlanStepsSaid::of(
+            $composed->settings->shards()->planning(),
+            $composed->adapters->project,
+            $stopwatch->laps(),
+            $aside,
+        );
     }
 
     /** Why the plan reaches what it does, what reaches every unit of a package first, before its shards. */

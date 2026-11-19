@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\PlanStep;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
@@ -31,8 +32,15 @@ use NightWorksIO\MutationGate\Core\Written;
  */
 final readonly class ShardHandoff
 {
-    public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
-    {
+    private PlanStopwatch $stopwatch;
+
+    public function __construct(
+        private Adapters $adapters,
+        private Settings $settings,
+        private Setup $setup,
+        PlanStopwatch|NotGiven $stopwatch = new NotGiven(),
+    ) {
+        $this->stopwatch = PlanStopwatch::given($stopwatch, $setup->clock);
     }
 
     /** What the plan readied for its shards, or why it could not hand them their maps. */
@@ -45,21 +53,34 @@ final readonly class ShardHandoff
         Subsumption|NotGiven $held,
         WarmingUp|NotGiven $warming,
     ): Written|Missing|CannotJudge {
-        $warming = $warming instanceof WarmingUp
-            ? $warming
-            : new PlannedWarmUp($this->adapters, $this->settings, $this->setup->clock)->begun();
+        $warming = $warming instanceof WarmingUp ? $warming : $this->warmingBegun();
         $level = $this->settings->proofs()->coverageCompressionLevel();
         $whole = HandedWhole::begun($this->adapters->project, $map, $at, $keys, $level);
+        $this->stopwatch->lap(PlanStep::WholeMapBegun);
         $opened = $this->adapters->runner->behaviour()->opening()
             ->readied($map, $plan->shards()->paths(), $this->adapters->suite->testCases());
+        $this->stopwatch->lap(PlanStep::Opening);
         $handed = new Handoff($this->adapters->project, Handoff::limits(), $this->adapters->maps, $level)
             ->write($plan, $map, $history, $at, $keys, $held, $opened, $whole);
+        $this->stopwatch->lap(PlanStep::Handoff);
 
         $warmed = $warming->leftFor($plan);
+        $this->stopwatch->lap(PlanStep::WarmUp);
         $warmed = $handed instanceof CannotJudge ? $handed : $warmed;
-
-        return $warmed instanceof CannotJudge
+        $started = $warmed instanceof CannotJudge
             ? $warmed
             : new PlannedStartUp($this->adapters, $this->settings)->left($plan, $map);
+        $this->stopwatch->lap(PlanStep::StartUp);
+
+        return $started;
+    }
+
+    /** The analyser's warm-up, begun beside the maps where the plan did not begin it earlier (ADR-0180). */
+    private function warmingBegun(): WarmingUp
+    {
+        $warming = new PlannedWarmUp($this->adapters, $this->settings, $this->setup->clock)->begun();
+        $this->stopwatch->lap(PlanStep::WarmUpBegun);
+
+        return $warming;
     }
 }

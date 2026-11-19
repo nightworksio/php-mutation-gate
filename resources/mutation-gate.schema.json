@@ -1034,6 +1034,10 @@
                     "type": "integer",
                     "minimum": 1,
                     "default": 3
+                },
+                "planSteps": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -6033,6 +6037,9 @@
                         "startUpSamples": {
                             "type": "integer",
                             "minimum": 1
+                        },
+                        "planSteps": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false

@@ -28,6 +28,7 @@ final readonly class Planning
         private float|int|Absent $cutAt,
         private float|int|Absent $newest,
         private int|Absent $startUpSamples,
+        private bool|Absent $planSteps,
     ) {
     }
 
@@ -37,8 +38,9 @@ final readonly class Planning
         float|int|Absent $cutAt = new Absent(),
         float|int|Absent $newest = new Absent(),
         int|Absent $startUpSamples = new Absent(),
+        bool|Absent $planSteps = new Absent(),
     ): self {
-        return new self($chunkMinutes, $provingRange, $cutAt, $newest, $startUpSamples);
+        return new self($chunkMinutes, $provingRange, $cutAt, $newest, $startUpSamples, $planSteps);
     }
 
     /** Every key at the value it takes where every layer leaves it out. */
@@ -50,6 +52,7 @@ final readonly class Planning
             ShardSizing::WORK_PER_OVERHEAD,
             Timing::NEWEST,
             StartUpSamples::STANDARD,
+            planSteps: true,
         );
     }
 
@@ -61,6 +64,7 @@ final readonly class Planning
             Absent::laid($this->cutAt, $later->cutAt),
             Absent::laid($this->newest, $later->newest),
             Absent::laid($this->startUpSamples, $later->startUpSamples),
+            Absent::laid($this->planSteps, $later->planSteps),
         );
     }
 
@@ -98,6 +102,15 @@ final readonly class Planning
             : StartUpSamples::of($this->startUpSamples);
     }
 
+    /**
+     * `timing.planSteps`: whether the plan prints how long each of its steps
+     * took and records them beside the plan (ADR-0220).
+     */
+    public function planSteps(): bool
+    {
+        return $this->planSteps instanceof Absent || $this->planSteps;
+    }
+
     /** The `shards.cutAt` member, which the `shards` section writes beside its own. */
     public function cutAtWritten(): Member
     {
@@ -120,6 +133,7 @@ final readonly class Planning
                 Json::object(
                     Member::of('newest', $this->newest),
                     Member::of('startUpSamples', $this->startUpSamples),
+                    Member::of('planSteps', $this->planSteps),
                 ),
             ));
     }
@@ -132,11 +146,12 @@ final readonly class Planning
             ...$this->called('Shards::cutAt(%s)', $this->cutAt),
             ...$this->called('Timing::newest(%s)', $this->newest),
             ...$this->called('Timing::startUpSamples(%s)', $this->startUpSamples),
+            ...$this->called('Timing::planSteps(%s)', $this->planSteps),
         ]);
     }
 
     /** @return list<string> the builder's call that sets a key, where a layer sets it */
-    private function called(string $call, float|int|Absent $value): array
+    private function called(string $call, float|int|bool|Absent $value): array
     {
         return $value instanceof Absent ? [] : [sprintf($call, PhpCalls::literal($value))];
     }

@@ -25,6 +25,15 @@ final readonly class Timing implements Setting
         return new self(Json::at('timing.startUpSamples', $runs));
     }
 
+    /**
+     * `timing.planSteps`: whether the plan prints how long each of its steps took and records them beside the plan;
+     * true.
+     */
+    public static function planSteps(bool $timed): self
+    {
+        return new self(Json::at('timing.planSteps', $timed));
+    }
+
     public function written(): Json
     {
         return $this->json;
