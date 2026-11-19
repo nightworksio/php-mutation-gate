@@ -25,8 +25,8 @@ it('writes the first likely killer as an error, the rest as failures, and each c
     $seed = sprintf('%s/seed', $root);
 
     if ($coverage instanceof CoverageFile) {
-        Seed::write($seed, '5.1.0', TestIds::of(TestId::of('T::b#0'), TestId::of('T::c'), TestId::of('T::a')), TestIds::of(TestId::of('T::a'), TestId::of('T::b#0')), $coverage);
-        Seed::write(sprintf('%s/empty', $root), '5.1.0', TestIds::none(), TestIds::none(), $coverage);
+        Seed::write($seed, '5.1.0', TestIds::of(TestId::of('T::b#0'), TestId::of('T::c'), TestId::of('T::a')), TestIds::of(TestId::of('T::a'), TestId::of('T::b#0')), $coverage->secondsOf(...));
+        Seed::write(sprintf('%s/empty', $root), '5.1.0', TestIds::none(), TestIds::none(), $coverage->secondsOf(...));
     }
 
     expect(file_get_contents(sprintf('%s/test-run-history', $seed)))->toBe(

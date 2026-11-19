@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Config\CheckTiming;
 use NightWorksIO\MutationGate\Config\Controls as ControlsBuilder;
+use NightWorksIO\MutationGate\Config\FreshRunOrder;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\HeavyMutants;
 use NightWorksIO\MutationGate\Config\Pest as PestBuilder;
@@ -28,6 +29,7 @@ $toggles = [
     'pest.trials' => [Toggle::PestTrials, static fn(): Setting => PestBuilder::withoutTrials(), static fn(): Setting => PestBuilder::trying()],
     'pest.valueReaders' => [Toggle::PestValueReaders, static fn(): Setting => PestBuilder::withoutValueReaders(), static fn(): Setting => PestBuilder::readingValues()],
     'pest.narrow' => [Toggle::PestNarrow, static fn(): Setting => PestBuilder::unnarrowed(), static fn(): Setting => PestBuilder::narrowing()],
+    'pest.freshOrder' => [Toggle::PestFreshOrder, static fn(): Setting => FreshRunOrder::pestsOwn(), static fn(): Setting => FreshRunOrder::killersFirst()],
     'staticCheck.after' => [Toggle::StaticCheckAfter, static fn(): Setting => CheckTiming::survivorsUnchecked(), static fn(): Setting => CheckTiming::checkingSurvivors()],
     'timeouts.parts' => [Toggle::TimeoutsParts, static fn(): Setting => TimeoutsBuilder::neverInParts(), static fn(): Setting => TimeoutsBuilder::inParts()],
     'timeouts.startUpAtPlan' => [Toggle::TimeoutsStartUpAtPlan, static fn(): Setting => TimeoutSpeedUps::measuringInEachShard(), static fn(): Setting => TimeoutSpeedUps::measuringAtPlan()],
@@ -76,7 +78,7 @@ it('hands Pest the toggles it reads among its options, and any other runner none
     $pest = Toggles::of(Toggle::PestTrials, on: false)->beneath(Choice::of(BuiltinRunner::Pest->value, Options::none()));
     $other = Toggles::of(Toggle::PestTrials, on: false)->beneath(Choice::of(BuiltinRunner::PhpUnit->value, Options::none()));
 
-    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true,"shardScan":true,"readyAtPlan":true,"makeSideBySide":true,"longestFirst":true,"remember":true,"overlapSteps":true,"pcovOff":true,"xdebugOff":true}')
+    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true,"freshOrder":true,"shardScan":true,"readyAtPlan":true,"makeSideBySide":true,"longestFirst":true,"remember":true,"overlapSteps":true,"pcovOff":true,"xdebugOff":true}')
         ->and($other->options()->written()->line())->toBe('{}');
 });
 
@@ -92,7 +94,7 @@ it('keys none of the speed-ups that change no output, and every check that vouch
     $speedUps = array_values(array_filter(Toggle::cases(), static fn(Toggle $toggle): bool => $toggle->speedsUp()));
 
     expect(array_map(static fn(Toggle $toggle): string => $toggle->value, $speedUps))
-        ->toBe(['timeouts.startUpAtPlan', 'timeouts.heavyBeside', 'pest.shardScan', 'pest.readyAtPlan', 'pest.makeSideBySide', 'pest.longestFirst', 'pest.remember', 'pest.overlapSteps', 'pest.pcovOff', 'pest.xdebugOff', 'staticCheck.turbo', 'staticCheck.warmAtPlan'])
+        ->toBe(['pest.freshOrder', 'timeouts.startUpAtPlan', 'timeouts.heavyBeside', 'pest.shardScan', 'pest.readyAtPlan', 'pest.makeSideBySide', 'pest.longestFirst', 'pest.remember', 'pest.overlapSteps', 'pest.pcovOff', 'pest.xdebugOff', 'staticCheck.turbo', 'staticCheck.warmAtPlan'])
         ->and(array_filter($speedUps, static fn(Toggle $toggle): bool => $toggle->effect()->isKeyed()))->toBe([])
         ->and(Toggle::ControlsKills->effect()->isKeyed())->toBeTrue();
 });

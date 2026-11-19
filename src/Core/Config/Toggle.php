@@ -27,6 +27,9 @@ enum Toggle: string
     /** A patched mutant's own run loads only the test files its covering tests need. */
     case PestNarrow = 'pest.narrow';
 
+    /** A fresh run asks Pest for its likely killers first, the rest fastest first, as its own run does (ADR-0202). */
+    case PestFreshOrder = 'pest.freshOrder';
+
     /** A survivor the analyser rejects counts as killed by static analysis (ADR-0020). */
     case StaticCheckAfter = 'staticCheck.after';
 
@@ -91,6 +94,7 @@ enum Toggle: string
             self::PestTrials,
             self::PestValueReaders,
             self::PestNarrow,
+            self::PestFreshOrder,
             self::PestShardScan,
             self::PestReadyAtPlan,
             self::PestMakeSideBySide,
@@ -127,6 +131,7 @@ enum Toggle: string
             self::StaticCheckWarmAtPlan,
             self::TimeoutsStartUpAtPlan,
             self::TimeoutsHeavyBeside,
+            self::PestFreshOrder,
             self::PestShardScan,
             self::PestReadyAtPlan,
             self::PestMakeSideBySide,
@@ -164,6 +169,7 @@ enum Toggle: string
             self::ControlsMemory,
             self::PestValueReaders,
             self::PestNarrow,
+            self::PestFreshOrder,
             self::StaticCheckAfter,
             self::TimeoutsParts,
             self::SuggestLooseValues,
@@ -191,6 +197,7 @@ enum Toggle: string
             self::PestTrials => 'Pest::trying()',
             self::PestValueReaders => 'Pest::readingValues()',
             self::PestNarrow => 'Pest::narrowing()',
+            self::PestFreshOrder => 'FreshRunOrder::killersFirst()',
             self::StaticCheckAfter => 'CheckTiming::checkingSurvivors()',
             self::TimeoutsParts => 'Timeouts::inParts()',
             self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringAtPlan()',
@@ -218,6 +225,7 @@ enum Toggle: string
             self::PestTrials => 'Pest::withoutTrials()',
             self::PestValueReaders => 'Pest::withoutValueReaders()',
             self::PestNarrow => 'Pest::unnarrowed()',
+            self::PestFreshOrder => 'FreshRunOrder::pestsOwn()',
             self::StaticCheckAfter => 'CheckTiming::survivorsUnchecked()',
             self::TimeoutsParts => 'Timeouts::neverInParts()',
             self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringInEachShard()',

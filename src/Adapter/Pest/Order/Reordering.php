@@ -44,12 +44,22 @@ final readonly class Reordering
             ? Seed::copiedFor($seed, (int) getmypid())
             : NotGiven::value();
 
-        return is_string($copy) ? [
-            ...self::without($arguments),
-            sprintf('%s=%s', Option::CacheDirectory->value, $copy),
+        return is_string($copy) ? [...self::without($arguments), ...self::reading($copy)] : $arguments;
+    }
+
+    /**
+     * The options that run a process's tests in the order the history in this
+     * cache directory says: its defects first, the rest fastest first.
+     *
+     * @return list<string>
+     */
+    public static function reading(string $directory): array
+    {
+        return [
+            sprintf('%s=%s', Option::CacheDirectory->value, $directory),
             Option::Record->value,
             sprintf('%s=duration-ascending,defects', Option::OrderBy->value),
-        ] : $arguments;
+        ];
     }
 
     /**
