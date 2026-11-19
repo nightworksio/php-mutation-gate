@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
@@ -77,13 +78,13 @@ function freshRaceTest(string $name): TestId
  * A shell whose runs end by what each is: the fresh run itself (`run`), which takes long, the part of its tests raced
  * beside it that holds `it adds` (`adds`) or `it subtracts` (`subtracts`), which are quick, or a part's unmutated run
  * (`control`). Each of the first three fails the test this names for it, or passes where it names none; the control
- * passes as said.
+ * passes as said. The fresh run ends otherwise where this says how (see freshRaceEnd()).
  *
  * @param array<string, string> $failing the test each fails, by what it is
  */
-function freshRaceShell(array $failing, bool $controlPasses): ShellFake
+function freshRaceShell(array $failing, bool $controlPasses, string $runEnds = ''): ShellFake
 {
-    return new ShellFake(static function (Command $command) use ($failing, $controlPasses): Ran {
+    return new ShellFake(static function (Command $command) use ($failing, $controlPasses, $runEnds): Ran {
         $environment = $command->environment();
         $guard = (string) ($environment[Variable::Guard->value] ?? '');
         $mutated = (string) ($environment[Variable::Mutated->value] ?? '');
@@ -99,6 +100,10 @@ function freshRaceShell(array $failing, bool $controlPasses): ShellFake
             return Ran::finished(succeeded: $controlPasses, output: '')->took($took);
         }
 
+        if ($kind === 'run' && $runEnds !== '') {
+            return freshRaceEnd($runEnds, $guard)->took($took);
+        }
+
         file_put_contents($guard, sprintf("%s\n", Guard::SERVED));
         $fails = $failing[$kind] ?? '';
 
@@ -112,6 +117,26 @@ function freshRaceShell(array $failing, bool $controlPasses): ShellFake
 
         return Ran::finished(succeeded: true, output: '')->took($took);
     });
+}
+
+/**
+ * A fresh run that ends other than by its tests: stopped at its limit with the mutant served (`stopped`), failed on
+ * exactly the memory cap (`memory`), or ended before it served the mutant (`unserved`).
+ */
+function freshRaceEnd(string $ends, string $guard): Ran
+{
+    if ($ends !== 'unserved') {
+        file_put_contents($guard, sprintf("%s\n", Guard::SERVED));
+    }
+
+    return match ($ends) {
+        'stopped' => Ran::stopped(''),
+        'memory' => Ran::finished(
+            succeeded: false,
+            output: sprintf('Allowed memory size of %d bytes exhausted', MemoryCap::standard()->bytes()),
+        ),
+        default => Ran::finished(succeeded: true, output: ''),
+    };
 }
 
 /**
@@ -141,7 +166,8 @@ function freshRaceJudged(ShellFake $shell, bool $racing): array
         ->judged(
             MutationResult::skippingNone(Mutants::of(freshRaceMutant())),
             MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-                ->across(Pool::of(ProcessCount::of(3), Workers::Fresh)),
+                ->across(Pool::of(ProcessCount::of(3), Workers::Fresh))
+                ->cappedAt(MemoryCap::standard()),
             new HandedOver($map, $at),
             static fn(): Unlimited => Unlimited::time(),
             Laps::since(static fn(): Seconds => Seconds::of(0.0), Seconds::of(0.0)),
@@ -164,16 +190,29 @@ it('runs the fresh run again in full where the winning part fails unmutated, and
         ->and($commands)->toHaveCount(5);
 });
 
-it('judges every mutant as its fresh run alone does, raced or not', function (string $runFails, MutantStatus $status): void {
+it('judges every mutant as its fresh run alone does, raced or not, where no part kills it', function (string $runFails, string $runEnds, MutantStatus $status): void {
     $failing = $runFails === '' ? [] : ['run' => $runFails];
-    [$raced, $racedCommands] = freshRaceJudged(freshRaceShell($failing, controlPasses: true), racing: true);
+    [$raced, $racedCommands] = freshRaceJudged(freshRaceShell($failing, controlPasses: true, runEnds: $runEnds), racing: true);
     Scratch::sweep();
-    [$alone, $aloneCommands] = freshRaceJudged(freshRaceShell($failing, controlPasses: true), racing: false);
+    [$alone, $aloneCommands] = freshRaceJudged(freshRaceShell($failing, controlPasses: true, runEnds: $runEnds), racing: false);
 
     expect($raced->status())->toBe($status)
         ->and($alone->status())->toBe($status)
         ->and([count($racedCommands), count($aloneCommands)])->toBe([3, 1]);
 })->with([
-    'every test passes' => ['', MutantStatus::Survived],
-    'only the run kills, by a test no part fails' => ['adds', MutantStatus::Killed],
+    'every test passes' => ['', '', MutantStatus::Survived],
+    'only the run kills, by a test no part fails' => ['adds', '', MutantStatus::Killed],
+    'the run stops at its limit with the mutant served' => ['', 'stopped', MutantStatus::TimedOut],
+    'the run fails on exactly the memory cap' => ['', 'memory', MutantStatus::OutOfMemory],
+    'the run ends before it serves the mutant' => ['', 'unserved', MutantStatus::Unjudged],
 ]);
+
+it('judges killed by a part whose unmutated run passes a mutant its fresh run alone would time out on, both a detection', function (): void {
+    $shell = static fn(): ShellFake => freshRaceShell(['adds' => 'adds'], controlPasses: true, runEnds: 'stopped');
+    [$raced] = freshRaceJudged($shell(), racing: true);
+    Scratch::sweep();
+    [$alone] = freshRaceJudged($shell(), racing: false);
+
+    expect([$raced->status(), [...$raced->killers()]])->toEqual([MutantStatus::Killed, [freshRaceTest('adds')]])
+        ->and($alone->status())->toBe(MutantStatus::TimedOut);
+});
