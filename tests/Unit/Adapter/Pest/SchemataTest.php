@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
+use NightWorksIO\MutationGate\Core\Format\Node as Decoded;
 use NightWorksIO\MutationGate\Tests\Fakes\PinnedPestMutatorFake;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
@@ -74,6 +75,34 @@ it('writes a file\'s schema beside the folder of copies once its mutants are mad
         ->and(file_get_contents($schema))->toContain('? (1 - 2) : (1 + 2)')
         ->and(Schemata::variablesOf($second))->toBe([])
         ->and(Schemata::variablesOf(Mutations::mutation('/p/src/Tax.php', 'other', 3)))->toBe([]);
+});
+
+it('keeps the schemata of the files it is asked for, and the switches of their mutants, as another process takes them on', function (): void {
+    $root = Scratch::directory();
+    $code = "<?php\n\nreturn 1 + 2;\n";
+    $plus = generatedNode($code, Plus::class);
+    Scratch::write($root, 'src/Money.php', $code);
+    Scratch::write($root, 'src/Tax.php', $code);
+    mkdir(sprintf('%s/mutations', $root));
+    $files = [strval(realpath(sprintf('%s/src/Money.php', $root))), strval(realpath(sprintf('%s/src/Tax.php', $root)))];
+    $money = Mutations::mutation($files[0], 'money', 3);
+    $tax = Mutations::mutation($files[1], 'tax', 3);
+    Schemata::sited($money, $plus, new Minus($plus->left, $plus->right));
+    Schemata::written($files[0], $code, sprintf('%s/mutations', $root));
+    Schemata::sited($tax, $plus, new Minus($plus->left, $plus->right));
+    Schemata::written($files[1], $code, sprintf('%s/mutations', $root));
+    $told = Schemata::variablesOf($money);
+    $kept = Schemata::keptOf([$files[0]])->printed();
+
+    foreach (new ReflectionClass(Schemata::class)->getProperties(ReflectionProperty::IS_STATIC) as $property) {
+        $property->setValue(null, $property->getDefaultValue());
+    }
+
+    Schemata::taking(Decoded::decode($kept));
+
+    expect($told)->not->toBe([])
+        ->and(Schemata::variablesOf($money))->toBe($told)
+        ->and(Schemata::variablesOf($tax))->toBe([]);
 });
 
 it('writes nothing for a file whose mutants no schema can switch, and forgets a file\'s mutants once written', function (): void {
