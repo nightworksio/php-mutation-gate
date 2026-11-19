@@ -37,7 +37,7 @@
     },
     "config": {
         "platform": {
-            "php": "8.4.27"
+            "php": "8.4.28"
         },
         "sort-packages": true
     }
