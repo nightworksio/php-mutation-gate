@@ -49,6 +49,21 @@ Two more costs came with each round:
      ones (`watchBudget` 30s, `prePushBudget` 2m, `quick` and `changeOnly`
      on), then fails a quick round above `LOOP_SECONDS` (10; 4 s measured
      on CI).
+   - Each job first times jwt's own suite under plain PHPUnit with pcov
+     on its runner, once to warm up and then the median of five, and
+     scales its budget by the ratio to `RUNNER_REFERENCE_SECONDS` (0.42 s,
+     the fast hosted CPUs' median): never below 1, and at most
+     `RUNNER_MOST_SCALE` (2.5), past which the job fails as on too slow a
+     runner. The log and the step summary print the processor, the
+     measured time, the reference, the scale and every budget before and
+     after.
+   - The signal runs none of the gate's code, so a regression in the gate
+     cannot raise its own budget. It is the work the gate's coverage phase
+     does, and it separates the hosted CPUs as the coverage phase does: the
+     EPYC 7763 takes 1.8 times as long as the EPYC 9V45, where a synthetic
+     PHP workload saw 1.5 times.
+   - The reference is re-measured when jwt's pin, PHP or the hosted fleet
+     changes, from the times and processors the step prints.
 
 ## Why no verdict moves
 
