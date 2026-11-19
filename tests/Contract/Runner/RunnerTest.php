@@ -73,6 +73,7 @@ use NightWorksIO\MutationGate\Extension\RunnerContract;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\GzipBomb;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\RunnerContracts;
@@ -408,7 +409,7 @@ it('names each test by its file and description, and a data set row by the test 
 it('keys the PHP it starts, which a setting of the gate\'s own PHP never reaches', function (Library $library): void {
     $identity = $library->runner()->identity(Withheld::standard());
     $before = ini_get('memory_limit');
-    ini_set('memory_limit', $before === '-1' ? '1G' : '-1');
+    ini_set('memory_limit', $before === '-1' ? GzipBomb::limitAboveUse() : '-1');
     $fresh = $library->outside()->rootedAt($library->package(), $library->packageTests());
     $unreached = $fresh instanceof CannotJudge ? $fresh : $fresh->identity(Withheld::standard());
     ini_set('memory_limit', $before);
