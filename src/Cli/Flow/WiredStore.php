@@ -97,19 +97,17 @@ final readonly class WiredStore
 
         return FetchedCopies::over($kept, $proofs->copies(), $project)
             ->encoding(LedgerCodec::of($proofs->compression(), $proofs->compressionLevel(), ZstdHere::found()))
-            ->limitedTo(LedgerLimits::kept($proofs->retained()));
+            ->limitedTo(LedgerLimits::kept($proofs->retained(), $this->settings->ci()->reuse()->passes()));
     }
 
     /**
-     * GitHub's change source, reading each pull request's own ledger from the proof store as
-     * `ci.trustMergedPullRequests` and `ci.mergedOwnScopeProofs` allow; any other as it is.
+     * GitHub's change source, reading each pull request's own ledger from the proof store as `reuse` allows; any
+     * other as it is.
      */
     public function trusted(ChangeSource $source, ProofStore|Invalid|CannotJudge $proofs): ChangeSource
     {
-        $ci = $this->settings->ci();
-
-        return $source instanceof PassedPullRequests && $proofs instanceof ProofStore && $ci->trustsMergedPullRequests()
-            ? $source->trusting($proofs, $ci->mergedTrust(), $ci->mergedOwnScopeProofs())
+        return $source instanceof PassedPullRequests && $proofs instanceof ProofStore
+            ? $source->trusting($proofs, $this->settings->ci()->reuse())
             : $source;
     }
 

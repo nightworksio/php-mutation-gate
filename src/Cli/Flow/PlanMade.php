@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_values;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -57,6 +59,24 @@ final readonly class PlanMade
             $this->unread,
             $this->learned,
         );
+    }
+
+    /**
+     * This plan, briefed with the digest of every input its run reads, which a passing verdict records (ADR-0198);
+     * as it is where the inputs could not be read.
+     */
+    public function reading(Digest|CannotJudge $inputs): self
+    {
+        $briefing = $this->plan->briefing();
+
+        return $inputs instanceof Digest
+            ? new self(
+                $this->plan->briefed($briefing->reading($briefing->inputs()->digested($inputs))),
+                $this->coverage,
+                $this->unread,
+                $this->learned,
+            )
+            : $this;
     }
 
     /** @return list<string> a line for each limit the plan learned */

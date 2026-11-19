@@ -22,8 +22,7 @@ final readonly class Ci implements Part
         private Choice|Absent $plan,
         private string|Absent $defaultBranch,
         private string|Absent $check,
-        private MergedTrust|Absent $trustMergedPullRequests,
-        private OwnScopeTrust|Absent $mergedOwnScopeProofs,
+        private Reuse $reuse,
         private Pipelines $pipelines,
         private string|Absent $schedule,
     ) {
@@ -33,8 +32,7 @@ final readonly class Ci implements Part
         Choice|Absent $plan = new Absent(),
         string|Absent $defaultBranch = new Absent(),
         string|Absent $check = new Absent(),
-        MergedTrust|Absent $trustMergedPullRequests = new Absent(),
-        OwnScopeTrust|Absent $mergedOwnScopeProofs = new Absent(),
+        Reuse|Absent $reuse = new Absent(),
         Path|Absent $gitlabTemplate = new Absent(),
         BuildkiteStep|Absent $buildkiteStep = new Absent(),
         Path|Absent $buildkiteDefinition = new Absent(),
@@ -47,8 +45,7 @@ final readonly class Ci implements Part
             $plan,
             $defaultBranch,
             $check,
-            $trustMergedPullRequests,
-            $mergedOwnScopeProofs,
+            $reuse instanceof Reuse ? $reuse : Reuse::of(),
             Pipelines::of(
                 $gitlabTemplate,
                 $buildkiteStep,
@@ -73,8 +70,7 @@ final readonly class Ci implements Part
 
         return self::of(
             check: $none->check(),
-            trustMergedPullRequests: $none->mergedTrust(),
-            mergedOwnScopeProofs: $none->mergedOwnScopeProofs(),
+            reuse: Reuse::standard(),
             gitlabTemplate: $pipelines->gitlabTemplate(),
             buildkiteStep: $pipelines->buildkiteStep(),
             buildkiteDefinition: $pipelines->buildkiteDefinition(),
@@ -92,8 +88,7 @@ final readonly class Ci implements Part
                 Absent::laid($this->plan, $later->plan),
                 Absent::laid($this->defaultBranch, $later->defaultBranch),
                 Absent::laid($this->check, $later->check),
-                Absent::laid($this->trustMergedPullRequests, $later->trustMergedPullRequests),
-                Absent::laid($this->mergedOwnScopeProofs, $later->mergedOwnScopeProofs),
+                $this->reuse->over($later->reuse),
                 $this->pipelines->over($later->pipelines),
                 Absent::laid($this->schedule, $later->schedule),
             )
@@ -139,33 +134,10 @@ final readonly class Ci implements Part
         return $this->schedule instanceof Absent ? self::WEEKLY : $this->schedule;
     }
 
-    /**
-     * `ci.trustMergedPullRequests`: what the default branch takes from a merged pull request's pass, nothing unless
-     * the config says. The pass is a record the pull request's own run computed, an untrusted write, so anything
-     * but `false` trusts that run (ADR-0005, ADR-0139).
-     */
-    public function mergedTrust(): MergedTrust
+    /** `reuse`: what a run takes from an earlier passed verdict (ADR-0139, ADR-0198). */
+    public function reuse(): Reuse
     {
-        return $this->trustMergedPullRequests instanceof MergedTrust
-            ? $this->trustMergedPullRequests
-            : MergedTrust::Off;
-    }
-
-    /** Whether the default branch takes anything from a merged pull request's pass. */
-    public function trustsMergedPullRequests(): bool
-    {
-        return $this->mergedTrust()->trusts();
-    }
-
-    /**
-     * `ci.mergedOwnScopeProofs`: what a merged pull request's pass that took results from its own scope's proofs is
-     * trusted for, `reach` unless the config says (ADR-0139).
-     */
-    public function mergedOwnScopeProofs(): OwnScopeTrust
-    {
-        return $this->mergedOwnScopeProofs instanceof OwnScopeTrust
-            ? $this->mergedOwnScopeProofs
-            : OwnScopeTrust::Reach;
+        return $this->reuse;
     }
 
     /** The pipeline files each CI runs the gate from, and what a generated job is built from (ADR-0024). */
@@ -176,27 +148,18 @@ final readonly class Ci implements Part
 
     public function written(PathOrigin $origin): Json
     {
-        return Json::object(Member::unlessEmpty(
-            'ci',
-            Json::object(
-                Member::of('plan', $this->plan instanceof Choice ? $this->plan->written() : $this->plan),
-                Member::of('defaultBranch', $this->defaultBranch),
-                Member::of('check', $this->check),
-                Member::of('schedule', $this->schedule),
-                Member::of(
-                    'trustMergedPullRequests',
-                    $this->trustMergedPullRequests instanceof MergedTrust
-                        ? $this->trustMergedPullRequests->json()
-                        : $this->trustMergedPullRequests,
-                ),
-                Member::of(
-                    'mergedOwnScopeProofs',
-                    $this->mergedOwnScopeProofs instanceof OwnScopeTrust
-                        ? $this->mergedOwnScopeProofs->value
-                        : $this->mergedOwnScopeProofs,
-                ),
-            )->merged($this->pipelines->written($origin)),
-        ));
+        return Json::object(
+            Member::unlessEmpty(
+                'ci',
+                Json::object(
+                    Member::of('plan', $this->plan instanceof Choice ? $this->plan->written() : $this->plan),
+                    Member::of('defaultBranch', $this->defaultBranch),
+                    Member::of('check', $this->check),
+                    Member::of('schedule', $this->schedule),
+                )->merged($this->pipelines->written($origin)),
+            ),
+            $this->reuse->written(),
+        );
     }
 
     public function php(PathOrigin $origin): PhpCalls
@@ -208,9 +171,7 @@ final readonly class Ci implements Part
             ...CiCalls::named('Ci::defaultBranch(%s)', $this->defaultBranch),
             ...CiCalls::named('Ci::check(%s)', $this->check),
             ...CiCalls::named('Ci::schedule(%s)', $this->schedule),
-            ...CiCalls::trust($this->trustMergedPullRequests),
-            ...CiCalls::ownScope($this->mergedOwnScopeProofs),
-        ])->and($this->pipelines->php($origin));
+        ])->and($this->pipelines->php($origin))->and($this->reuse->php());
     }
 
     /** The options the gate hands a CI plan it builds in, from this section (see Pipelines::options()). */

@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\NeverProved;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
@@ -368,4 +369,27 @@ it('gives each unit its newest result in any ledger it read, its own scope\'s fi
 
     expect($newest($store))->toEqual($proof('own', '2026-09-30T10:00:00Z'))
         ->and($newest($newer))->toEqual($proof('main', '2026-09-30T11:00:00Z'));
+});
+
+it('proves a unit by a proof lent to the default branch where its key matches, as one of the default branch\'s, and carries none', function (): void {
+    $store = new ProofStoreFake();
+    $run = Run::of('github:pull', Moment::at('2026-09-30T10:00:00Z'), Digest::sha256Of('now'));
+    $lent = Proofs::of(ofItsSource(Proof::of(Digest::of('a'), Path::of('src/A.php'), Mutants::none(), $run)));
+    $store->write(Scope::branch('main'), Ledger::empty()->lending($lent));
+    $ledgers = ledgersOn(RunOn::at(Scope::branch('main'), Scope::branch('main')), Writing::Auto, $store);
+    $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
+    $proving = $ledgers->proving(
+        $units,
+        Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Digest::of('b')),
+        Digest::sha256Of('now'),
+        RunProfile::standard(),
+    );
+    $moved = $ledgers->proving($units, Keys::none()->with(Path::of('src/A.php'), Digest::of('moved')), Digest::sha256Of('now'), RunProfile::standard());
+    $unreached = Reach::nothing(Packages::of(Trees::none()));
+
+    expect($proving->toRun())->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
+        ->and($proving->ownScopeProofs())->toBe(0)
+        ->and($moved->toRun())->toEqual($units)
+        ->and($ledgers->considering($units, $unreached, RunProfile::standard(), OwnOnly::none(), sourcesNow('src/A.php', 'src/B.php'))->carried())
+        ->toHaveCount(0);
 });

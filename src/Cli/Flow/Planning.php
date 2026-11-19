@@ -43,7 +43,9 @@ use function sprintf;
 
 /**
  * `plan`: the units of the trees, what the change reaches, each considered
- * unit's key, and the shards the units no proof covers are cut into. A shard
+ * unit's key, and the shards the units no proof covers are cut into; or a
+ * plan that runs nothing, where a passed verdict whose inputs are identical
+ * stands (ADR-0198). Every plan says the digest of the run's inputs. A shard
  * of a package other than the project's root cannot be planned: the runner
  * runs the root package's suite, which does not judge another package's code.
  *
@@ -106,11 +108,18 @@ final readonly class Planning
             $writing,
             $mode->takes($this->settings->proofs()->taken()),
         );
-        $unchanged = new UnchangedPlan($this->adapters, $this->settings, $this->setup)
-            ->of($inventory, $ledgers, $mode, $matrix);
+        $reads = Keying::readsOf(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            LearnedLimits::of($this->settings, $ledgers)->multiple(),
+        );
+        $identical = new IdenticalPlan($this->adapters, $this->settings, $this->setup);
+        $inputs = $identical->inputs($inventory, $reads);
+        $standing = $identical->standing($inventory, $ledgers, $mode, $matrix, $inputs);
 
-        if ($unchanged instanceof PlanMade) {
-            return $unchanged;
+        if ($standing instanceof PlanMade) {
+            return $standing;
         }
 
         $early = new EarlyStart($this->adapters, $this->settings, $this->setup)
@@ -119,11 +128,13 @@ final readonly class Planning
             ? $this->plannedEarly($inventory, $writing, $mode, $early, $cut, $matrix, $ownMap, $quick)
             : $early;
 
-        return match (true) {
+        $made = match (true) {
             $planned instanceof PlanMade => $planned,
             $earlyOnly => $this->waiting($inventory, $planned),
             default => $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap, $quick),
         };
+
+        return IdenticalPlan::briefed($made, $inputs);
     }
 
     /**

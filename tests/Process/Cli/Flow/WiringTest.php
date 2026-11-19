@@ -17,8 +17,8 @@ use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\MergedHeads;
 use NightWorksIO\MutationGate\Adapter\GitHub\MergedLedgers;
-use NightWorksIO\MutationGate\Adapter\GitHub\NoLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
+use NightWorksIO\MutationGate\Adapter\GitHub\PassedPulls;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
@@ -53,6 +53,7 @@ use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Proofs;
+use NightWorksIO\MutationGate\Config\Reuse;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Tests as TestsSetting;
@@ -66,11 +67,13 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\IdenticalReuse;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\Reuse as CoreReuse;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -503,46 +506,47 @@ it('hands a plan the config names its template, its step and its definition', fu
         )));
 })->group(...$holds);
 
-it('reads changes through GitHub under GitHub Actions, by ci.check, trusting the store where ci.trustMergedPullRequests is true, withholding', function (): void {
+it('reads changes through GitHub under GitHub Actions, by ci.check, reading pull requests\' ledgers from the store, withholding', function (): void {
     $variables = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head', 'CI_JOB_TOKEN' => 'job'];
     $adapters = Environment::during($variables, static fn(): Adapters => wiredOf(
-        Flows::settings(Ci::check('gate / verdict'), Ci::trustingMergedPullRequests()),
+        Flows::settings(Ci::check('gate / verdict')),
         Variables::of(['GITHUB_ACTIONS' => 'true']),
     ));
     $withheld = $adapters->withheld;
     $git = Environment::during($variables, static fn(): Git => Git::withholding('.', $withheld));
     $heads = new ReflectionProperty(PassedPullRequests::class, 'heads');
-    $check = new ReflectionProperty(MergedHeads::class, 'check');
+    $pulls = new ReflectionProperty(MergedHeads::class, 'pulls');
+    $check = new ReflectionProperty(PassedPulls::class, 'check');
     $ledgers = new ReflectionProperty(MergedHeads::class, 'ledgers');
     $source = new ReflectionProperty(PassedPullRequests::class, 'source');
     $store = new ReflectionProperty(MergedLedgers::class, 'store');
     $changed = $heads->getValue($adapters->changes);
+    $pulled = $changed instanceof MergedHeads ? $pulls->getValue($changed) : $changed;
     $standing = $heads->getValue($adapters->repository);
     $kept = $adapters->proofs instanceof MergedLedgers ? $store->getValue($adapters->proofs) : $adapters->proofs;
 
     expect($adapters->changes)->toBeInstanceOf(PassedPullRequests::class)
         ->and($adapters->repository)->toBeInstanceOf(PassedPullRequests::class)
         ->and($changed)->toBeInstanceOf(MergedHeads::class)
-        ->and($changed instanceof MergedHeads ? $check->getValue($changed) : $changed)->toBe('gate / verdict')
+        ->and(is_object($pulled) ? $check->getValue($pulled) : $pulled)->toBe('gate / verdict')
         ->and($adapters->proofs)->toBeInstanceOf(MergedLedgers::class)
         ->and($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toBe($kept)
         ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toBe($kept)
         ->and($source->getValue($adapters->changes))->toEqual($git);
 })->group(...$holds);
 
-it('reads no pull request\'s ledger where ci.trustMergedPullRequests is false or not set', function (Settings $settings): void {
+it('hands GitHub\'s change source the reuse the config sets, or the default one', function (Settings $settings, IdenticalReuse $identical): void {
     $variables = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'];
     $adapters = Environment::during($variables, static fn(): Adapters => wiredOf($settings, Variables::of(['GITHUB_ACTIONS' => 'true'])));
     $heads = new ReflectionProperty(PassedPullRequests::class, 'heads');
-    $ledgers = new ReflectionProperty(MergedHeads::class, 'ledgers');
+    $reuse = new ReflectionProperty(MergedHeads::class, 'reuse');
     $changed = $heads->getValue($adapters->changes);
-    $standing = $heads->getValue($adapters->repository);
+    $held = $changed instanceof MergedHeads ? $reuse->getValue($changed) : $changed;
 
-    expect($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toEqual(NoLedgers::none())
-        ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toEqual(NoLedgers::none());
+    expect($held instanceof CoreReuse ? $held->identical() : $held)->toBe($identical);
 })->with([
-    'false' => [fn(): Settings => Flows::settings(Ci::notTrustingMergedPullRequests())],
-    'not set' => [fn(): Settings => Flows::settings()],
+    'off' => [fn(): Settings => Flows::settings(Reuse::neverIdentical()), IdenticalReuse::Off],
+    'not set' => [fn(): Settings => Flows::settings(), IdenticalReuse::On],
 ])->group(...$holds);
 
 it('hands the Pest runner pest.patch and its canary, so it says every key reads the canary', function (): void {

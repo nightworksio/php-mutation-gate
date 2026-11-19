@@ -8,8 +8,9 @@ use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
-use NightWorksIO\MutationGate\Core\Config\MergedTrust;
+use NightWorksIO\MutationGate\Core\Config\IdenticalReuse;
 use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
+use NightWorksIO\MutationGate\Core\Config\Reuse;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -19,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
+use NightWorksIO\MutationGate\Core\Proof\ReusablePass;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
@@ -67,7 +69,7 @@ $source = static fn(): Checkout => Checkout::of(
  * GitHub, answering these paths of the repository's API with these bodies,
  * and every other with a 404.
  *
- * @param array<string, mixed> $answers
+ * @param array<mixed> $answers
  */
 function answering(array $answers): MockHttpClient
 {
@@ -113,7 +115,8 @@ function passedLedgers(array $commits): ProofStoreFake
 }
 
 /**
- * GitHub's source over the other, reading pull requests' ledgers from this store.
+ * GitHub's source over the other, reading pull requests' ledgers from this store, under `reuse.delta` unless told
+ * otherwise, so a pull request's pass proves its commit.
  *
  * @param array<string, string> $environment
  */
@@ -122,12 +125,16 @@ function trusting(
     MockHttpClient $github,
     ProofStoreFake $ledgers,
     array $environment = PULL_REQUESTS_RUN,
-    MergedTrust $trust = MergedTrust::Tree,
+    bool $delta = true,
     OwnScopeTrust $ownScope = OwnScopeTrust::Reach,
+    bool $forks = false,
+    IdenticalReuse $identical = IdenticalReuse::On,
 ): ChangeSource&Repository {
     $over = PassedPullRequests::over($source, $github, $environment, PULL_REQUESTS_CHECK);
 
-    return $over instanceof PassedPullRequests ? $over->trusting($ledgers, $trust, $ownScope) : $over;
+    return $over instanceof PassedPullRequests
+        ? $over->trusting($ledgers, Reuse::of($identical, $forks, $ownScope, $delta))
+        : $over;
 }
 
 /** A result of a unit, judged on the pull request's head. */
@@ -173,10 +180,26 @@ function ownScopeLedgers(array $commits): ProofStoreFake
  */
 function carriedUnits(ChangeSource&Repository $source): array
 {
-    $carried = $source instanceof PassedPullRequests ? $source->carriedOnto(Ledger::empty()->withRuns(
+    $carried = $source instanceof PassedPullRequests ? $source->mergedOnto(Ledger::empty()->withRuns(
         ScopeRuns::none()->passing(Passed::of(Revision::ref('base'), PULL_REQUESTS_CHECK, 0)),
-    )) : Proofs::none();
+    ))->carried() : Proofs::none();
     $units = array_map(static fn(Proof $proof): string => $proof->unit()->value(), [...$carried]);
+    sort($units);
+
+    return $units;
+}
+
+/**
+ * The units whose results a source lends the default branch's ledger.
+ *
+ * @return list<string>
+ */
+function lentUnits(ChangeSource&Repository $source): array
+{
+    $lent = $source instanceof PassedPullRequests ? $source->mergedOnto(Ledger::empty()->withRuns(
+        ScopeRuns::none()->passing(Passed::of(Revision::ref('base'), PULL_REQUESTS_CHECK, 0)),
+    ))->lent() : Proofs::none();
+    $units = array_map(static fn(Proof $proof): string => $proof->unit()->value(), [...$lent]);
     sort($units);
 
     return $units;
@@ -192,19 +215,20 @@ function mergedInto(string $branch, string $repository, string $defaultBranch): 
     return [
         'number' => 2,
         'merged_at' => '2026-09-30T10:00:00Z',
-        'head' => ['sha' => 'pr-two'],
+        'head' => ['sha' => 'pr-two', 'repo' => ['full_name' => $repository]],
         'base' => ['ref' => $branch, 'repo' => ['full_name' => $repository, 'default_branch' => $defaultBranch]],
     ];
 }
 
 /**
  * What GitHub says of commits each of which is the tree of a merged pull
- * request whose verdict passed on its head.
+ * request whose verdict passed on its head, from this repository, or from
+ * one that is gone where the name is empty.
  *
  * @param  list<string>         $commits
  * @return array<string, mixed>
  */
-function provedCommits(array $commits, int $total = -1): array
+function provedCommits(array $commits, int $total = -1, string $from = 'octo/gate'): array
 {
     $answers = [sprintf('%s/compare/base...head', PULL_REQUESTS_API) => [
         'total_commits' => $total === -1 ? count($commits) : $total,
@@ -215,7 +239,7 @@ function provedCommits(array $commits, int $total = -1): array
         $answers[sprintf('%s/commits/%s/pulls', PULL_REQUESTS_API, $commit)] = [[
             'number' => $at + 1,
             'merged_at' => '2026-09-30T10:00:00Z',
-            'head' => ['sha' => sprintf('pr-%s', $commit)],
+            'head' => ['sha' => sprintf('pr-%s', $commit), 'repo' => $from === '' ? null : ['full_name' => $from]],
             'base' => ['ref' => 'main', 'repo' => ['full_name' => 'octo/gate', 'default_branch' => 'main']],
         ]];
         $answers[sprintf('%s/git/commits/pr-%s', PULL_REQUESTS_API, $commit)] = ['tree' => ['sha' => sprintf('tree-%s', $commit)]];
@@ -480,7 +504,7 @@ function provedGroup(): array
     return [
         sprintf('%s/pulls/1', PULL_REQUESTS_API) => [
             'number' => 1,
-            'head' => ['sha' => 'pr-one'],
+            'head' => ['sha' => 'pr-one', 'repo' => ['full_name' => 'octo/gate']],
             'base' => ['ref' => 'main', 'repo' => ['full_name' => 'octo/gate', 'default_branch' => 'main']],
         ],
         sprintf('%s/git/commits/head', PULL_REQUESTS_API) => ['tree' => ['sha' => 'tree-group']],
@@ -634,12 +658,12 @@ it('reads everything since the base after a push of a commit no passing merge gr
 
 it('reads every commit since the base whole past plan.provingRange', function () use ($source): void {
     $over = PassedPullRequests::over($source(), answering(provedCommits(['one', 'two'])), PULL_REQUESTS_RUN, PULL_REQUESTS_CHECK, 1);
-    $proved = $over instanceof PassedPullRequests ? $over->trusting(passedLedgers(['one', 'two']), MergedTrust::Tree, OwnScopeTrust::Reach) : $over;
+    $proved = $over instanceof PassedPullRequests ? $over->trusting(passedLedgers(['one', 'two']), Reuse::of(delta: true)) : $over;
 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($source()->changesSince(Revision::ref('base')));
 });
 
-it('takes a pass that took results from its own scope as ci.mergedOwnScopeProofs says', function (OwnScopeTrust $ownScope, bool $proved, array $carried) use ($source, $uncommitted): void {
+it('takes a pass that took results from its own scope as reuse.ownScopeProofs says', function (OwnScopeTrust $ownScope, bool $proved, array $carried) use ($source, $uncommitted): void {
     $merged = trusting($source(), answering(provedCommits(['one'])), ownScopeLedgers(['one']), ownScope: $ownScope);
 
     expect($merged->changesSince(Revision::ref('base')))->toEqual($proved ? $uncommitted() : CannotTell::because('base is not a revision this repository has.'))
@@ -670,8 +694,8 @@ it('reads under delta the change from the judged head of a pull request whose la
     );
     $answers = [...provedCommits(['one']), sprintf('%s/git/commits/pr-one', PULL_REQUESTS_API) => ['tree' => ['sha' => 'tree-other']]];
 
-    $tree = trusting($source, answering($answers), passedLedgers(['one']));
-    $delta = trusting($source, answering($answers), passedLedgers(['one']), trust: MergedTrust::Delta);
+    $tree = trusting($source, answering($answers), passedLedgers(['one']), delta: false);
+    $delta = trusting($source, answering($answers), passedLedgers(['one']));
 
     expect($tree->changesSince(Revision::ref('base')))->toEqual(CannotTell::because('base is not a revision this repository has.'))
         ->and($delta->changesSince(Revision::ref('base')))->toEqual($fromHead);
@@ -680,7 +704,7 @@ it('reads under delta the change from the judged head of a pull request whose la
 it('reads under delta everything since the base where the judged head cannot be read', function () use ($source): void {
     $answers = [...provedCommits(['one']), sprintf('%s/git/commits/pr-one', PULL_REQUESTS_API) => ['tree' => ['sha' => 'tree-other']]];
 
-    expect(trusting($source(), answering($answers), passedLedgers(['one']), trust: MergedTrust::Delta)->changesSince(Revision::ref('base')))
+    expect(trusting($source(), answering($answers), passedLedgers(['one']))->changesSince(Revision::ref('base')))
         ->toEqual(CannotTell::because('base is not a revision this repository has.'));
 });
 
@@ -699,4 +723,115 @@ it('carries nothing where the range is not proved', function () use ($source): v
     $merged = trusting($source(), answering(spoilt('the check failed', provedCommits(['one', 'two']))), ownScopeLedgers(['one', 'two']));
 
     expect(carriedUnits($merged))->toBe([]);
+});
+
+it('lends the default branch a merged pull request\'s results, proving nothing, without reuse.delta', function () use ($source): void {
+    $merged = trusting($source(), answering(provedCommits(['one'])), ownScopeLedgers(['one']), delta: false);
+
+    expect($merged->changesSince(Revision::ref('base')))->toEqual(CannotTell::because('base is not a revision this repository has.'))
+        ->and(carriedUnits($merged))->toBe([])
+        ->and(lentUnits($merged))->toBe(['src/Money.php']);
+});
+
+it('lends what each passing pull request carries, where another commit of the range is not proved', function () use ($source): void {
+    $merged = trusting($source(), answering(spoilt('the check failed', provedCommits(['one', 'two']))), ownScopeLedgers(['one', 'two']), delta: false);
+
+    expect(lentUnits($merged))->toBe(['src/Money.php'])
+        ->and(carriedUnits($merged))->toBe([]);
+});
+
+it('lends nothing where the range is proved, as it carries it', function () use ($source): void {
+    $merged = trusting($source(), answering(provedCommits(['one'])), ownScopeLedgers(['one']));
+
+    expect(lentUnits($merged))->toBe([])
+        ->and(carriedUnits($merged))->toBe(['src/Money.php']);
+});
+
+it('takes nothing from a pull request whose head is in a fork, unless reuse.forks says', function (bool $forks, array $lent) use ($source): void {
+    $merged = trusting($source(), answering(provedCommits(['one'], from: 'someone/gate')), ownScopeLedgers(['one']), delta: false, forks: $forks);
+
+    expect(lentUnits($merged))->toBe($lent);
+})->with([
+    'forks off, as by default' => [false, []],
+    'forks on' => [true, ['src/Money.php']],
+]);
+
+it('takes nothing from a pull request whose head repository is gone', function () use ($source): void {
+    expect(lentUnits(trusting($source(), answering(provedCommits(['one'], from: '')), ownScopeLedgers(['one']), delta: false)))->toBe([]);
+});
+
+it('asks GitHub nothing where reuse.identical reuses nothing on the default branch', function (IdenticalReuse $identical) use ($source): void {
+    $github = answering(provedCommits(['one']));
+    $merged = trusting($source(), $github, ownScopeLedgers(['one']), identical: $identical);
+
+    expect(lentUnits($merged))->toBe([])
+        ->and(carriedUnits($merged))->toBe([])
+        ->and($merged instanceof PassedPullRequests ? $merged->reusable() : [ReusablePass::class])->toBe([])
+        ->and($github->getRequestsCount())->toBe(0);
+})->with([IdenticalReuse::Off, IdenticalReuse::Pulls]);
+
+/**
+ * GitHub's word that the head lands the first pull request, merged into the default branch from this repository
+ * unless another is named, or left unmerged where it says, whose verdict passed on its head `pr-one`.
+ *
+ * @return array<string, mixed>
+ */
+function landedHead(string $from = 'octo/gate', bool $merged = true): array
+{
+    return [
+        sprintf('%s/commits/head/pulls', PULL_REQUESTS_API) => [[
+            'number' => 1,
+            'merged_at' => $merged ? '2026-09-30T10:00:00Z' : null,
+            'head' => ['sha' => 'pr-one', 'repo' => ['full_name' => $from]],
+            'base' => ['ref' => 'main', 'repo' => ['full_name' => 'octo/gate', 'default_branch' => 'main']],
+        ]],
+        checkRuns('pr-one') => ['check_runs' => [verdictRun(1, PULL_REQUESTS_CHECK, 'success')]],
+    ];
+}
+
+/**
+ * The passes a source says a run may reuse, by commit and where each was read.
+ *
+ * @return list<array{string, string}>
+ */
+function reusedPasses(ChangeSource&Repository $source): array
+{
+    return array_map(
+        static fn(ReusablePass $pass): array => [$pass->passed()->commit()->name(), $pass->from()],
+        $source instanceof PassedPullRequests ? $source->reusable() : [],
+    );
+}
+
+it('offers the pass of the pull request the head lands for reuse, once', function () use ($source): void {
+    $github = answering(landedHead());
+    $merged = trusting($source(), $github, passedLedgers(['one']), delta: false);
+
+    expect(reusedPasses($merged))->toBe([['pr-one', 'pull request #1']]);
+
+    $asked = $github->getRequestsCount();
+
+    expect(reusedPasses($merged))->toBe([['pr-one', 'pull request #1']])
+        ->and($github->getRequestsCount())->toBe($asked);
+});
+
+it('offers no pass for reuse that took results from its own scope, unless reuse.ownScopeProofs trusts it', function (OwnScopeTrust $ownScope, array $offered) use ($source): void {
+    expect(reusedPasses(trusting($source(), answering(landedHead()), ownScopeLedgers(['one']), delta: false, ownScope: $ownScope)))
+        ->toBe($offered);
+})->with([
+    'reach' => [OwnScopeTrust::Reach, []],
+    'refuse' => [OwnScopeTrust::Refuse, []],
+    'trust' => [OwnScopeTrust::Trust, [['pr-one', 'pull request #1']]],
+]);
+
+it('offers no pass for reuse of a pull request from a fork, nor one whose verdict did not pass on its head', function (array $answers) use ($source): void {
+    expect(reusedPasses(trusting($source(), answering($answers), passedLedgers(['one']), delta: false)))->toBe([]);
+})->with([
+    'from a fork' => [fn(): array => landedHead('someone/gate')],
+    'its check failed' => [fn(): array => [...landedHead(), checkRuns('pr-one') => ['check_runs' => [verdictRun(1, PULL_REQUESTS_CHECK, 'failure')]]]],
+    'not merged' => [fn(): array => landedHead(merged: false)],
+]);
+
+it('offers a merge group the pass of the pull request it was built for', function () use ($source): void {
+    expect(reusedPasses(trusting($source(), answering(provedGroup()), passedLedgers(['one']), PULL_REQUESTS_GROUP, delta: false)))
+        ->toBe([['pr-one', 'pull request #1']]);
 });

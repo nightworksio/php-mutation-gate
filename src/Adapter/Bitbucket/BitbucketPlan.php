@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -77,7 +78,7 @@ final readonly class BitbucketPlan implements CiPlan, Configurable
             $variables->has(Variables::BITBUCKET_PR_ID) => RunOn::pullRequest(
                 PullRequestNumber::parse($variables->valueOf(Variables::BITBUCKET_PR_ID)),
                 $defaultBranch,
-                RunOn::branchNamed($variables->valueOf(Variables::BITBUCKET_PR_DESTINATION_BRANCH)),
+                Scope::branchNamed($variables->valueOf(Variables::BITBUCKET_PR_DESTINATION_BRANCH)),
             ),
             $variables->has(Variables::BITBUCKET_TAG) => RunOn::detached($defaultBranch),
             default => RunOn::branch($variables->valueOf(Variables::BITBUCKET_BRANCH), $defaultBranch),

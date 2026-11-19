@@ -3,10 +3,14 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
+use NightWorksIO\MutationGate\Core\Proof\JudgingRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\PassedRecord;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -60,3 +64,36 @@ it('says which release of the gate judged it only where it is told, keeping all 
         ->and($read($judged)->gate())->toEqual(GateRelease::spelt('v0.1.0'))
         ->and($read($unrecorded)->gate())->toEqual(GateRelease::unrecorded());
 });
+
+it('records the digest of its run\'s inputs, the run that judged it and that it carried no unit, through the record, keeping all else', function (): void {
+    $at = Instant::at(new DateTimeImmutable('2026-11-19T12:00:00Z'));
+    $inputs = Digest::sha256Of('every input');
+    $plain = Passed::of(Revision::ref(str_repeat('b', 40)), 'mutation / verdict', 1)->passedAt($at)->judgedBy(GateRelease::spelt('v0.2.0'));
+    $told = $plain->judgedIn(JudgingRun::of($inputs, 'https://github.com/octo/gate/actions/runs/9', whole: true));
+    $read = static fn(Passed $passed): Passed => PassedRecord::read(Node::decode(JsonText::encode(PassedRecord::of($passed))));
+
+    $run = static fn(Passed $passed): array => [$passed->judging()->inputs(), $passed->judging()->address(), $passed->judging()->isWhole()];
+
+    expect($plain->judging())->toEqual(JudgingRun::unrecorded())
+        ->and($run($plain))->toEqual([NotGiven::value(), '', false])
+        ->and($run($told))->toEqual([$inputs, 'https://github.com/octo/gate/actions/runs/9', true])
+        ->and([$told->at(), $told->gate(), $told->ownScopeProofs()])->toEqual([$at, GateRelease::spelt('v0.2.0'), 1])
+        ->and($told->passedAt($at)->onOwnScopeCoverage()->judgedBy(GateRelease::spelt('v0.2.0'))->takingOwnScope(Paths::none()))
+        ->toEqual($told->onOwnScopeCoverage()->takingOwnScope(Paths::none()))
+        ->and($told->judging()->readSame($inputs))->toBeTrue()
+        ->and($told->judging()->readSame(Digest::sha256Of('another input')))->toBeFalse()
+        ->and($plain->judging()->readSame($inputs))->toBeFalse()
+        ->and($read($told))->toEqual($told)
+        ->and($read($plain))->toEqual($plain)
+        ->and(PassedRecord::of($plain))->not->toHaveKeys(['inputs', 'run', 'whole'])
+        ->and(PassedRecord::of($told))->toMatchArray(['inputs' => $inputs->value(), 'run' => 'https://github.com/octo/gate/actions/runs/9', 'whole' => true]);
+});
+
+it('reads a record whose inputs are no digest, or whose whole is not true, as not in shape', function (array $field): void {
+    $record = [...PassedRecord::of(Passed::of(Revision::ref(str_repeat('b', 40)), 'mutation / verdict', 0)), ...$field];
+
+    expect(static fn(): Passed => PassedRecord::read(Node::decode(JsonText::encode($record))))->toThrow(NotInShape::class);
+})->with([
+    'inputs that are no digest' => [['inputs' => 'abc']],
+    'whole that is false' => [['whole' => false]],
+]);

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -71,7 +72,7 @@ final readonly class JenkinsPlan implements CiPlan, Configurable
             $variables->has(Variables::CHANGE_ID) => RunOn::pullRequest(
                 PullRequestNumber::parse($variables->valueOf(Variables::CHANGE_ID)),
                 $defaultBranch,
-                RunOn::branchNamed($variables->valueOf(Variables::CHANGE_TARGET)),
+                Scope::branchNamed($variables->valueOf(Variables::CHANGE_TARGET)),
             ),
             $variables->has(Variables::TAG_NAME) => RunOn::detached($defaultBranch),
             default => RunOn::branch($variables->valueOf(Variables::BRANCH_NAME), $defaultBranch),

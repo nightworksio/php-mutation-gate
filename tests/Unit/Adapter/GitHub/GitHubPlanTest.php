@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -128,7 +129,7 @@ it('reads a pull request from its merge ref, and the default branch from the eve
         'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "trunk"}}'),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('12'), RunOn::branchNamed('trunk'), RunOn::branchNamed('release/2.x')));
+    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branchNamed('trunk'), Scope::branchNamed('release/2.x')));
 });
 
 it('takes the pull request the payload names, whatever the event and its ref', function (string $name) use ($event): void {
@@ -138,7 +139,7 @@ it('takes the pull request the payload names, whatever the event and its ref', f
         'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}, "pull_request": {"number": 7, "base": {"ref": "trunk"}}}'),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), RunOn::branchNamed('main'), RunOn::branchNamed('trunk')));
+    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), Scope::branchNamed('main'), Scope::branchNamed('trunk')));
 })->with(['pull_request_target', 'pull_request', 'push']);
 
 it('reads a branch on push, schedule and workflow_dispatch, for the commit GitHub names', function (string $name) use ($event): void {
@@ -148,7 +149,7 @@ it('reads a branch on push, schedule and workflow_dispatch, for the commit GitHu
         'GITHUB_SHA' => '5eeca8f',
         'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}}'),
     ]));
-    $run = RunOn::branch('release/2.x', RunOn::branchNamed('main'));
+    $run = RunOn::branch('release/2.x', Scope::branchNamed('main'));
 
     expect($github->runOn())->toEqual($run instanceof RunOn ? $run->withCommit(Revision::ref('5eeca8f')) : $run);
 })->with(['push', 'schedule', 'workflow_dispatch']);
@@ -160,7 +161,7 @@ it('gives no scope to an event that acts on code from elsewhere, so it writes no
         'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}}'),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::detached(RunOn::branchNamed('main')));
+    expect($github->runOn())->toEqual(RunOn::detached(Scope::branchNamed('main')));
 })->with(['workflow_run', 'issue_comment', 'pull_request_target', 'release', '']);
 
 it('reads a merge group, with no scope, built on the commit its payload names', function () use ($event): void {
@@ -173,7 +174,7 @@ it('reads a merge group, with no scope, built on the commit its payload names', 
     ]));
 
     expect($github->runOn())->toEqual(
-        RunOn::mergeGroup(Revision::ref($base), RunOn::branchNamed('main'))
+        RunOn::mergeGroup(Revision::ref($base), Scope::branchNamed('main'))
             ->withCommit(Revision::ref('33b1f4a6fec2d9b6fd3d374afa56bcd9f0875b57')),
     );
 });
@@ -185,7 +186,7 @@ it('reads no merge group from a payload that names no full commit, or from anoth
         'GITHUB_EVENT_PATH' => $event($payload),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::detached(RunOn::branchNamed('main')));
+    expect($github->runOn())->toEqual(RunOn::detached(Scope::branchNamed('main')));
 })->with([
     'a short commit' => ['merge_group', '{"repository": {"default_branch": "main"}, "merge_group": {"base_sha": "85c3298"}}'],
     'an option' => ['merge_group', '{"repository": {"default_branch": "main"}, "merge_group": {"base_sha": "--output=x"}}'],
@@ -205,7 +206,7 @@ it('reads a pull request event with no payload from its merge ref alone', functi
     expect($github->runOn())->toEqual(RunOn::pullRequest(
         PullRequestNumber::parse('12'),
         CannotTell::because('No event payload could be read, so the default branch is not known.'),
-        RunOn::branchNamed(''),
+        Scope::branchNamed(''),
     ));
 });
 
@@ -216,7 +217,7 @@ it('takes no pull request from a payload whose number is not one', function () u
         'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}, "pull_request": {"number": "7"}}'),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::branch('main', RunOn::branchNamed('main')));
+    expect($github->runOn())->toEqual(RunOn::branch('main', Scope::branchNamed('main')));
 });
 
 it('cannot tell the default branch from a payload that does not name it or cannot be read', function (): void {
@@ -263,3 +264,23 @@ it('reads the output file from the environment', function (): void {
 it('withholds the Actions runtime\'s credentials and the workflow\'s token', function (): void {
     expect(GitHubPlan::withheld())->toEqual(Withheld::of('ACTIONS_*', 'GITHUB_TOKEN'));
 });
+
+it('reads a pull request whose head is in another repository, or in one that is gone, as from a fork', function (string $head, bool $fork) use ($event): void {
+    $github = GitHubPlan::in(Variables::of([
+        'GITHUB_EVENT_NAME' => 'pull_request',
+        'GITHUB_REF' => 'refs/pull/7/merge',
+        'GITHUB_EVENT_PATH' => $event(sprintf(
+            '{"repository": {"default_branch": "main"}, "pull_request": {"number": 7, "base": {"ref": "main", "repo": {"full_name": "octo/gate"}}, "head": %s}}',
+            $head,
+        )),
+    ]));
+    $run = $github->runOn();
+
+    expect($run instanceof RunOn ? $run->isFromAFork() : $run)->toBe($fork);
+})->with([
+    'the same repository' => ['{"repo": {"full_name": "octo/gate"}}', false],
+    'another repository' => ['{"repo": {"full_name": "someone/gate"}}', true],
+    'a repository that is gone' => ['{"repo": null}', true],
+    'a repository named by no name' => ['{"repo": {"full_name": 7}}', true],
+    'no repository named' => ['{"sha": "5eeca8f"}', false],
+]);

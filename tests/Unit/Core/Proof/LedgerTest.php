@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
@@ -227,4 +228,26 @@ it('holds the newest commit whose run judged every unit it considered, and reads
         ->toEqual(LastRun::of(JudgedCommits::of('5eeca8f'), 'mutation / verdict', $kind))
         ->and($ours->runs()->cutShort()->lastRun())->toBeInstanceOf(CannotTell::class)
         ->and($ours->runs()->cutShort()->passed())->toEqual($ours->runs()->passed());
+});
+
+it('holds the proofs another scope lends it apart from its own, through all it is told, and never writes them', function () use ($proof, $timing): void {
+    $lent = Proofs::of($proof(str_repeat('c', 64), 'src/Lent.php'));
+    $ledger = Ledger::empty()->withProof($proof(str_repeat('a', 64), 'src/Money.php'))->lending($lent);
+    $other = Ledger::empty()->lending(Proofs::of($proof(str_repeat('d', 64), 'src/Other.php')));
+    $told = $ledger
+        ->withTimings(Timings::of($timing('src/Money.php', 1.0)))
+        ->atBase(Digest::of(str_repeat('b', 64)))
+        ->withRuns(ScopeRuns::none())
+        ->withLearned(Survival::none())
+        ->keepingKillersIn(Paths::none())
+        ->withoutProof(Digest::of(str_repeat('a', 64)));
+    $units = static fn(Proofs $proofs): array => array_map(static fn(Proof $held): string => $held->unit()->value(), [...$proofs]);
+
+    expect($units($ledger->proofs()))->toBe(['src/Money.php'])
+        ->and($units($ledger->lent()))->toBe(['src/Lent.php'])
+        ->and($units($told->lent()))->toBe(['src/Lent.php'])
+        ->and($units($ledger->and($other)->lent()))->toBe(['src/Lent.php', 'src/Other.php'])
+        ->and($units($ledger->withoutProofs()->lent()))->toBe([])
+        ->and($units(Ledger::empty()->lent()))->toBe([])
+        ->and($units(LedgerFile::decode(LedgerFile::encode($ledger))->lent()))->toBe([]);
 });

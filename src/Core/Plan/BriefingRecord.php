@@ -43,10 +43,12 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * runs its own tail stops by and a second wave folds its shares to, and
  * `ownTail`, `true` where the plan's jobs run their own tail; a file without
  * them stops its jobs at their target and cuts its second wave as before
- * (ADR-0303). `unchangedSince` or `reachedNothingSince` holds the
- * commit whose verdict stands for a plan that runs nothing, by why it stands
- * ({@see StandsBecause}, {@see PassedRecord}), `at` among its fields; a plan
- * without either runs what it plans. `held` holds what the plan measured of
+ * (ADR-0303). `unchangedSince`, `reachedNothingSince` or
+ * `identicalTo` holds the commit whose verdict stands for a plan that runs
+ * nothing, by why it stands ({@see StandsBecause}, {@see PassedRecord}), `at`
+ * among its fields, and for a verdict reused, `from`, where its pass was read;
+ * a plan without any runs what it plans. `inputs` holds the digest of every
+ * input the run reads, where the plan read them (ADR-0198). `held` holds what the plan measured of
  * each held unit's holding tests, run alone under coverage once ({@see
  * MeasuredHoldsRecord}); a plan without it leaves each shard to measure its own.
  *
@@ -73,6 +75,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  *     ownTail?: true,
  *     unchangedSince?: PassedWritten,
  *     reachedNothingSince?: PassedWritten,
+ *     identicalTo?: PassedWritten,
+ *     inputs?: string,
  *     held?: HeldWritten,
  * }
  */
@@ -96,6 +100,9 @@ final readonly class BriefingRecord
     /** Where a plan says it plans nothing, waiting for a caller that hands a fresh map (ADR-0135). */
     private const string WAITS = 'waits';
 
+    /** Where a verdict reused says its pass was read. */
+    private const string FROM = 'from';
+
     /** @return Written */
     public static function of(Briefing $briefing): array
     {
@@ -108,16 +115,14 @@ final readonly class BriefingRecord
         return [
             ...$peak instanceof MemoryCap ? [self::PEAK => $peak->bytes()] : [],
             ...RunProfileRecord::of($briefing->profile()),
-            ...$briefing->isOnOwnScopeCoverage() ? [PassedRecord::OWN_SCOPE_COVERAGE => true] : [],
+            ...InputsReadRecord::of($briefing->inputs()),
             ...$briefing->isEarly() ? [self::EARLY => true] : [],
             ...$briefing->waits() ? [self::WAITS => true] : [],
             ...$multiple instanceof NotGiven ? [] : [self::MULTIPLE => $multiple->times()],
             ...$pace instanceof NotGiven ? [] : [self::PACE => $pace->times()],
             ...self::jobsOf($briefing->learned()->jobs()),
             ...JobTailRecord::of($briefing->learned()->tail()),
-            ...$unchanged instanceof Unchanged
-                ? [$unchanged->because()->value => PassedRecord::of($unchanged->base())]
-                : [],
+            ...$unchanged instanceof Unchanged ? [$unchanged->because()->value => self::standing($unchanged)] : [],
             ...$held instanceof MeasuredHolds ? [MeasuredHoldsRecord::FIELD => MeasuredHoldsRecord::of($held)] : [],
         ];
     }
@@ -134,9 +139,7 @@ final readonly class BriefingRecord
             ->weighing($peak->isPresent() ? WrittenBytes::read($peak) : NotGiven::value())
             ->ofKind(RunProfileRecord::read($file));
 
-        $briefing = RunProfileRecord::isTrue($file->field(PassedRecord::OWN_SCOPE_COVERAGE))
-            ? $briefing->onOwnScopeCoverage()
-            : $briefing;
+        $briefing = $briefing->reading(InputsReadRecord::read($file));
         $briefing = RunProfileRecord::isTrue($file->field(self::EARLY)) ? $briefing->plannedEarly() : $briefing;
         $briefing = RunProfileRecord::isTrue($file->field(self::WAITS)) ? $briefing->waitingForAMap() : $briefing;
         $briefing = $briefing->learning(
@@ -209,9 +212,19 @@ final readonly class BriefingRecord
     {
         $passed = PassedRecord::read($unchanged);
         $at = $passed->at();
+        $from = $unchanged->field(self::FROM);
 
         return $at instanceof Instant
-            ? Unchanged::standing($because, $passed, $at)
+            ? Unchanged::standing($because, $passed, $at, $from->isPresent() ? $from->text() : '')
             : throw NotInShape::at($unchanged->at(), 'a commit that passed at an instant');
+    }
+
+    /** @return PassedWritten the commit whose verdict stands, and where its pass was read */
+    private static function standing(Unchanged $unchanged): array
+    {
+        return [
+            ...PassedRecord::of($unchanged->base()),
+            ...$unchanged->from() === '' ? [] : [self::FROM => $unchanged->from()],
+        ];
     }
 }

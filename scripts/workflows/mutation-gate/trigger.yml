@@ -93,10 +93,10 @@ on:
       merged-records:
         description: >-
           Keep each pull request's pass as an artifact, and read it on the push that merged it or a merge
-          group built for it, so that ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers
-          (ADR-0139).
+          group built for it, so that reuse.identical finds it where the Actions cache keeps ledgers
+          (ADR-0139, ADR-0198).
         type: boolean
-        default: false
+        default: true
       merged-records-days:
         description: How many days a pull request's pass stays readable; a merge later than that is judged again.
         type: number

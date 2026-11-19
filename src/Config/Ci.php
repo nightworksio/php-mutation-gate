@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
-use NightWorksIO\MutationGate\Core\Config\MergedTrust;
-use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
@@ -85,53 +83,6 @@ final readonly class Ci implements Setting
     public static function schedule(string $cron): self
     {
         return new self(Json::at('ci.schedule', $cron));
-    }
-
-    /**
-     * `ci.trustMergedPullRequests`: the default branch takes a merged pull request's own recorded pass as proof of
-     * its tree, which trusts that pull request's run.
-     */
-    public static function trustingMergedPullRequests(): self
-    {
-        return new self(Json::at('ci.trustMergedPullRequests', value: true));
-    }
-
-    /** `ci.trustMergedPullRequests`: the default branch re-checks a merged pull request's tree, as by default. */
-    public static function notTrustingMergedPullRequests(): self
-    {
-        return new self(Json::at('ci.trustMergedPullRequests', value: false));
-    }
-
-    /**
-     * `ci.trustMergedPullRequests`: `delta`, which also takes the pass of a pull request whose head is not the
-     * landed tree, and reaches only the change from that head to it.
-     */
-    public static function trustingMergedDeltas(): self
-    {
-        return new self(Json::at('ci.trustMergedPullRequests', MergedTrust::Delta->value));
-    }
-
-    /**
-     * `ci.mergedOwnScopeProofs`: `reach`, as by default: a merged pull request's pass carries its own results, and the
-     * units it took from its own scope's proofs are run again.
-     */
-    public static function reachingMergedOwnScopeProofs(): self
-    {
-        return new self(Json::at('ci.mergedOwnScopeProofs', OwnScopeTrust::Reach->value));
-    }
-
-    /**
-     * `ci.mergedOwnScopeProofs`: `refuse`: a merged pull request's pass that took any own-scope proof spares nothing.
-     */
-    public static function refusingMergedOwnScopeProofs(): self
-    {
-        return new self(Json::at('ci.mergedOwnScopeProofs', OwnScopeTrust::Refuse->value));
-    }
-
-    /** `ci.mergedOwnScopeProofs`: `trust`: a merged pull request's pass is taken whole, own-scope proofs included. */
-    public static function trustingMergedOwnScopeProofs(): self
-    {
-        return new self(Json::at('ci.mergedOwnScopeProofs', OwnScopeTrust::Trust->value));
     }
 
     public function written(): Json

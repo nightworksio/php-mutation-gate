@@ -85,7 +85,7 @@ jobs:
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
-| `merged-records` | `false`: `true` keeps a passing pull request's pass as an artifact and reads it on the push that merged it, which `ci.trustMergedPullRequests` needs where the Actions cache keeps the ledgers; the job needs `actions: read` and `pull-requests: read` |
+| `merged-records` | `true`: keeps a passing pull request's pass as an artifact and reads it on the push that merged it or a merge group built for it, which `reuse.identical` needs where the Actions cache keeps the ledgers; the job needs `actions: read` and `pull-requests: read`, without which no pass is read and the run warns so |
 | `merged-records-days` | `30`: how many days that pass stays readable; a merge later than that is judged again |
 | `deliver` | `false`; `true` in a job of its own, after the run's, to send what the run left |
 | `install` | `auto`: the project's own copy where its `composer.json` requires `nightworksio/mutation-gate`, the release's PHAR where it does not; or `composer`, or `phar` |
@@ -516,19 +516,17 @@ branch, the pull requests ahead of it and its own:
   group. A floor lowered without its reason fails it, as it fails a pull
   request.
 
-With `ci.trustMergedPullRequests: true`, and only where pull request runs
-write their own scope's ledger, two runs are spared
-([ADR-0049](../../decisions/0049-an-owner-is-mentioned-once-and-a-merge-group-trusts-its-pull-request-as-a-merged-one.md)):
-
-- a group whose commit holds exactly the tree of its pull request's head,
-  where that pull request's verdict passed on that head, as its `passed`
-  record says, reaches nothing but the units `ci.mergedOwnScopeProofs`
-  leaves to run again; and
-- the push to the default branch after the queue merges reaches nothing for
-  a commit on which a group's verdict passed.
-
-Off, as by default, every group is judged from its base, and nothing a pull
-request wrote for itself is read.
+Under `reuse.identical`, `on` by default, a group whose run reads inputs
+identical to those its pull request's passing run read reuses that verdict
+and plans nothing; any other group borrows that run's results, each of
+which proves a unit only where its key matches, and is judged from its base
+([ADR-0198](../../decisions/0198-a-run-whose-every-input-is-identical-reuses-the-verdict.md)). A pass from a fork's pull request is read only under
+`reuse.forks: true`. Under `reuse.delta: true`, a group whose commit holds exactly the tree of its pull request's head, where
+that pull request's verdict passed on that head, reaches nothing but the
+units `reuse.ownScopeProofs` leaves to run again, and the push to the
+default branch after the queue merges reaches nothing for a commit on which
+a group's verdict passed
+([ADR-0049](../../decisions/0049-an-owner-is-mentioned-once-and-a-merge-group-trusts-its-pull-request-as-a-merged-one.md)).
 
 ## An organisation's dashboard
 

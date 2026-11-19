@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -170,7 +171,7 @@ it('prints only the wait and the verdict for a plan with no shards', function ()
 });
 
 it('reads a pull request, a branch and the default branch from Buildkite', function () use ($on): void {
-    $main = RunOn::branchNamed('main');
+    $main = Scope::branchNamed('main');
     $pullRequest = Variables::of([
         'BUILDKITE_PULL_REQUEST_BASE_BRANCH' => 'release/2.x',
         'BUILDKITE_BRANCH' => 'feature',
@@ -183,10 +184,10 @@ it('reads a pull request, a branch and the default branch from Buildkite', funct
         'BUILDKITE_PIPELINE_DEFAULT_BRANCH' => 'main',
     ]);
 
-    expect($on($pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('42'), $main, RunOn::branchNamed('release/2.x')))
+    expect($on($pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('42'), $main, Scope::branchNamed('release/2.x')))
         ->and($on($push)->runOn())->toEqual(RunOn::branch('main', $main))
         ->and($on(Variables::of(['BUILDKITE_BRANCH' => 'feature']))->runOn())
-        ->toEqual(RunOn::branch('feature', RunOn::branchNamed('')));
+        ->toEqual(RunOn::branch('feature', Scope::branchNamed('')));
 });
 
 it('cannot tell the run where Buildkite names no branch', function () use ($on): void {
@@ -224,7 +225,7 @@ it('refuses a step template that is not a map of step keys', function (): void {
 it('gives no scope to a tag, which is no branch the gate writes for', function () use ($on): void {
     $tag = Variables::of(['BUILDKITE_TAG' => 'v1', 'BUILDKITE_BRANCH' => 'v1', 'BUILDKITE_PIPELINE_DEFAULT_BRANCH' => 'main']);
 
-    expect($on($tag)->runOn())->toEqual(RunOn::detached(RunOn::branchNamed('main')));
+    expect($on($tag)->runOn())->toEqual(RunOn::detached(Scope::branchNamed('main')));
 });
 
 it('is run by the pipeline it uploads from the repository', function () use ($on): void {
@@ -261,7 +262,7 @@ it('keeps its steps and variables when it is run by another pipeline', function 
     $plan = $on($variables)->definedIn(Path::of('ci/mutation.yml'));
 
     expect($plan->definitions())->toEqual(Paths::of(Path::of('ci/mutation.yml')))
-        ->and($plan->runOn())->toEqual(RunOn::branch('feature', RunOn::branchNamed('main')))
+        ->and($plan->runOn())->toEqual(RunOn::branch('feature', Scope::branchNamed('main')))
         ->and($plan->publish(ShardedPlan::of(1), GateCommand::installed()->jobs()))->toEqual($on($variables)->publish(ShardedPlan::of(1), GateCommand::installed()->jobs()));
 });
 
