@@ -69,7 +69,7 @@ final readonly class Reflections
             foreach ($built as $at) {
                 [$reflected, $after] = self::writtenAt($source, $at + Tokens::ARGUMENT);
                 $named = $class === self::CONSTANT ? self::namedAt($source->tokens(), $after) : NotGiven::value();
-                $sites[] = ReflectionSite::of($at, $class, $reflected, $named);
+                $sites[] = ReflectionSite::of($at, $reflected, $named);
             }
         }
 
