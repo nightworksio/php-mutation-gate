@@ -25,13 +25,16 @@ use Symfony\Component\Process\Process;
  */
 final readonly class Analysed
 {
-    /** The tree's configuration, which its paths and services fill in. */
+    /** The tree's configuration, which its paths and services fill in, scanning none of the gate's own tests. */
     private const string CONFIGURATION = <<<'NEON'
         parameters:
             level: 0
             tmpDir: cache
             paths:
                 - src
+            excludePaths:
+                analyseAndScan:
+                    - %s
         services:
         %s
         NEON;
@@ -53,7 +56,7 @@ final readonly class Analysed
             Scratch::write($root, sprintf('src/%s', $path), $code);
         }
 
-        Scratch::write($root, 'phpstan.neon', sprintf(self::CONFIGURATION, $services));
+        Scratch::write($root, 'phpstan.neon', sprintf(self::CONFIGURATION, Tree::at('tests'), $services));
         $run = new Process(
             [
                 PHP_BINARY,
