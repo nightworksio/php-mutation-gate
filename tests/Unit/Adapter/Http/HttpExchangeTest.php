@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 it('sends a request\'s method, URL, headers and body, within the limits\' seconds and following no redirect', function (): void {
     $sent = [];
@@ -59,11 +60,17 @@ it('fetches a ledger\'s bytes, an empty ledger where none is there, and why the 
 
 it('stops an answer once its body passes the limits\' bytes', function (): void {
     $progress = new ArrayObject();
-    $client = new MockHttpClient(new MockResponse(str_split(str_repeat('x', 30), 10)))->withOptions([
-        'on_progress' => static function (int $done, int $size, array $info) use ($progress): void {
-            $progress->append($info['canceled'] === true ? 'canceled' : 'streaming');
-        },
-    ]);
+    $client = new MockHttpClient(new MockResponse(str_split(str_repeat('x', 30), 10)));
+
+    try {
+        $client = $client->withOptions([
+            'on_progress' => static function (int $done, int $size, array $info) use ($progress): void {
+                $progress->append($info['canceled'] === true ? 'canceled' : 'streaming');
+            },
+        ]);
+    } catch (TransportExceptionInterface $refused) {
+        $progress->append($refused->getMessage());
+    }
 
     HttpExchange::over($client)->fetch(Request::get('https://ledgers.example/large'), LedgerLimits::of(25, 38_000_000, 60.0), 'gs://ledgers/large');
 

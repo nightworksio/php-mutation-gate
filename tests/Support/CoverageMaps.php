@@ -29,13 +29,17 @@ final readonly class CoverageMaps
     {
         $data = new ProcessedCodeCoverageData();
         $data->setTestIds($tests);
-        $data->setLineCoverage(array_map(
-            static fn(array $byLine): array => array_map(
-                static fn(?array $indexes): ?array => $indexes === null ? null : array_fill_keys($indexes, 1),
-                $byLine,
-            ),
-            $lines,
-        ));
+        $covered = [];
+
+        foreach ($lines as $path => $byLine) {
+            $covered[$path] = [];
+
+            foreach ($byLine as $line => $indexes) {
+                $covered[$path][$line] = $indexes === null ? null : array_fill_keys($indexes, 1);
+            }
+        }
+
+        $data->setLineCoverage($covered);
         $coverage = [
             'buildInformation' => [
                 'timestamp' => 'Wed Sep 30 0:00:00 UTC 2026',
