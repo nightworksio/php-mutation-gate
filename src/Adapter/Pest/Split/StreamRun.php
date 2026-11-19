@@ -293,9 +293,9 @@ final class StreamRun
      */
     private function changed(string $file, int $id, mixed $value, Closure $mutated): mixed
     {
-        $forked = $this->forks($file, $id) && ! Unchanged::by($value, $mutated) && $this->fork($file, $id);
-
-        return $forked ? $mutated() : $value;
+        return $this->forks($file, $id) && ! Unchanged::by($value, $mutated) && $this->fork($file, $id)
+            ? $mutated()
+            : $value;
     }
 
     /**
