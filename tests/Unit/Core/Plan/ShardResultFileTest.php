@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlKind;
 use NightWorksIO\MutationGate\Core\Control\ControlTime;
 use NightWorksIO\MutationGate\Core\Cost\JobTimes;
+use NightWorksIO\MutationGate\Core\Cost\Route;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -45,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -224,6 +226,30 @@ it('writes each kill\'s evidence beside its mutant, and reads it back', function
     expect($written)->toContain("\"prefix\": {\n                \"at\": 3,\n                \"key\": \"0123456789ab\"\n            },\n"
         . "            \"ended\": {\n                \"code\": 255,\n                \"signalled\": false,\n                \"tail\": \"PHP Fatal error\\n\"\n            }")
         ->and(ShardResultFile::decode($written))->toEqual($result);
+});
+
+it('writes the route a runner named beside its mutant, and the cores of the shard\'s machine, and reads both back', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $plain = $finished($survivor, $makeMeasured());
+    $result = ShardResult::of(
+        $plain->plan(),
+        $plain->shard(),
+        $plain->units(),
+        MutationResult::of(Mutants::of($survivor), 1)->withEvidence(
+            Evidences::none()->with($survivor->id(), Evidence::none()->streamed()->routed(Route::StreamSecondPass)),
+        ),
+        $makeMeasured()->onCores(ProcessCount::of(4)),
+    );
+    $written = ShardResultFile::encode($result);
+    $read = ShardResultFile::decode($written);
+
+    expect($written)->toContain('"route": "stream second pass"')
+        ->and($written)->toContain('"machineCores": 4')
+        ->and(ShardResultFile::encode($plain))->not->toContain('machineCores')
+        ->and($read instanceof ShardResult ? $read->measured()->cores() : $read)->toEqual(ProcessCount::of(4))
+        ->and($read instanceof ShardResult && $read->outcome() instanceof MutationResult
+            ? $read->outcome()->evidence()->of($survivor->id())->route()
+            : $read)->toBe(Route::StreamSecondPass);
 });
 
 it('writes only the evidence a runner gave: a prefix without its key, a process end without its code', function () use ($makeMeasured): void {
@@ -551,6 +577,18 @@ it('refuses what is not a shard result, saying where it went wrong', function (s
             . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
             . '"staticChecks": {"analysers": {}, "unchecked": [{"why": "bored", "file": "src/A.php"}]}}',
         'the file.staticChecks.unchecked[0].why is not why a survivor was left unchecked.',
+    ],
+    'a route the gate does not know' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "skipped": 0, '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
+            . '"mutants": [{"id": "0123456789ab", "native": "1", "file": "src/A.php", "line": 1, "mutator": "M", '
+            . '"family": "literal", "diff": "d", "status": "killed", "route": "bus"}]}',
+        'the file.mutants[0].route is not a route.',
+    ],
+    'a machine of no cores' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z", "machineCores": 0}}',
+        'the file.measured.machineCores is not a count of cores.',
     ],
     'a step the gate does not know' => [
         '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '

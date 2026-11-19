@@ -8,6 +8,7 @@ use function array_map;
 use function count;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
+use NightWorksIO\MutationGate\Core\Cost\Route;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
@@ -20,7 +21,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
  * The evidence a mutant's own Pest run left (ADR-0014): that a split stream
- * judged it (ADR-0117); otherwise, for a kill, how far its own run went and,
+ * judged it (ADR-0117), and in which pass (ADR-0230); otherwise, for a kill, how far its own run went and,
  * where it names no killer, how its process ended, and the test files it
  * loaded with no filter where a patched run left its filter out; with the
  * part of the test files that owns it.
@@ -37,8 +38,9 @@ final readonly class RunEvidence
     public function of(Mutant $judged, PlannedMutant $planned, Records $records): Evidence
     {
         $run = $records->runOf($planned);
+        $pass = $run->isMarked(RecordEvent::SecondPass) ? Route::StreamSecondPass : Route::StreamFirstPass;
         $given = $run->isMarked(RecordEvent::Streamed)
-            ? Evidence::none()->streamed()
+            ? Evidence::none()->streamed()->routed($pass)
             : $this->unfiltered($this->evidenceOf($judged, $planned, $records), $planned, $records);
 
         return $given->sharing(TestShare::of(

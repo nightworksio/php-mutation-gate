@@ -100,6 +100,7 @@ final readonly class Markdown
             ...MarkdownBlocks::section('Warnings', MarkdownBlocks::warnings($verdict)),
             ...MarkdownBlocks::section('Notes', MarkdownBlocks::notes($verdict)),
             ...MarkdownBlocks::section('Floors that can rise', MarkdownBlocks::floors($verdict)),
+            CostReportText::of($verdict),
             $run === '' ? '' : self::runLine($run),
         ];
         $shown = ItemShown::standard();

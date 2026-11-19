@@ -10,6 +10,7 @@ use function max;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Unidentified;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -24,7 +25,7 @@ use function usort;
  * When each part of a run began and how long it took, from the flows' clock
  * and the shards' result files, and what the whole run took: the one set of
  * numbers the console, the JSON report, the cost and OpenTelemetry all read
- * (ADR-0016).
+ * (ADR-0016); and, where the run says it, where its minutes went (ADR-0230).
  */
 final readonly class RunTimings
 {
@@ -41,6 +42,7 @@ final readonly class RunTimings
         private Phase|Unmeasured $verdict,
         private RunTime $spent,
         private Identity|Unidentified $runner,
+        private CostReport|NotGiven $report = new NotGiven(),
     ) {
     }
 
@@ -52,7 +54,7 @@ final readonly class RunTimings
 
     public function withPlan(Phase $plan): self
     {
-        return new self($this->run, $plan, $this->shards, $this->verdict, $this->spent, $this->runner);
+        return new self($this->run, $plan, $this->shards, $this->verdict, $this->spent, $this->runner, $this->report);
     }
 
     public function withShard(ShardTiming $shard): self
@@ -64,18 +66,31 @@ final readonly class RunTimings
             $this->verdict,
             $this->spent,
             $this->runner,
+            $this->report,
         );
     }
 
     public function withVerdict(Phase $verdict): self
     {
-        return new self($this->run, $this->plan, $this->shards, $verdict, $this->spent, $this->runner);
+        return new self($this->run, $this->plan, $this->shards, $verdict, $this->spent, $this->runner, $this->report);
     }
 
     /** These timings, of a run this runner judged, as the plan's proof keys name it. */
     public function ranBy(Identity $runner): self
     {
-        return new self($this->run, $this->plan, $this->shards, $this->verdict, $this->spent, $runner);
+        return new self($this->run, $this->plan, $this->shards, $this->verdict, $this->spent, $runner, $this->report);
+    }
+
+    /** These timings, with where the run's minutes went (ADR-0230). */
+    public function withReport(CostReport $report): self
+    {
+        return new self($this->run, $this->plan, $this->shards, $this->verdict, $this->spent, $this->runner, $report);
+    }
+
+    /** Where the run's minutes went; none where the run did not say (`outputs.costReport: false`). */
+    public function report(): CostReport|NotGiven
+    {
+        return $this->report;
     }
 
     /** The runner that judged the run; unidentified where the flows did not say. */

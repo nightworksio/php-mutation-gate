@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cost\Route;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -243,4 +245,14 @@ it('names those of some mutants judged by a part of the test files alone, and th
 
     expect($evidence->judgedInPart($mutants))->toEqual(MutantIds::of($mutant('owned')->id(), $mutant('other')->id()))
         ->and($evidence->ownedElsewhere($mutants))->toEqual(MutantIds::of($mutant('other')->id()));
+});
+
+it('keeps the route a runner named through whatever else it is given, and so is not empty', function (): void {
+    $routed = Evidence::none()->routed(Route::FreshRun);
+
+    expect(Evidence::none()->route())->toEqual(NotGiven::value())
+        ->and($routed->isEmpty())->toBeFalse()
+        ->and($routed->withPrefix(Prefix::at(1))->withEnded(Ended::unprinted(1, signalled: false))->vouched()
+            ->streamed()->sharing(TestShare::OwnedPart)->loadingUnfiltered(WholeSuite::tests())
+            ->takingOrder(TestIds::none())->route())->toBe(Route::FreshRun);
 });

@@ -87,6 +87,12 @@ final readonly class KillerFile
         return self::marked(RecordEvent::Streamed);
     }
 
+    /** The line that says a split stream judged the mutant in its second pass (ADR-0230). */
+    public static function secondPass(): string
+    {
+        return self::marked(RecordEvent::SecondPass);
+    }
+
     /** The line that says the process had loaded the original file before the mutant was in place. */
     public static function preloaded(): string
     {
@@ -200,6 +206,7 @@ final readonly class KillerFile
             RecordEvent::Errored => $where instanceof Placed ? [RecordLine::errored($mutated, $named, $where)] : [],
             RecordEvent::Preloaded,
             RecordEvent::Streamed,
+            RecordEvent::SecondPass,
             RecordEvent::Unreached,
             RecordEvent::OwnedPart,
             RecordEvent::OtherPart => [RecordLine::marked($mutated, $event)],

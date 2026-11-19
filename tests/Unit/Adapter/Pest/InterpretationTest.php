@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Route;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -35,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\TestShare;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -444,6 +446,8 @@ it('reads a mutant its shard\'s part of the test files left to another part as n
         PestRun::marked('n2', RecordEvent::Streamed),
         PestRun::marked('n2', RecordEvent::OwnedPart),
         PestRun::finished('n2', PestStatus::Untested, 0.25),
+        PestRun::marked('n3', RecordEvent::Streamed),
+        PestRun::marked('n3', RecordEvent::SecondPass),
         PestRun::marked('n3', RecordEvent::OtherPart),
         PestRun::finished('n3', PestStatus::Untested, 0.25),
         PestRun::finished('n4', PestStatus::Untested, 0.25),
@@ -460,7 +464,13 @@ it('reads a mutant its shard\'s part of the test files left to another part as n
         ->and($mutants[0])->toEqual($mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::NotReached))
         ->and([$share(0), $share(1), $share(2), $share(3)])
         ->toBe([TestShare::All, TestShare::OwnedPart, TestShare::OtherPart, TestShare::All])
-        ->and($result instanceof MutationResult && $result->evidence()->of($mutants[1]->id())->isStreamed())->toBeTrue();
+        ->and($result instanceof MutationResult && $result->evidence()->of($mutants[1]->id())->isStreamed())->toBeTrue()
+        ->and(array_map(
+            static fn(Mutant $judged): Route|NotGiven => $result instanceof MutationResult
+                ? $result->evidence()->of($judged->id())->route()
+                : NotGiven::value(),
+            $mutants,
+        ))->toEqual([NotGiven::value(), Route::StreamFirstPass, Route::StreamSecondPass, NotGiven::value()]);
 });
 
 it('reads a mutant its shard\'s part left to another part as not reached, whatever its covering tests\' filter could select', function () use (

@@ -3811,6 +3811,15 @@
                 "costs": {
                     "type": "boolean",
                     "default": true
+                },
+                "costReport": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "costliest": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 10
                 }
             },
             "additionalProperties": false
@@ -8568,6 +8577,13 @@
                         },
                         "costs": {
                             "type": "boolean"
+                        },
+                        "costReport": {
+                            "type": "boolean"
+                        },
+                        "costliest": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false

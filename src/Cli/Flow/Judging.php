@@ -177,9 +177,10 @@ final readonly class Judging
             RunTimes::read($this->adapters->project->read(RunTimes::file())),
         );
         $judged = $this->adapters->changes->judged($plan->commit());
+        $outputs = $this->settings->effective()->output()->reports()->outputs();
         $verdict = $assessed->verdict->withAccount(
             $this->accounted($plan, $assessed, $timings->spent())
-                ->withTimings($timings)
+                ->withTimings(RunCosts::onto($timings, $outputs, $results, $assessed->verdict))
                 ->withProvenance(VerdictProvenance::of($this->adapters, $this->setup, $this->settings, $judged)),
         );
         $recorded = $this->recorded($plan, $results, $assessed, $verdict, $judged);
@@ -188,8 +189,7 @@ final readonly class Judging
             return $recorded;
         }
 
-        $reports = $this->settings->effective()->output()->reports();
-        $verdict = $verdict->withAccount($reports->outputs()->said($verdict->account()));
+        $verdict = $verdict->withAccount($outputs->said($verdict->account()));
         $report = EncodedReport::of($verdict);
         $reported = new Judged(
             $verdict,
