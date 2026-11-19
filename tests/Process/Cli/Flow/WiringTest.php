@@ -191,6 +191,7 @@ const WIRED_PEST_TOGGLES = [
     'longestFirst' => true,
     'remember' => true,
     'overlapSteps' => true,
+    'switchGuard' => true,
     'pcovOff' => true,
     'xdebugOff' => true,
 ];

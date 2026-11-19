@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_fill_keys;
 use function array_key_exists;
+use function array_map;
 
 use Closure;
 
@@ -26,8 +28,20 @@ final class SchemaSwitch
     /** The file it is declared in, which a script PHP prepends requires by its path. */
     public const string FILE = __FILE__;
 
+    /**
+     * The ids of each guarded file's sites still undecided in this process, by
+     * the file's key (ADR-0204): a guarded schema calls the switch only at
+     * those; a file it holds no key of is unguarded.
+     *
+     * @var array<string, array<int, true>>
+     */
+    public static array $live = [];
+
     /** @var array<string, int> the id of the mutant in force, by the key of the file whose schema switches it */
     private static array $on = [];
+
+    /** @var array<string, array<int, true>> what the guard held while it is lifted */
+    private static array $lifted = [];
 
     /**
      * What a split stream decides at a site of a file no mutant is in force
@@ -101,11 +115,36 @@ final class SchemaSwitch
         self::$changed = $changed;
     }
 
-    /** Has no split stream decide any site. */
+    /** Has no split stream decide any site, and guards none. */
     public static function unsplit(): void
     {
         self::$split = null;
         self::$changed = null;
+        self::$live = [];
+        self::$lifted = [];
+    }
+
+    /**
+     * Guards these files: only their sites of these ids are still undecided
+     * (ADR-0204).
+     *
+     * @param array<string, list<int>> $live each file's ids, by its key
+     */
+    public static function guarding(array $live): void
+    {
+        self::$live = array_map(static fn(array $ids): array => array_fill_keys($ids, value: true), $live);
+    }
+
+    /** The site of this id of the file this key names is decided: a guarded schema no longer calls its switch. */
+    public static function decided(string $file, int $id): void
+    {
+        unset(self::$live[$file][$id], self::$lifted[$file][$id]);
+    }
+
+    /** Lifts the guard while this says, so every site calls its switch, and puts it back once it does not. */
+    public static function lifting(bool $lifted): void
+    {
+        [self::$live, self::$lifted] = $lifted ? [[], self::$live + self::$lifted] : [self::$lifted + self::$live, []];
     }
 
     /**

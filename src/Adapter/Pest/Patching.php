@@ -99,7 +99,11 @@ final readonly class Patching
     public function schemata(): array
     {
         return $this->isOn() && $this->workers->schemata()
-            ? [GateVariable::Schemata->value => '1', ...$this->streams->variables()]
+            ? [
+                GateVariable::Schemata->value => '1',
+                ...$this->steps->on(Toggle::PestSwitchGuard) ? [GateVariable::SwitchGuard->value => '1'] : [],
+                ...$this->streams->variables(),
+            ]
             : [];
     }
 

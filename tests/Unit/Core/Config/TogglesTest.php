@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\HeavyMutants;
 use NightWorksIO\MutationGate\Config\Pest as PestBuilder;
 use NightWorksIO\MutationGate\Config\PestSpeedUps;
+use NightWorksIO\MutationGate\Config\SchemaSwitches;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\StaticCheck as StaticCheckBuilder;
 use NightWorksIO\MutationGate\Config\Suggest as SuggestBuilder;
@@ -42,6 +43,7 @@ $toggles = [
     'pest.longestFirst' => [Toggle::PestLongestFirst, static fn(): Setting => PestSpeedUps::inTheirOrder(), static fn(): Setting => PestSpeedUps::longestFirst()],
     'pest.remember' => [Toggle::PestRemember, static fn(): Setting => PestSpeedUps::forgetting(), static fn(): Setting => PestSpeedUps::remembering()],
     'pest.overlapSteps' => [Toggle::PestOverlapSteps, static fn(): Setting => PestSpeedUps::stepByStep(), static fn(): Setting => PestSpeedUps::overlappingSteps()],
+    'pest.switchGuard' => [Toggle::PestSwitchGuard, static fn(): Setting => SchemaSwitches::unguarded(), static fn(): Setting => SchemaSwitches::guarded()],
     'pest.pcovOff' => [Toggle::PestPcovOff, static fn(): Setting => PestSpeedUps::pcovOn(), static fn(): Setting => PestSpeedUps::pcovOff()],
     'pest.xdebugOff' => [Toggle::PestXdebugOff, static fn(): Setting => PestSpeedUps::xdebugAsConfigured(), static fn(): Setting => PestSpeedUps::xdebugOff()],
     'staticCheck.turbo' => [Toggle::StaticCheckTurbo, static fn(): Setting => StaticCheckBuilder::withoutTurbo(), static fn(): Setting => StaticCheckBuilder::turbo()],
@@ -79,7 +81,7 @@ it('hands Pest the toggles it reads among its options, and any other runner none
     $pest = Toggles::of(Toggle::PestTrials, on: false)->beneath(Choice::of(BuiltinRunner::Pest->value, Options::none()));
     $other = Toggles::of(Toggle::PestTrials, on: false)->beneath(Choice::of(BuiltinRunner::PhpUnit->value, Options::none()));
 
-    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true,"freshOrder":true,"freshRace":true,"shardScan":true,"readyAtPlan":true,"makeSideBySide":true,"longestFirst":true,"remember":true,"overlapSteps":true,"pcovOff":true,"xdebugOff":true}')
+    expect($pest->options()->written()->line())->toBe('{"trials":false,"valueReaders":true,"narrow":true,"freshOrder":true,"freshRace":true,"shardScan":true,"readyAtPlan":true,"makeSideBySide":true,"longestFirst":true,"remember":true,"overlapSteps":true,"switchGuard":true,"pcovOff":true,"xdebugOff":true}')
         ->and($other->options()->written()->line())->toBe('{}');
 });
 
@@ -95,7 +97,7 @@ it('keys none of the speed-ups that change no output, and every check that vouch
     $speedUps = array_values(array_filter(Toggle::cases(), static fn(Toggle $toggle): bool => $toggle->speedsUp()));
 
     expect(array_map(static fn(Toggle $toggle): string => $toggle->value, $speedUps))
-        ->toBe(['pest.freshOrder', 'pest.freshRace', 'timeouts.startUpAtPlan', 'timeouts.heavyBeside', 'pest.shardScan', 'pest.readyAtPlan', 'pest.makeSideBySide', 'pest.longestFirst', 'pest.remember', 'pest.overlapSteps', 'pest.pcovOff', 'pest.xdebugOff', 'staticCheck.turbo', 'staticCheck.warmAtPlan'])
+        ->toBe(['pest.freshOrder', 'pest.freshRace', 'timeouts.startUpAtPlan', 'timeouts.heavyBeside', 'pest.shardScan', 'pest.readyAtPlan', 'pest.makeSideBySide', 'pest.longestFirst', 'pest.remember', 'pest.overlapSteps', 'pest.switchGuard', 'pest.pcovOff', 'pest.xdebugOff', 'staticCheck.turbo', 'staticCheck.warmAtPlan'])
         ->and(array_filter($speedUps, static fn(Toggle $toggle): bool => $toggle->effect()->isKeyed()))->toBe([])
         ->and(Toggle::ControlsKills->effect()->isKeyed())->toBeTrue();
 });

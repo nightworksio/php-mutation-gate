@@ -66,6 +66,9 @@ enum Toggle: string
     /** An invocation's controls run beside its survivors' runs again, each in a share of the pool. */
     case PestOverlapSteps = 'pest.overlapSteps';
 
+    /** A schema's switch is guarded, so a site decided in this process makes no call (ADR-0204). */
+    case PestSwitchGuard = 'pest.switchGuard';
+
     /** A mutation run starts with pcov off, unless its streams record lines with pcov (ADR-0147). */
     case PestPcovOff = 'pest.pcovOff';
 
@@ -105,6 +108,7 @@ enum Toggle: string
             self::PestLongestFirst,
             self::PestRemember,
             self::PestOverlapSteps,
+            self::PestSwitchGuard,
             self::PestPcovOff,
             self::PestXdebugOff => true,
             self::ControlsKills,
@@ -143,6 +147,7 @@ enum Toggle: string
             self::PestLongestFirst,
             self::PestRemember,
             self::PestOverlapSteps,
+            self::PestSwitchGuard,
             self::PestPcovOff,
             self::PestXdebugOff => true,
             self::ControlsKills,
@@ -185,6 +190,7 @@ enum Toggle: string
             self::PestLongestFirst,
             self::PestRemember,
             self::PestOverlapSteps,
+            self::PestSwitchGuard,
             self::PestPcovOff,
             self::PestXdebugOff,
             self::StaticCheckTurbo,
@@ -218,6 +224,7 @@ enum Toggle: string
             self::PestLongestFirst => 'PestSpeedUps::longestFirst()',
             self::PestRemember => 'PestSpeedUps::remembering()',
             self::PestOverlapSteps => 'PestSpeedUps::overlappingSteps()',
+            self::PestSwitchGuard => 'SchemaSwitches::guarded()',
             self::PestPcovOff => 'PestSpeedUps::pcovOff()',
             self::PestXdebugOff => 'PestSpeedUps::xdebugOff()',
         };
@@ -247,6 +254,7 @@ enum Toggle: string
             self::PestLongestFirst => 'PestSpeedUps::inTheirOrder()',
             self::PestRemember => 'PestSpeedUps::forgetting()',
             self::PestOverlapSteps => 'PestSpeedUps::stepByStep()',
+            self::PestSwitchGuard => 'SchemaSwitches::unguarded()',
             self::PestPcovOff => 'PestSpeedUps::pcovOn()',
             self::PestXdebugOff => 'PestSpeedUps::xdebugAsConfigured()',
         };

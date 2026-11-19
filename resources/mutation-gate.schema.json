@@ -4158,6 +4158,10 @@
                     "type": "boolean",
                     "default": true
                 },
+                "switchGuard": {
+                    "type": "boolean",
+                    "default": true
+                },
                 "pcovOff": {
                     "type": "boolean",
                     "default": true
@@ -8893,6 +8897,9 @@
                             "type": "boolean"
                         },
                         "overlapSteps": {
+                            "type": "boolean"
+                        },
+                        "switchGuard": {
                             "type": "boolean"
                         },
                         "pcovOff": {
