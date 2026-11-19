@@ -54,6 +54,12 @@ use function strval;
  */
 final class Schemata
 {
+    /**
+     * The guard in front of each switch of a file's schema, by the switch's
+     * class and the file's key (ADR-0204): true where the file is unguarded,
+     * or the site this `%d` names is still undecided.
+     */
+    public const string GUARD = "(!isset(\\%1\$s::\$live['%2\$s']) || isset(\\%1\$s::\$live['%2\$s'][%%d]))";
     /** Where a file's schema is written, beside the folder of mutated copies, by the file's key. */
     private const string PATH = '%s/../schemata/%s%s';
 
@@ -110,7 +116,7 @@ final class Schemata
         unset(self::$sites[$file]);
         $sites = array_map(static fn(array $kept): Site => $kept[1], $kept);
         $key = hash(Digest::QUICK, $file);
-        $switch = SwitchCall::of(sprintf(self::SWITCH, SchemaSwitch::class, $key));
+        $switch = self::switchesOf($key);
         $streams = StreamSettings::fromEnvironment();
         $schema = Schema::of(
             $code,
@@ -246,6 +252,16 @@ final class Schemata
         foreach (self::schemataIn($directory) as [$file, $schema]) {
             ServedClasses::serve($file, $schema);
         }
+    }
+
+    /** The switch of each site of the file this key names, behind its guard under `pest.switchGuard` (ADR-0204). */
+    private static function switchesOf(string $key): SwitchCall
+    {
+        $switch = SwitchCall::of(sprintf(self::SWITCH, SchemaSwitch::class, $key));
+
+        return getenv(GateVariable::SwitchGuard->value) === '1'
+            ? $switch->guarded(sprintf(self::GUARD, SchemaSwitch::class, $key))
+            : $switch;
     }
 
     /**

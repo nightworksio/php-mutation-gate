@@ -75,6 +75,7 @@ final readonly class BuilderClasses
         'Retention' => self::BUILDER,
         'Runner' => self::BUILDER,
         'Sampling' => self::BUILDER,
+        'SchemaSwitches' => self::BUILDER,
         'Shards' => self::BUILDER,
         'Source' => self::BUILDER,
         'SplitStream' => self::BUILDER,
