@@ -20,11 +20,29 @@ def pull(*paths: str) -> dict[str, str]:
 
 # The jobs that judge the program, in ci.yml's order.
 PROGRAM = ["alone", "guards", "checks", "tests", "lowest", "tally", "phar"]
-NOTHING = {"jobs": "[]", "runners": "[]", "warm": "false", "hooks": "false", "builds": "false"}
-EVERYTHING = {"jobs": json.dumps(list(scope.GATED)), "runners": json.dumps(list(scope.RUNNERS)), "warm": "true", "hooks": "true", "builds": "true"}
+NOTHING = {"jobs": "[]", "runners": "[]", "legs": "[]", "warm": "false", "hooks": "false", "builds": "false"}
+EVERYTHING = {
+    "jobs": json.dumps(list(scope.GATED)),
+    "runners": json.dumps(list(scope.RUNNERS)),
+    "legs": json.dumps(scope.legs_of(list(scope.RUNNERS))),
+    "warm": "true",
+    "hooks": "true",
+    "builds": "true",
+}
 
 
 class Outputs(unittest.TestCase):
+    def test_runs_the_runners_that_share_a_job_in_that_job_in_their_order_and_each_other_in_its_own(self):
+        self.assertEqual(scope.legs_of(["pest", "phpspec", "testo"]), [
+            {"name": "pest", "runners": "pest"},
+            {"name": "phpspec-codeception-testo", "runners": "phpspec testo"},
+        ])
+        self.assertEqual(scope.legs_of([]), [])
+        self.assertEqual(
+            [leg["name"] for leg in scope.legs_of(list(scope.RUNNERS))],
+            ["pest", "infection-13", "infection-12", "phpunit", "phpspec-codeception-testo", "analysers"],
+        )
+
     def test_runs_every_job_on_a_push_a_schedule_or_without_a_base(self):
         for event, paths in (("push", ["README.md"]), ("schedule", []), ("pull_request", None)):
             self.assertEqual(scope.outputs(event, paths), EVERYTHING)
@@ -223,9 +241,9 @@ class TheWorkflowAgrees(unittest.TestCase):
         self.assertEqual(set(scope.INPUTS) | {"runner-contracts", scope.END_TO_END_CALLER}, set(scope.GATED))
 
     def test_falls_back_to_every_leg_it_knows(self):
-        fallback = re.search(r"needs\.scope\.outputs\.runners \|\| '(\[[^']*\])'", self.ci)
+        fallback = re.search(r"needs\.scope\.outputs\.legs \|\| '(\[[^']*\])'", self.ci)
         self.assertIsNotNone(fallback)
-        self.assertEqual(json.loads(fallback.group(1)), list(scope.RUNNERS))
+        self.assertEqual(json.loads(fallback.group(1)) if fallback else None, scope.legs_of(list(scope.RUNNERS)))
 
     def test_gives_each_end_to_end_job_its_own_input(self):
         end_to_end = (scope.ROOT / ".github/workflows/end-to-end.yml").read_text(encoding="utf-8")

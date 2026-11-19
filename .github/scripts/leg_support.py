@@ -7,8 +7,9 @@ Usage: leg_support.py fixture <runner>    print the leg's fixture as `name=value
 
 legs.json holds each runner's leg of `runner contract` (ci.yml): its fixture's
 directory, the filter and the contracts its Contract run selects, how it
-reaches its lowest releases, the packages its install shows, and the test
-support its tests use. scope.py runs a leg where that support changed.
+reaches its lowest releases, the packages its install shows, the job of
+`runner contract` it runs in, which runners with short suites share, and the
+test support its tests use. scope.py runs a leg where that support changed.
 
 Each fixture is installed at the highest releases its committed lock holds and
 at the lowest its manifest allows; `lowest` says how it reaches the lowest:
