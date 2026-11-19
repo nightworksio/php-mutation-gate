@@ -9,12 +9,14 @@ use NightWorksIO\MutationGate\Core\Config\CommentSettings;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\CommentWrites;
 use NightWorksIO\MutationGate\Core\Config\Definition\CommentKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\Placement;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\ShippedSchema;
 
 it('lays the run\'s comment under a comment reporter\'s own with.comment, and leaves any other reporter\'s options as they are', function (
     string $use,
@@ -48,4 +50,9 @@ it('takes an empty list of open sections, and refuses an empty list of states or
     expect($folded->isOpen(Section::Verdict))->toBeFalse()
         ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'comment' => ['states' => []]])))->not->toBe([])
         ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'comment' => ['on' => []]])))->not->toBe([]);
+});
+
+it('writes the schema of each of its keys as the package ships it', function (): void {
+    expect(ShippedSchema::written(CommentKeys::fields(), Placement::TopLevel))
+        ->toBe(ShippedSchema::holds(['comment'], Placement::TopLevel));
 });
