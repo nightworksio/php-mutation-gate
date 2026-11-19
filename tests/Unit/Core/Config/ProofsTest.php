@@ -2,12 +2,19 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Proofs;
+use NightWorksIO\MutationGate\Core\File\Glob;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
+use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('writes whether coverage is measured incrementally as the PHP config calls it', function (): void {
@@ -67,4 +74,27 @@ it('reads proofs.compression and proofs.compressionLevel, and refuses a compress
             'proofs.compression: expected "auto", "gzip" or "zstd", got "brotli"',
             'proofs.compressionLevel: expected an integer from 1 to 19, got 20',
         ]);
+});
+
+it('writes the store by its builder method with its text options named, the ignored globs and whether it writes', function (): void {
+    $origin = ProjectRoot::origin();
+    $s3 = Choice::of('s3', Options::of(Json::object(Member::of('bucket', 'proofs'), Member::of('endpoint', 'https://r2.example.com'), Member::of('parts', 3))));
+    $directory = Choice::of('directory', Options::of(Json::object(Member::of('path', 'build/proofs'))));
+
+    expect([
+        Proofs::of($s3, Listed::of(Glob::of('docs/**')), Writing::Never)->php($origin),
+        Proofs::of($directory, write: Writing::Auto)->php($origin),
+    ])->toEqual([
+        PhpCalls::inWith("Proofs::s3(bucket: 'proofs', endpoint: 'https://r2.example.com')", "Proofs::ignore('docs/**')", 'Proofs::readOnly()'),
+        PhpCalls::inWith("Proofs::directory('build/proofs')", 'Proofs::writing()'),
+    ]);
+});
+
+it('ignores what either layer ignores, and measures coverage incrementally unless set not to', function (): void {
+    $docs = Proofs::of(ignore: Listed::of(Glob::of('docs/**')));
+    $build = Proofs::of(ignore: Listed::of(Glob::of('build/**')));
+
+    expect([count(Proofs::of()->over($docs)->ignore()), count($docs->over($build)->ignore())])->toBe([1, 2])
+        ->and([Proofs::of()->incrementalCoverage(), Proofs::of(incremental: true)->incrementalCoverage(), Proofs::of(incremental: false)->incrementalCoverage()])
+        ->toBe([true, true, false]);
 });

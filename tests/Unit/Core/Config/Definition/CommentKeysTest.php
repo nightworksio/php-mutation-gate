@@ -56,3 +56,17 @@ it('writes the schema of each of its keys as the package ships it', function ():
     expect(ShippedSchema::written(CommentKeys::fields(), Placement::TopLevel))
         ->toBe(ShippedSchema::holds(['comment'], Placement::TopLevel));
 });
+
+it('reads every key of a reporter\'s with.comment, and writes each back as it was set', function (): void {
+    $comment = '{"sections":["verdict","survivors"],"open":["survivors"],"survivors":{"most":5,"lines":"all","detail":"row"},'
+        . '"security":{"most":2},"unjudged":{"most":3},"ignored":{"most":4},"heatmap":{"most":6},"text":{"most":7000},'
+        . '"try":false,"reproduce":true,"mode":"new","states":["planned","verdict"],"passing":"never","on":["pull-request"],'
+        . '"drafts":true,"sampled":false,"cutShort":true}';
+
+    expect(CommentKeys::settingsIn(Configs::options(sprintf('{"comment":%s}', $comment)))->json()->line())->toBe($comment);
+});
+
+it('reads a reporter\'s with.comment that sets one key as only that key, and none as the standard comment', function (): void {
+    expect(CommentKeys::settingsIn(Configs::options('{"comment":{"try":false}}'))->json()->line())->toBe('{"try":false}')
+        ->and(CommentKeys::settingsIn(Configs::options('{}'))->json()->line())->toBe('{}');
+});

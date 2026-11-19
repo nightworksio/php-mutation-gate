@@ -91,3 +91,25 @@ it('turns a toggle back on where a later layer sets it on', function (): void {
 
     expect([$laid->allows(Toggle::Try), $laid->set(Toggle::Try)])->toBe([true, true]);
 });
+
+it('writes every key a layer sets as the builder calls it, in the order the builder takes them', function (): void {
+    $shows = CommentShows::of(
+        Listed::of(Section::Verdict, Section::Trees),
+        Listed::of(Section::Sets),
+        CommentCaps::capping(Cap::Survivors, 3),
+        CommentToggles::off(Toggle::Try)->over(CommentToggles::on(Toggle::Reproduce)),
+        Lines::All,
+        Detail::Row,
+    );
+
+    expect($shows->php()->code())->toBe(
+        "\n    ->with(\n        Comment::sections(Section::Verdict, Section::Trees),\n        Comment::open(Section::Sets),\n        Comment::lines(Lines::All),"
+        . "\n        Comment::detail(Detail::Row),\n        Comment::most(Cap::Survivors, 3),\n        Comment::without(Toggle::Try),\n        Comment::with(Toggle::Reproduce),\n    )",
+    );
+});
+
+it('shows the verdict first, the changed lines\' survivors and each in full where no layer says', function (): void {
+    $standard = CommentShows::of();
+
+    expect([[...$standard->sections()][0], $standard->lines(), $standard->detail()])->toBe([Section::Verdict, Lines::Changed, Detail::Full]);
+});

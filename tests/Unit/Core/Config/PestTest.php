@@ -90,3 +90,8 @@ it('boots mutants\' workers unless pest.bootMutants turns it off, a later layer 
         ->and([Pest::of(bootMutants: true)->php(ProjectRoot::origin()), $off->php(ProjectRoot::origin())])
         ->toEqual([PhpCalls::inWith('Pest::bootingMutants()'), PhpCalls::inWith('Pest::mutantsUnbooted()')]);
 });
+
+it('writes pest.canary as the PHP config calls it, beside the switches', function (): void {
+    expect(Pest::of(patch: true, canary: Group::named('smoke'), schemata: false)->php(ProjectRoot::origin()))
+        ->toEqual(PhpCalls::inWith('Pest::patched()', "Pest::canary('smoke')", 'Pest::withoutSchemata()'));
+});
