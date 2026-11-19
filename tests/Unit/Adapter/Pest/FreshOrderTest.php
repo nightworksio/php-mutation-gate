@@ -80,7 +80,7 @@ function freshOrderAsked(string $pest, TestOrder $order, bool $on): array
     $times = TestDurations::none()->with(TimedTest::of('T::slow', 40.0), TimedTest::of('T::fast', 0.1));
     $placement = Placement::inPestRunner($at->root(), Paths::none(), Path::of('vendor'), Path::of('.gate'));
     $options = FreshOrder::of($at, $placement, $request, $times, $on)
-        ->ofRun(freshOrderMutant(), TestIds::of(TestId::of('T::fast'), TestId::of('T::slow')));
+        ->ofRun(freshOrderMutant(), TestIds::of(TestId::of('T::fast'), TestId::of('T::slow')), freshOrderMutant()->id()->value());
     $directory = $options === [] ? '' : substr($options[0], strlen('--cache-directory='));
     $written = $directory === '' ? '' : (string) file_get_contents(sprintf('%s/test-run-history', $directory));
 

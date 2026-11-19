@@ -41,13 +41,17 @@ final readonly class RefusingPlacement implements MutantPlacement
         return $this->placement->serving($original, $mutated, $guard);
     }
 
-    public function placed(Mutant $mutant, Contents $code, Selection $selection): PlacedMutant|CannotJudge
-    {
+    public function placed(
+        Mutant $mutant,
+        Contents $code,
+        Selection $selection,
+        string $part = '',
+    ): PlacedMutant|CannotJudge {
         $file = $mutant->location()->file()->value();
 
         return str_ends_with($file, $this->ending)
             ? CannotJudge::because(sprintf(self::REFUSED, $file))
-            : $this->placement->placed($mutant, $code, $selection);
+            : $this->placement->placed($mutant, $code, $selection, $part);
     }
 
     public function fresh(string $name): string|CannotJudge

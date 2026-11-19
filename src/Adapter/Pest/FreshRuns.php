@@ -223,8 +223,8 @@ final readonly class FreshRuns
         }
 
         $slots = WorkerSlots::inPool($batch->request->pool(), strval(getmypid()));
-        $commands = array_map(static fn(FreshRun $run): Command => $run->command(), $runs);
-        $ended = [...$this->sideBySide($slots, $left(), $commands)];
+        [$runs, $ended] = new FreshRacing($this->shell, $this->preparing, $this->patching)
+            ->raced($slots, $left, $runs, $batch);
         $verdicts = $this->verdictsOf($ended, $runs, $batch->request->memory());
         $steps = StepTimes::of($laps->lap(Step::Mutation, $from, count($runs)));
         $asked = array_keys(array_filter(

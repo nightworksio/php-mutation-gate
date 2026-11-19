@@ -52,11 +52,15 @@ final readonly class Placement implements MutantPlacement
         return Invocation::overriding($override);
     }
 
-    public function placed(Mutant $mutant, Contents $code, Selection $selection): PlacedMutant|CannotJudge
-    {
+    public function placed(
+        Mutant $mutant,
+        Contents $code,
+        Selection $selection,
+        string $part = '',
+    ): PlacedMutant|CannotJudge {
         $made = MadeMutant::of($mutant->id(), $mutant->location(), $mutant->mutation(), $code);
 
-        return MutantFiles::selecting($this->project, $made, $selection);
+        return MutantFiles::selecting($this->project, $made, $selection, $part);
     }
 
     public function fresh(string $name): string|CannotJudge

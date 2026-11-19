@@ -16,10 +16,12 @@ use function str_replace;
 use function str_starts_with;
 use function ucfirst;
 
-/** A JUnit log a fake run writes where its command's `--log-junit` names, recording one test case failed. */
+/** A JUnit log a fake run writes where its command's `--log-junit` names, recording one test case failed or passed. */
 final class JUnitLogs
 {
     private const string FAILED = '<testsuites><testsuite name="T"><testcase name="%s" file="%s" class="%s"><failure>x</failure></testcase></testsuite></testsuites>';
+
+    private const string PASSED = '<testsuites><testsuite name="T"><testcase name="%s" file="%s" class="%s"/></testsuite></testsuites>';
 
     /**
      * A failure of the test of this name in this file, its class the one Pest and PHPUnit name for the file.
@@ -28,13 +30,29 @@ final class JUnitLogs
      */
     public static function failing(array $arguments, string $name, string $file): void
     {
+        self::logged($arguments, self::FAILED, $name, $file);
+    }
+
+    /**
+     * A pass of the test of this name in this file, its class the one Pest and PHPUnit name for the file.
+     *
+     * @param list<string> $arguments the command's
+     */
+    public static function passing(array $arguments, string $name, string $file): void
+    {
+        self::logged($arguments, self::PASSED, $name, $file);
+    }
+
+    /** @param list<string> $arguments the command's */
+    private static function logged(array $arguments, string $log, string $name, string $file): void
+    {
         $class = str_replace('/', '\\', ucfirst(mb_substr(explode('::', $file)[0], 0, -mb_strlen('.php'))));
 
         $option = sprintf('%s=', PhpUnitOption::LogJunit->value);
 
         foreach ($arguments as $argument) {
             if (str_starts_with($argument, $option)) {
-                file_put_contents(mb_substr($argument, mb_strlen($option)), sprintf(self::FAILED, $name, $file, $class));
+                file_put_contents(mb_substr($argument, mb_strlen($option)), sprintf($log, $name, $file, $class));
             }
         }
     }

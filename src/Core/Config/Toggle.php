@@ -30,6 +30,9 @@ enum Toggle: string
     /** A fresh run asks Pest for its likely killers first, the rest fastest first, as its own run does (ADR-0202). */
     case PestFreshOrder = 'pest.freshOrder';
 
+    /** A fresh run's covering tests also run in parts on idle places, a vouched kill settling the mutant (ADR-0203). */
+    case PestFreshRace = 'pest.freshRace';
+
     /** A survivor the analyser rejects counts as killed by static analysis (ADR-0020). */
     case StaticCheckAfter = 'staticCheck.after';
 
@@ -95,6 +98,7 @@ enum Toggle: string
             self::PestValueReaders,
             self::PestNarrow,
             self::PestFreshOrder,
+            self::PestFreshRace,
             self::PestShardScan,
             self::PestReadyAtPlan,
             self::PestMakeSideBySide,
@@ -132,6 +136,7 @@ enum Toggle: string
             self::TimeoutsStartUpAtPlan,
             self::TimeoutsHeavyBeside,
             self::PestFreshOrder,
+            self::PestFreshRace,
             self::PestShardScan,
             self::PestReadyAtPlan,
             self::PestMakeSideBySide,
@@ -170,6 +175,7 @@ enum Toggle: string
             self::PestValueReaders,
             self::PestNarrow,
             self::PestFreshOrder,
+            self::PestFreshRace,
             self::StaticCheckAfter,
             self::TimeoutsParts,
             self::SuggestLooseValues,
@@ -197,7 +203,8 @@ enum Toggle: string
             self::PestTrials => 'Pest::trying()',
             self::PestValueReaders => 'Pest::readingValues()',
             self::PestNarrow => 'Pest::narrowing()',
-            self::PestFreshOrder => 'FreshRunOrder::killersFirst()',
+            self::PestFreshOrder => 'FreshRunSpeedUps::killersFirst()',
+            self::PestFreshRace => 'FreshRunSpeedUps::racing()',
             self::StaticCheckAfter => 'CheckTiming::checkingSurvivors()',
             self::TimeoutsParts => 'Timeouts::inParts()',
             self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringAtPlan()',
@@ -225,7 +232,8 @@ enum Toggle: string
             self::PestTrials => 'Pest::withoutTrials()',
             self::PestValueReaders => 'Pest::withoutValueReaders()',
             self::PestNarrow => 'Pest::unnarrowed()',
-            self::PestFreshOrder => 'FreshRunOrder::pestsOwn()',
+            self::PestFreshOrder => 'FreshRunSpeedUps::pestsOwnOrder()',
+            self::PestFreshRace => 'FreshRunSpeedUps::runningAlone()',
             self::StaticCheckAfter => 'CheckTiming::survivorsUnchecked()',
             self::TimeoutsParts => 'Timeouts::neverInParts()',
             self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringInEachShard()',

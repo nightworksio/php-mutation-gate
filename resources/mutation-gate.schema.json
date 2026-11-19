@@ -4103,6 +4103,10 @@
                     "type": "boolean",
                     "default": true
                 },
+                "freshRace": {
+                    "type": "boolean",
+                    "default": true
+                },
                 "shardScan": {
                     "type": "boolean",
                     "default": true
@@ -8813,6 +8817,9 @@
                             "type": "boolean"
                         },
                         "freshOrder": {
+                            "type": "boolean"
+                        },
+                        "freshRace": {
                             "type": "boolean"
                         },
                         "shardScan": {

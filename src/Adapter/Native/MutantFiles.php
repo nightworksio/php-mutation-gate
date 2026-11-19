@@ -50,12 +50,22 @@ final readonly class MutantFiles implements PlacedMutant
     ) {
     }
 
-    /** The files for a run of the tests this selection lists. */
-    public static function selecting(Project $project, MadeMutant $mutant, Selection $selection): self|CannotJudge
+    /** The name of the directory of a mutant's files, by its id, or of a part of it where one is named. */
+    public static function directoryOf(string $id, string $part): string
     {
+        return $part === '' ? $id : Path::of($id)->child(Path::of($part))->value();
+    }
+
+    /** The files for a run of the tests this selection lists, in a part of its directory where one is named. */
+    public static function selecting(
+        Project $project,
+        MadeMutant $mutant,
+        Selection $selection,
+        string $part = '',
+    ): self|CannotJudge {
         return self::written(
             $project,
-            $mutant->id()->value(),
+            self::directoryOf($mutant->id()->value(), $part),
             $mutant->location()->file(),
             $mutant->mutated(),
             $selection,
