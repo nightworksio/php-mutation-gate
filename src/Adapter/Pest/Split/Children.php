@@ -9,8 +9,12 @@ use function array_key_exists;
 use const FILE_APPEND;
 
 use function file_put_contents;
+use function getenv;
+use function sprintf;
 use function hrtime;
+use function is_array;
 use function is_int;
+use function is_string;
 
 use const LOCK_EX;
 
@@ -69,6 +73,9 @@ final class Children
     /** @var list<array{string, string}> the children that failed or ended in their test while the parent forked */
     private array $pending = [];
 
+    /** @var array<int, array{float, float, float, float}> the probe's place wait, fork call, prefix and fork end of each running child, by pid */
+    private array $probed = [];
+
     /** @var array<int, Copies> the databases copied for each running child, by pid */
     private array $copies = [];
 
@@ -86,13 +93,20 @@ final class Children
      * child's pid in the parent, 0 in the child, and -1 where PHP could not
      * fork.
      */
-    public function forked(string $mutant, string $test, Copies $copies): int
+    public function forked(string $mutant, string $test, Copies $copies, float $prefix = 0.0): int
     {
+        $from = $this->now();
         $this->pending = [...$this->pending, ...$this->placeFreed()];
         $slot = $this->steps->freeSlot($this->held->slots());
         $atFork = $this->steps->taken();
         $this->steps->opened($slot);
+        $placed = $this->now();
         $pid = pcntl_fork();
+        $forkedAt = $this->now();
+
+        if ($pid > 0) {
+            $this->probed[$pid] = [($placed - $from) * 1000, ($forkedAt - $placed) * 1000, $prefix * 1000, $forkedAt];
+        }
 
         match (true) {
             $pid === 0 => $this->inChild($slot),
@@ -240,7 +254,8 @@ final class Children
     {
         $failed = [];
 
-        while (($pid = pcntl_waitpid(-1, $status, WNOHANG)) > 0) {
+        while (($pid = pcntl_waitpid(-1, $status, WNOHANG, $usage)) > 0) {
+            $this->probedEnd($pid, $usage);
             $failed = [...$failed, ...$this->endedOf($pid, is_int($status) ? $status : 0)];
         }
 
@@ -297,7 +312,8 @@ final class Children
     {
         foreach ($late as $pid => $child) {
             posix_kill($pid, SIGKILL);
-            pcntl_waitpid($pid, $status);
+            pcntl_waitpid($pid, $status, 0, $usage);
+            $this->probedEnd($pid, $usage);
             $this->gone($pid);
             $this->write(StreamLine::timedOut($child->mutant, $child->test));
         }
@@ -322,6 +338,33 @@ final class Children
         }
 
         $this->copies = [];
+    }
+
+    /** @param array<string, int>|mixed $usage */
+    private function probedEnd(int $pid, mixed $usage): void
+    {
+        $log = getenv('PMG_PROBE_FORK_LOG');
+
+        if (! is_string($log) || $log === '' || ! array_key_exists($pid, $this->probed) || ! is_array($usage)) {
+            return;
+        }
+
+        [$place, $fork, $prefix, $at] = $this->probed[$pid];
+        unset($this->probed[$pid]);
+        $cpu = ($usage['ru_utime.tv_sec'] ?? 0) * 1000 + ($usage['ru_utime.tv_usec'] ?? 0) / 1000
+            + ($usage['ru_stime.tv_sec'] ?? 0) * 1000 + ($usage['ru_stime.tv_usec'] ?? 0) / 1000;
+        file_put_contents($log, sprintf(
+            "%d %.3f %.3f %.3f %.3f %.3f %d %d %d\n",
+            $pid,
+            $place,
+            $fork,
+            $prefix,
+            ($this->now() - $at) * 1000,
+            $cpu,
+            $usage['ru_minflt'] ?? 0,
+            $usage['ru_majflt'] ?? 0,
+            $usage['ru_maxrss'] ?? 0,
+        ), FILE_APPEND | LOCK_EX);
     }
 
     private function write(string $line): void

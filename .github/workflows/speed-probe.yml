@@ -1,0 +1,101 @@
+name: speed probe
+
+on:
+  push:
+    branches: ['probe/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.5'
+
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      services: ${{ steps.servers.outputs.services }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: servers
+        run: python3 .github/scripts/servers.py services >> "$GITHUB_OUTPUT"
+      - name: main's callers never pass probe-shards
+        run: |
+          if grep -rn 'probe-shards' .github/workflows --include='*.yml' | grep -v '^.github/workflows/speed-probe.yml:' | grep -v '^.github/workflows/mutation-gate.yml:'; then
+            exit 1
+          fi
+
+  map:
+    needs: [scope]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    services: ${{ fromJSON(needs.scope.outputs.services || '{}') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: zstd
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - run: composer --working-dir=tests/Contract/Runner/fixture install --no-interaction --no-progress
+      - if: ${{ needs.scope.outputs.services != '' }}
+        run: python3 .github/scripts/servers.py addresses >> "$GITHUB_ENV"
+      - env:
+          COVERAGE_ELSEWHERE: coverage/tests.php
+        run: |
+          set -euo pipefail
+          report=$(php -r 'require "vendor/autoload.php"; echo \Pest\Support\Coverage::getPath();')
+          mkdir -p .mutation-gate/ran "$(dirname "${report}")"
+          : > .mutation-gate/ran/coverage.php
+          ln -f .mutation-gate/ran/coverage.php "${report}"
+          composer test:report
+          cp .mutation-gate/ran/coverage.php .mutation-gate/tests.php
+      - env:
+          COVERAGE_INTO: ${{ github.workspace }}/.coverage/runner
+        run: .github/scripts/leg.sh pest highest
+      - run: |
+          php scripts/process-coverage.php joined .mutation-gate/ran/coverage.php \
+            .mutation-gate/tests.php .coverage/runner/report.php
+          php bin/mutation-gate coverage --from=.mutation-gate/ran --into=.mutation-gate/map
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-gate-map
+          path: .mutation-gate/map/map.json.gz
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  mutation:
+    needs: [scope, map]
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+      id-token: write
+    uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
+    with:
+      coverage: mutation-gate-map
+      extensions: zstd
+      prepare: >-
+        composer --working-dir=tests/Contract/Runner/fixture install --no-interaction --no-progress
+        && python3 .github/scripts/servers.py addresses >> "$GITHUB_ENV"
+      services: ${{ needs.scope.outputs.services }}
+      runs-on: ubuntu-24.04-arm
+      mode: full
+      plan-timeout: 30
+      shard-timeout: 15
+      probe-shards: '[15,18,9]'
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}

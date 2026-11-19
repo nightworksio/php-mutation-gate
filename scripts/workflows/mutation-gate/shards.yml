@@ -54,6 +54,49 @@
           path: .mutation-gate/judge
       # The action as this workflow's own commit holds it, checked out above
       # into the caller's workspace: `$/` would name the caller's repository.
+      - name: Sample the job's processes every 30 seconds and log each fork, on a speed probe
+        if: ${{ inputs.probe-shards != '' }}
+        run: |
+          echo "PMG_PROBE_FORK_LOG=${RUNNER_TEMP}/fork-probe.log" >> "${GITHUB_ENV}"
+          cat > "${RUNNER_TEMP}/forks.py" <<'PY'
+          import sys, statistics
+          rows = [l.split() for l in open(sys.argv[1]) if l.strip()]
+          names = ['place_ms', 'fork_ms', 'prefix_ms', 'life_ms', 'cpu_ms', 'minflt', 'majflt', 'rss_kb']
+          print(f'fork probe: {len(rows)} children')
+          for i, name in enumerate(names):
+              v = sorted(float(r[i + 1]) for r in rows if len(r) > i + 1)
+              if v:
+                  q = lambda p: v[min(len(v) - 1, int(p * len(v)))]
+                  print(f'  {name}: sum={sum(v):.0f} mean={statistics.mean(v):.2f} p50={q(.5):.2f} p90={q(.9):.2f} p99={q(.99):.2f} max={v[-1]:.2f}')
+          PY
+          cat > "${RUNNER_TEMP}/sampler.py" <<'PY'
+          import os, subprocess, time
+          start = time.time()
+          while True:
+              rows = {}
+              ages = {}
+              for line in subprocess.run(['ps', '-eo', 'pid=,ppid=,etimes=,pcpu=,args='], capture_output=True, text=True).stdout.splitlines():
+                  parts = line.split(None, 4)
+                  if len(parts) == 5:
+                      rows[int(parts[0])] = (int(parts[1]), parts[4])
+                      ages[int(parts[0])] = (int(parts[2]), parts[3])
+              roots = [p for p, (_, a) in rows.items() if 'mutation-gate' in a and ' run ' in a and 'php' in a]
+              depth = {r: 0 for r in roots}
+              changed = True
+              while changed:
+                  changed = False
+                  for p, (pp, a) in rows.items():
+                      if p not in depth and pp in depth:
+                          depth[p] = depth[pp] + 1
+                          changed = True
+              php = [d for p, d in depth.items() if 'php' in rows[p][1] and d > 0]
+              counts = ' '.join(f'd{d}={php.count(d)}' for d in sorted(set(php)))
+              print(f"{time.strftime('%H:%M:%S')} +{int(time.time() - start)}s load={os.getloadavg()[0]:.1f} {counts}", flush=True)
+              for p in sorted((p for p, d in depth.items() if d >= 2 and 'php' in rows[p][1]), key=lambda p: -ages[p][0])[:14]:
+                  print(f"  d{depth[p]} pid={p} ppid={rows[p][0]} age={ages[p][0]}s cpu={ages[p][1]} {rows[p][1][:150]}", flush=True)
+              time.sleep(30)
+          PY
+          nohup python3 "${RUNNER_TEMP}/sampler.py" > "${RUNNER_TEMP}/probe-samples.log" 2>&1 &
       - uses: ./.mutation-gate/workflow # zizmor: ignore[self-repository]
         with:
           config: ${{ inputs.config }}
@@ -88,6 +131,11 @@
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
+      - name: Print the probe's process and fork samples
+        if: ${{ always() && inputs.probe-shards != '' }}
+        run: |
+          cat "${RUNNER_TEMP}/probe-samples.log" || true
+          python3 "${RUNNER_TEMP}/forks.py" "${RUNNER_TEMP}/fork-probe.log" || true
       - name: Remove the services
         if: always() && inputs.services-start != 'job'
         shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
@@ -236,6 +284,49 @@
         with:
           name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
           path: .mutation-gate/judge
+      - name: Sample the job's processes every 30 seconds and log each fork, on a speed probe
+        if: ${{ inputs.probe-shards != '' }}
+        run: |
+          echo "PMG_PROBE_FORK_LOG=${RUNNER_TEMP}/fork-probe.log" >> "${GITHUB_ENV}"
+          cat > "${RUNNER_TEMP}/forks.py" <<'PY'
+          import sys, statistics
+          rows = [l.split() for l in open(sys.argv[1]) if l.strip()]
+          names = ['place_ms', 'fork_ms', 'prefix_ms', 'life_ms', 'cpu_ms', 'minflt', 'majflt', 'rss_kb']
+          print(f'fork probe: {len(rows)} children')
+          for i, name in enumerate(names):
+              v = sorted(float(r[i + 1]) for r in rows if len(r) > i + 1)
+              if v:
+                  q = lambda p: v[min(len(v) - 1, int(p * len(v)))]
+                  print(f'  {name}: sum={sum(v):.0f} mean={statistics.mean(v):.2f} p50={q(.5):.2f} p90={q(.9):.2f} p99={q(.99):.2f} max={v[-1]:.2f}')
+          PY
+          cat > "${RUNNER_TEMP}/sampler.py" <<'PY'
+          import os, subprocess, time
+          start = time.time()
+          while True:
+              rows = {}
+              ages = {}
+              for line in subprocess.run(['ps', '-eo', 'pid=,ppid=,etimes=,pcpu=,args='], capture_output=True, text=True).stdout.splitlines():
+                  parts = line.split(None, 4)
+                  if len(parts) == 5:
+                      rows[int(parts[0])] = (int(parts[1]), parts[4])
+                      ages[int(parts[0])] = (int(parts[2]), parts[3])
+              roots = [p for p, (_, a) in rows.items() if 'mutation-gate' in a and ' run ' in a and 'php' in a]
+              depth = {r: 0 for r in roots}
+              changed = True
+              while changed:
+                  changed = False
+                  for p, (pp, a) in rows.items():
+                      if p not in depth and pp in depth:
+                          depth[p] = depth[pp] + 1
+                          changed = True
+              php = [d for p, d in depth.items() if 'php' in rows[p][1] and d > 0]
+              counts = ' '.join(f'd{d}={php.count(d)}' for d in sorted(set(php)))
+              print(f"{time.strftime('%H:%M:%S')} +{int(time.time() - start)}s load={os.getloadavg()[0]:.1f} {counts}", flush=True)
+              for p in sorted((p for p, d in depth.items() if d >= 2 and 'php' in rows[p][1]), key=lambda p: -ages[p][0])[:14]:
+                  print(f"  d{depth[p]} pid={p} ppid={rows[p][0]} age={ages[p][0]}s cpu={ages[p][1]} {rows[p][1][:150]}", flush=True)
+              time.sleep(30)
+          PY
+          nohup python3 "${RUNNER_TEMP}/sampler.py" > "${RUNNER_TEMP}/probe-samples.log" 2>&1 &
       - uses: ./.mutation-gate/workflow # zizmor: ignore[self-repository]
         with:
           config: ${{ inputs.config }}
@@ -265,6 +356,11 @@
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
+      - name: Print the probe's process and fork samples
+        if: ${{ always() && inputs.probe-shards != '' }}
+        run: |
+          cat "${RUNNER_TEMP}/probe-samples.log" || true
+          python3 "${RUNNER_TEMP}/forks.py" "${RUNNER_TEMP}/fork-probe.log" || true
       - name: Remove the services
         if: always() && inputs.services-start != 'job'
         shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}

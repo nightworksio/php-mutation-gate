@@ -354,7 +354,7 @@ final class StreamRun
         $this->test->forkAt($file, $id);
         $watch = $this->states->armed();
         $waited = $this->children->waited();
-        $pid = $this->children->forked($mutant, $this->test->id, $copies);
+        $pid = $this->children->forked($mutant, $this->test->id, $copies, $this->test->seconds());
         $this->deciding = false;
 
         if ($pid !== 0) {

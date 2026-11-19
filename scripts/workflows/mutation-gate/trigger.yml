@@ -137,6 +137,12 @@ on:
         description: How many minutes each shard job may take.
         type: number
         default: 360
+      probe-shards:
+        description: >-
+          A JSON list of the shard ids a speed probe runs, on a probe/ branch alone; empty, the default, runs every
+          shard, and a list given on any other ref fails the plan.
+        type: string
+        default: ''
       verdict-timeout:
         description: How many minutes the verdict job may take.
         type: number
