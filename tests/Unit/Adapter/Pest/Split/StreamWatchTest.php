@@ -106,7 +106,8 @@ it('runs no more queued streams at once than it is given, starting the next, in 
     foreach (['first', 'second', 'third'] as $name) {
         $queued[] = static function () use ($name, $never, &$started, &$most, &$live): WatchedStream {
             $live = array_values(array_filter($live, static fn(Process $process): bool => $process->isRunning()));
-            $process = watchedProcess('usleep(200000);');
+            $before = $live === [] ? '' : sprintf('while (posix_kill(%d, 0)) { usleep(1000); } ', (int) $live[count($live) - 1]->getPid());
+            $process = watchedProcess(sprintf('%susleep(200000);', $before));
             $live[] = $process;
             $started[] = $name;
             $most = max($most, count($live));
