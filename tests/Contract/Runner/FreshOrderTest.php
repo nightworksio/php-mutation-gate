@@ -44,14 +44,19 @@ const FRESH_ORDER_KILLER = 'P\Tests\OrderedSpec::__pest_evaluable_it_adds';
 /** The test first in Pest's own order, which kills too. */
 const FRESH_ORDER_FIRST = 'P\Tests\OrderedSpec::__pest_evaluable_it_adds_first';
 
+/** The test of the masked fixture that kills alone, and that its first test hides the mutant from after it. */
+const FRESH_ORDER_MASKED = 'P\Tests\MaskedSpec::__pest_evaluable_it_doubles_two';
+
 /**
- * Each mutant of the fixture's preloaded file judged in a fresh run under `pest.freshOrder` and `pest.freshRace`, in
- * a pool of three places, by this history: its status and the tests named for its kill.
+ * Each mutant of the fixture's preloaded file of this name judged in a fresh run under `pest.freshOrder` and
+ * `pest.freshRace`, in a pool of three places, by this history: its status and the tests named for its kill.
  *
  * @return list<array{string, list<string>}>
  */
-function freshOrderJudged(bool $on, KillHistory $history, bool $racing = false): array
+function freshOrderJudged(bool $on, KillHistory $history, bool $racing = false, string $name = 'Ordered'): array
 {
+    $source = Paths::of(Path::of(sprintf('src/%s.php', $name)));
+
     $result = Library::pestPlacing(Patching::on(Library::canary())->stepping(PestSteps::of(
         Toggles::of(Toggle::PestFreshOrder, $on)->with(Toggle::PestFreshRace, $racing),
         NarrowedKillTrust::Vouch,
@@ -60,9 +65,9 @@ function freshOrderJudged(bool $on, KillHistory $history, bool $racing = false):
         preloaded: Preloaded::Fresh,
         childProcesses: ChildProcesses::Serve,
     )))->runner()->mutate(
-        MutationRequest::of(Paths::of(Path::of('src/Ordered.php')), WholeSuite::tests())
+        MutationRequest::of($source, WholeSuite::tests())
             ->narrowedTo(
-                Paths::of(Path::of('src/Ordered.php')),
+                $source,
                 Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)),
             )
             ->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, $history), MatrixKind::FirstKiller))
@@ -92,18 +97,20 @@ function freshOrderMutants(): MutationResult|false
 }
 
 /**
- * Copies the fixture's preloaded file and its spec into the library, judges its mutants twice so, and removes them
- * again.
+ * Copies the fixture's preloaded file of this name and its spec into the library, judges its mutants twice so, and
+ * removes them again.
  *
  * @param  Closure(): array{list<array{string, list<string>}>, list<array{string, list<string>}>} $run
  * @return array{list<array{string, list<string>}>, list<array{string, list<string>}>}
  */
-function freshOrderPlaced(Closure $run): array
+function freshOrderPlaced(Closure $run, string $name = 'Ordered'): array
 {
-    $files = [
-        'src/Ordered.php' => 'tests/Contract/Runner/fresh-order/src/Ordered.php',
-        'tests/OrderedSpec.php' => 'tests/Contract/Runner/fresh-order/tests/OrderedSpec.php',
-    ];
+    $files = [];
+
+    foreach (['src/%s.php', 'tests/%sSpec.php'] as $shape) {
+        $placed = sprintf($shape, $name);
+        $files[$placed] = sprintf('tests/Contract/Runner/fresh-order/%s', $placed);
+    }
 
     foreach ($files as $placed => $shipped) {
         copy(Tree::at($shipped), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $placed)));
@@ -156,6 +163,19 @@ it('judges every mutant of a fresh run as the run alone does where pest.freshRac
 
     expect(array_column($raced, 0))->toBe(array_column($alone, 0))
         ->and(array_column($alone, 0))->toBe(['killed']);
+})->skip(
+    fn(): bool => ! Library::isInstalled(),
+    'the runner contracts job installs the fixture library',
+)->group(...$holds);
+
+it('judges killed by a raced part a mutant its fresh run alone lets survive, where an earlier test hides it from the killing test, an approved difference', function (): void {
+    [$alone, $raced] = freshOrderPlaced(static fn(): array => [
+        freshOrderJudged(on: false, history: KillHistory::none(), name: 'Masked'),
+        freshOrderJudged(on: false, history: KillHistory::none(), racing: true, name: 'Masked'),
+    ], 'Masked');
+
+    expect($alone)->toBe([['survived', []]])
+        ->and($raced)->toBe([['killed', [FRESH_ORDER_MASKED]]]);
 })->skip(
     fn(): bool => ! Library::isInstalled(),
     'the runner contracts job installs the fixture library',

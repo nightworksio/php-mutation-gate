@@ -85,38 +85,47 @@ function freshRaceTest(string $name): TestId
 function freshRaceShell(array $failing, bool $controlPasses, string $runEnds = ''): ShellFake
 {
     return new ShellFake(static function (Command $command) use ($failing, $controlPasses, $runEnds): Ran {
-        $environment = $command->environment();
-        $guard = (string) ($environment[Variable::Guard->value] ?? '');
-        $mutated = (string) ($environment[Variable::Mutated->value] ?? '');
-        $kind = match (true) {
-            str_ends_with($mutated, 'unmutated.php') => 'control',
-            str_contains($guard, '/race-0/') => 'adds',
-            str_contains($guard, '/race-1/') => 'subtracts',
-            default => 'run',
+        $kind = freshRaceKind($command);
+        $guard = (string) ($command->environment()[Variable::Guard->value] ?? '');
+        $ran = match (true) {
+            $kind === 'control' => Ran::finished(succeeded: $controlPasses, output: ''),
+            $kind === 'run' && $runEnds !== '' => freshRaceEnd($runEnds, $guard),
+            default => freshRaceTests($command, $guard, $failing[$kind] ?? ''),
         };
-        $took = Seconds::of($kind === 'run' ? 100.0 : 1.0);
 
-        if ($kind === 'control') {
-            return Ran::finished(succeeded: $controlPasses, output: '')->took($took);
-        }
+        return $ran->took(Seconds::of($kind === 'run' ? 100.0 : 1.0));
+    });
+}
 
-        if ($kind === 'run' && $runEnds !== '') {
-            return freshRaceEnd($runEnds, $guard)->took($took);
-        }
+/** What a command of the race is: the fresh run, a part by the test it holds, or a part's unmutated run. */
+function freshRaceKind(Command $command): string
+{
+    $environment = $command->environment();
+    $guard = (string) ($environment[Variable::Guard->value] ?? '');
+    $mutated = (string) ($environment[Variable::Mutated->value] ?? '');
 
-        file_put_contents($guard, sprintf("%s\n", Guard::SERVED));
-        $fails = $failing[$kind] ?? '';
+    return match (true) {
+        str_ends_with($mutated, 'unmutated.php') => 'control',
+        str_contains($guard, '/race-0/') => 'adds',
+        str_contains($guard, '/race-1/') => 'subtracts',
+        default => 'run',
+    };
+}
 
-        if ($fails !== '') {
-            JUnitLogs::failing($command->arguments(), sprintf('it %s', $fails), sprintf('tests/MoneySpec.php::it %s', $fails));
+/** A run that serves the mutant and fails the test of this name, or passes where it names none. */
+function freshRaceTests(Command $command, string $guard, string $fails): Ran
+{
+    file_put_contents($guard, sprintf("%s\n", Guard::SERVED));
 
-            return Ran::finished(succeeded: false, output: 'FAILED')->took($took);
-        }
-
+    if ($fails === '') {
         JUnitLogs::passing($command->arguments(), 'it adds', 'tests/MoneySpec.php::it adds');
 
-        return Ran::finished(succeeded: true, output: '')->took($took);
-    });
+        return Ran::finished(succeeded: true, output: '');
+    }
+
+    JUnitLogs::failing($command->arguments(), sprintf('it %s', $fails), sprintf('tests/MoneySpec.php::it %s', $fails));
+
+    return Ran::finished(succeeded: false, output: 'FAILED');
 }
 
 /**
@@ -207,12 +216,17 @@ it('judges every mutant as its fresh run alone does, raced or not, where no part
     'the run ends before it serves the mutant' => ['', 'unserved', MutantStatus::Unjudged],
 ]);
 
-it('judges killed by a part whose unmutated run passes a mutant its fresh run alone would time out on, both a detection', function (): void {
-    $shell = static fn(): ShellFake => freshRaceShell(['adds' => 'adds'], controlPasses: true, runEnds: 'stopped');
+it('judges killed by a part whose unmutated run passes a mutant its fresh run alone judges otherwise, the four approved differences', function (string $runEnds, MutantStatus $alone): void {
+    $shell = static fn(): ShellFake => freshRaceShell(['adds' => 'adds'], controlPasses: true, runEnds: $runEnds);
     [$raced] = freshRaceJudged($shell(), racing: true);
     Scratch::sweep();
-    [$alone] = freshRaceJudged($shell(), racing: false);
+    [$unraced] = freshRaceJudged($shell(), racing: false);
 
     expect([$raced->status(), [...$raced->killers()]])->toEqual([MutantStatus::Killed, [freshRaceTest('adds')]])
-        ->and($alone->status())->toBe(MutantStatus::TimedOut);
-});
+        ->and($unraced->status())->toBe($alone);
+})->with([
+    'the run alone stops at its limit first' => ['stopped', MutantStatus::TimedOut],
+    'the run alone fails on exactly the memory cap first' => ['memory', MutantStatus::OutOfMemory],
+    'the run alone ends without serving the mutant' => ['unserved', MutantStatus::Unjudged],
+    'the run alone passes, an earlier test hiding the mutant from the killing one' => ['', MutantStatus::Survived],
+]);
