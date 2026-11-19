@@ -95,6 +95,18 @@ it('starts a stream in a stopped one\'s place at the backoff times the slowdown 
     ])->toBe([2.0, 6.0, 3.0, 3.0, 2.0]);
 });
 
+/**
+ * The code of a stream that runs until the stream of this name has started, then ends, or ends within ten seconds where
+ * none starts: it runs on as long as the test needs it to, and never past a watch that starts too few.
+ */
+function watchedUntilStarted(string $directory, string $name): string
+{
+    return sprintf(
+        '$f = %s; $end = microtime(true) + 10; while (! is_file($f) && microtime(true) < $end) { usleep(10000); }',
+        var_export(sprintf('%s/%s-started', $directory, $name), return: true),
+    );
+}
+
 it('runs no more queued streams at once than it is given, starting the next, in the queue\'s order, as one ends', function (): void {
     $directory = Scratch::directory();
     $never = static fn(): NotGiven => NotGiven::value();
@@ -102,14 +114,20 @@ it('runs no more queued streams at once than it is given, starting the next, in 
     $most = 0;
     $live = [];
     $queued = [];
+    $codes = [
+        'first' => watchedUntilStarted($directory, 'second'),
+        'second' => watchedUntilStarted($directory, 'third'),
+        'third' => '',
+    ];
 
-    foreach (['first', 'second', 'third'] as $name) {
-        $queued[] = static function () use ($name, $never, &$started, &$most, &$live): WatchedStream {
+    foreach ($codes as $name => $code) {
+        $queued[] = static function () use ($name, $code, $directory, $never, &$started, &$most, &$live): WatchedStream {
             $live = array_values(array_filter($live, static fn(Process $process): bool => $process->isRunning()));
-            $process = watchedProcess('usleep(200000);');
+            $process = watchedProcess($code);
             $live[] = $process;
             $started[] = $name;
             $most = max($most, count($live));
+            touch(sprintf('%s/%s-started', $directory, $name));
 
             return new WatchedStream($process, $name, [], $never);
         };
@@ -117,5 +135,6 @@ it('runs no more queued streams at once than it is given, starting the next, in 
 
     $wrote = new StreamWatch($directory, new StreamSlowdown())->ended($queued, 2);
 
-    expect([$wrote, $started, $most])->toBe([['first', 'second', 'third'], ['first', 'second', 'third'], 2]);
+    expect($wrote)->toEqualCanonicalizing(['first', 'second', 'third'])
+        ->and([$started, $most])->toBe([['first', 'second', 'third'], 2]);
 });
