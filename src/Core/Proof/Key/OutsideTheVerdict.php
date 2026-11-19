@@ -133,6 +133,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/ShardHandoff.php',
             'src/Cli/Flow/ShardsLeft.php',
             'src/Cli/Flow/Results.php',
+            'src/Cli/Flow/Machines.php',
             'src/Cli/Flow/RunName.php',
             'src/Cli/Flow/RunnerMarkers.php',
             'src/Cli/Flow/SampleSeed.php',

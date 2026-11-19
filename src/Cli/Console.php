@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Cli\Command\HookCommand;
 use NightWorksIO\MutationGate\Cli\Command\Init;
 use NightWorksIO\MutationGate\Cli\Command\LeftoversCommand;
 use NightWorksIO\MutationGate\Cli\Command\LspCommand;
+use NightWorksIO\MutationGate\Cli\Command\MachineCommand;
 use NightWorksIO\MutationGate\Cli\Command\MigrateCommand;
 use NightWorksIO\MutationGate\Cli\Command\MutatorsCommand;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
@@ -169,6 +170,7 @@ final readonly class Console
         $application->addCommand(DigestCommand::command($composition));
         $application->addCommand(TestsCommand::command($composition));
         $application->addCommand(MutatorsCommand::command($composition));
+        $application->addCommand(MachineCommand::command());
         $application->addCommand(StubCommand::command($composition));
         $application->addCommand(TriageCommand::command($composition));
         $application->addCommand(AffectedCommand::command($composition));

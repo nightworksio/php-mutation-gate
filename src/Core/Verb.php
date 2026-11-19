@@ -24,6 +24,7 @@ enum Verb: string
     case ConfigShow = 'config:show';
     case ConfigSuggest = 'config:suggest';
     case Mutators = 'mutators';
+    case Machine = 'machine';
     case Init = 'init';
     case Doctor = 'doctor';
     case Hook = 'hook';

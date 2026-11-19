@@ -31,6 +31,8 @@ services:
                     - RUNS # the newest runs a learned most shards is read from, not a count of presets
                 'NightWorksIO\MutationGate\Cli\Command\ServeCommand':
                     - STOP # serve's --stop option, not run.failFast's stop
+                'NightWorksIO\MutationGate\Cli\Flow\Machines':
+                    - ROUNDS # the timed rounds a machine's figure is the median of, not a ranking's top
                 'NightWorksIO\MutationGate\Core\Report\Page\Headline':
                     - SAMPLED # the page's word for a sampled run, not a comment toggle
                 'NightWorksIO\MutationGate\Core\Comment\Cap':

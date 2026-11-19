@@ -359,7 +359,7 @@
     },
     "local-mode": {
       "check": "local mode",
-      "checks": "A whole run of the gate on lcobucci/jwt, prepared as bench/jwt.sh prepares it, at half the machine's cores, outside any CI, ends within RUN_SECONDS scaled to the runner: runner_speed.py times jwt's suite under plain PHPUnit with pcov first, with none of the gate's code, and scales by its ratio to RUNNER_REFERENCE_SECONDS, from 1 up to RUNNER_MOST_SCALE (ADR-0120, ADR-0159).",
+      "checks": "A whole run of the gate on lcobucci/jwt, prepared as bench/jwt.sh prepares it, at half the machine's cores, outside any CI, ends within RUN_SECONDS scaled to the runner: `mutation-gate machine` times jwt's suite under plain PHPUnit with pcov first, a child process with none of the gate's code, and runner_scale.py scales by its ratio to RUNNER_REFERENCE_SECONDS, from 1 up to RUNNER_MOST_SCALE (ADR-0120, ADR-0159).",
       "reproduce": "bench/prepare.sh jwt <dir>, then in <dir>: timeout <RUN_SECONDS> vendor/bin/mutation-gate run --config=<bench-phpunit.json with runner.processes at half the cores>",
       "evidence": [
         {"step": "whole-run", "tool": "local-mode"}

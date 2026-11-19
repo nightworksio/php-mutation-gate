@@ -4,16 +4,17 @@
 #
 # - local mode: a whole `run` at half the machine's cores, outside any CI as
 #   on a developer's machine, ends within RUN_SECONDS.
-#
-# Each budget is scaled to the runner first: runner_speed.py times jwt's own
-# suite under plain PHPUnit with pcov, with none of the gate's code, and
-# scales by its ratio to RUNNER_REFERENCE_SECONDS, from 1 up to
-# RUNNER_MOST_SCALE, past which the job fails as on too slow a runner.
 # - local loop: the local settings in force are the tight ones the gate
 #   ships (ADR-0159), and a `watch` round that starts from a map carried
 #   from an earlier measure (`--from-map`), after one source line changed,
 #   is quick under `local.cpu: balanced` and ends within LOOP_SECONDS,
 #   outside any CI as on a developer's machine; it prints its whole report.
+#
+# Each budget is scaled to the runner first: `mutation-gate machine`
+# times jwt's own suite under plain PHPUnit with pcov, a child process with
+# none of the gate's code, and runner_scale.py scales by its ratio to
+# RUNNER_REFERENCE_SECONDS, from 1 up to RUNNER_MOST_SCALE, past which the
+# job fails as on too slow a runner.
 name: local mode
 
 on:
@@ -66,7 +67,10 @@ jobs:
         run: bench/prepare.sh jwt "${JWT}"
       - name: this runner, timed
         working-directory: ${{ env.JWT }}
-        run: python3 "${GITHUB_WORKSPACE}/.github/scripts/runner_speed.py" RUN_SECONDS
+        run: >-
+          vendor/bin/mutation-gate machine --
+          php -d pcov.enabled=1 vendor/bin/phpunit --coverage-php=/dev/null --do-not-cache-result
+          | python3 "${GITHUB_WORKSPACE}/.github/scripts/runner_scale.py" RUN_SECONDS
       - name: a whole run at half the cores
         id: whole-run
         working-directory: ${{ env.JWT }}
@@ -137,7 +141,10 @@ jobs:
           fi
       - name: this runner, timed
         working-directory: ${{ env.JWT }}
-        run: python3 "${GITHUB_WORKSPACE}/.github/scripts/runner_speed.py" LOOP_SECONDS
+        run: >-
+          vendor/bin/mutation-gate machine --
+          php -d pcov.enabled=1 vendor/bin/phpunit --coverage-php=/dev/null --do-not-cache-result
+          | python3 "${GITHUB_WORKSPACE}/.github/scripts/runner_scale.py" LOOP_SECONDS
       - name: one quick round after a source line changed
         id: round
         working-directory: ${{ env.JWT }}
