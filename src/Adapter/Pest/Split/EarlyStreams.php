@@ -39,11 +39,7 @@ final readonly class EarlyStreams
      */
     public static function judge(MutationSuite $suite, array $arguments, int $processes, StreamSettings $settings): void
     {
-        if (! Forking::isAvailable() || ! Recorded::usable()) {
-            return;
-        }
-
-        [$sites, $paths, $byId] = self::planned($suite);
+        [$sites, $paths, $byId] = Forking::isAvailable() && Recorded::usable() ? self::planned($suite) : [[], [], []];
 
         if ($byId === []) {
             return;
