@@ -1048,6 +1048,7 @@
                             "ignored-by-marker",
                             "skipped",
                             "out-of-memory",
+                            "equivalent",
                             "fails-unmutated"
                         ]
                     },
@@ -1455,8 +1456,12 @@
                                             "enum": [
                                                 "held coverage",
                                                 "coverage",
+                                                "value reader coverage",
+                                                "value readers",
                                                 "preparing",
                                                 "mutation",
+                                                "first pass",
+                                                "second pass",
                                                 "reading",
                                                 "trial coverage",
                                                 "trials",
@@ -1465,6 +1470,7 @@
                                                 "equivalence",
                                                 "survivors",
                                                 "controls",
+                                                "heavy parts",
                                                 "static check"
                                             ]
                                         },
@@ -1479,6 +1485,60 @@
                                         "count": {
                                             "type": "integer",
                                             "minimum": 0
+                                        },
+                                        "controls": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "kinds": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "timeout",
+                                                                "kills",
+                                                                "kill",
+                                                                "unnamed kill",
+                                                                "memory",
+                                                                "heavy part"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "tests": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "cases": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "limit": {
+                                                        "type": "number",
+                                                        "minimum": 0
+                                                    },
+                                                    "seconds": {
+                                                        "type": "number",
+                                                        "minimum": 0
+                                                    },
+                                                    "end": {
+                                                        "enum": [
+                                                            "passed",
+                                                            "failed",
+                                                            "ran-out",
+                                                            "out-of-memory",
+                                                            "unrun",
+                                                            "halted"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "kinds",
+                                                    "tests",
+                                                    "limit",
+                                                    "end"
+                                                ],
+                                                "additionalProperties": false
+                                            }
                                         }
                                     },
                                     "required": [

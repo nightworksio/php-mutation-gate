@@ -18,7 +18,7 @@ on:
   push:
     branches: ['trunk']
   schedule:
-    - cron: '0 3 * * 1,4'
+    - cron: '0 3 * * 1'
 
 permissions:
   contents: read

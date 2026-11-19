@@ -45,12 +45,19 @@ final readonly class StaticReads
             : $reads->accesses();
     }
 
+    /** Every `::` the symbol's name follows, found from where the file spells the name. */
     private function accesses(): References
     {
+        $tokens = $this->source->tokens();
+        $spelt = $this->symbol->kind() === SymbolKind::StaticProperty
+            ? sprintf('$%s', $this->symbol->name())
+            : $this->symbol->name();
         $found = References::none();
 
-        foreach ($this->source->tokens()->indicesOf(T_DOUBLE_COLON) as $colon) {
-            $found = $this->namesIt($colon + 1) ? $found->and($this->through($colon)) : $found;
+        foreach ($tokens->indicesOf($spelt) as $at) {
+            $found = $tokens->is($at - 1, T_DOUBLE_COLON) && $this->namesIt($at)
+                ? $found->and($this->through($at - 1))
+                : $found;
         }
 
         return $found;
@@ -102,14 +109,18 @@ final readonly class StaticReads
             : References::none();
     }
 
-    /** Every `constant()` call, read where its name is written out and unknown where it is not. */
+    /**
+     * Every `constant()` call, read where its name is written out and unknown
+     * where it is not, found from where the file's names end in the word.
+     */
     private function lookups(): References
     {
         $tokens = $this->source->tokens();
         $found = References::none();
 
-        foreach ($tokens->indicesOf(T_STRING) as $at) {
-            $call = mb_strtolower($tokens->text($at)) === Reads::LOOKUP
+        foreach ($tokens->words()->placesOf(Reads::LOOKUP) as $at) {
+            $call = $tokens->is($at, T_STRING)
+                && mb_strtolower($tokens->text($at)) === Reads::LOOKUP
                 && $tokens->is($at + 1, '(')
                 && ! $tokens->is($at - 1, ...self::NOT_A_CALL);
             $found = $call ? $found->and($this->lookedUp($at)) : $found;

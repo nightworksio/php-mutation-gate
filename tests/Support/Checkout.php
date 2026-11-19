@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\File\ByPath;
@@ -55,6 +56,11 @@ final readonly class Checkout implements ChangeSource, Repository
     public function fingerprints(): Fingerprints|CannotTell
     {
         return $this->changes->fingerprints();
+    }
+
+    public function lookedSince(Looked $then): Looked|CannotTell
+    {
+        return $this->changes->lookedSince($then);
     }
 
     public function listed(Paths $paths): Paths|CannotTell

@@ -49,6 +49,7 @@ final readonly class Command
         private SilenceLimit|NotGiven $silence = new NotGiven(),
         private int|NotGiven $script = new NotGiven(),
         private bool $everyFile = false,
+        private Seconds|NotGiven $grace = new NotGiven(),
     ) {
     }
 
@@ -93,6 +94,7 @@ final readonly class Command
             $this->silence,
             $this->script,
             $this->everyFile,
+            grace: $this->grace,
         );
     }
 
@@ -105,6 +107,7 @@ final readonly class Command
             $this->silence,
             $this->script,
             $this->everyFile,
+            grace: $this->grace,
         );
     }
 
@@ -123,6 +126,7 @@ final readonly class Command
             $this->silence,
             is_int($this->script) ? $this->script + count($launching) : $this->script,
             $this->everyFile,
+            grace: $this->grace,
         );
     }
 
@@ -145,7 +149,28 @@ final readonly class Command
             $this->environment,
             $this->deadline,
             $this->silence,
+            grace: $this->grace,
         ) : $this;
+    }
+
+    /**
+     * This command, its PHP started with these options before the script it
+     * runs, in a process of its own that no warm worker forks.
+     */
+    public function startingPhpWith(string ...$options): self
+    {
+        return new self(
+            [
+                ...array_slice($this->arguments, 0, self::SCRIPT),
+                ...array_values($options),
+                ...array_slice($this->arguments, self::SCRIPT),
+            ],
+            $this->environment,
+            $this->deadline,
+            $this->silence,
+            everyFile: $this->everyFile,
+            grace: $this->grace,
+        );
     }
 
     /** This command, which runs Pest over every test file of its suites, as a run that names no test file does. */
@@ -158,6 +183,7 @@ final readonly class Command
             $this->silence,
             $this->script,
             everyFile: true,
+            grace: $this->grace,
         );
     }
 
@@ -194,7 +220,31 @@ final readonly class Command
             $silence,
             $this->script,
             $this->everyFile,
+            grace: $this->grace,
         );
+    }
+
+    /**
+     * This command, also halted once it has run this long past the time its
+     * shell starts no more commands, its run then telling nothing (ADR-0197).
+     */
+    public function haltedPast(Seconds $grace): self
+    {
+        return new self(
+            $this->arguments,
+            $this->environment,
+            $this->deadline,
+            $this->silence,
+            $this->script,
+            $this->everyFile,
+            $grace,
+        );
+    }
+
+    /** How long it may run past the time its shell starts no more commands; none where nothing halts it then. */
+    public function grace(): Seconds|NotGiven
+    {
+        return $this->grace;
     }
 
     /** How long it may go without progress, and what shows its progress; none where only its deadline stops it. */

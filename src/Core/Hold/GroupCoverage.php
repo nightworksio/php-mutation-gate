@@ -90,9 +90,9 @@ final readonly class GroupCoverage
                 continue;
             }
 
-            $covered = $group->lineSets($file)->lines();
+            $covered = $group->lineTests()->setsOn($file)->lines();
 
-            foreach ($suite->lineSets($file)->lines() as $line) {
+            foreach ($suite->lineTests()->setsOn($file)->lines() as $line) {
                 if (! $covered->has($line)) {
                     $missed[] = sprintf(self::LINE, $file->value(), $line->number());
                 }

@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
-use function count;
+use function array_map;
+use function array_push;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
 use NightWorksIO\MutationGate\Core\Php\MatchArms;
 use NightWorksIO\MutationGate\Core\Php\Source;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 
 use function range;
 
@@ -32,32 +35,37 @@ final readonly class ArmCoverage
     {
     }
 
-    /** A map with each line of the arms of every match these files hold covered so. */
+    /** A map with each line of the arms of every match these files hold covered so, built at once. */
     public function onto(Paths $files, CoverageMap $map): CoverageMap
     {
-        $covered = $map;
+        $lines = [];
 
         foreach ($files as $file) {
             $source = $this->codebase->source($file);
 
             foreach ($source instanceof Source ? MatchArms::in($source->tokens()) : [] as $arms) {
-                $covered = $this->armsOnto($covered, $file, $arms);
+                array_push($lines, ...$this->armsOf($map, $file, $arms));
             }
         }
 
-        return $covered;
+        return $map->besides(...$lines);
     }
 
-    /** A map with each line of one match's arms covered by the tests that cover it or any later line of them. */
-    private function armsOnto(CoverageMap $map, Path $file, MatchArms $arms): CoverageMap
+    /**
+     * Each line of one match's arms, covered by the tests that cover it or any later line of them in a map.
+     *
+     * @return list<CoveredLine>
+     */
+    private function armsOf(CoverageMap $map, Path $file, MatchArms $arms): array
     {
-        $covered = $map;
+        $lines = [];
 
         foreach (range($arms->first()->number(), $arms->last()->number()) as $line) {
             $tests = $map->testsCovering($file, Line::of($line), $arms->last());
-            $covered = count($tests) === 0 ? $covered : $covered->covered($file, Line::of($line), ...$tests);
+            $ids = array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
+            $lines = $ids === [] ? $lines : [...$lines, CoveredLine::of($file, $line, ...$ids)];
         }
 
-        return $covered;
+        return $lines;
     }
 }

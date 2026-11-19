@@ -95,7 +95,7 @@ enum CiTemplate: string
     public static function included(BuiltinCiPlan $plan, Ci $ci): Path|NotGiven
     {
         return match ($plan) {
-            BuiltinCiPlan::GitLab => $ci->gitlabTemplate(),
+            BuiltinCiPlan::GitLab => $ci->pipelines()->gitlabTemplate(),
             BuiltinCiPlan::Buildkite => self::buildkitePipeline(),
             BuiltinCiPlan::Azure => self::azureJobs(),
             BuiltinCiPlan::GitHub,
@@ -152,7 +152,7 @@ enum CiTemplate: string
             self::GitHubSingle, self::GitHubSharded => Path::of(Definitions::GITHUB)->child(
                 Path::of(self::GITHUB_WORKFLOW),
             ),
-            self::GitLabTemplate => $ci->gitlabTemplate(),
+            self::GitLabTemplate => $ci->pipelines()->gitlabTemplate(),
             self::GitLabJobs => Printed::into(Definitions::GITLAB),
             self::BuildkitePipeline => self::buildkitePipeline(),
             self::BuildkiteUpload => Printed::into('the pipeline Buildkite runs'),
@@ -160,7 +160,7 @@ enum CiTemplate: string
             self::AzureJobs => self::azureJobs(),
             self::AzureInclude => Printed::into(Definitions::AZURE),
             self::BitbucketPipelines => Printed::into(Definitions::BITBUCKET),
-            self::JenkinsPipeline => Printed::into($ci->jenkinsDefinition()->value()),
+            self::JenkinsPipeline => Printed::into($ci->pipelines()->jenkinsDefinition()->value()),
         };
     }
 }

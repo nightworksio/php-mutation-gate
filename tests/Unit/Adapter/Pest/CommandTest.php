@@ -181,3 +181,12 @@ it('runs every test file of its suites only once it is told so, and keeps saying
         ->and($every->launchedBy('/launcher.php', '/peak')->loadsEveryTestFile())->toBeTrue()
         ->and($every->silencedAfter(SilenceLimit::of(Seconds::of(5.0), '/progress'))->loadsEveryTestFile())->toBeTrue();
 });
+
+it('starts its PHP with options before the script it runs, in a process of its own no warm worker forks', function (): void {
+    $pest = Command::pest('vendor/bin/pest', Withheld::standard(), '--bail')->within(Seconds::of(5.0))->with(['A' => 'b'])->loadingEveryTestFile();
+    $fresh = $pest->startingPhpWith('-d', 'opcache.enable_cli=0');
+
+    expect($fresh->arguments())->toBe([PHP_BINARY, '-d', 'opcache.enable_cli=0', ...array_slice($pest->arguments(), 1)])
+        ->and([$fresh->deadline(), $fresh->environment()['A'], $fresh->loadsEveryTestFile()])->toEqual([Seconds::of(5.0), 'b', true])
+        ->and($fresh->forkedIn('/warm')->arguments())->toBe($fresh->arguments());
+});

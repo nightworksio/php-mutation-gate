@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * A duration written `90s`, `15m`, `1h30m` or `7d`.
+ * A duration written `50ms`, `90s`, `15m`, `1h30m` or `7d`.
  *
  * @internal
  *
@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 final readonly class Duration implements Shape
 {
     /** The pattern a JSON schema holds a written duration to. */
-    public const string PATTERN = '^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$';
+    public const string PATTERN = '^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$';
 
     public static function written(): self
     {

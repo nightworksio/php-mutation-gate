@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 use function sprintf;
+use function strval;
 
 /**
  * The Pest command lines the adapter runs, each with `--no-tia` where Pest's
@@ -103,8 +104,9 @@ final readonly class Invocation
     /**
      * A coverage run, with pcov collecting from every tree of the project in
      * Pest's own process and in each worker paratest starts, which reads
-     * `--passthru-php` through a shell. A run of several test files runs in
-     * Pest's own process alone: paratest takes one path.
+     * `--passthru-php` through a shell. A run of several test files, or one
+     * given one process, runs in Pest's own process alone: paratest takes one
+     * path.
      */
     public function coverage(CoverageRun $request, string $directory, PcovReach $reach): Command
     {
@@ -118,7 +120,7 @@ final readonly class Invocation
                 PhpUnitOption::caching($this->cache),
                 sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
                 sprintf('%s=%s/%s', PhpUnitOption::LogJunit->value, $directory, self::JUNIT),
-                ...$this->covering($request->tests()),
+                ...$this->covering($request),
                 ...PhpUnitOption::inSuites($request->suites()),
             ],
         )->with([GateVariable::TimedTests->value => sprintf('%s/%s', $directory, self::TIMED)]);
@@ -128,10 +130,9 @@ final readonly class Invocation
      * Mutation with `--path`, so the gate and not `covers()` decides what is
      * mutated, and `--no-cache`, so no stale mutant decides a result.
      *
-     * It passes no `--processes`: pest-plugin-mutate hands that option on to
-     * each mutant's own run, which is not parallel and fails on it, so every
-     * covered mutant would read as killed. Pest runs as many mutants at once
-     * as the machine has cores.
+     * It runs as many mutants at once as the pool has processes, which the
+     * plugin hands pest-plugin-mutate (see MutantsAtOnce); Pest refuses
+     * `--processes` on a mutation run's command line.
      *
      * The options after `--no-tia` undo what a project's own
      * `pest()->mutate()` could set: covered lines only, a class list, a stop
@@ -164,6 +165,7 @@ final readonly class Invocation
             ...$this->applying($request->narrowing()->mutators(), $bridges),
         )->with([
             GateVariable::Results->value => $results,
+            GateVariable::AtOnce->value => strval($request->pool()->processes()->count()),
             GateVariable::KillMatrix->value => $request->search()->matrix()->value,
         ])->within($request->deadline());
     }
@@ -283,7 +285,8 @@ final readonly class Invocation
 
     /**
      * The options that spread a coverage run across its processes, where it
-     * runs no more than one path; none for a run of several test files.
+     * runs no more than one path; none for a run of several test files, a
+     * group's run within its own test files, or one that runs in one process.
      *
      * @return list<string>
      */
@@ -291,7 +294,9 @@ final readonly class Invocation
     {
         $tests = $request->tests();
 
-        return $tests instanceof TestPaths && count($tests->files()) > 1 ? [] : [
+        $alone = ($tests instanceof TestPaths && count($tests->files()) > 1) || $request->files() instanceof Paths;
+
+        return $alone || $request->processes()->count() === 1 ? [] : [
             '--parallel',
             sprintf('--processes=%d', $request->processes()->count()),
             sprintf(self::PASSED_ON, ShellWords::line($reach->options())),
@@ -299,21 +304,28 @@ final readonly class Invocation
     }
 
     /**
-     * What narrows a coverage run: a group, a filter, or the test files Pest
-     * runs in place of its suite, as paths from the project's root.
+     * What narrows a coverage run: a group, within its own test files where
+     * the run names them, a filter, or the test files Pest runs in place of
+     * its suite, as paths from the project's root.
      *
      * @return list<string>
      */
-    private function covering(WholeSuite|Group|Filter|TestPaths $tests): array
+    private function covering(CoverageRun $request): array
     {
+        $tests = $request->tests();
+        $within = $request->files();
+
         if (! $tests instanceof TestPaths) {
-            return $this->narrowedTo($tests);
+            return [...$within instanceof Paths ? $this->pathsOf($within) : [], ...$this->narrowedTo($tests)];
         }
 
-        return [
-            ...array_map(static fn(Path $file): string => $file->value(), [...$tests->files()]),
-            PhpUnitOption::DoNotFailOnEmptyTestSuite->value,
-        ];
+        return [...$this->pathsOf($tests->files()), PhpUnitOption::DoNotFailOnEmptyTestSuite->value];
+    }
+
+    /** @return list<string> these files, as paths from the project's root */
+    private function pathsOf(Paths $files): array
+    {
+        return array_map(static fn(Path $file): string => $file->value(), [...$files]);
     }
 
     /**

@@ -13,6 +13,12 @@ namespace NightWorksIO\MutationGate\Core\Runner;
  */
 interface ProcessLog
 {
+    /**
+     * The variable of the gate's own process that names a file each line is
+     * also kept in, while a shard's progress is left (ADR-0157).
+     */
+    public const string KEPT = 'MUTATION_GATE_SAID';
+
     /** Says one line. */
     public function say(string $line): void;
 }

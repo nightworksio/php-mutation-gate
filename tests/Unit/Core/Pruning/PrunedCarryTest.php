@@ -101,6 +101,22 @@ it('carries nothing where the last result is of other code, nothing is pruned, o
     'no digests' => [fn(): Pruned => Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/A.php'))), 'a', false],
 ]);
 
+it('carries nothing where a test file the last result records reads otherwise now', function (string $test, int $carried) use ($fresh, $makePruned): void {
+    $last = Proofs::of(PruningCases::proof(
+        'src/A.php',
+        '2026-10-05T00:00:00Z',
+        'a',
+        Mutants::of(PruningCases::mutant('src/A.php', 'Plus', 7)),
+        tests: ['tests/ATest.php' => 'assertSame'],
+    ));
+    $now = PruningCases::now(...['src/A.php' => 'a'])->withTest(Path::of('tests/ATest.php'), Digest::sha256Of($test));
+
+    expect(carriedIn(PrunedCarry::of($makePruned(), $last->newest(), $now)->into($fresh()))[0][2])->toBe($carried);
+})->with([
+    'as it was' => ['assertSame', 1],
+    'weakened' => ['assertNotNull', 0],
+]);
+
 it('carries the kills a ledger proved of a pruned mutator, as it holds them, and no other kill', function () use ($fresh, $makePruned): void {
     $pruned = $makePruned();
 

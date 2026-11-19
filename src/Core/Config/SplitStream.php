@@ -1,0 +1,356 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Core\Config;
+
+use function is_int;
+
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
+
+use function sprintf;
+
+/**
+ * Whether a patched Pest run judges its mutants in split streams, and how
+ * (ADR-0117): `splitStream`, which the `Pest` part holds, as only the Pest
+ * runner splits its streams.
+ */
+final readonly class SplitStream
+{
+    /** The key, and the Pest runner's option, that says whether a run splits its streams. */
+    public const string ENABLED = 'enabled';
+
+    /** The key, and the Pest runner's option, that says how many children a stream holds at once. */
+    public const string CHILDREN = 'children';
+
+    /** The key, and the Pest runner's option, that says whether a stream forks only where a mutant changes a value. */
+    public const string CHANGE_CHECK = 'changeCheck';
+
+    /** The key, and the Pest runner's option, that says whether a stream forks first at each mutant's likely killer. */
+    public const string KILLERS_FIRST = 'killersFirst';
+
+    /** The key whose `true` has a first-pass stream run only the killers of its mutants (ADR-0136). */
+    public const string KILLER_STREAMS = 'killerStreams';
+
+    /** The key whose `true` has a stream boot a framework's application once and fork each test from it. */
+    public const string BOOT_ONCE = 'bootOnce';
+
+    /** The key whose `true` has a child reconnect to its own copy of each database a test holds open (ADR-0147). */
+    public const string RECONNECT = 'reconnect';
+
+    /** The key of which full runs plan without a fresh map (ADR-0135). */
+    public const string EARLY = 'early';
+
+    /** The key that says what a run that splits its streams cuts its shards by. */
+    public const string SHARDING = 'sharding';
+
+    /** The key, and the Pest runner's option, that says where a run that cuts its test files judges each mutant. */
+    public const string JUDGING = 'judging';
+
+    /**
+     * The key, and the Pest runner's option, that says whether a mutant whose likely killer the first pass could
+     * not fork it in goes straight to its own run (ADR-0179).
+     */
+    public const string FALLBACK_OWN_RUN = 'fallbackOwnRun';
+
+    /**
+     * The key, and the Pest runner's option, that says whether a stream of covering tests runs only those tests,
+     * selected by their ids, or their whole test files (ADR-0181).
+     */
+    public const string COVERING_TESTS_ONLY = 'coveringTestsOnly';
+
+    /** The section the keys are in, and the Pest runner's option that holds them. */
+    public const string SECTION = 'splitStream';
+
+    private function __construct(
+        private bool|Absent $enabled,
+        private int|StreamChildren|Absent $children,
+        private bool|Absent $changeCheck,
+        private bool|Absent $killersFirst,
+        private StreamSharding|Absent $sharding,
+        private bool|Absent $killerStreams,
+        private SplitEarly|Absent $early = new Absent(),
+        private bool|Absent $bootOnce = new Absent(),
+        private bool|Absent $reconnect = new Absent(),
+        private StreamJudging|Absent $judging = new Absent(),
+        private bool|Absent $fallbackOwnRun = new Absent(),
+        private bool|Absent $coveringTestsOnly = new Absent(),
+        private StreamWork $work = new StreamWork(),
+    ) {
+    }
+
+    public static function of(
+        bool|Absent $enabled = new Absent(),
+        int|StreamChildren|Absent $children = new Absent(),
+        bool|Absent $changeCheck = new Absent(),
+        bool|Absent $killersFirst = new Absent(),
+        StreamSharding|Absent $sharding = new Absent(),
+        bool|Absent $killerStreams = new Absent(),
+        SplitEarly|Absent $early = new Absent(),
+        bool|Absent $bootOnce = new Absent(),
+        bool|Absent $reconnect = new Absent(),
+        StreamJudging|Absent $judging = new Absent(),
+        bool|Absent $fallbackOwnRun = new Absent(),
+        bool|Absent $coveringTestsOnly = new Absent(),
+        StreamWork $work = new StreamWork(),
+    ): self {
+        return new self(
+            $enabled,
+            $children,
+            $changeCheck,
+            $killersFirst,
+            $sharding,
+            $killerStreams,
+            $early,
+            $bootOnce,
+            $reconnect,
+            $judging,
+            $fallbackOwnRun,
+            $coveringTestsOnly,
+            $work,
+        );
+    }
+
+    /** Every key at the value it takes when every layer leaves it out. */
+    public static function standard(): self
+    {
+        $none = self::of();
+
+        return self::of(
+            $none->enabled(),
+            $none->children(),
+            $none->changeCheck(),
+            $none->killersFirst(),
+            $none->sharding(),
+            $none->killerStreams(),
+            $none->early(),
+            $none->bootOnce(),
+            $none->reconnect(),
+            $none->judging(),
+            $none->fallbackOwnRun(),
+            $none->coveringTestsOnly(),
+            StreamWork::standard(),
+        );
+    }
+
+    /** This, with what a later layer sets laid over it, key by key. */
+    public function over(self $later): self
+    {
+        return new self(
+            Absent::laid($this->enabled, $later->enabled),
+            Absent::laid($this->children, $later->children),
+            Absent::laid($this->changeCheck, $later->changeCheck),
+            Absent::laid($this->killersFirst, $later->killersFirst),
+            Absent::laid($this->sharding, $later->sharding),
+            Absent::laid($this->killerStreams, $later->killerStreams),
+            Absent::laid($this->early, $later->early),
+            Absent::laid($this->bootOnce, $later->bootOnce),
+            Absent::laid($this->reconnect, $later->reconnect),
+            Absent::laid($this->judging, $later->judging),
+            Absent::laid($this->fallbackOwnRun, $later->fallbackOwnRun),
+            Absent::laid($this->coveringTestsOnly, $later->coveringTestsOnly),
+            $this->work->over($later->work),
+        );
+    }
+
+    /** `splitStream.enabled`: whether a patched run judges its mutants in split streams; false by default. */
+    public function enabled(): bool
+    {
+        return $this->enabled === true;
+    }
+
+    /**
+     * `splitStream.children`: the most children a stream holds at once, or
+     * the cores shared among the streams still running, by default (ADR-0173).
+     */
+    public function children(): int|StreamChildren
+    {
+        return $this->children instanceof Absent ? StreamChildren::Cores : $this->children;
+    }
+
+    /**
+     * `splitStream.changeCheck`: whether a stream forks a pure expression's
+     * mutant only where it changes the value; true by default.
+     */
+    public function changeCheck(): bool
+    {
+        return $this->changeCheck !== false;
+    }
+
+    /**
+     * `splitStream.killersFirst`: whether a stream forks each mutant first at
+     * the test the ledger last saw kill it; true by default.
+     */
+    public function killersFirst(): bool
+    {
+        return $this->killersFirst !== false;
+    }
+
+    /**
+     * `splitStream.judging`: where a run that cuts its test files across its
+     * shards judges each mutant; whole, in the one part that owns it, by
+     * default (ADR-0174).
+     */
+    public function judging(): StreamJudging
+    {
+        return $this->judging instanceof StreamJudging ? $this->judging : StreamJudging::Whole;
+    }
+
+    /**
+     * `splitStream.fallbackOwnRun`: whether a mutant whose likely killer the
+     * first pass could not fork it in skips the second pass for its own run,
+     * which runs that killer first (ADR-0179); on by default.
+     */
+    public function fallbackOwnRun(): bool
+    {
+        return $this->fallbackOwnRun !== false;
+    }
+
+    /**
+     * `splitStream.coveringTestsOnly`: whether a stream of the tests that
+     * cover its mutants runs only those tests, selected by their ids, or
+     * every test of their files (ADR-0181); on by default.
+     */
+    public function coveringTestsOnly(): bool
+    {
+        return $this->coveringTestsOnly !== false;
+    }
+
+    /** How the streams get through their work: the keys that move only how fast a run judges (ADR-0182). */
+    public function work(): StreamWork
+    {
+        return $this->work;
+    }
+
+    /** `splitStream.sharding`: what a run that splits its streams cuts its shards by; test files by default. */
+    public function sharding(): StreamSharding
+    {
+        return $this->sharding instanceof StreamSharding ? $this->sharding : StreamSharding::Tests;
+    }
+
+    /**
+     * `splitStream.killerStreams`: whether a first-pass stream runs only the
+     * tests the ledger names as killers of its mutants (ADR-0136); off
+     * by default.
+     */
+    public function killerStreams(): bool
+    {
+        return $this->killerStreams === true;
+    }
+
+    /**
+     * `splitStream.bootOnce`: whether a stream boots the application of a
+     * framework it recognises once, and forks each test from it, its
+     * mutants' children forking from that test's own process; off by
+     * default. A mutant whose site runs while the application boots streams
+     * in a second pass that boots it in every test.
+     */
+    public function bootOnce(): bool
+    {
+        return $this->bootOnce === true;
+    }
+
+    /**
+     * `splitStream.reconnect`: whether a test that holds a connection of the
+     * application's own to a database, outside a transaction and with no
+     * state its session keeps, still forks, each child reconnecting to its
+     * own copy of that database (ADR-0147); on by default.
+     */
+    public function reconnect(): bool
+    {
+        return $this->reconnect !== false;
+    }
+
+    /**
+     * `splitStream.early`: which full split-stream runs plan without a fresh
+     * coverage map (ADR-0135); `no-match` by default. It is in no key, and
+     * not in the runner's option.
+     */
+    public function early(): SplitEarly
+    {
+        return $this->early instanceof SplitEarly ? $this->early : SplitEarly::NoMatch;
+    }
+
+    /** The Pest runner's `splitStream` option: every key at the value it takes. */
+    public function option(): Member
+    {
+        $option = Json::object(
+            Member::of(self::ENABLED, $this->enabled()),
+            Member::of(self::CHILDREN, StreamChildren::text($this->children())),
+            Member::of(self::CHANGE_CHECK, $this->changeCheck()),
+            Member::of(self::KILLERS_FIRST, $this->killersFirst()),
+            Member::of(self::KILLER_STREAMS, $this->killerStreams()),
+            Member::of(self::BOOT_ONCE, $this->bootOnce()),
+            Member::of(self::RECONNECT, $this->reconnect()),
+            Member::of(self::JUDGING, $this->judging()->value),
+            Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun()),
+            Member::of(self::COVERING_TESTS_ONLY, $this->coveringTestsOnly()),
+        )->merged($this->work->option());
+
+        return Member::of(self::SECTION, $option);
+    }
+
+    /** The `splitStream` member a config writes; nothing where no key is set. */
+    public function written(): Member
+    {
+        $sharding = $this->sharding instanceof StreamSharding ? $this->sharding->value : $this->sharding;
+        $written = Json::object(
+            Member::of(self::ENABLED, $this->enabled),
+            Member::of(
+                self::CHILDREN,
+                $this->children instanceof Absent ? $this->children : StreamChildren::text($this->children),
+            ),
+            Member::of(self::CHANGE_CHECK, $this->changeCheck),
+            Member::of(self::KILLERS_FIRST, $this->killersFirst),
+            Member::of(self::SHARDING, $sharding),
+            Member::of(self::KILLER_STREAMS, $this->killerStreams),
+            Member::of(self::EARLY, $this->early instanceof SplitEarly ? $this->early->value : $this->early),
+            Member::of(self::BOOT_ONCE, $this->bootOnce),
+            Member::of(self::RECONNECT, $this->reconnect),
+            Member::of(self::JUDGING, $this->judging instanceof StreamJudging ? $this->judging->value : $this->judging),
+            Member::of(self::FALLBACK_OWN_RUN, $this->fallbackOwnRun),
+            Member::of(self::COVERING_TESTS_ONLY, $this->coveringTestsOnly),
+        )->merged($this->work->written());
+
+        return Member::unlessEmpty(self::SECTION, $written);
+    }
+
+    /** The PHP builder's calls for the keys set. */
+    public function php(): PhpCalls
+    {
+        return PhpCalls::flag($this->enabled, 'SplitStream::on()', 'SplitStream::off()')
+            ->and(PhpCalls::inWith(...match (true) {
+                is_int($this->children) => [sprintf('SplitStream::children(%d)', $this->children)],
+                $this->children instanceof StreamChildren => ['SplitStream::childrenByCores()'],
+                default => [],
+            }))
+            ->and(PhpCalls::flag(
+                $this->changeCheck,
+                'SplitStream::checkingChanges()',
+                'SplitStream::forkingUnchecked()',
+            ))
+            ->and(PhpCalls::flag($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'))
+            ->and(PhpCalls::inWith(...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : []))
+            ->and(PhpCalls::flag(
+                $this->killerStreams,
+                'SplitStream::killerStreams()',
+                'SplitStream::wholeFirstPass()',
+            ))
+            ->and(PhpCalls::inWith(...$this->early instanceof SplitEarly ? [$this->early->php()] : []))
+            ->and(PhpCalls::flag($this->bootOnce, 'SplitStream::bootOnce()', 'SplitStream::bootPerTest()'))
+            ->and(PhpCalls::flag($this->reconnect, 'SplitStream::reconnect()', 'SplitStream::connectionsFallBack()'))
+            ->and(PhpCalls::inWith(...$this->judging instanceof StreamJudging ? [$this->judging->php()] : []))
+            ->and(PhpCalls::flag(
+                $this->fallbackOwnRun,
+                'SplitStream::fallbackOwnRun()',
+                'SplitStream::fallbackSecondPass()',
+            ))
+            ->and(PhpCalls::flag(
+                $this->coveringTestsOnly,
+                'SplitStream::coveringTestsOnly()',
+                'SplitStream::wholeCoveringFiles()',
+            ))
+            ->and($this->work->php());
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "leaving": [
+        "T\\A::a",
+        "T\\Only::timed"
+    ],
+    "holds": [
+        {
+            "path": "src/B.php",
+            "tests": [
+                "T\\A::a"
+            ]
+        }
+    ]
+}

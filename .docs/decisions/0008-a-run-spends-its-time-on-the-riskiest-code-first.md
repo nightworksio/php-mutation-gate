@@ -51,11 +51,20 @@ presets for Laravel, Symfony and plain libraries.
      gate controls order between invocations. It runs units in batches, each
      sized by the cost model (ADR-0006) to fit the remaining budget. Batches
      are as large as the budget allows, because each one pays the runner's
-     opening run. When the next batch does not fit, none is started. At the
-     deadline the runner is stopped, and a batch it could not judge once the
-     deadline passed is left unjudged. A timeout retry or a survivor
-     confirmation runs only as many mutants as fit in the time left, each at
-     its whole limit.
+     opening run. Where the run controls kills (`controls.kills` on, and no
+     split stream judges its mutants, ADR-0117), a unit fits only with the
+     unmutated control its kills ask for: its file's covering tests, of a
+     held unit those that hold it, allowed the standard limit up to
+     `timeouts.controlMost`. The batch's controls are fitted after its
+     mutants by the same rounds as every control, as many at once as the
+     pool runs, each round as long as the longest. So a batch never takes a
+     unit whose kills it has no time to control: a unit's mutants run only
+     where their kills can stand. When the next batch does not fit, none is
+     started. At the deadline the runner is stopped, and a batch it could
+     not judge once the deadline passed is left unjudged. A timeout retry
+     or a survivor confirmation runs only as many mutants as fit in the time
+     left, each at its whole limit, as many at once as its pool runs, round
+     after round.
    - **Unjudged mutants.** Every mutant the budget left without a result is
      *unjudged*. Such a mutant:
      - counts as not killed (ADR-0003);
@@ -321,7 +330,10 @@ presets for Laravel, Symfony and plain libraries.
      No control is run twice.
    - **The budget.** Under a time budget the controls run after the
      invocation's survivors are confirmed, as many as fit in the time left at
-     the longest of their limits; a timeout whose control did not fit is
+     the longest of their limits, as many at once as the request's pool
+     runs, round after round, those of the files the batch took first
+     first, so the riskiest unit's controls run before the rest
+     (ADR-0146 decision 6); a timeout whose control did not fit is
      unjudged, and more time judges it.
    - **No retry.** A timed-out or skipped mutant is never run again, in any
      runner: the control judges it as its run left it. A control is no run of

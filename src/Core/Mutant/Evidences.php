@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 
 use function array_key_exists;
 use function array_replace;
+
+use Closure;
+
 use function count;
 
 use Countable;
@@ -24,6 +27,27 @@ final readonly class Evidences implements Countable
     public static function none(): self
     {
         return new self([]);
+    }
+
+    /**
+     * Each mutant's evidence, in the order given, as {@see with()} adds them
+     * one after another, in time that grows with their count alone.
+     *
+     * @param iterable<array{MutantId, Evidence}> $given
+     */
+    public static function collected(iterable $given): self
+    {
+        $byId = [];
+
+        foreach ($given as [$id, $evidence]) {
+            unset($byId[$id->value()]);
+
+            if (! $evidence->isEmpty()) {
+                $byId[$id->value()] = $evidence;
+            }
+        }
+
+        return new self($byId);
     }
 
     /** These, and a mutant's evidence; evidence that says nothing is not kept. */
@@ -70,6 +94,22 @@ final readonly class Evidences implements Countable
     }
 
     /** A mutant's evidence, none where it holds none. */
+    /**
+     * Those of these mutants the shard judged by the covering tests of its
+     * part of the test files alone, whose survival is not yet their answer
+     * (ADR-0117).
+     */
+    public function judgedInPart(Mutants $mutants): MutantIds
+    {
+        return $this->sharing($mutants, static fn(TestShare $share): bool => ! $share->isWhole());
+    }
+
+    /** Those of these mutants another part of the test files owns, which that part checks by anything but tests. */
+    public function ownedElsewhere(Mutants $mutants): MutantIds
+    {
+        return $this->sharing($mutants, static fn(TestShare $share): bool => ! $share->isOwned());
+    }
+
     public function of(MutantId $id): Evidence
     {
         return array_key_exists($id->value(), $this->byId) ? $this->byId[$id->value()] : Evidence::none();
@@ -78,5 +118,23 @@ final readonly class Evidences implements Countable
     public function count(): int
     {
         return count($this->byId);
+    }
+
+    /**
+     * Those of these mutants whose share of their covering tests is one asked for.
+     *
+     * @param Closure(TestShare): bool $asked
+     */
+    private function sharing(Mutants $mutants, Closure $asked): MutantIds
+    {
+        $ids = [];
+
+        foreach ($mutants as $mutant) {
+            if ($asked($this->of($mutant->id())->share())) {
+                $ids[] = $mutant->id();
+            }
+        }
+
+        return MutantIds::of(...$ids);
     }
 }

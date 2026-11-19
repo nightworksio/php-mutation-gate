@@ -25,6 +25,12 @@ final readonly class Coverage implements Setting
         return new self(Json::at('coverage.incremental', value: false));
     }
 
+    /** `coverage.compressionLevel`: the gzip level, 1 to 9, a map the gate keeps or hands over is packed at; 6. */
+    public static function compressionLevel(int $level): self
+    {
+        return new self(Json::at('coverage.compressionLevel', $level));
+    }
+
     public function written(): Json
     {
         return $this->json;

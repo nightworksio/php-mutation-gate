@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function explode;
 use function file_put_contents;
 use function mb_strlen;
 use function mb_substr;
@@ -11,16 +12,24 @@ use function mb_substr;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 
 use function sprintf;
+use function str_replace;
 use function str_starts_with;
+use function ucfirst;
 
 /** A JUnit log a fake run writes where its command's `--log-junit` names, recording one test case failed. */
 final class JUnitLogs
 {
     private const string FAILED = '<testsuites><testsuite name="T"><testcase name="%s" file="%s" class="%s"><failure>x</failure></testcase></testsuite></testsuites>';
 
-    /** @param list<string> $arguments the command's */
-    public static function failing(array $arguments, string $name, string $file, string $class): void
+    /**
+     * A failure of the test of this name in this file, its class the one Pest and PHPUnit name for the file.
+     *
+     * @param list<string> $arguments the command's
+     */
+    public static function failing(array $arguments, string $name, string $file): void
     {
+        $class = str_replace('/', '\\', ucfirst(mb_substr(explode('::', $file)[0], 0, -mb_strlen('.php'))));
+
         $option = sprintf('%s=', PhpUnitOption::LogJunit->value);
 
         foreach ($arguments as $argument) {

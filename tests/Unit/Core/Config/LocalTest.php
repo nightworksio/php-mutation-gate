@@ -28,10 +28,10 @@ it('writes every key it holds as the builder calls it, in the order the builder 
         "Local::serveIdle('1m30s')",
         'Local::serveStarting(ServeStart::Never)',
         "Local::serveStartWait('5s')",
+        "Local::serveRequest('7s')",
         'Local::runningSubsumed()',
         "Local::watchPoll('2s')",
         'Local::memoryHeadroom(4)',
-        "Local::serveRequest('7s')",
         'Local::triageFewest(3)',
     ))->and(Local::of(inferSubsumed: true)->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith('Local::inferringSubsumed()'));
 });
@@ -41,8 +41,8 @@ it('reads back the daemon\'s idle time, how watch starts it and whether a run in
 
     $local = $set();
 
-    expect([$local->serveIdle()->written(), $local->serveStart(), $local->inferSubsumed(), Local::of(inferSubsumed: true)->inferSubsumed()])
+    expect([$local->serve()->idle()->written(), $local->serve()->start(), $local->inferSubsumed(), Local::of(inferSubsumed: true)->inferSubsumed()])
         ->toBe(['1m30s', ServeStart::Never, false, true])
-        ->and([$standard->serveIdle()->written(), $standard->serveStart(), $standard->inferSubsumed()])
+        ->and([$standard->serve()->idle()->written(), $standard->serve()->start(), $standard->inferSubsumed()])
         ->toBe(['30m', ServeStart::Watch, true]);
 });

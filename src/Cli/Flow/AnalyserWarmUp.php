@@ -18,7 +18,9 @@ use Psr\Clock\ClockInterface;
  * timed, made the first time a check of its survivors asks for it and kept
  * for every check after: the checks of each chunk's survivors, where the run
  * stops once it cannot pass, and the check of the rest once the run is done.
- * Where the run fails, no survivor can be checked.
+ * Where the run fails, no survivor can be checked. Where the plan warmed the
+ * analyser up and its cache came with the plan, the run starts from that
+ * cache, and takes the plan's longer time for a check's (ADR-0164).
  *
  * @internal
  */
@@ -31,6 +33,12 @@ final class AnalyserWarmUp
     {
     }
 
+    /** Whether the run over the originals was made already. */
+    public function isMade(): bool
+    {
+        return $this->made !== [];
+    }
+
     public function of(
         StaticChecker $checker,
         AnalyserIdentity $identity,
@@ -40,7 +48,9 @@ final class AnalyserWarmUp
         if ($this->made === []) {
             $started = $clock->now();
             $found = $checker->findings(Paths::none(), $adapters->withheld);
-            $took = Seconds::between($started, $clock->now());
+            $own = Seconds::between($started, $clock->now());
+            $planned = PlannedWarmUp::secondsFor($adapters->project, $identity);
+            $took = $planned instanceof Seconds && $planned->seconds() > $own->seconds() ? $planned : $own;
             $this->made = [$found instanceof CannotJudge
                 ? Unchecked::NoWarmUp
                 : new WarmedUp(

@@ -7,13 +7,22 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use Closure;
 
 use function dirname;
+use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Cost\Laps;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -27,8 +36,9 @@ use function sprintf;
  * The map a patched shard's run opens on: its own map the plan handed over,
  * with the lines of each value its files declare covered by the tests that
  * read it (ADR-0037), and each line of a match's arms by the tests of the
- * arms after it too, written again for Pest, which opens on the canary
- * group with it; or why the shard cannot open on it.
+ * arms after it too, as the plan readied it for every shard where it did
+ * (ADR-0163), written again for Pest, which opens on the canary group with
+ * it; or why the shard cannot open on it.
  *
  * @internal
  */
@@ -99,45 +109,91 @@ final readonly class ShardMap
 
     /**
      * The shard's own map the plan handed over, where a patched shard opens
-     * on the canary group, why it cannot, or none where the run opens on its
-     * own suite.
+     * on the canary group, each step that readied it timed; why it cannot,
+     * or none where the run opens on its own suite.
      */
-    public function of(MutationRequest $request): CoverageMap|Unshared|CannotJudge
+    public function of(MutationRequest $request, Laps $laps): OpenedMap
     {
         $handed = $request->coverage();
 
         if (! $this->patching->isOn() || ! $handed instanceof Handed || ! $request->judgedBy() instanceof WholeSuite) {
-            return Unshared::Coverage;
+            return OpenedMap::unopened(Unshared::Coverage);
         }
 
-        $directory = $handed->own();
-
+        $from = $laps->now();
         $refusal = $this->refusal($request);
+        $readied = $refusal instanceof CannotJudge ? $refusal : $this->readied($handed);
 
-        $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in($this->project, $directory);
-        $own = $refusal instanceof CannotJudge ? $refusal : $this->remembered->map($directory, $reading);
+        if ($readied instanceof CoverageMap) {
+            return OpenedMap::readied(
+                $readied->onlyFor($request->files()),
+                StepTimes::of($laps->lap(Step::Coverage, $from)),
+            );
+        }
 
-        return $own instanceof CoverageMap ? $this->read($request, $own) : $own;
+        $own = $readied instanceof CannotJudge ? $readied : $this->handedMap($handed->own());
+
+        return $own instanceof CoverageMap
+            ? $this->read($request, $own, $laps, $laps->lap(Step::Coverage, $from))
+            : OpenedMap::unopened($own);
+    }
+
+    /**
+     * The map the plan readied for its shards to open on, where it left one
+     * and the run covers the lines that read values (ADR-0163); none where
+     * the shard readies its own.
+     */
+    private function readied(Handed $handed): CoverageMap|NotGiven|CannotJudge
+    {
+        $opened = $handed->opened();
+        $left = $opened instanceof Path
+            && $this->patching->steps()->on(Toggle::PestValueReaders)
+            && is_file($this->project->absolute(CoverageMapFile::in($opened)));
+
+        return $left ? $this->handedMap($opened) : NotGiven::value();
+    }
+
+    /** A map the plan wrote into a directory, read once for every run of the shard. */
+    private function handedMap(Path $directory): CoverageMap|CannotJudge
+    {
+        $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in(
+            $this->project,
+            $directory,
+            $this->remembered->vouching(),
+        );
+
+        return $this->remembered->map($directory, $reading);
     }
 
     /**
      * The shard's own map, with the lines of each value the run's files
      * declare covered by the tests one run judges its mutants by (ADR-0037),
      * and each line of a match's arms by the tests of the arms after it too;
-     * or why the map of every file, which finds them, cannot be read.
+     * or why the map of every file, which finds them, cannot be read. Under
+     * `pest.valueReaders: false`, the map as it was handed over. The own
+     * map's read, the read of the map of every file and the scan are each
+     * timed as a step of their own.
      */
-    private function read(MutationRequest $request, CoverageMap $own): CoverageMap|CannotJudge
+    private function read(MutationRequest $request, CoverageMap $own, Laps $laps, StepTime $read): OpenedMap
     {
+        if (! $this->patching->steps()->on(Toggle::PestValueReaders)) {
+            return OpenedMap::readied($own, StepTimes::of($read));
+        }
+
+        $from = $laps->now();
         $whole = new WholeMap($this->project, $this->remembered);
         $reads = $whole->covering($request, new HandedOver($own, $this->project), $own);
 
         if ($reads instanceof CannotJudge) {
-            return $reads;
+            return OpenedMap::unopened($reads);
         }
 
-        $selector = $whole->selector($request, $reads, $own);
+        $wholeRead = $laps->lap(Step::ValueReaderCoverage, $from);
+        $from = $laps->now();
+        $selector = $whole->selector($request, $reads, $own, $this->patching->steps()->on(Toggle::PestShardScan));
+        $map = $selector->opened($request->files(), $own);
 
-        return $selector->armCoverage($request->files(), $selector->readCoverage($request->files(), $own));
+        return OpenedMap::readied($map, StepTimes::of($read, $wholeRead, $laps->lap(Step::ValueReaders, $from)));
     }
 
     /** Why a shard cannot open on the canary group among the suites its opening run runs, if it cannot. */

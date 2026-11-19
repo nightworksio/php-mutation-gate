@@ -95,7 +95,7 @@ final readonly class AloneRuns
                 $control->judgedBy(),
                 $withheld,
                 ...[...$suites, ...$options],
-            )->within($left));
+            )->within($left)->haltedPast($request->pool()->pace()->deadlineGrace()));
             $keys[$at] = implode(self::BETWEEN, [$withheld->pattern(), $served->key(), ...$judging()->arguments()]);
             $commands[$keys[$at]] = $judging;
         }

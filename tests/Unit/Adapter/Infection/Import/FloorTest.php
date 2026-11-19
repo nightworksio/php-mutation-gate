@@ -21,7 +21,7 @@ it('takes minCoveredMsi as the floor where minMsi is not set, and leaves uncover
     $covered = Floor::imported(Node::decode('{"minCoveredMsi": 90}'));
 
     expect(Floor::of(Node::decode('{"minCoveredMsi": 90}')))->toEqual(TreeFloor::ofHundredths(9000))
-        ->and($covered->layer()->floors()->uncovered())->toBe(Uncovered::Exclude)
+        ->and($covered->layer()->judging()->floors()->uncovered())->toBe(Uncovered::Exclude)
         ->and($said('{"minCoveredMsi": 90}'))->toBe(['  minCoveredMsi: imported as uncovered: exclude, and the floor of every tree, 90.00'])
         ->and($said('{"minMsi": 80, "minCoveredMsi": 90}'))->toBe([
             '  minMsi: imported as the floor of every tree, 80.00',

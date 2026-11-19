@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Unit;
 
 use function array_any;
 use function array_filter;
+use function array_key_exists;
 use function array_map;
 use function array_values;
 
@@ -50,6 +51,19 @@ final readonly class Units implements Countable, IteratorAggregate
     public function and(self $those): self
     {
         return new self([...$this->units, ...$those->units]);
+    }
+
+    /** These units, each path once, where it first comes. */
+    public function distinct(): self
+    {
+        $kept = [];
+
+        foreach ($this->units as $unit) {
+            $path = $unit->path()->value();
+            $kept[$path] = array_key_exists($path, $kept) ? $kept[$path] : $unit;
+        }
+
+        return new self(array_values($kept));
     }
 
     /** These units but those at the path of one of those. */

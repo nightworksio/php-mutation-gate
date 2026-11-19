@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Cost\MutatorTallies;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -890,6 +891,28 @@ it('writes what the learned limits are read from in their own sections, oldest f
         ->not->toHaveKeys(['kills', 'concurrency'])
         ->and(LedgerFile::decode(LedgerFile::encode($makeLedger()->withLearned($limits))))
         ->toEqual($makeReadBack()->withLearned($limits));
+});
+
+it('writes what each job measured of its own time in its own section, oldest first, and reads it back, dropping what is not a job', function () use ($makeLedger, $makeReadBack, $data, $written): void {
+    $limits = LimitHistory::none()->afterJobs(
+        JobTimes::of('p', Seconds::of(50.0), Seconds::of(9.0), 0.7),
+        JobTimes::of('q', NotGiven::value(), Seconds::of(4.0), NotGiven::value()),
+        JobTimes::of('', Seconds::of(50.0), NotGiven::value(), NotGiven::value()),
+    );
+    $encoded = json_decode(Gunzipped::of(LedgerFile::encode($makeLedger()->withLearned($limits))), associative: true);
+    $file = $data();
+    $file['jobTimes'] = [['platform' => 'p', 'setup' => 50.0], 'fast', ['setup' => 'soon'], ['platform' => 'q', 'windDown' => 2]];
+
+    expect(is_array($encoded) ? $encoded['jobTimes'] : [])->toBe([
+        ['platform' => 'p', 'setup' => 50.0, 'windDown' => 9.0, 'passTwo' => 0.7],
+        ['platform' => 'q', 'windDown' => 4.0],
+    ])
+        ->and(LedgerFile::decode(LedgerFile::encode($makeLedger()->withLearned($limits))))
+        ->toEqual($makeReadBack()->withLearned($limits))
+        ->and(LedgerFile::decode($written($file))->learned()->limits())->toEqual(LimitHistory::none()->afterJobs(
+            JobTimes::of('p', Seconds::of(50.0), NotGiven::value(), NotGiven::value()),
+            JobTimes::of('q', NotGiven::value(), Seconds::of(2.0), NotGiven::value()),
+        ));
 });
 
 it('reads a format 4 ledger written before the learned limits as having learned none of them, its proofs and kill history intact', function () use ($formatFour, $written, $makeReadBack): void {

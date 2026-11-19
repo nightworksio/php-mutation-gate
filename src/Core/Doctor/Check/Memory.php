@@ -56,7 +56,7 @@ final readonly class Memory
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
 
         if (! $settings instanceof Settings) {
             return Findings::none();

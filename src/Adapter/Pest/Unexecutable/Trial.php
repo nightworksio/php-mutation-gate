@@ -8,6 +8,9 @@ use function array_key_exists;
 use function array_keys;
 use function array_slice;
 use function array_values;
+
+use Closure;
+
 use function count;
 use function file_get_contents;
 use function is_file;
@@ -29,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -60,10 +64,11 @@ use function sprintf;
  * original before the override, never loaded it, or ran where opcache could
  * serve a cached original, judges nothing, and the reason says what the run
  * did (see Evidence), from what it printed and the JUnit log it writes beside
- * the guard. A kill names as its killer the first test that log says
- * failed or errored, or every one under a full kill matrix (see
- * JUnitFailures), and gives how its run ended where it names none
- * (ADR-0014).
+ * the guard. No run starts once the time the run has left is out, and a
+ * mutant whose run never started is left unjudged for it (ADR-0008). A kill
+ * names as its killer the first test that log says failed or errored, or
+ * every one under a full kill matrix (see JUnitFailures), and gives how its
+ * run ended where it names none (ADR-0014).
  *
  * @internal
  */
@@ -96,8 +101,9 @@ final class Trial
     private array $alone = [];
 
     /**
-     * @param string $directory where each run of a batch writes its guard and JUnit log, in a directory named by
-     *                          its position in the batch
+     * @param string                         $directory where each run of a batch writes its guard and JUnit log, in
+     *                                                  a directory named by its position in the batch
+     * @param Closure(): (Seconds|Unlimited) $left      the time the run has left to start a trial in
      */
     public function __construct(
         private readonly Project $project,
@@ -108,6 +114,7 @@ final class Trial
         private readonly string $directory,
         private readonly MemoryScan $scan,
         private readonly WorkerSlots $slots,
+        private readonly Closure $left,
         private readonly MatrixKind $matrix = MatrixKind::FirstKiller,
     ) {
     }
@@ -151,12 +158,12 @@ final class Trial
             $needs[$at] = $alone;
         }
 
-        $ends = $runs === []
-            ? []
-            : [...$this->shell->sideBySide($this->slots, Unlimited::time(), ...$runs)];
+        $ends = $this->sideBySide($runs);
 
         foreach (array_keys($runs) as $position => $at) {
-            $outcomes[$at] = $this->found($trials[$at], $ends[$position], $position)->needing($needs[$at]);
+            $outcomes[$at] = array_key_exists($position, $ends)
+                ? $this->found($trials[$at], $ends[$position], $position)->needing($needs[$at])
+                : Outcome::outOfTime();
         }
 
         ksort($outcomes);
@@ -192,16 +199,29 @@ final class Trial
             $running[] = $trial;
         }
 
-        $ends = $commands === [] ? [] : [...$this->shell->sideBySide($this->slots, Unlimited::time(), ...$commands)];
+        $ends = $this->sideBySide($commands);
 
         foreach ($running as $position => $trial) {
-            $ran = $ends[$position];
+            $ran = array_key_exists($position, $ends) ? $ends[$position] : NotGiven::value();
             $this->alone[$trial->set()] = match (true) {
+                $ran instanceof NotGiven => Outcome::outOfTime(),
                 $ran->succeeded() => TestTimes::in($this->logOf($position)),
                 $ran->wasStopped() => $this->skipped($ran, $trial->limit()),
                 default => $this->unjudged(self::ALONE, $ran, $trial->tests(), $position),
             };
         }
+    }
+
+    /**
+     * How each of these commands ended, run side by side, none started once
+     * the run's time is out: those that started, by position.
+     *
+     * @param  array<int, Command> $commands
+     * @return list<Ran>
+     */
+    private function sideBySide(array $commands): array
+    {
+        return $commands === [] ? [] : [...$this->shell->sideBySide($this->slots, ($this->left)(), ...$commands)];
     }
 
     /**

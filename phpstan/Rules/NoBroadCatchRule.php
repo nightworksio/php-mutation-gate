@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\PHPStan\Rules;
 
 use function array_any;
+use function array_filter;
+use function array_map;
+use function array_slice;
+use function array_values;
 use function in_array;
 
 use PhpParser\Node;
 use PhpParser\Node\Expr\Throw_;
+use PhpParser\Node\Name;
 use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\Expression;
@@ -26,13 +31,19 @@ use function strtolower;
  * An empty body discards the one thing that was about to explain a failure. A
  * catch of `Throwable` or `Exception` that does not rethrow absorbs the failures
  * nobody anticipated along with the one that was expected. Across a port the
- * answer is an outcome, not a catch.
+ * answer is an outcome, not a catch. The files named in `allowIn` run code the
+ * gate does not own, whose every failure the catch turns into an outcome.
  *
  * @implements Rule<Catch_>
  */
-final class NoBroadCatchRule implements Rule
+final readonly class NoBroadCatchRule implements Rule
 {
     private const array EVERYTHING = ['throwable', 'exception', '\\throwable', '\\exception'];
+
+    /** @param list<string> $allowIn files, relative to the repository, that catch everything a project's own code may throw */
+    public function __construct(private array $allowIn = [])
+    {
+    }
 
     public function getNodeType(): string
     {
@@ -46,13 +57,16 @@ final class NoBroadCatchRule implements Rule
             return [$this->error($node, 'swallows what it caught')];
         }
 
-        foreach ($node->types as $type) {
-            if (in_array(strtolower($type->toString()), self::EVERYTHING, strict: true) && ! $this->rethrows($node)) {
-                return [$this->error($node, sprintf('catches %s without rethrowing', $type->toString()))];
-            }
+        if (ListedFiles::hold($this->allowIn, $scope->getFile()) || $this->rethrows($node)) {
+            return [];
         }
 
-        return [];
+        $broad = array_filter($node->types, static fn(Name $type): bool => in_array(strtolower($type->toString()), self::EVERYTHING, strict: true));
+
+        return array_map(
+            fn(Name $type): IdentifierRuleError => $this->error($node, sprintf('catches %s without rethrowing', $type->toString())),
+            array_slice(array_values($broad), 0, 1),
+        );
     }
 
     /** Whether the body throws again; `throw` arrives wrapped in an expression statement. */

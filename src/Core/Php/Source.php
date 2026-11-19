@@ -6,9 +6,14 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_diff_assoc;
 use function array_filter;
+use function array_flip;
 use function array_keys;
+use function array_last;
 use function array_values;
 use function count;
+use function explode;
+use function ksort;
+use function mb_strtolower;
 use function min;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -42,12 +47,14 @@ final readonly class Source
         T_NULLSAFE_OBJECT_OPERATOR,
     ];
 
+    /** @param list<ReflectionSite> $reflected where it builds each reflection class that can read a constant */
     private function __construct(
         private Path $path,
         private bool $test,
         private Tokens $tokens,
         private Scope $scope,
         private Shape $shape,
+        private array $reflected,
     ) {
     }
 
@@ -57,7 +64,9 @@ final readonly class Source
         $scope = TopLevel::of($significant)->scope();
         $tokens = Tokens::of($significant);
 
-        return new self($path, $test, $tokens, $scope, Shape::of($tokens, $scope));
+        $source = new self($path, $test, $tokens, $scope, Shape::of($tokens, $scope), []);
+
+        return new self($path, $test, $tokens, $scope, $source->shape, Reflections::sitesIn($source));
     }
 
     /** A file of the code the tests judge, read. */
@@ -102,6 +111,17 @@ final readonly class Source
     public function shape(): Shape
     {
         return $this->shape;
+    }
+
+    /**
+     * Where it builds each reflection class that can read a constant, with
+     * what its arguments write out (see Reflections).
+     *
+     * @return list<ReflectionSite>
+     */
+    public function reflected(): array
+    {
+        return $this->reflected;
     }
 
     /** What the token at an index stands in. */
@@ -171,15 +191,27 @@ final readonly class Source
 
     /**
      * Where the file writes a name that may stand for a class, other than
-     * where it declares or imports it.
+     * where it declares or imports it. Only a name ending in the class's last
+     * segment, or in an alias a name ending in it is imported under, may: a
+     * name keeps its last segment through every resolution but an alias's.
      *
      * @return list<int>
      */
     public function namesOf(string $class): array
     {
+        $segments = explode('\\', $class);
+        $last = mb_strtolower(array_last($segments));
+        $words = $this->tokens->words();
+        $places = array_flip($words->placesOf($last));
+
+        foreach ($this->scope->aliasesEndingIn($last) as $alias) {
+            $places += array_flip($words->placesOf($alias));
+        }
+
+        ksort($places);
         $found = [];
 
-        foreach ($this->tokens->indicesOf(...Names::TOKENS) as $at) {
+        foreach (array_keys($places) as $at) {
             $named = ! $this->tokens->is($at - 1, ...self::NOT_A_CLASS)
                 && $this->scope->resolve($this->tokens->text($at))->meet(Names::of($class));
             $found = $named ? [...$found, $at] : $found;

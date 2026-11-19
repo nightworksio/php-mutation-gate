@@ -7,8 +7,10 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\DefaultBranchSince;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\FailFast;
+use NightWorksIO\MutationGate\Core\Config\HeldCoverageMode;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -51,6 +53,12 @@ final readonly class ReachKeys
             Effect::DecidesHowTheGateRuns,
         );
         $fixtures = Field::optional('fixtures', Items::of(Pattern::glob($origin)), Effect::DecidesHowTheGateRuns);
+        $since = Field::optional(
+            'defaultBranchSince',
+            Enumerated::of(DefaultBranchSince::cases()),
+            Effect::DecidesHowTheGateRuns,
+        );
+        $heldCoverage = Field::optional('coverage', Enumerated::of(HeldCoverageMode::cases()), Effect::AffectsResults);
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
         $fewest = Field::optional('fewestTests', Integer::atLeast(1), $judges);
         $full = Field::optional('full', Flag::boolean(), Effect::DecidesHowTheGateRuns);
@@ -87,7 +95,9 @@ final readonly class ReachKeys
                         $lockMoves,
                         $changedTests,
                         $fixtures,
+                        $since,
                     ): Layer|Invalid {
+                        $read = $since->read($reach);
                         $files = $everything->read($reach);
                         $packages = $lockPackages->read($reach);
                         $moves = $lockMoves->read($reach);
@@ -101,7 +111,9 @@ final readonly class ReachKeys
                                 changedTests: $tests->value(),
                                 fixtures: $projects->value(),
                                 lockMoves: $moves->value(),
+                                defaultBranchSince: $read->value(),
                             )),
+                            $read,
                             $files,
                             $packages,
                             $moves,
@@ -114,26 +126,31 @@ final readonly class ReachKeys
                     $lockMoves,
                     $changedTests,
                     $fixtures,
+                    $since,
                 ),
             ),
             Field::section(
                 'holds',
                 Section::of(
-                    static function (Node $holds) use ($hotPath, $fewest): Layer|Invalid {
+                    static function (Node $holds) use ($hotPath, $fewest, $heldCoverage): Layer|Invalid {
                         $share = $hotPath->read($holds);
                         $tests = $fewest->read($holds);
+                        $measured = $heldCoverage->read($holds);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Reach::of(
                                 hotPath: $share->value(),
                                 hotPathFewest: $tests->value(),
+                                heldCoverage: $measured->value(),
                             )),
                             $share,
                             $tests,
+                            $measured,
                         );
                     },
                     $hotPath,
                     $fewest,
+                    $heldCoverage,
                 ),
             ),
             Field::section(

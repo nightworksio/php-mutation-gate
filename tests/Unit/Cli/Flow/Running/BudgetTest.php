@@ -8,11 +8,20 @@ use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Interruption;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
+use NightWorksIO\MutationGate\Cli\Flow\ShardDeadline;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Config\Controls as ControlsBuilder;
+use NightWorksIO\MutationGate\Config\Reach;
+use NightWorksIO\MutationGate\Config\Shards as ConfiguredShards;
 use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\JobStop;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Control\ControlEnd;
+use NightWorksIO\MutationGate\Core\Control\ControlKind;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
@@ -37,10 +46,13 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
@@ -49,6 +61,7 @@ use NightWorksIO\MutationGate\Tests\Support\RunningCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
+use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -208,7 +221,7 @@ it('runs every batch that fits a budget with the time left, leaving nothing unju
         GateCommand::installed(),
     );
 
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('2s')), $setup)
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(ControlsBuilder::killsUncontrolled(), Budget::of('2s')), $setup)
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
     expect(array_map(
@@ -219,6 +232,20 @@ it('runs every batch that fits a budget with the time left, leaving nothing unju
         $runner->requests(),
     ))->toEqual([[['src/Money.php'], Seconds::of(2.0)], [['src/Held.php'], Seconds::of(2.0)]])
         ->and($unjudged($resultIn($project, 1)))->toBe([]);
+});
+
+it('starts no unit a budget has no room to control the kills of after its mutants', function () use ($makeResultIn, $makeUnjudged): void {
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('2s')), RunningCases::tickingBy(0))
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($runner->requests())->toBe([])
+        ->and($unjudged($resultIn($project, 1)))->toBe(['src/Money.php', 'src/Held.php']);
 });
 
 it('starts nothing a budget has no room for, and leaves every unit unjudged', function () use ($makeResultIn, $makeUnjudged, $makeStatuses): void {
@@ -247,6 +274,61 @@ it('starts nothing a budget has no room for, and leaves every unit unjudged', fu
         ->and($statuses($result))->toBe([]);
 });
 
+it('asks the runner to stop a shard named at its target less its setup, wind-down and margin, at shards.jobLimit or a budget that comes first, starting a unit whatever its estimate', function (Settings $settings, float $seconds): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), $settings, Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($runner->requests()[0]->deadline())->toEqual(Seconds::of($seconds));
+})->with([
+    'the limit' => [fn(): Settings => Flows::settings(ConfiguredShards::target('2h'), ConfiguredShards::jobLimit('1h')), 3600.0],
+    'the limit before a later budget' => [fn(): Settings => Flows::settings(ConfiguredShards::target('2h'), ConfiguredShards::jobLimit('1h'), Budget::of('90m')), 3600.0],
+    'a limit alone, no target set' => [fn(): Settings => Flows::settings(ConfiguredShards::jobLimit('1h')), 3600.0],
+    'a target before a limit' => [fn(): Settings => Flows::settings(ConfiguredShards::target('10m'), ConfiguredShards::jobLimit('1h')), 600.0 - 60.0 - JobStop::WIND_DOWN_SECONDS - 45.0],
+    'a limit with no room for its first unit' => [fn(): Settings => Flows::settings(ConfiguredShards::jobLimit('1s')), 1.0],
+    'the default' => [fn(): Settings => Flows::settings(), 600.0 - 60.0 - JobStop::WIND_DOWN_SECONDS - 45.0],
+]);
+
+it('leaves what a runner that could not judge had left, past shards.jobLimit, and cannot judge one before it', function (string $limit, bool $judged): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->refusing('The runner stopped.');
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(ConfiguredShards::jobLimit($limit)), RunningCases::tickingBy(60))
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = RunningCases::resultIn($project, 1);
+
+    expect($result instanceof ShardResult && $result->outcome() instanceof MutationResult)->toBe($judged);
+})->with([
+    'past it' => ['1s', true],
+    'before it' => ['5h', false],
+]);
+
+it('starts no unit once shards.jobLimit passed, leaving each unit unjudged, whether or not the run stops at a doom', function (Reach $reach, string $limit, int $tick, array $requested, array $unjudged): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner, RunningCases::floored(Floor::whole())), Flows::settings($reach, ConfiguredShards::jobLimit($limit)), RunningCases::tickingBy($tick))
+        ->run(Planned::handedIn($project, RunningCases::onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
+
+    expect(array_map(static fn(MutationRequest $request): array => array_map(static fn(Path $file): string => $file->value(), [...$request->files()]), $runner->requests()))
+        ->toBe($requested)
+        ->and(RunningCases::unjudged(RunningCases::resultIn($project, 1)))->toBe($unjudged);
+})->with([
+    'judging on, passed' => [fn(): Reach => Reach::failFastOff(), '1h', 3600, [], ['src/Held.php', 'src/Money.php']],
+    'judging on, ahead' => [fn(): Reach => Reach::failFastOff(), '5h', 1, [['src/Held.php'], ['src/Money.php']], []],
+    'stopping at a doom, passed' => [fn(): Reach => Reach::failFastStopping(), '1h', 3600, [], ['src/Money.php', 'src/Held.php']],
+    'stopping at a doom, ahead' => [fn(): Reach => Reach::failFastStopping(), '5h', 1, [['src/Money.php']], ['src/Held.php']],
+]);
+
+it('sets a run with no shard named no deadline from shards.jobLimit', function (): void {
+    $project = Flows::project();
+    $running = new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(ConfiguredShards::jobLimit('1s')), Flows::setup());
+
+    expect($running->deadline())->toBeInstanceOf(Unlimited::class);
+});
+
 it('stops before the batch after the one an interruption arrived in, leaving the units no batch took unjudged', function () use (
     $makeResultIn,
     $makeUnjudged,
@@ -272,7 +354,7 @@ it('stops before the batch after the one an interruption arrived in, leaving the
         return $looks > 1;
     });
 
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('2s')), $setup)
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(ControlsBuilder::killsUncontrolled(), Budget::of('2s')), $setup)
         ->interrupted($arrived)
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
@@ -322,6 +404,37 @@ it('leaves the steps its time went to in its result, the runner\'s own and those
         ->and($since)->toBe($ordered);
 });
 
+it('leaves in its controls step what asked for each control, its tests and how it ended', function () use (
+    $makeTicking,
+    $makeResultIn,
+): void {
+    $ticking = $makeTicking();
+    $resultIn = $makeResultIn();
+
+    $project = Flows::project();
+
+    new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), $ticking())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $controls = [];
+
+    foreach ($result instanceof ShardResult ? $result->measured()->steps() : [] as $step) {
+        foreach ($step->controls() as $control) {
+            $controls[] = [
+                $step->step(),
+                array_map(static fn(ControlKind $kind): string => $kind->value, [...$control->kinds()]),
+                $control->tests(),
+                $control->end(),
+            ];
+        }
+    }
+
+    expect($controls)->toBe([
+        [Step::Controls, ['timeout'], 1, ControlEnd::Passed],
+        [Step::Controls, ['kills'], 1, ControlEnd::Passed],
+    ]);
+});
+
 it('leaves the units no batch took unjudged, and each survivor it had no time to confirm', function () use (
     $makeTickingBy,
     $makeResultIn,
@@ -334,7 +447,7 @@ it('leaves the units no batch took unjudged, and each survivor it had no time to
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('45s')), $tickingBy(10))
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(ControlsBuilder::killsUncontrolled(), Budget::of('45s')), $tickingBy(10))
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
     $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
@@ -363,7 +476,7 @@ it('leaves a batch unjudged whose runner stopped at the deadline, and cannot jud
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->refusing('Pest was stopped at its deadline before it had made its mutants.');
 
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('25s')), $tickingBy($step))
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(ControlsBuilder::killsUncontrolled(), Budget::of('25s')), $tickingBy($step))
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
@@ -374,3 +487,22 @@ it('leaves a batch unjudged whose runner stopped at the deadline, and cannot jud
     'stopped at the deadline' => [5, ['src/Money.php', 'src/Held.php'], true],
     'failed before it' => [1, [], false],
 ]);
+
+it('records what its job measured of its own time: the platform, the setup since the job began, and how long past its stop it came to its result', function (): void {
+    $project = Flows::project();
+    $began = new DateTimeImmutable(Configs::NOW)->getTimestamp() - 40;
+    $environment = [ShardDeadline::JOB_STARTED => (string) $began];
+
+    new Running(Flows::adapters($project, $environment, ScriptedRunner::fixture()), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $onTime = RunningCases::resultIn($project, 1);
+    $late = Flows::project();
+    new Running(Flows::adapters($late, [], ScriptedRunner::fixture()), Flows::settings(ConfiguredShards::jobLimit('1s')), Flows::setupAt(new TickingClock(Configs::NOW, 5)))
+        ->run(Planned::handedIn($late, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $past = RunningCases::resultIn($late, 1);
+
+    expect($onTime instanceof ShardResult ? $onTime->measured()->job() : $onTime)
+        ->toEqual(JobTimes::of(Digest::of('php')->value(), Seconds::of(40.0), NotGiven::value(), NotGiven::value()))
+        ->and($past instanceof ShardResult ? $past->measured()->job()->setup() : $past)->toBeInstanceOf(NotGiven::class)
+        ->and($past instanceof ShardResult ? $past->measured()->job()->windDown() : $past)->toBeInstanceOf(Seconds::class);
+});

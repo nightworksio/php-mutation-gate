@@ -33,7 +33,7 @@ final readonly class TreesFound
 
     public static function in(Observations $observed): Findings
     {
-        $trees = $observed->trees();
+        $trees = $observed->config()->trees();
         $found = match (true) {
             $trees instanceof Trees => count($trees) === 0 ? self::NONE : '',
             $trees instanceof CannotJudge => $trees->why(),

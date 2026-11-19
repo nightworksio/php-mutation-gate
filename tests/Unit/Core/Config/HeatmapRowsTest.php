@@ -14,14 +14,14 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 $rows = static fn(HeatmapRows $heatmap): array => [$heatmap->files(), $heatmap->methods()];
 
 it('lists 10 files on the dashboard, and each file\'s functions, by default', function () use ($rows): void {
-    expect($rows(Layer::standard()->reports()->heatmap()))->toBe([10, true]);
+    expect($rows(Layer::standard()->output()->reports()->heatmap()))->toBe([10, true]);
 });
 
 it('reads every heatmap key a config writes, and lays a later layer\'s over an earlier one\'s, key by key', function () use ($rows): void {
-    $read = Configs::valid(['heatmap' => ['files' => 0, 'methods' => false]])->reports()->heatmap();
+    $read = Configs::valid(['heatmap' => ['files' => 0, 'methods' => false]])->output()->reports()->heatmap();
     $laid = Layer::of(Reports::heatmapping(HeatmapRows::of(files: 4)))
         ->over(Layer::of(Reports::heatmapping(HeatmapRows::of(methods: false))))
-        ->reports()
+        ->output()->reports()
         ->heatmap();
 
     expect($rows($read))->toBe([0, false])
@@ -59,5 +59,5 @@ it('builds every heatmap key from the PHP builder', function () use ($rows): voi
         ->with(HeatmapBuilder::files(3))
         ->with(HeatmapBuilder::withMethods()));
 
-    expect($rows($settings->effective()->reports()->heatmap()))->toBe([3, true]);
+    expect($rows($settings->effective()->output()->reports()->heatmap()))->toBe([3, true]);
 });

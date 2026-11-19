@@ -11,6 +11,7 @@ use function array_slice;
 use function array_values;
 use function count;
 
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -117,14 +118,22 @@ final readonly class KillHistory
 
     /**
      * The tests most likely to kill a mutant, most likely first: those that
-     * killed it before, or where it has no history, those that killed the
-     * mutants of its function.
+     * killed it before; where it has no history, those that killed the
+     * mutants of its function; and where its function has none either, those
+     * that killed the mutants of every function of its file, by their kills
+     * summed.
      */
     public function likelyKillers(MutantId $mutant, Enclosing|Nameless $in): TestIds
     {
         $own = $this->mutantRanking($mutant);
 
-        return count($own) > 0 || $in instanceof Nameless ? $own->tests() : $this->functionRanking($in)->tests();
+        if (count($own) > 0 || $in instanceof Nameless) {
+            return $own->tests();
+        }
+
+        $function = $this->functionRanking($in);
+
+        return count($function) > 0 ? $function->tests() : $this->fileRanking($in->file())->tests();
     }
 
     /**
@@ -194,6 +203,38 @@ final readonly class KillHistory
     private function mutantRanking(MutantId $mutant): Ranking
     {
         return $this->rankingIn($this->mutants, $mutant->key());
+    }
+
+    /** The kills of every function of a file, each test's summed. */
+    private function fileRanking(Path $file): Ranking
+    {
+        $summed = [];
+
+        foreach ($this->functions as $ranked) {
+            $summed = $ranked->function()->file()->value() === $file->value()
+                ? $this->summed($summed, $ranked->ranking())
+                : $summed;
+        }
+
+        return Ranking::of(...array_values($summed));
+    }
+
+    /**
+     * These kills by test, with a ranking's added to them.
+     *
+     * @param  array<string, Kills> $summed
+     * @return array<string, Kills>
+     */
+    private function summed(array $summed, Ranking $ranking): array
+    {
+        foreach ($ranking as $kills) {
+            $key = $kills->test()->value();
+            $summed[$key] = array_key_exists($key, $summed)
+                ? Kills::of($kills->test(), $summed[$key]->count() + $kills->count())
+                : $kills;
+        }
+
+        return $summed;
     }
 
     private function functionRanking(Enclosing $function): Ranking

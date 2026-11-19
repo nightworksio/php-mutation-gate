@@ -2,11 +2,15 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\LeftoverParts;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Workspace as FileWorkspace;
+use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
@@ -113,12 +117,29 @@ it('judges whatever the plan did, so a plan that cannot judge never leaves the p
     $verdict = WorkflowFile::at(REUSABLE)->field('jobs')->field('verdict');
     $first = jobSteps($verdict)[0];
 
-    expect(Lenient::text($verdict->field('if')))->toBe('${{ !cancelled() && needs.plan.result != \'skipped\' }}')
+    expect(Lenient::text($verdict->field('if')))->toBe('${{ !cancelled() && needs.plan.result != \'skipped\' && needs.plan.outputs.waits != \'true\' }}')
         ->and(Lenient::text($first->field('if')))->toBe("needs.plan.result != 'success'")
         ->and(Lenient::text($first->field('run')))->toContain('echo "verdict=cannot-judge" >> "${GITHUB_OUTPUT}"')
         ->and(Lenient::text($first->field('run')))->toEndWith("exit 2\n")
         ->and(Lenient::text($verdict->field('outputs')->field('verdict')))
         ->toBe(sprintf('${{ steps.outputs.outputs.verdict || steps.%s.outputs.verdict }}', Lenient::text($first->field('id'))));
+});
+
+it('plans whatever the judge did, so a judge that fails makes the plan fail and never skips the protected check', function (): void {
+    $plan = WorkflowFile::at(REUSABLE)->field('jobs')->field('plan');
+
+    expect(Lenient::text($plan->field('if')))->not->toContain('needs.judge');
+});
+
+it('says why the judge refused where the verdict cannot judge, and passes no run that asked for a judge it lacks', function (): void {
+    $verdict = WorkflowFile::at(REUSABLE)->field('jobs')->field('verdict');
+    $first = jobSteps($verdict)[0];
+
+    expect(Lenient::text(WorkflowFile::at(REUSABLE)->field('jobs')->field('judge')->field('outputs')->field('refused')))
+        ->toBe('${{ steps.judge.outputs.refused }}')
+        ->and(Lenient::text($first->field('env')->field('JUDGE_REFUSED')))->toBe('${{ needs.judge.outputs.refused }}')
+        ->and(Lenient::text($first->field('run')))->toContain('The gate cannot judge this run: ${JUDGE_REFUSED}')
+        ->and(Lenient::text($first->field('run')))->toEndWith("exit 2\n");
 });
 
 it('publishes nothing where the plan did not succeed, since there is then nothing to publish', function (): void {
@@ -159,13 +180,13 @@ it('hands the install credentials to the steps that install the project\'s depen
         }
     }
 
-    $shard = jobSteps($jobs['shard']);
-    $action = $shard[WorkflowFile::stepsWhere($jobs['shard']->field('steps'), 'uses', static fn(string $uses): bool => str_starts_with($uses, './'))[0]];
+    $action = static fn(string $job): Node => jobSteps($jobs[$job])[WorkflowFile::stepsWhere($jobs[$job]->field('steps'), 'uses', static fn(string $uses): bool => str_starts_with($uses, './'))[0]];
 
-    expect(array_column($installing, 0))->toBe(['plan', 'survivors', 'survivors-report', 'verdict'])
+    expect(array_column($installing, 0))->toBe(['plan', 'leftovers', 'survivors', 'survivors-report', 'verdict'])
         ->and(array_map(static fn(array $one): array => array_map(Lenient::text(...), $one[1]), $installing))
         ->each->toBe([INSTALL_CREDENTIALS => sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS)])
-        ->and(Lenient::text($action->field('with')->field('composer-auth')))->toBe(sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS));
+        ->and(Lenient::text($action('shard')->field('with')->field('composer-auth')))->toBe(sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS))
+        ->and(Lenient::text($action('leftover')->field('with')->field('composer-auth')))->toBe(sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS));
 });
 
 it('alerts and traces from the deliver step alone', function (): void {
@@ -219,20 +240,24 @@ it('downloads each artifact within two minutes, and once more with the same arti
             $results = str_starts_with(Lenient::text($download->field('with')->field('pattern')), 'mutation-gate-result-');
             $retried[] = sprintf('%s/%s', $id, Lenient::text($download->field('id')));
 
-            expect(Lenient::integer($download->field('timeout-minutes')))->toBe(2)
+            expect(Lenient::text($download->field('timeout-minutes')))->toBe('${{ inputs.download-timeout }}')
                 ->and(Lenient::boolean($download->field('continue-on-error'), otherwise: false))->toBeTrue()
                 ->and(Lenient::text($retry->field('name')))->toStartWith(RETRY)
                 ->and(Lenient::text($retry->field('if')))
                 ->toBe(sprintf("steps.%s.outcome == 'failure'", Lenient::text($download->field('id'))))
                 ->and(Lenient::text($retry->field('uses')))->toBe(Lenient::text($download->field('uses')))
-                ->and(Lenient::integer($retry->field('timeout-minutes')))->toBe(2)
+                ->and(Lenient::text($retry->field('timeout-minutes')))->toBe('${{ inputs.download-timeout }}')
                 ->and(Lenient::boolean($retry->field('continue-on-error'), otherwise: false))->toBe($results)
                 ->and(texts($retry->field('with')))->toBe(texts($download->field('with')));
         }
     }
 
+    $trigger = (string) file_get_contents(Tree::at('scripts/workflows/mutation-gate/trigger.yml'));
+    $pattern = '/^      download-timeout:\n(?:        \S.*\n)*?        default: (?<minutes>\d+)$/mu';
+
     expect($retried)->toContain('plan/download-map')
-        ->and(array_unique($retried))->toBe($retried);
+        ->and(array_unique($retried))->toBe($retried)
+        ->and(preg_match($pattern, $trigger, $found) === 1 ? (int) $found['minutes'] : 0)->toBe(2);
 });
 
 it('spends nothing on a plan that runs no unit: no shard, no survivors, and a verdict that reads no result and, where one stands, no map', function (): void {
@@ -279,10 +304,56 @@ it('hands each shard the plan\'s whole map beside its own, removing only the oth
 
     expect($touching)->toHaveCount(1)
         ->and(dirname($whole))->toBe($coverage)
-        ->and($removing)->toContain(sprintf('find %s -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}"', $coverage))
+        ->and($removing)->toContain(sprintf('find %s -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}" ! -name opened', $coverage))
         ->and($paths)->toContain(sprintf('%s/', $coverage))
         ->and($excluded)->toBe([]);
 });
+
+/**
+ * The first of these steps by position, past every step where there are none.
+ *
+ * @param list<int> $steps
+ */
+function firstStep(array $steps): int
+{
+    return $steps === [] ? PHP_INT_MAX : min($steps);
+}
+
+it('starts the services before any of the project\'s code and waits for every one in a clean shell that is told nothing of them, the job starting them under services-start: job', function (string $job): void {
+    $node = WorkflowFile::at(REUSABLE)->field('jobs')->field($job);
+    $steps = $node->field('steps');
+    $action = WorkflowFile::at('action.yml')->field('runs')->field('steps');
+    $clean = '/usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}';
+    $start = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, 'services.sh" start'));
+    $stop = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, 'services.sh" stop'));
+    $code = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@') || $uses === './.mutation-gate/workflow');
+    $wait = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, 'services.sh" wait'));
+    $prepare = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Prepare what the tests need besides the dependencies');
+    $gate = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, '"${GATE}"') || str_contains($run, '${GATE} '));
+    $actionWait = WorkflowFile::stepsWhere($action, 'run', static fn(string $run): bool => str_contains($run, 'services.sh" wait'));
+    $actionInstall = WorkflowFile::stepsWhere($action, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@'));
+    $actionPrepare = WorkflowFile::stepsWhere($action, 'name', static fn(string $name): bool => $name === 'Prepare what the tests need besides the dependencies');
+    $runsTheAction = in_array($job, ['shard', 'leftover'], strict: true);
+    [$waits, $waited, $before] = $runsTheAction
+        ? [$action, $actionWait, firstStep($actionPrepare)]
+        : [$steps, $wait, min(firstStep($prepare), firstStep($gate))];
+    $told = static fn(Node $steps, int $at): Node => Lenient::items($steps)[$at];
+
+    expect(Lenient::text($node->field('services')))->toBe("\${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}")
+        ->and($start)->toHaveCount(1)
+        ->and($start[0])->toBeLessThan(firstStep($code))
+        ->and(Lenient::text($told($steps, $start[0])->field('env')->field('SERVICES_START')))->toBe('${{ inputs.services-start }}')
+        ->and($waited)->toHaveCount(1)
+        ->and($waited[0])->toBeLessThan($before)
+        ->and($runsTheAction ? $waited[0] : 0)->toBeGreaterThan($runsTheAction ? firstStep($actionInstall) : -1)
+        ->and(Lenient::text($told($waits, $waited[0])->field('shell')))->toBe($clean)
+        ->and($told($waits, $waited[0])->field('env')->kind())->toBe(Kind::Nothing)
+        ->and($stop)->toHaveCount(1)
+        ->and(Lenient::text($told($steps, $stop[0])->field('if')))->toStartWith('always()')
+        ->and(Lenient::text($told($steps, $stop[0])->field('shell')))->toBe($clean)
+        ->and($runsTheAction ? Lenient::text($told($steps, $code[0])->field('with')->field('wait-for-services')) : '')
+        ->toBe($runsTheAction ? "\${{ inputs.services-start != 'job' }}" : '');
+})->with(['plan', 'shard', 'leftover', 'survivors', 'survivors-report', 'verdict']);
 
 it('checks the workflow out under .mutation-gate, which the gate leaves out of every change and key', function (): void {
     expect(Lenient::text(WorkflowFile::at(REUSABLE)->field('env')->field('GATE_ACTION')))->toStartWith('.mutation-gate/');
@@ -333,7 +404,7 @@ it('hands no step that runs the project\'s code a token or a secret, in the acti
         ->and(array_keys($holding))->toBe([]);
 });
 
-it('gives the action\'s token only to naming the default branch and fetching the PHAR, before the project installs, and to deliver, in a job of its own', function (): void {
+it('gives the action\'s token only to naming the default branch, reading what the pull requests merged passed and fetching the PHAR, before the project installs, and to deliver, in a job of its own', function (): void {
     $steps = Lenient::items(WorkflowFile::at('action.yml')->field('runs')->field('steps'));
     $holding = [];
     $installs = 0;
@@ -343,17 +414,60 @@ it('gives the action\'s token only to naming the default branch and fetching the
         $holding = holdsACredential($step->field('env')) ? [...$holding, $at] : $holding;
     }
 
-    [$default, $phar, $deliver] = $holding;
+    [$default, $records, $phar, $deliver] = $holding;
     $delivering = Lenient::text($steps[$deliver]->field('run'));
 
-    expect($holding)->toHaveCount(3)
+    expect($holding)->toHaveCount(4)
         ->and(Lenient::text($steps[$default]->field('id')))->toBe('default')
+        ->and(Lenient::text($steps[$records]->field('name')))->toBe('Read what the pull requests merged passed')
+        ->and($records)->toBeLessThan($installs)
         ->and(Lenient::text($steps[$phar]->field('id')))->toBe('phar')
         ->and($phar)->toBeLessThan($installs)
         ->and($default)->toBeLessThan($installs)
         ->and(Lenient::text($steps[$deliver]->field('if')))->toBe("inputs.deliver == 'true'")
         ->and($delivering)->toContain('php "${GITHUB_ACTION_PATH}/bin/mutation-gate" deliver --from=')
         ->and(Lenient::text($steps[$installs]->field('if')))->toBe("inputs.deliver != 'true'");
+});
+
+it('stops a shard by its target before its job is cancelled', function (): void {
+    $shards = (string) file_get_contents(Tree::at('scripts/workflows/mutation-gate/shards.yml'));
+    $trigger = (string) file_get_contents(Tree::at('scripts/workflows/mutation-gate/trigger.yml'));
+    $pattern = '/^      shard-timeout:\n(?:        \S.*\n)*?        default: (?<minutes>\d+)$/mu';
+    $minutes = preg_match($pattern, $trigger, $found) === 1 ? (int) $found['minutes'] : 0;
+
+    expect($shards)->toContain("  shard:\n    name: shard \${{ matrix.shard.id }} (\${{ matrix.shard.label }})\n    needs: [fetch, plan, judge]\n")
+        ->and($shards)->toContain('    timeout-minutes: ${{ inputs.shard-timeout }}')
+        ->and(Shards::standard()->stop()->target()->seconds())->toBeLessThan($minutes * 60.0);
+});
+
+it('hands what the shards left at their deadline to a second wave, whose results the verdict reads beside theirs', function (): void {
+    $jobs = WorkflowFile::at(REUSABLE)->field('jobs');
+    $cutting = $jobs->field('leftovers');
+    $wave = $jobs->field('leftover');
+    $step = static fn(Node $job, string $field, Closure $picks): Node => jobSteps($job)[WorkflowFile::stepsWhere($job->field('steps'), $field, $picks)[0]];
+    $cut = $step($cutting, 'id', static fn(string $id): bool => $id === 'cut');
+    $uploads = static fn(Node $job): Node => $step($job, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/upload-artifact@'))->field('with');
+    $runs = $step($wave, 'uses', static fn(string $uses): bool => $uses === './.mutation-gate/workflow')->field('with');
+    $results = 'mutation-gate-result-${{ needs.plan.outputs.attempt }}-*';
+    $share = LeftoverShare::of(ShardId::of(7), 3);
+    $shareResult = str_replace(['7', '3'], ['${{ matrix.share.shard }}', '${{ matrix.share.share }}'], LeftoverParts::resultOf(Workspace::results(), $share)->value());
+    $action = (string) file_get_contents(Tree::at('action.yml'));
+
+    // ADR-0190
+    expect(array_map(Lenient::text(...), Lenient::items($cutting->field('needs'))))->toContain('shard')
+        ->and(Lenient::text($cut->field('run')))->toContain('leftovers --plan=.mutation-gate/plan.json --results=.mutation-gate/results')
+        ->and(Lenient::text($cutting->field('outputs')->field('shares')))->toBe('${{ steps.cut.outputs.shares }}')
+        ->and(Lenient::text($uploads($cutting)->field('path')))->toBe(LeftoverParts::file(Workspace::results())->value())
+        ->and(fnmatch($results, Lenient::text($uploads($cutting)->field('name'))))->toBeTrue()
+        ->and(array_map(Lenient::text(...), Lenient::items($wave->field('needs'))))->toContain('leftovers')
+        ->and(Lenient::text($wave->field('strategy')->field('matrix')->field('share')))->toBe('${{ fromJSON(needs.leftovers.outputs.shares) }}')
+        ->and(Lenient::text($wave->field('timeout-minutes')))->toBe('${{ inputs.shard-timeout }}')
+        ->and([Lenient::text($runs->field('shard')), Lenient::text($runs->field('leftover'))])->toBe(['${{ matrix.share.shard }}', '${{ matrix.share.share }}'])
+        ->and(Lenient::text($uploads($wave)->field('path')))->toBe($shareResult)
+        ->and(fnmatch($results, Lenient::text($uploads($wave)->field('name'))))->toBeTrue()
+        ->and(array_map(Lenient::text(...), Lenient::items($jobs->field('verdict')->field('needs'))))->toContain('leftovers', 'leftover')
+        ->and($action)->toContain('[ -z "${LEFTOVER}" ] || share=(--leftover="${LEFTOVER}")')
+        ->and($action)->toContain('        LEFTOVER: ${{ inputs.leftover }}');
 });
 
 it('installs the gate the action delivers with from its own lock alone, running none of its scripts or plugins', function (): void {
@@ -566,23 +680,39 @@ it('sets up the extensions on a release\'s gate that the package\'s own gate has
         ->and($of(RELEASE, 'gate'))->toBe($of('.github/workflows/ci.yml', 'mutation'));
 });
 
-it('signs, attests and pushes only the PHAR whose SHA-256 build named', function (string $id, string $using): void {
+it('signs, attests and pushes only the PHARs whose SHA-256s build named', function (string $id, string $using, string $checking, string $signing, array $digests): void {
     $steps = WorkflowFile::at(RELEASE)->field('jobs')->field($id)->field('steps');
-    $checked = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Check the PHAR is the one build made');
+    $checked = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === $checking);
     $used = [
         ...WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, $using)),
         ...WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, $using)),
     ];
-    $signed = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Sign the PHAR with the release key');
+    $signed = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === $signing);
     $guarded = [...$used, ...$signed];
     $check = Lenient::items($steps)[$checked[0]];
 
     expect($checked)->toHaveCount(1)
         ->and($guarded)->not->toBe([])
-        ->and($guarded)->each->toBeGreaterThan($checked[0])
-        ->and(Lenient::text($check->field('env')->field('DIGEST')))->toBe('${{ needs.build.outputs.digest }}')
-        ->and(Lenient::text($check->field('run')))->toContain('echo "${DIGEST}  build/mutation-gate.phar" | sha256sum --check --strict');
+        ->and($guarded)->each->toBeGreaterThan($checked[0]);
+
+    /** @var array<string, array{string, string}> $digests */
+    foreach ($digests as $variable => [$output, $phar]) {
+        expect(Lenient::text($check->field('env')->field($variable)))->toBe(sprintf('${{ needs.build.outputs.%s }}', $output))
+            ->and(Lenient::text($check->field('run')))->toContain(sprintf('echo "${%s}  %s" | sha256sum --check --strict', $variable, $phar));
+    }
 })->with([
-    'the release' => ['publish', 'actions/attest-build-provenance@'],
-    'the image' => ['image-build', 'docker buildx build '],
+    'the release' => [
+        'publish',
+        'actions/attest-build-provenance@',
+        'Check the PHARs are the ones build made',
+        'Sign the PHARs with the release key',
+        ['DIGEST' => ['digest', 'build/mutation-gate.phar'], 'JUDGE_DIGEST' => ['judge-digest', 'build/mutation-gate-judge.phar']],
+    ],
+    'the image' => [
+        'image-build',
+        'docker buildx build ',
+        'Check the PHAR is the one build made',
+        'Sign the PHAR with the release key',
+        ['DIGEST' => ['digest', 'build/mutation-gate.phar']],
+    ],
 ]);

@@ -125,3 +125,14 @@ it('names a class as the file spells it: fully qualified, relative, imported or 
         ->and($scope->className('Cash\Rate'))->toBe('App\Domain\Money\Rate')
         ->and($scope->className('CartTest'))->toBe('Tests\CartTest');
 });
+
+it('names each alias, in lower case, a name ending in a word is imported under', function () use ($tokens): void {
+    $scope = Scope::global()
+        ->importing(...$tokens('use App\Domain\Money as Cash;'))
+        ->importing(...$tokens('use Other\MONEY;'))
+        ->importing(...$tokens('use App\Rate;'));
+
+    expect($scope->aliasesEndingIn('money'))->toBe(['cash', 'money'])
+        ->and($scope->aliasesEndingIn('rate'))->toBe(['rate'])
+        ->and($scope->aliasesEndingIn('nowhere'))->toBe([]);
+});

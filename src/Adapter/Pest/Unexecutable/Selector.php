@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
+use function array_key_exists;
 use function array_merge;
 use function count;
 use function file_get_contents;
+use function implode;
 use function is_file;
 use function is_string;
 
@@ -15,7 +17,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -29,14 +30,8 @@ use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\StatementTail;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\Unnamed;
-use NightWorksIO\MutationGate\Core\Php\ValueDeclaration;
-use NightWorksIO\MutationGate\Core\Php\ValueDeclarations;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\TestCases;
-use NightWorksIO\MutationGate\Core\Test\TestIds;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
-
-use function range;
 
 /**
  * The test files that judge a mutant Pest left uncovered. On a line that is
@@ -55,26 +50,32 @@ use function range;
  *
  * @internal
  */
-final readonly class Selector
+final class Selector
 {
     /** The last line any file could have, so that a range from the first covers a whole file. */
     private const int WHOLE = PHP_INT_MAX;
 
+    /** What separates the parts of the key a span's test files are kept by. */
+    private const string BETWEEN = "\n";
+
+    /** @var array<string, Paths> the test files whose tests run each span of lines asked about, by file and span */
+    private array $covered = [];
+
     private function __construct(
-        private Project $project,
-        private Covering $coverage,
-        private TestFiles $tests,
-        private Helpers $helpers,
-        private Followed $followed,
-        private CoverageMap $map,
-        private Originals $originals,
-        private Codebase $codebase,
+        private readonly Project $project,
+        private readonly Covering $coverage,
+        private readonly TestFiles $tests,
+        private readonly Helpers $helpers,
+        private readonly Followed $followed,
+        private readonly CoverageMap $map,
+        private readonly Originals $originals,
+        private readonly Codebase $codebase,
     ) {
     }
 
     public static function over(Project $project, Covering $coverage, Paths $mutated, TestCases $cases): self
     {
-        $tests = new TestFiles($project);
+        $tests = new TestFiles($project, still: true);
         $listed = $tests->all();
         $sources = [];
 
@@ -105,6 +106,39 @@ final readonly class Selector
         );
     }
 
+    /**
+     * This scan, also over these mutated files where the codebase it read
+     * holds none of them: a later chunk of the same shard scans its own
+     * files alone, the codebase already read.
+     */
+    public function alsoOver(Paths $mutated): self
+    {
+        $sources = [];
+
+        foreach ($mutated as $file) {
+            $sources[] = $this->codebase->has($file) ? [] : self::read($this->project, $file, test: false);
+        }
+
+        $read = array_merge(...$sources);
+
+        if ($read === []) {
+            return $this;
+        }
+
+        $codebase = $this->codebase->with(...$read);
+
+        return new self(
+            $this->project,
+            $this->coverage,
+            $this->tests,
+            $this->helpers,
+            new Followed($codebase),
+            $this->map,
+            new Originals($this->project, $codebase),
+            $codebase,
+        );
+    }
+
     /** A mutated file's original, scanned as the codebase read it; why it cannot be printed; or none. */
     public function original(Path $file): Original|CannotJudge|NotGiven
     {
@@ -129,26 +163,19 @@ final readonly class Selector
     }
 
     /**
-     * A map with the lines of each value these files declare covered by the
-     * tests of the test files one run judges its mutants by (see Choice), each
-     * timed as the map of every file timed it, where it did not already, so
-     * Pest runs those mutants as it runs any covered one. A value whose reads
-     * the scan cannot follow, or that nothing reads, is left as the map had
-     * it, and a trial judges its mutants (ADR-0037).
+     * The map a run of these files opens on: its own, with the lines of each
+     * value they declare covered by the tests that read it, and each line of
+     * a match's arms by the tests of the arms after it too.
      */
+    public function opened(Paths $files, CoverageMap $own): CoverageMap
+    {
+        return $this->armCoverage($files, $this->readCoverage($files, $own));
+    }
+
+    /** A map with the lines of each value these files declare covered by the tests that read it (see ReadCoverage). */
     public function readCoverage(Paths $files, CoverageMap $onto): CoverageMap
     {
-        $read = $onto;
-
-        foreach ($files as $file) {
-            $source = $this->codebase->source($file);
-
-            foreach ($source instanceof Source ? ValueDeclarations::in($source) : [] as $declared) {
-                $read = $this->reading($read, $file, $declared);
-            }
-        }
-
-        return $read;
+        return new ReadCoverage($this, $this->codebase, $this->tests, $this->map)->onto($files, $onto);
     }
 
     /** A map with each line of a match's arms these files hold covered by the tests of the arms after it too. */
@@ -173,20 +200,16 @@ final readonly class Selector
     public function choose(Symbol|Unnamed $symbol, Path $file): Choice
     {
         $references = $this->followed->references($symbol);
-        $reading = Paths::none();
+        $reading = [];
 
         foreach ($references->sites() as $site) {
-            $judging = $site->isInTest()
+            $reading[] = $site->isInTest()
                 ? $this->helpers->choosing($site->file())
                 : $this->covering($site->file(), $site->line()->number(), $site->last()->number());
-
-            foreach ($judging as $test) {
-                $reading = $reading->with($test);
-            }
         }
 
         return Choice::of(
-            $reading,
+            Paths::union(...$reading),
             $this->covering($file, Line::first()->number(), self::WHOLE),
             $references->isAmbiguous() || $this->helpers->readAny($references),
         );
@@ -222,57 +245,20 @@ final readonly class Selector
         return count($tests) === 0 ? NotGiven::value() : Choice::of($tests, Paths::none(), ambiguous: false);
     }
 
-    /** The test files whose tests run any line from the first to the last of a file. */
+    /** The test files whose tests run any line from the first to the last of a file, each span worked out once. */
     private function covering(Path $file, int $first, int $last): Paths
     {
-        return $this->tests->holdingAny($this->coverage->testsCovering(
-            DiskPath::of($this->project->absolute($file)),
-            Line::of($first),
-            Line::of($last),
-        ));
-    }
+        $key = implode(self::BETWEEN, [$file->value(), $first, $last]);
 
-    /**
-     * A map with the lines of one value covered by the tests one run judges
-     * its mutants by, each timed; the map as it is where no run can.
-     */
-    private function reading(CoverageMap $map, Path $file, ValueDeclaration $declared): CoverageMap
-    {
-        $run = $this->choose($declared->symbol(), $file)->oneRun();
-        $tests = $run instanceof Paths ? $this->tests->holding($run, $this->map) : TestIds::none();
-
-        if (count($tests) === 0) {
-            return $map;
+        if (! array_key_exists($key, $this->covered)) {
+            $this->covered[$key] = $this->tests->holdingAny($this->coverage->testsCovering(
+                DiskPath::of($this->project->absolute($file)),
+                Line::of($first),
+                Line::of($last),
+            ));
         }
 
-        $read = $map;
-
-        foreach (range($declared->first()->number(), $declared->last()->number()) as $line) {
-            $read = $read->covered($file, Line::of($line), ...$tests);
-        }
-
-        return $read->timedEach(...$this->timed($tests, $map));
-    }
-
-    /**
-     * How long each of these tests took, as the map of every file timed it,
-     * where a map does not time it already.
-     *
-     * @return list<TimedTest>
-     */
-    private function timed(TestIds $tests, CoverageMap $timing): array
-    {
-        $timed = [];
-
-        foreach ($tests as $test) {
-            $duration = $this->map->durationOf($test);
-
-            if ($duration instanceof Seconds && ! $timing->durationOf($test) instanceof Seconds) {
-                $timed[] = TimedTest::of($test->value(), $duration->seconds());
-            }
-        }
-
-        return $timed;
+        return $this->covered[$key];
     }
 
     /**

@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 
 /**
- * A list of Infection's JSON log (`logs.json`), each of the mutants of one outcome.
+ * A list of Infection's JSON log (`logs.json`), each of the mutants of one
+ * outcome. A mutant whose process errored is a kill no test is named for,
+ * which stands only on a fatal error PHP recorded or an unmutated control
+ * (ADR-0014, ADR-0108); one that does not parse is an error the parser
+ * itself evidences.
  *
  * @internal
  */
@@ -41,10 +45,10 @@ enum LogList: string
     public function status(): MutantStatus
     {
         return match ($this) {
-            self::Killed => MutantStatus::Killed,
             self::KilledByStaticAnalysis => MutantStatus::KilledByStaticAnalysis,
             self::Escaped => MutantStatus::Survived,
-            self::Errored, self::SyntaxErrors => MutantStatus::Errored,
+            self::Killed, self::Errored => MutantStatus::Killed,
+            self::SyntaxErrors => MutantStatus::Errored,
             self::Timeouted => MutantStatus::TimedOut,
             self::Uncovered => MutantStatus::Uncovered,
             self::Ignored => MutantStatus::IgnoredByMarker,

@@ -23,9 +23,9 @@ use NightWorksIO\MutationGate\Core\Mutant\Prefix;
  * The replays that vouch for a run's narrowed kills, grouped by the whole
  * order each kill's own run was to take (ADR-0089): of a file's replays,
  * those whose runs were to take the same whole order replay prefixes of it,
- * so one replay to its end, which stands only where every test of the order
- * passes unmutated in it, vouches for every one of them. Only a replay no
- * such replay vouched for runs on its own.
+ * so the longest of them, which stands only where every test up to its last
+ * killer passes unmutated in it, vouches for every one of them (ADR-0191).
+ * Only a replay no such replay vouched for runs on its own.
  *
  * @internal
  */
@@ -52,7 +52,7 @@ final readonly class WholeOrders
     }
 
     /**
-     * What each replay says, by its key: first each replay to the end of a
+     * What each replay says, by its key: first the longest replay of each
      * whole order two or more replays share, all side by side, then each
      * replay none of those vouched for, all side by side.
      *
@@ -73,7 +73,7 @@ final readonly class WholeOrders
     }
 
     /**
-     * Each replay a replay to the end of its whole order stood for, by its key.
+     * Each replay the longest replay of its whole order stood for, by its key.
      *
      * @param  Closure(non-empty-list<PrefixReplay>): list<ReplayVerdict> $replay
      * @param  list<array{PrefixReplay, non-empty-list<string>}>             $wholes
@@ -93,8 +93,9 @@ final readonly class WholeOrders
     }
 
     /**
-     * For each whole order two or more replays of one file share, the replay
-     * to its end, allowed the longest limit of theirs, and their keys.
+     * For each whole order two or more replays of one file share, the one
+     * that reaches furthest, allowed the longest limit of theirs, and their
+     * keys.
      *
      * @return list<array{PrefixReplay, non-empty-list<string>}>
      */
@@ -112,7 +113,7 @@ final readonly class WholeOrders
         $wholes = [];
 
         foreach ($sharing as $keys) {
-            $whole = $this->replays[$keys[0]]->toTheEnd($this->planned[$keys[0]]);
+            $whole = $this->longestOf($keys);
 
             foreach ($keys as $key) {
                 $whole = $whole->alongside($this->replays[$key]);
@@ -122,5 +123,21 @@ final readonly class WholeOrders
         }
 
         return $wholes;
+    }
+
+    /**
+     * Of these replays, the first of those that reach furthest.
+     *
+     * @param non-empty-list<string> $keys
+     */
+    private function longestOf(array $keys): PrefixReplay
+    {
+        $longest = $this->replays[$keys[0]];
+
+        foreach ($keys as $key) {
+            $longest = $this->replays[$key]->reach() > $longest->reach() ? $this->replays[$key] : $longest;
+        }
+
+        return $longest;
     }
 }

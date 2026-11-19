@@ -9,31 +9,38 @@ use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_last;
-use function array_map;
 use function array_pop;
-use function array_slice;
 use function array_unique;
 use function array_values;
 use function count;
 
 use Countable;
 
-use function explode;
+use function in_array;
+use function is_array;
+use function is_int;
 use function is_string;
-use function mb_strtolower;
+use function min;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+
+use function pack;
+
 use PhpToken;
 
+use function range;
 use function sort;
 use function sprintf;
 use function str_replace;
 use function trim;
+use function unpack;
 
 /**
  * A PHP file's significant tokens, in order, each with the bracket it stands
- * inside and each bracket with where it closes.
+ * inside and each bracket with where it closes: each token's kind and text
+ * kept in lists, and where it begins packed into bytes, so a codebase's
+ * files held at once take a fraction of what as many token objects take.
  *
  * @internal
  */
@@ -60,23 +67,36 @@ final readonly class Tokens implements Countable
     /** What closes one. */
     public const array CLOSES = [')', ']', '}'];
 
+    /** How each token's byte, and each token's line, is packed: an unsigned 32-bit little-endian integer. */
+    private const string PACKED = 'V';
+
+    /** How every token's bytes, or every token's lines, are packed, one after another. */
+    private const string PACKED_ALL = 'V*';
+
+    /** How many bytes a packed byte or line takes. */
+    private const int PACKED_BYTES = 4;
+
     /**
-     * @param list<PhpToken>  $tokens
+     * @param list<int>       $ids       each token's kind, in order
+     * @param list<string>    $texts     each token's text, in order
+     * @param string          $offsets   the byte each token begins at, packed in order
+     * @param string          $lines     the line each token begins on, packed in order
      * @param array<int, int> $enclosing where the bracket each token stands inside opens, by the token's index
      * @param array<int, int> $closing   where each bracket closes, by where it opens, or past the last token
      *                                   where it never does
      * @param array<int, list<int>>        $byId   where each token stands, in order, by its id
      * @param array<array-key, list<int>>  $byText where each token stands, in order, by its text
-     * @param array<string, true>          $words  the last segment of each name a token spells, as written and in
-     *                                             lower case
      */
     private function __construct(
-        private array $tokens,
+        private array $ids,
+        private array $texts,
+        private string $offsets,
+        private string $lines,
         private array $enclosing,
         private array $closing,
         private array $byId,
         private array $byText,
-        private array $words,
+        private NameWords $words,
     ) {
     }
 
@@ -100,13 +120,18 @@ final readonly class Tokens implements Countable
         $closing = [];
         $byId = [];
         $byText = [];
-        $words = [];
-
+        $ids = [];
+        $texts = [];
+        $offsets = [];
+        $lines = [];
         foreach ($tokens as $at => $token) {
             $enclosing[$at] = array_last($open) ?? self::NONE;
             $byId[$token->id][] = $at;
             $byText[$token->text][] = $at;
-            $words += self::wordsOf($token);
+            $ids[] = $token->id;
+            $texts[] = $token->text;
+            $offsets[] = $token->pos;
+            $lines[] = $token->line;
 
             if ($token->is(self::CLOSES)) {
                 $closing[array_pop($open) ?? self::NONE] = $at;
@@ -117,7 +142,17 @@ final readonly class Tokens implements Countable
             }
         }
 
-        return new self($tokens, $enclosing, $closing + array_fill_keys($open, count($tokens)), $byId, $byText, $words);
+        return new self(
+            $ids,
+            $texts,
+            pack(self::PACKED_ALL, ...$offsets),
+            pack(self::PACKED_ALL, ...$lines),
+            $enclosing,
+            $closing + array_fill_keys($open, count($tokens)),
+            $byId,
+            $byText,
+            NameWords::of($tokens),
+        );
     }
 
     /**
@@ -149,26 +184,21 @@ final readonly class Tokens implements Countable
     {
         return array_keys(array_filter(
             $this->enclosing,
-            fn(int $enclosing, int $at): bool => $enclosing === $opener && $this->tokens[$at]->is($kinds),
+            fn(int $enclosing, int $at): bool => $enclosing === $opener && $this->is($at, ...$kinds),
             ARRAY_FILTER_USE_BOTH,
         ));
     }
 
-    /**
-     * Whether a name the file spells ends in this word, as written or in
-     * lower case: `Money`, `App\money` and `\App\MONEY` all end in `money`,
-     * as PHP reads a class's or a function's name, and only the first ends in
-     * `Money`, as PHP reads a constant's.
-     */
-    public function namesWord(string $word): bool
+    /** The words the names the file spells end in. */
+    public function words(): NameWords
     {
-        return array_key_exists($word, $this->words);
+        return $this->words;
     }
 
     /** How many tokens there are. */
     public function count(): int
     {
-        return count($this->tokens);
+        return count($this->ids);
     }
 
     /** Whether some bracket encloses the token at an index. */
@@ -180,7 +210,8 @@ final readonly class Tokens implements Countable
     /** Whether a token stands at an index, and is of one of these kinds. */
     public function is(int $at, int|string ...$kinds): bool
     {
-        return array_key_exists($at, $this->tokens) && $this->tokens[$at]->is($kinds);
+        return array_key_exists($at, $this->ids)
+            && (in_array($this->ids[$at], $kinds, strict: true) || in_array($this->texts[$at], $kinds, strict: true));
     }
 
     /**
@@ -199,7 +230,7 @@ final readonly class Tokens implements Countable
     /** The text of the token at an index. */
     public function text(int $at): string
     {
-        return $this->tokens[$at]->text;
+        return $this->texts[$at];
     }
 
     /**
@@ -208,25 +239,25 @@ final readonly class Tokens implements Countable
      */
     public function unquoted(int $at): string
     {
-        return str_replace('\\\\', '\\', trim($this->tokens[$at]->text, '\'"'));
+        return str_replace('\\\\', '\\', trim($this->texts[$at], '\'"'));
     }
 
     /** @return list<string> the text of each token, in order */
     public function texts(): array
     {
-        return array_map(static fn(PhpToken $token): string => $token->text, $this->tokens);
+        return $this->texts;
     }
 
     /** The byte the token at an index begins at, from 0. */
     public function offset(int $at): int
     {
-        return $this->tokens[$at]->pos;
+        return $this->unpacked($this->offsets, $at);
     }
 
     /** The line the token at an index begins on, from 1. */
     public function line(int $at): int
     {
-        return $this->tokens[$at]->line;
+        return $this->unpacked($this->lines, $at);
     }
 
     /** Where the bracket a token stands inside opens, or an index no token has where none encloses it. */
@@ -250,38 +281,32 @@ final readonly class Tokens implements Countable
         $spelt = '';
         $end = PHP_INT_MAX;
 
-        foreach ($this->between($from, $to) as $token) {
-            $spelt = sprintf('%s%s%s', $spelt, $token->pos > $end ? ' ' : '', $token->text);
-            $end = $token->pos + Bytes::length($token->text);
+        foreach ($this->indices($from, $to) as $at) {
+            $offset = $this->unpacked($this->offsets, $at);
+            $spelt = sprintf('%s%s%s', $spelt, $offset > $end ? ' ' : '', $this->texts[$at]);
+            $end = $offset + Bytes::length($this->texts[$at]);
         }
 
         return $spelt;
     }
 
     /**
-     * The tokens from one index up to another, by their index.
+     * The index of each token from one index up to another, in order.
      *
-     * @return array<int, PhpToken>
+     * @return list<int>
      */
-    public function between(int $from, int $to): array
+    public function indices(int $from, int $to): array
     {
-        return array_slice($this->tokens, $from, $to - $from, preserve_keys: true);
+        $end = min($to, count($this->ids));
+
+        return $from < $end ? range($from, $end - 1) : [];
     }
 
-    /**
-     * The words a name token adds to the index: its last segment as written and in lower case; none for any other.
-     *
-     * @return array<string, true>
-     */
-    private static function wordsOf(PhpToken $token): array
+    /** The integer packed at a token's index. */
+    private function unpacked(string $packed, int $at): int
     {
-        if (! $token->is(Names::TOKENS)) {
-            return [];
-        }
+        $read = unpack(self::PACKED, $packed, $at * self::PACKED_BYTES);
 
-        $last = array_last(explode('\\', $token->text));
-
-        return [$last => true, mb_strtolower($last) => true];
+        return is_array($read) && is_int($read[1]) ? $read[1] : 0;
     }
-
 }

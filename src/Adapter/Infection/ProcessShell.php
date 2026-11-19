@@ -74,8 +74,10 @@ final readonly class ProcessShell implements Shell
             ->with(EnvironmentRead::of([...$this->environment($command->withheld()), ...$command->environment()]))
             ->within($command->deadline());
         $silence = $command->silence();
+        $grace = $command->grace();
+        $process = $silence instanceof SilenceLimit ? $process->silencedAfter($silence) : $process;
 
-        return $silence instanceof SilenceLimit ? $process->silencedAfter($silence) : $process;
+        return $grace instanceof Seconds ? $process->haltedPast($grace) : $process;
     }
 
     /**

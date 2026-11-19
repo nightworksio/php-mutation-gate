@@ -22,7 +22,7 @@ use Psr\Clock\ClockInterface;
  * The room the time left has for static analysis's checks of survivors run
  * side by side (ADR-0020): each survivor needs its own check, and the first
  * of a file its runner prints the print's too, each as long as a check is
- * taken to be, the processes sharing them out.
+ * taken to be, as many at once as there are processes, round after round.
  *
  * @internal
  */
@@ -57,11 +57,7 @@ final readonly class CheckRoom
         }
 
         $needed = $this->needed($offered);
-        $room = $this->deadline->fitting(
-            array_last($needed),
-            Seconds::of($each->seconds() / $this->side->count()),
-            $this->clock->now(),
-        );
+        $room = $this->deadline->fitting(array_last($needed), $each, $this->clock->now(), $this->side->count());
 
         return array_slice($offered, 0, count(array_filter($needed, static fn(int $checks): bool => $checks <= $room)));
     }

@@ -81,7 +81,7 @@ it('shows one config in every format', function (string $format, ConfigLoader $l
     expect($effective($format, $example($format), $loader))->toBe($php)
         ->and($php)->toMatchArray([
             'preset' => 'laravel',
-            'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
+            'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'],
         ]);
 })->with([
     'JSON' => ['json', fn(): ConfigLoader => new JsonConfig()],

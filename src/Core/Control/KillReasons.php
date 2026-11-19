@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Control;
 
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -54,6 +55,7 @@ final readonly class KillReasons
             ControlEnd::Unrun => $mutant->unjudged(
                 Reason::that(sprintf($this->unrun, $why instanceof NotGiven ? ControlRuns::NOT_RUN : $why)),
             ),
+            ControlEnd::Halted => $mutant->unjudged(OutOfTime::BeforeControlling),
         };
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\VerdictWarnings;
+use NightWorksIO\MutationGate\Config\Controls;
 use NightWorksIO\MutationGate\Config\Suggest;
 use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -83,3 +84,15 @@ it('names no file every test runs through that a unit of the plan holds, proved,
         ->and([...new VerdictWarnings(Flows::adapters(Scratch::directory()), Flows::settings(Suggest::off()), Flows::setup())->of($plan, TreeVerdicts::none(), Warnings::none(), $map)])
         ->toBe([]);
 });
+
+it('notes each loose value in force, only where suggestions and suggest.looseValues are both on', function (Settings $settings, bool $noted): void {
+    $warned = new VerdictWarnings(Flows::adapters(Scratch::directory()), $settings, Flows::setup())
+        ->of(Planned::of(), TreeVerdicts::none(), Warnings::none(), CoverageMap::of());
+
+    expect(array_map(static fn(Warning $warning): string => $warning->text(), [...$warned]))
+        ->toBe($noted ? ['controls.kills is false, a loose value: a kill counts without its control on the unmutated code'] : []);
+})->with([
+    'both on' => [fn(): Settings => Flows::settings(Controls::killsUncontrolled()), true],
+    'suggestions off' => [fn(): Settings => Flows::settings(Controls::killsUncontrolled(), Suggest::off()), false],
+    'loose values silent' => [fn(): Settings => Flows::settings(Controls::killsUncontrolled(), Suggest::looseValuesSilent()), false],
+]);

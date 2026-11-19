@@ -261,7 +261,7 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: |
           set -euo pipefail
-          find .mutation-gate/coverage -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}" -exec rm -rf {} +
+          find .mutation-gate/coverage -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}" ! -name opened -exec rm -rf {} +
       - name: the CPU and memory
         run: |
           lscpu | grep -E '^(Architecture|Model name|CPU\(s\)):'

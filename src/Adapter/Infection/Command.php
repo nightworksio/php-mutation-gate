@@ -30,6 +30,7 @@ final readonly class Command
         private Withheld $withheld,
         private Seconds|Unlimited $deadline,
         private SilenceLimit|NotGiven $silence = new NotGiven(),
+        private Seconds|NotGiven $grace = new NotGiven(),
     ) {
     }
 
@@ -48,6 +49,7 @@ final readonly class Command
             $this->withheld,
             $this->deadline,
             $this->silence,
+            grace: $this->grace,
         );
     }
 
@@ -60,12 +62,20 @@ final readonly class Command
             $this->withheld->and($withheld),
             $this->deadline,
             $this->silence,
+            grace: $this->grace,
         );
     }
 
     public function within(Seconds|Unlimited $deadline): self
     {
-        return new self($this->arguments, $this->environment, $this->withheld, $deadline, $this->silence);
+        return new self(
+            $this->arguments,
+            $this->environment,
+            $this->withheld,
+            $deadline,
+            $this->silence,
+            $this->grace,
+        );
     }
 
     /**
@@ -80,6 +90,7 @@ final readonly class Command
             $this->withheld,
             $this->deadline,
             $this->silence,
+            grace: $this->grace,
         );
     }
 
@@ -108,12 +119,41 @@ final readonly class Command
     /** This command, also stopped once it has made no progress for this silence limit. */
     public function silencedAfter(SilenceLimit $silence): self
     {
-        return new self($this->arguments, $this->environment, $this->withheld, $this->deadline, $silence);
+        return new self(
+            $this->arguments,
+            $this->environment,
+            $this->withheld,
+            $this->deadline,
+            $silence,
+            $this->grace,
+        );
     }
 
     /** How long it may go without progress, and what shows its progress; none where only its deadline stops it. */
     public function silence(): SilenceLimit|NotGiven
     {
         return $this->silence;
+    }
+
+    /**
+     * This command, also halted once it has run this long past the time its
+     * shell starts no more commands, its run then telling nothing (ADR-0197).
+     */
+    public function haltedPast(Seconds $grace): self
+    {
+        return new self(
+            $this->arguments,
+            $this->environment,
+            $this->withheld,
+            $this->deadline,
+            $this->silence,
+            $grace,
+        );
+    }
+
+    /** How long it may run past the time its shell starts no more commands; none where nothing halts it then. */
+    public function grace(): Seconds|NotGiven
+    {
+        return $this->grace;
     }
 }

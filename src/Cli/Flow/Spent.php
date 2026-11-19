@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\MadeLines;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -37,6 +38,7 @@ final readonly class Spent
         public Doomed|Undoomed $doomed,
         public SurvivorChecks $checks,
         public MutantIds $checked,
+        public MadeLines $made,
     ) {
     }
 
@@ -53,6 +55,7 @@ final readonly class Spent
             Undoomed::run(),
             SurvivorChecks::none(),
             MutantIds::none(),
+            MadeLines::whole(),
         );
     }
 
@@ -69,6 +72,7 @@ final readonly class Spent
             $this->doomed,
             $this->checks->plus($invoked->checks),
             $this->checked->and($invoked->checked),
+            $this->made->and($invoked->result->made()),
         );
     }
 
@@ -91,6 +95,7 @@ final readonly class Spent
             $this->doomed,
             $this->checks,
             $this->checked,
+            $this->made,
         );
     }
 
@@ -126,6 +131,7 @@ final readonly class Spent
             $doomed,
             $this->checks,
             $this->checked,
+            $this->made,
         );
     }
 }

@@ -97,3 +97,9 @@ it('counts each map\'s tests apart, asked over one map and then another', functi
     expect($rows->of($judging, $map, NotGiven::value())->by())->toEqual(Filter::matching('"WalletSpec::"'))
         ->and($rows->of($judging, $wider, NotGiven::value())->by())->toEqual(Filter::matching('"WalletSpec::(.*)it.fills"'));
 });
+
+it('replays the kills its run records', function (): void {
+    [$files] = exactRowsOver();
+
+    expect(new ExactRows($files)->replaysKills())->toBeTrue();
+});

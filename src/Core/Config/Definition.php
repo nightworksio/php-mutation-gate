@@ -14,12 +14,15 @@ use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\HeatmapKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\MutantsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\OutbreakKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\OutputsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\OwnersKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PathsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Placement;
+use NightWorksIO\MutationGate\Core\Config\Definition\ProcessesKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ProofsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PruningKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PublishingKeys;
@@ -30,8 +33,10 @@ use NightWorksIO\MutationGate\Core\Config\Definition\SamplingKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\SetupKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ShardsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\SplitStreamKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\StaticCheckKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\SuggestKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\ToggleFields;
 use NightWorksIO\MutationGate\Core\Config\Definition\TriageKeys;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\JsonDocument;
@@ -151,6 +156,7 @@ final readonly class Definition
             ...OwnersKeys::fields(),
             ...ReachKeys::fields($origin),
             ...ShardsKeys::fields($origin),
+            ...ProcessesKeys::fields(),
             ...CiKeys::fields($origin, $placement),
             ...ProofsKeys::fields($origin),
             ...TriageKeys::fields(),
@@ -162,12 +168,16 @@ final readonly class Definition
             ...OutputsKeys::fields(),
             ...CommentKeys::fields(),
             ...PublishingKeys::fields($origin),
-            ...PestKeys::fields(),
+            ...PestKeys::fields($origin),
+            ToggleFields::in('controls')->section(),
+            ...MutantsKeys::fields(),
+            ...SplitStreamKeys::fields(),
             ...StaticCheckKeys::fields($origin),
             ...PruningKeys::fields(),
             ...SamplingKeys::fields(),
             ...MutatorsKeys::fields(),
-            ...LocalKeys::fields(),
+            ...LocalKeys::fields($origin),
+            ...OutbreakKeys::fields(),
             ...CoverageKeys::fields(),
             ...PathsKeys::fields($origin),
         ];

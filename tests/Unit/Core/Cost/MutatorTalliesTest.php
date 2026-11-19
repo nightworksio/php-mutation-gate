@@ -162,3 +162,10 @@ it('keeps only what it tallied of one runner\'s mutators', function (): void {
     expect($tallies->under(Name::of('pest')))->toEqual(Tallies::holding(Tallies::of('pest', 'Plus', 1, 1, 0, 0, 1.0)))
         ->and($tallies->under(Name::of('fake')))->toEqual(MutatorTallies::none());
 });
+
+it('adds up a mutant\'s times from every shard that judged it by a part of the test files', function () use ($mutant): void {
+    $first = MutantTimes::of(Mutants::of($mutant('Plus', 1, Seconds::of(1.0))), CoverageMap::of(), Seconds::of(2.0));
+    $second = MutantTimes::of(Mutants::of($mutant('Plus', 1, Seconds::of(1.0))), CoverageMap::of(), Seconds::of(3.0));
+
+    expect($first->and($second)->took($mutant('Plus', 1)->id()))->toEqual(Seconds::of(5.0));
+});

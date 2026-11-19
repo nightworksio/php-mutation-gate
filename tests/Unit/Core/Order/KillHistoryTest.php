@@ -85,6 +85,26 @@ it('learns the first killer of each killed mutant, and of its function\'s mutant
         ->and(historyMutants($history))->toBe([$one->id()->value(), $two->id()->value(), historyMutant('-+ three', MutantStatus::Killed)->id()->value()]);
 });
 
+it('takes the killers of every function of its file, their kills summed, for a mutant whose function has no history', function (): void {
+    $add = Enclosing::named(Path::of('src/Money.php'), 'add');
+    $sub = Enclosing::named(Path::of('src/Money.php'), 'sub');
+    $other = Enclosing::named(Path::of('src/Cart.php'), 'total');
+    $history = KillHistory::none()->learnedFrom(
+        Lesson::of(historyMutant('-+ a', MutantStatus::Killed, 'MoneyTest::adds'), $add),
+        Lesson::of(historyMutant('-+ b', MutantStatus::Killed, 'MoneyTest::subtracts'), $sub),
+        Lesson::of(historyMutant('-+ c', MutantStatus::Killed, 'MoneyTest::subtracts'), $add),
+        Lesson::of(historyMutant('-+ d', MutantStatus::Killed, 'CartTest::totals'), $other),
+        Lesson::of(historyMutant('-+ e', MutantStatus::Killed, 'CartTest::totals'), $other),
+        Lesson::of(historyMutant('-+ f', MutantStatus::Killed, 'CartTest::totals'), $other),
+    );
+    $fresh = historyMutant('-+ new', MutantStatus::Killed)->id();
+
+    expect(historyNames($history->likelyKillers($fresh, Enclosing::named(Path::of('src/Money.php'), 'divide'))))
+        ->toBe(['MoneyTest::subtracts', 'MoneyTest::adds'])
+        ->and(historyNames($history->likelyKillers($fresh, Enclosing::named(Path::of('src/Order.php'), 'place'))))->toBe([])
+        ->and(historyNames($history->likelyKillers($fresh, $sub)))->toBe(['MoneyTest::subtracts']);
+});
+
 it('keeps each mutant and function in the order it last learned something, the newest last', function () use ($makeAdd): void {
     $add = $makeAdd();
 

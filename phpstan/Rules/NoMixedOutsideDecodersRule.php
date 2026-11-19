@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\PHPStan\Rules;
 
-use function array_any;
 use function array_key_exists;
 
 use NightWorksIO\MutationGate\PHPStan\Rules\Mixed\MixedInDocBlock;
@@ -18,7 +17,6 @@ use PHPStan\Rules\RuleErrorBuilder;
 
 use function sprintf;
 use function str_contains;
-use function str_ends_with;
 
 /**
  * D10 — `mixed` is read at the edge and nowhere else.
@@ -90,13 +88,7 @@ final class NoMixedOutsideDecodersRule implements Rule
     {
         $inScope = (str_contains($file, '/src/') && ! str_contains($file, '/tests/')) || str_contains($file, '/tests/Support/');
 
-        return $inScope && ! $this->isNamedIn([...$this->decoders, ...$this->allowIn, ...$this->protocols], $file);
-    }
-
-    /** @param list<string> $files */
-    private function isNamedIn(array $files, string $file): bool
-    {
-        return array_any($files, static fn(string $named): bool => str_ends_with($file, sprintf('/%s', $named)));
+        return $inScope && ! ListedFiles::hold([...$this->decoders, ...$this->allowIn, ...$this->protocols], $file);
     }
 
     /** Whether a node's own doc block, not yet reported, writes mixed. */

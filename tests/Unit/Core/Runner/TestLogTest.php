@@ -86,3 +86,14 @@ it('keeps a test of the extension\'s lines running across a blank line, which en
 
     expect($log->pastLimit(3.5))->toEqual(Overrun::of(TestId::of('Money::subtracts'), Seconds::of(3.0)));
 });
+
+it('names the test a whole file of events leaves running at its end, its last line read without a newline, and none where it ends between tests', function (): void {
+    $events = "Test Runner Started\nTest Preparation Started (Money::adds (1))\nTest Finished (Money::adds (1))\n";
+
+    expect(TestLog::runningAtEnd(TestEvents::PhpUnitText, sprintf('%sTest Preparation Started (Money::subtracts)', $events)))
+        ->toEqual(TestId::of('Money::subtracts'))
+        ->and(TestLog::runningAtEnd(TestEvents::PhpUnitText, sprintf("%sTest Preparation Started (Money::subtracts)\n", $events)))
+        ->toEqual(TestId::of('Money::subtracts'))
+        ->and(TestLog::runningAtEnd(TestEvents::PhpUnitText, $events))->toEqual(NotGiven::value())
+        ->and(TestLog::runningAtEnd(TestEvents::PhpUnitText, ''))->toEqual(NotGiven::value());
+});

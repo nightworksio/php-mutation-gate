@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\ReplayedKills;
 use NightWorksIO\MutationGate\Adapter\Pest\ReplayVerdict;
+use NightWorksIO\MutationGate\Core\Config\KillControl;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -366,7 +367,7 @@ it('replays the narrowed kills of one order once for each file they change, and 
         ->and($kills->sets())->toBe(3);
 });
 
-it('neither replays nor controls a kill of a run no file narrowed, though its order is known', function () use ($mutant): void {
+it('replays a kill of a run no file narrowed where its order is known, and has no control run it', function () use ($mutant): void {
     $at = PestCases::project();
     $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
     $file = narrowedResults(
@@ -389,7 +390,49 @@ it('neither replays nor controls a kill of a run no file narrowed, though its or
         return [];
     }, $unvouched);
 
-    expect([$asked, $controls, [...$unvouched->unjudged()], [...$doubted], $kills->sets()])->toBe([[], [], [], [], 0]);
+    expect($asked)->toHaveCount(1)
+        ->and($asked[0])->toBeInstanceOf(PrefixReplay::class)
+        ->and($controls)->toBe([])
+        ->and([...$doubted])->toBe([])
+        ->and($unvouched->unjudged())->toHaveCount(1)
+        ->and($kills->sets())->toBe(1);
+});
+
+it('leaves a kill of a run no file narrowed to its control under flaky.killControls alone', function () use ($mutant): void {
+    $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
+    $file = narrowedResults(
+        PestRun::killedAt('native-1', 'T::a', Placed::at(2, $order, 9)),
+        rtrim(RecordLine::arguments(PestRun::mutated('native-1'), ['vendor/bin/pest', '--bail'])),
+        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
+    );
+    $kills = NarrowedKills::in(
+        MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a')), 0),
+        $file,
+        PestCases::project(),
+        KillControl::Alone,
+    );
+
+    expect($kills->sets())->toBe(0);
+});
+
+it('still replays a kill of a narrowed run under flaky.killControls alone, as its replay vouches for the files it left out', function () use ($mutant): void {
+    $at = PestCases::project();
+    $loaded = sprintf('%s/tests/ASpec.php', $at->root());
+    $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
+    $file = narrowedResults(
+        PestRun::killedAt('native-1', 'T::a', Placed::at(2, $order, 9)),
+        PestRun::narrowed('native-1', [$loaded]),
+        rtrim(RecordLine::arguments(PestRun::mutated('native-1'), ['vendor/bin/pest', '--bail', $loaded])),
+        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
+    );
+    $kills = NarrowedKills::in(
+        MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a')), 0),
+        $file,
+        $at,
+        KillControl::Alone,
+    );
+
+    expect($kills->sets())->toBe(1);
 });
 
 it('leaves unjudged the kills a failed assertion made, and doubts those only errors made, of each replay that does not let them stand, past one that does', function () use ($mutant): void {
@@ -427,11 +470,11 @@ it('leaves unjudged the kills a failed assertion made, and doubts those only err
         ->and($kills->sets())->toBe(3);
 });
 
-it('replays the narrowed kills of one file whose runs were to take one whole order once, to its end, and replays each kill on its own only where that does not stand', function (ReplayVerdict $whole, bool $stands): void {
+it('replays the narrowed kills of one file whose runs were to take one whole order once, up to the last killer of the longest, and replays each kill on its own only where that does not stand', function (ReplayVerdict $whole, bool $stands): void {
     $alone = $stands ? ['native-3', 'native-4'] : ['native-1', 'native-2', 'native-3', 'native-4'];
     $at = PestCases::project();
     $loaded = sprintf('%s/tests/ASpec.php', $at->root());
-    $planned = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'), TestId::of('T::b'))->value();
+    $planned = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'), TestId::of('T::b'), TestId::of('T::c'))->value();
     $other = OrderDigest::of(TestId::of('T::b'), TestId::of('T::a'))->value();
     $arguments = ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded];
     $kill = static fn(string $native, string $killer, int $position, string $whole, float $limit): array => [
@@ -439,7 +482,7 @@ it('replays the narrowed kills of one file whose runs were to take one whole ord
         PestRun::narrowed($native, [$loaded]),
         rtrim(RecordLine::arguments(PestRun::mutated($native), $arguments)),
         rtrim(RecordLine::limited(PestRun::mutated($native), $limit)),
-        rtrim(RecordLine::ordered(PestRun::mutated($native), 3, $whole)),
+        rtrim(RecordLine::ordered(PestRun::mutated($native), 4, $whole)),
     ];
     $file = sprintf('%s/results.jsonl', Scratch::directory());
     PestRun::write($file, [
@@ -472,7 +515,7 @@ it('replays the narrowed kills of one file whose runs were to take one whole ord
         return count($asked) === 1 ? [$whole] : array_fill(0, count($replays), ReplayVerdict::OtherOrder);
     });
 
-    expect($asked[0])->toBe([['src/Money.php', PestRun::mutated('native-1'), 3, '5']])
+    expect($asked[0])->toBe([['src/Money.php', PestRun::mutated('native-2'), 3, '5']])
         ->and(array_column($asked[1], 1))->toBe(array_map(PestRun::mutated(...), $alone))
         ->and(array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$unvouched->unjudged()]))->toBe($alone);
 })->with([

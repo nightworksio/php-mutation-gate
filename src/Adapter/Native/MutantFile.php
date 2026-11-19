@@ -77,6 +77,9 @@ use function var_export;
  */
 final class MutantFile
 {
+    /** The file it is declared in, which a script PHP prepends requires by its path. */
+    public const string FILE = __FILE__;
+
     /** The protocol it stands in for. */
     private const string PROTOCOL = 'file';
 
@@ -137,10 +140,28 @@ final class MutantFile
     {
         return sprintf(
             "require %s;\n\\%s::serve((string) \\getenv(%s), (string) \\getenv(%s), (string) \\getenv(%s), %s);\n",
-            var_export(__FILE__, return: true),
+            var_export(self::FILE, return: true),
             self::class,
             var_export($original, return: true),
             var_export($mutated, return: true),
+            var_export($guard, return: true),
+            var_export($saying, return: true),
+        );
+    }
+
+    /**
+     * The lines of a prepended script that serve the mutated file one PHP
+     * expression names in place of the file another names, saying so in this
+     * guard file with this line, the file this class is in loaded first.
+     */
+    public static function serving(string $original, string $mutated, string $guard, string $saying): string
+    {
+        return sprintf(
+            "require_once %s;\n\\%s::serve(%s, %s, %s, %s);\n",
+            var_export(self::FILE, return: true),
+            self::class,
+            $original,
+            $mutated,
             var_export($guard, return: true),
             var_export($saying, return: true),
         );

@@ -159,22 +159,39 @@ final readonly class Sources
     }
 
     /**
+     * What every PHP file holds on disk, in the order the files came.
+     *
+     * @return ByPath<Contents>
+     */
+    public function phpNow(): ByPath
+    {
+        $now = [];
+        $paths = [];
+
+        foreach ($this->now as $path => $contents) {
+            if ($contents instanceof Contents && $path->isPhp()) {
+                $now[$path->value()] = $contents;
+                $paths[] = $path;
+            }
+        }
+
+        return ByPath::mapping(Paths::of(...$paths), static fn(Path $path): Contents => $now[$path->value()]);
+    }
+
+    /**
      * Every PHP file on disk, read, in the order the files came.
      *
      * @return ByPath<PhpFile>
      */
     public function php(): ByPath
     {
+        $now = $this->phpNow();
         $read = [];
-        $paths = [];
 
-        foreach ($this->now as $path => $contents) {
-            if ($contents instanceof Contents && $path->isPhp()) {
-                $read[$path->value()] = PhpFile::read($contents);
-                $paths[] = $path;
-            }
+        foreach ($now as $path => $contents) {
+            $read[$path->value()] = PhpFile::read($contents);
         }
 
-        return ByPath::mapping(Paths::of(...$paths), static fn(Path $path): PhpFile => $read[$path->value()]);
+        return ByPath::mapping($now->paths(), static fn(Path $path): PhpFile => $read[$path->value()]);
     }
 }

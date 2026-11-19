@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\CoverageEntries;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
@@ -80,7 +81,7 @@ it('measures again, against the map kept before, only the moved test files of th
     $adapters = HoldingSuites::adapters($project, HoldingSuites::checkout(), $runner);
     $kept = new KeptCoverage($adapters, Flows::settings(), Flows::setup());
     $inventory = Inventory::of($adapters, Flows::settings());
-    $keys = $inventory instanceof Inventory ? KeptCoverage::keysOf($kept->entries($inventory), $map) : $inventory;
+    $keys = $inventory instanceof Inventory ? CoverageEntries::keysOver($kept->entries($inventory), $map) : $inventory;
     Scratch::write($project, '.mutation-gate/coverage/map.json.gz', CoverageMapFile::encode($map, MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false), $keys instanceof EntryKeys ? $keys : NotGiven::value()));
     $moved = ['tests/Arch/RulesTest.php' => "<?php\n\n// changed\n", 'tests/Process/HeldTest.php' => sprintf("%s// changed\n", HoldingSuites::FILES['tests/Process/HeldTest.php'])];
     Scratch::write($project, 'tests/Arch/RulesTest.php', $moved['tests/Arch/RulesTest.php']);

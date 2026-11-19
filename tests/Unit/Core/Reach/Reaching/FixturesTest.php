@@ -149,7 +149,11 @@ function fixturesSaid(Reach $reach): array
 /** How many shards the gate's own config cuts this many units into, at this cost the ledger learned of them all. */
 function fixturesShards(int $units, float $learned, float $opening): int|string
 {
-    $cut = FlowOptions::configuredCut(Configs::settings((string) file_get_contents(Checkout::at('mutation-gate.json'))))
+    $config = json_decode((string) file_get_contents(Checkout::at('mutation-gate.json')), associative: true, flags: JSON_THROW_ON_ERROR);
+    $config = is_array($config) ? $config : [];
+    $shards = $config['shards'] ?? [];
+    $config['shards'] = [...is_array($shards) ? $shards : [], 'jobLimit' => '340m'];
+    $cut = FlowOptions::configuredCut(Configs::settings(json_encode($config, JSON_THROW_ON_ERROR)))
         ->opening(Seconds::of($opening));
     $root = Package::at(Path::root());
     $each = Estimated::of(Seconds::of($learned / $units), CostBasis::Learned);
@@ -196,7 +200,7 @@ it('reaches every unit of the project for the same diff where reach.fixtures nam
         ->and(fixturesSaid($reach))->toContain(sprintf('`%s` runs code when it is loaded, so every unit of the project is reached.', $spec));
 })->with([485, 481]);
 
-it('cuts the units the replay\'s plan ran, at what the ledger learned of them, into the shards it planned, and every unit into the most there may be', function (int $pullRequest): void {
+it('cuts the units the replay\'s plan ran, at what the ledger learned of them and under the job limit it ran under, into the shards it planned, and every unit into the most there may be', function (int $pullRequest): void {
     $planned = fixturesReplay($pullRequest)->field('planned');
     $before = fixturesReplay($pullRequest)->field('before');
     $opening = $planned->field('openingSeconds')->number();

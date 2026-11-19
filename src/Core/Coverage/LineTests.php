@@ -27,7 +27,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
+use function range;
 use function sort;
+use function strval;
 
 use Traversable;
 
@@ -84,6 +86,34 @@ final readonly class LineTests
         $places = array_map(static fn(TestId $test): int => $known->places[$test->value()], $tests);
 
         return $known->with(PlacedLine::of($file, $line->number(), ...$places));
+    }
+
+    /**
+     * These lines, with each of these covered by its tests, as covering them
+     * one after another would, built at once.
+     */
+    public function coveredEach(CoveredLine ...$covered): self
+    {
+        $tests = [];
+
+        foreach ($covered as $line) {
+            foreach ($line as $test) {
+                $tests[$test] = true;
+            }
+        }
+
+        $known = $this->knowing(...array_map(
+            static fn(int|string $test): TestId => TestId::of(strval($test)),
+            array_keys($tests),
+        ));
+        $placed = [];
+
+        foreach ($covered as $line) {
+            $places = array_map(static fn(string $test): int => $known->places[$test], [...$line]);
+            $placed[] = PlacedLine::of($line->file(), $line->line(), ...$places);
+        }
+
+        return $known->with(...$placed);
     }
 
     /** These lines, knowing these tests too, each one it did not know after those it did. */
@@ -167,13 +197,16 @@ final readonly class LineTests
     public function running(Path $file, Line $first, Line $last): TestIds
     {
         $lines = $this->linesOf($file);
-        $spanned = [];
-
-        for ($line = $first->number(); $line <= $last->number(); $line++) {
-            if (array_key_exists($line, $lines)) {
-                $spanned[] = $lines[$line];
-            }
-        }
+        $from = $first->number();
+        $to = $last->number();
+        $spanned = $to - $from < count($lines)
+            ? array_intersect_key($lines, array_flip(range($from, $to)))
+            : array_filter(
+                $lines,
+                static fn(int $number): bool => $number >= $from && $number <= $to,
+                ARRAY_FILTER_USE_KEY,
+            );
+        ksort($spanned);
 
         return $this->testsOf(...$spanned);
     }

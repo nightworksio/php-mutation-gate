@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function max;
+
 /** How many processes a runner may run side by side. */
 final readonly class ProcessCount
 {
@@ -16,6 +18,12 @@ final readonly class ProcessCount
     public static function of(int $count): self
     {
         return new self($count);
+    }
+
+    /** As many processes as this count, and one where it comes to none. */
+    public static function atLeastOne(int $count): self
+    {
+        return new self(max(1, $count));
     }
 
     /** One process: what a runner runs where nothing asks for more. */

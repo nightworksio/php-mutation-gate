@@ -16,6 +16,7 @@ use function is_file;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
@@ -132,7 +133,7 @@ final readonly class PrefixReplays
 
         foreach ($unknown as $key) {
             [$command, $replay] = $started[$key];
-            $files[$key] = sprintf(self::RESULTS, $results, hash('xxh3', $key));
+            $files[$key] = sprintf(self::RESULTS, $results, hash(Digest::QUICK, $key));
 
             if (is_file($files[$key])) {
                 unlink($files[$key]);

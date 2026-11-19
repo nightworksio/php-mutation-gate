@@ -6,7 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\Saying;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
+use NightWorksIO\MutationGate\Core\Runner\Remaining;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
+use NightWorksIO\MutationGate\Tests\Support\GaugeFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedClock;
 
@@ -46,7 +48,7 @@ function saidAt(string $file): array
 it('says nothing until a minute after the wait began, then once a minute: what ended, what runs, and the longest-running command', function (): void {
     $file = sprintf('%s/said.log', Scratch::directory());
     $commands = [ProcessCommand::of('/p', 'php', 'one.php'), ProcessCommand::of('/p', 'php', 'two.php'), ProcessCommand::of('/p', 'php', 'three.php')];
-    $saying = Saying::on(ErrorOutputLog::to($file), new ScriptedClock('2026-10-26T10:00:00Z', 100, 110, 150, 160, 200, 260, 400))
+    $saying = Saying::on(ErrorOutputLog::to($file), new ScriptedClock('2026-10-26T10:00:00Z', 100, 110, 150, 160, 200, 260, 400), GaugeFake::silent())
         ->at([], $commands, 0, new Unwatched())
         ->at([1], $commands, 0, new Unwatched())
         ->at([1, 2], $commands, 1, new Unwatched());
@@ -69,7 +71,7 @@ it('says nothing until a minute after the wait began, then once a minute: what e
 it('shows a long command cut short at 140 characters', function (): void {
     $file = sprintf('%s/said.log', Scratch::directory());
     $long = ProcessCommand::of('/p', 'php', str_repeat('a', 300));
-    Saying::on(ErrorOutputLog::to($file), new ScriptedClock('2026-10-26T10:00:00Z', 0, 0, 61))
+    Saying::on(ErrorOutputLog::to($file), new ScriptedClock('2026-10-26T10:00:00Z', 0, 0, 61), GaugeFake::silent())
         ->at([], [$long], 0, new Unwatched())
         ->at([0], [$long], 0, new Unwatched())
         ->at([0], [$long], 0, new Unwatched());
@@ -77,4 +79,18 @@ it('shows a long command cut short at 140 characters', function (): void {
 
     expect($said)->toHaveCount(1)
         ->and($said[0])->toEndWith(sprintf(': php %s…', str_repeat('a', 135)));
+});
+
+it('says what the machine has left of its memory, swap and disk on each line, as the gauge reads it then', function (): void {
+    $file = sprintf('%s/said.log', Scratch::directory());
+    $command = [ProcessCommand::of('/p', 'php', 'one.php')];
+    $remaining = Remaining::unknown()->withMemory(9_150_000_000, 16_710_000_000)->withSwap(0, 3_220_000_000)->withDisk(113_880_000_000);
+    Saying::on(ErrorOutputLog::to($file), new ScriptedClock('2026-10-26T10:00:00Z', 0, 0, 61), new GaugeFake($remaining))
+        ->at([], $command, 0, new Unwatched())
+        ->at([0], $command, 0, new Unwatched())
+        ->at([0], $command, 0, new Unwatched());
+
+    expect(saidAt($file))->toBe([
+        'mutation-gate: 0 of 1 processes ended, 1 running; memory 9.2 of 16.7 GB free, swap 0.0 of 3.2 GB used, disk 113.9 GB free; the longest for 1m: php one.php',
+    ]);
 });

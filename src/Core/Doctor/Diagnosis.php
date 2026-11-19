@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor;
 
+use NightWorksIO\MutationGate\Core\Doctor\Check\ArmRunners;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Config;
 use NightWorksIO\MutationGate\Core\Doctor\Check\CoverageDriver;
 use NightWorksIO\MutationGate\Core\Doctor\Check\CoverageRun;
@@ -12,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\HotPath;
 use NightWorksIO\MutationGate\Core\Doctor\Check\IgnoresExpiring;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionImport;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionUnpatched;
+use NightWorksIO\MutationGate\Core\Doctor\Check\KeyedContextBlocks;
+use NightWorksIO\MutationGate\Core\Doctor\Check\KillControlsAlone;
 use NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Memory;
 use NightWorksIO\MutationGate\Core\Doctor\Check\MemoryLimit;
@@ -22,8 +25,10 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\Opcache;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PestMutateUntested;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PestUnpatched;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Php;
+use NightWorksIO\MutationGate\Core\Doctor\Check\PhpStanRestart;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PublicContainer;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Runners;
+use NightWorksIO\MutationGate\Core\Doctor\Check\ScheduledRun;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ScheduleRunning;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ShallowClone;
 use NightWorksIO\MutationGate\Core\Doctor\Check\SonarDrops;
@@ -77,8 +82,13 @@ final readonly class Diagnosis
             OnlineRead::in($observed),
             VerdictRequired::in($observed),
             ForkApprovalPolicy::in($observed),
+            ArmRunners::in($observed),
             PublicContainer::in($observed),
             ScheduleRunning::in($observed),
+            ScheduledRun::in($observed),
+            KeyedContextBlocks::in($observed),
+            PhpStanRestart::in($observed),
+            KillControlsAlone::in($observed),
             ShallowClone::in($observed),
             WarmBoot::in($observed),
             WorkflowPin::in($observed),

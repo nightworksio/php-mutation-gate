@@ -59,7 +59,7 @@ final readonly class DecidingManifests
         return ! $before instanceof Contents
             || ! $now instanceof Contents
             || $this->deciding->decide($before, $now)
-            || ($this->deciding->narrowsByLoads() && ! $this->map->loaded()->covers($this->map->tests()));
+            || ($this->deciding->narrowsByLoads() && ! $this->map->executed()->loaded()->covers($this->map->tests()));
     }
 
     /** Whether a file is the manifest of the package that holds it. */

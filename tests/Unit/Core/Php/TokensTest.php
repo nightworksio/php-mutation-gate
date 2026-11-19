@@ -121,10 +121,21 @@ it('counts its tokens, and says whether a bracket encloses one', function () use
         ->and($read->isEnclosed(4))->toBeFalse();
 });
 
-it('gives the tokens from one index up to another, by their index', function () use ($tokens): void {
-    $texts = array_map(static fn(PhpToken $token): string => $token->text, $tokens('<?php f(a, b);')->between(2, 5));
+it('gives the index of each token from one index up to another, and none past the last token', function () use ($tokens): void {
+    $read = $tokens('<?php f(a, b);');
 
-    expect($texts)->toBe([2 => 'a', 3 => ',', 4 => 'b']);
+    expect($read->indices(2, 5))->toBe([2, 3, 4])
+        ->and(array_map($read->text(...), $read->indices(2, 5)))->toBe(['a', ',', 'b'])
+        ->and($read->indices(5, 99))->toBe([5, 6])
+        ->and($read->indices(5, 5))->toBe([])
+        ->and($read->indices(9, 99))->toBe([]);
+});
+
+it('keeps where each token begins and its line, as the tokenizer gave them', function () use ($tokens): void {
+    $read = $tokens("<?php\nf(\n    a);");
+
+    expect(array_map($read->offset(...), $read->indices(0, $read->count())))->toBe([6, 7, 13, 14, 15])
+        ->and(array_map($read->line(...), $read->indices(0, $read->count())))->toBe([2, 2, 3, 3, 3]);
 });
 
 it('reads a file\'s significant tokens, each with the byte it begins at', function (): void {
@@ -154,9 +165,19 @@ it('finds the name a function keyword declares, a semi-reserved word among them,
         ->toBe(['', 'f', 'g', 'and', 'for', '', '', '']);
 });
 
+it('places each name by the word it ends in, in lower case, in order', function () use ($tokens): void {
+    $file = $tokens("<?php\nuse App\\Money as M;\necho \\Other\\MONEY::X + money(M::Y);\n");
+    $texts = static fn(int ...$places): array => array_map($file->text(...), $places);
+
+    expect($texts(...$file->words()->placesOf('money')))->toBe(['App\\Money', '\\Other\\MONEY', 'money'])
+        ->and($texts(...$file->words()->placesOf('m')))->toBe(['M', 'M'])
+        ->and($file->words()->placesOf('Money'))->toBe([])
+        ->and($file->words()->all())->toContain('Money', 'money', 'MONEY', 'M', 'm');
+});
+
 it('says whether a name the file spells ends in a word, as written or in lower case, whatever its qualification', function () use ($tokens): void {
     $file = $tokens("<?php\nuse App\\Money as M;\necho \\Other\\Rate::X + constant('Y');\n");
 
-    expect(array_map($file->namesWord(...), ['money', 'Money', 'MONEY', 'm', 'M', 'rate', 'X', 'x', 'constant', 'app', 'y', 'echo', 'use']))
+    expect(array_map($file->words()->has(...), ['money', 'Money', 'MONEY', 'm', 'M', 'rate', 'X', 'x', 'constant', 'app', 'y', 'echo', 'use']))
         ->toBe([true, true, false, true, true, true, true, true, true, false, false, false, false]);
 });

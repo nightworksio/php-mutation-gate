@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\OwnRun;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
@@ -17,7 +18,7 @@ function ownRunOfThree(): OwnRun
 it('reaches the end of the whole order it was to take, keyed by the files it loaded, through whatever it learns after', function (): void {
     $order = hash('sha256', 'order');
     $files = Paths::of(Path::of('tests/ASpec.php'));
-    $run = ownRunOfThree()->orderedAs(3, $order)->startedWith(['pest'])->unfiltered();
+    $run = ownRunOfThree()->orderedAs(3, $order)->startedWith(['pest'])->marked(RecordEvent::Unfiltered);
 
     expect($run->planned($files))->toEqual(Prefix::keyedAt(3, Prefix::keyOf($files, $order)))
         ->and($run->arguments())->toBe(['pest'])

@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -27,10 +29,10 @@ it('lays bounds on the start-up it measured, keeping it for the tail, and on non
     $measured = Pool::of(ProcessCount::of(4), Workers::Mutants)->startingIn(Seconds::of(2.5));
     $tail = $measured->tail();
 
-    expect($measured->bounding($bounds)->startUp())->toEqual(Seconds::of(2.5))
+    expect($measured->bounding($bounds)->startUp()->measured())->toEqual(Seconds::of(2.5))
         ->and([$tail->processes()->count(), $tail->workers()])->toBe([4, Workers::Fresh])
-        ->and($tail->bounding($bounds)->startUp())->toEqual(Seconds::of(2.5))
-        ->and(Pool::single()->bounding($bounds)->startUp())->toBeInstanceOf(Unmeasured::class);
+        ->and($tail->bounding($bounds)->startUp()->measured())->toEqual(Seconds::of(2.5))
+        ->and(Pool::single()->bounding($bounds)->startUp()->measured())->toBeInstanceOf(Unmeasured::class);
 });
 
 it('runs the tail as runner.workers says: forked under fork, and fresh under mutants and fresh', function (Workers $workers, Workers $tail): void {
@@ -52,4 +54,33 @@ it('lays a learned multiple on bounds that learn one, keeping it in the tail, an
         ->and($pool->bounding($learning->multipliedBy(Multiple::of(4.0)))->multiple())->toEqual(Multiple::of(4.0))
         ->and(Pool::single()->bounding($learning)->multiple())->toEqual(Multiple::of(3.0))
         ->and($pool->learning(NotGiven::value()))->toEqual($pool);
+});
+
+it('boots as many workers as run at once, or no more than its runs where it is sized by its work', function (): void {
+    $pool = Pool::of(ProcessCount::of(4), Workers::Fork);
+
+    $runs = static fn(int $count): ProcessCount => ProcessCount::of(max(1, $count));
+
+    expect([$pool->slotsFor($runs(2))->count(), $pool->slotsFor($runs(9))->count()])->toBe([4, 4])
+        ->and([$pool->sizedByWork()->slotsFor($runs(2))->count(), $pool->sizedByWork()->slotsFor($runs(9))->count()])
+        ->toBe([2, 4])
+        ->and($pool->sizedByWork()->tail()->slotsFor($runs(1))->count())->toBe(1)
+        ->and(WorkerSlots::of(ProcessCount::of(4), 'r')->atMost(ProcessCount::of(2)))->toEqual(WorkerSlots::of(ProcessCount::of(2), 'r'));
+});
+
+it('shares its places between a run and one beside it, each at least one, the places beside numbered after those taken', function (): void {
+    $pool = Pool::of(ProcessCount::of(8), Workers::Fork);
+    $taken = $pool->takingOnly(ProcessCount::of(3));
+    $beside = $pool->besideTaking(ProcessCount::of(3));
+    $tokens = static fn(Pool $pool): array => array_map(
+        static fn(WorkerSlot $slot): string => (string) iterator_to_array($slot->variables(), preserve_keys: true)['TEST_TOKEN'],
+        [...WorkerSlots::inPool($pool, 'run')],
+    );
+
+    expect([$taken->processes()->count(), $beside->processes()->count()])->toBe([3, 5])
+        ->and($tokens($taken))->toBe(['1', '2', '3'])
+        ->and($tokens($beside))->toBe(['4', '5', '6', '7', '8'])
+        ->and($pool->besideTaking(ProcessCount::of(8))->processes()->count())->toBe(1)
+        ->and($tokens($pool->besideTaking(ProcessCount::of(8))))->toBe(['8'])
+        ->and(WorkerSlots::inPool($beside->tail(), 'run'))->toEqual(WorkerSlots::inPool($beside, 'run'));
 });

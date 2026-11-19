@@ -42,6 +42,12 @@ More in [why a verdict can be trusted](trust.md).
 | Once a survivor of a floor of 100 makes a pull request's verdict certain to fail, after static analysis has not cleared it, its shard fails: by default after judging every unit, or at once under `run.failFast: stop`, or cancelling the other shards under `cancel`; a run that judged on says what stopping would have saved | [0103](../decisions/0103-a-doomed-shard-fails-fast.md) |
 | A fork's pull request reads the default branch's proofs, read-only | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | Merge queues: a `merge_group` run judges what will land, trusting no pull request's own proofs | [0022](../decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
+| No shortcut stands on a result its tests or its evidence no longer hold | [0108](../decisions/0108-no-shortcut-stands-on-a-result-its-tests-or-its-evidence-no-longer-hold.md) |
+| A kill judged against its own unmutated stream needs no control run | [0117](../decisions/0117-a-kill-judged-against-its-own-unmutated-stream-needs-no-control.md) |
+| A shard lost to its machine says so, and leaves its progress, the mutant it judged and the largest processes, as an artifact while it runs (`shards.progress`) | [0121](../decisions/0121-a-shard-lost-to-its-machine-says-so.md), [0157](../decisions/0157-a-ci-shard-leaves-its-progress-as-it-runs.md) |
+| Every process the gate starts held in a session of its own and, on Linux, a cgroup capped in memory and processes (`processes.group`, `processes.contain`, `processes.memory`, `processes.pids`) | [0158](../decisions/0158-the-gate-holds-every-process-it-starts-in-a-session-and-a-cgroup.md) |
+| A mutant reaches the PHP processes its tests start (`pest.childProcesses`) | [0150](../decisions/0150-a-mutant-reaches-the-php-processes-its-tests-start.md) |
+| The gate's own pull request is judged by its base's build | [0140](../decisions/0140-the-gate-s-own-pull-request-is-judged-by-its-base-s-build.md) |
 
 ## Speed
 
@@ -66,6 +72,13 @@ More in [speed](speed.md).
 | Mutators that never let a mutant through are pruned on unchanged code, and audited weekly | [0025](../decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | Mutants that leave their file alike run once and share one verdict, under Pest and the PHPUnit, PhpSpec, Codeception and Testo runners | [0025](../decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | A benchmark against plain Pest and Infection on four open-source projects: cold, warm and per pull request, losses included, run by `bench.yml` and `composer bench` | [0017](../decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| Outbreak's native core: it vouches for, slices and converts coverage maps, and `outbreak serve` holds the map, the ledgers and the coverage in memory | [0118](../decisions/0118-outbreak-s-core-vouches-for-and-slices-coverage-maps.md), [0119](../decisions/0119-outbreak-s-core-converts-a-run-s-php-report-into-the-gate-s-map.md), [0133](../decisions/0133-outbreak-serve-holds-the-map-the-ledgers-and-the-coverage-in-memory.md), [0149](../decisions/0149-outbreak-serve-keeps-what-the-local-loop-reads-and-a-shard-reads-its-own-map.md) |
+| Split streams: one run of the suite forks each mutant's tests from it, records each test's lines, holds a child to its parent's steps, and starts without waiting for a fresh map | [0135](../decisions/0135-a-full-split-stream-run-starts-without-waiting-for-a-fresh-map.md), [0136](../decisions/0136-a-first-pass-stream-may-run-only-the-tests-that-killed-before.md), [0145](../decisions/0145-a-stream-may-fork-each-test-from-an-application-booted-once.md), [0147](../decisions/0147-a-stream-records-its-own-lines-and-holds-a-child-to-its-parent-s-steps.md) |
+| A shard is cut to fit its job, stops before its target (`shards.target`, `shards.margin`), and pulls the work left instead of owning a fixed part | [0114](../decisions/0114-a-shard-is-cut-to-fit-its-job-and-stops-before-it.md), [0134](../decisions/0134-shards-pull-the-work-left-instead-of-owning-a-fixed-part.md), [0196](../decisions/0196-a-job-stops-at-its-target-less-what-it-measured.md), [0197](../decisions/0197-a-job-takes-what-fits-and-halts-what-runs-past.md) |
+| A mutant that compiles to its original, or is the same program as another, is never run or judged once | [0130](../decisions/0130-a-mutant-that-compiles-to-its-original-is-equivalent-and-is-never-run.md), [0137](../decisions/0137-a-mutant-that-is-the-same-program-as-another-is-judged-once.md) |
+| A static graph places what the coverage map cannot, and the map stays the check | [0132](../decisions/0132-a-static-graph-places-what-the-coverage-map-cannot-and-the-map-stays-the-check.md) |
+| Proofs shared across scopes by their keys, and a push spends only what its pull request did not | [0122](../decisions/0122-a-push-spends-only-what-its-pull-request-did-not.md), [0131](../decisions/0131-proofs-are-shared-across-scopes-by-their-keys.md), [0139](../decisions/0139-a-merged-pull-request-s-pass-reaches-its-push-as-an-artifact-of-its-run.md) |
+| The gate's hot paths are counted by Tally in every pull request | [0154](../decisions/0154-the-gate-s-hot-paths-are-counted-by-tally.md) |
 
 ## Runners and mutators
 
@@ -147,3 +160,4 @@ More in [local use](../using/local.md).
 | Survivors inline in VS Code and PhpStorm | [0015](../decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | `stub`: a failing Pest or PHPUnit test or PhpSpec example to fill in, for a survivor | [0015](../decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | `explain`: a mutant's diff, tests, their outcomes and its history, without running it | [0014](../decisions/0014-every-test-is-judged-by-what-it-kills.md) |
+| A local loop that takes a share of the machine, looks only at what changed, and runs quick advisory watch rounds keyed apart (`local.quick`) | [0120](../decisions/0120-the-local-loop-takes-a-share-of-the-machine-and-looks-only-at-what-changed.md), [0146](../decisions/0146-a-watch-round-is-quick-advisory-and-keyed-apart.md) |

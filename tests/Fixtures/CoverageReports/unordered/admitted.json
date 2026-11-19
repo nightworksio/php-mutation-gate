@@ -1,0 +1,1 @@
+{"format":1,"tests":[{"id":"T\\A::a with data set \"x\\\"/é\"","seconds":1.5e-7},{"id":"T\\D::d\u2028\u0001"},{"id":"T\\B::b","seconds":2.0},{"id":"T\\C::c","seconds":0.25},{"id":"T\\Big::b","seconds":1.0e+25}],"files":{"src/Mid/Inner.php":{"3":[0,1],"4":[2]},"src/Zeta.php":{"20":[3],"10":[3,0,1],"12":[]},"src/Beta.php":{"7":[]},"src/Alpha.php":{"5":[]}}}

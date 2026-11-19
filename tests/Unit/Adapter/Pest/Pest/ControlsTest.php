@@ -7,30 +7,40 @@ use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Controls;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\Control\Control;
+use NightWorksIO\MutationGate\Core\Control\ControlRun;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls as UnmutatedControls;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\OwnScript;
+use NightWorksIO\MutationGate\Core\Runner\IniScan;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\RunnerPace;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -40,7 +50,7 @@ it('leaves out a kill whose named killer fails as well with the file unmutated, 
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: true);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
     $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
 
     expect(PestCases::statuses($result))->toBe([MutantStatus::FailsUnmutated])
@@ -53,7 +63,7 @@ it('leaves out a kill no test is named for, confirmed again so, whose control fa
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: true, named: false);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect(PestCases::statuses($result))->toBe([MutantStatus::FailsUnmutated])
         ->and(PestCases::controls($shell))->toHaveCount(1);
@@ -63,7 +73,7 @@ it('counts a kill confirmed again whose control passes with the file unmutated, 
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: false, named: $named);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect(PestCases::statuses($result))->toBe([MutantStatus::Killed]);
 })->with([
@@ -75,7 +85,7 @@ it('runs each control with the file the mutant changes served unmutated, the nar
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: true);
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
     [$baseline, $confirmation] = PestCases::controls($shell);
     $printed = Printed::of(Contents::of((string) file_get_contents(sprintf('%s/src/Money.php', $at->root()))), Path::of('src/Money.php'));
     $unmutated = sprintf('%s/.mutation-gate/pest/originals/%s.php', $at->root(), hash('xxh3', $printed instanceof Contents ? $printed->text() : ''));
@@ -83,9 +93,11 @@ it('runs each control with the file the mutant changes served unmutated, the nar
     $judging = Invocation::of($at);
     $log = sprintf('%s/.mutation-gate/pest/alone/junit-0.xml', $at->root());
 
-    expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(PestCases::spec($at))), WholeSuite::tests(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with($served))
+    $grace = Seconds::of(RunnerPace::DEADLINE_GRACE);
+
+    expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(PestCases::spec($at))), WholeSuite::tests(), Withheld::standard(), sprintf('--log-junit=%s', $log))->haltedPast($grace)->with([...$served, ...PestCases::driversOffBeside($at)]))
         ->and($confirmation)->toEqual(
-            $judging->judging(Paths::none(), Selection::of(TestIds::of(TestId::of(PestCases::RUN_ADDS)))->filter(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with($served),
+            $judging->judging(Paths::none(), Selection::of(TestIds::of(TestId::of(PestCases::RUN_ADDS)))->filter(), Withheld::standard(), sprintf('--log-junit=%s', $log))->haltedPast($grace)->with([...$served, ...PestCases::driversOffBeside($at)]),
         )
         ->and(file_get_contents($unmutated))->toBe($printed instanceof Contents ? $printed->text() : null);
 });
@@ -94,7 +106,7 @@ it('runs a held unit\'s narrowed kill\'s control by the group that holds it, as 
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: false);
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php')));
 
     expect(PestCases::controls($shell)[0]->arguments())->toContain('holds:src/Money.php');
@@ -104,7 +116,7 @@ it('vouches for a narrowed kill whose order is known by replaying its run unmuta
     $at = PestCases::project();
     $shell = PestCases::replayed($at, $sameOrder);
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
     $replays = array_filter(
         $shell->commands(),
         static fn(Command $command): bool => ($command->environment()[GateVariable::StopAfter->value] ?? false) !== false,
@@ -126,7 +138,7 @@ it('runs each run of the tail through the client of a warm worker where runner.w
         default => PestCases::replayed($at, sameOrder: true),
     };
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
         ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), $workers)));
     $client = OwnScript::PestClient->started()[0];
     $tail = array_filter($shell->commands(), static fn(Command $command): bool => ! in_array('--mutate', $command->arguments(), strict: true));
@@ -142,3 +154,52 @@ it('runs each run of the tail through the client of a warm worker where runner.w
     'confirmation\'s controls, forked' => ['confirmation', Workers::Fork, true],
     'replays, forked' => ['replays', Workers::Fork, true],
 ]);
+
+it('runs each control with its file served unmutated through Pest\'s override', function (): void {
+    $at = PestCases::project();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
+    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
+    $runs = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->controls(PestCases::money(), UnmutatedControls::of($control));
+
+    expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::ofProcess(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)), TestIds::none()));
+});
+
+it('starts each control, and each control started beside the survivors\' runs again, with pcov off as a mutation run sets it, and with it where the run keeps it', function (bool $pcovOff): void {
+    $at = PestCases::project();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
+    $pest = new Pest($at, $shell, PestCases::drivenBy(pcovOff: $pcovOff, xdebugOff: false), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
+
+    $pest->controls(PestCases::money(), UnmutatedControls::of($control));
+    $pest->controlsStarted(PestCases::money(), UnmutatedControls::of($control))->taken();
+    $scanned = array_map(
+        static fn(Command $command): bool => str_contains((string) ($command->environment()[IniScan::VARIABLE] ?? ''), sprintf('%s/pcov-off', $at->workspace())),
+        $shell->commands(),
+    );
+
+    expect($scanned)->toBe([$pcovOff, $pcovOff]);
+})->with(['pcov off' => [true], 'pcov kept' => [false]]);
+
+it('runs each control through the client of a warm worker where runner.workers forks the tail under pest.patch', function (Workers $workers, bool $forked): void {
+    $at = PestCases::project();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
+    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
+        ->controls(PestCases::money()->across(Pool::of(ProcessCount::single(), $workers)), UnmutatedControls::of($control));
+
+    expect(in_array(OwnScript::PestClient->started()[0], $shell->commands()[0]->arguments(), strict: true))->toBe($forked);
+})->with([
+    'fork' => [Workers::Fork, true],
+    'mutants' => [Workers::Mutants, false],
+]);
+
+it('starts the unmutated controls of a run beside its survivors\' runs again, and reads what they found once taken', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(1.5)));
+    $pest = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
+
+    $runs = $pest->controlsStarted(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), UnmutatedControls::of($control))->taken();
+
+    expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::ofProcess(Ran::finished(succeeded: true, output: '')->took(Seconds::of(1.5)), TestIds::none()))
+        ->and($shell->handled())->toBe([[true, false]]);
+});

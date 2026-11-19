@@ -28,6 +28,9 @@ same for every mutant and only the switch differs.
    The loop parses each file once and hands each attempt at a mutant a copy
    of that parse, and the file is printed once for every mutant's diff, so
    making a file's mutants afresh costs one parse rather than two a mutant.
+   An attempt is made only with a mutator some node of the file takes, as
+   one walk of that parse asks every mutator at once: an attempt with any
+   other walks the whole file and makes no mutant.
    It is in key item 3 (ADR-0007).
 2. **Each mutant is a switch on its original's line.** An expression becomes
    a ternary, `(switch(file, id) ? (mutated) : (original))`, a statement of a

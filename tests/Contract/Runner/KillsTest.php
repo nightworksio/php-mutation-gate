@@ -157,7 +157,7 @@ it('names the test that killed a mutant, as the coverage map names it, with Pest
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('gives a kill how far its run went, keyed by the test files it loaded, with patched Pest', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $library = Library::pest(Patching::on(Library::canary()));
     $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds'))));
@@ -175,7 +175,7 @@ it('gives a kill how far its run went, keyed by the test files it loaded, with p
 // whether a signal ended it, whether PHP recorded a fatal error in it, which
 // `exit` is not, and the end of what it printed.
 it('names the test a mutant ended the process in as its killer, though it ended with 0, with patched Pest', function (): void {
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $library = Library::pest(Patching::on(Library::canary()));
     [$mutants, $evidence] = RunnerContracts::crashed(Library::DIRECTORY, ['src/Crash.php' => 'src/QuietCrash.php', 'tests/CrashSpec.php' => 'tests/CrashSpec.php'], static fn(): MutationResult|CannotJudge => $library->runner()->mutate(RunnerContracts::crashRequest($library)));
     $killers = $mutants === [] ? [] : array_map(static fn(TestId $test): string => $test->value(), [...$mutants[0]->killers()]);
@@ -258,7 +258,7 @@ it('stops a mutant\'s run where no test of it starts or ends for its silence lim
     $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
-        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
         ->each->toBeGreaterThan(11.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
         ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
@@ -291,7 +291,7 @@ it('stops a mutant\'s run where no example of it starts or ends for its silence 
     $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
-        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
         ->each->toBeGreaterThan(11.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
         ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
@@ -321,7 +321,7 @@ it('stops a mutant\'s run where no test of it starts or ends for its silence lim
     $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
-        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
         ->each->toBeGreaterThan(11.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
         ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)

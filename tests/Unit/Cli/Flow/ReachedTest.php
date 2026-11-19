@@ -12,9 +12,12 @@ use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\ChangeBase;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\MapJudges;
+use NightWorksIO\MutationGate\Cli\Flow\ProjectLayout;
 use NightWorksIO\MutationGate\Cli\Flow\Reached;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
+use NightWorksIO\MutationGate\Config\OutbreakGraph;
 use NightWorksIO\MutationGate\Config\Reach;
+use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -22,26 +25,34 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Tree\Tree as GateTree;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\AnsweringGraph;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
@@ -64,7 +75,8 @@ $makeHeld = static fn(): Unit => Unit::held(Path::of('src/Held.php'), Group::nam
  * What these changes since `base` reach, where the checkout has these files
  * now, on disk too, and had those at the base, `.github/workflows/gate.yml` runs the gate,
  * `config/**` decides everything, a move of `pestphp/*` in a lock decides
- * how the gate runs, and the fake runner's `phpunit.xml` defines it.
+ * how the gate runs, and the fake runner's `phpunit.xml` defines it; each
+ * setting among the ports is set too.
  *
  * @param array<string, string> $now
  * @param array<string, string> $before
@@ -108,7 +120,11 @@ function reachedReading(
         ChangeBase::since(Revision::ref('base')),
         Flows::trees(),
         $adapters,
-        Flows::settings(Reach::everything('config/**'), Reach::lockPackages('pestphp/*')),
+        Flows::settings(
+            Reach::everything('config/**'),
+            Reach::lockPackages('pestphp/*'),
+            ...array_values(array_filter($ports, static fn(object $port): bool => $port instanceof Setting)),
+        ),
         reachedSuite($checkout, $adapters),
         MapJudges::of($adapters->runner, $map),
         $config($project),
@@ -132,8 +148,31 @@ it('lays out as a fixture project each directory reach.fixtures names, and none 
     $suite = reachedSuite($checkout, $adapters);
     $change = Change::modified(Path::of('tests/Fixtures/app/src/Money.php'), Lines::of(Line::of(1)));
 
-    expect(Reached::layout($adapters, Flows::settings(Reach::fixtures('tests/Fixtures/*')), $suite)->isInFixtures($change))->toBeTrue()
-        ->and(Reached::layout($adapters, Flows::settings(), $suite)->isInFixtures($change))->toBeFalse();
+    expect(ProjectLayout::of($adapters, Flows::settings(Reach::fixtures('tests/Fixtures/*')), $suite)->isInFixtures($change))->toBeTrue()
+        ->and(ProjectLayout::of($adapters, Flows::settings(), $suite)->isInFixtures($change))->toBeFalse();
+});
+
+it('lays out as a module each directory with a composer.json of its own inside the package, and the package itself as none', function (): void {
+    $files = [
+        ...Flows::FILES,
+        'app-modules/billing/composer.json' => "{}\n",
+        'app-modules/billing/tests/InvoiceTest.php' => "<?php\n",
+        'app-modules/billing/src/Invoice.php' => "<?php\n",
+        'packages/sdk/composer.json' => "{}\n",
+        'packages/sdk/src/Client.php' => "<?php\n",
+    ];
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [Revision::workingTree()->name() => $files, 'base' => $files]);
+    $trees = new TreeSourceFake(Trees::of(
+        ...Flows::trees(),
+        ...Trees::of(GateTree::at(Path::of('packages/sdk/src'), Floor::of(50), Package::at(Path::of('packages/sdk')))),
+    ));
+    $adapters = Flows::adapters(Flows::project(), [], $checkout, $trees);
+    $layout = ProjectLayout::of($adapters, Flows::settings(), reachedSuite($checkout, $adapters));
+
+    expect(array_map(static fn(Path $module): string => $module->value(), [...$layout->modulesHolding(Path::of('app-modules/billing/tests/InvoiceTest.php'))]))
+        ->toBe(['app-modules/billing'])
+        ->and(count($layout->modulesHolding(Path::of('tests/MoneyTest.php'))))->toBe(0)
+        ->and(count($layout->modulesHolding(Path::of('packages/sdk/tests/ClientTest.php'))))->toBe(0);
 });
 
 it('reaches every unit of a full run, for its reason', function () use ($makeMoney, $makeHeld): void {
@@ -584,4 +623,66 @@ it('reads its change from the tree a gone last run\'s merge makes again, where t
 })->with([
     'the tree it held' => [true, true],
     'another tree' => [false, false],
+]);
+
+it('reaches a unit a judged run left open by what changed since the last pass, and one it did not leave open only by what changed since the run', function () use ($makeMoney, $makeHeld): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+    $sinceJudged = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
+    $sincePassed = Changes::of(
+        Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))),
+        Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(2))),
+    );
+    $checkout = new ChangeSourceFake(Revision::ref('main-judged'), $sinceJudged, [
+        Revision::workingTree()->name() => Flows::FILES,
+        'main-judged' => Flows::FILES,
+        'main-passed' => Flows::FILES,
+    ])->changedFrom(Revision::ref('main-passed'), $sincePassed);
+
+    $open = reachedFrom($checkout, ChangeBase::since(Revision::ref('main-judged'))->withOpenSince(Revision::ref('main-passed'), Paths::of(Path::of('src/Held.php'))));
+    $closed = reachedFrom($checkout, ChangeBase::since(Revision::ref('main-judged'))->withOpenSince(Revision::ref('main-passed'), Paths::none()));
+
+    expect($open->reach()->reaches($money))->toBeTrue()
+        ->and($open->reach()->reaches($held))->toBeTrue()
+        ->and($closed->reach()->reaches($held))->toBeFalse()
+        ->and($open->changed())->toEqual($sinceJudged);
+});
+
+it('widens a changed source file to the files the map shows the test files the static graph joins to it running, under outbreak.graph widen', function (bool $widens) use ($makeMoney): void {
+    $graph = new AnsweringGraph(GraphAnswer::of(['src/Limit.php' => Paths::of(Path::of('tests/MoneySpec.php'))], [], [], Paths::none(), []));
+    $changes = Changes::of(Change::added(Path::of('src/Limit.php'), Lines::of(Line::of(1))));
+
+    $now = ['src/Limit.php' => "<?php\n\nfinal class Limit\n{\n}\n"];
+    $reached = $widens ? reachedSince($changes, $now, [], $graph, OutbreakGraph::widening()) : reachedSince($changes, $now, [], $graph);
+
+    expect($reached->reach()->reaches($makeMoney()))->toBe($widens);
+})->with([
+    'widening' => [true],
+    'local, the default' => [false],
+]);
+
+it('hands the static graph the text a deleted file had at the base, as a source', function (): void {
+    $graph = new AnsweringGraph(GraphAnswer::of([], [], [], Paths::none(), []));
+    $gone = "<?php\n\nfinal class Gone\n{\n}\n";
+
+    reachedSince(Changes::of(Change::deleted(Path::of('src/Gone.php'))), [], ['src/Gone.php' => $gone], $graph, OutbreakGraph::widening());
+    $texts = array_map(static fn(Contents $text): string => $text->text(), $graph->questions[0]->texts());
+
+    expect($graph->questions)->toHaveCount(1)
+        ->and($texts)->toBe(['src/Gone.php' => $gone])
+        ->and($graph->questions[0]->sources()->has(Path::of('src/Gone.php')))->toBeTrue();
+});
+
+it('asks the static graph about a run\'s changes where outbreak.graph narrows or widens, and nothing where it acts in quick rounds alone or is off', function (OutbreakGraph $use, int $asked): void {
+    $graph = new AnsweringGraph(GraphAnswer::of([], [], [], Paths::none(), []));
+    $now = ['src/Limit.php' => "<?php\n\nfinal class Limit\n{\n}\n"];
+
+    reachedSince(Changes::of(Change::added(Path::of('src/Limit.php'), Lines::of(Line::of(1)))), $now, [], $graph, $use);
+
+    expect($graph->questions)->toHaveCount($asked);
+})->with([
+    'narrowing' => [fn(): OutbreakGraph => OutbreakGraph::narrowing(), 1],
+    'widening' => [fn(): OutbreakGraph => OutbreakGraph::widening(), 1],
+    'in quick rounds' => [fn(): OutbreakGraph => OutbreakGraph::inQuickRounds(), 0],
+    'off' => [fn(): OutbreakGraph => OutbreakGraph::off(), 0],
 ]);

@@ -1,0 +1,71 @@
+# The gate's PHAR (ADR-0022), built as a release builds it, and its smoke
+# suite run against it: its version, its config schema, an Infection
+# project's verdict and its refusal of the Pest runner, on the PHP it is
+# built with and on the lowest the package supports (ADR-0042). Called by
+# ci.yml where a change reaches the program, and nightly.
+name: phar
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  PHP_VERSION: '8.5'
+  LOWEST_PHP: '8.4'
+
+jobs:
+  phar:
+    name: phar
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    env:
+      SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      # An install takes seconds, so one that stalls fails here instead of
+      # holding the job to its limit, and a stalled cache download gives way to
+      # installing from the network.
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        timeout-minutes: 5
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        timeout-minutes: 5
+        with:
+          working-directory: tests/Fixtures/Archive
+      - id: build
+        run: composer phar
+      - id: smoke
+        run: |
+          mkdir -p evidence/raw
+          vendor/bin/pest --group=phar --log-junit=evidence/raw/phar.xml
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          php-version: ${{ env.LOWEST_PHP }}
+          coverage: pcov
+      - id: smoke-lowest
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: vendor/bin/pest --group=phar --log-junit=evidence/raw/phar-lowest.xml
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py phar/phar
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-phar-phar
+          path: evidence/phar-phar*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py phar/phar

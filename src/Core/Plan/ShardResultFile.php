@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
+use NightWorksIO\MutationGate\Core\Proof\JobTimesRecord;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
@@ -51,7 +52,8 @@ use function sprintf;
  * survivors came to, where they came to anything (see SurvivorChecksRecord),
  * and `doomed` the survivor it stopped on once its run could not pass, where
  * it did (see DoomedRecord). `measured.steps` holds the steps the shard's
- * time went to, where it timed any (see StepsRecord). Each mutant's record
+ * time went to, where it timed any (see StepsRecord), and its job's own
+ * time around the gate, where it measured any (see JobTimesRecord). Each mutant's record
  * holds its kill's evidence beside it, where the runner gave any (see
  * EvidenceRecord). A result that cannot be read is refused, and the verdict
  * reads that shard as having left no result.
@@ -108,6 +110,7 @@ final readonly class ShardResultFile
                     [StepsRecord::SECTION => StepsRecord::of($result->measured()->steps())],
                     static fn(array $steps): bool => $steps !== [],
                 ),
+                ...JobTimesRecord::of($result->measured()->job()),
             ],
             ...$outcome instanceof CannotJudge ? [self::CANNOT_JUDGE => $outcome->why()] : [
                 'mutants' => array_map(
@@ -118,6 +121,7 @@ final readonly class ShardResultFile
                     [...$outcome->mutants()],
                 ),
                 'skipped' => $outcome->skipped(),
+                ...MadeRecord::of($outcome->made()),
             ],
             ...array_filter([
                 self::FLAKY => array_map(static fn(MutantId $id): string => $id->value(), [...$result->flaky()]),
@@ -241,16 +245,17 @@ final readonly class ShardResultFile
         }
 
         $mutants = [];
-        $evidence = Evidences::none();
+        $evidence = [];
 
         foreach ($file->field('mutants')->items() as $record) {
             $mutant = MutantRecord::readFull($record);
             $mutants[] = $mutant;
-            $evidence = $evidence->with($mutant->id(), EvidenceRecord::read($record));
+            $evidence[] = [$mutant->id(), EvidenceRecord::read($record)];
         }
 
         return MutationResult::of(Mutants::of(...$mutants), $file->field('skipped')->integer())
-            ->withEvidence($evidence);
+            ->withEvidence(Evidences::collected($evidence))
+            ->withMade(MadeRecord::read($file->field(MadeRecord::SECTION)));
     }
 
     /** @throws NotInShape */
@@ -276,6 +281,7 @@ final readonly class ShardResultFile
             $measured->field('runner')->text(),
             $at instanceof CannotJudge ? throw NotInShape::at($measured->field('at')->at(), 'an instant') : $at,
         )->withSteps(StepsRecord::read($measured->field(StepsRecord::SECTION)))
+            ->timingTheJob(JobTimesRecord::read($measured))
             ->measuredBy(
                 $measured->field(self::GATE)->isPresent()
                     ? GateRelease::spelt($measured->field(self::GATE)->text())

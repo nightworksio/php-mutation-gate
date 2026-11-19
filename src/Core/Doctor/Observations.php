@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -24,8 +25,7 @@ final readonly class Observations
     private function __construct(
         private RunnerPhp|CannotJudge|NotGiven $php,
         private InstalledRunners|NotGiven $runners,
-        private Settings|Invalid|CannotJudge|NotGiven $settings,
-        private Trees|Invalid|CannotJudge|NotGiven $trees,
+        private ProjectConfig $config,
         private Markers|NotGiven $markers,
         private ProjectFiles $files,
         private KeptLedgers|NotGiven $ledgers,
@@ -38,7 +38,16 @@ final readonly class Observations
     {
         $none = NotGiven::value();
 
-        return new self($none, $none, $none, $none, $none, ProjectFiles::none(), $none, Asked::nothing(), $none);
+        return new self(
+            $none,
+            $none,
+            ProjectConfig::none(),
+            $none,
+            ProjectFiles::none(),
+            $none,
+            Asked::nothing(),
+            $none,
+        );
     }
 
     /** These, with the PHP the runner runs its tests on, or why it could not be read. */
@@ -47,8 +56,7 @@ final readonly class Observations
         return new self(
             $php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $this->ledgers,
@@ -62,8 +70,7 @@ final readonly class Observations
         return new self(
             $this->php,
             $runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $this->ledgers,
@@ -78,8 +85,7 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $settings,
-            $this->trees,
+            $this->config->withSettings($settings),
             $this->markers,
             $this->files,
             $this->ledgers,
@@ -94,8 +100,7 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $trees,
+            $this->config->withTrees($trees),
             $this->markers,
             $this->files,
             $this->ledgers,
@@ -110,8 +115,7 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $markers,
             $this->files,
             $this->ledgers,
@@ -126,8 +130,7 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $files,
             $this->ledgers,
@@ -142,8 +145,7 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $ledgers,
@@ -158,8 +160,7 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $this->ledgers,
@@ -174,13 +175,27 @@ final readonly class Observations
         return new self(
             $this->php,
             $this->runners,
-            $this->settings,
-            $this->trees,
+            $this->config,
             $this->markers,
             $this->files,
             $this->ledgers,
             $this->asked,
             $run,
+        );
+    }
+
+    /** These, with the config file's own layer, its context blocks as it writes them (ADR-0071). */
+    public function withWritten(Layer $written): self
+    {
+        return new self(
+            $this->php,
+            $this->runners,
+            $this->config->withWritten($written),
+            $this->markers,
+            $this->files,
+            $this->ledgers,
+            $this->asked,
+            $this->run,
         );
     }
 
@@ -194,14 +209,10 @@ final readonly class Observations
         return $this->runners;
     }
 
-    public function settings(): Settings|Invalid|CannotJudge|NotGiven
+    /** The config as doctor read it: its settings, the trees its tree source found, and its file's own layer. */
+    public function config(): ProjectConfig
     {
-        return $this->settings;
-    }
-
-    public function trees(): Trees|Invalid|CannotJudge|NotGiven
-    {
-        return $this->trees;
+        return $this->config;
     }
 
     public function markers(): Markers|NotGiven

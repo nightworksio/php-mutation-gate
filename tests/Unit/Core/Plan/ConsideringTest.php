@@ -58,6 +58,22 @@ it('considers what the change reaches, carries the newest result of the rest, an
         ->and($considering->ownScopeProofs())->toBe(0);
 });
 
+it('considers only what the change reaches, where it is held to its change, and carries the rest as it did', function () use ($makeUnits, $makeReachingA, $proof, $paths, $carried): void {
+    $reachingA = $makeReachingA();
+
+    $considering = Considering::of(
+        $makeUnits(),
+        $reachingA,
+        Proofs::of($proof('src/B.php', 'main', '2026-09-29T10:00:00Z')),
+        Proofs::of($proof('src/B.php', 'branch', '2026-09-30T10:00:00Z')),
+        OwnOnly::none(),
+    )->reachedBy($reachingA);
+
+    expect($paths($considering->considered()))->toBe(['src/A.php'])
+        ->and($carried($considering->carried()))->toBe(['src/B.php carried'])
+        ->and($considering->ownScopeProofs())->toBe(1);
+});
+
 it('considers every unit a full run reaches', function () use ($makeUnits, $proof, $paths): void {
     $units = $makeUnits();
 

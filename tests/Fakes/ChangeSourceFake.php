@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Change\Tree;
 use NightWorksIO\MutationGate\Core\File\ByPath;
@@ -215,6 +216,11 @@ final readonly class ChangeSourceFake implements ChangeSource
         }
 
         return $fingerprints;
+    }
+
+    public function lookedSince(Looked $then): Looked
+    {
+        return Looked::whole($this->fingerprints());
     }
 
     /** Every file the working tree holds that is one of these paths or under one of them. */

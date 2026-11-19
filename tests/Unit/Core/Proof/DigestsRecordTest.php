@@ -5,11 +5,13 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\DigestsRecord;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 
 $makeDigests = static fn(): Digests => Digests::of(Digest::sha256Of('mutation'))
@@ -40,4 +42,13 @@ it('reads back the digests of a source and a test whose paths read as numbers', 
         ->withTest(Path::of('12'), Digest::sha256Of('twelve'));
 
     expect(DigestsRecord::readRun(Node::config(JsonText::encode(DigestsRecord::ofRun($numeric)))))->toEqual($numeric);
+});
+
+it('reads back the digest of a run\'s first five inputs, and a proof\'s share of it, where the run took it', function () use ($makeDigests): void {
+    $reads = $makeDigests()->withReads(Digest::sha256Of('reads'));
+    $inputs = $reads->inputsOf(Path::of('src/Money.php'), Paths::none());
+
+    expect(DigestsRecord::readRun(Node::config(JsonText::encode(DigestsRecord::ofRun($reads)))))->toEqual($reads)
+        ->and(DigestsRecord::ofRun($makeDigests()))->not->toHaveKey('reads')
+        ->and($inputs instanceof Inputs ? $inputs->reads() : $inputs)->toEqual(Digest::sha256Of('reads'));
 });

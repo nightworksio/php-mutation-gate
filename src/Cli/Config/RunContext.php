@@ -49,7 +49,7 @@ final readonly class RunContext
 
         $settings = $base();
         $registry = $settings instanceof Settings
-            ? new Chosen($extensions)->given($given, $settings->extensions())
+            ? new Chosen($extensions)->given($given, $settings->setup()->extensions())
             : $settings;
 
         return $registry instanceof Extensions ? $this->of($settings, $registry) : $registry;

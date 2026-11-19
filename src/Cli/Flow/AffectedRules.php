@@ -59,7 +59,7 @@ final readonly class AffectedRules
             return AffectedTests::every($places, $judges);
         }
 
-        $layout = Reached::layout($this->adapters, $this->settings, $this->inventory->suite);
+        $layout = ProjectLayout::of($this->adapters, $this->settings, $this->inventory->suite);
         $sources = $this->sourcesOf($asked);
         $users = SupportUsers::in($layout, Packages::of($this->inventory->trees), $sources);
         $readers = new ReadingTests($places, $this->map, $this->codebaseOf($asked), $users, $sources);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
@@ -30,6 +31,7 @@ $holds = [
     'holds:src/Adapter/Process/LocalProcesses.php',
     'holds:src/Adapter/Process/ProcessTree.php',
     'holds:src/Adapter/Process/Running.php',
+    'holds:src/Adapter/Process/Started.php',
     'holds:src/Core/Runner/Polling.php',
 ];
 
@@ -181,6 +183,22 @@ it('starts no command once its time to start has run out, and ends those started
     expect(array_map(static fn(Ran $ran): string => $ran->output(), [...$ends]))->toBe(['said']);
 })->group(...$holds);
 
+it('halts a command held to a grace once that long past its time to start, before its own deadline, and leaves the others to theirs', function (): void {
+    $directory = Scratch::directory();
+    $sleeps = static fn(float $seconds): ProcessCommand => ProcessCommand::of($directory, PHP_BINARY, '-r', sprintf('usleep(%d);', (int) ($seconds * 1000000)));
+    $ends = [...new LocalProcesses(new SystemClock())->sideBySide(
+        WorkerSlots::of(ProcessCount::of(3), 'test'),
+        Seconds::of(0.5),
+        $sleeps(30.0)->within(Seconds::of(20.0))->haltedPast(Seconds::of(0.5)),
+        $sleeps(30.0)->within(Seconds::of(0.3))->haltedPast(Seconds::of(0.5)),
+        $sleeps(1.5)->within(Seconds::of(20.0)),
+    )];
+
+    expect(array_map(static fn(Ran $ran): array => [$ran->ending() === Ending::Halted, $ran->wasStopped(), $ran->succeeded()], $ends))
+        ->toBe([[true, false, false], [false, true, false], [false, false, true]])
+        ->and(Measured::of($ends[0])->seconds())->toBeLessThan(10.0);
+})->group(...$holds);
+
 it('starts no command at the moment its time to start runs out', function (): void {
     $reads = 0;
     $clock = processesClock(static function () use (&$reads): float {
@@ -200,4 +218,74 @@ it('looks at a program while it runs, waiting a moment between looks, and never 
 
     expect($waited->looks)->toBeGreaterThanOrEqual(1)->toBeLessThan(1000)
         ->and($unstarted->looks)->toBe(0);
+})->group(...$holds);
+
+/**
+ * A command that writes its own process id, and the id of a process it starts, into these files, then sleeps.
+ *
+ * @return array{ProcessCommand, string, string} the command, and the files of its id and its child's
+ */
+function processesSleeping(string $directory, string $name): array
+{
+    $own = sprintf('%s/%s.pid', $directory, $name);
+    $child = sprintf('%s/%s-child.pid', $directory, $name);
+    $script = sprintf(
+        '$child = proc_open([PHP_BINARY, "-r", "sleep(30);"], [], $pipes); file_put_contents(%s, proc_get_status($child)["pid"]); file_put_contents(%s, getmypid()); sleep(30);',
+        var_export($child, return: true),
+        var_export($own, return: true),
+    );
+
+    return [ProcessCommand::of($directory, PHP_BINARY, '-r', $script), $own, $child];
+}
+
+/** The process id a file holds, once it is written, waiting up to ten seconds. */
+function processesPid(string $file): int
+{
+    $until = microtime(as_float: true) + 10.0;
+
+    while (! is_file($file) && microtime(as_float: true) < $until) {
+        clearstatcache();
+    }
+
+    return (int) file_get_contents($file);
+}
+
+it('starts commands and goes on while they run, their ends in the order given once awaited', function (): void {
+    $directory = (string) realpath(Scratch::directory());
+    $waiting = ProcessCommand::of($directory, PHP_BINARY, '-r', 'touch("started"); while (! is_file("go")) { usleep(10000); clearstatcache(); } echo "first";');
+    $quick = ProcessCommand::of($directory, PHP_BINARY, '-r', 'echo "second";');
+
+    $started = new LocalProcesses(new SystemClock())->started(WorkerSlots::of(ProcessCount::of(2), 'run'), Unlimited::time(), $waiting, $quick);
+    $ran = processesPid(sprintf('%s/started', $directory));
+    touch(sprintf('%s/go', $directory));
+
+    expect($ran)->toBe(0)
+        ->and(array_map(static fn(Ran $ran): string => $ran->output(), [...$started->ends()]))->toBe(['first', 'second']);
+})->group(...$holds);
+
+it('stops each command still running when stopped, with every process it started, and starts none of those waiting', function (): void {
+    $directory = (string) realpath(Scratch::directory());
+    [$sleeping, $own, $child] = processesSleeping($directory, 'sleeping');
+    $after = ProcessCommand::of($directory, PHP_BINARY, '-r', 'touch("after");');
+
+    $started = new LocalProcesses(new SystemClock())->started(WorkerSlots::alone(), Unlimited::time(), $sleeping, $after);
+    $pids = [processesPid($own), processesPid($child)];
+    $started->stop();
+    $ends = [...$started->ends()];
+
+    expect(array_map(Ended::process(...), $pids))->toBe([true, true])
+        ->and(array_map(static fn(Ran $ran): bool => $ran->wasStopped(), $ends))->toBe([true])
+        ->and(is_file(sprintf('%s/after', $directory)))->toBeFalse();
+})->group(...$holds);
+
+it('stops each command still running once let go before its end, with every process it started', function (): void {
+    $directory = (string) realpath(Scratch::directory());
+    [$first, $firstOwn, $firstChild] = processesSleeping($directory, 'first');
+    [$second, $secondOwn, $secondChild] = processesSleeping($directory, 'second');
+
+    $started = new LocalProcesses(new SystemClock())->started(WorkerSlots::of(ProcessCount::of(2), 'run'), Unlimited::time(), $first, $second);
+    $pids = [processesPid($firstOwn), processesPid($firstChild), processesPid($secondOwn), processesPid($secondChild)];
+    unset($started);
+
+    expect(array_map(Ended::process(...), $pids))->toBe([true, true, true, true]);
 })->group(...$holds);

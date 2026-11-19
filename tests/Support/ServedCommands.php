@@ -27,7 +27,6 @@ use NightWorksIO\MutationGate\Core\Serve\ServeStream;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 
-use function register_shutdown_function;
 use function sprintf;
 
 use Symfony\Component\Console\Tester\CommandTester;
@@ -37,6 +36,9 @@ final readonly class ServedCommands
 {
     /** Where a daemon stood in for keeps what it was asked, in the project it serves. */
     private const string ASKED = 'asked.json';
+
+    /** How long a daemon stood in for waits for its request; it is stopped once its test is done. */
+    private const float IDLE = 60.0;
 
     /** The serving of a flows project, starting a daemon by this script. */
     public static function serving(string $project, string $script = '/nowhere'): Serving
@@ -88,7 +90,7 @@ final readonly class ServedCommands
             new Daemon(
                 ServedProjects::socket(),
                 ServedProject::identity($project, NotGiven::value()),
-                Seconds::of(2.0),
+                Seconds::of(self::IDLE),
                 static function (ServeRequest $request, Connection $connection) use ($code): int {
                     $connection->sent(ServeFrame::written(ServeStream::Output, '')->line());
                     $connection->sent(ServeFrame::written(ServeStream::Error, '')->line());
@@ -104,7 +106,7 @@ final readonly class ServedCommands
                 Seconds::of(5.0),
             )->served();
         });
-        register_shutdown_function(static fn() => ServedProjects::waitedFor($child));
+        ServedProjects::standing($child);
         ServedProjects::until(static fn(): bool => ServedProjects::socket()->isThere());
     }
 

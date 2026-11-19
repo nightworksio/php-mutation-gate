@@ -75,7 +75,7 @@ it('reads a file in the source directory itself, whose directory under it is spe
     $files = xmlFiles(['/c/index.xml' => xmlIndex('/p', 'Money.php.xml'), '/c/Money.php.xml' => xmlReport('')]);
     $map = PhpUnitXml::read(Root::of('/p'), DiskPath::of('/c'), $files);
 
-    expect($map instanceof CoverageMap ? $map->lineSets(Path::of('Money.php'))->lines()->count() : $map)->toBe(1);
+    expect($map instanceof CoverageMap ? $map->lineTests()->setsOn(Path::of('Money.php'))->lines()->count() : $map)->toBe(1);
 });
 
 it('cannot judge where the index or a report is not there, or is not XML', function (array $files, string $missing): void {

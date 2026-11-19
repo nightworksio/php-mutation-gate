@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Config\Controls as ControlsBuilder;
+use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -38,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -125,7 +128,7 @@ it('keeps with each timed-out mutant the time its unmutated control took, its te
 
     expect(controlKeysAsked($runner))->toContain($moneyControl()->key())
         ->and($timedOut->status())->toBe(MutantStatus::TimedOut)
-        ->and($timedOut->unmutatedNeed())->toEqual(Seconds::of(1.5));
+        ->and($timedOut->stop()->need())->toEqual(Seconds::of(1.5));
 });
 
 it('leaves a timeout unjudged where its tests fail unmutated too, and too slow to judge, saying why, where they run out or never run', function (
@@ -145,7 +148,7 @@ it('leaves a timeout unjudged where its tests fail unmutated too, and too slow t
 
     expect($timedOut->status())->toBe($status)
         ->and($said instanceof Reason ? $said->text() : '')->toBe($reason)
-        ->and($timedOut->unmutatedNeed())->toEqual(Unmeasured::duration());
+        ->and($timedOut->stop()->need())->toEqual(Unmeasured::duration());
 })->with([
     'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::FailsUnmutated, TimeoutControls::FAILS_UNMUTATED],
     'tests that run out unmutated' => [fn(): ControlRun => ControlRun::ranOut(), MutantStatus::TimedOut, TimeoutControls::RAN_OUT],
@@ -155,6 +158,24 @@ it('leaves a timeout unjudged where its tests fail unmutated too, and too slow t
         fn(): string => sprintf(TimeoutControls::UNRUN, 'the file is gone'),
     ],
 ]);
+
+it('leaves a timeout unjudged out of time, for the second wave, where its control was halted past the deadline, never timed out', function () use (
+    $makeResultIn,
+    $moneyControl,
+): void {
+    $resultIn = $makeResultIn();
+
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->controlling(ControlRuns::none()->with($moneyControl(), ControlRun::ofProcess(Ran::halted(''), TestIds::none())));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $timedOut = controlMutantIn($resultIn($project, 1), 'Decrement-27');
+
+    expect(controlKeysAsked($runner))->toContain($moneyControl()->key())
+        ->and($timedOut->status())->toBe(MutantStatus::Unjudged)
+        ->and($timedOut->reason())->toEqual(OutOfTime::BeforeControlling->reason());
+});
 
 // The held unit's run selects its holding tests alone. A test that covers
 // the line from outside the group never ran with the mutant in place, so
@@ -214,7 +235,7 @@ it('runs no control of a timeout under timeouts.mode unjudged, which makes every
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
     expect(controlKeysAsked($runner))->not->toContain($moneyControl()->key())
-        ->and(controlMutantIn($resultIn($project, 1), 'Decrement-27')->unmutatedNeed())->toEqual(Unmeasured::duration());
+        ->and(controlMutantIn($resultIn($project, 1), 'Decrement-27')->stop()->need())->toEqual(Unmeasured::duration());
 });
 
 it('runs no control of a timeout whose own run already ran its tests unmutated, as a trial does', function () use ($makeResultIn): void {
@@ -238,7 +259,7 @@ it('runs no control of a timeout whose own run already ran its tests unmutated, 
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
     expect($runner->controlled())->toBe([])
-        ->and(controlMutantIn($resultIn($project, 1), 'Decrement-27')->unmutatedNeed())->toEqual(Seconds::of(0.4));
+        ->and(controlMutantIn($resultIn($project, 1), 'Decrement-27')->stop()->need())->toEqual(Seconds::of(0.4));
 });
 
 it('leaves a timeout unjudged where its control would not fit in the time the budget has left', function () use (
@@ -251,7 +272,7 @@ it('leaves a timeout unjudged where its control would not fit in the time the bu
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('45s')), $tickingBy(10))
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(ControlsBuilder::killsUncontrolled(), Budget::of('45s')), $tickingBy(10))
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $timedOut = controlMutantIn($resultIn($project, 1), 'Decrement-27');
 
@@ -259,6 +280,22 @@ it('leaves a timeout unjudged where its control would not fit in the time the bu
         ->and($timedOut->status())->toBe(MutantStatus::Unjudged)
         ->and($timedOut->reason())->toEqual(OutOfTime::BeforeControlling->reason());
 });
+
+it('runs as many controls as fit in the time the budget has left side by side in the pool, round after round', function (
+    bool $perCore,
+    int $asked,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->behaving($perCore ? RunnerBehaviour::standard()->runningPerCore() : RunnerBehaviour::standard());
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('15s')), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect(controlKeysAsked($runner))->toHaveCount($asked);
+})->with([
+    'one at a time, one 10 s control in 15 s' => [false, 1],
+    'two at a time, both in one round' => [true, 2],
+]);
 
 it('cannot judge a shard whose runner cannot run its controls', function () use ($makeResultIn): void {
     $resultIn = $makeResultIn();
@@ -293,7 +330,7 @@ it('leaves a kill unjudged where the tests that killed it fail unmutated too, an
     'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::FailsUnmutated],
 ]);
 
-it('controls a file\'s kills together first, and each on its own only where that does not pass', function (bool $passes, int $asked) use ($makeResultIn): void {
+it('controls a file\'s killers together first under flaky.killControls alone, and each on its own only where that does not pass', function (bool $passes, int $asked) use ($makeResultIn): void {
     $resultIn = $makeResultIn();
 
     $project = Flows::project();
@@ -306,7 +343,7 @@ it('controls a file\'s kills together first, and each on its own only where that
             ->with($alone('MoneyTest::adds'), ControlRun::passed(Seconds::of(0.2)))
             ->with($alone('MoneyTest::subtracts'), ControlRun::failed(TestIds::none())));
 
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Flaky::controllingKillsAlone()), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $keys = controlKeysAsked($runner);
 
@@ -346,7 +383,7 @@ it('weighs a mutant out of memory by the peak of its control under the same cap,
     $said = $weighed->reason();
 
     expect(controlKeysAsked($runner))->toContain($control->key())
-        ->and($weighed->unmutatedNeed())->toEqual($need)
+        ->and($weighed->stop()->need())->toEqual($need)
         ->and($said instanceof Reason ? $said->text() : '')->toBe($reason);
 })->with([
     'a control that held 20M' => [fn(): ControlRun => ControlRun::passed(Seconds::of(1.0))->withPeak(MemoryCap::of(20, MemoryUnit::Megabytes)), fn(): MemoryCap => MemoryCap::of(20, MemoryUnit::Megabytes), ''],

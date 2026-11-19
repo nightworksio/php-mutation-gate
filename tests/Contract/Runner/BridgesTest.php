@@ -64,7 +64,7 @@ function bridgedPest(): Runner
     $root = Tree::at(Library::DIRECTORY);
     $project = PestProject::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
 
-    return new Pest($project, new PestShell(new LocalProcesses(new SystemClock()), $root), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), bridges: PestBridges::to(contractMutators()));
+    return new Pest($project, new PestShell(new LocalProcesses(new SystemClock()), $root), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), bridges: PestBridges::to(contractMutators()));
 }
 
 /** The Infection adapter over its installed library, with the bridge to PlusToTimes. */
@@ -76,7 +76,7 @@ function bridgedInfection(): Runner
     return new Infection(
         $project,
         new InfectionShell(new LocalProcesses(new SystemClock()), $root, getenv()),
-        Triage::standard()->bounds(),
+        Triage::standard()->limits()->bounds(),
         nativeMarkersAllowed: false,
         files: new CapDirectory(),
         packages: new PackageDirectory(),

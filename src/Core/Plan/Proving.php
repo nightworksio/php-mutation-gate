@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
@@ -27,7 +28,7 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
  */
 final readonly class Proving
 {
-    private function __construct(private UnitResults $proved, private Units $toRun, private int $ownScope)
+    private function __construct(private UnitResults $proved, private Units $toRun, private Paths $ownScope)
     {
     }
 
@@ -39,14 +40,16 @@ final readonly class Proving
     {
         $proved = [];
         $toRun = [];
-        $ownScope = 0;
+        $ownScope = [];
 
         foreach ($considered as $unit) {
             $proof = self::proofOf($keys->keyOf($unit->path()), $defaultBranch, $own);
 
             if ($proof instanceof Proof) {
                 $proved[] = UnitResult::fromProof($unit, Origin::Proved, $proof);
-                $ownScope += $defaultBranch->has($proof->key()) ? 0 : 1;
+                if (! $defaultBranch->has($proof->key())) {
+                    $ownScope[] = $unit->path();
+                }
 
                 continue;
             }
@@ -54,7 +57,7 @@ final readonly class Proving
             $toRun[] = $unit;
         }
 
-        return new self(UnitResults::of(...$proved), Units::of(...$toRun), $ownScope);
+        return new self(UnitResults::of(...$proved), Units::of(...$toRun), Paths::of(...$ownScope));
     }
 
     public function proved(): UnitResults
@@ -69,6 +72,12 @@ final readonly class Proving
 
     /** How many proofs it takes come from the run's own scope rather than the default branch's. */
     public function ownScopeProofs(): int
+    {
+        return $this->ownScope->count();
+    }
+
+    /** The units whose results come from the run's own scope rather than the default branch's. */
+    public function ownScopeUnits(): Paths
     {
         return $this->ownScope;
     }

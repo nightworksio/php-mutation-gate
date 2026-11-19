@@ -47,3 +47,22 @@ it('fits as many runs as their whole length allows in the time left, every one t
         ->and($deadline->fitting(5, Seconds::of(0.0), $started))->toBe(5)
         ->and($deadline->fitting(5, Seconds::of(0.0), new DateTimeImmutable('2026-09-30T10:05:00Z')))->toBe(0);
 });
+
+it('fits as many rounds of runs side by side as their whole length allows in the time left', function () use ($makeStarted): void {
+    $started = $makeStarted();
+
+    $deadline = Deadline::after($started, Seconds::of(90.0));
+
+    expect($deadline->fitting(9, Seconds::of(40.0), $started, 3))->toBe(6)
+        ->and($deadline->fitting(5, Seconds::of(40.0), $started, 3))->toBe(5)
+        ->and($deadline->fitting(9, Seconds::of(100.0), $started, 3))->toBe(0)
+        ->and($deadline->fitting(9, Seconds::of(40.0), new DateTimeImmutable('2026-09-30T10:01:30.250000Z'), 3))->toBe(0);
+});
+
+it('fits rounds of runs side by side in a length of time as it fits them in the time left', function (): void {
+    expect(Deadline::fittingIn(Seconds::of(90.0), 9, Seconds::of(40.0), 3))->toBe(6)
+        ->and(Deadline::fittingIn(Seconds::of(90.0), 5, Seconds::of(20.0)))->toBe(4)
+        ->and(Deadline::fittingIn(Seconds::of(90.0), 5, Seconds::of(0.0)))->toBe(5)
+        ->and(Deadline::fittingIn(Seconds::of(0.0), 5, Seconds::of(0.0)))->toBe(0)
+        ->and(Deadline::fittingIn(Seconds::of(-5.0), 5, Seconds::of(1.0), 3))->toBe(0);
+});

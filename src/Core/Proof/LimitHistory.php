@@ -18,7 +18,10 @@ use function max;
 
 use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
+use NightWorksIO\MutationGate\Core\Cost\JobsLearned;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Bound;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
@@ -33,8 +36,10 @@ use function usort;
  * What a ledger learned for the limits a config has it learn
  * (ADR-0073): how many times its covering tests' own time each of
  * the newest killed mutants took to be killed, which a learned
- * `timeouts.multiple` is read from, and how many shards each of the newest
- * runs ran at once, which a learned `shards.max` is read from.
+ * `timeouts.multiple` is read from, how many shards each of the newest
+ * runs ran at once, which a learned `shards.max` is read from, and what each
+ * of the newest jobs taught of jobs on its platform, which each job's stop
+ * and the second wave's price are read from (ADR-0196).
  */
 final readonly class LimitHistory
 {
@@ -44,11 +49,15 @@ final readonly class LimitHistory
     /** How many of the newest runs a learned most shards is read from. */
     public const int RUNS = 10;
 
+    /** How many of the newest jobs what jobs take is learned from: forty for each run a learned most is read from. */
+    public const int JOBS = self::RUNS * 40;
+
     /**
      * @param list<Multiple>     $kills       each kill's time over its covering tests' own time, oldest first
      * @param list<ShardsAtOnce> $concurrency each run's most shards at once, oldest first
+     * @param list<JobTimes>      $jobs        what each job taught, oldest first
      */
-    private function __construct(private array $kills, private array $concurrency)
+    private function __construct(private array $kills, private array $concurrency, private array $jobs = [])
     {
     }
 
@@ -65,7 +74,7 @@ final readonly class LimitHistory
     {
         $learned = array_values(array_filter($kills, static fn(Multiple $kill): bool => $kill->times() > 0.0));
 
-        return new self([...$this->kills, ...$learned], $this->concurrency);
+        return new self([...$this->kills, ...$learned], $this->concurrency, $this->jobs);
     }
 
     /** This history, and runs that ran these many shards at once after it; a run of no shard is not learned. */
@@ -73,13 +82,25 @@ final readonly class LimitHistory
     {
         $learned = array_values(array_filter($runs, static fn(ShardsAtOnce $run): bool => $run->count() > 0));
 
-        return new self($this->kills, [...$this->concurrency, ...$learned]);
+        return new self($this->kills, [...$this->concurrency, ...$learned], $this->jobs);
     }
 
-    /** This history, with only the newest so many kills and runs. */
+    /** This history, and jobs that taught these after it; a job that taught nothing is not learned. */
+    public function afterJobs(JobTimes ...$jobs): self
+    {
+        $learned = array_values(array_filter($jobs, static fn(JobTimes $job): bool => $job->teaches()));
+
+        return new self($this->kills, $this->concurrency, [...$this->jobs, ...$learned]);
+    }
+
+    /** This history, with only the newest so many kills and runs, and the newest jobs. */
     public function keepingLast(Bound $kills, Bound $runs): self
     {
-        return new self(array_slice($this->kills, -$kills->count()), array_slice($this->concurrency, -$runs->count()));
+        return new self(
+            array_slice($this->kills, -$kills->count()),
+            array_slice($this->concurrency, -$runs->count()),
+            array_slice($this->jobs, -self::JOBS),
+        );
     }
 
     /** This history, each part of it the other's where this one learned none of it. */
@@ -88,7 +109,23 @@ final readonly class LimitHistory
         return new self(
             $this->kills === [] ? $other->kills : $this->kills,
             $this->concurrency === [] ? $other->concurrency : $this->concurrency,
+            $this->jobs === [] ? $other->jobs : $this->jobs,
         );
+    }
+
+    /** @return Traversable<int, JobTimes> oldest first */
+    public function jobs(): Traversable
+    {
+        return new ArrayIterator($this->jobs);
+    }
+
+    /** What the jobs on the platform of this digest taught of every job there (see JobsLearned). */
+    public function jobsOn(Digest $platform): JobsLearned
+    {
+        return JobsLearned::of(...array_values(array_filter(
+            $this->jobs,
+            static fn(JobTimes $job): bool => $job->platform() === $platform->value(),
+        )));
     }
 
     /** @return Traversable<int, Multiple> oldest first */
@@ -116,8 +153,11 @@ final readonly class LimitHistory
     }
 
     /**
-     * The multiple of their covering tests' own time that these bounds' share of the kills took no more than,
-     * within them; none where nothing was killed.
+     * The multiple of their covering tests' own time that these bounds' share
+     * of the kills took no more than, rounded up to a whole number, within
+     * them; none where nothing was killed. A key holds it (ADR-0108), and a
+     * whole number moves it only when the kills really move, not with each
+     * new kill.
      */
     public function multiple(LearnedBounds $bounds): Multiple|NotGiven
     {
@@ -129,7 +169,7 @@ final readonly class LimitHistory
         usort($sorted, static fn(Multiple $one, Multiple $other): int => $one->times() <=> $other->times());
         $at = max(0, (int) ceil($bounds->percentile() * count($sorted)) - 1);
 
-        return $sorted[$at]->within(Multiple::of($bounds->least()), Multiple::of($bounds->most()));
+        return $sorted[$at]->roundedUp()->within(Multiple::of($bounds->least()), Multiple::of($bounds->most()));
     }
 
     /**

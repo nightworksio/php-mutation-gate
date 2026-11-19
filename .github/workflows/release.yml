@@ -4,7 +4,9 @@ name: release
 # (ADR-0019).
 #
 # - Drafting, on workflow_dispatch: the next version from the commits since the
-#   last tag, its CHANGELOG.md section from git-cliff, and the pull request
+#   last tag, its CHANGELOG.md section from git-cliff, Outbreak's core built
+#   for every platform and laid under resources/outbreak with the SHA256SUMS
+#   the gate checks each binary against (ADR-0118), and the pull request
 #   `release/vX.Y.Z`, opened as the App. A dispatch for a version whose
 #   branch exists is refused, so it never discards edits made there.
 # - Signing: the maintainer edits and merges that pull request, runs
@@ -44,8 +46,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Outbreak's core for every platform the package ships it for, which the
+  # draft lays under resources/outbreak (ADR-0118).
+  outbreak:
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/outbreak.yml # zizmor: ignore[self-repository]
+    with:
+      gates: false
+      builds: true
+
   draft:
     name: draft
+    needs: outbreak
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -93,6 +107,22 @@ jobs:
           else
             git-cliff --config cliff.toml --unreleased --tag "v${VERSION}" --output CHANGELOG.md
           fi
+      # Each platform's binary under resources/outbreak/<platform>, each
+      # outbreak.so under resources/outbreak/<platform>/php<minor>, and every
+      # SHA-256 in the one list the gate reads, so the release commit ships
+      # them in the package.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: outbreak-*
+          path: resources/outbreak
+          merge-multiple: true
+      - name: List the binaries' checksums
+        working-directory: resources/outbreak
+        run: |
+          set -euo pipefail
+          find . -name SHA256SUM -print0 | sort -z | xargs -0 cat > SHA256SUMS
+          find . -name SHA256SUM -delete
+          sha256sum --check --strict SHA256SUMS
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app
         with:
@@ -218,6 +248,9 @@ jobs:
       # The zstd extension, as ci.yml's gate has it, so the ledger's zstd is
       # mutated through it as the tests cover it (ADR-0085).
       extensions: zstd
+      # The gate built from the tagged commit, apart from the tree it mutates,
+      # so no warm worker loads a file a mutant changes (ADR-0140).
+      judge: ${{ github.sha }}
       runs-on: ubuntu-24.04-arm
     # The key that reads main's ledger, which fetch signs in with where the
     # repository names a store. A release writes no ledger, so it passes no
@@ -227,10 +260,11 @@ jobs:
       MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
 
   # The PHAR (ADR-0022), built as composer phar builds it from the commit
-  # verify and the gate judged, once both passed. The build installs the whole
-  # development tree and runs its Composer plugins, so this job holds no secret,
-  # enters no environment and may write nothing: it hands the PHAR on as an
-  # artifact, and its SHA-256 as an output.
+  # verify and the gate judged, once both passed, and the judge's (ADR-0140),
+  # as composer phar:judge builds it. The build installs the whole development
+  # tree and runs its Composer plugins, so this job holds no secret, enters no
+  # environment and may write nothing: it hands the two on as an artifact, and
+  # their SHA-256s as outputs.
   build:
     name: build
     needs: [verify, gate]
@@ -244,6 +278,7 @@ jobs:
       COMPOSER_ROOT_VERSION: ${{ needs.verify.outputs.version }}
     outputs:
       digest: ${{ steps.digest.outputs.digest }}
+      judge-digest: ${{ steps.digest.outputs.judge }}
       attempt: ${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -259,6 +294,8 @@ jobs:
           ignore-cache: true
       - name: Build the PHAR
         run: composer phar
+      - name: Build the judge's PHAR
+        run: composer phar:judge
       - name: Check the PHAR says the tag's version
         run: |
           set -euo pipefail
@@ -267,18 +304,22 @@ jobs:
             echo "::error::The PHAR says \"${said}\", and the tag names ${COMPOSER_ROOT_VERSION}."
             exit 1
           fi
-      - name: Name the PHAR's SHA-256
+      - name: Name the PHARs' SHA-256s
         id: digest
-        run: echo "digest=$(sha256sum build/mutation-gate.phar | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
+        run: |
+          echo "digest=$(sha256sum build/mutation-gate.phar | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
+          echo "judge=$(sha256sum build/mutation-gate-judge.phar | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mutation-gate-phar-${{ github.run_attempt }}
-          path: build/mutation-gate.phar
+          path: |
+            build/mutation-gate.phar
+            build/mutation-gate-judge.phar
           if-no-files-found: error
           retention-days: 1
 
-  # The release, from the commit verify and the gate judged: the PHAR build
-  # made, once its SHA-256 is the one build named, signed with the release key,
+  # The release, from the commit verify and the gate judged: the PHARs build
+  # made, once each SHA-256 is the one build named, signed with the release key,
   # which lives in the release environment whose deployment policy allows only
   # v* tags, attested, and published with the version's notes. It runs no
   # Composer and installs nothing.
@@ -315,17 +356,19 @@ jobs:
         with:
           name: mutation-gate-phar-${{ needs.build.outputs.attempt }}
           path: build
-      - name: Check the PHAR is the one build made
+      - name: Check the PHARs are the ones build made
         env:
           DIGEST: ${{ needs.build.outputs.digest }}
+          JUDGE_DIGEST: ${{ needs.build.outputs.judge-digest }}
         run: |
           set -euo pipefail
-          if [ -z "${DIGEST}" ]; then
-            echo "::error::build named no SHA-256 for the PHAR, so nothing is signed."
+          if [ -z "${DIGEST}" ] || [ -z "${JUDGE_DIGEST}" ]; then
+            echo "::error::build named no SHA-256 for a PHAR, so nothing is signed."
             exit 1
           fi
           echo "${DIGEST}  build/mutation-gate.phar" | sha256sum --check --strict
-      - name: Sign the PHAR with the release key
+          echo "${JUDGE_DIGEST}  build/mutation-gate-judge.phar" | sha256sum --check --strict
+      - name: Sign the PHARs with the release key
         env:
           RELEASE_GPG_KEY: ${{ secrets.RELEASE_GPG_KEY }}
           RELEASE_GPG_PASSPHRASE: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
@@ -338,8 +381,11 @@ jobs:
           GNUPGHOME="$(mktemp -d)"
           export GNUPGHOME
           printf '%s' "${RELEASE_GPG_KEY}" | gpg --batch --quiet --import
-          printf '%s' "${RELEASE_GPG_PASSPHRASE}" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
-            --armor --detach-sign --output build/mutation-gate.phar.asc build/mutation-gate.phar
+          for phar in build/mutation-gate.phar build/mutation-gate-judge.phar; do
+            printf '%s' "${RELEASE_GPG_PASSPHRASE}" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+              --armor --detach-sign --output "${phar}.asc" "${phar}"
+            gpg --batch --verify "${phar}.asc" "${phar}"
+          done
           rm -rf "${GNUPGHOME}"
       # The signature as every consumer that runs the PHAR checks it: against
       # the committed public key, by the fingerprint the action pins. A
@@ -350,7 +396,9 @@ jobs:
         run: python3 .github/scripts/release.py verify-signature
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: build/mutation-gate.phar
+          subject-path: |
+            build/mutation-gate.phar
+            build/mutation-gate-judge.phar
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -360,7 +408,8 @@ jobs:
           python3 .github/scripts/release.py notes > "${RUNNER_TEMP}/notes.md"
           gh release create "${TAG}" --repo "${GITHUB_REPOSITORY}" --verify-tag \
             --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md" \
-            build/mutation-gate.phar build/mutation-gate.phar.asc
+            build/mutation-gate.phar build/mutation-gate.phar.asc \
+            build/mutation-gate-judge.phar build/mutation-gate-judge.phar.asc
 
   # The image (ADR-0022) for one platform, built on a runner of that platform
   # from the PHAR build made, once its SHA-256 is the one build named, and

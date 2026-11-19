@@ -1,0 +1,20 @@
+[package]
+name = "outbreak-lsp"
+description = "Outbreak's language server (ADR-0133): the survivors `mutation-gate watch` tells of, shown in the editor as diagnostics, with the gate's explain and stub as their code actions."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+outbreak-graph.workspace = true
+outbreak-map.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
+
+[lints]
+workspace = true

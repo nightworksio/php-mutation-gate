@@ -113,11 +113,19 @@ it('says where its first killer stood in the order its tests started, keyed by t
     );
 });
 
-it('gives no prefix where no killer started, as one whose class failed before it, or none killed', function (string $lines): void {
-    expect(recordedFrom($lines, TestId::of('C::selected'))->prefix())->toEqual(NotGiven::value());
+it('gives no prefix, and keys no test, where no killer started, as one whose class failed before it, or none killed', function (string $lines): void {
+    $recorded = recordedFrom($lines, TestId::of('C::selected'));
+
+    expect($recorded->prefix())->toEqual(NotGiven::value())
+        ->and([...$recorded->upToLastKiller()])->toBe([]);
 })->with([
     'a class that failed before its tests' => [fn(): string => Outcome::ClassFailed->line('C')],
-    'every test passed' => [fn(): string => implode('', [Outcome::Started->line('T::passes'), Outcome::Passed->line('T::passes')])],
+    'every test passed' => [fn(): string => implode('', [
+        Outcome::Started->line('T::passes'),
+        Outcome::Passed->line('T::passes'),
+        Outcome::Started->line('T::also'),
+        Outcome::Passed->line('T::also'),
+    ])],
     'no line' => [''],
 ]);
 

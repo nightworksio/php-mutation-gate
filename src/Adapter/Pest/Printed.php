@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function file_get_contents;
 use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -37,21 +38,46 @@ final readonly class Printed
 
     public static function checkable(Project $project, Mutant $mutant): Checkable|CannotJudge
     {
-        $file = $mutant->location()->file();
+        $printed = self::at($project, $mutant->location()->file());
+
+        if ($printed instanceof CannotJudge) {
+            return $printed;
+        }
+
+        $patched = self::patched($printed, $mutant);
+
+        return $patched instanceof Contents ? Checkable::printed($printed, $patched) : $patched;
+    }
+
+    /** A mutant's print: its diff on its file's print, or why it goes on no one place of it. */
+    public static function patched(Contents $printed, Mutant $mutant): Contents|CannotJudge
+    {
+        return DiffPatch::of($mutant->mutation())->ontoTheOnlyPlace($printed, $mutant->location()->file());
+    }
+
+    /** A project's file as Pest prints it, or why it cannot be printed: it cannot be read, or does not parse. */
+    public static function at(Project $project, Path $file): Contents|CannotJudge
+    {
         $absolute = $project->absolute($file);
         $written = is_file($absolute) ? file_get_contents($absolute) : false;
-        $printed = $written === false
+
+        return $written === false
             ? CannotJudge::because(sprintf(self::UNREAD, $file->value()))
             : self::of(Contents::of($written), $file);
-        $patched = $printed instanceof Contents
-            ? DiffPatch::of($mutant->mutation())->ontoTheOnlyPlace($printed, $file)
-            : $printed;
+    }
 
-        return match (true) {
-            ! $printed instanceof Contents => $printed,
-            ! $patched instanceof Contents => $patched,
-            default => Checkable::printed($printed, $patched),
-        };
+    /** A planned mutant as the analyser reads it: the mutated copy Pest serves, judged against its file's print. */
+    public static function served(Contents|CannotJudge $print, PlannedMutant $mutant): Checkable|CannotJudge
+    {
+        if ($print instanceof CannotJudge) {
+            return $print;
+        }
+
+        $copy = file_get_contents($mutant->mutated()->value());
+
+        return is_string($copy)
+            ? Checkable::printed($print, Contents::of($copy))
+            : CannotJudge::because($mutant->mutated()->value());
     }
 
     /** A file's text as Pest prints it, or why it cannot be printed: it does not parse. */

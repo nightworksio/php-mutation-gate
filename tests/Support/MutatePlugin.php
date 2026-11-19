@@ -29,6 +29,7 @@ final readonly class MutatePlugin
         'bin/pest' => 'bin/pest',
         'src/Kernel.php' => 'src/Kernel',
         'overrides/Runner/TestSuiteLoader.php' => 'overrides/Runner/TestSuiteLoader',
+        'overrides/TextUI/TestSuiteFilterProcessor.php' => 'overrides/TextUI/TestSuiteFilterProcessor',
     ];
 
     private function __construct(private string $source, private string $suffix, private string $pest, private string $pestSuffix)

@@ -28,6 +28,8 @@ final readonly class Reply
 
     private const int FORBIDDEN = 403;
 
+    private const int CONFLICT = 409;
+
     private const int SERVER = 500;
 
     private const int OK = 200;
@@ -87,6 +89,12 @@ final readonly class Reply
     public function isMissing(): bool
     {
         return $this->status === self::NOT_FOUND;
+    }
+
+    /** Whether it refuses what was asked as in conflict with what it holds. */
+    public function isConflict(): bool
+    {
+        return $this->status === self::CONFLICT;
     }
 
     /** Whether a status accepts what was asked: one of the 2xx. */

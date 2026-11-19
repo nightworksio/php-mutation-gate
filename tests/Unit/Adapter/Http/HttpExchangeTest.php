@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
@@ -118,4 +119,19 @@ it('reads no answer past the limits\' bytes, whether a token\'s or a refused wri
         ->toEqual(CannotJudge::because(sprintf('https://token.example %s', $past)))
         ->and(HttpExchange::over($client)->put(Request::put('https://ledgers.example/main', 'bytes'), LedgerLimits::standard(), 'gs://ledgers/main'))
         ->toEqual(NotWritten::because(sprintf('gs://ledgers/main %s', $past)));
+});
+
+it('makes a forked process a client of its own, the default one or one made as the first was', function (): void {
+    $mock = new MockHttpClient(new MockResponse('{}', ['http_code' => 200]));
+    $made = 0;
+    $making = HttpExchange::making(static function () use (&$made): MockHttpClient {
+        $made++;
+
+        return new MockHttpClient(new MockResponse(sprintf('{"made": %d}', $made), ['http_code' => 200]));
+    });
+
+    expect(HttpExchange::over($mock)->forked())->not->toEqual(HttpExchange::over($mock))
+        ->and(HttpExchange::over($mock)->forked())->toEqual(HttpExchange::over(HttpClient::create()))
+        ->and($making->forked()->answer(Request::get('https://token.example/')))->toEqual(Reply::of(200, '', '{"made": 2}'))
+        ->and($made)->toBe(2);
 });

@@ -48,6 +48,9 @@ final readonly class Control
     /** How a control's key spells a selection of every test file. */
     private const string EVERY_FILE = '*';
 
+    /** What tells it from another control, spelt once as it is made (see key). */
+    private string $key;
+
     private function __construct(
         private Path $file,
         private RunTests $run,
@@ -56,6 +59,17 @@ final readonly class Control
         private Seconds|NotGiven $silence = new NotGiven(),
         private TestWatch|NotGiven $watch = new NotGiven(),
     ) {
+        $this->key = JsonText::compact([
+            $this->file->value(),
+            array_map(static fn(TestId $test): string => $test->value(), [...$this->run->tests()]),
+            ...$this->selectionOf($this->run->by()),
+            $this->limit->seconds(),
+            ...$this->served instanceof Contents ? [Digest::sha256Of($this->served->text())->value()] : [],
+            ...$this->silence instanceof Seconds ? [$this->silence->seconds()] : [],
+            ...$this->watch instanceof TestWatch
+                ? [$this->watch->limit()->multiple(), $this->watch->limit()->floor()->seconds()]
+                : [],
+        ]);
     }
 
     /** The control of these tests on this file, as the runner selects any set of tests, allowed this limit. */
@@ -94,15 +108,17 @@ final readonly class Control
         RunSelection $run,
         Paths|WholeSuite|NotGiven $unfiltered,
     ): RunTests {
+        return $run->of(self::covering($mutant, $map, $held), $map, $unfiltered);
+    }
+
+    /** The tests covering a mutant's lines as a map names them, and of a held unit only those that hold it. */
+    public static function covering(Mutant $mutant, CoverageMap $map, HeldCovered $held): TestIds
+    {
         $location = $mutant->location();
 
-        return $run->of(
-            $held->judgingAmong(
-                $location->file(),
-                $map->testsCovering($location->file(), $location->start(), $location->last()),
-            ),
-            $map,
-            $unfiltered,
+        return $held->judgingAmong(
+            $location->file(),
+            $map->testsCovering($location->file(), $location->start(), $location->last()),
         );
     }
 
@@ -185,17 +201,7 @@ final readonly class Control
      */
     public function key(): string
     {
-        return JsonText::compact([
-            $this->file->value(),
-            array_map(static fn(TestId $test): string => $test->value(), [...$this->tests()]),
-            ...$this->selectionOf($this->run->by()),
-            $this->limit->seconds(),
-            ...$this->served instanceof Contents ? [Digest::sha256Of($this->served->text())->value()] : [],
-            ...$this->silence instanceof Seconds ? [$this->silence->seconds()] : [],
-            ...$this->watch instanceof TestWatch
-                ? [$this->watch->limit()->multiple(), $this->watch->limit()->floor()->seconds()]
-                : [],
-        ]);
+        return $this->key;
     }
 
     /**

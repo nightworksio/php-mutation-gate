@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Plan\Unchanging;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
@@ -64,9 +65,10 @@ final readonly class UnchangedPlan
         $passed = $ledgers->lastPassed();
         $changes = $passed instanceof Passed ? $this->adapters->changes->changesFrom($passed->commit()) : $passed;
         $unchanged = Unchanging::within(
-            Reached::layout($this->adapters, $this->settings, $inventory->suite),
+            ProjectLayout::of($this->adapters, $this->settings, $inventory->suite),
             Packages::of($inventory->trees),
             $this->settings->floors()->baseline(),
+            GateRelease::of($this->setup->gate),
         )->since(
             $passed,
             $changes,

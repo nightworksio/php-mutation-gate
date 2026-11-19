@@ -72,7 +72,8 @@ final readonly class Triaging
             return $unit;
         }
 
-        return SuiteCoverage::of($this->adapters, $inventory)->handing($this->requestFor($unit, $order, $inventory));
+        return SuiteCoverage::of($this->adapters, $inventory, $this->settings->proofs()->coverageCompressionLevel())
+            ->handing($this->requestFor($unit, $order, $inventory));
     }
 
     /**
@@ -125,7 +126,11 @@ final readonly class Triaging
         return RunRequest::of($this->adapters, $this->settings, Paths::of($unit->path()), $unit->judgedBy())
             ->across(
                 Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
-                    ->pacedBy($this->settings->runner()->pace()),
+                    ->pacedBy(
+                        $this->settings->runner()->pace(
+                            $this->settings->triage()->limits()->bounds()->startUp()->unmeasured(),
+                        ),
+                    ),
             )
             ->searching(KillSearch::of(Ordering::of($order, $history), MatrixKind::FirstKiller));
     }

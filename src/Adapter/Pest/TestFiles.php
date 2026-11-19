@@ -15,6 +15,7 @@ use function basename;
 use function dirname;
 use function explode;
 use function file_get_contents;
+use function hash;
 use function implode;
 use function is_array;
 use function is_dir;
@@ -27,6 +28,8 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Php\Names;
+use NightWorksIO\MutationGate\Core\Php\TopLevel;
 use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
@@ -85,7 +88,20 @@ final class TestFiles
     /** @var list<array{CoverageMap, TestsByClass}> the tests of the map last asked about, by class, once read */
     private array $byClass = [];
 
-    public function __construct(private readonly Project $project)
+    /** @var array<string, Names> the names each test file's code declares, by the digest of the code */
+    private array $declared = [];
+
+    /** @var list<TestFilePlaces> where each test file stands by its class and its name, once listed */
+    private array $places = [];
+
+    /** @var array<string, Names|Missing> the names each test file declares, by its path, where files stand still */
+    private array $standing = [];
+
+    /**
+     * @param bool $still whether the test files stand still while it is asked
+     *                    about, as they do through one scan, so each is read once
+     */
+    public function __construct(private readonly Project $project, private readonly bool $still = false)
     {
     }
 
@@ -125,7 +141,7 @@ final class TestFiles
     public function holding(Paths $files, CoverageMap $map): TestIds
     {
         $tests = $this->testsOf($map);
-        $placed = TestClassFiles::held($tests, $files, $this->contentsOf(...));
+        $placed = TestClassFiles::held($tests, $files, $this->declaredIn(...));
         $pest = [];
 
         foreach ($files as $file) {
@@ -167,13 +183,29 @@ final class TestFiles
         $declaring = TestClassFiles::wanting($classes);
         $pest = [];
 
-        foreach ($this->all() as $file) {
-            $code = $declaring->mayDeclare($file) ? $this->contentsOf($file) : Missing::at($file);
-            $declaring = $code instanceof Contents ? $declaring->readIn($file, $code) : $declaring;
+        foreach ($this->mayHold([...$classes, ...$declaring->shortNames()]) as $file) {
+            $code = $declaring->mayDeclare($file) ? $this->declaredIn($file) : Missing::at($file);
+            $declaring = $code instanceof Names ? $declaring->readIn($file, $code) : $declaring;
             $pest = array_key_exists($this->pestClassOf($file), $wanted) ? [...$pest, $file] : $pest;
         }
 
         return Paths::of(...$pest, ...$declaring->files());
+    }
+
+    /**
+     * The test files Pest declares one of these classes for, or that are
+     * named after one of these names, in the order they are listed: the only
+     * files that may hold a test of the classes, each found by an index built
+     * once for every set asked about.
+     *
+     * @param  list<string> $names
+     * @return list<Path>
+     */
+    private function mayHold(array $names): array
+    {
+        $this->places[0] ??= TestFilePlaces::of($this->all(), $this->pestClassOf(...));
+
+        return $this->places[0]->standingFor($names);
     }
 
     /** The map's tests by class, read once while it is the map asked about. */
@@ -187,6 +219,35 @@ final class TestFiles
     }
 
     /** What a test file holds, or that it is gone. */
+    /**
+     * The names a test file's code declares, each code read once, and each
+     * file once where the files stand still; or that the file is gone.
+     */
+    private function declaredIn(Path $file): Names|Missing
+    {
+        return $this->still
+            ? $this->standing[$file->value()] ??= $this->declaredNow($file)
+            : $this->declaredNow($file);
+    }
+
+    /** The names a test file's code declares as it is now, each code read once; or that the file is gone. */
+    private function declaredNow(Path $file): Names|Missing
+    {
+        $code = $this->contentsOf($file);
+
+        if (! $code instanceof Contents) {
+            return $code;
+        }
+
+        $key = hash('xxh3', $code->text());
+
+        if (! array_key_exists($key, $this->declared)) {
+            $this->declared[$key] = TopLevel::read($code)->declares();
+        }
+
+        return $this->declared[$key];
+    }
+
     private function contentsOf(Path $file): Contents|Missing
     {
         $disk = $this->project->absolute($file);

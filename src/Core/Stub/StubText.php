@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Php\HoldsReader;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Report\Label;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -231,7 +232,7 @@ final readonly class StubText
     private static function phpUnit(Subject $subject, array $body, RunnerBehaviour $runner): string
     {
         $unit = $subject->unit();
-        $group = $unit->isHeld() && $runner->holdsAsLoaded()
+        $group = $unit->isHeld() && $runner->holds() === HoldsReading::AsLoaded
             ? sprintf(self::ATTRIBUTE, HoldsReader::GROUP, PhpCalls::literal(self::holding($unit)))
             : '';
 

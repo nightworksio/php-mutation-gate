@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_values;
+
+use Closure;
+
 use function count;
 use function min;
 
@@ -57,7 +60,8 @@ use function sprintf;
 /**
  * The fake runner, as a test scripts it: what it answers when asked to mutate
  * and to run survivors again, and what it names itself; and every request,
- * retry and listing of its groups it was handed, in order.
+ * retry, listing of its groups and mutant whose code it was asked for it was
+ * handed, in order.
  */
 final class ScriptedRunner implements Runner
 {
@@ -72,6 +76,9 @@ final class ScriptedRunner implements Runner
 
     /** @var list<array{Reproducible, MutationRequest, Seconds}> */
     private array $reproductions = [];
+
+    /** @var list<Mutant> */
+    private array $checkables = [];
 
     /** @var list<Withheld> */
     private array $listings = [];
@@ -105,6 +112,9 @@ final class ScriptedRunner implements Runner
     /** @var list<array{Controls, MutationRequest}> every set of controls it was asked to run, in order */
     private array $controlled = [];
 
+    /** @var Closure(): void what it does as each request to mutate runs, before it is answered */
+    private Closure $whileMutating;
+
     private function __construct(
         private readonly RunnerFake $fake,
         private readonly Identity|CannotJudge $identity,
@@ -118,6 +128,8 @@ final class ScriptedRunner implements Runner
         $this->checking = $fake;
         $this->judging = $fake;
         $this->controlling = $fake;
+        $this->whileMutating = static function (): void {
+        };
     }
 
     /** The fake runner over the fixture library, whose survivors survive again. */
@@ -245,6 +257,19 @@ final class ScriptedRunner implements Runner
             $this->covering,
             $this->marking,
         );
+    }
+
+    /**
+     * This runner, doing this as each request to mutate runs, as a run leaves files behind.
+     *
+     * @param Closure(): void $during
+     */
+    public function whileMutating(Closure $during): self
+    {
+        $runner = clone $this;
+        $runner->whileMutating = $during;
+
+        return $runner;
     }
 
     /** This runner, whose runs of no test take this long, or cannot start, one after another, the last again after. */
@@ -473,6 +498,7 @@ final class ScriptedRunner implements Runner
     ): MutationResult|CannotJudge {
         $this->requests[] = $request;
         $this->preCheckers[] = $preChecker::class;
+        ($this->whileMutating)();
 
         if ($this->turns !== []) {
             return $this->turns[min(count($this->requests), count($this->turns)) - 1];
@@ -557,8 +583,16 @@ final class ScriptedRunner implements Runner
         return $this->reproductions;
     }
 
+    /** @return list<Mutant> each mutant whose mutated code it was asked for, in order */
+    public function checkables(): array
+    {
+        return $this->checkables;
+    }
+
     public function checkable(Mutant $mutant): Checkable|CannotJudge
     {
+        $this->checkables[] = $mutant;
+
         return $this->checking instanceof RunnerFake ? $this->checking->checkable($mutant) : $this->checking;
     }
 

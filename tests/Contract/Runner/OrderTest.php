@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
@@ -152,6 +153,7 @@ function orderChild(string $from, string $to, string ...$arguments): array
         [PHP_BINARY, 'vendor/bin/pest', '--no-tia', '--colors=never', ...$arguments, '--bail', '--filter=MoneySpec'],
         $root,
         [
+            ...Command::unset(),
             Recorder::MUTANT => sprintf('%s/src/Money.php', $root),
             Recorder::MUTATED => $mutated,
             GateVariable::Results->value => $results,

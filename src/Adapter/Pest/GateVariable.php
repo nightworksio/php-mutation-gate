@@ -18,6 +18,18 @@ enum GateVariable: string
     /** The results file the plugin records a mutation run to. */
     case Results = ChildVariable::Results->value;
 
+    /** How many mutants a mutation run runs at once: its pool's processes (see MutantsAtOnce). */
+    case AtOnce = 'MUTATION_GATE_AT_ONCE';
+
+    /**
+     * `set`, where a patched run selects a mutant's covering tests too many for a filter by their ids, named in
+     * a file (see LongFilterSet, ADR-0138).
+     */
+    case LongFilter = 'MUTATION_GATE_LONG_FILTER';
+
+    /** `judge-each`, where every mutant is judged by its own run, twins of one file among them (ADR-0137). */
+    case Duplicates = 'MUTATION_GATE_DUPLICATES';
+
     /** The coverage map another job handed over, which a patched shard's opening run reads. */
     case SharedCoverage = 'MUTATION_GATE_SHARED_COVERAGE';
 
@@ -95,6 +107,16 @@ enum GateVariable: string
     case Warm = 'MUTATION_GATE_WARM';
 
     /**
+     * The process id of the gate that keeps a shard's mutants' warm workers
+     * for its later chunks, which the workers live as long as (see
+     * Patching::keepsChunkWorkers); unset where each run's workers end with it.
+     */
+    case WarmKeeper = 'MUTATION_GATE_WARM_KEEPER';
+
+    /** How many seconds a warm worker's starter waits for it to start: `runner.workerWait`. */
+    case WorkerWait = 'MUTATION_GATE_WORKER_WAIT';
+
+    /**
      * The file a warm worker's client writes the most memory its forked run
      * held to, where an unmutated control of the tail runs through one (see
      * Warm\Client); a control's launcher cannot count a process it did not wait for.
@@ -114,6 +136,9 @@ enum GateVariable: string
      */
     case SourcePinned = 'MUTATION_GATE_SOURCE_PINNED';
 
+    /** Set where a patched run makes every file's mutants side by side (see SideBySideMutants). */
+    case MakingSideBySide = 'MUTATION_GATE_MAKING_SIDE_BY_SIDE';
+
     /** Set where a patched run compiles each file's mutants into a schema (see Schemata). */
     case Schemata = 'MUTATION_GATE_SCHEMATA';
 
@@ -122,4 +147,103 @@ enum GateVariable: string
 
     /** The id of the mutant a schema's switch puts in force in a mutant's own run (see Schemata). */
     case SchemaOn = 'MUTATION_GATE_SCHEMA_ON';
+
+    /** Set where a patched run judges its mutants in split streams (ADR-0117). */
+    case Split = 'MUTATION_GATE_SPLIT';
+
+    /** The most children a split stream holds at once: `splitStream.children` (see Split\StreamSettings). */
+    case SplitChildren = 'MUTATION_GATE_SPLIT_CHILDREN';
+
+    /** Set where a split stream forks a pure expression's mutant only where it changes the value (StreamSettings). */
+    case SplitChangeCheck = 'MUTATION_GATE_SPLIT_CHANGE_CHECK';
+
+    /** Set where a split stream forks each mutant first at its likely killer (see Split\StreamSettings). */
+    case SplitKillersFirst = 'MUTATION_GATE_SPLIT_KILLERS_FIRST';
+
+    /** Where each stream's parent records the lines each test executed, in a run planned without a fresh map. */
+    case SplitRecording = 'MUTATION_GATE_SPLIT_RECORDING';
+
+    /** Where each stream's parent records the lines each test executed, for a quick round's kept map (ADR-0147). */
+    case SplitLines = 'MUTATION_GATE_SPLIT_LINES';
+
+    /** The PHP options, a JSON list, a stream starts with where it records lines with pcov (see Split\StreamReach). */
+    case SplitReach = 'MUTATION_GATE_SPLIT_REACH';
+
+    /** Whether a first-pass stream runs only the killers of its mutants (ADR-0136). */
+    case SplitKillerStreams = 'MUTATION_GATE_SPLIT_KILLER_STREAMS';
+
+    /** Whether a first-pass stream boots the application once and forks each test from it. */
+    case SplitBootOnce = 'MUTATION_GATE_SPLIT_BOOT_ONCE';
+
+    /** Whether a stream's child reconnects to its own copy of each database a test holds open (ADR-0147). */
+    case SplitReconnect = 'MUTATION_GATE_SPLIT_RECONNECT';
+
+    /** Where a run that cuts its test files across its shards judges each mutant (ADR-0174). */
+    case SplitJudging = 'MUTATION_GATE_SPLIT_JUDGING';
+
+    /** Whether a mutant whose likely killer the first pass could not fork it in skips the second pass (ADR-0179). */
+    case SplitFallbackOwnRun = 'MUTATION_GATE_SPLIT_FALLBACK_OWN_RUN';
+
+    /** Whether a stream of covering tests runs only those tests, by their ids (ADR-0181). */
+    case SplitCoveringTestsOnly = 'MUTATION_GATE_SPLIT_COVERING_TESTS_ONLY';
+
+    /** Whether a stream whose parent runs a test past its deadline is stopped and started again (ADR-0182). */
+    case SplitParentDeadline = 'MUTATION_GATE_SPLIT_PARENT_DEADLINE';
+
+    /**
+     * The times its slowdown a stream started in a stopped one's place starts at,
+     * over the stopped one's (ADR-0184).
+     */
+    case SplitDeadlineBackoff = 'MUTATION_GATE_SPLIT_DEADLINE_BACKOFF';
+
+    /** Where the slowdown a pass's streams measured carries on to (ADR-0184). */
+    case SplitSlowdownCarry = 'MUTATION_GATE_SPLIT_SLOWDOWN_CARRY';
+
+    /** Where a first-pass stream forks a mutant the ledger names no likely killer of (ADR-0187). */
+    case SplitFirstFork = 'MUTATION_GATE_SPLIT_FIRST_FORK';
+
+    /** Whether a part of a cut run's tests makes only the mutants its tests can reach (ADR-0193). */
+    case SplitReachableOnly = 'MUTATION_GATE_SPLIT_REACHABLE_ONLY';
+
+    /** Whether a mutant the first pass settled is given its result before the second starts (ADR-0194). */
+    case SplitEarlyVerdicts = 'MUTATION_GATE_SPLIT_EARLY_VERDICTS';
+
+    /** How many parts a pass cuts its tests into for each stream it runs at once (ADR-0188). */
+    case SplitPartsPerProcess = 'MUTATION_GATE_SPLIT_PARTS_PER_PROCESS';
+
+    /**
+     * The directory whose ini file turns pcov off, which a mutation run adds to what each process it starts scans,
+     * where `pest.pcovOff` turns pcov off (ADR-0183); Pest's own mutation process keeps pcov on, as it refuses to run
+     * without a coverage driver.
+     */
+    case PcovOff = 'MUTATION_GATE_PCOV_OFF';
+
+    /**
+     * The globs of the files whose tests keep pcov as PHP is configured where `pest.pcovOff` turns it off, one to a
+     * line, as `pest.pcovKept` lists them (ADR-0185).
+     */
+    case PcovKept = 'MUTATION_GATE_PCOV_KEPT_GLOBS';
+
+    /**
+     * The `outbreak.so` a split stream loads, to count the forks that change
+     * no state (H5), to see a test touch nondeterminism (ADR-0130), to record
+     * its tests' lines or to count its steps (ADR-0147).
+     */
+    case StreamExtension = 'MUTATION_GATE_STREAM_EXTENSION';
+
+    /** What a stream's `outbreak.so` watches: any of `states`, `touches`, `lines` and `steps`, by commas. */
+    case Observe = 'MUTATION_GATE_OBSERVE';
+
+    /** The least steps a stream's child may take past its parent's share, where its `outbreak.so` counts steps. */
+    case StepFloor = 'MUTATION_GATE_STEP_FLOOR';
+
+    /**
+     * The part of the test files whose tests judge a patched run's mutants,
+     * and of how many, as `<part>/<parts>`, where a run cuts its test files
+     * across its shards (see Split\StreamSettings).
+     */
+    case SplitPart = 'MUTATION_GATE_SPLIT_PART';
+
+    /** The plan a split stream's own Pest run reads, unset in every other run (see Split\Stream). */
+    case SplitPlan = 'MUTATION_GATE_SPLIT_PLAN';
 }

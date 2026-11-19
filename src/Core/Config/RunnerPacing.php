@@ -9,14 +9,15 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerPace;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
 /**
- * What one layer of a config says of how a runner paces its work: `runner.recycleAfter`, `runner.warmSlack` and
- * `runner.poll`, which `RunnerLayer` holds.
+ * What one layer of a config says of how a runner paces its work: `runner.recycleAfter`, `runner.warmSlack`,
+ * `runner.poll`, `runner.processes`, `runner.workerWait` and `runner.deadlineGrace`, which `RunnerLayer` holds.
  */
 final readonly class RunnerPacing
 {
@@ -24,6 +25,9 @@ final readonly class RunnerPacing
         private int|Absent $recycleAfter,
         private Seconds|Absent $warmSlack,
         private float|int|Absent $poll,
+        private int|Absent $processes,
+        private Seconds|Absent $workerWait,
+        private Seconds|Absent $deadlineGrace,
     ) {
     }
 
@@ -31,8 +35,11 @@ final readonly class RunnerPacing
         int|Absent $recycleAfter = new Absent(),
         Seconds|Absent $warmSlack = new Absent(),
         float|int|Absent $poll = new Absent(),
+        int|Absent $processes = new Absent(),
+        Seconds|Absent $workerWait = new Absent(),
+        Seconds|Absent $deadlineGrace = new Absent(),
     ): self {
-        return new self($recycleAfter, $warmSlack, $poll);
+        return new self($recycleAfter, $warmSlack, $poll, $processes, $workerWait, $deadlineGrace);
     }
 
     /** Every key at the value it takes where every layer leaves it out. */
@@ -40,7 +47,14 @@ final readonly class RunnerPacing
     {
         $pace = RunnerPace::standard();
 
-        return new self($pace->recycleAfter(), $pace->warmSlack(), Polling::INTERVAL);
+        return new self(
+            $pace->recycleAfter(),
+            $pace->warmSlack(),
+            Polling::INTERVAL,
+            Absent::setting(),
+            Absent::setting(),
+            $pace->deadlineGrace(),
+        );
     }
 
     public function over(self $later): self
@@ -49,6 +63,9 @@ final readonly class RunnerPacing
             Absent::laid($this->recycleAfter, $later->recycleAfter),
             Absent::laid($this->warmSlack, $later->warmSlack),
             Absent::laid($this->poll, $later->poll),
+            Absent::laid($this->processes, $later->processes),
+            Absent::laid($this->workerWait, $later->workerWait),
+            Absent::laid($this->deadlineGrace, $later->deadlineGrace),
         );
     }
 
@@ -57,16 +74,21 @@ final readonly class RunnerPacing
     {
         return $this->recycleAfter instanceof Absent
             && $this->warmSlack instanceof Absent
-            && $this->poll instanceof Absent;
+            && $this->poll instanceof Absent
+            && $this->processes instanceof Absent
+            && $this->workerWait instanceof Absent
+            && $this->deadlineGrace instanceof Absent;
     }
 
-    public function pace(): RunnerPace
+    public function pace(Seconds $startUp): RunnerPace
     {
         $standard = RunnerPace::standard();
 
         return RunnerPace::of(
             $this->recycleAfter instanceof Absent ? $standard->recycleAfter() : $this->recycleAfter,
             $this->warmSlack instanceof Seconds ? $this->warmSlack : $standard->warmSlack(),
+            $this->workerWait instanceof Seconds ? $this->workerWait : $startUp,
+            $this->deadlineGrace instanceof Seconds ? $this->deadlineGrace : $standard->deadlineGrace(),
         );
     }
 
@@ -76,13 +98,28 @@ final readonly class RunnerPacing
         return Seconds::of($this->poll instanceof Absent ? Polling::INTERVAL : $this->poll);
     }
 
+    /**
+     * `runner.processes`: how many mutants the runner runs at once on a
+     * machine with these cores, where it runs them side by side; one per core
+     * where no layer sets it, or one sets fewer than one.
+     */
+    public function processes(ProcessCount $cores): ProcessCount
+    {
+        return $this->processes instanceof Absent || $this->processes < 1
+            ? $cores
+            : ProcessCount::of($this->processes);
+    }
+
     /** This runner's config with each key the layer writes in it. */
     public function written(Json $runner): Json
     {
         return $runner
             ->with(Member::of('recycleAfter', $this->recycleAfter))
             ->with(Member::of('warmSlack', WholeSeconds::duration($this->warmSlack)))
-            ->with(Member::of('poll', $this->poll));
+            ->with(Member::of('poll', $this->poll))
+            ->with(Member::of('processes', $this->processes))
+            ->with(Member::of('workerWait', WholeSeconds::duration($this->workerWait)))
+            ->with(Member::of('deadlineGrace', WholeSeconds::duration($this->deadlineGrace)));
     }
 
     /** These calls of a layer that chooses no runner, then its pace, where it says any. */
@@ -108,6 +145,13 @@ final readonly class RunnerPacing
                     ? [sprintf('warmSlack: %s', PhpCalls::literal($this->warmSlack->written()))]
                     : [],
                 ...$this->poll instanceof Absent ? [] : [sprintf('poll: %s', PhpCalls::literal((float) $this->poll))],
+                ...$this->processes instanceof Absent ? [] : [sprintf('processes: %d', $this->processes)],
+                ...$this->workerWait instanceof Seconds
+                    ? [sprintf('workerWait: %s', PhpCalls::literal($this->workerWait->written()))]
+                    : [],
+                ...$this->deadlineGrace instanceof Seconds
+                    ? [sprintf('deadlineGrace: %s', PhpCalls::literal($this->deadlineGrace->written()))]
+                    : [],
             ]),
         );
     }

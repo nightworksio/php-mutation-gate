@@ -16,18 +16,30 @@ use function sprintf;
 
 /**
  * How a plan is cut into shards and what cutting it costs (ADR-0006,
- * ADR-0013, ADR-0016): `shards` and `costs`.
+ * ADR-0013, ADR-0016): `shards` and `costs`; and whether Outbreak's core
+ * writes and vouches for the maps a plan hands its shards (ADR-0118):
+ * `outbreak`.
  */
 final readonly class Shards implements Part
 {
-    /** The seconds of work one shard is cut to, where the config does not say. */
-    private const int SECONDS = 600;
+    /**
+     * The seconds one shard is cut to where the config does not say: of
+     * work, or, where its streams judge a part of the test files, of wall
+     * time (ADR-0195).
+     */
+    public const int SECONDS = 600;
 
     /** The most shards a plan cuts, where the config does not say. */
     private const int MOST = 20;
 
     /** The minutes each shard's CI setup takes before the gate starts, where the config does not say. */
     private const int SETUP_MINUTES = 1;
+
+    /** The seconds a job's gate keeps clear of its target past its own wind-down, where the config does not say. */
+    private const int MARGIN_SECONDS = 45;
+
+    /** The minutes between two progress artifacts a CI shard leaves, where the config does not say (ADR-0157). */
+    private const int PROGRESS_MINUTES = 3;
 
     private function __construct(
         private Seconds|Absent $seconds,
@@ -37,6 +49,11 @@ final readonly class Shards implements Part
         private Costs $costs,
         private LearnedStatistic|Absent $learnedFrom,
         private Planning $planning,
+        private Outbreak $outbreak,
+        private Seconds|Absent $jobLimit,
+        private Pulling $pulling,
+        private Seconds|Absent $progress,
+        private Seconds|Absent $margin,
     ) {
     }
 
@@ -57,15 +74,36 @@ final readonly class Shards implements Part
         Seconds|Absent $savingsWindow = new Absent(),
         Choice|Absent $costModel = new Absent(),
         Planning|Absent $planning = new Absent(),
+        Outbreak|Absent $outbreak = new Absent(),
+        Seconds|Absent $jobLimit = new Absent(),
+        int|Absent $testsBeforeAKill = new Absent(),
+        int|float|Absent $surviving = new Absent(),
+        int|float|Absent $shardOverhead = new Absent(),
+        Pulling|Absent $pulling = new Absent(),
+        Seconds|Absent $progress = new Absent(),
+        Seconds|Absent $margin = new Absent(),
     ): self {
         return new self(
             $seconds,
             $max,
             $target,
             $setup,
-            Costs::of($secondsPerLine, $perRunnerMinute, $savingsWindow, $costModel),
+            Costs::of(
+                $secondsPerLine,
+                $perRunnerMinute,
+                $savingsWindow,
+                $costModel,
+                $testsBeforeAKill,
+                $surviving,
+                $shardOverhead,
+            ),
             $learnedFrom,
             $planning instanceof Planning ? $planning : Planning::of(),
+            $outbreak instanceof Outbreak ? $outbreak : Outbreak::of(),
+            $jobLimit,
+            $pulling instanceof Pulling ? $pulling : Pulling::of(),
+            $progress,
+            $margin,
         );
     }
 
@@ -86,6 +124,11 @@ final readonly class Shards implements Part
             Costs::standard(),
             LearnedStatistic::Max,
             Planning::standard(),
+            Outbreak::of(),
+            new Absent(),
+            Pulling::of($none->pulling()->pull()),
+            $none->progress(),
+            $none->stop()->margin(),
         );
     }
 
@@ -110,6 +153,11 @@ final readonly class Shards implements Part
             $this->costs->over($later->costs),
             Absent::laid($this->learnedFrom, $later->learnedFrom),
             $this->planning->over($later->planning),
+            $this->outbreak->over($later->outbreak),
+            Absent::laid($this->jobLimit, $later->jobLimit),
+            $this->pulling->over($later->pulling),
+            Absent::laid($this->progress, $later->progress),
+            Absent::laid($this->margin, $later->margin),
         );
     }
 
@@ -150,6 +198,39 @@ final readonly class Shards implements Part
         return $this->planning;
     }
 
+    /** `outbreak`: whether Outbreak's core writes and vouches for the maps a plan hands its shards (ADR-0118). */
+    public function outbreak(): Outbreak
+    {
+        return $this->outbreak;
+    }
+
+    /** `shards.pull` (ADR-0134). */
+    public function pulling(): Pulling
+    {
+        return $this->pulling;
+    }
+
+    /** When a job's gate stops: `shards.target`, `shards.margin` and `shards.jobLimit` (ADR-0196). */
+    public function stop(): JobStop
+    {
+        return new JobStop(
+            $this->target instanceof Seconds ? $this->target : Seconds::of(self::SECONDS),
+            $this->margin instanceof Seconds ? $this->margin : Seconds::of(self::MARGIN_SECONDS),
+            $this->jobLimit,
+            limitAlone: $this->target instanceof Absent && $this->jobLimit instanceof Seconds,
+        );
+    }
+
+    /**
+     * `shards.progress`: how long a CI shard waits between two artifacts that
+     * say how far it got, so a job lost with its runner still names its last
+     * work; none at `0s` (ADR-0157).
+     */
+    public function progress(): Seconds
+    {
+        return $this->progress instanceof Seconds ? $this->progress : Seconds::minutes(self::PROGRESS_MINUTES);
+    }
+
     /** `shards.target`: the wall time the count is cut to fit, in place of `shards.seconds` (ADR-0013). */
     public function target(): Seconds|Absent
     {
@@ -168,10 +249,20 @@ final readonly class Shards implements Part
                     Member::of('target', $this->target instanceof Seconds ? $this->target->written() : $this->target),
                     Member::of('setup', $this->setup instanceof Seconds ? $this->setup->written() : $this->setup),
                     $this->planning->cutAtWritten(),
+                    Member::of(
+                        'jobLimit',
+                        $this->jobLimit instanceof Seconds ? $this->jobLimit->written() : $this->jobLimit,
+                    ),
+                    $this->pulling->written(),
+                    Member::of(
+                        'progress',
+                        $this->progress instanceof Seconds ? $this->progress->written() : $this->progress,
+                    ),
+                    Member::of('margin', $this->margin instanceof Seconds ? $this->margin->written() : $this->margin),
                 ),
             ),
             $this->costs->written($origin),
-        ));
+        ))->merged($this->outbreak->written());
     }
 
     public function php(PathOrigin $origin): PhpCalls
@@ -187,8 +278,21 @@ final readonly class Shards implements Part
             ...$this->setup instanceof Seconds
                 ? [sprintf('Shards::setup(%s)', PhpCalls::literal($this->setup->written()))]
                 : [],
+            ...$this->jobLimit instanceof Seconds
+                ? [sprintf('Shards::jobLimit(%s)', PhpCalls::literal($this->jobLimit->written()))]
+                : [],
+            ...$this->progress instanceof Seconds
+                ? [sprintf('Shards::progress(%s)', PhpCalls::literal($this->progress->written()))]
+                : [],
+            ...$this->margin instanceof Seconds
+                ? [sprintf('Shards::margin(%s)', PhpCalls::literal($this->margin->written()))]
+                : [],
         ];
 
-        return PhpCalls::inWith(...$settings)->and($this->costs->php($origin))->and($this->planning->php());
+        return PhpCalls::inWith(...$settings)
+            ->and($this->costs->php($origin))
+            ->and($this->planning->php())
+            ->and($this->pulling->php())
+            ->and($this->outbreak->php());
     }
 }

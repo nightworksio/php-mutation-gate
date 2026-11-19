@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -19,4 +20,24 @@ it('holds a unit, its package and its cost', function (): void {
     expect($weighed->unit())->toBe($unit)
         ->and($weighed->package())->toBe($package)
         ->and($weighed->cost())->toBe($cost);
+});
+
+it('weighs its unit at an alike share of each part of the test files, on the same basis', function (): void {
+    $weighed = Weighed::of(Unit::file(Path::of('src/Money.php')), Package::at(Path::root()), Estimated::of(Seconds::of(12.0), CostBasis::Learned));
+    $shared = $weighed->sharedAmong(TestPart::of(1, 4));
+
+    expect($shared->cost())->toEqual(Seconds::of(3.0))
+        ->and($shared->estimated()->basis())->toBe(CostBasis::Learned)
+        ->and($shared->unit())->toBe($weighed->unit())
+        ->and($weighed->sharedAmong(TestPart::whole())->cost())->toEqual(Seconds::of(12.0));
+});
+
+it('asks for no control until one is given, and keeps it whole across the parts of the test files', function (): void {
+    $weighed = Weighed::of(Unit::file(Path::of('src/Money.php')), Package::at(Path::root()), Estimated::of(Seconds::of(12.0), CostBasis::Learned));
+    $controlled = $weighed->controlledWithin(Seconds::of(10.0));
+
+    expect($weighed->control())->toEqual(Seconds::none())
+        ->and($controlled->control())->toEqual(Seconds::of(10.0))
+        ->and($controlled->cost())->toEqual(Seconds::of(12.0))
+        ->and($controlled->sharedAmong(TestPart::of(1, 4))->control())->toEqual(Seconds::of(10.0));
 });

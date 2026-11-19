@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -96,7 +97,7 @@ it('narrows its runs to the security mutators, and its plans say so', function (
         ->toEqual(Mutators::named('security/HashEqualsToTrue', 'default/UnwrapHtmlspecialchars'))
         ->and($after instanceof Composed ? $after->adapters->isSecurityOnly() : $after)->toBeTrue()
         ->and($after instanceof Composed ? $after->adapters->briefing(Briefing::standard()) : $after)
-        ->toEqual(Briefing::standard()->securityOnly())
+        ->toEqual(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly()))
         ->and($before->adapters->isSecurityOnly())->toBeFalse()
         ->and($before->adapters->narrowing->mutators())->toEqual(Mutators::all())
         ->and($before->adapters->briefing(Briefing::standard()))->toEqual(Briefing::standard())
@@ -113,12 +114,12 @@ it('cannot narrow its runs to the security mutators where the config turns none 
 
 it('follows a plan made with --security, and runs every mutator for any other', function (): void {
     $composed = composedSecuring('security/HashEqualsToTrue');
-    $secured = $composed->following(Planned::oneShard()->briefed(Briefing::standard()->securityOnly()));
+    $secured = $composed->following(Planned::oneShard()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly())));
 
     expect($secured instanceof Composed ? $secured->adapters->narrowing->mutators() : $secured)
         ->toEqual(Mutators::named('security/HashEqualsToTrue'))
         ->and($composed->following(Planned::oneShard()))->toBe($composed)
-        ->and(composedSecuring()->following(Planned::oneShard()->briefed(Briefing::standard()->securityOnly())))
+        ->and(composedSecuring()->following(Planned::oneShard()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly()))))
         ->toBeInstanceOf(CannotJudge::class);
 });
 
@@ -146,7 +147,7 @@ it('narrows its runs to one declared suite\'s tests, the coverage run\'s among t
         ->and($after instanceof Composed ? $after->adapters->isSuiteOnly() : $after)->toBeTrue()
         ->and($after instanceof Composed ? $after->adapters->isSecurityOnly() : $after)->toBeFalse()
         ->and($after instanceof Composed ? $after->adapters->briefing(Briefing::standard()) : $after)
-        ->toEqual(Briefing::standard()->inSuite(SuiteName::of('unit')))
+        ->toEqual(Briefing::standard()->ofKind(RunProfile::standard()->inSuite(SuiteName::of('unit'))))
         ->and($after instanceof Composed ? $after->adapters->covering($run) : $after)
         ->toEqual($run->across($before->adapters->processes())->withholding($before->adapters->withheld)->amongSuites(Suites::named(SuiteName::of('unit'))))
         ->and($before->adapters->isSuiteOnly())->toBeFalse()
@@ -163,7 +164,7 @@ it('narrows to the security mutators and one suite at once, and its plans say bo
     $both = $secured instanceof Composed ? $secured->inSuite(SuiteName::of('unit')) : $secured;
 
     expect($both instanceof Composed ? $both->adapters->briefing(Briefing::standard()) : $both)
-        ->toEqual(Briefing::standard()->securityOnly()->inSuite(SuiteName::of('unit')))
+        ->toEqual(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly()->inSuite(SuiteName::of('unit'))))
         ->and($both instanceof Composed ? $both->adapters->narrowing->mutators() : $both)
         ->toEqual(Mutators::named('security/HashEqualsToTrue'));
 });
@@ -229,19 +230,19 @@ it('refuses any suite where the PHPUnit config cannot be read', function (): voi
 
 it('follows a plan made with --suite, beside --security or alone', function (): void {
     $composed = composedInSuites('<testsuite name="unit"/>', 'security/HashEqualsToTrue');
-    $suited = $composed->following(Planned::oneShard()->briefed(Briefing::standard()->inSuite(SuiteName::of('unit'))));
+    $suited = $composed->following(Planned::oneShard()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->inSuite(SuiteName::of('unit')))));
     $both = $composed->following(Planned::oneShard()->briefed(
-        Briefing::standard()->securityOnly()->inSuite(SuiteName::of('unit')),
+        Briefing::standard()->ofKind(RunProfile::standard()->securityOnly()->inSuite(SuiteName::of('unit'))),
     ));
 
     expect($suited instanceof Composed ? $suited->adapters->narrowing->suite() : $suited)->toEqual(SuiteName::of('unit'))
         ->and($suited instanceof Composed ? $suited->adapters->isSecurityOnly() : $suited)->toBeFalse()
         ->and($both instanceof Composed ? $both->adapters->briefing(Briefing::standard()) : $both)
-        ->toEqual(Briefing::standard()->securityOnly()->inSuite(SuiteName::of('unit')))
+        ->toEqual(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly()->inSuite(SuiteName::of('unit'))))
         ->and(composedInSuites('<testsuite name="unit"/>')->following(
-            Planned::oneShard()->briefed(Briefing::standard()->securityOnly()->inSuite(SuiteName::of('unit'))),
+            Planned::oneShard()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly()->inSuite(SuiteName::of('unit')))),
         ))->toBeInstanceOf(CannotJudge::class)
-        ->and($composed->following(Planned::oneShard()->briefed(Briefing::standard()->inSuite(SuiteName::of('e2e')))))
+        ->and($composed->following(Planned::oneShard()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->inSuite(SuiteName::of('e2e'))))))
         ->toBeInstanceOf(CannotJudge::class);
 });
 

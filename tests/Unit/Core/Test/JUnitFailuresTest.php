@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Test\JUnitFailures;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
  * The tests a JUnit log of these test cases names as failed, as the coverage map names them.
@@ -61,4 +62,38 @@ it('names none where the log names no failure, is not JUnit, or is empty, and re
         ->and([...JUnitFailures::of('')])->toBe([])
         ->and($unread)->toBe([])
         ->and($raised)->toBe([]);
+});
+
+it('counts the test cases a log names and those that passed, neither failed, errored nor skipped, and none of a log it cannot read', function (): void {
+    $log = sprintf('<?xml version="1.0"?><testsuites><testsuite name="T">%s</testsuite></testsuites>', <<<'XML'
+        <testcase name="it passes" file="tests/A.php::it passes" class="Tests\A"/>
+        <testcase name="it fails" file="tests/A.php::it fails" class="Tests\A"><failure>x</failure></testcase>
+        <testcase name="it errs" file="tests/A.php::it errs" class="Tests\A"><error>x</error></testcase>
+        <testcase name="it waits" file="tests/A.php::it waits" class="Tests\A"><skipped/></testcase>
+        <testcase name="it passes too" file="tests/A.php::it passes too" class="Tests\A"><system-out>x</system-out></testcase>
+        XML);
+
+    expect([JUnitFailures::cases($log), JUnitFailures::passed($log)])->toBe([5, 2])
+        ->and([JUnitFailures::cases(log: false), JUnitFailures::passed(log: false), JUnitFailures::cases(''), JUnitFailures::cases('<testsuites/>')])
+        ->toBe([0, 0, 0, 0]);
+});
+
+it('reads the order a log names its test cases in, up to the last of the tests given, and none where it names none of them', function (): void {
+    $log = sprintf('<?xml version="1.0"?><testsuites><testsuite name="T">%s</testsuite></testsuites>', <<<'XML'
+        <testcase name="testA" file="tests/ATest.php" class="Tests\ATest"/>
+        <testcase name="testB" file="tests/ATest.php" class="Tests\ATest"><failure>x</failure></testcase>
+        <testcase name="testC" file="tests/ATest.php" class="Tests\ATest"/>
+        <testcase name="testD" file="tests/ATest.php" class="Tests\ATest"><error>x</error></testcase>
+        <testcase name="testE" file="tests/ATest.php" class="Tests\ATest"/>
+        XML);
+    $read = static fn(string ...$tests): array => array_map(
+        static fn(TestId $test): string => $test->value(),
+        [...JUnitFailures::upToLastOf($log, TestIds::of(...array_map(TestId::of(...), $tests)))],
+    );
+
+    expect($read('Tests\ATest::testB', 'Tests\ATest::testD'))
+        ->toBe(['Tests\ATest::testA', 'Tests\ATest::testB', 'Tests\ATest::testC', 'Tests\ATest::testD'])
+        ->and($read('Tests\ATest::testB'))->toBe(['Tests\ATest::testA', 'Tests\ATest::testB'])
+        ->and($read('Tests\ATest::testZ'))->toBe([])
+        ->and([...JUnitFailures::upToLastOf(log: false, tests: TestIds::of(TestId::of('Tests\ATest::testA')))])->toBe([]);
 });

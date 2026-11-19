@@ -94,10 +94,7 @@ final readonly class ServeSocket
             return CannotJudge::because(sprintf(self::UNMADE, $directory));
         }
 
-        if (! is_link($directory) && fileowner($directory) === $this->owner) {
-            chmod($directory, FileMode::OWNER_ONLY);
-        }
-
+        $this->tightened();
         $other = $this->connected();
 
         return match (true) {
@@ -155,6 +152,21 @@ final readonly class ServeSocket
     {
         return $this->owner === posix_geteuid() && $this->owner !== self::ROOT && is_int($process)
             && posix_kill($process, 0);
+    }
+
+    /**
+     * The socket's directory kept to its owner alone, where it is a directory
+     * the owner owns and no link: a directory a run made under a umask that
+     * lets others in is the owner's to tighten, and the trust check stays as
+     * strict. A directory of another user's, or a link, is left as it is.
+     */
+    public function tightened(): void
+    {
+        $directory = dirname($this->path);
+
+        if (is_dir($directory) && ! is_link($directory) && fileowner($directory) === $this->owner) {
+            chmod($directory, FileMode::OWNER_ONLY);
+        }
     }
 
     /** Whether the socket's file is there. */

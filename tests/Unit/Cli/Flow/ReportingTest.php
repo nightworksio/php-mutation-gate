@@ -16,10 +16,10 @@ use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Reporting;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Config\Badge;
+use NightWorksIO\MutationGate\Config\Costs;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Outputs;
 use NightWorksIO\MutationGate\Config\Report;
-use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -172,7 +172,7 @@ it('draws the badge in CI on the default branch, in the colours the config sets'
 });
 
 it('counts what the summary and the badge show saved over costs.savingsWindow, listed or chosen by the run', function (): void {
-    $settings = Flows::settings(Badge::colour('red', 0), Shards::savingsWindow('7d'), Report::uses('github-summary'));
+    $settings = Flows::settings(Badge::colour('red', 0), Costs::savingsWindow('7d'), Report::uses('github-summary'));
     $chosen = reportersOf($settings, Variables::of(['CI' => 'true']), reportingOnMain());
 
     expect($chosen)->toEqual([

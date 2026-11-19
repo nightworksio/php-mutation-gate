@@ -101,13 +101,14 @@ final readonly class AutoSampling
         NewestProofs $newest,
     ): ExpectedWork {
         $estimated = UnitMutants::of($adapters, $settings, $newest);
+        $costs = $ledgers->costs($setup->gate);
         $mutants = 0;
         $seconds = 0.0;
 
         foreach ($units as $unit) {
             $candidate = $estimated->candidate($unit);
             $mutants += $candidate instanceof Candidate ? $candidate->mutants() : 0;
-            $cost = $ledgers->estimated($adapters->costs, $unit, FirstRun::unmeasured(), $setup->gate);
+            $cost = $costs->estimated($adapters->costs, $unit, FirstRun::unmeasured());
             $seconds += $cost->seconds()->seconds();
         }
 

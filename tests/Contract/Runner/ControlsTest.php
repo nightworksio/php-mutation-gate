@@ -10,11 +10,15 @@ use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -58,6 +62,29 @@ $processes = [
     'testo' => [fn(): Library => Library::installed('testo'), 'TestoLibrary\MoneyTest::addsTwoAmounts'],
 ];
 
+/** The libraries whose runner runs a process, each with a test a change to Money::add fails and one it leaves passing. */
+$parted = [
+    'pest' => [
+        'pest',
+        'P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts',
+        'P\Tests\MoneySpec::__pest_evaluable_it_tells_a_large_amount_from_a_small_one',
+    ],
+    'pest patched' => [
+        'pest patched',
+        'P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts',
+        'P\Tests\MoneySpec::__pest_evaluable_it_tells_a_large_amount_from_a_small_one',
+    ],
+    'infection' => ['infection', 'Tests\MoneySpec::addsTwoAmounts', 'Tests\MoneySpec::tellsALargeAmountFromASmallOne'],
+    'phpunit' => ['phpunit', 'Tests\MoneySpec::addsTwoAmounts', 'Tests\MoneySpec::tellsALargeAmountFromASmallOne'],
+    'phpspec' => ['phpspec', 'tests\MoneySpec::it_adds_two_amounts', 'tests\MoneySpec::it_tells_a_large_amount_from_a_small_one'],
+    'codeception' => [
+        'codeception',
+        'CodeceptionLibrary\MoneyTest::testAddsTwoAmounts',
+        'CodeceptionLibrary\MoneyTest::testTellsALargeAmountFromASmallOne',
+    ],
+    'testo' => ['testo', 'TestoLibrary\MoneyTest::addsTwoAmounts', 'TestoLibrary\MoneyTest::tellsALargeAmountFromASmallOne'],
+];
+
 $libraries = ['the fake' => [fn(): Library => Library::fake(), 'MoneyTest::adds'], ...$processes];
 
 /** A control of src/Money.php by one test, allowed this long. */
@@ -72,6 +99,23 @@ function controlsOf(Library $library, Controls $controls): ControlRuns
     $runs = $library->runner()->controls(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $controls);
 
     return $runs instanceof CannotJudge ? throw new LogicException($runs->why()) : $runs;
+}
+
+/**
+ * How a control ended and the tests that failed in it, failing where the runner cannot run it.
+ *
+ * @return array{ControlEnd, list<string>}
+ */
+function controlsFound(ControlRuns|CannotJudge $runs, Control $control): array
+{
+    if ($runs instanceof CannotJudge) {
+        throw new LogicException($runs->why());
+    }
+
+    return [
+        $runs->of($control)->end(),
+        array_map(static fn(TestId $test): string => $test->value(), [...$runs->of($control)->failing()]),
+    ];
 }
 
 it('passes a control of a test that passes on the unmutated code, within its limit, saying how long it took', function (Library $at, string $test): void {
@@ -124,3 +168,25 @@ it('measures the most memory a control\'s processes held, as every runner measur
 
     expect($peak instanceof MemoryCap ? $peak->bytes() : 0)->toBeGreaterThan(MemoryCap::of(1, MemoryUnit::Megabytes)->bytes());
 })->with($processes)->group(...$holds);
+
+// Two parts of one mutant, side by side in one pool, each find what they find
+// one after another: each is served the same text, and neither's run reaches
+// the other's files. The part whose test the mutant changes fails naming that
+// test; the other passes.
+it('finds of two parts of one mutant at once what it finds of them one after another', function (string $runner, string $adds, string $tells, Workers $workers): void {
+    $at = Library::installed($runner);
+    $source = (string) file_get_contents(sprintf('%s/src/Money.php', $at->root()));
+    $mutated = Contents::of(str_replace('$a + $b', '$a - $b', $source));
+    $part = static fn(string $test): Control => moneyControl($test, 60.0)->serving($mutated, Seconds::of(60.0));
+    $parts = [$part($adds), $part($tells)];
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->across(Pool::of(ProcessCount::of(2), $workers));
+    $alone = [
+        controlsFound($at->runner()->controls($request, Controls::of($parts[0])), $parts[0]),
+        controlsFound($at->runner()->controls($request, Controls::of($parts[1])), $parts[1]),
+    ];
+    $together = $at->runner()->controls($request, Controls::of(...$parts));
+
+    expect([controlsFound($together, $parts[0]), controlsFound($together, $parts[1])])->toBe($alone)
+        ->and(array_column($alone, 0))->toBe([ControlEnd::Failed, ControlEnd::Passed]);
+})->with($parted)->with(['forked' => [Workers::Fork], 'fresh' => [Workers::Fresh]])->group(...$holds);

@@ -25,4 +25,9 @@ final readonly class EveryRow implements RunSelection
     {
         return RunTests::of(Selection::of($judging)->among($map->tests()));
     }
+
+    public function replaysKills(): bool
+    {
+        return true;
+    }
 }

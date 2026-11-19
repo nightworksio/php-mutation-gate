@@ -1,0 +1,26 @@
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
+doc-valid-idents = ["PHPStan", ".."]
+
+# The map crate is handed every byte it reads, and writes none (ADR-0118). The
+# binary's crate carries a clippy.toml of its own without these.
+disallowed-methods = [
+  { path = "std::env::args", reason = "argv is read by the binary" },
+  { path = "std::env::args_os", reason = "argv is read by the binary" },
+  { path = "std::env::var", reason = "the environment is read by the binary" },
+  { path = "std::env::var_os", reason = "the environment is read by the binary" },
+  { path = "std::fs::read", reason = "the filesystem belongs to the binary" },
+  { path = "std::fs::read_to_string", reason = "the filesystem belongs to the binary" },
+  { path = "std::fs::write", reason = "the filesystem belongs to the binary" },
+  { path = "std::thread::spawn", reason = "threads belong to the binary" },
+  { path = "std::thread::scope", reason = "threads belong to the binary" },
+  { path = "std::time::Instant::now", reason = "the map crate reads no clock" },
+  { path = "std::time::SystemTime::now", reason = "the map crate reads no clock" },
+]
+disallowed-types = [
+  { path = "std::fs::File", reason = "the filesystem belongs to the binary" },
+  { path = "std::fs::OpenOptions", reason = "the filesystem belongs to the binary" },
+  { path = "std::process::Command", reason = "the map crate starts no process" },
+]

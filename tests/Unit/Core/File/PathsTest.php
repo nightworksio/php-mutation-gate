@@ -66,3 +66,14 @@ it('joins these paths with more, once each in order, and leaves some out', funct
         ->and([...$paths->without(Paths::of(Path::of('src/A.php'), Path::of('src/D.php')))])->toEqual([Path::of('src/B.php')])
         ->and([...$paths])->toEqual([Path::of('src/A.php'), Path::of('src/B.php')]);
 });
+
+it('unites sets of paths, each path once, in the order the sets first name them', function (): void {
+    $union = Paths::union(
+        Paths::of(Path::of('b'), Path::of('a')),
+        Paths::none(),
+        Paths::of(Path::of('a'), Path::of('c')),
+    );
+
+    expect(array_map(static fn(Path $path): string => $path->value(), [...$union]))->toBe(['b', 'a', 'c'])
+        ->and(Paths::union())->toHaveCount(0);
+});

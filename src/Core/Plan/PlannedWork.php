@@ -46,18 +46,16 @@ final readonly class PlannedWork
             : new self($this->plan, $this->estimate, $this->measured, $this->uncovered->with($path, $lines));
     }
 
-    /** Every unit the shards mutate, in the order the shards take them. */
+    /** Every unit the shards mutate, each once, in the order the shards take them. */
     public function units(): Units
     {
         $units = Units::none();
 
         foreach ($this->plan as $shard) {
-            foreach ($shard->units() as $unit) {
-                $units = $units->with($unit);
-            }
+            $units = $units->and($shard->units());
         }
 
-        return $units;
+        return $units->distinct();
     }
 
     /** How many shards have units to mutate. */

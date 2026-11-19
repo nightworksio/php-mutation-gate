@@ -113,7 +113,7 @@ final readonly class Effective
     {
         $file = $this->file($given->config);
 
-        return $file instanceof Layer ? Layer::standard()->over($file)->publishing() : $file;
+        return $file instanceof Layer ? Layer::standard()->over($file)->output()->publishing() : $file;
     }
 
     /** Whether the config file or the command line chooses the runner, rather than leave it to zero-config. */

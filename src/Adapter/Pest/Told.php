@@ -4,20 +4,27 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function getmypid;
+
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\RecordingVariables;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\TestPartVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 
+use function strval;
+
 /**
  * What a mutation run tells the patched plugin through Pest's environment,
  * each list written beside the run's results: the only mutants a run again
- * makes (see OnlyList), the mutators it prunes (see PrunedFile), whether each
+ * makes, or else those its request makes (see OnlyList), the mutators it prunes (see PrunedFile), whether each
  * mutant's own run is narrowed (see CoveringFiles), where it waits for the
  * gate's verdicts (see Verdicts), where its warm workers share their files
- * (see Warm\Pool), and the bounds of each mutant's limits.
+ * (see Warm\Pool), the bounds of each mutant's limits, and the part of
+ * the test files whose tests judge its mutants (see Split\TestPartVariable).
  *
  * @internal
  */
@@ -41,17 +48,25 @@ final readonly class Told
     public function of(MutationRequest $request, string $results, bool $handsOff, LimitBounds $bounds): array
     {
         $pruned = $request->narrowing()->pruned();
+        $only = $this->only === [] ? [...$request->narrowing()->part()->made()] : $this->only;
 
         return [
-            ...$this->only === []
+            ...$only === []
                 ? []
-                : [GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only)],
+                : [GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$only)],
             ...$this->pruning($pruned, $results),
             ...$this->narrows ? [GateVariable::Narrow->value => '1'] : [],
             ...$handsOff ? [GateVariable::Verdicts->value => Verdicts::beside($results)] : [],
-            ...$this->forks($request) ? [GateVariable::Warm->value => WarmDirectory::beside($results)] : [],
+            ...$this->forks($request) ? [
+                GateVariable::Warm->value => WarmDirectory::beside($results),
+                GateVariable::WorkerWait->value => (string) $request->pool()->pace()->workerWait()->seconds(),
+                ...$this->patching->keepsChunkWorkers() ? [GateVariable::WarmKeeper->value => strval(getmypid())] : [],
+            ] : [],
             ...$this->patching->bounding($bounds),
             ...$this->patching->schemata(),
+            ...$this->patching->stepVariables(),
+            ...TestPartVariable::told($request->narrowing()->part()->testPart()),
+            ...RecordingVariables::of($request->narrowing()->part()->recording()),
         ];
     }
 

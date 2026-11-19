@@ -47,6 +47,7 @@ it('offers every command the command-line reference lists', function (string $co
     'coverage',
     'reproduce',
     'survivors',
+    'leftovers',
     'explain',
     'digest',
     'tests',
@@ -75,6 +76,20 @@ it('runs the whole gate when no command is named, beginning with the config', fu
     expect($tester->run([]))->toBe(2)
         ->and(Printed::by($tester->getOutput()))
         ->toBe("Both pestphp/pest-plugin-mutate and infection/infection are installed. Choose one: set runner in the config, or pass --runner.\n");
+});
+
+it('gives no command an option the console takes on every command', function () use ($console): void {
+    $clashing = [];
+
+    foreach ($console()->all() as $name => $command) {
+        try {
+            $command->mergeApplicationDefinition();
+        } catch (LogicException $clash) {
+            $clashing[] = sprintf('%s: %s', $name, $clash->getMessage());
+        }
+    }
+
+    expect($clashing)->toBe([]);
 });
 
 it('accepts --no-extensions before any command, as a flag', function () use ($console): void {
@@ -117,5 +132,5 @@ it('patches Pest in the vendor directory Composer installed the project into', f
     MutatePlugin::pristine()->into(sprintf('%s/lib/vendor', $project));
 
     expect(Commands::run($project, 'pest:patch')->output)
-        ->toBe("pest:patch patched 6 of the 6 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.\n");
+        ->toBe("pest:patch patched 6 of the 6 files it changes in pest-plugin-mutate. pest:patch patched 4 of the 4 files it changes in pest.\n");
 });

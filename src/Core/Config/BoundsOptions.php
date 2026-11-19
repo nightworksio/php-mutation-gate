@@ -40,6 +40,11 @@ final readonly class BoundsOptions
     /** The option that holds what a run gets to start in where nothing measured it, `timeouts.startUp`. */
     public const string START_UP = 'startUp';
 
+    /**
+     * The option that holds how many times its measured start-up a run gets to start in, `timeouts.startUpMultiple`.
+     */
+    public const string START_UP_MULTIPLE = 'startUpMultiple';
+
     /** What each mutant's limit is kept between, as the options hold it; or why not. */
     public static function read(Options $options): LimitBounds|Problem
     {
@@ -75,19 +80,20 @@ final readonly class BoundsOptions
      */
     public static function of(Triage $triage): array
     {
-        $bounds = $triage->bounds();
+        $bounds = $triage->limits()->bounds();
 
         return [
-            Member::of(self::TIMEOUT, $triage->limit()->seconds()),
-            Member::of(self::MOST, $triage->most()->seconds()),
-            Member::of(self::START_UP, $bounds->unmeasuredStartUp()->seconds()),
+            Member::of(self::TIMEOUT, $triage->limits()->limit()->seconds()),
+            Member::of(self::MOST, $triage->limits()->most()->seconds()),
+            Member::of(self::START_UP, $bounds->startUp()->unmeasured()->seconds()),
+            Member::of(self::START_UP_MULTIPLE, $bounds->startUp()->multiple()),
             $bounds->learnsMultiple()
                 ? Member::of(self::LEARNS_MULTIPLE, value: true)
                 : Member::of(self::MULTIPLE, $bounds->multiple()->times()),
             ...$bounds->learnsFloor() ? [Member::of(self::LEARNS_FLOOR, value: true)] : [],
-            TighterOptions::floor($triage->bounds()->tighter()),
-            TighterOptions::mutators($triage->bounds()->tighter()),
-            ...PerTestOptions::of($triage->bounds()->perTest()),
+            TighterOptions::floor($triage->limits()->bounds()->tighter()),
+            TighterOptions::mutators($triage->limits()->bounds()->tighter()),
+            ...PerTestOptions::of($triage->limits()->bounds()->perTest()),
         ];
     }
 
@@ -97,18 +103,33 @@ final readonly class BoundsOptions
         $timeout = $options->number(Key::of(self::TIMEOUT));
         $most = $options->number(Key::of(self::MOST));
         $startUp = $options->number(Key::of(self::START_UP));
+        $startUpMultiple = $options->number(Key::of(self::START_UP_MULTIPLE));
         $standard = Triage::standard();
 
         return match (true) {
             $timeout instanceof Problem => $timeout,
             $most instanceof Problem => $most,
             $startUp instanceof Problem => $startUp,
+            $startUpMultiple instanceof Problem => $startUpMultiple,
             default => LimitBounds::between(
-                $timeout instanceof NotGiven ? $standard->limit() : Seconds::of($timeout),
-                $most instanceof NotGiven ? $standard->most() : Seconds::of($most),
-                $startUp instanceof NotGiven ? MutantLimit::START_UP : $startUp,
+                self::seconds($timeout, $standard->limits()->limit()),
+                self::seconds($most, $standard->limits()->most()),
+                self::number($startUp, MutantLimit::START_UP),
+                self::number($startUpMultiple, MutantLimit::FACTOR),
             ),
         };
+    }
+
+    /** A number of seconds given, or the standard where none is. */
+    private static function seconds(float|NotGiven $given, Seconds $standard): Seconds
+    {
+        return $given instanceof NotGiven ? $standard : Seconds::of($given);
+    }
+
+    /** A number given, or the standard where none is. */
+    private static function number(float|NotGiven $given, float $standard): float
+    {
+        return $given instanceof NotGiven ? $standard : $given;
     }
 
     /** These bounds, their floor learned where the options say it is. */

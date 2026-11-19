@@ -14,6 +14,7 @@ use function implode;
 use function is_file;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Order\SeedsWaiting;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use Pest\Mutate\MutationTest;
@@ -95,13 +96,15 @@ final class Verdicts
 
     /**
      * Pest's mutation tests in the order they run: each the gate holds back
-     * after the others, each part in the order Pest gave.
+     * after the others, each part in the order Pest gave, the seeds of those
+     * left to run on their own written first (see SeedsWaiting).
      *
      * @param  list<MutationTest> $tests
      * @return list<MutationTest>
      */
     public static function ordered(array $tests): array
     {
+        SeedsWaiting::seedFor($tests);
         $isHeld = static fn(MutationTest $test): bool => array_key_exists(
             $test->mutation->modifiedSourcePath,
             self::$held,

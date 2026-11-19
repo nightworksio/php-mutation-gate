@@ -7,6 +7,7 @@
 /.phpunit.result.cache
 /.mutation-gate/
 /.phpactor.json
+/tests/Contract/Runner/*.own-*
 /tests/Contract/Runner/fixture/vendor/
 /tests/Contract/Runner/fixture/.mutation-gate/
 /tests/Contract/Runner/infection-fixture/vendor/

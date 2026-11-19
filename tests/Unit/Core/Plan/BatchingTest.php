@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Batching;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -85,4 +86,27 @@ it('takes every unit in a row where neither time nor a chunk limits it, a held u
     expect($paths($batching->next($ordered, Unlimited::time())))->toBe(['src/A.php', 'src/B.php'])
         ->and($paths($batching->next([batchHeld('src/Held', 1.0), batchFile('src/A.php', 1.0)], Unlimited::time())))
         ->toBe(['src/Held']);
+});
+
+it('takes a unit only with room for its kills\' control after the batch\'s mutants, the controls in rounds side by side', function () use ($makeBatching, $paths): void {
+    $ordered = array_map(static fn(string $name): Weighed => batchFile(sprintf('src/%s.php', $name), 5.0)->controlledWithin(Seconds::of(10.0)), ['A', 'B', 'C', 'D', 'E']);
+
+    expect($paths($makeBatching()->next($ordered, Seconds::of(50.0))))->toBe(['src/A.php', 'src/B.php'])
+        ->and($paths($makeBatching()->controlledAbreast(ProcessCount::of(2))->next($ordered, Seconds::of(50.0))))
+        ->toBe(['src/A.php', 'src/B.php', 'src/C.php', 'src/D.php'])
+        ->and($paths($makeBatching()->next($ordered, Unlimited::time())))->toBe(['src/A.php', 'src/B.php', 'src/C.php', 'src/D.php', 'src/E.php'])
+        ->and($paths($makeBatching()->next([batchFile('src/A.php', 5.0)->controlledWithin(Seconds::of(10.0))], Seconds::of(24.9))))->toBe([]);
+});
+
+it('keeps a quick round\'s saved unit and only as many more as leave its kills\' control room, where mutating alone would take all 42', function () use ($paths): void {
+    $saved = batchFile('src/Validation/Constraint/IdentifiedBy.php', 2.0);
+    $others = array_map(static fn(int $at): Weighed => batchFile(sprintf('src/Other%d.php', $at), 1.0), range(1, 41));
+    $controlled = array_map(static fn(Weighed $one): Weighed => $one->controlledWithin(Seconds::of(10.0)), [$saved, ...$others]);
+    $batching = Batching::opening(Seconds::of(5.0))->controlledAbreast(ProcessCount::of(2));
+
+    $batch = $paths($batching->next($controlled, Seconds::of(60.0)));
+
+    expect(count($paths($batching->next([$saved, ...$others], Seconds::of(60.0)))))->toBe(42)
+        ->and($batch[0])->toBe('src/Validation/Constraint/IdentifiedBy.php')
+        ->and(count($batch))->toBe(8);
 });

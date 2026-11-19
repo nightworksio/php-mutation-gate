@@ -37,6 +37,12 @@ final readonly class TestClock
         return self::idle();
     }
 
+    /** The test it is running; none between tests. */
+    public function running(): TestId|NotGiven
+    {
+        return $this->running instanceof TestStart ? $this->running->test() : $this->running;
+    }
+
     /**
      * The test it is running and the limit it has run past, at these
      * seconds of the clock, under this watch; none where it runs no test,

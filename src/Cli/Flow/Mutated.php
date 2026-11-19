@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_filter;
+use function array_values;
+
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
@@ -59,6 +64,27 @@ final readonly class Mutated
             $this->flaky,
             $this->held,
             $this->unjudged->and($units),
+            $this->checks,
+            $this->doomed,
+        );
+    }
+
+    /**
+     * The same, with only these of its mutants, and of its flaky ones, as a
+     * job of the second wave keeps the share it judges (ADR-0190).
+     */
+    public function keeping(MutantIds $ids): self
+    {
+        $kept = array_values(array_filter(
+            [...$this->result->mutants()],
+            static fn(Mutant $mutant): bool => $ids->has($mutant->id()),
+        ));
+
+        return new self(
+            $this->result->withMutants(Mutants::of(...$kept)),
+            $this->flaky->without($this->flaky->without($ids)),
+            $this->held,
+            $this->unjudged,
             $this->checks,
             $this->doomed,
         );

@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * The digests of a run's inputs, as its plan was made (ADR-0008):
@@ -30,6 +31,7 @@ final readonly class Digests
         private ByPath $sources,
         private ByPath $tests,
         private Revision|Uncommitted $commit,
+        private Digest|NotGiven $reads = new NotGiven(),
     ) {
     }
 
@@ -44,21 +46,45 @@ final readonly class Digests
 
     public function withSource(Path $unit, Digest $digest): self
     {
-        return new self($this->mutation, $this->sources->with($unit, $digest), $this->tests, $this->commit);
+        return new self(
+            $this->mutation,
+            $this->sources->with($unit, $digest),
+            $this->tests,
+            $this->commit,
+            $this->reads,
+        );
     }
 
     public function withTest(Path $file, Digest $digest): self
     {
-        return new self($this->mutation, $this->sources, $this->tests->with($file, $digest), $this->commit);
+        return new self(
+            $this->mutation,
+            $this->sources,
+            $this->tests->with($file, $digest),
+            $this->commit,
+            $this->reads,
+        );
     }
 
     /** These digests, taken at this commit from a working tree that held nothing it does not. */
     public function takenAt(Revision $commit): self
     {
-        return new self($this->mutation, $this->sources, $this->tests, $commit);
+        return new self($this->mutation, $this->sources, $this->tests, $commit, $this->reads);
     }
 
     /** The commit these digests were taken at, or none where the working tree held more. */
+    /** These digests, with the digest of the first five inputs alone, which read no coverage map (ADR-0135). */
+    public function withReads(Digest $reads): self
+    {
+        return new self($this->mutation, $this->sources, $this->tests, $this->commit, $reads);
+    }
+
+    /** The digest of the first five inputs alone; none where the run did not take it. */
+    public function reads(): Digest|NotGiven
+    {
+        return $this->reads;
+    }
+
     public function commit(): Revision|Uncommitted
     {
         return $this->commit;
@@ -109,6 +135,7 @@ final readonly class Digests
         $inputs = $this->commit instanceof Revision
             ? Inputs::of($source, $this->mutation)->takenAt($this->commit)
             : Inputs::of($source, $this->mutation);
+        $inputs = $this->reads instanceof Digest ? $inputs->withReads($this->reads) : $inputs;
 
         foreach ($killers as $file) {
             $digest = $this->testOf($file);

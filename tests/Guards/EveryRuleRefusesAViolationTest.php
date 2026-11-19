@@ -203,7 +203,7 @@ it('sees the coverage floor refuse every uncovered line planted for it, under a 
 
     expect($failed)->toBe([], sprintf("Pest measures coverage only after every test passed, and the covered run failed these:\n  %s", implode("\n  ", $failed)))
         ->and($covered->isSuccessful())->toBeFalse()
-        ->and($said)->toContain('Code coverage below expected')
+        ->and($said)->toContain('Every line of src is covered but these:')
         ->and($silent)->toBe([], sprintf("The covered run did not count these:\n  %s\n\nIt said:\n%s", implode("\n  ", $silent), $said));
 })->group('ci-only');
 

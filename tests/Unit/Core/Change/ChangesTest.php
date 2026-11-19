@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 
 $paths = static fn(Changes $changes): array => array_map(static fn(Change $change): string => $change->path()->value(), iterator_to_array($changes, preserve_keys: true));
@@ -21,4 +22,14 @@ it('adds a change without changing the changes it came from', function () use ($
 
     expect($paths($changes->with(Change::deleted(Path::of('b')))))->toBe(['a', 'b'])
         ->and($changes)->toHaveCount(1);
+});
+
+it('names every path its changes touch, by the name now and the name before', function (): void {
+    $changes = Changes::of(
+        Change::renamed(Path::of('src/Old.php'), Path::of('src/New.php'), Lines::none()),
+        Change::deleted(Path::of('src/Gone.php')),
+    );
+
+    expect(array_map(static fn(Path $path): string => $path->value(), iterator_to_array($changes->paths(), preserve_keys: false)))
+        ->toBe(['src/New.php', 'src/Old.php', 'src/Gone.php']);
 });

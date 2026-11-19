@@ -54,3 +54,17 @@ it('says a line to the console\'s reader, and leaves it out of problems', functi
     expect($console->fetch())->toBe("src scores 40.00%.\n")
         ->and($problems->fetch())->toBe('');
 });
+
+it('prints no verdict as events, which said every mutant as it was judged, and says no line to the console\'s reader', function (): void {
+    $output = new BufferedOutput();
+    $project = Directory::at(Scratch::directory());
+    $events = Printing::of(VerdictOutput::Events, ProblemsShown::All);
+
+    $events->begin($output, $project);
+    $events->note('A change arrived.', $output);
+    $events->verdict(Verdicts::failing(), $output, $project);
+
+    expect($output->fetch())->toBe('')
+        ->and($events->events())->toBeTrue()
+        ->and($events->endsRounds(asked: true))->toBeFalse();
+});

@@ -43,6 +43,16 @@ enum ChildVariable: string
     /** How long to wait between looks at a process, `runner.poll`, where the config sets it (see Polling). */
     case Poll = 'MUTATION_GATE_POLL';
 
+    /**
+     * The digest of the test files a runner in this process lists the tests
+     * of, set by `watch` each round, so a listing is reused only while no
+     * test file changed (ADR-0120).
+     */
+    case TestsKey = 'MUTATION_GATE_TESTS_KEY';
+
+    /** How long a warm worker and its client wait for a wake before they look anyway: `local.childWait` (ADR-0120). */
+    case WarmWait = 'MUTATION_GATE_WARM_WAIT';
+
     /** Set where a coverage run records what its tests loaded, under `reach.lockMoves: loaded` (ADR-0115). */
     case RecordsLoads = 'MUTATION_GATE_RECORDS_LOADS';
 

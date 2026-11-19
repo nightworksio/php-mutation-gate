@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree as SourceTree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Tests\Support\OwnFixtures;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 /**
@@ -191,6 +192,7 @@ it('lists in the gate\'s own config every fixture project the PHPUnit config lea
         Node::decode((string) file_get_contents(Tree::at('mutation-gate.json')))->field('reach')->field('fixtures')->items(),
     );
 
+    $excluded = array_values(array_filter($excluded, static fn(string $exclude): bool => $exclude !== OwnFixtures::EXCLUDED));
     $data = 'tests/Fixtures/*';
     $projects = array_values(array_filter($listed, static fn(string $fixture): bool => $fixture !== $data));
 

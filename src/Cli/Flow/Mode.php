@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\DefaultBranchSince;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Judged;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
@@ -98,6 +101,18 @@ final readonly class Mode
         return $this->unproven ? TakenProofs::None : $configured;
     }
 
+    /** This mode, taking no proof, as a run planned without a fresh map takes none (ADR-0135). */
+    public function takingNone(): self
+    {
+        return new self($this->since, $this->sampled, unproven: true, byItself: $this->byItself);
+    }
+
+    /** Whether the run takes no proof, as under `unproven`. */
+    public function isUnproven(): bool
+    {
+        return $this->unproven;
+    }
+
     /** Whether every unit is considered, as `--full` asks. */
     public function isFull(): bool
     {
@@ -121,11 +136,13 @@ final readonly class Mode
         Standing $standing,
         RunProfile $kind,
         string $check,
+        DefaultBranchSince $since,
     ): ChangeBase|CannotTell {
         $base = match ($this->since) {
             self::LAST_RUN => $this->fallback($ledgers, $standing),
             default => $this->base($ledgers),
         };
+        $judged = $this->judgedSince($ledgers, $since);
         $lastRun = $ledgers->lastRun();
         $exact = $this->since === self::LAST_RUN
             && $ledgers->readsOwnScope()
@@ -135,20 +152,50 @@ final readonly class Mode
 
         return match (true) {
             ! $base instanceof Revision => $base,
-            $exact => $this->sinceLedger(ChangeBase::lastRun($lastRun->judged(), $base), $ledgers),
-            default => $this->sinceLedger(ChangeBase::since($base), $ledgers),
+            $exact => $this->sinceLedger(ChangeBase::lastRun($lastRun->judged(), $base), $ledgers, $judged),
+            $judged instanceof Judged && $this->isSinceLastPassed() && ! $ledgers->readsOwnScope()
+                => ChangeBase::since($judged->commit())->withOpenSince($base, $judged->open()),
+            default => $this->sinceLedger(ChangeBase::since($base), $ledgers, $judged),
         };
     }
 
     /**
-     * Off the default branch, this base with the commit the default branch's
-     * ledger last passed at, whose results the run carries (ADR-0060).
+     * The default branch's newest judged run its changes are read since, as `reach.defaultBranchSince` says: where
+     * the run reads since judged runs, the ledger recorded one newer than its last pass, under the same check, and
+     * it passed at all (ADR-0141); none otherwise, every change read since the last pass.
      */
-    private function sinceLedger(ChangeBase $base, Ledgers $ledgers): ChangeBase
+    private function judgedSince(Ledgers $ledgers, DefaultBranchSince $since): Judged|NotGiven
+    {
+        $runs = $ledgers->defaultBranch()->runs();
+        $judged = $runs->judged();
+        $passed = $runs->passed();
+
+        return $since->readsJudged(! $ledgers->readsOwnScope())
+            && $judged instanceof Judged
+            && $passed instanceof Passed
+            && $judged->check() === $passed->check()
+            && $judged->isNewerThan($passed)
+            ? $judged
+            : NotGiven::value();
+    }
+
+    /**
+     * Off the default branch, this base with the commit the default branch's
+     * ledger last passed at, whose results the run carries (ADR-0060); or, where
+     * it reads since a newer judged run, that run's commit, the units it left
+     * open reading since the last pass (ADR-0141).
+     */
+    private function sinceLedger(ChangeBase $base, Ledgers $ledgers, Judged|NotGiven $judged): ChangeBase
     {
         $passed = $ledgers->defaultBranch()->runs()->passed();
 
-        return $ledgers->readsOwnScope() && $passed instanceof Passed ? $base->withLedgerAt($passed->commit()) : $base;
+        return match (true) {
+            ! $ledgers->readsOwnScope() || ! $passed instanceof Passed => $base,
+            $judged instanceof Judged => $base
+                ->withLedgerAt($judged->commit())
+                ->withOpenSince($passed->commit(), $judged->open()),
+            default => $base->withLedgerAt($passed->commit()),
+        };
     }
 
     /**

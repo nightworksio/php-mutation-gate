@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Globs;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
@@ -31,9 +32,9 @@ use function sprintf;
 /**
  * Whether the verdict of the commit a plan that runs no unit is read since
  * stands for it (ADR-0062): the default branch's ledger records that commit
- * as passed, under the run's own check and at an instant, and holds no result
- * a later run left; what changed from it is what changed since its merge base
- * with HEAD; no path that change touched, as it is and as it was, is in a
+ * as passed, under the run's own check, at an instant and by the release of
+ * the gate that runs now, and holds no result a later run left; what changed
+ * from it is what changed since its merge base with HEAD; no path that change touched, as it is and as it was, is in a
  * tree, is the baseline or holds the config, whose floors and ignores no
  * reach rule counts; and no ignore that applied when it passed has expired
  * since. Anything else, and the verdict judges the carried results.
@@ -58,16 +59,23 @@ final readonly class ReachingNothing
         private Path $baseline,
         private Globs $config,
         private string $check,
+        private GateRelease $gate,
     ) {
     }
 
     /**
      * Judged against these trees, with the baseline at this path and the
-     * config in these files, for a run reporting under this check.
+     * config in these files, for a run reporting under this check by this
+     * release of the gate.
      */
-    public static function within(Trees $trees, Path $baseline, Globs $config, string $check): self
-    {
-        return new self($trees, $baseline, $config, $check);
+    public static function within(
+        Trees $trees,
+        Path $baseline,
+        Globs $config,
+        string $check,
+        GateRelease $gate,
+    ): self {
+        return new self($trees, $baseline, $config, $check, $gate);
     }
 
     /**
@@ -124,9 +132,11 @@ final readonly class ReachingNothing
         Changes|CannotTell $sinceBase,
     ): Unchanged|Reason {
         $named = $passed->commit()->name();
+        $gate = Unchanging::otherGate($passed, $this->gate);
         $touched = match (true) {
             $passed->check() !== $this->check
                 => Reason::that(sprintf(Unchanging::OTHER_CHECK, $named, $passed->check(), $this->check)),
+            $gate instanceof Reason => $gate,
             $since->name() !== $named => Reason::that(sprintf(self::OTHER_COMMIT, $since->name(), $named)),
             $this->laterThan($proofs, $at) => Reason::that(sprintf(self::LATER, $named)),
             default => $this->touched($named, $fromPassed, $sinceBase),

@@ -13,11 +13,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * One mutant as a runner reported it: where it is, what it changed, whether a
  * test caught it, how long it ran where the runner says, and, for a mutant
- * a limit stopped, the limit and what the unmutated code needs of it: for
- * one that timed out, the seconds the runner allowed it and the seconds its
- * judging tests take on their own, which timeout triage compares; for one
- * that ran out of the memory cap, the cap and the most memory the unmutated
- * suite's largest process held, which memory triage compares. The native id
+ * a limit stopped, where it stopped (see Stop). The native id
  * is the runner's own, and means something only within the run that printed
  * it. A mutant the runner left unjudged can say why, and a killed one names
  * the tests that killed it where the runner does. One a static analyser
@@ -32,8 +28,7 @@ final readonly class Mutant
         private Mutation $mutation,
         private MutantStatus $status,
         private Seconds|Unmeasured $duration,
-        private Seconds|MemoryCap|Unmeasured $limit,
-        private Seconds|MemoryCap|Unmeasured $unmutatedNeed,
+        private Stop $stop,
         private Reason|Rejection|Unreported $reason,
         private TestIds $killers,
     ) {
@@ -54,8 +49,7 @@ final readonly class Mutant
             $mutation,
             $status,
             $duration,
-            Unmeasured::duration(),
-            Unmeasured::duration(),
+            Stop::unmeasured(),
             Unreported::reason(),
             TestIds::none(),
         );
@@ -74,8 +68,7 @@ final readonly class Mutant
             $this->mutation,
             $this->status,
             $this->duration,
-            $this->limit,
-            $this->unmutatedNeed,
+            $this->stop,
             $this->reason,
             $this->killers,
         );
@@ -91,8 +84,7 @@ final readonly class Mutant
             $this->mutation,
             $this->status,
             $this->duration,
-            $limit,
-            $this->unmutatedNeed,
+            $this->stop->at($limit),
             $this->reason,
             $this->killers,
         );
@@ -113,8 +105,7 @@ final readonly class Mutant
             $this->mutation,
             $this->status,
             $this->duration,
-            $this->limit,
-            $need,
+            $this->stop->needing($need),
             $this->reason,
             $this->killers,
         );
@@ -130,8 +121,7 @@ final readonly class Mutant
             $this->mutation,
             $this->status,
             $this->duration,
-            $this->limit,
-            $this->unmutatedNeed,
+            $this->stop,
             $reason,
             $this->killers,
         );
@@ -153,8 +143,7 @@ final readonly class Mutant
                 $this->mutation,
                 MutantStatus::FailsUnmutated,
                 $this->duration,
-                $this->limit,
-                $this->unmutatedNeed,
+                $this->stop,
                 $why->why(),
                 $why->failing(),
             ),
@@ -165,8 +154,7 @@ final readonly class Mutant
                 $this->mutation,
                 MutantStatus::Unjudged,
                 $this->duration,
-                $this->limit,
-                $this->unmutatedNeed,
+                $this->stop,
                 $why instanceof OutOfTime ? $why->reason() : $why,
                 $this->killers,
             ),
@@ -186,9 +174,27 @@ final readonly class Mutant
             $this->mutation,
             MutantStatus::KilledByStaticAnalysis,
             $this->duration,
-            $this->limit,
-            $this->unmutatedNeed,
+            $this->stop,
             $rejection,
+            TestIds::none(),
+        );
+    }
+
+    /**
+     * This mutant, proven equivalent before it ran (ADR-0130): so run by no
+     * test, killed by none, for the reason that proved it.
+     */
+    public function provenEquivalent(Reason $proof): self
+    {
+        return new self(
+            $this->id,
+            $this->nativeId,
+            $this->location,
+            $this->mutation,
+            MutantStatus::Equivalent,
+            Unmeasured::duration(),
+            $this->stop,
+            $proof,
             TestIds::none(),
         );
     }
@@ -206,8 +212,7 @@ final readonly class Mutant
             $this->mutation,
             $this->status,
             $this->duration,
-            $this->limit,
-            $this->unmutatedNeed,
+            $this->stop,
             $this->reason,
             $tests,
         );
@@ -249,16 +254,10 @@ final readonly class Mutant
         return $this->duration;
     }
 
-    /** The limit that stopped it, where it says: the seconds the runner allowed it, or the memory cap. */
-    public function limit(): Seconds|MemoryCap|Unmeasured
+    /** Where a limit stopped it: the limit, and what its unmutated code needs of it, where each was said. */
+    public function stop(): Stop
     {
-        return $this->limit;
-    }
-
-    /** What its unmutated code needs of its limit, where that was measured. */
-    public function unmutatedNeed(): Seconds|MemoryCap|Unmeasured
-    {
-        return $this->unmutatedNeed;
+        return $this->stop;
     }
 
     /** Why it stands as it does: the runner's reason, or the rejection of the analyser that killed it. */

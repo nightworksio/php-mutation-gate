@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -183,6 +184,24 @@ final readonly class ShardResult
             $this->unjudged,
             $this->checks,
             $doomed,
+        );
+    }
+
+    /** This result, with what the jobs of the second wave that judged shares of what it left measured of their time. */
+    public function withShares(JobTimes ...$shares): self
+    {
+        return new self(
+            $this->plan,
+            $this->shard,
+            $this->units,
+            $this->outcome,
+            $this->measured->sharedBy(...$shares),
+            $this->flaky,
+            $this->held,
+            $this->warnings,
+            $this->unjudged,
+            $this->checks,
+            $this->doomed,
         );
     }
 

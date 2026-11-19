@@ -128,7 +128,7 @@ final readonly class PathRules
         $problems = [];
 
         foreach ($this->rules() as $index => $rule) {
-            $refusal = $settled->over($rule->rules())->triage()->refusal();
+            $refusal = $settled->over($rule->rules())->judging()->triage()->refusal();
 
             foreach ($refusal instanceof Invalid ? $refusal : [] as $problem) {
                 $problems[] = Problem::at(

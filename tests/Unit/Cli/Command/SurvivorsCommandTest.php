@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Port\TreeSource;
@@ -160,7 +161,7 @@ it('follows the plan it is named, as its shards do, and cannot re-check by a sui
             </testsuites>
         </phpunit>
         XML);
-    LastRun::keep(Directory::at($project), Planned::twoShards()->briefed(Briefing::standard()->inSuite(SuiteName::of('e2e'))));
+    LastRun::keep(Directory::at($project), Planned::twoShards()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->inSuite(SuiteName::of('e2e')))));
     $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature());
 
     $ran = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json');

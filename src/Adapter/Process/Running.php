@@ -12,9 +12,6 @@ use function fclose;
 use function feof;
 use function filesize;
 use function getenv;
-
-use const INF;
-
 use function is_dir;
 use function is_file;
 use function is_int;
@@ -49,9 +46,13 @@ use function usleep;
 
 /**
  * A process started in one place, until its command's deadline, or until it
- * has made no progress for its silence limit where it has one, on a clock
- * read in seconds. What it prints is read as it prints it, so a wait on
- * running processes ends as soon as one prints or ends.
+ * has made no progress for its silence limit where it has one, or, where its
+ * command is held to a grace, until that long past the time its pool starts
+ * no more commands, if that comes first (ADR-0197), on a clock read in
+ * seconds. What it prints is read as it prints it, so a wait on
+ * running processes ends as soon as one prints or ends. It leads a session
+ * of its own and runs in a cgroup of its own where the gate holds its
+ * processes so (ADR-0158), and whatever it left is killed once it ends.
  *
  * @internal
  */
@@ -92,10 +93,12 @@ final class Running
         private readonly int $place,
         private readonly float $started,
         private readonly float $until,
+        private readonly bool $halts,
         private readonly SilenceLimit|NotGiven $silence,
         private Progress|NotGiven $progress,
         private array $pipes,
         private readonly TestEventsFile|NotGiven $tests,
+        private readonly Holding $holding,
         private string $printedOut = '',
         private string $printedErrors = '',
     ) {
@@ -103,23 +106,30 @@ final class Running
 
     /**
      * A command started in a place, by its position among the places, at a
-     * time; or how it ended, where it could not be started.
+     * time, its pool starting no more commands from a time on; or how it
+     * ended, where it could not be started.
      */
-    public static function start(ProcessCommand $command, int $place, WorkerSlot $slot, float $now): self|Ran
-    {
+    public static function start(
+        ProcessCommand $command,
+        int $place,
+        WorkerSlot $slot,
+        float $now,
+        float $startBy,
+    ): self|Ran {
         $arguments = [...$command->arguments()];
 
         if (! is_dir($command->directory())) {
             return self::unstarted(sprintf(ChildProcess::NO_DIRECTORY, $command->directory()));
         }
 
+        $holding = Holding::told();
         $pipes = [];
         set_error_handler(static fn(): bool => true, E_WARNING);
 
         try {
             $process = proc_open(
-                $arguments,
-                self::DESCRIPTORS,
+                $holding->command($arguments),
+                Unshared::over(self::DESCRIPTORS),
                 $pipes,
                 $command->directory(),
                 self::environment($command->in($slot)->environment()),
@@ -129,9 +139,12 @@ final class Running
         }
 
         if (! is_resource($process)) {
+            $holding->unstarted();
+
             return self::unstarted(sprintf(self::NOT_STARTED, $arguments[0]));
         }
 
+        $pipes = Unshared::kept($pipes, self::DESCRIPTORS);
         fclose($pipes[self::INPUT]);
         unset($pipes[self::INPUT]);
 
@@ -139,18 +152,20 @@ final class Running
             stream_set_blocking($pipe, enable: false);
         }
 
-        $deadline = $command->deadline();
         $silence = $command->silence();
+        $bounds = Bounds::of($command, $now, $startBy);
 
         return new self(
             $process,
             $place,
             $now,
-            $deadline instanceof Seconds ? $now + $deadline->seconds() : INF,
+            $bounds->until(),
+            $bounds->halts(),
             $silence,
             Progress::of($silence),
             $pipes,
             TestEventsFile::of($silence),
+            $holding,
         );
     }
 
@@ -196,7 +211,8 @@ final class Running
     /**
      * How it ended by a time: exited, or stopped with every process it started
      * where it runs past its deadline, has stalled or a test of it has run
-     * past its own limit; nothing where it runs on.
+     * past its own limit, or halted where it ran past its grace; nothing where
+     * it runs on.
      */
     public function endedBy(float $now): Ran|NotGiven
     {
@@ -208,11 +224,29 @@ final class Running
                 signal: $status['termsig'],
                 code: $status['exitcode'],
                 now: $now,
+                pid: $status['pid'],
             ),
-            $now >= $this->until => $this->stopped(Ran::stopped(...), $now, $status['pid']),
+            $now >= $this->until => $this->stopped(
+                $this->halts ? Ran::halted(...) : Ran::stopped(...),
+                $now,
+                $status['pid'],
+            ),
             $this->hasStalled($now) => $this->stopped(Ran::silenced(...), $now, $status['pid']),
             default => $this->overranBy($now, $status['pid']),
         };
+    }
+
+    /**
+     * How it ended by a time where it has ended, else stopped then with every
+     * process it started.
+     */
+    public function stop(float $now): Ran
+    {
+        $end = $this->endedBy($now);
+
+        return $end instanceof Ran
+            ? $end
+            : $this->stopped(Ran::stopped(...), $now, proc_get_status($this->process)['pid']);
     }
 
     /**
@@ -314,9 +348,10 @@ final class Running
     }
 
     /** How it ended where it exited: by a signal, or with a code. */
-    private function exited(bool $signalled, int $signal, int $code, float $now): Ran
+    private function exited(bool $signalled, int $signal, int $code, float $now, int $pid): Ran
     {
         $this->close();
+        $this->holding->ended($pid);
         $ran = $signalled
             ? Ran::signalled($signal, $this->output(), $this->printedOut)
             : Ran::exited($code, $this->output(), $this->printedOut);
@@ -327,7 +362,7 @@ final class Running
     /** @param Closure(string, string): Ran $ended how it ended, by what it printed on both streams and on its output */
     private function stopped(Closure $ended, float $now, int $pid): Ran
     {
-        ProcessTree::of($pid)->stop();
+        $this->holding->stopped($pid);
         proc_terminate($this->process, self::KILL);
         $this->close();
 

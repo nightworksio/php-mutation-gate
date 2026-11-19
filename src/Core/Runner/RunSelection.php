@@ -23,4 +23,10 @@ interface RunSelection
      * one, where the runner left its filter out.
      */
     public function of(TestIds $judging, CoverageMap $map, Paths|WholeSuite|NotGiven $unfiltered): RunTests;
+
+    /**
+     * Whether the runner replays each kill's own order itself before its kill
+     * control, so that control need only run the killers (ADR-0108).
+     */
+    public function replaysKills(): bool;
 }

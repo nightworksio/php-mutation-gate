@@ -30,10 +30,14 @@ final readonly class Xdebug
     /** The variable that sets Xdebug's mode over its setting. */
     public const string MODE_VARIABLE = 'XDEBUG_MODE';
 
-    private const string MODE_SETTING = 'xdebug.mode';
+    /** The setting that names Xdebug's mode. */
+    public const string MODE_SETTING = 'xdebug.mode';
 
     /** Xdebug's mode where nothing sets one. */
-    private const string DEFAULT_MODE = 'develop';
+    public const string DEFAULT_MODE = 'develop';
+
+    /** Xdebug's mode that turns every one of its features off. */
+    public const string OFF = 'off';
 
     /** The modes that cost a test nothing beyond coverage. */
     private const array CHEAP = ['coverage', 'off'];
