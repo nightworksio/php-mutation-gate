@@ -40,7 +40,7 @@ final readonly class BuilderClasses
         'Equivalence' => self::BUILDER,
         'Flaky' => self::BUILDER,
         'Floor' => self::BUILDER,
-        'FreshRunOrder' => self::BUILDER,
+        'FreshRunSpeedUps' => self::BUILDER,
         'Gate' => self::BUILDER,
         'Heatmap' => self::BUILDER,
         'HeldUnits' => self::BUILDER,

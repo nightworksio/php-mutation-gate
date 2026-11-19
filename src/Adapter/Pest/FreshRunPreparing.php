@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_map;
 
+use NightWorksIO\MutationGate\Adapter\Native\MutantFiles;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
@@ -64,17 +66,50 @@ final readonly class FreshRunPreparing
             $location->start(),
             $location->last(),
         );
-        $selection = $this->patching->selecting($covering, $batch->suite);
-        $files = $this->written($mutant, $this->listing($covering, $selection->fits()));
+        $limit = MutantLimit::standard()->of(OwnTime::of($batch->map, $covering), $batch->bounds);
+        $run = $this->over($mutant, $covering, $limit, '', $batch);
 
-        return $files instanceof CannotJudge
-            ? Interpretation::unjudged($mutant, Reason::that($files->why()))
-            : $this->run($mutant, $covering, $selection, $files, $batch);
+        return $run instanceof CannotJudge ? Interpretation::unjudged($mutant, Reason::that($run->why())) : $run;
     }
 
-    /** The files of a mutant's fresh run, written in its own directory. */
-    private function written(Mutant $mutant, NativeSelection $listing): FreshRunFiles|CannotJudge
+    /**
+     * A run beside a mutant's fresh run over a part of its covering tests,
+     * under the fresh run's own limit, its files in a part of the mutant's
+     * own directory of this name (ADR-0203); or why it cannot be written.
+     */
+    public function racing(FreshRun $run, TestIds $part, string $name, FreshBatch $batch): FreshRun|CannotJudge
     {
+        return $this->over($run->mutant(), $part, $run->limit(), $name, $batch);
+    }
+
+    /**
+     * A fresh run of a mutant over these covering tests under this limit, its
+     * files in its own directory, or in a part of it of this name where one is
+     * given; or why it cannot be written.
+     */
+    private function over(
+        Mutant $mutant,
+        TestIds $covering,
+        Seconds $limit,
+        string $part,
+        FreshBatch $batch,
+    ): FreshRun|CannotJudge {
+        $selection = $this->patching->selecting($covering, $batch->suite);
+        $directory = MutantFiles::directoryOf($mutant->id()->value(), $part);
+        $files = $this->written($mutant, $this->listing($covering, $selection->fits()), $part, $directory);
+
+        return $files instanceof CannotJudge
+            ? $files
+            : $this->run($mutant, $covering, $selection, $files, $batch, $limit, $directory);
+    }
+
+    /** The files of a mutant's fresh run, written in its own directory, or in a part of it of this name, named so. */
+    private function written(
+        Mutant $mutant,
+        NativeSelection $listing,
+        string $part,
+        string $directory,
+    ): FreshRunFiles|CannotJudge {
         $original = Printed::at($this->project, $mutant->location()->file());
 
         if ($original instanceof CannotJudge) {
@@ -87,14 +122,12 @@ final readonly class FreshRunPreparing
             return $printed;
         }
 
-        $placed = $this->placement->placed($mutant, $printed, $listing);
+        $placed = $this->placement->placed($mutant, $printed, $listing, $part);
 
-        return $placed instanceof CannotJudge
-            ? $placed
-            : $this->besidePlaced($original, $placed, $mutant->id()->value());
+        return $placed instanceof CannotJudge ? $placed : $this->besidePlaced($original, $placed, $directory);
     }
 
-    /** The log, the unmutated copy and the control's guard beside a placed mutant. */
+    /** The log, the unmutated copy and the control's guard beside a placed mutant, in this directory. */
     private function besidePlaced(Contents $original, PlacedMutant $placed, string $id): FreshRunFiles|CannotJudge
     {
         $log = $this->placement->fresh(sprintf('%s/%s', $id, JUnitLog::NAME));
@@ -121,9 +154,10 @@ final readonly class FreshRunPreparing
         Selection $selection,
         FreshRunFiles $files,
         FreshBatch $batch,
+        Seconds $limit,
+        string $directory,
     ): FreshRun {
         $request = $batch->request;
-        $limit = MutantLimit::standard()->of(OwnTime::of($batch->map, $covering), $batch->bounds);
         $judgedBy = $selection->fits() ? $selection->filter() : $request->judgedBy();
         $tests = $selection->fits() ? $this->tests->naming($selection->classes()) : Paths::none();
         $suites = PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy));
@@ -146,8 +180,17 @@ final readonly class FreshRunPreparing
             $mutant,
             $covering,
             $placed,
-            $serving($placed->mutated(), $placed->guard(), $logging, ...$batch->order->ofRun($mutant, $covering)),
-            $serving($files->unmutated, $files->controlGuard, ...$batch->order->ofControl($mutant, $covering)),
+            $serving(
+                $placed->mutated(),
+                $placed->guard(),
+                $logging,
+                ...$batch->order->ofRun($mutant, $covering, $directory),
+            ),
+            $serving(
+                $files->unmutated,
+                $files->controlGuard,
+                ...$batch->order->ofControl($mutant, $covering, $directory),
+            ),
             $files->log,
             $limit,
             $selection->fits(),

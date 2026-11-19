@@ -43,7 +43,7 @@ use function sprintf;
  */
 final readonly class FreshOrder
 {
-    /** Where a mutant's order is written for its run, in its own directory. */
+    /** Where a mutant's order is written for its run, in the run's own directory. */
     private const string MUTATED = '%s/order/mutated/%s';
 
     /** Where it is written for its control. */
@@ -81,13 +81,14 @@ final readonly class FreshOrder
 
     /**
      * The options that ask the run of this mutant over these covering tests
-     * for its order; none where it keeps Pest's own.
+     * for its order, written in the run's directory of this name; none where
+     * it keeps Pest's own.
      *
      * @return list<string>
      */
-    public function ofRun(Mutant $mutant, TestIds $covering): array
+    public function ofRun(Mutant $mutant, TestIds $covering, string $directory): array
     {
-        return $this->options($mutant, $covering, self::MUTATED);
+        return $this->options($mutant, $covering, sprintf(self::MUTATED, $directory, Seed::HISTORY));
     }
 
     /**
@@ -96,18 +97,18 @@ final readonly class FreshOrder
      *
      * @return list<string>
      */
-    public function ofControl(Mutant $mutant, TestIds $covering): array
+    public function ofControl(Mutant $mutant, TestIds $covering, string $directory): array
     {
-        return $this->options($mutant, $covering, self::UNMUTATED);
+        return $this->options($mutant, $covering, sprintf(self::UNMUTATED, $directory, Seed::HISTORY));
     }
 
     /**
-     * The options that ask a run for this mutant's order, written where this
-     * says; none where it keeps Pest's own.
+     * The options that ask a run for this mutant's order, written in the
+     * placement's file of this name; none where it keeps Pest's own.
      *
      * @return list<string>
      */
-    private function options(Mutant $mutant, TestIds $covering, string $where): array
+    private function options(Mutant $mutant, TestIds $covering, string $name): array
     {
         if (! $this->history instanceof KillHistory) {
             return [];
@@ -119,7 +120,6 @@ final readonly class FreshOrder
             $covering,
             $this->secondsOf(...),
         );
-        $name = sprintf($where, $mutant->id()->value(), Seed::HISTORY);
         $written = $this->placement->written($name, $history);
 
         return $written instanceof CannotJudge ? [] : Reordering::reading(dirname($written));

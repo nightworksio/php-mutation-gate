@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use Closure;
+
 /**
  * Commands that had all ended by the time they were handed back, as where
  * they were run to their ends at once.
@@ -22,6 +24,11 @@ final readonly class EndedProcesses implements StartedProcesses
     }
 
     public function ends(): ProcessEnds
+    {
+        return $this->ends;
+    }
+
+    public function endsSettling(Closure $settled): ProcessEnds
     {
         return $this->ends;
     }
