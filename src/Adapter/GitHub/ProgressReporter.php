@@ -135,7 +135,7 @@ final readonly class ProgressReporter
         Seconds $grace,
     ): self {
         $reached = $service instanceof ArtifactAccess ? RunArtifacts::of($service, $exchange) : $service;
-        $said = $reached instanceof RunArtifacts && $every->seconds() > 0 && Forking::isAvailable()
+        $said = $reached instanceof RunArtifacts && $every->seconds() > 0 && Forking::besideTheGate()
             ? tempnam(sys_get_temp_dir(), self::KEPT)
             : false;
 
