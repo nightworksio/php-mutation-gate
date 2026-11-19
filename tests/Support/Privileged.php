@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_intersect;
+use function basename;
 use function is_string;
 use function json_encode;
 
@@ -12,12 +13,14 @@ use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
+use function str_starts_with;
 
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * The workflows an event starts from main with a token that can write, read
- * as the bot's rules judge them (ADR-0019).
+ * The workflows that run from main with a token that can write: the bot's,
+ * whatever starts them, and any other an event starts so, read as the bot's
+ * rules judge them (ADR-0019).
  *
  * @phpstan-type Step array{uses: string, run: string, with: array<array-key, Node>}
  * @phpstan-type Job array{permissions: bool, calls: bool, steps: list<Step>}
@@ -34,8 +37,11 @@ final readonly class Privileged
     /** Where the workflows live. */
     private const string WORKFLOWS = '.github/workflows';
 
+    /** How the bot's workflow files start: each holds the App's key or a token that writes, whatever starts it. */
+    private const string BOT = 'bot-';
+
     /**
-     * Every workflow one of those events starts, by its path.
+     * Every workflow of the bot, and every other one of those events starts, by its path.
      *
      * @return array<string, Workflow>
      */
@@ -46,7 +52,7 @@ final readonly class Privileged
         foreach (Tree::filesUnder(self::WORKFLOWS, '.yml') as $path) {
             $workflow = Node::decode((string) json_encode(Yaml::parseFile(Tree::at($path))));
 
-            if (self::startedByAWriter($workflow->field('on'))) {
+            if (str_starts_with(basename($path), self::BOT) || self::startedByAWriter($workflow->field('on'))) {
                 $workflows[$path] = self::workflow($workflow);
             }
         }

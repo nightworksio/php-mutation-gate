@@ -3,7 +3,8 @@
 The I/O half every bot script shares: a request is a method, a path built
 only from validated values, and a JSON body. The repository and the API come
 from the runner's environment, and the token from GH_TOKEN, or from the
-environment variable a call names: APP_TOKEN holds the App's.
+environment variable a call names: APP_TOKEN holds the App's. A step's
+outputs go to $GITHUB_OUTPUT through `output`.
 """
 import json
 import os
@@ -136,6 +137,13 @@ def archive(artifact: int, token: str = TOKEN) -> bytes:
         headers=_headers(token),
     )
     return _read(request, urllib.request.build_opener(_Unauthorised))
+
+
+def output(values: dict[str, str]) -> None:
+    """Write a step's outputs to $GITHUB_OUTPUT, one `name=value` line each."""
+    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as written:
+        for name, value in values.items():
+            written.write(f"{name}={value}\n")
 
 
 def comment(number: int, body: str) -> None:

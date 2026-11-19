@@ -82,12 +82,6 @@ def _run(tables: bot_tables.Tables) -> dict | None:
     return run
 
 
-def _output(values: dict[str, str]) -> None:
-    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-        for name, value in values.items():
-            output.write(f"{name}={value}\n")
-
-
 def reran_of(run: dict, config: dict) -> list[tuple[int, str]]:
     """The failed jobs of a run's first attempt that are, or were, re-run for the infrastructure, with why."""
     run_id = int(run["id"])
@@ -106,7 +100,7 @@ def rerun(tables: bot_tables.Tables) -> None:
         reran = reran_of(run, tables.config["rerun"])
         if reran:
             github_api.call("POST", f"actions/runs/{int(run['id'])}/rerun-failed-jobs")
-    _output({"reran": ",".join(f"{job}:{kind}" for job, kind in reran)})
+    github_api.output({"reran": ",".join(f"{job}:{kind}" for job, kind in reran)})
 
 
 def pull_of(run: dict) -> int:

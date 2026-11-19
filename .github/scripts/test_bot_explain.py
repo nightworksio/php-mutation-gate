@@ -169,46 +169,55 @@ class Explain(unittest.TestCase):
                 self.assertEqual(fake.writes(), [])
 
 
-class Checklist(unittest.TestCase):
-    def test_an_author_new_here_is_welcomed_in_a_new_comment(self):
-        fake = github({
-            ("GET", "pulls/7"): pull_answer(author_association="FIRST_TIME_CONTRIBUTOR", head={"sha": SHA, "ref": "x", "repo": None}),
-            ("GET", "issues/7/comments"): [],
-            ("GET", "actions/runs"): {"workflow_runs": [run_answer(11, ".github/workflows/ci.yml", status="completed", conclusion="action_required", pull_requests=[])]},
-            ("GET", "actions/runs/11/artifacts"): {"artifacts": []},
-        })
-        with fake_github.running(fake, {"NUMBER": "7"}):
-            bot_explain.checklist(TABLES)
+def welcome_environment(sha: str = SHA) -> dict:
+    return {"NUMBER": "7", "COMMENT_BODY": f"{bot_sticky.STICKY}\n{bot_sticky.welcome_mark(sha)}\n> **Welcome.** …"}
 
-        (method, path, body, _), = fake.writes()
-        self.assertEqual((method, path), ("POST", "issues/7/comments"))
+
+def first_pull(changes: dict | None = None) -> fake_github.GitHub:
+    welcome = {"id": 99, "user": {"type": "Bot"}, "body": welcome_environment()["COMMENT_BODY"]}
+    return github({
+        ("GET", "pulls/7"): pull_answer(author_association="FIRST_TIME_CONTRIBUTOR", head={"sha": SHA, "ref": "x", "repo": None}),
+        ("GET", "issues/7/comments"): [welcome],
+        ("GET", "actions/runs"): {"workflow_runs": [run_answer(11, ".github/workflows/ci.yml", status="completed", conclusion="action_required", pull_requests=[])]},
+        ("GET", "actions/runs/11/artifacts"): {"artifacts": []},
+        **(changes or {}),
+    })
+
+
+class Welcome(unittest.TestCase):
+    def test_the_comment_the_sweep_opened_is_written_with_the_welcome_while_ci_waits(self):
+        fake = first_pull()
+        with fake_github.running(fake, welcome_environment()):
+            bot_explain.explain(TABLES)
+
+        (method, path, body, token), = fake.writes()
+        self.assertEqual((method, path, token), ("PATCH", "issues/comments/99", "GH_TOKEN"))
         self.assertIn("Thank you for your first pull request", body["body"])
         self.assertIn("CI waits for a maintainer to approve it.", body["body"])
+        self.assertNotIn("welcome sha=", body["body"])
+        self.assertNotIn(("GET", "actions/runs/11", None, "GH_TOKEN"), fake.asked)
 
-    def test_a_bot_s_pull_request_is_not_welcomed_though_github_calls_its_author_none(self):
-        fake = github({
-            ("GET", "pulls/7"): pull_answer(author_association="NONE", user={"type": "Bot"}),
-            ("GET", "issues/7/comments"): [],
-            ("GET", "actions/runs"): {"workflow_runs": []},
-        })
-        with fake_github.running(fake, {"NUMBER": "7"}):
-            bot_explain.checklist(TABLES)
+    def test_it_writes_nothing_where_the_mark_is_not_for_the_head_or_the_author_is_no_longer_welcomed(self):
+        cases = {
+            "another head": (welcome_environment("e" * 40), {}),
+            "a member now": (welcome_environment(), {("GET", "pulls/7"): pull_answer(head={"sha": SHA, "ref": "x", "repo": None})}),
+            "a bot": (welcome_environment(), {("GET", "pulls/7"): pull_answer(author_association="NONE", user={"type": "Bot"})}),
+            "no sticky comment": (welcome_environment(), {("GET", "issues/7/comments"): []}),
+            "a mark not whole on its line": ({"NUMBER": "7", "COMMENT_BODY": f"x {bot_sticky.welcome_mark(SHA)}"}, {}),
+        }
+        for why, (values, overrides) in cases.items():
+            fake = first_pull(overrides)
+            with self.subTest(why), fake_github.running(fake, values):
+                bot_explain.explain(TABLES)
+                self.assertEqual(fake.writes(), [])
+
+    def test_the_relay_s_mark_is_read_before_the_welcome_s(self):
+        fake = first_pull({("GET", "actions/runs/11"): run_answer(11, ".github/workflows/ci.yml", head_sha="e" * 40)})
+        body = f"{bot_sticky.STICKY}\n{bot_sticky.relay_mark(11, SHA)}\n{bot_sticky.welcome_mark(SHA)}"
+        with fake_github.running(fake, {"NUMBER": "7", "COMMENT_BODY": body}):
+            bot_explain.explain(TABLES)
 
         self.assertEqual(fake.writes(), [])
-
-    def test_a_member_s_pull_request_gets_no_comment_until_ci_relays_one(self):
-        fake = github({("GET", "issues/7/comments"): [], ("GET", "actions/runs"): {"workflow_runs": []}})
-        with fake_github.running(fake, {"NUMBER": "7"}):
-            bot_explain.checklist(TABLES)
-
-        self.assertEqual(fake.writes(), [])
-
-    def test_an_existing_comment_is_brought_up_to_date(self):
-        fake = github({("GET", "actions/runs"): {"workflow_runs": []}})
-        with fake_github.running(fake, {"NUMBER": "7"}):
-            bot_explain.checklist(TABLES)
-
-        self.assertEqual([path for _, path, _, _ in fake.writes()], ["issues/comments/99"])
 
 
 class Reading(unittest.TestCase):
@@ -273,9 +282,9 @@ class Reading(unittest.TestCase):
 
 class Main(unittest.TestCase):
     def test_it_runs_the_step_it_is_named_and_refuses_others(self):
-        fake = github({("GET", "issues/7/comments"): [], ("GET", "actions/runs"): {"workflow_runs": []}})
-        with fake_github.running(fake, {"NUMBER": "7"}):
-            self.assertEqual(bot_explain.main(["bot_explain.py", "checklist"]), 0)
+        with fake_github.running(fake_github.GitHub(), {"NUMBER": "7", "COMMENT_BODY": "plain"}):
+            self.assertEqual(bot_explain.main(["bot_explain.py", "explain"]), 0)
+            self.assertEqual(bot_explain.main(["bot_explain.py", "checklist"]), 2)
             self.assertEqual(bot_explain.main(["bot_explain.py", "nonsense"]), 2)
             self.assertEqual(bot_explain.main(["bot_explain.py"]), 2)
 

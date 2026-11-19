@@ -1,12 +1,13 @@
 # The explainer: the sticky comment, written over the explaining state the
-# App's relay set (ADR-0019).
+# App's relay set, or over the comment the App's welcome sweep opened
+# (ADR-0019).
 # issue_comment runs main's workflow with a token that can write, so it reads
 # the pull request only as data: its title, body, files and runs through the
 # API, its CI's evidence as hostile bytes, and the files a fix changes as the
 # head's blobs. It checks nothing out but main, and installs nothing. It acts
-# only where a bot wrote the bot's own comment carrying the relay's mark, whether
-# the relay opened the comment or edited it,
-# and writes with the job's token, whose edit starts no workflow.
+# only where a bot wrote the bot's own comment carrying the relay's mark or the
+# welcome sweep's, whether the App opened the comment or edited it, and writes
+# with the job's token, whose edit starts no workflow.
 name: bot explain
 
 on:
@@ -24,11 +25,14 @@ jobs:
         && github.event.comment.user.type == 'Bot'
         && github.event.sender.type == 'Bot'
         && startsWith(github.event.comment.body, '<!-- mutation-gate-bot -->')
-        && contains(github.event.comment.body, '<!-- mutation-gate-bot: run=')
+        && (
+          contains(github.event.comment.body, '<!-- mutation-gate-bot: run=')
+          || contains(github.event.comment.body, '<!-- mutation-gate-bot: welcome sha=')
+        )
       }}
     runs-on: ubuntu-latest
     # One writer of the sticky comment at a time on each pull request; a newer
-    # relay supersedes the explaining it started.
+    # mark supersedes the explaining an older one started.
     concurrency:
       group: bot-sticky-${{ github.event.issue.number }}
       cancel-in-progress: true

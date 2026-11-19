@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """The explainer, the checklist and the welcome: the sticky comment, written from what GitHub says (ADR-0019).
 
-Usage: bot_explain.py explain|checklist
+Usage: bot_explain.py explain
 
-- `explain` runs on `issue_comment` (created, edited) where the App's relay set the
-  sticky comment to its explaining state. It reads the relay's mark from
-  COMMENT_BODY, checks it names a relayed run of the pull request's head, and
-  writes the comment over it.
-- `checklist` runs on `pull_request_target` (opened, ready for review,
-  converted to draft) and writes the comment where it exists, or where the
-  pull request's author is new here, which opens it with the welcome.
+`explain` runs on `issue_comment` (created, edited) where a bot's sticky
+comment carries one of the App's marks, read from COMMENT_BODY:
 
-Neither checks a pull request out, installs or loads it. Its title, body,
-files and runs are read through the API as data, its CI's evidence through
-bot_evidence, and the files a fix changes as the head's blobs. The comment is
-written with the job's own token, so its edit starts no workflow.
+- the relay's, where it set the comment to its explaining state: the mark
+  must name a relayed run of the pull request's head;
+- the welcome sweep's, where it opened the comment for an author new here
+  while CI waits for approval: the mark must name the pull request's head,
+  and main's config must still welcome its author.
+
+It writes the comment over either. It checks no pull request out, and
+installs or loads none. Its title, body, files and runs are read through the
+API as data, its CI's evidence through bot_evidence, and the files a fix
+changes as the head's blobs. The comment is written with the job's own token,
+so its edit starts no workflow.
 
 Two halves: bot_render decides the text from what `collect` read here.
 """
@@ -206,7 +208,7 @@ def collect(number: int, tables: bot_tables.Tables) -> tuple[bot_render.State, d
     return state, sticky
 
 
-def write(state: bot_render.State, sticky: dict | None, tables: bot_tables.Tables) -> None:
+def write(state: bot_render.State, sticky: dict, tables: bot_tables.Tables) -> None:
     inside, outside = bot_render.split_fixes(state, tables)
     suggested = state.suggested if state.suggested == state.pull.sha else ""
     if inside and not suggested:
@@ -223,10 +225,7 @@ def write(state: bot_render.State, sticky: dict | None, tables: bot_tables.Table
             if failed.status != 422:
                 raise
     body = bot_render.render(state, tables, outside, suggested)
-    if sticky is None:
-        github_api.comment(state.pull.number, body)
-    else:
-        github_api.call("PATCH", f"issues/comments/{int(sticky['id'])}", {"body": body})
+    github_api.call("PATCH", f"issues/comments/{int(sticky['id'])}", {"body": body})
 
 
 def _review_comment(suggestion: bot_patch.Suggestion) -> dict:
@@ -236,33 +235,30 @@ def _review_comment(suggestion: bot_patch.Suggestion) -> dict:
     return comment
 
 
-def explain(tables: bot_tables.Tables) -> None:
-    """Write the comment over the relay's explaining state, where its mark names a relayed run of the head."""
-    mark = bot_sticky.relayed(os.environ.get("COMMENT_BODY", ""))
-    if mark is None:
-        return
+def relayed_head(mark: tuple[int, str], tables: bot_tables.Tables) -> str:
+    """The head a relay's mark names, where its run is a relayed workflow's run of that head; '' where it is not."""
     run_id, sha = mark
-    number = int(checked(os.environ.get("NUMBER", ""), NUMBER))
     run = github_api.call("GET", f"actions/runs/{run_id}")
-    if run.get("head_sha") != sha or run.get("path") not in tables.config["relay"]["workflows"].values():
-        return
-    state, sticky = collect(number, tables)
-    if state.pull.sha != sha or sticky is None:
-        return
-    write(state, sticky, tables)
+    return sha if run.get("head_sha") == sha and run.get("path") in tables.config["relay"]["workflows"].values() else ""
 
 
-def checklist(tables: bot_tables.Tables) -> None:
-    """Write the comment where it exists, or open it with the welcome for an author new here."""
+def explain(tables: bot_tables.Tables) -> None:
+    """Write the comment over the relay's explaining state or the welcome sweep's, where its mark names the head."""
+    body = os.environ.get("COMMENT_BODY", "")
+    relayed = bot_sticky.relayed(body)
+    sha = relayed_head(relayed, tables) if relayed is not None else bot_sticky.welcomed(body)
+    if not sha:
+        return
     number = int(checked(os.environ.get("NUMBER", ""), NUMBER))
     state, sticky = collect(number, tables)
-    if sticky is None and state.pull.association not in tables.config["checklist"]["welcomed"]:
+    unwelcome = relayed is None and state.pull.association not in tables.config["checklist"]["welcomed"]
+    if state.pull.sha != sha or sticky is None or unwelcome:
         return
     write(state, sticky, tables)
 
 
 def main(argv: list[str]) -> int:
-    steps = {"explain": explain, "checklist": checklist}
+    steps = {"explain": explain}
     if len(argv) != 2 or argv[1] not in steps:
         print(f"usage: bot_explain.py {'|'.join(steps)}", file=sys.stderr)
         return 2

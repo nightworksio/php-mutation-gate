@@ -2,6 +2,7 @@
 import re
 import unittest
 
+import bot_sticky
 import bot_tables
 import fake_github
 
@@ -120,6 +121,22 @@ class Config(unittest.TestCase):
         explain = (ROOT / ".github" / "workflows" / "bot-explain.yml").read_text(encoding="utf-8")
 
         self.assertIn("types: [created, edited]", explain)
+
+    def test_the_explainer_starts_on_each_mark_the_app_writes(self):
+        explain = (ROOT / ".github" / "workflows" / "bot-explain.yml").read_text(encoding="utf-8")
+
+        for mark in (bot_sticky.relay_mark(1, "a" * 40), bot_sticky.welcome_mark("a" * 40)):
+            prefix = mark[:mark.index("=") + 1]
+            self.assertIn(f"contains(github.event.comment.body, '{prefix}')", explain)
+
+    def test_the_sweep_runs_on_the_schedule_main_s_config_names(self):
+        checklist = (ROOT / ".github" / "workflows" / "bot-checklist.yml").read_text(encoding="utf-8")
+
+        self.assertEqual(re.findall(r"- cron: \"([^\"]*)\"", checklist), [self.tables.config["checklist"]["sweep"]["cron"]])
+
+    def test_the_lines_the_app_writes_under_its_marks_are_the_ones_it_replaces(self):
+        self.assertRegex(self.tables.words["says"]["explaining"], bot_sticky.EXPLAINING)
+        self.assertRegex(self.tables.words["says"]["welcoming"], bot_sticky.WELCOMING)
 
     def test_the_gates_the_comment_and_the_fix_name_exist(self):
         self.assertIn(self.tables.config["comment"]["verdict_gate"], self.tables.gates)

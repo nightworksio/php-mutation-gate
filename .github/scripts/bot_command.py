@@ -179,17 +179,11 @@ def _checked(value, pattern: re.Pattern) -> str:
     return value
 
 
-def _output(values: dict[str, str]) -> None:
-    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-        for name, value in values.items():
-            output.write(f"{name}={value}\n")
-
-
 def decide() -> None:
     """The command a comment runs and whether its author may: the job's outputs."""
     parsed = parse(os.environ.get("COMMENT_BODY", ""))
     if parsed is None or (parsed[0] not in ANYONE and os.environ.get("ON_PULL_REQUEST") != "true"):
-        _output({"command": "", "allowed": "false", "words": ""})
+        github_api.output({"command": "", "allowed": "false", "words": ""})
         return
 
     command, words = parsed
@@ -200,7 +194,7 @@ def decide() -> None:
         permission = "" if commenter == author else _permission(_env("COMMENTER_LOGIN", LOGIN))
         allowed = may_run(command, commenter, author, permission)
 
-    _output({"command": command, "allowed": "true" if allowed else "false", "words": " ".join(bot_docs.tokens(words))})
+    github_api.output({"command": command, "allowed": "true" if allowed else "false", "words": " ".join(bot_docs.tokens(words))})
 
 
 def _permission(login: str) -> str:
