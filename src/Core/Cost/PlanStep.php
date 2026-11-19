@@ -9,6 +9,8 @@ namespace NightWorksIO\MutationGate\Core\Cost;
  * (ADR-0220): each runs one after another in the plan's own process, while
  * the work it begins in a child of its own, the analyser's warm-up and the
  * whole map's writing, runs beside the steps that follow.
+ *
+ * @internal
  */
 enum PlanStep: string
 {
