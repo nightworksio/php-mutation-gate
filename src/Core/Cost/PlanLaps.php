@@ -18,6 +18,8 @@ use Traversable;
 /**
  * The steps the plan's time went to, in the order they started (ADR-0220).
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, PlanLap>
  */
 final readonly class PlanLaps implements Countable, IteratorAggregate

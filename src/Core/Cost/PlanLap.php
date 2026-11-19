@@ -6,7 +6,12 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** One step of the plan: how long after the plan began it started, and how long it took (ADR-0220). */
+/**
+ * One step of the plan: how long after the plan began it started, and how
+ * long it took (ADR-0220).
+ *
+ * @internal
+ */
 final readonly class PlanLap
 {
     private function __construct(private PlanStep $step, private Seconds $since, private Seconds $took)
