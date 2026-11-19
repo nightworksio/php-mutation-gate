@@ -18,6 +18,7 @@ to run before a push.
 | [`mutation-gate.yml`](../../.github/workflows/mutation-gate.yml) | The reusable workflow projects call, which `ci.yml` calls for the package's own gate | called |
 | [`end-to-end.yml`](../../.github/workflows/end-to-end.yml) | The gate installed into another project: warm workers, and the hook managers | called by `ci.yml` |
 | [`outbreak.yml`](../../.github/workflows/outbreak.yml) | Outbreak's core: the Rust gates, the boundary contract suites, and the binaries and `outbreak.so` for each platform | called by `ci.yml` |
+| [`runner-contract.yml`](../../.github/workflows/runner-contract.yml) | The runner and static checker contract suites against each runner's fixture at its highest and lowest releases, one job per entry of `legs.json`'s jobs; `ci.yml`'s `runner contracts` reads their logs | called by `ci.yml` |
 | [`tally.yml`](../../.github/workflows/tally.yml) | The hot paths' counts under Tally ([ADR-0154](../decisions/0154-the-gate-s-hot-paths-are-counted-by-tally.md)) | called by `ci.yml` |
 | [`local-mode.yml`](../../.github/workflows/local-mode.yml) | The local mode and the local loop on a pinned project | every pull request and push to `main` |
 | [`claim-race.yml`](../../.github/workflows/claim-race.yml) | The race of shard claims ([ADR-0134](../decisions/0134-shards-pull-the-work-left-instead-of-owning-a-fixed-part.md)) | nightly, and on demand |

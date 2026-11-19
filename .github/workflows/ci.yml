@@ -602,83 +602,15 @@ jobs:
     uses: ./.github/workflows/image.yml # zizmor: ignore[self-repository]
 
   # ADR-0004's Runner and ADR-0020's StaticChecker contract suites against the
-  # real runners and analysers: one job per runner, its two legs each with its
-  # own install, suite and outcome. Each fixture is installed at the highest
-  # releases its lock holds, which Dependabot moves, and at the lowest its
-  # manifest allows, so a leg reds only for a change here; the runner canary
-  # runs the newest (ADR-0017). The suite runs serially: a Pest under paratest
-  # takes itself for a worker. `runner contracts` reads every leg's log.
+  # real runners and analysers (runner-contract.yml): the jobs of the runners
+  # whose legs this run reaches (legs.json), every one where `what changed`
+  # could not say. `runner contracts` reads every leg's log.
   runner-contract:
-    name: runner contract (${{ matrix.leg.name }})
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.runners != '[]') }}
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        # The jobs of the runners whose legs this run reaches, each with its
-        # runners (legs.json), every one where `what changed` could not say.
-        leg: ${{ fromJSON(needs.scope.outputs.legs || '[{"name":"pest","runners":"pest"},{"name":"infection-13","runners":"infection-13"},{"name":"infection-12","runners":"infection-12"},{"name":"phpunit","runners":"phpunit"},{"name":"phpspec-codeception-testo","runners":"phpspec codeception testo"},{"name":"analysers","runners":"analysers"}]') }}
-    env:
-      RESOLUTIONS: highest lowest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-          coverage: pcov
-      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      # Each leg is legs.json's (leg_support.py). Its downloads are cached by
-      # the fixtures' manifests and locks, and the root lock, whose
-      # php-code-coverage the lowest Pest and PHPUnit resolutions pin.
-      - name: find Composer's download cache
-        id: composer-files
-        run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.composer-files.outputs.dir }}
-          key: runner-fixture-${{ runner.os }}-${{ matrix.leg.name }}-${{ hashFiles('tests/Contract/**/composer.json', 'tests/Contract/**/composer.lock', 'composer.lock') }}
-          restore-keys: runner-fixture-${{ runner.os }}-${{ matrix.leg.name }}-
-      # Each runner's legs in turn, whether or not the one before passed.
-      - id: contract
-        env:
-          RUNNERS: ${{ matrix.leg.runners }}
-        run: |
-          failed=0
-          for runner in ${RUNNERS}; do
-            for resolution in ${RESOLUTIONS}; do
-              echo "${runner} at its ${resolution} releases"
-              .github/scripts/leg.sh "${runner}" "${resolution}" || failed=1
-            done
-          done
-          exit "${failed}"
-      # The test support the legs' tests use is the support legs.json lists,
-      # which `what changed` runs them for.
-      - name: the legs' test support is listed
-        if: ${{ !cancelled() }}
-        env:
-          RUNNERS: ${{ matrix.leg.runners }}
-        run: |
-          failed=0
-          for runner in ${RUNNERS}; do
-            python3 .github/scripts/leg_support.py check "${runner}" || failed=1
-          done
-          exit "${failed}"
-      # Each leg's log and its suite's outcome, by the leg's name, which
-      # `runner contracts` reads as its evidence.
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
-        with:
-          name: runner-contract-${{ matrix.leg.name }}
-          path: evidence/raw/
-          if-no-files-found: error
-          retention-days: 1
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py runner-contract
+    uses: ./.github/workflows/runner-contract.yml # zizmor: ignore[self-repository]
+    with:
+      legs: ${{ needs.scope.outputs.legs || '[{"name":"pest","runners":"pest"},{"name":"infection-13","runners":"infection-13"},{"name":"infection-12","runners":"infection-12"},{"name":"phpunit","runners":"phpunit"},{"name":"phpspec-codeception-testo","runners":"phpspec codeception testo"},{"name":"analysers","runners":"analysers"}]' }}
 
   # The check main requires of the runner contracts: it passes only where
   # every leg of `runner contract` passed, and its evidence is what each leg's

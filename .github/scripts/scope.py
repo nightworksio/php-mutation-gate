@@ -192,8 +192,14 @@ RUNTIME = (
 )
 
 # How every leg runs the Contract suite, beside RUNTIME and the test support
-# its own tests use.
-CONTRACT_RUN = ("phpunit.xml", ".github/scripts/legs.json", ".github/scripts/leg.sh", ".github/scripts/covered.sh")
+# its own tests use: the workflow whose jobs run the legs among it.
+CONTRACT_RUN = (
+    "phpunit.xml",
+    ".github/scripts/legs.json",
+    ".github/scripts/leg.sh",
+    ".github/scripts/covered.sh",
+    ".github/workflows/runner-contract.yml",
+)
 
 INFECTION = ("src/Adapter/Infection/", "src/Core/Coverage/PhpUnitXml.php", "tests/Contract/Runner/infection-fixture/")
 
