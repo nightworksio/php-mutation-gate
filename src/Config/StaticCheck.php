@@ -76,6 +76,12 @@ final readonly class StaticCheck implements Setting
         return new self(Json::at('staticCheck.opcache.limit', $duration));
     }
 
+    /** `staticCheck.opcache.kept`: the compiled programs one process keeps, to compile none again; 384, none at 0. */
+    public static function opcacheKept(int $programs): self
+    {
+        return new self(Json::at('staticCheck.opcache.kept', $programs));
+    }
+
     /** `staticCheck.dependents`: how many dependents of a changed file an analyser reads at most, 25 by default. */
     public static function dependents(int $files): self
     {

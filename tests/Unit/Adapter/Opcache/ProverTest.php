@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Opcache\Compiler;
+use NightWorksIO\MutationGate\Adapter\Opcache\KeptOpcodes;
 use NightWorksIO\MutationGate\Adapter\Opcache\Opcodes;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
+use NightWorksIO\MutationGate\Core\Config\OpcacheCompile;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\ProverPrograms;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -20,14 +23,14 @@ it('gives each child a minute to compile, with what the tests\' PHP disables dis
     $directory = Root::of(Scratch::directory())->at(Path::of('equivalence'));
 
     expect(Prover::of(PHP_BINARY, $directory, ProcessCount::of(3), 'exec,system'))
-        ->toEqual(new Prover(new Compiler(PHP_BINARY, $directory->value(), 60.0, 3, ['disable_functions=exec,system'])));
+        ->toEqual(new Prover(new Compiler(PHP_BINARY, $directory->value(), 60.0, 3, ['disable_functions=exec,system'], kept: KeptOpcodes::inProcess(OpcacheCompile::KEPT))));
 });
 
 it('compiles as many children at once as it is given, and keeps every other setting', function (): void {
     $directory = Root::of(Scratch::directory())->at(Path::of('equivalence'));
 
-    expect(Prover::of(PHP_BINARY, $directory, ProcessCount::of(8), 'exec', batch: 7, limit: 9.0)->across(ProcessCount::of(2)))
-        ->toEqual(Prover::of(PHP_BINARY, $directory, ProcessCount::of(2), 'exec', batch: 7, limit: 9.0));
+    expect(Prover::of(PHP_BINARY, $directory, ProcessCount::of(8), 'exec', OpcacheCompile::of(7, Seconds::of(9.0), OpcacheCompile::KEPT))->across(ProcessCount::of(2)))
+        ->toEqual(Prover::of(PHP_BINARY, $directory, ProcessCount::of(2), 'exec', OpcacheCompile::of(7, Seconds::of(9.0), OpcacheCompile::KEPT)));
 });
 
 it('proves none where there is nothing to check', function (): void {
@@ -79,9 +82,9 @@ it('proves no mutant whose code stands on other lines than its original\'s, sinc
     ],
 ]);
 
-it('gives each child as many programs and as long as it is told', function (): void {
+it('gives each child as many programs and as long as it is told, and the process keeps as many as it is told', function (): void {
     $directory = Root::of(Scratch::directory())->at(Path::of('equivalence'));
+    $prover = Prover::of(PHP_BINARY, $directory, ProcessCount::of(3), disabled: false, opcache: OpcacheCompile::of(7, Seconds::of(2.5), 25));
 
-    expect(Prover::of(PHP_BINARY, $directory, ProcessCount::of(3), disabled: false, batch: 7, limit: 2.5))
-        ->toEqual(new Prover(new Compiler(PHP_BINARY, $directory->value(), 2.5, 3, ['disable_functions='], perChild: 7)));
+    expect($prover)->toEqual(new Prover(new Compiler(PHP_BINARY, $directory->value(), 2.5, 3, ['disable_functions='], perChild: 7, kept: KeptOpcodes::inProcess(25))));
 });

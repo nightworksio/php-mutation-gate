@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Opcache\Compiler;
+use NightWorksIO\MutationGate\Adapter\Opcache\KeptOpcodes;
 use NightWorksIO\MutationGate\Adapter\Opcache\Opcodes;
 use NightWorksIO\MutationGate\Adapter\Opcache\Uncompiled;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -142,4 +143,39 @@ it('starts its child with opcache loaded, as PHP before 8.5 builds it shared, an
         '-d',
         'display_errors=0',
     ]);
+});
+
+it('compiles a program it keeps to the opcodes a fresh compile gives, beside others and alone', function (): void {
+    $programs = [
+        'six' => Contents::of(CompilerChildren::PROGRAM),
+        'seven' => Contents::of("<?php\nfunction seven(): int { return 3 + 4; }\n"),
+        'broken' => Contents::of("<?php\nfunction (\n"),
+    ];
+    $directory = sprintf('%s/equivalence', Scratch::directory());
+    $keeping = new Compiler(PHP_BINARY, $directory, 30.0, 1, kept: new KeptOpcodes(10));
+    $fresh = new Compiler(PHP_BINARY, $directory, 30.0, 1)->compiled($programs);
+    $first = $keeping->compiled($programs);
+    $again = $keeping->compiled(['seven' => $programs['seven'], 'eight' => Contents::of("<?php\nfunction eight(): int { return 2 * 4; }\n"), 'six' => $programs['six']]);
+
+    expect($first)->toEqual($fresh)
+        ->and(array_keys($first))->toBe(['six', 'seven', 'broken'])
+        ->and($first['six'])->toBeInstanceOf(Opcodes::class)
+        ->and($first['broken'])->toBe(Uncompiled::Failed)
+        ->and(array_keys($again))->toBe(['seven', 'eight', 'six'])
+        ->and([$again['seven'], $again['six']])->toEqual([$fresh['seven'], $fresh['six']]);
+});
+
+it('starts no child for the programs it keeps, and compiles again those that failed', function (): void {
+    $child = CompilerChildren::child(CompilerChildren::dump("\n\$_main:\n0000 RETURN int(1)\n"), 0, '1');
+    $compiler = new Compiler($child, sprintf('%s/equivalence', Scratch::directory()), 30.0, 1, kept: new KeptOpcodes(10));
+    $first = $compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM)]);
+    rename($child, sprintf('%s.away', $child));
+    $kept = $compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM)]);
+    $failed = $compiler->compiled(['other' => Contents::of("<?php\n")]);
+    rename(sprintf('%s.away', $child), $child);
+
+    expect($kept)->toEqual($first)
+        ->and($first['one'])->toBeInstanceOf(Opcodes::class)
+        ->and($failed)->toBe(['other' => Uncompiled::Failed])
+        ->and($compiler->compiled(['other' => Contents::of("<?php\n")])['other'])->toBeInstanceOf(Opcodes::class);
 });

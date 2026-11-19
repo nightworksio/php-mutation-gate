@@ -113,23 +113,28 @@ final readonly class StaticCheckKeys
         $judges = Effect::JudgesOrReportsOnly;
         $batch = Field::optional('batch', Integer::atLeast(1), $judges);
         $limit = Field::optional('limit', Duration::written(), $judges);
+        $kept = Field::optional('kept', Integer::atLeast(0), $judges);
 
         return Section::of(
-            static function (Node $at) use ($batch, $limit): StaticCheck|Invalid {
+            static function (Node $at) use ($batch, $limit, $kept): StaticCheck|Invalid {
                 $programs = $batch->read($at);
                 $seconds = $limit->read($at);
+                $compiled = $kept->read($at);
 
                 return Reading::built(
                     static fn(): StaticCheck => StaticCheck::of(
                         opcacheBatch: $programs->value(),
                         opcacheLimit: $seconds->value(),
+                        opcacheKept: $compiled->value(),
                     ),
                     $programs,
                     $seconds,
+                    $compiled,
                 );
             },
             $batch,
             $limit,
+            $kept,
         );
     }
 }
