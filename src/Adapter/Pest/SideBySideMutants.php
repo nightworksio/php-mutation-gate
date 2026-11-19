@@ -192,7 +192,7 @@ final readonly class SideBySideMutants
      * @param list<int>                                            $share
      * @param Closure(SplFileInfo, list<int>): array<int, Mutation> $making
      */
-    private static function child(array $jobs, array $share, Closure $making, string $left): void
+    private static function child(array $jobs, array $share, Closure $making, string $left): never
     {
         try {
             self::leave($jobs, $share, $making, $left);

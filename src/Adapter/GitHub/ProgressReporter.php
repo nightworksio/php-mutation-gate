@@ -85,7 +85,7 @@ final readonly class ProgressReporter
     /**
      * The progress of this shard, left through the service the gate was handed, every so long.
      *
-     * @param Closure(int): void $ending how the reporter ends itself, by a signal
+     * @param Closure(int): never $ending how the reporter ends itself, by a signal
      */
     public static function started(
         Seconds $every,
@@ -119,7 +119,7 @@ final readonly class ProgressReporter
     }
 
     /**
-     * @param Closure(int): void            $ending how the reporter ends itself, by a signal
+     * @param Closure(int): never           $ending how the reporter ends itself, by a signal
      * @param Closure(list<string>): string $run    runs a command, and answers what it printed
      * @param Seconds                       $grace  how long the gate waits for its reporter once the shard ends
      */

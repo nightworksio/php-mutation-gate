@@ -246,7 +246,7 @@ final class StreamRun
     }
 
     /** A child's test ended: it writes how, and stops at once, by the signal that says whether it failed. */
-    private function childEnded(float $seconds): void
+    private function childEnded(float $seconds): never
     {
         $failed = ! $this->test->passed();
         $this->states->childEnded($this->mutant, $this->test->id);
