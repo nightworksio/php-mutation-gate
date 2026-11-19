@@ -80,7 +80,9 @@ it('runs each control on a config whose suite holds the files of its tests\' cla
     $command = $shell->commands()[0];
     $config = sprintf('%s/.gate/infection/unmutated/control-0/phpunit.xml', $at->root());
 
-    expect($runs->of(infectionControl('src/Money.php', 6.0)))->toEqual(ControlRun::passed(Seconds::of(0.8)))
+    expect($runs->of(infectionControl('src/Money.php', 6.0)))
+        ->toEqual(ControlRun::ofProcess(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.8)), TestIds::none()))
+        ->and($runs->of(infectionControl('src/Money.php', 6.0))->wall())->toEqual(Seconds::of(0.8))
         ->and($command->arguments())->toContain(sprintf('--configuration=%s', $config))
         ->and(file_get_contents($config))->toContain(sprintf('<file>%s/tests/MoneyTest.php</file>', $at->root()))
         ->and(file_get_contents(sprintf('%s/.gate/infection/unmutated/control-0/interceptor.autoload.php', $at->root())))

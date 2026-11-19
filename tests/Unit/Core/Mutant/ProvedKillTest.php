@@ -26,7 +26,7 @@ it('is a kill a ledger proved: its id, its unit and line, its mutator and its ki
         ->and($kill->killers())->toBe($killers)
         ->and($kill->reason())->toEqual(Unreported::reason())
         ->and($kill->duration())->toEqual(Unmeasured::duration())
-        ->and($kill->limit())->toEqual(Unmeasured::duration());
+        ->and($kill->stop()->limit())->toEqual(Unmeasured::duration());
 });
 
 it('is left unjudged where a time budget ran out before judging it again, saying so, keeping the rest', function (): void {

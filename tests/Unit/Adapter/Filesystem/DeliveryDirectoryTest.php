@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
 use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
@@ -19,23 +20,37 @@ use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\CachePack;
+use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+
+beforeEach(function (): void {
+    Scratch::entered();
+});
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -58,6 +73,57 @@ function deliveredLedger(): Ledger
 it('keeps each stage in its own directory under .mutation-gate/delivery', function (): void {
     expect(array_map(static fn(Stage $stage): string => $stage->directory()->value(), Stage::cases()))
         ->toBe(['.mutation-gate/delivery/planned', '.mutation-gate/delivery/survivors', '.mutation-gate/delivery/verdict']);
+});
+
+it('leaves beside a pull request\'s ledger that holds a pass that ledger again, and beside any other none', function (Scope $scope, bool $passes, bool $left): void {
+    $project = Scratch::directory();
+    $passed = Passed::of(Revision::ref(str_repeat('e7', 20)), 'mutation / verdict', 0)
+        ->takingOwnScope(Paths::of(Path::of('src/Held.php'), Path::of('src/Money.php')))
+        ->onOwnScopeCoverage();
+    $runs = $passes ? ScopeRuns::none()->passing($passed) : ScopeRuns::none();
+    $proof = Proof::of(
+        Digest::sha256Of('src/Money.php'),
+        Path::of('src/Money.php'),
+        Flows::mutantsOf('src/Money.php'),
+        Run::of('github:pull', Moment::at('2026-11-09T10:00:00Z'), Digest::sha256Of('base')),
+    );
+
+    DeliveryDirectory::of(Directory::at($project), Stage::Verdict)->ledger(
+        $scope,
+        Ledger::empty()->atBase(Digest::sha256Of('base'))->withProof($proof)->withRuns($runs),
+    );
+
+    $file = sprintf('%s/%s/%s', $project, Stage::Verdict->directory()->value(), LedgerFile::PASSED_FILE);
+    expect(is_file($file))->toBe($left);
+
+    if ($left) {
+        $read = LedgerFile::decode((string) file_get_contents($file));
+        $held = $read->runs()->passed();
+
+        $units = $held instanceof Passed ? $held->ownScopeUnits() : $held;
+
+        expect(count([...$read->proofs()]))->toBe(1)
+            ->and($held instanceof Passed ? [$held->commit()->name(), $held->check(), $held->ownScopeProofs(), $held->measuredOnOwnScope()] : $held)
+            ->toBe([str_repeat('e7', 20), 'mutation / verdict', 2, true])
+            ->and($units instanceof Paths ? array_map(static fn(Path $path): string => $path->value(), [...$units]) : $units)
+            ->toBe(['src/Held.php', 'src/Money.php']);
+    }
+})->with([
+    'a pull request that passed' => [fn(): Scope => Scope::pullRequest(7), true, true],
+    'a pull request that did not' => [fn(): Scope => Scope::pullRequest(7), false, false],
+    'a branch that passed' => [fn(): Scope => Scope::branch('main'), true, false],
+]);
+
+it('begins with no pass beside it, whatever an earlier run left', function (): void {
+    $project = Scratch::directory();
+    $delivery = DeliveryDirectory::of(Directory::at($project), Stage::Verdict);
+    $delivery->ledger(Scope::pullRequest(7), Ledger::empty()->withRuns(
+        ScopeRuns::none()->passing(Passed::of(Revision::ref(str_repeat('e7', 20)), 'mutation / verdict', 0)),
+    ));
+
+    $delivery->begun();
+
+    expect(is_file(sprintf('%s/%s/%s', $project, Stage::Verdict->directory()->value(), LedgerFile::PASSED_FILE)))->toBeFalse();
 });
 
 it('begins empty, with no ledger beside it, whatever an earlier run left', function (): void {
@@ -228,4 +294,27 @@ it('reads from the store as its codec reads, and writes beside the delivery gzip
         ->and(LedgerDirectory::at($keptRoot)->read(Scope::branch('main')))->toBeInstanceOf(Unreadable::class)
         ->and(str_starts_with((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/ledger.json.gz', $project)), "\x1f\x8b"))->toBeTrue()
         ->and($unencoded->read(Scope::branch('main')))->toEqual(Ledger::empty());
+});
+
+it('leaves the entries of a verdict\'s proofs and their request beside the delivery for deliver to push', function (): void {
+    $project = Scratch::directory();
+    $ledgers = DeliveredLedger::over(new ProofStoreFake(), DeliveryDirectory::of(Directory::at($project), Stage::Verdict));
+
+    expect($ledgers->cache(Contents::of('the request'), Contents::of('the entries')))->toBeInstanceOf(Written::class)
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/%s', $project, CachePack::DELIVERED)))->toBe('the entries')
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/%s', $project, CacheRequest::DELIVERED)))->toBe('the request');
+});
+
+it('leaves no request beside the delivery where the entries it merges cannot be written', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/delivery/verdict/delivery.json', '{"format": 1}');
+    $stage = sprintf('%s/.mutation-gate/delivery/verdict', $project);
+    chmod($stage, 0o555);
+    set_error_handler(static fn(): bool => true);
+    $cached = DeliveryDirectory::of(Directory::at($project), Stage::Verdict)->cache(Contents::of('the request'), Contents::of('the entries'));
+    restore_error_handler();
+    chmod($stage, 0o755);
+
+    expect($cached)->toBeInstanceOf(CannotJudge::class)
+        ->and(sprintf('%s/%s', $stage, CacheRequest::DELIVERED))->not->toBeFile();
 });

@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Names;
-use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Core\Php\TopLevel;
 
 /**
  * The test files that declare some test classes. PHPUnit loads a test class
@@ -63,16 +63,29 @@ final readonly class TestClassFiles
         return self::wanting(array_keys($classes));
     }
 
+    /**
+     * The short name of each class wanted, which a file named after it may declare.
+     *
+     * @return list<string>
+     */
+    public function shortNames(): array
+    {
+        return array_keys($this->wanted);
+    }
+
     /** Whether a file is named after a class wanted, so that its tokens are worth reading. */
     public function mayDeclare(Path $file): bool
     {
         return array_key_exists($file->stem(), $this->wanted);
     }
 
-    /** These, with each class wanted that a file's code declares and no earlier file did found in the file. */
-    public function readIn(Path $file, Contents $code): self
+    /**
+     * These, with each class wanted that a file's code, or the names it
+     * declares, declares and no earlier file did found in the file.
+     */
+    public function readIn(Path $file, Contents|Names $code): self
     {
-        $declared = PhpFile::read($code)->declares();
+        $declared = $code instanceof Names ? $code : TopLevel::read($code)->declares();
         $found = $this->found;
 
         foreach ($this->mayDeclare($file) ? $this->wanted[$file->stem()] : [] as $class) {
@@ -87,7 +100,7 @@ final readonly class TestClassFiles
      * class a file declares, by what it holds, and of each class named after
      * a file that is gone.
      *
-     * @param Closure(Path): (Contents|Missing) $read what a test file holds, or that it is gone
+     * @param Closure(Path): (Contents|Names|Missing) $read what a test file holds or declares, or that it is gone
      */
     public static function held(TestsByClass $tests, Paths $files, Closure $read): TestIds
     {
@@ -96,7 +109,7 @@ final readonly class TestClassFiles
         foreach ($files as $file) {
             $code = $classes->mayDeclare($file) ? $read($file) : NotGiven::value();
             $classes = match (true) {
-                $code instanceof Contents => $classes->readIn($file, $code),
+                $code instanceof Contents, $code instanceof Names => $classes->readIn($file, $code),
                 $code instanceof Missing => $classes->gone($file),
                 default => $classes,
             };

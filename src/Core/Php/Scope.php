@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_any;
 use function array_filter;
 use function array_key_exists;
 use function array_last;
@@ -20,6 +21,7 @@ use PhpToken;
 
 use function sprintf;
 use function str_starts_with;
+use function strval;
 
 /**
  * The namespace a file declares and the names it imports, which together say
@@ -101,6 +103,28 @@ final readonly class Scope
         $imported = $this->importedAs($name);
 
         return $imported === [] ? Names::of($this->declared($name), $name) : Names::of(array_last($imported));
+    }
+
+    /**
+     * Every alias, in lower case, under which a name ending in this word in
+     * lower case is imported: the only names that stand for a class whose
+     * name ends in the word without ending in it themselves.
+     *
+     * @return list<string>
+     */
+    public function aliasesEndingIn(string $lower): array
+    {
+        $aliases = [];
+
+        foreach ($this->imports as $alias => $names) {
+            $ends = array_any(
+                $names,
+                static fn(string $name): bool => mb_strtolower(array_last(explode('\\', $name))) === $lower,
+            );
+            $aliases = $ends ? [...$aliases, strval($alias)] : $aliases;
+        }
+
+        return $aliases;
     }
 
     /**

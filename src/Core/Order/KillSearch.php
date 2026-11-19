@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Order;
 
+use NightWorksIO\MutationGate\Core\Config\KillControl;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
@@ -14,7 +15,8 @@ use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
  * at the first that fails or runs every one and records each that fails, a
  * full kill matrix (ADR-0014). The order decides which test is
  * found first, so it matters only where the run stops there. A local run
- * also runs each mutant another subsumes after the others (ADR-0079).
+ * also runs each mutant another subsumes after the others (ADR-0079). It says
+ * too what a kill's unmutated control runs (ADR-0108).
  */
 final readonly class KillSearch
 {
@@ -22,6 +24,7 @@ final readonly class KillSearch
         private Ordering $ordering,
         private MatrixKind $matrix,
         private Subsumption|NotGiven $held,
+        private KillControl $killControls = KillControl::Order,
     ) {
     }
 
@@ -39,7 +42,19 @@ final readonly class KillSearch
     /** This search, running each mutant another the run offers subsumes after the others (ADR-0079). */
     public function holdingBack(Subsumption $held): self
     {
-        return new self($this->ordering, $this->matrix, $held);
+        return new self($this->ordering, $this->matrix, $held, $this->killControls);
+    }
+
+    /** This search, whose kills are controlled so (ADR-0108). */
+    public function controllingKills(KillControl $killControls): self
+    {
+        return new self($this->ordering, $this->matrix, $this->held, $killControls);
+    }
+
+    /** What a kill's unmutated control runs. */
+    public function killControls(): KillControl
+    {
+        return $this->killControls;
     }
 
     public function ordering(): Ordering

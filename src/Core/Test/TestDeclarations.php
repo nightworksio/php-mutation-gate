@@ -149,7 +149,7 @@ final readonly class TestDeclarations
     /** Whether a name the file spells ends in this word, in any case, as PHP reads a class's or a function's. */
     public function names(string $word): bool
     {
-        return $this->tokens->namesWord(mb_strtolower($word));
+        return $this->tokens->words()->has(mb_strtolower($word));
     }
 
     /**

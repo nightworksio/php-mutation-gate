@@ -141,7 +141,7 @@ it('names the tests a failed control\'s JUnit log records failing', function ():
     Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
     $at = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
     $shell = new ShellFake(static function (Command $command): Ran {
-        JUnitLogs::failing($command->arguments(), 'testAdds', 'tests/MoneyTest.php', 'Tests\\MoneyTest');
+        JUnitLogs::failing($command->arguments(), 'testAdds', 'tests/MoneyTest.php');
 
         return Ran::finished(succeeded: false, output: '');
     });

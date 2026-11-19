@@ -12,7 +12,6 @@ use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\IniPath;
 
 use function sprintf;
-use function var_export;
 
 /**
  * The script PHP prepends to the framework for a mutant, with
@@ -26,9 +25,6 @@ final readonly class Override
 {
     private const string SCRIPT = 'override.php';
 
-    /** The lines that load the gate's PHAR and its autoloader. */
-    private const string LOADING = "%srequire %s;\n";
-
     private const string UNPREPENDABLE
         = 'PHP cannot prepend %s: its command line reads a ", a ${ or a \\\\ in a setting as ini syntax.';
 
@@ -41,9 +37,7 @@ final readonly class Override
     public static function writtenFor(Project $project, OwnArchive|NotGiven $archive): string|CannotJudge
     {
         $path = self::pathIn($project);
-        $loading = $archive instanceof OwnArchive
-            ? sprintf(self::LOADING, $archive->loading(), var_export($archive->autoloader(), return: true))
-            : '';
+        $loading = $archive instanceof OwnArchive ? $archive->loadingWithAutoloader() : '';
         $script = sprintf(
             "<?php\n\ndeclare(strict_types=1);\n\n%s%s",
             $loading,

@@ -130,3 +130,7 @@ it('starts a warm worker as a mutant\'s own run starts PHP, on the worker\'s scr
         ->and($command->withheld())->toEqual(Withheld::standard()->and(Withheld::of('SECRET')))
         ->and($command->environment())->toBe([]);
 });
+
+it('names the PHP options every run of a mutant starts with: opcache off and the override prepended', function (): void {
+    expect(Invocation::overriding('/gate/override.php'))->toBe(['-d', 'opcache.enable_cli=0', '-d', 'auto_prepend_file=/gate/override.php']);
+});

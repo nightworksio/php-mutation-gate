@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Native\Guard;
+use NightWorksIO\MutationGate\Core\Native\PlacedMutant;
 use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\Runner\StartUp;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
@@ -30,7 +31,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class MutantFiles
+final readonly class MutantFiles implements PlacedMutant
 {
     private const string RESULTS = 'results.txt';
 

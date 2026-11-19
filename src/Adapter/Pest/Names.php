@@ -45,35 +45,22 @@ final readonly class Names
     }
 
     /**
-     * These tests, as the plugin names them in a run that lists the suite's
-     * tests and runs none, or why it named nothing. Listing loads the
+     * The suite's tests, as the plugin names them in a run that lists them
+     * and runs none, or why it named nothing. Listing loads the
      * project's code, which never sees the variables withheld.
      */
-    public static function listed(
-        Project $project,
-        Shell $shell,
-        Withheld $withheld,
-        TestIds $ids,
-    ): TestNames|CannotJudge {
+    public static function listed(Project $project, Shell $shell, Withheld $withheld): self|CannotJudge
+    {
         $file = $project->fresh(self::FILE);
-        $names = $file instanceof CannotJudge ? $file : self::written(
+
+        return $file instanceof CannotJudge ? $file : self::written(
             $shell->run(Invocation::of($project)->listingTests($withheld, $file)),
             $file,
         );
-
-        return $names instanceof CannotJudge ? $names : $names->of($project, $ids);
-    }
-
-    /** The names in the file a run wrote, or why the run named nothing. */
-    private static function written(Ran $ran, string $file): self|CannotJudge
-    {
-        $text = $ran->succeeded() && is_file($file) ? file_get_contents($file) : null;
-
-        return is_string($text) ? self::read($text) : CannotJudge::because(sprintf(self::UNNAMED, $ran->output()));
     }
 
     /** Each of these tests the run named, with its file as the project spells it. */
-    private function of(Project $project, TestIds $ids): TestNames
+    public function of(Project $project, TestIds $ids): TestNames
     {
         $names = TestNames::none();
 
@@ -83,6 +70,14 @@ final readonly class Names
         }
 
         return $names;
+    }
+
+    /** The names in the file a run wrote, or why the run named nothing. */
+    private static function written(Ran $ran, string $file): self|CannotJudge
+    {
+        $text = $ran->succeeded() && is_file($file) ? file_get_contents($file) : null;
+
+        return is_string($text) ? self::read($text) : CannotJudge::because(sprintf(self::UNNAMED, $ran->output()));
     }
 
     /** These names, with a test method's where the run named it. */

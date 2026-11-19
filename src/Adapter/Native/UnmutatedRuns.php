@@ -24,10 +24,12 @@ use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sprintf;
 use function strval;
@@ -195,7 +197,9 @@ final readonly class UnmutatedRuns
 
         foreach ($prepared as $at => $run) {
             $peak = sprintf(self::PEAK, $directory, $at);
-            $commands[] = $run->command()->launchedBy($launcher, $this->cleared($peak));
+            $commands[] = $run->command()
+                ->launchedBy($launcher, $this->cleared($peak))
+                ->haltedPast($request->pool()->pace()->deadlineGrace());
         }
 
         foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $at => $ran) {
@@ -224,10 +228,18 @@ final readonly class UnmutatedRuns
         return $runs;
     }
 
-    /** What a control's run that ended so found: ran out where it was stopped at its limit, served or not. */
+    /**
+     * What a control's run that ended so found: halted where it ran past the
+     * run's deadline (ADR-0197), ran out where it was stopped at its limit,
+     * served or not.
+     */
     private function found(MutantRun $judging, PreparedRun $prepared, Ran $ran): ControlRun
     {
-        return $ran->wasStopped() ? ControlRun::ranOut() : ControlRun::asMutant($judging->finished($prepared, $ran));
+        return match (true) {
+            $ran->ending() === Ending::Halted => ControlRun::ofProcess($ran, TestIds::none()),
+            $ran->wasStopped() => ControlRun::ranOut(),
+            default => ControlRun::asMutant($judging->finished($prepared, $ran)),
+        };
     }
 
     /** A file, with no earlier run's copy of it left. */

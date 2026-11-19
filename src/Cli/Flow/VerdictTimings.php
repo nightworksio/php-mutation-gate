@@ -30,7 +30,8 @@ use function sprintf;
  * estimated, each job's setup taken from `shards.setup`: the wall time from
  * the first job's setup to now, and the runner time of every shard and the
  * verdict together, each with its setup. A run on no CI has no job to set up,
- * so its clock measures what it took.
+ * so its clock measures what it took. Where the CI's API said what the jobs
+ * took, that is what the run took (ADR-0017).
  *
  * @internal
  */
@@ -42,6 +43,7 @@ final readonly class VerdictTimings
         DateTimeImmutable $began,
         DateTimeImmutable $now,
         Seconds|NotGiven $setup,
+        RunTimes|NotGiven $measured = new NotGiven(),
     ): RunTimings {
         $each = $setup instanceof Seconds ? $setup->seconds() : 0.0;
         $verdict = Seconds::between($began, $now);
@@ -62,10 +64,14 @@ final readonly class VerdictTimings
         }
 
         $wall = Seconds::of(Seconds::between($first, $now)->seconds() + $each);
-        $spent = $setup instanceof Seconds
-            ? RunTime::estimated($wall, Seconds::of($runner))
-            : RunTime::measured($wall, Seconds::of($runner));
+        $spent = match (true) {
+            $measured instanceof RunTimes => $measured->spent(),
+            $setup instanceof Seconds => RunTime::estimated($wall, Seconds::of($runner)),
+            default => RunTime::measured($wall, Seconds::of($runner)),
+        };
+        $plan = $measured instanceof RunTimes ? $measured->plan() : $measured;
         $timings = RunTimings::of($run, $spent);
+        $timings = $plan instanceof Phase ? $timings->withPlan($plan) : $timings;
 
         foreach ($shards as $shard) {
             $timings = $timings->withShard($shard);

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
@@ -77,11 +78,11 @@ final readonly class TimeoutControls implements ControlJudge
         $controls = [];
 
         foreach ($mutants as $mutant) {
-            $limit = $mutant->limit();
+            $limit = $mutant->stop()->limit();
 
             if ($mutant->status() !== MutantStatus::TimedOut
                 || ! $limit instanceof Seconds
-                || $mutant->unmutatedNeed() instanceof Seconds) {
+                || $mutant->stop()->need() instanceof Seconds) {
                 continue;
             }
 
@@ -132,6 +133,7 @@ final readonly class TimeoutControls implements ControlJudge
             ControlEnd::Unrun => $mutant->because(
                 Reason::that(sprintf(self::UNRUN, $why instanceof NotGiven ? ControlRuns::NOT_RUN : $why)),
             ),
+            ControlEnd::Halted => $mutant->unjudged(OutOfTime::BeforeControlling),
         };
     }
 

@@ -6,8 +6,6 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
-use NightWorksIO\MutationGate\Core\Cost\Estimated;
-use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
@@ -15,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Access;
+use NightWorksIO\MutationGate\Core\Proof\CachedProofs;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
@@ -34,11 +33,8 @@ use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
-use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
 /**
@@ -57,6 +53,7 @@ final readonly class Ledgers
         private Ledger $defaultBranch,
         private Ledger $own,
         private Warnings $unread,
+        private CachedProofs $cached,
     ) {
     }
 
@@ -78,6 +75,25 @@ final readonly class Ledgers
             $taken === TakenProofs::None ? $defaultBranchRead->withoutProofs() : $defaultBranchRead,
             $taken === TakenProofs::Every ? $ownRead : $ownRead->withoutProofs(),
             self::unreadIn($defaultBranch, $own),
+            CachedProofs::none(),
+        );
+    }
+
+    /**
+     * These ledgers, with the proofs read from the packs of `outbreak cache`
+     * the run trusts after them: a trusted writer's after the default
+     * branch's, and a branch's after the run's own scope's (ADR-0131).
+     */
+    public function caching(CachedProofs $cached): self
+    {
+        return new self(
+            $this->scope,
+            $this->default,
+            $this->access,
+            $this->defaultBranch,
+            $this->own,
+            $this->unread,
+            $cached,
         );
     }
 
@@ -149,45 +165,23 @@ final readonly class Ledgers
         return $this->defaultBranch->timings()->and($this->own->timings());
     }
 
-    /**
-     * Of these units, those no ledger read timed with this gate, which only a
-     * first run can measure: a timing another release of the gate measured
-     * says nothing of what this one spends.
-     */
-    public function untimed(Units $units, Version $gate): Units
+    /** How long each unit took, as every ledger read learned it with this release of the gate. */
+    public function costs(Version $gate): LearnedCosts
     {
-        $timings = $this->timings()->measuredBy(GateRelease::of($gate));
-        $untimed = [];
-
-        foreach ($units as $unit) {
-            if (! $timings->secondsFor($unit->path()) instanceof Seconds) {
-                $untimed[] = $unit;
-            }
-        }
-
-        return Units::of(...$untimed);
-    }
-
-    /**
-     * What the cost model expects of this unit, from what every ledger read
-     * learned of it with this gate, or, where none timed it so, what the plan
-     * measured of its first run.
-     */
-    public function estimated(CostModel $costs, Unit $unit, FirstRun $firstRun, Version $gate): Estimated
-    {
-        return $costs->cost($unit, $this->timings()->measuredBy(GateRelease::of($gate)), $firstRun);
+        return new LearnedCosts($this->timings()->measuredBy(GateRelease::of($gate)));
     }
 
     /**
      * Of these units, those a proof whose key still matches covers, and those
      * left to run, from the proofs that stand for a run of this kind. A
      * ledger with no proof at the base the keys are built on is not looked
-     * in, since none of its proofs can match.
+     * in, since none of its proofs can match. A proof read from the cache
+     * proves after the ledger it follows, a branch's as an own scope's does.
      */
     public function proving(Units $units, Keys $keys, Digest $base, RunProfile $kind): Proving
     {
-        $defaultBranch = $this->defaultBranch->proofs()->standingFor($kind);
-        $own = $this->own->proofs()->standingFor($kind);
+        $defaultBranch = $this->defaultBranch->proofs()->before($this->cached->trusted())->standingFor($kind);
+        $own = $this->own->proofs()->before($this->cached->branch())->standingFor($kind);
 
         return Proving::of(
             $units,

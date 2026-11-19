@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -239,7 +240,7 @@ it('cannot make mutants with the security mutators alone where the config turns 
 ) use ($composed): void {
     $project = FlowCommands::project();
     $composition = $composed($project, 50);
-    LastRun::keep(Directory::at($project), Planned::twoShards()->briefed(Briefing::standard()->securityOnly()));
+    LastRun::keep(Directory::at($project), Planned::twoShards()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->securityOnly())));
     $commands = [
         'run' => RunCommand::command($composition),
         'plan' => PlanCommand::command($composition),
@@ -327,7 +328,7 @@ it('cannot judge by a suite the PHPUnit config does not declare', function (stri
 ): void {
     $project = $suited();
     $composition = $composed($project, 50);
-    LastRun::keep(Directory::at($project), Planned::twoShards()->briefed(Briefing::standard()->inSuite(SuiteName::of('e2e'))));
+    LastRun::keep(Directory::at($project), Planned::twoShards()->briefed(Briefing::standard()->ofKind(RunProfile::standard()->inSuite(SuiteName::of('e2e')))));
     $commands = [
         'run' => RunCommand::command($composition),
         'plan' => PlanCommand::command($composition),

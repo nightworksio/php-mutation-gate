@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Control;
 
+use function array_filter;
 use function array_map;
 use function array_slice;
+use function array_values;
 use function count;
 use function intdiv;
 
@@ -21,14 +23,16 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Runner\TestWatch;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
  * The runs of a heavy mutant's parts (ADR-0008): each part with the mutant
  * served in its file's place, allowed the standard limit of its own tests
  * and stopped where no test finishes for the silence limit of its slowest;
- * and a part split in two by the test files its tests are in, the first
- * half of its files and the rest, where it holds more than one.
+ * and a part that ran out unmutated split by the test files its tests are
+ * in, where it holds more than one: around the file of the test it was
+ * stopped in, or in two halves where no test is named.
  *
  * @internal
  */
@@ -68,19 +72,27 @@ final readonly class PartControls
     }
 
     /**
-     * The run of a part split in two by its test files, each served the
-     * mutant; none where its tests are all in one file, or in none.
+     * The run of a part that ran out unmutated, split by its test files,
+     * each part served the mutant: around the file of the test it was
+     * stopped in, the files before it, that file and the files after it;
+     * in two, the first half of its files and the rest, where it names no
+     * test of the part. None where its tests are all in one file, or in
+     * none.
      *
      * @return list<Control>
      */
-    public function halves(Control $part): array
+    public function split(Control $part, TestId|NotGiven $stoppedIn): array
     {
         $files = $this->filesOf($part->tests());
+        $at = $this->holding($files, $stoppedIn);
         $half = intdiv(count($files) + 1, 2);
+        $sides = $at instanceof NotGiven
+            ? [array_slice($files, 0, $half), array_slice($files, $half)]
+            : [array_slice($files, 0, $at), [$files[$at]], array_slice($files, $at + 1)];
 
         return count($files) < 2 ? [] : array_map(
             fn(array $side): Control => $this->serving(RunTests::of($this->joined($side))),
-            [array_slice($files, 0, $half), array_slice($files, $half)],
+            array_values(array_filter($sides, static fn(array $side): bool => $side !== [])),
         );
     }
 
@@ -115,6 +127,23 @@ final readonly class PartControls
         $unplaced = $tests->without($placed);
 
         return count($unplaced) > 0 ? [...$files, $unplaced] : $files;
+    }
+
+    /**
+     * Where among these tests by file the file holding this test is; none
+     * where none holds it, or no test is named.
+     *
+     * @param list<TestIds> $files
+     */
+    private function holding(array $files, TestId|NotGiven $test): int|NotGiven
+    {
+        foreach ($files as $at => $tests) {
+            if ($test instanceof TestId && $tests->has($test)) {
+                return $at;
+            }
+        }
+
+        return NotGiven::value();
     }
 
     /** @param list<TestIds> $sets */

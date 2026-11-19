@@ -73,12 +73,24 @@
                         },
                         "warmSlack": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "poll": {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "with": {
                             "type": "object",
@@ -125,12 +137,24 @@
                         },
                         "warmSlack": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "poll": {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "with": {
                             "type": "object",
@@ -177,12 +201,24 @@
                         },
                         "warmSlack": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "poll": {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "with": {
                             "type": "object",
@@ -229,12 +265,24 @@
                         },
                         "warmSlack": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "poll": {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "with": {
                             "type": "object",
@@ -281,12 +329,24 @@
                         },
                         "warmSlack": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "poll": {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "with": {
                             "type": "object",
@@ -333,12 +393,24 @@
                         },
                         "warmSlack": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "poll": {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "with": {
                             "type": "object",
@@ -396,12 +468,24 @@
                         },
                         "warmSlack": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "poll": {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "with": {
                             "type": "object"
@@ -444,12 +528,24 @@
                         },
                         "warmSlack": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "poll": {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "workerWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "deadlineGrace": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         }
                     },
                     "minProperties": 1,
@@ -463,7 +559,8 @@
                 "pathRules": "partitioned",
                 "recycleAfter": 16,
                 "warmSlack": "1m",
-                "poll": 0.01
+                "poll": 0.01,
+                "deadlineGrace": "15s"
             }
         },
         "treeSource": {
@@ -758,6 +855,14 @@
                         "minLength": 1
                     },
                     "default": []
+                },
+                "defaultBranchSince": {
+                    "enum": [
+                        "judged",
+                        "judged-off-branch",
+                        "passed"
+                    ],
+                    "default": "judged"
                 }
             },
             "additionalProperties": false
@@ -775,6 +880,14 @@
                     "type": "integer",
                     "minimum": 1,
                     "default": 20
+                },
+                "coverage": {
+                    "enum": [
+                        "measure",
+                        "measure-in-each-shard",
+                        "map"
+                    ],
+                    "default": "measure"
                 }
             },
             "additionalProperties": false
@@ -847,17 +960,41 @@
                 },
                 "target": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                 },
                 "setup": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                     "default": "1m"
                 },
                 "cutAt": {
                     "type": "number",
                     "minimum": 0,
                     "default": 2.0
+                },
+                "jobLimit": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                },
+                "pull": {
+                    "enum": [
+                        "auto",
+                        "claim",
+                        "steal",
+                        "redo",
+                        "off"
+                    ],
+                    "default": "auto"
+                },
+                "progress": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
+                    "default": "3m"
+                },
+                "margin": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
+                    "default": "45s"
                 }
             },
             "additionalProperties": false,
@@ -934,7 +1071,7 @@
                 },
                 "savingsWindow": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                     "default": "30d"
                 },
                 "model": {
@@ -981,6 +1118,55 @@
                             "additionalProperties": false
                         }
                     ]
+                },
+                "testsBeforeAKill": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 5
+                },
+                "surviving": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0.02
+                },
+                "shardOverhead": {
+                    "type": "number",
+                    "minimum": 1,
+                    "default": 2.5
+                }
+            },
+            "additionalProperties": false
+        },
+        "processes": {
+            "type": "object",
+            "properties": {
+                "group": {
+                    "enum": [
+                        "auto",
+                        "off",
+                        "require"
+                    ],
+                    "default": "auto"
+                },
+                "contain": {
+                    "enum": [
+                        "auto",
+                        "off",
+                        "require"
+                    ],
+                    "default": "auto"
+                },
+                "memory": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 85
+                },
+                "pids": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 8192
                 }
             },
             "additionalProperties": false
@@ -1162,8 +1348,26 @@
                     "default": "mutation / verdict"
                 },
                 "trustMergedPullRequests": {
-                    "type": "boolean",
+                    "enum": [
+                        false,
+                        true,
+                        "delta"
+                    ],
                     "default": false
+                },
+                "mergedOwnScopeProofs": {
+                    "enum": [
+                        "reach",
+                        "refuse",
+                        "trust"
+                    ],
+                    "default": "reach"
+                },
+                "schedule": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[0-9*,/-]+( [0-9*,/-]+){4}$",
+                    "default": "0 3 * * 1"
                 },
                 "gitlab": {
                     "type": "object",
@@ -1574,7 +1778,7 @@
                         },
                         "read": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                             "default": "1m"
                         }
                     },
@@ -1585,7 +1789,7 @@
         },
         "budget": {
             "type": "string",
-            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
         },
         "timeouts": {
             "type": "object",
@@ -1596,6 +1800,12 @@
                         "unjudged"
                     ],
                     "default": "confirm"
+                },
+                "headroom": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.9,
+                    "default": 0.1
                 },
                 "seconds": {
                     "anyOf": [
@@ -1686,8 +1896,13 @@
                 },
                 "startUp": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                     "default": "5s"
+                },
+                "startUpMultiple": {
+                    "type": "number",
+                    "minimum": 1,
+                    "default": 3
                 },
                 "learned": {
                     "type": "object",
@@ -1710,6 +1925,22 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "heavyFill": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "heavyParts": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "parts": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "startUpAtPlan": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -1720,6 +1951,13 @@
                 "confirmSurvivors": {
                     "type": "boolean",
                     "default": true
+                },
+                "killControls": {
+                    "enum": [
+                        "order",
+                        "alone"
+                    ],
+                    "default": "order"
                 }
             },
             "additionalProperties": false
@@ -1762,7 +2000,7 @@
                 },
                 "budget": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                     "default": "20m"
                 },
                 "shards": {
@@ -1901,27 +2139,6 @@
                         },
                         "required": [
                             "use"
-                        ],
-                        "additionalProperties": false
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "use": {
-                                "const": "json"
-                            },
-                            "path": {
-                                "type": "string",
-                                "minLength": 1
-                            },
-                            "with": {
-                                "type": "object",
-                                "additionalProperties": false
-                            }
-                        },
-                        "required": [
-                            "use",
-                            "path"
                         ],
                         "additionalProperties": false
                     },
@@ -2145,11 +2362,11 @@
                                     },
                                     "timeout": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                     },
                                     "longestWait": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                     },
                                     "survivors": {
                                         "type": "integer",
@@ -2188,11 +2405,11 @@
                                     },
                                     "timeout": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                     },
                                     "longestWait": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                     },
                                     "survivors": {
                                         "type": "integer",
@@ -2231,11 +2448,11 @@
                                     },
                                     "timeout": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                     },
                                     "longestWait": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                     },
                                     "secretEnv": {
                                         "type": "string",
@@ -2248,6 +2465,36 @@
                         },
                         "required": [
                             "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "json"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "tests": {
+                                        "enum": [
+                                            "all",
+                                            "killers",
+                                            "none"
+                                        ]
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
                         ],
                         "additionalProperties": false
                     },
@@ -2294,6 +2541,10 @@
                                     "endpoint": {
                                         "type": "string",
                                         "pattern": "^https://."
+                                    },
+                                    "timeout": {
+                                        "type": "string",
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                     }
                                 },
                                 "additionalProperties": false
@@ -3354,7 +3605,6 @@
                                         "console",
                                         "github-annotations",
                                         "github-summary",
-                                        "json",
                                         "junit",
                                         "sarif",
                                         "stryker",
@@ -3368,6 +3618,7 @@
                                         "slack",
                                         "discord",
                                         "webhook",
+                                        "json",
                                         "html",
                                         "otlp",
                                         "problems",
@@ -3457,6 +3708,10 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "looseValues": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -3787,6 +4042,230 @@
                 "bootMutants": {
                     "type": "boolean",
                     "default": true
+                },
+                "bootChunks": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "narrowedKills": {
+                    "enum": [
+                        "vouch",
+                        "trust"
+                    ],
+                    "default": "vouch"
+                },
+                "longFilter": {
+                    "enum": [
+                        "files",
+                        "set",
+                        "until-killer"
+                    ],
+                    "default": "set"
+                },
+                "preloaded": {
+                    "enum": [
+                        "fresh",
+                        "unjudged"
+                    ],
+                    "default": "fresh"
+                },
+                "childProcesses": {
+                    "enum": [
+                        "serve",
+                        "off"
+                    ],
+                    "default": "serve"
+                },
+                "pcovKept": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "trials": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "valueReaders": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "narrow": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "shardScan": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "readyAtPlan": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "makeSideBySide": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "longestFirst": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "remember": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "overlapSteps": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "pcovOff": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "xdebugOff": {
+                    "type": "boolean",
+                    "default": true
+                }
+            },
+            "additionalProperties": false
+        },
+        "controls": {
+            "type": "object",
+            "properties": {
+                "kills": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "memory": {
+                    "type": "boolean",
+                    "default": true
+                }
+            },
+            "additionalProperties": false
+        },
+        "mutants": {
+            "type": "object",
+            "properties": {
+                "duplicates": {
+                    "enum": [
+                        "judge-once",
+                        "judge-each"
+                    ],
+                    "default": "judge-once"
+                }
+            },
+            "additionalProperties": false
+        },
+        "splitStream": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "children": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "enum": [
+                                "cores"
+                            ]
+                        }
+                    ],
+                    "default": "cores"
+                },
+                "changeCheck": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "killersFirst": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "sharding": {
+                    "enum": [
+                        "tests",
+                        "tests-every-part",
+                        "source"
+                    ],
+                    "default": "tests"
+                },
+                "killerStreams": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "early": {
+                    "enum": [
+                        "no-match",
+                        "always",
+                        "unproven-only",
+                        "never"
+                    ],
+                    "default": "no-match"
+                },
+                "bootOnce": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "reconnect": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "judging": {
+                    "enum": [
+                        "whole",
+                        "parted"
+                    ],
+                    "default": "whole"
+                },
+                "fallbackOwnRun": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "coveringTestsOnly": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "parentDeadline": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "deadlineBackoff": {
+                    "type": "number",
+                    "minimum": 1,
+                    "default": 2.0
+                },
+                "slowdownCarry": {
+                    "enum": [
+                        "shard",
+                        "run",
+                        "none"
+                    ],
+                    "default": "shard"
+                },
+                "firstFork": {
+                    "enum": [
+                        "cheapest",
+                        "every"
+                    ],
+                    "default": "cheapest"
+                },
+                "partsPerProcess": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 4
+                },
+                "reachableOnly": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "earlyVerdicts": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -3938,7 +4417,7 @@
                         },
                         "limit": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                             "default": "1m"
                         }
                     },
@@ -3953,6 +4432,28 @@
                     "type": "integer",
                     "minimum": 0,
                     "default": 50
+                },
+                "php": {
+                    "type": "object",
+                    "default": {
+                        "pcov.enabled": "0",
+                        "xdebug.mode": "off",
+                        "opcache.enable_cli": "1",
+                        "opcache.file_cache_only": "1",
+                        "opcache.validate_timestamps": "0"
+                    }
+                },
+                "after": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "turbo": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "warmAtPlan": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -3971,7 +4472,7 @@
                 },
                 "audit": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                     "default": "7d"
                 }
             },
@@ -4014,7 +4515,7 @@
                         },
                         {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         }
                     ],
                     "default": "off"
@@ -4078,17 +4579,17 @@
             "properties": {
                 "watchBudget": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                    "default": "1m"
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
+                    "default": "30s"
                 },
                 "prePushBudget": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                    "default": "5m"
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
+                    "default": "2m"
                 },
                 "serveIdle": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                     "default": "30m"
                 },
                 "serveStart": {
@@ -4100,7 +4601,7 @@
                 },
                 "serveStartWait": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                     "default": "10s"
                 },
                 "inferSubsumed": {
@@ -4109,8 +4610,8 @@
                 },
                 "watchPoll": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                    "default": "1s"
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
+                    "default": "2s"
                 },
                 "memoryHeadroom": {
                     "type": "integer",
@@ -4119,8 +4620,211 @@
                 },
                 "serveRequest": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                     "default": "5s"
+                },
+                "quick": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "cancelByUnit": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "rounds": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "fromMap": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "cpu": {
+                    "enum": [
+                        "balanced",
+                        "fast",
+                        "quiet"
+                    ],
+                    "default": "balanced"
+                },
+                "workers": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "enum": [
+                                "half",
+                                "all-but-one"
+                            ]
+                        }
+                    ]
+                },
+                "priority": {
+                    "enum": [
+                        "normal",
+                        "utility",
+                        "background"
+                    ]
+                },
+                "macosClass": {
+                    "enum": [
+                        "none",
+                        "utility",
+                        "background",
+                        "maintenance"
+                    ]
+                },
+                "linuxNice": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 19
+                },
+                "windowsClass": {
+                    "enum": [
+                        "normal",
+                        "below-normal",
+                        "idle"
+                    ]
+                },
+                "onBattery": {
+                    "enum": [
+                        "reduce",
+                        "pause",
+                        "run"
+                    ],
+                    "default": "reduce"
+                },
+                "childWait": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
+                    "default": "1s"
+                },
+                "watchStatus": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "coverageAlone": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "sizedPools": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "listOnce": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "streamBatches": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "recordLines": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "siteHits": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "changeOnly": {
+                    "type": "boolean",
+                    "default": true
+                }
+            },
+            "additionalProperties": false
+        },
+        "outbreak": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "binary": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "timeout": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                },
+                "threads": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "cache": {
+                    "type": "object",
+                    "properties": {
+                        "store": {
+                            "enum": [
+                                "auto",
+                                "none",
+                                "actions",
+                                "oci"
+                            ]
+                        },
+                        "registry": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "trust": {
+                            "enum": [
+                                "default-branch",
+                                "repository"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "equivalence": {
+                    "type": "boolean"
+                },
+                "forkStates": {
+                    "type": "boolean"
+                },
+                "recheckTouchedKills": {
+                    "type": "boolean"
+                },
+                "graph": {
+                    "enum": [
+                        "local",
+                        "narrow",
+                        "widen",
+                        "off"
+                    ]
+                },
+                "serve": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "snapshotEvery": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "syncEvery": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "debounce": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "lines": {
+                    "type": "boolean"
+                },
+                "steps": {
+                    "type": "boolean"
+                },
+                "stepFloor": {
+                    "type": "integer",
+                    "minimum": 1
                 }
             },
             "additionalProperties": false
@@ -4131,6 +4835,12 @@
                 "incremental": {
                     "type": "boolean",
                     "default": true
+                },
+                "compressionLevel": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9,
+                    "default": 6
                 }
             },
             "additionalProperties": false
@@ -4411,12 +5121,24 @@
                                 },
                                 "warmSlack": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "poll": {
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "with": {
                                     "type": "object",
@@ -4463,12 +5185,24 @@
                                 },
                                 "warmSlack": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "poll": {
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "with": {
                                     "type": "object",
@@ -4515,12 +5249,24 @@
                                 },
                                 "warmSlack": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "poll": {
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "with": {
                                     "type": "object",
@@ -4567,12 +5313,24 @@
                                 },
                                 "warmSlack": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "poll": {
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "with": {
                                     "type": "object",
@@ -4619,12 +5377,24 @@
                                 },
                                 "warmSlack": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "poll": {
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "with": {
                                     "type": "object",
@@ -4671,12 +5441,24 @@
                                 },
                                 "warmSlack": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "poll": {
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "with": {
                                     "type": "object",
@@ -4734,12 +5516,24 @@
                                 },
                                 "warmSlack": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "poll": {
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "with": {
                                     "type": "object"
@@ -4782,12 +5576,24 @@
                                 },
                                 "warmSlack": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 },
                                 "poll": {
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "workerWait": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "deadlineGrace": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 }
                             },
                             "minProperties": 1,
@@ -5070,6 +5876,13 @@
                                 "type": "string",
                                 "minLength": 1
                             }
+                        },
+                        "defaultBranchSince": {
+                            "enum": [
+                                "judged",
+                                "judged-off-branch",
+                                "passed"
+                            ]
                         }
                     },
                     "additionalProperties": false
@@ -5085,6 +5898,13 @@
                         "fewestTests": {
                             "type": "integer",
                             "minimum": 1
+                        },
+                        "coverage": {
+                            "enum": [
+                                "measure",
+                                "measure-in-each-shard",
+                                "map"
+                            ]
                         }
                     },
                     "additionalProperties": false
@@ -5148,15 +5968,36 @@
                         },
                         "target": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "setup": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "cutAt": {
                             "type": "number",
                             "minimum": 0
+                        },
+                        "jobLimit": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "pull": {
+                            "enum": [
+                                "auto",
+                                "claim",
+                                "steal",
+                                "redo",
+                                "off"
+                            ]
+                        },
+                        "progress": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "margin": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         }
                     },
                     "additionalProperties": false,
@@ -5226,7 +6067,7 @@
                         },
                         "savingsWindow": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "model": {
                             "anyOf": [
@@ -5272,6 +6113,48 @@
                                     "additionalProperties": false
                                 }
                             ]
+                        },
+                        "testsBeforeAKill": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "surviving": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "shardOverhead": {
+                            "type": "number",
+                            "minimum": 1
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "processes": {
+                    "type": "object",
+                    "properties": {
+                        "group": {
+                            "enum": [
+                                "auto",
+                                "off",
+                                "require"
+                            ]
+                        },
+                        "contain": {
+                            "enum": [
+                                "auto",
+                                "off",
+                                "require"
+                            ]
+                        },
+                        "memory": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "pids": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false
@@ -5292,7 +6175,23 @@
                             "minLength": 1
                         },
                         "trustMergedPullRequests": {
-                            "type": "boolean"
+                            "enum": [
+                                false,
+                                true,
+                                "delta"
+                            ]
+                        },
+                        "mergedOwnScopeProofs": {
+                            "enum": [
+                                "reach",
+                                "refuse",
+                                "trust"
+                            ]
+                        },
+                        "schedule": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^[0-9*,/-]+( [0-9*,/-]+){4}$"
                         },
                         "gitlab": {
                             "type": "object",
@@ -5675,7 +6574,7 @@
                                 },
                                 "read": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 }
                             },
                             "additionalProperties": false
@@ -5685,7 +6584,7 @@
                 },
                 "budget": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                 },
                 "timeouts": {
                     "type": "object",
@@ -5695,6 +6594,11 @@
                                 "confirm",
                                 "unjudged"
                             ]
+                        },
+                        "headroom": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 0.9
                         },
                         "seconds": {
                             "anyOf": [
@@ -5765,7 +6669,11 @@
                         },
                         "startUp": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "startUpMultiple": {
+                            "type": "number",
+                            "minimum": 1
                         },
                         "learned": {
                             "type": "object",
@@ -5785,6 +6693,19 @@
                                 }
                             },
                             "additionalProperties": false
+                        },
+                        "heavyFill": {
+                            "type": "boolean"
+                        },
+                        "heavyParts": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "parts": {
+                            "type": "boolean"
+                        },
+                        "startUpAtPlan": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false
@@ -5794,6 +6715,12 @@
                     "properties": {
                         "confirmSurvivors": {
                             "type": "boolean"
+                        },
+                        "killControls": {
+                            "enum": [
+                                "order",
+                                "alone"
+                            ]
                         }
                     },
                     "additionalProperties": false
@@ -5834,7 +6761,7 @@
                         },
                         "budget": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "shards": {
                             "type": "integer",
@@ -5967,27 +6894,6 @@
                                 },
                                 "required": [
                                     "use"
-                                ],
-                                "additionalProperties": false
-                            },
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "use": {
-                                        "const": "json"
-                                    },
-                                    "path": {
-                                        "type": "string",
-                                        "minLength": 1
-                                    },
-                                    "with": {
-                                        "type": "object",
-                                        "additionalProperties": false
-                                    }
-                                },
-                                "required": [
-                                    "use",
-                                    "path"
                                 ],
                                 "additionalProperties": false
                             },
@@ -6211,11 +7117,11 @@
                                             },
                                             "timeout": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                             },
                                             "longestWait": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                             },
                                             "survivors": {
                                                 "type": "integer",
@@ -6254,11 +7160,11 @@
                                             },
                                             "timeout": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                             },
                                             "longestWait": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                             },
                                             "survivors": {
                                                 "type": "integer",
@@ -6297,11 +7203,11 @@
                                             },
                                             "timeout": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                             },
                                             "longestWait": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                             },
                                             "secretEnv": {
                                                 "type": "string",
@@ -6314,6 +7220,36 @@
                                 },
                                 "required": [
                                     "use"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "use": {
+                                        "const": "json"
+                                    },
+                                    "path": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "with": {
+                                        "type": "object",
+                                        "properties": {
+                                            "tests": {
+                                                "enum": [
+                                                    "all",
+                                                    "killers",
+                                                    "none"
+                                                ]
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "required": [
+                                    "use",
+                                    "path"
                                 ],
                                 "additionalProperties": false
                             },
@@ -6360,6 +7296,10 @@
                                             "endpoint": {
                                                 "type": "string",
                                                 "pattern": "^https://."
+                                            },
+                                            "timeout": {
+                                                "type": "string",
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                             }
                                         },
                                         "additionalProperties": false
@@ -7420,7 +8360,6 @@
                                                 "console",
                                                 "github-annotations",
                                                 "github-summary",
-                                                "json",
                                                 "junit",
                                                 "sarif",
                                                 "stryker",
@@ -7434,6 +8373,7 @@
                                                 "slack",
                                                 "discord",
                                                 "webhook",
+                                                "json",
                                                 "html",
                                                 "otlp",
                                                 "problems",
@@ -7514,6 +8454,9 @@
                                 }
                             },
                             "additionalProperties": false
+                        },
+                        "looseValues": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false
@@ -7813,6 +8756,192 @@
                         },
                         "bootMutants": {
                             "type": "boolean"
+                        },
+                        "bootChunks": {
+                            "type": "boolean"
+                        },
+                        "narrowedKills": {
+                            "enum": [
+                                "vouch",
+                                "trust"
+                            ]
+                        },
+                        "longFilter": {
+                            "enum": [
+                                "files",
+                                "set",
+                                "until-killer"
+                            ]
+                        },
+                        "preloaded": {
+                            "enum": [
+                                "fresh",
+                                "unjudged"
+                            ]
+                        },
+                        "childProcesses": {
+                            "enum": [
+                                "serve",
+                                "off"
+                            ]
+                        },
+                        "pcovKept": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        },
+                        "trials": {
+                            "type": "boolean"
+                        },
+                        "valueReaders": {
+                            "type": "boolean"
+                        },
+                        "narrow": {
+                            "type": "boolean"
+                        },
+                        "shardScan": {
+                            "type": "boolean"
+                        },
+                        "readyAtPlan": {
+                            "type": "boolean"
+                        },
+                        "makeSideBySide": {
+                            "type": "boolean"
+                        },
+                        "longestFirst": {
+                            "type": "boolean"
+                        },
+                        "remember": {
+                            "type": "boolean"
+                        },
+                        "overlapSteps": {
+                            "type": "boolean"
+                        },
+                        "pcovOff": {
+                            "type": "boolean"
+                        },
+                        "xdebugOff": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "controls": {
+                    "type": "object",
+                    "properties": {
+                        "kills": {
+                            "type": "boolean"
+                        },
+                        "memory": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "mutants": {
+                    "type": "object",
+                    "properties": {
+                        "duplicates": {
+                            "enum": [
+                                "judge-once",
+                                "judge-each"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "splitStream": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "children": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "enum": [
+                                        "cores"
+                                    ]
+                                }
+                            ]
+                        },
+                        "changeCheck": {
+                            "type": "boolean"
+                        },
+                        "killersFirst": {
+                            "type": "boolean"
+                        },
+                        "sharding": {
+                            "enum": [
+                                "tests",
+                                "tests-every-part",
+                                "source"
+                            ]
+                        },
+                        "killerStreams": {
+                            "type": "boolean"
+                        },
+                        "early": {
+                            "enum": [
+                                "no-match",
+                                "always",
+                                "unproven-only",
+                                "never"
+                            ]
+                        },
+                        "bootOnce": {
+                            "type": "boolean"
+                        },
+                        "reconnect": {
+                            "type": "boolean"
+                        },
+                        "judging": {
+                            "enum": [
+                                "whole",
+                                "parted"
+                            ]
+                        },
+                        "fallbackOwnRun": {
+                            "type": "boolean"
+                        },
+                        "coveringTestsOnly": {
+                            "type": "boolean"
+                        },
+                        "parentDeadline": {
+                            "type": "boolean"
+                        },
+                        "deadlineBackoff": {
+                            "type": "number",
+                            "minimum": 1
+                        },
+                        "slowdownCarry": {
+                            "enum": [
+                                "shard",
+                                "run",
+                                "none"
+                            ]
+                        },
+                        "firstFork": {
+                            "enum": [
+                                "cheapest",
+                                "every"
+                            ]
+                        },
+                        "partsPerProcess": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "reachableOnly": {
+                            "type": "boolean"
+                        },
+                        "earlyVerdicts": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false
@@ -7959,7 +9088,7 @@
                                 },
                                 "limit": {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 }
                             },
                             "additionalProperties": false
@@ -7971,6 +9100,18 @@
                         "preCheckAfter": {
                             "type": "integer",
                             "minimum": 0
+                        },
+                        "php": {
+                            "type": "object"
+                        },
+                        "after": {
+                            "type": "boolean"
+                        },
+                        "turbo": {
+                            "type": "boolean"
+                        },
+                        "warmAtPlan": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false
@@ -7987,7 +9128,7 @@
                         },
                         "audit": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         }
                     },
                     "additionalProperties": false
@@ -8026,7 +9167,7 @@
                                 },
                                 {
                                     "type": "string",
-                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                                 }
                             ]
                         },
@@ -8083,15 +9224,15 @@
                     "properties": {
                         "watchBudget": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "prePushBudget": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "serveIdle": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "serveStart": {
                             "enum": [
@@ -8101,14 +9242,14 @@
                         },
                         "serveStartWait": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "inferSubsumed": {
                             "type": "boolean"
                         },
                         "watchPoll": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
                         },
                         "memoryHeadroom": {
                             "type": "integer",
@@ -8116,7 +9257,197 @@
                         },
                         "serveRequest": {
                             "type": "string",
-                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "quick": {
+                            "type": "boolean"
+                        },
+                        "cancelByUnit": {
+                            "type": "boolean"
+                        },
+                        "rounds": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "fromMap": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "cpu": {
+                            "enum": [
+                                "balanced",
+                                "fast",
+                                "quiet"
+                            ]
+                        },
+                        "workers": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "enum": [
+                                        "half",
+                                        "all-but-one"
+                                    ]
+                                }
+                            ]
+                        },
+                        "priority": {
+                            "enum": [
+                                "normal",
+                                "utility",
+                                "background"
+                            ]
+                        },
+                        "macosClass": {
+                            "enum": [
+                                "none",
+                                "utility",
+                                "background",
+                                "maintenance"
+                            ]
+                        },
+                        "linuxNice": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 19
+                        },
+                        "windowsClass": {
+                            "enum": [
+                                "normal",
+                                "below-normal",
+                                "idle"
+                            ]
+                        },
+                        "onBattery": {
+                            "enum": [
+                                "reduce",
+                                "pause",
+                                "run"
+                            ]
+                        },
+                        "childWait": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "watchStatus": {
+                            "type": "boolean"
+                        },
+                        "coverageAlone": {
+                            "type": "boolean"
+                        },
+                        "sizedPools": {
+                            "type": "boolean"
+                        },
+                        "listOnce": {
+                            "type": "boolean"
+                        },
+                        "streamBatches": {
+                            "type": "boolean"
+                        },
+                        "recordLines": {
+                            "type": "boolean"
+                        },
+                        "siteHits": {
+                            "type": "boolean"
+                        },
+                        "changeOnly": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "outbreak": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "binary": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "timeout": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "threads": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "cache": {
+                            "type": "object",
+                            "properties": {
+                                "store": {
+                                    "enum": [
+                                        "auto",
+                                        "none",
+                                        "actions",
+                                        "oci"
+                                    ]
+                                },
+                                "registry": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "trust": {
+                                    "enum": [
+                                        "default-branch",
+                                        "repository"
+                                    ]
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "equivalence": {
+                            "type": "boolean"
+                        },
+                        "forkStates": {
+                            "type": "boolean"
+                        },
+                        "recheckTouchedKills": {
+                            "type": "boolean"
+                        },
+                        "graph": {
+                            "enum": [
+                                "local",
+                                "narrow",
+                                "widen",
+                                "off"
+                            ]
+                        },
+                        "serve": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "snapshotEvery": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "syncEvery": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                },
+                                "debounce": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "lines": {
+                            "type": "boolean"
+                        },
+                        "steps": {
+                            "type": "boolean"
+                        },
+                        "stepFloor": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false
@@ -8126,6 +9457,11 @@
                     "properties": {
                         "incremental": {
                             "type": "boolean"
+                        },
+                        "compressionLevel": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9
                         }
                     },
                     "additionalProperties": false

@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Plan\ReachingNothing;
 use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
@@ -34,6 +35,7 @@ use NightWorksIO\MutationGate\Tests\Support\Moment;
 const REACHING_NOTHING_COMMIT = '5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90';
 
 const REACHING_NOTHING_CHECK = 'mutation / verdict';
+const REACHING_NOTHING_GATE = 'v0.1.0';
 
 const REACHING_NOTHING_PASSED_AT = '2026-11-02T12:43:14Z';
 
@@ -42,10 +44,12 @@ $reaching = static fn(): ReachingNothing => ReachingNothing::within(
     Path::of('mutation-gate.baseline.json'),
     Globs::of(Glob::of('mutation-gate.json'), Glob::of('mutation-gate/extra.json')),
     REACHING_NOTHING_CHECK,
+    GateRelease::spelt(REACHING_NOTHING_GATE),
 );
 
 $passed = static fn(string $check = REACHING_NOTHING_CHECK): Passed => Passed::of(Revision::ref(REACHING_NOTHING_COMMIT), $check, 0)
-    ->passedAt(Instant::at(new DateTimeImmutable(REACHING_NOTHING_PASSED_AT)));
+    ->passedAt(Instant::at(new DateTimeImmutable(REACHING_NOTHING_PASSED_AT)))
+    ->judgedBy(GateRelease::spelt(REACHING_NOTHING_GATE));
 
 $proofsAt = static fn(string ...$at): Proofs => Proofs::of(...array_map(
     static fn(string $when): Proof => Proof::of(
@@ -92,6 +96,14 @@ it('judges what it carries where the default branch\'s ledger holds no commit th
 })->with([
     'none passed' => [fn(): CannotTell => CannotTell::because('No commit of this scope has passed yet.'), 'No commit of this scope has passed yet.'],
     'no instant' => [fn(): Passed => Passed::of(Revision::ref(REACHING_NOTHING_COMMIT), REACHING_NOTHING_CHECK, 0), 'The default branch\'s ledger does not say when %s passed.'],
+]);
+
+it('judges what it carries where another release of the gate passed the commit, or the ledger does not say which did', function (GateRelease $gate, string $said) use ($reaching, $passed, $proofsAt, $modified, $now, $why): void {
+    expect($why($reaching()->stands($passed()->judgedBy($gate), $proofsAt(), Revision::ref(REACHING_NOTHING_COMMIT), $modified('README.md'), $modified('README.md'), Listed::of(), $now())))
+        ->toBe(sprintf($said, REACHING_NOTHING_COMMIT));
+})->with([
+    'another release' => [fn(): GateRelease => GateRelease::spelt('v0.0.9'), '%s passed under the gate v0.0.9, and v0.1.0 runs now.'],
+    'none recorded' => [fn(): GateRelease => GateRelease::unrecorded(), 'The ledger does not say which release of the gate passed %s.'],
 ]);
 
 it('judges what it carries where the commit passed under another check, the change is read since another commit, or a later run left results', function (string $check, string $since, string $later, string $said) use ($reaching, $passed, $proofsAt, $modified, $now, $why): void {

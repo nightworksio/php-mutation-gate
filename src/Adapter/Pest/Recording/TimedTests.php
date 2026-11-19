@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
-use function array_filter;
 use function array_key_exists;
 use function explode;
 use function file_get_contents;
@@ -21,9 +20,9 @@ use function json_validate;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\RecordedBeside;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\Telemetry\HRTime;
@@ -100,12 +99,13 @@ final class TimedTests
     /** A map knowing every test a file times that it does not time itself, with the file's seconds for it. */
     public static function onto(CoverageMap $map, string $file): CoverageMap
     {
-        $unknown = array_filter(
-            self::in($file),
-            static fn(TimedTest $timed): bool => $map->durationOf($timed->test()) instanceof Unmeasured,
-        );
+        return self::beside($file)->onto($map);
+    }
 
-        return $map->timedEach(...$unknown)->loading(RecordedLoads::in($file));
+    /** What a file records beside a coverage run's report: each test it times, and what the tests loaded. */
+    public static function beside(string $file): RecordedBeside
+    {
+        return RecordedBeside::of(RecordedLoads::in($file), ...self::in($file));
     }
 
     /** Notes when a test was prepared. */

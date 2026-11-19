@@ -20,6 +20,19 @@ enum Step: string
      */
     case Coverage = 'coverage';
 
+    /**
+     * Reading the map of every file, where the tests that read a value the
+     * run's files declare are found (ADR-0037).
+     */
+    case ValueReaderCoverage = 'value reader coverage';
+
+    /**
+     * Scanning the codebase for the tests that read each value the run's
+     * files declare, and covering each value's lines, and each line of a
+     * match's arms, by them (ADR-0037).
+     */
+    case ValueReaders = 'value readers';
+
     /** Making the mutants and writing what their runs read, before any of them runs. */
     case Preparing = 'preparing';
 
@@ -29,6 +42,20 @@ enum Step: string
      * run.
      */
     case Mutation = 'mutation';
+
+    /**
+     * A split stream run's first pass, within the mutation step: its parents
+     * running their test files and forking each mutant at its first test
+     * (ADR-0196).
+     */
+    case FirstPass = 'first pass';
+
+    /**
+     * A split stream run's second pass, within the mutation step: each
+     * mutant the first left forked at every covering test it did not run
+     * (ADR-0196).
+     */
+    case SecondPass = 'second pass';
 
     /** Reading what the mutants' runs left, with any run that shows why a run failed. */
     case Reading = 'reading';
@@ -56,6 +83,9 @@ enum Step: string
 
     /** The unmutated control of each timed-out mutant's tests, under its limit (ADR-0008). */
     case Controls = 'controls';
+
+    /** The runs of heavy mutants' parts and of those parts' controls, round after round (ADR-0008). */
+    case HeavyParts = 'heavy parts';
 
     /** Static analysis's checks of the shard's survivors. */
     case StaticCheck = 'static check';

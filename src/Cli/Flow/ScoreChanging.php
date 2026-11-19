@@ -49,7 +49,7 @@ final readonly class ScoreChanging
 
     public function text(): string|CannotJudge
     {
-        $inventory = Inventory::of($this->adapters, $this->settings);
+        $inventory = Inventory::forKeys($this->adapters, $this->settings);
         $baseline = Baselines::of($this->adapters, $this->settings, $this->setup)->committed();
         $map = $this->adapters->runner->coverage(CoverageRead::from(Workspace::coverage()));
 
@@ -64,20 +64,32 @@ final readonly class ScoreChanging
     private function keyed(Inventory $inventory, Baseline $baseline, CoverageMap $map): string|CannotJudge
     {
         $judges = MapJudges::of($this->adapters->runner, $map);
-        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $judges);
-
-        return $keying instanceof Keying ? $this->changed($inventory, $baseline, $judges, $keying) : $keying;
-    }
-
-    private function changed(Inventory $inventory, Baseline $baseline, MapJudges $judges, Keying $keying): string
-    {
-        $trees = $inventory->trees;
         $ledgers = Ledgers::read(
             $this->adapters->proofs,
             $inventory->standing,
             Writing::Never,
             $this->settings->proofs()->taken(),
         );
+        $keying = Keying::of(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            $inventory->suite,
+            $judges,
+            learned: LearnedLimits::of($this->settings, $ledgers)->multiple(),
+        );
+
+        return $keying instanceof Keying ? $this->changed($inventory, $baseline, $judges, $keying, $ledgers) : $keying;
+    }
+
+    private function changed(
+        Inventory $inventory,
+        Baseline $baseline,
+        MapJudges $judges,
+        Keying $keying,
+        Ledgers $ledgers,
+    ): string {
+        $trees = $inventory->trees;
         $defaultBranch = $ledgers->defaultBranch()->proofs();
         $reach = Reached::since(
             ChangeBase::since($inventory->standing->fetchedBase()),
@@ -115,6 +127,7 @@ final readonly class ScoreChanging
                 $this->setup->clock->now(),
                 $this->settings->ignores()->notice(),
             ),
+            $this->settings->triage()->headroom(),
         );
         $judged = $proving->proved()->and($considering->carried())->and($completing->carried());
         $proven = $judge->proving(new StaticEquivalence($this->adapters, $this->settings)->among($judged)->proven);

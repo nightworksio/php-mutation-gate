@@ -7,8 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Format;
 use function max;
 use function mb_str_split;
 use function mb_strlen;
-use function mb_strpos;
 use function mb_substr;
+use function strpos;
+use function strrpos;
 
 /**
  * Text measured and cut in bytes, as a file's size, a program's output, a
@@ -21,6 +22,12 @@ final readonly class Bytes
 {
     /** Bytes in a megabyte, as a size is said to a person. */
     public const int PER_MEGABYTE = 1_000_000;
+
+    /** Bytes in a gigabyte, as a size is said to a person. */
+    public const int PER_GIGABYTE = 1_000_000_000;
+
+    /** Bytes in a kibibyte, as Linux's `/proc` counts memory. */
+    public const int PER_KIBIBYTE = 1_024;
 
     /** Bytes in PHP's `M`, as a memory_limit counts them. */
     public const int PER_MEBIBYTE = 1_048_576;
@@ -53,7 +60,31 @@ final readonly class Bytes
     /** Where this first occurs from a byte offset on, as a byte offset, or false where it does not. */
     public static function find(string $text, string $sought, int $from): int|false
     {
-        return mb_strpos($text, $sought, $from, self::ENCODING);
+        return strpos($text, $sought, $from);
+    }
+
+    /** Where this last occurs wholly before a byte offset, as a byte offset, or false where it does not. */
+    public static function findBefore(string $text, string $sought, int $before): int|false
+    {
+        $last = $before - self::length($sought);
+
+        return $last < 0 ? false : strrpos($text, $sought, $last - self::length($text));
+    }
+
+    /** Where the line holding a byte offset starts: past the newline before it, or at the text's start. */
+    public static function lineStartOf(string $text, int $offset): int
+    {
+        $newline = self::findBefore($text, "\n", $offset);
+
+        return $newline === false ? 0 : $newline + 1;
+    }
+
+    /** Where the line holding a byte offset ends: at the newline from it on, or at the text's end. */
+    public static function lineEndOf(string $text, int $offset): int
+    {
+        $newline = self::find($text, "\n", $offset);
+
+        return $newline === false ? self::length($text) : $newline;
     }
 
     /**

@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_merge;
 use function array_slice;
+use function array_values;
+use function krsort;
 use function max;
 use function min;
 
@@ -15,8 +17,7 @@ use NightWorksIO\MutationGate\Core\Order\Bound;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 
 use const PHP_INT_MAX;
-
-use function usort;
+use const SORT_STRING;
 
 /**
  * What a ledger keeps when it is written. A proof can only be hit by a run
@@ -119,20 +120,17 @@ final readonly class LedgerRetention
     public function proofsOf(Ledger $ledger): array
     {
         $bases = $this->basesOf($ledger);
-        $kept = [];
+        $byRun = [];
 
         foreach ($ledger->proofs() as $proof) {
             if ($bases->has($proof->run()->base())) {
-                $kept[] = $proof;
+                $byRun[$proof->run()->at()->value()][] = $proof;
             }
         }
 
-        usort(
-            $kept,
-            static fn(Proof $one, Proof $other): int => $other->run()->at()->value() <=> $one->run()->at()->value(),
-        );
+        krsort($byRun, SORT_STRING);
 
-        return array_slice($kept, 0, $this->proofs);
+        return array_slice(array_merge(...array_values($byRun)), 0, $this->proofs);
     }
 
     /**

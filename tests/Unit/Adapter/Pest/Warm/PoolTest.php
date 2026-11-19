@@ -37,7 +37,7 @@ it('starts its place\'s worker once, leaving it the run\'s schemata, and puts th
     $listed = new Process(['ps', '-ww', '-o', 'args=', '-p', (string) $worker]);
     $listed->run();
     $clearing = hrtime(as_number: true);
-    $warnings = WarmDirectory::cleared($results);
+    $warnings = WarmDirectory::cleared($results, Seconds::of(5.0));
     $cleared = (hrtime(as_number: true) - $clearing) / Seconds::NANOSECONDS;
 
     expect($first)->toBe([PHP_BINARY, ThisPackage::script('mutation-gate-pest-client'), $directory, '1'])
@@ -64,7 +64,7 @@ it('starts a worker that compiles through opcache, its blacklist named, where it
     $worker = file_get_contents(Seat::at($directory, 1)->pid());
     $listed = new Process(['ps', '-ww', '-o', 'args=', '-p', (string) $worker]);
     $listed->run();
-    WarmDirectory::cleared($results);
+    WarmDirectory::cleared($results, Seconds::of(5.0));
 
     expect(trim($listed->getOutput()))->toBe(implode(' ', [
         PHP_BINARY,

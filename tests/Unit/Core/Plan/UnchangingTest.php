@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Plan\Unchanging;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
@@ -31,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 const UNCHANGING_COMMIT = '5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90';
 
 const UNCHANGING_CHECK = 'mutation / verdict';
+const UNCHANGING_GATE = 'v0.1.0';
 
 $layout = static fn(): Layout => Layout::standard(Paths::of(Path::of('phpunit.xml')))
     ->runBy(Glob::of('.github/workflows/gate.yml'))
@@ -42,12 +44,14 @@ $within = static fn(Layout $layout): Unchanging => Unchanging::within(
     $layout,
     Packages::of(Trees::of(Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())))),
     Path::of('mutation-gate.baseline.json'),
+    GateRelease::spelt(UNCHANGING_GATE),
 );
 
 $unchanging = static fn(): Unchanging => $within($layout());
 
 $passed = static fn(): Passed => Passed::of(Revision::ref(UNCHANGING_COMMIT), UNCHANGING_CHECK, 2)
-    ->passedAt(Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z')));
+    ->passedAt(Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z')))
+    ->judgedBy(GateRelease::spelt(UNCHANGING_GATE));
 
 $now = static fn(): DateTimeImmutable => new DateTimeImmutable('2026-10-10T12:00:00Z');
 
@@ -84,6 +88,36 @@ it('plans where the ledger does not say when the commit passed', function () use
 
     expect($why($unchanging()->since($untimed, Changes::none(), UNCHANGING_CHECK, Listed::of(), $now())))
         ->toBe(sprintf('The ledger does not say when %s passed, so whether an ignore expired since cannot be told.', UNCHANGING_COMMIT));
+});
+
+it('plans where another release of the gate passed the commit', function () use ($unchanging, $passed, $now, $why): void {
+    $older = $passed()->judgedBy(GateRelease::spelt('v0.0.9'));
+
+    expect($why($unchanging()->since($older, Changes::none(), UNCHANGING_CHECK, Listed::of(), $now())))
+        ->toBe(sprintf('%s passed under the gate v0.0.9, and %s runs now.', UNCHANGING_COMMIT, UNCHANGING_GATE));
+});
+
+it('stands where the commit passed under another build of a branch, whatever its commit, and not a release', function () use ($layout, $passed, $now): void {
+    $passedOn = static fn(string $gate): Passed => $passed()->judgedBy(GateRelease::spelt($gate));
+    $under = static fn(string $gate): Unchanging => Unchanging::within(
+        $layout(),
+        Packages::of(Trees::of(Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())))),
+        Path::of('mutation-gate.baseline.json'),
+        GateRelease::spelt($gate),
+    );
+
+    expect($under('dev-main bbb')->since($passedOn('dev-main aaa'), Changes::none(), UNCHANGING_CHECK, Listed::of(), $now()))
+        ->toBeInstanceOf(Unchanged::class)
+        ->and($under('v0.1.0')->since($passedOn('dev-main aaa'), Changes::none(), UNCHANGING_CHECK, Listed::of(), $now()))
+        ->toBeInstanceOf(Reason::class);
+});
+
+it('plans where the ledger does not say which release passed the commit', function () use ($unchanging, $now, $why): void {
+    $unrecorded = Passed::of(Revision::ref(UNCHANGING_COMMIT), UNCHANGING_CHECK, 0)
+        ->passedAt(Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z')));
+
+    expect($why($unchanging()->since($unrecorded, Changes::none(), UNCHANGING_CHECK, Listed::of(), $now())))
+        ->toBe(sprintf('The ledger does not say which release of the gate passed %s.', UNCHANGING_COMMIT));
 });
 
 it('plans where the commit passed under another check', function () use ($unchanging, $passed, $now, $why): void {

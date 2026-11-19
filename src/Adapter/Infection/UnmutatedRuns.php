@@ -172,6 +172,7 @@ final readonly class UnmutatedRuns
                     )
                         ->withholding($request->withheld())
                         ->within($control->limit())
+                        ->haltedPast($request->pool()->pace()->deadlineGrace())
                         ->launchedBy($launcher, $peak),
                 ),
                 $control,

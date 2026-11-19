@@ -28,7 +28,7 @@ final readonly class StaticCheckKeys
     public static function fields(PathOrigin $origin): array
     {
         $results = Effect::AffectsResults;
-        $tool = Field::optional('tool', Adapter::choosing(Builtins::staticCheckers($origin)), $results);
+        $tool = Field::optional(StaticCheck::TOOL, Adapter::choosing(Builtins::staticCheckers($origin)), $results);
         $config = Field::optional('config', Location::path($origin), $results);
         $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
         $before = Field::optional('before', Flag::boolean(), Effect::JudgesOrReportsOnly);
@@ -37,9 +37,11 @@ final readonly class StaticCheckKeys
         $opcache = Field::section('opcache', self::opcache());
         $dependents = Field::optional('dependents', Integer::atLeast(0), $judges);
         $preCheckAfter = Field::optional('preCheckAfter', Integer::atLeast(0), $judges);
+        $toggles = ToggleFields::in(StaticCheck::SECTION);
+        $php = Field::optional('php', OpenObject::any(), $judges);
 
         return [Field::section(
-            'staticCheck',
+            StaticCheck::SECTION,
             Section::of(
                 static function (Node $staticCheck) use (
                     $tool,
@@ -50,7 +52,11 @@ final readonly class StaticCheckKeys
                     $opcache,
                     $dependents,
                     $preCheckAfter,
+                    $toggles,
+                    $php,
                 ): Layer|Invalid {
+                    $switched = $toggles->read($staticCheck);
+                    $ini = $php->read($staticCheck);
                     $chosen = $tool->read($staticCheck);
                     $read = $config->read($staticCheck);
                     $limit = $seconds->read($staticCheck);
@@ -62,15 +68,19 @@ final readonly class StaticCheckKeys
                     $cap = $limit->value();
 
                     return Reading::built(
-                        static fn(): Layer => Layer::of(StaticCheck::of(
-                            $chosen->value(),
-                            $read->value(),
-                            $cap instanceof Absent ? $cap : Seconds::of($cap),
-                            $placed->value(),
-                            $weighed->value(),
-                            dependents: $following->value(),
-                            preCheckAfter: $learning->value(),
-                        )->over($compiled->must())),
+                        static fn(): Layer => Layer::of(
+                            StaticCheck::of(
+                                $chosen->value(),
+                                $read->value(),
+                                $cap instanceof Absent ? $cap : Seconds::of($cap),
+                                $placed->value(),
+                                $weighed->value(),
+                                dependents: $following->value(),
+                                preCheckAfter: $learning->value(),
+                                php: $ini->value(),
+                            )->over($compiled->must()),
+                            $toggles->set($switched),
+                        ),
                         $chosen,
                         $read,
                         $limit,
@@ -79,6 +89,8 @@ final readonly class StaticCheckKeys
                         $compiled,
                         $following,
                         $learning,
+                        $ini,
+                        ...$switched,
                     );
                 },
                 $tool,
@@ -89,6 +101,8 @@ final readonly class StaticCheckKeys
                 $opcache,
                 $dependents,
                 $preCheckAfter,
+                $php,
+                ...$toggles->fields(),
             ),
         )];
     }

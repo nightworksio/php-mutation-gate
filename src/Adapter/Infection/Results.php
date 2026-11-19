@@ -246,7 +246,7 @@ final readonly class Results
         );
         $mutants = [];
         $seen = [];
-        $evidence = Evidences::none();
+        $evidence = [];
 
         foreach ($found as $mutant) {
             $file = $project->relative($mutant['file']);
@@ -276,10 +276,10 @@ final readonly class Results
                 $mutant['limit'] instanceof MemoryCap => $recorded->withLimit($mutant['limit']),
                 default => $recorded,
             };
-            $evidence = $evidence->with($recorded->id(), KillOutput::evidenceOf($recorded, $mutant['output']));
+            $evidence[] = [$recorded->id(), KillOutput::evidenceOf($recorded, $mutant['output'])];
         }
 
-        return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);
+        return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence(Evidences::collected($evidence));
     }
 
     /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */

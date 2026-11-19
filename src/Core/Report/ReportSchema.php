@@ -15,13 +15,15 @@ use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
+use NightWorksIO\MutationGate\Core\Control\ControlEnd;
+use NightWorksIO\MutationGate\Core\Control\ControlKind;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Outcome;
 use NightWorksIO\MutationGate\Core\Matrix\Standing;
+use NightWorksIO\MutationGate\Core\Mutant\MergedParts;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
-use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\RejectionRecord;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -127,12 +129,20 @@ final readonly class ReportSchema
                 'shard' => self::LINE,
                 'start' => self::INSTANT,
                 'seconds' => self::SECONDS,
-                'steps' => self::listOf(self::object([
+                'steps' => ['type' => 'array', 'items' => self::object([
                     'step' => self::oneOf(...Step::cases()),
                     'since' => self::SECONDS,
                     'seconds' => self::SECONDS,
                     'count' => self::WHOLE,
-                ], ['count'])),
+                    'controls' => ['type' => 'array', 'items' => self::object([
+                        'kinds' => self::listOf(self::oneOf(...ControlKind::cases())),
+                        'tests' => self::WHOLE,
+                        'cases' => self::WHOLE,
+                        'limit' => self::SECONDS,
+                        'seconds' => self::SECONDS,
+                        'end' => self::oneOf(...ControlEnd::cases()),
+                    ], ['cases', 'seconds'])],
+                ], ['count', 'controls'])],
             ], [])],
             'units' => self::object($units, []),
             'wallSeconds' => self::SECONDS,
@@ -296,7 +306,7 @@ final readonly class ReportSchema
     {
         $listed = self::listOf(self::TEXT);
         $record = self::object([
-            'status' => self::oneOf(...MutantStatus::cases()),
+            'status' => self::oneOf(...MergedParts::statuses()),
             'run' => self::TEXT,
             'scope' => self::TEXT,
             'at' => self::INSTANT,
@@ -481,7 +491,7 @@ final readonly class ReportSchema
             'mutator' => self::TEXT,
             'family' => self::oneOf(...MutatorFamily::cases()),
             'diff' => self::TEXT,
-            'status' => self::oneOf(...MutantStatus::cases()),
+            'status' => self::oneOf(...MergedParts::statuses()),
             'judgement' => self::oneOf(...MutantJudgement::cases()),
             'reason' => self::TEXT,
             MutantRecord::REJECTION => self::object([

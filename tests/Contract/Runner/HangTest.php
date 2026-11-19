@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -49,7 +47,7 @@ it('stops a mutant whose loop never ends, saying nothing or printing, by its lim
         copy(Tree::at(sprintf('tests/Contract/Runner/hang/%s', $file)), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
     }
 
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $library = Library::pestWithin(Patching::on(Library::canary()), $bounds, sprintf('pest patched, hanging %s', $reason));
     $hang = Paths::of(Path::of('src/Hang.php'));
     $started = hrtime(as_number: true);
@@ -66,7 +64,7 @@ it('stops a mutant whose loop never ends, saying nothing or printing, by its lim
     $took = (hrtime(as_number: true) - $started) / 1e9;
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
     $hanging = array_values(array_filter($mutants, static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::TimedOut));
-    $limits = array_map(static fn(Mutant $mutant): float => hangSeconds($mutant->limit()), $hanging);
+    $limits = array_map(static fn(Mutant $mutant): float => hangSeconds($mutant->stop()->limit()), $hanging);
 
     expect(array_map(static fn(Mutant $mutant): array => [
         $mutant->location()->file()->value(),
@@ -80,7 +78,7 @@ it('stops a mutant whose loop never ends, saying nothing or printing, by its lim
         ['src/Hang.php', 32, PlusToMinus::class, MutantStatus::Killed, ''],
     ])
         ->and(array_map(
-            static fn(Mutant $mutant): bool => hangSeconds($mutant->duration()) <= hangSeconds($mutant->limit()) + 0.5,
+            static fn(Mutant $mutant): bool => hangSeconds($mutant->duration()) <= hangSeconds($mutant->stop()->limit()) + 0.5,
             $hanging,
         ))->toBe([true, true])
         ->and($took)->toBeLessThan(array_sum($limits) + 15.0);

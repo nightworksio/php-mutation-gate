@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Suites;
@@ -29,6 +31,7 @@ final readonly class CoverageRun
         private ProcessCount $processes,
         private Withheld $withheld,
         private Suites $suites,
+        private Paths|NotGiven $within = new NotGiven(),
     ) {
     }
 
@@ -40,7 +43,7 @@ final readonly class CoverageRun
 
     public function across(ProcessCount $processes): self
     {
-        return new self($this->tests, $this->directory, $processes, $this->withheld, $this->suites);
+        return new self($this->tests, $this->directory, $processes, $this->withheld, $this->suites, $this->within);
     }
 
     /** This run, withholding these variables from the tests as well as those it already withholds. */
@@ -52,13 +55,30 @@ final readonly class CoverageRun
             $this->processes,
             $this->withheld->and($withheld),
             $this->suites,
+            $this->within,
         );
     }
 
     /** This run, of these suites' tests alone, as `tests.suites` lists them or `--suite` names one. */
     public function amongSuites(Suites $suites): self
     {
-        return new self($this->tests, $this->directory, $this->processes, $this->withheld, $suites);
+        return new self($this->tests, $this->directory, $this->processes, $this->withheld, $suites, $this->within);
+    }
+
+    /**
+     * This run of a group, loading these test files alone, which hold every
+     * test of the group, so the same tests run without the rest of the suite
+     * loaded (ADR-0161).
+     */
+    public function within(Paths $files): self
+    {
+        return new self($this->tests, $this->directory, $this->processes, $this->withheld, $this->suites, $files);
+    }
+
+    /** The test files that hold every test the run runs; none where it loads its suites. */
+    public function files(): Paths|NotGiven
+    {
+        return $this->within;
     }
 
     /** The suites whose tests the run runs: every suite where it names none. */

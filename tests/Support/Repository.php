@@ -73,6 +73,14 @@ final readonly class Repository
         return $this;
     }
 
+    /** Git run with these arguments in the repository, whatever it ends with, such as a merge that conflicts. */
+    public function attempted(string ...$arguments): self
+    {
+        new Process(['git', ...self::SETTINGS, ...$arguments], $this->root)->run();
+
+        return $this;
+    }
+
     /** What git prints for these arguments, run in the repository; a failure fails the test. */
     public function git(string ...$arguments): string
     {

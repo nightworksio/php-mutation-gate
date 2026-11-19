@@ -32,8 +32,8 @@ final readonly class MemoryTriage
     /** What a mutant comes to: as its status reports it, and one out of memory as triage judges it. */
     public function judged(Mutant $mutant): MutantJudgement
     {
-        $cap = $mutant->limit();
-        $peak = $mutant->unmutatedNeed();
+        $cap = $mutant->stop()->limit();
+        $peak = $mutant->stop()->need();
 
         return $mutant->status() === MutantStatus::OutOfMemory
             && $cap instanceof MemoryCap

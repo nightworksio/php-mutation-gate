@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 it('gives nothing it was not given', function (): void {
     $none = Observations::none();
 
-    expect([$none->php(), $none->runners(), $none->settings(), $none->trees(), $none->markers(), $none->ledgers(), $none->run()])
+    expect([$none->php(), $none->runners(), $none->config()->settings(), $none->config()->trees(), $none->markers(), $none->ledgers(), $none->run()])
         ->toEqual(array_fill(0, 7, NotGiven::value()))
         ->and($none->files())->toEqual(ProjectFiles::none());
 });
@@ -44,8 +44,8 @@ it('keeps each part it is given, whatever order they come in', function (): void
         ->withRunners($runners)
         ->withPhp($php);
 
-    expect([$observed->php(), $observed->runners(), $observed->settings(), $observed->markers(), $observed->files(), $observed->ledgers(), $observed->run()])
+    expect([$observed->php(), $observed->runners(), $observed->config()->settings(), $observed->markers(), $observed->files(), $observed->ledgers(), $observed->run()])
         ->toBe([$php, $runners, $settings, $markers, $files, $ledgers, $run])
-        ->and($observed->trees())->toEqual(Trees::none())
+        ->and($observed->config()->trees())->toEqual(Trees::none())
         ->and(Observations::none()->withPhp(CannotJudge::because('no PHP'))->php())->toEqual(CannotJudge::because('no PHP'));
 });

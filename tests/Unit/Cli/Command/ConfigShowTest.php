@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 use NightWorksIO\MutationGate\Tests\Support\Commands;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -70,7 +71,7 @@ it('lays the command line over the config file', function () use ($show, $decode
     $shown = $show('Configured', ['--runner' => 'pest', '--report' => ['json:build/mutation.json']]);
 
     expect($decoded($shown->output))->toMatchArray([
-        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'],
         'reports' => [
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'json', 'path' => 'build/mutation.json'],
@@ -81,7 +82,7 @@ it('lays the command line over the config file', function () use ($show, $decode
 it('shows zero-config where there is no config file', function () use ($show, $decoded): void {
     expect($decoded($show('Laravel')->output))->toMatchArray([
         'preset' => 'laravel',
-        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01, 'deadlineGrace' => '15s'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
     ]);
 });
@@ -103,7 +104,7 @@ it('prints the effective config in the format --format names', function () use (
             "    ->preset(Preset::symfony())\n"
             . "    ->runner(Runner::infection()->cappedAt(MemoryCap::of(1, MemoryUnit::Gigabytes))"
             . "->inWorkers(Workers::Fork)->applyingPathRules(PathRuleMode::Partitioned)"
-            . "->paced(Pace::of(recycleAfter: 16, warmSlack: '1m', poll: 0.01)))\n",
+            . "->paced(Pace::of(recycleAfter: 16, warmSlack: '1m', poll: 0.01, deadlineGrace: '15s')))\n",
         );
 });
 
@@ -177,4 +178,15 @@ it('says why it cannot resolve the config for a context --context does not name,
 
     expect($shown->code)->toBe(2)
         ->and(sprintf('%s%s', $shown->output, $shown->errors))->toContain('--context: expected local, ci, github, gitlab, bitbucket, azure, buildkite, jenkins, circleci, pr or main, got "staging"');
+});
+
+it('marks each loose value in force aside, apart from the config it prints', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"runner": "pest", "controls": {"kills": false}}');
+
+    $shown = Commands::run($project, 'config:show');
+
+    expect($shown->code)->toBe(0)
+        ->and($shown->errors)->toBe("Loose: controls.kills is false, a loose value: a kill counts without its control on the unmutated code.\n")
+        ->and(Node::decode($shown->output)->field('controls')->field('kills')->boolean())->toBeFalse();
 });

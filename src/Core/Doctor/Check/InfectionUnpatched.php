@@ -32,7 +32,7 @@ final readonly class InfectionUnpatched
 
     public static function in(Observations $observed): Findings
     {
-        $settings = $observed->settings();
+        $settings = $observed->config()->settings();
         $composer = $observed->files()->composer();
         $infection = $settings instanceof Settings
             && $settings->runner()->choice()->use()->value() === BuiltinRunner::Infection->value;

@@ -42,6 +42,18 @@ final readonly class UncheckedIds
         return new self([...$this->ids, $why->value => $held->and($survivors)]);
     }
 
+    /** These, with those others left unchecked, each for its reason. */
+    public function plus(self $others): self
+    {
+        $ids = $this;
+
+        foreach (Unchecked::cases() as $why) {
+            $ids = $ids->and($why, $others->for($why));
+        }
+
+        return $ids;
+    }
+
     /** The survivors left unchecked for any of these reasons. */
     public function for(Unchecked ...$reasons): MutantIds
     {

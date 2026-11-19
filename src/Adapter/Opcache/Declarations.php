@@ -56,6 +56,12 @@ final readonly class Declarations
         return $this->printed === $other->printed;
     }
 
+    /** The program as printed with every function's body taken out. */
+    public function printed(): string
+    {
+        return $this->printed;
+    }
+
     /** Whether another program writes the same constant expressions, in the same order. */
     public function writesTheSameConstants(self $other): bool
     {

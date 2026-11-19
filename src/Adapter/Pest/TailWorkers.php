@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
@@ -43,6 +44,7 @@ final class TailWorkers
         private readonly string $beside,
         private readonly Project|NotGiven $booting,
         private readonly OpcacheBlacklist|NotGiven $uncached,
+        private readonly Seconds $wait,
     ) {
     }
 
@@ -70,7 +72,7 @@ final class TailWorkers
     public function cleared(): void
     {
         foreach ($this->sets as $beside) {
-            WarmDirectory::cleared($beside);
+            WarmDirectory::cleared($beside, $this->wait);
         }
     }
 
@@ -84,7 +86,7 @@ final class TailWorkers
      */
     private function started(string $beside, array|NotGiven $suites, array $startingWith): string
     {
-        WarmDirectory::cleared($beside);
+        WarmDirectory::cleared($beside, $this->wait);
         $directory = WarmDirectory::made($beside);
 
         if ($this->uncached instanceof OpcacheBlacklist) {

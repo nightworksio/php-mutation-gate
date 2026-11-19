@@ -98,3 +98,19 @@ it('ignores what either layer ignores, and measures coverage incrementally unles
         ->and([Proofs::of()->incrementalCoverage(), Proofs::of(incremental: true)->incrementalCoverage(), Proofs::of(incremental: false)->incrementalCoverage()])
         ->toBe([true, true, false]);
 });
+
+it('writes whether a run writes proofs, and coverage.compressionLevel, as the PHP config calls them, beside what else it sets', function (): void {
+    $origin = ProjectRoot::origin();
+
+    expect([
+        Proofs::of(write: Writing::Auto)->php($origin),
+        Proofs::of(write: Writing::Never)->php($origin),
+        Proofs::of(incremental: true, coverageLevel: 4)->php($origin),
+        Proofs::of(coverageLevel: 4)->php($origin),
+    ])->toEqual([
+        PhpCalls::inWith('Proofs::writing()'),
+        PhpCalls::inWith('Proofs::readOnly()'),
+        PhpCalls::inWith('Coverage::incremental()', 'Coverage::compressionLevel(4)'),
+        PhpCalls::inWith('Coverage::compressionLevel(4)'),
+    ]);
+});

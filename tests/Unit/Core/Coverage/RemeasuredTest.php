@@ -57,12 +57,12 @@ it('replaces the entries of the tests measured again, keeps every other test\'s 
         ['src/Money.php', 12, []],
         ['src/Gone.php', 3, []],
     ])
-        ->and($merged->durationOf(TestId::of('HeldTest::doubles')))->toEqual(Seconds::of(0.25))
-        ->and($merged->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.75))
-        ->and($merged->durationOf(TestId::of('GoneTest::goes')))->toEqual(Unmeasured::duration())
+        ->and($merged->durations()->of(TestId::of('HeldTest::doubles')))->toEqual(Seconds::of(0.25))
+        ->and($merged->durations()->of(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.75))
+        ->and($merged->durations()->of(TestId::of('GoneTest::goes')))->toEqual(Unmeasured::duration())
         ->and($merged->tests()->has(TestId::of('GoneTest::goes')))->toBeFalse()
-        ->and($merged->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))->toEqual($kept->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))
-        ->and($merged->methods()->at(Path::of('src/Price.php'), ExecutedMethods::none()))->toEqual($measured->methods()->at(Path::of('src/Price.php'), ExecutedMethods::none()));
+        ->and($merged->executed()->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))->toEqual($kept->executed()->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()))
+        ->and($merged->executed()->methods()->at(Path::of('src/Price.php'), ExecutedMethods::none()))->toEqual($measured->executed()->methods()->at(Path::of('src/Price.php'), ExecutedMethods::none()));
 });
 
 it('keeps the map as it was where no test is measured again and the new measure holds nothing', function (): void {
@@ -146,5 +146,5 @@ it('keeps what both runs recorded their tests loaded', function (): void {
         CoverageMap::of()->loading(LoadedPackages::of($again)),
     );
 
-    expect($merged->loaded())->toEqual(LoadedPackages::of($kept, $again));
+    expect($merged->executed()->loaded())->toEqual(LoadedPackages::of($kept, $again));
 });

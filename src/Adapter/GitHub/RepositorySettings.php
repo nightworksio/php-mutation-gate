@@ -36,6 +36,9 @@ final readonly class RepositorySettings
 
     private const string FORK_APPROVAL = '/repos/%s/actions/permissions/fork-pr-contributor-approval';
 
+    /** How GitHub names a repository anyone can read. */
+    private const string PUBLIC = 'public';
+
     private const string UNKNOWN_POLICY = 'GitHub answered the approval policy %s, which the gate does not know.';
 
     private function __construct(private Api $api, private string $repository)
@@ -56,10 +59,11 @@ final readonly class RepositorySettings
         return $repository instanceof CannotTell ? $repository : $this->settings(
             $repository->text('default_branch'),
             $gateWorkflows,
+            $repository->text('visibility') === self::PUBLIC,
         );
     }
 
-    private function settings(string $defaultBranch, Paths $gateWorkflows): GitHubSettings
+    private function settings(string $defaultBranch, Paths $gateWorkflows, bool $isPublic): GitHubSettings
     {
         return GitHubSettings::of(
             $this->repository,
@@ -67,6 +71,7 @@ final readonly class RepositorySettings
             $this->required($defaultBranch),
             $this->forkApproval(),
             $this->schedule($gateWorkflows),
+            $isPublic,
         );
     }
 

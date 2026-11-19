@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
+use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
@@ -63,6 +64,12 @@ final readonly class Judges
     public function of(Path $file): Paths
     {
         return array_key_exists($file->value(), $this->judges) ? $this->judges[$file->value()][1] : Paths::none();
+    }
+
+    /** Every test file that runs a covered file. */
+    public function testFiles(): Paths
+    {
+        return Paths::of(...array_map(Path::of(...), array_keys(array_filter($this->runBy))));
     }
 
     /** Every covered file a test file runs, in the order the files were first judged. */

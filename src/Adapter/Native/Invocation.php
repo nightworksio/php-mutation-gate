@@ -96,6 +96,16 @@ final readonly class Invocation
         )->withholding($request->withheld());
     }
 
+    /**
+     * PHP's own options of every run of a mutant: opcache off and the override at this path prepended.
+     *
+     * @return list<string>
+     */
+    public static function overriding(string $override): array
+    {
+        return ['-d', sprintf(self::OFF, Opcache::CLI), '-d', sprintf(Command::PREPENDED, $override)];
+    }
+
     /** A mutant's own run, overridden, told the files the override and the recorder read and write. */
     private function told(MutantFiles $files, string ...$arguments): Command
     {
@@ -109,12 +119,6 @@ final readonly class Invocation
     /** PHP with opcache off and the override prepended, as every run of a mutant starts it, running these. */
     private function overridden(string ...$arguments): Command
     {
-        return Command::php(
-            '-d',
-            sprintf(self::OFF, Opcache::CLI),
-            '-d',
-            sprintf(Command::PREPENDED, $this->override),
-            ...$arguments,
-        );
+        return Command::php(...self::overriding($this->override), ...$arguments);
     }
 }

@@ -67,6 +67,25 @@ final readonly class PlannedMutant
         );
     }
 
+    /**
+     * This mutant, recorded as served as another's copy: the copy of the mutant a rule makes one program with it,
+     * whose run judges it (ADR-0137).
+     */
+    public function servedAs(DiskPath $copy): self
+    {
+        return new self(
+            $this->id,
+            $this->file,
+            $this->start,
+            $this->end,
+            $this->mutator,
+            $this->diff,
+            $copy,
+            $this->occurrence,
+            $this->twin,
+        );
+    }
+
     /** Whether it was kept out of Pest's run as another's twin, whose run judges it. */
     public function isTwin(): bool
     {

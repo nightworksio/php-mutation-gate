@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
 use function base64_encode;
+
+use Closure;
+
 use function count;
 use function file_get_contents;
 use function file_put_contents;
@@ -19,7 +22,10 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
+use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -54,20 +60,33 @@ final readonly class SharedCoverage
 
     /**
      * A map php-code-coverage reads as one it serialized, in the format of the version installed, ending as it ends
-     * one. The serialized map is in base64 inside the nowdoc: base64 holds no line break, so no test name or path in
-     * the map can end the nowdoc and be read as code.
+     * one. The serialized map sits in a file of its own beside it, whose path is in base64 inside the nowdoc: base64
+     * holds no line break, so no path can end the nowdoc and be read as code, and the map is never a literal of the
+     * code, which a process that reads it would hold for as long as it runs.
      */
     private const string MAP = <<<'PHP'
         <?php // phpunit/php-code-coverage serialization format %d
-        return (static fn(string $map): mixed => \unserialize(\base64_decode($map)))(<<<'END_OF_COVERAGE_SERIALIZATION'
+        return (static fn(string $at): mixed => \unserialize((string) \file_get_contents(\base64_decode($at))))(
+        <<<'END_OF_COVERAGE_SERIALIZATION'
         %s
         END_OF_COVERAGE_SERIALIZATION
         );
         PHP;
 
-    /** The map the gate wrote into a directory of the project, or why there is none to read. */
-    public static function in(Project $project, Path $directory): CoverageMap|CannotJudge
-    {
+    /** Where the serialized map sits, beside the map that reads it. */
+    private const string SERIALIZED = '%s.serialized';
+
+    /**
+     * The map the gate wrote into a directory of the project, built straight from its text where it is vouched for
+     * (ADR-0118), or why there is none to read.
+     *
+     * @param (Closure(string): MapVouch)|NotGiven $vouching
+     */
+    public static function in(
+        Project $project,
+        Path $directory,
+        Closure|NotGiven $vouching = new NotGiven(),
+    ): CoverageMap|CannotJudge {
         $file = $project->absolute(CoverageMapFile::in($directory));
         $limits = HandoffLimits::under(
             ini_get('memory_limit'),
@@ -76,7 +95,9 @@ final readonly class SharedCoverage
         );
         $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : null;
 
-        return is_string($bytes) ? CoverageMapFile::decode($bytes, $limits) : CoverageMapFile::missingAt($file);
+        return is_string($bytes)
+            ? CoverageMapFile::decode($bytes, $limits, $vouching)
+            : CoverageMapFile::missingAt($file);
     }
 
     /** How long the map's tests took, one after another. */
@@ -110,7 +131,7 @@ final readonly class SharedCoverage
                 continue;
             }
 
-            $duration = $map->durationOf($test);
+            $duration = $map->durations()->of($test);
             $places[$id] = count($ids);
             $ids[] = $id;
             $results += $duration instanceof Seconds
@@ -128,12 +149,16 @@ final readonly class SharedCoverage
             'testResults' => $results,
         ];
 
-        if ($project->without($target)) {
-            file_put_contents(
-                $target,
-                sprintf(self::MAP, Serializer::SERIALIZATION_FORMAT, base64_encode(serialize($coverage))),
-            );
-        }
+        $serialized = sprintf(self::SERIALIZED, $target);
+        $bytes = serialize($coverage);
+
+        $whole = $project->without($target, $serialized)
+            && file_put_contents($serialized, $bytes) === Bytes::length($bytes);
+
+        $whole ? file_put_contents(
+            $target,
+            sprintf(self::MAP, Serializer::SERIALIZATION_FORMAT, base64_encode($serialized)),
+        ) : null;
     }
 
     /**
@@ -167,7 +192,7 @@ final readonly class SharedCoverage
 
     private static function secondsOf(CoverageMap $map, string $test): float
     {
-        $duration = $map->durationOf(TestId::of($test));
+        $duration = $map->durations()->of(TestId::of($test));
 
         return $duration instanceof Seconds ? $duration->seconds() : 0.0;
     }

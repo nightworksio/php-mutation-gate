@@ -8,7 +8,8 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use Symfony\Component\Process\Process;
 
 /**
- * A running process and every process under it, at any depth, as `ps` lists them.
+ * A running process and every process under it, at any depth, as `ps` lists
+ * them, and the session it leads where it leads one.
  *
  * @internal
  */
@@ -24,14 +25,28 @@ final readonly class ProcessTree
         return new self($pid);
     }
 
-    /** Stops every process under this one, deepest first, and then the process itself (see ProcessTable). */
-    public function stop(): void
+    /**
+     * Stops every process under this one, deepest first, and then the
+     * process itself, with the session it leads where it leads one (see
+     * ProcessTable).
+     */
+    public function stop(bool $leads): void
     {
-        ProcessTable::stop($this->pid, static function (array $command): string {
-            $process = new Process($command);
-            $process->run();
+        ProcessTable::stop($this->pid, $this->ran(...), $leads);
+    }
 
-            return $process->getOutput();
-        });
+    /** Kills every process left in the session this one led, once it ended. */
+    public function ended(): void
+    {
+        $this->ran(ProcessTable::ending($this->pid));
+    }
+
+    /** @param list<string> $command */
+    private function ran(array $command): string
+    {
+        $process = new Process($command);
+        $process->run();
+
+        return $process->getOutput();
     }
 }

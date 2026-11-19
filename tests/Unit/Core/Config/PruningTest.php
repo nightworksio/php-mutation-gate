@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 it('prunes by default on a window of 500 mutants, carrying results up to a week old', function (): void {
-    $pruning = Layer::standard()->reach()->pruning();
+    $pruning = Layer::standard()->judging()->reach()->pruning();
 
     expect([$pruning->enabled(), $pruning->window()->mutants(), $pruning->audit()])->toEqual([true, 500, Seconds::days(7)]);
 });
@@ -18,11 +18,11 @@ it('prunes by default on a window of 500 mutants, carrying results up to a week 
 it('lays each pruning key a later layer sets over an earlier one\'s, key by key', function (): void {
     $earlier = Layer::of(Reach::of(pruning: Pruning::of(enabled: false, window: 200)));
     $later = Layer::of(Reach::of(pruning: Pruning::of(window: 300, audit: Seconds::days(3))));
-    $pruning = $earlier->over($later)->reach()->pruning();
+    $pruning = $earlier->over($later)->judging()->reach()->pruning();
 
     expect([$pruning->enabled(), $pruning->window()->mutants(), $pruning->audit()])->toEqual([false, 300, Seconds::days(3)])
-        ->and($earlier->over(Layer::of())->reach()->pruning()->window()->mutants())->toBe(200)
-        ->and(Layer::of()->over($later)->reach()->pruning()->window()->mutants())->toBe(300);
+        ->and($earlier->over(Layer::of())->judging()->reach()->pruning()->window()->mutants())->toBe(200)
+        ->and(Layer::of()->over($later)->judging()->reach()->pruning()->window()->mutants())->toBe(300);
 });
 
 it('writes only the pruning keys a layer sets, and the builder calls for them', function (): void {

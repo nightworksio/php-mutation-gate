@@ -21,4 +21,10 @@ enum ControlEnd: string
 
     /** It never ran, for the reason its run gives. */
     case Unrun = 'unrun';
+
+    /**
+     * Its process was halted past the run's deadline, before its tests ended:
+     * it found nothing, and the time left had no room for it (ADR-0197).
+     */
+    case Halted = 'halted';
 }

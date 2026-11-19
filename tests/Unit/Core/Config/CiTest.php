@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Ci;
+use NightWorksIO\MutationGate\Core\Config\MergedTrust;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
@@ -12,9 +13,16 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
-it('writes whether a merged pull request\'s proofs are trusted as the PHP config calls it', function (): void {
-    expect([Ci::of(trustMergedPullRequests: true)->php(ProjectRoot::origin()), Ci::of(trustMergedPullRequests: false)->php(ProjectRoot::origin())])
-        ->toEqual([PhpCalls::inWith('Ci::trustingMergedPullRequests()'), PhpCalls::inWith('Ci::notTrustingMergedPullRequests()')]);
+it('writes what the default branch takes from a merged pull request\'s pass as the PHP config calls it', function (): void {
+    expect([
+        Ci::of(trustMergedPullRequests: MergedTrust::Tree)->php(ProjectRoot::origin()),
+        Ci::of(trustMergedPullRequests: MergedTrust::Off)->php(ProjectRoot::origin()),
+        Ci::of(trustMergedPullRequests: MergedTrust::Delta)->php(ProjectRoot::origin()),
+    ])->toEqual([
+        PhpCalls::inWith('Ci::trustingMergedPullRequests()'),
+        PhpCalls::inWith('Ci::notTrustingMergedPullRequests()'),
+        PhpCalls::inWith('Ci::trustingMergedDeltas()'),
+    ]);
 });
 
 it('writes every key it holds as the PHP config calls it, in the order the builder takes them', function (): void {
@@ -22,7 +30,7 @@ it('writes every key it holds as the PHP config calls it, in the order the build
         plan: Choice::of('gitlab', Options::none()),
         defaultBranch: 'trunk',
         check: 'mutation',
-        trustMergedPullRequests: true,
+        trustMergedPullRequests: MergedTrust::Tree,
         gitlabTemplate: Path::of('.gitlab/gate.yml'),
         buildkiteStep: BuildkiteStep::of(Json::object(Member::of('soft_fail', value: true))),
         buildkiteDefinition: Path::of('.buildkite/pipeline.yml'),

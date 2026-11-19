@@ -20,6 +20,12 @@ use NightWorksIO\MutationGate\Core\Written;
  */
 interface Exchange
 {
+    /**
+     * An exchange for a process forked from this one, which shares no
+     * connection with this one's, so neither writes into the other's.
+     */
+    public function forked(): self;
+
     /** The answer to a request whose answer is small, such as a token's; or why none came. */
     public function answer(Request $request): Reply|CannotJudge;
 

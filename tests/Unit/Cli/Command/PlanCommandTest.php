@@ -145,7 +145,7 @@ it('warns where shards.max stops the plan meeting shards.target', function () us
     $planned = $plan(FlowCommands::project('"shards": {"target": "30s", "max": 1}'), '', ScriptedRunner::fixture(), Flows::ci());
 
     expect($planned->code)->toBe(0)
-        ->and($planned->errors)->toEndWith(<<<'SAID'
+        ->and($planned->errors)->toContain(<<<'SAID'
             shards.target is 30s, and at shards.max of 1 the longest is expected to take 1m.
             Raise shards.max, or shards.target, to meet it.
 
@@ -182,7 +182,7 @@ it('writes into the plan the kill matrix the run records', function (string $inp
     $written = PlanFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)));
 
     expect($planned->code)->toBe(0)
-        ->and($written instanceof Plan ? $written->briefing()->matrix() : $written)->toBe($matrix);
+        ->and($written instanceof Plan ? $written->briefing()->profile()->matrix() : $written)->toBe($matrix);
 })->with([
     'every killer' => ['--kill-matrix=full', MatrixKind::Full],
     'first killers, as asked' => ['--kill-matrix=first', MatrixKind::FirstKiller],

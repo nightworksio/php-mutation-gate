@@ -24,7 +24,9 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * tests alone judge them, as `--suite` names it (ADR-0025), the
  * suites whose tests judge them otherwise, as `tests.suites` and
  * `tests.holding` list them (ADR-0002), the mutators it leaves out of the files whose content is unchanged
- * (ADR-0025), and the files the suite runs as files of test cases, as its config declares them.
+ * (ADR-0025), the files the suite runs as files of test cases, as its config declares them, and the part
+ * of the test files whose tests judge them, where a run cuts its test files across its shards (ADR-0117), with
+ * where its streams record lines and which of its mutants it makes (see PartNarrowing).
  */
 final readonly class Narrowing
 {
@@ -34,6 +36,7 @@ final readonly class Narrowing
         private JudgingSuites $suites,
         private Pruned $pruned,
         private TestCases $cases,
+        private PartNarrowing $part,
     ) {
     }
 
@@ -46,31 +49,60 @@ final readonly class Narrowing
             JudgingSuites::every(),
             Pruned::none(),
             TestCases::unknown(),
+            PartNarrowing::whole(),
         );
     }
 
     /** This narrowing, making mutants with these mutators alone. */
     public function toMutators(Mutators $mutators): self
     {
-        return new self($mutators, $this->suite, $this->suites, $this->pruned, $this->cases);
+        return new self(
+            $mutators,
+            $this->suite,
+            $this->suites,
+            $this->pruned,
+            $this->cases,
+            $this->part,
+        );
     }
 
     /** This narrowing, its mutants judged by this suite's tests alone. */
     public function toSuite(SuiteName $suite): self
     {
-        return new self($this->mutators, $suite, $this->suites, $this->pruned, $this->cases);
+        return new self(
+            $this->mutators,
+            $suite,
+            $this->suites,
+            $this->pruned,
+            $this->cases,
+            $this->part,
+        );
     }
 
     /** This narrowing, its mutants judged by these suites' tests, as `tests.suites` and `tests.holding` list them. */
     public function amongSuites(JudgingSuites $suites): self
     {
-        return new self($this->mutators, $this->suite, $suites, $this->pruned, $this->cases);
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $suites,
+            $this->pruned,
+            $this->cases,
+            $this->part,
+        );
     }
 
     /** This narrowing, its runner told which files the suite runs as files of test cases. */
     public function amongTestCases(TestCases $cases): self
     {
-        return new self($this->mutators, $this->suite, $this->suites, $this->pruned, $cases);
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $this->suites,
+            $this->pruned,
+            $cases,
+            $this->part,
+        );
     }
 
     /** Which files the suite runs as files of test cases; none known, unless it was told. */
@@ -82,7 +114,37 @@ final readonly class Narrowing
     /** This narrowing, leaving these mutators out of these files. */
     public function pruning(Pruned $pruned): self
     {
-        return new self($this->mutators, $this->suite, $this->suites, $pruned, $this->cases);
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $this->suites,
+            $pruned,
+            $this->cases,
+            $this->part,
+        );
+    }
+
+    /**
+     * This narrowing, within its shard as this says: the part of the test
+     * files that judges its mutants, where its streams record lines, and
+     * which mutants it makes.
+     */
+    public function within(PartNarrowing $part): self
+    {
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $this->suites,
+            $this->pruned,
+            $this->cases,
+            $part,
+        );
+    }
+
+    /** What it is narrowed to within its shard: every test file, nothing recorded, every mutant, unless told. */
+    public function part(): PartNarrowing
+    {
+        return $this->part;
     }
 
     public function mutators(): Mutators

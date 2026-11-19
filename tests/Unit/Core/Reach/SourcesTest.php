@@ -45,6 +45,21 @@ it('reads every PHP file on disk, and no other file', function (): void {
         ->and($money->declares()->meet(Names::of('Money')))->toBeTrue();
 });
 
+it('holds what every PHP file holds on disk, unread, in the order the files came, and no other file', function (): void {
+    $money = Contents::of("<?php\n\nfinal class Money {}\n");
+    $clock = Contents::of("<?php\n\nfinal class Clock {}\n");
+    $now = Sources::none()
+        ->withNow(Path::of('src/Money.php'), $money)
+        ->withNow(Path::of('README.md'), Contents::of('# Money'))
+        ->withNow(Path::of('src/Clock.php'), $clock)
+        ->withBefore(Path::of('src/Old.php'), Contents::of("<?php\n\nfinal class Old {}\n"))
+        ->phpNow();
+
+    expect($now->paths())->toEqual(Paths::of(Path::of('src/Money.php'), Path::of('src/Clock.php')))
+        ->and($now->at(Path::of('src/Money.php'), Contents::of('')))->toBe($money)
+        ->and($now->at(Path::of('src/Clock.php'), Contents::of('')))->toBe($clock);
+});
+
 it('holds the files a change source read together, a missing one among them', function (): void {
     $paths = Paths::of(Path::of('src/Money.php'), Path::of('src/Gone.php'));
     $sources = Sources::of(

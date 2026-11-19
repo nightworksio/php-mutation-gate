@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Mutator\Engine;
 use function array_values;
 
 use ArrayIterator;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 use PhpParser\Node;
 use PhpParser\NodeTraverser;
@@ -36,6 +37,17 @@ final readonly class Replaced
     }
 
     /**
+     * A copy of a node's parent with a replacement in the node's place; none
+     * where the node stands at the top of the tree.
+     */
+    public static function parentWith(Node $node, Node|int $replacement): Node|NotGiven
+    {
+        $parent = $node->getAttribute(Mutator::PARENT);
+
+        return $parent instanceof Node ? self::copyOf($parent, $node, $replacement) : NotGiven::value();
+    }
+
+    /**
      * @param  list<Node> $tree
      * @return list<Node>
      */
@@ -43,14 +55,18 @@ final readonly class Replaced
     {
         $parent = $node->getAttribute(Mutator::PARENT);
 
-        if (! $parent instanceof Node) {
-            return self::swapped($tree, $node, $replacement);
-        }
+        return $parent instanceof Node
+            ? self::replaced($tree, $parent, self::copyOf($parent, $node, $replacement))
+            : self::swapped($tree, $node, $replacement);
+    }
 
+    /** A copy of a parent with a replacement in the place of one of its own nodes. */
+    private static function copyOf(Node $parent, Node $node, Node|int $replacement): Node
+    {
         $copy = clone $parent;
         new NodeTraverser(self::replacing($copy, $node, $replacement))->traverse([$copy]);
 
-        return self::replaced($tree, $parent, $copy);
+        return $copy;
     }
 
     /**

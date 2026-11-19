@@ -4,24 +4,35 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_flip;
+use function array_intersect_key;
 use function array_key_exists;
+use function array_keys;
 use function array_map;
+use function array_merge;
+use function array_values;
 use function count;
 use function dirname;
 use function file_put_contents;
 use function getenv;
 use function hash;
+use function in_array;
 use function is_dir;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WholeFile;
+use NightWorksIO\MutationGate\Core\Composer\Package;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Format\Node as Decoded;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Schema;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Site;
+use NightWorksIO\MutationGate\Mutator\Engine\Schema\SwitchCall;
 use Pest\Mutate\Mutation;
 use PhpParser\Node;
 use PhpParser\NodeVisitor;
@@ -46,14 +57,25 @@ final class Schemata
     /** Where a file's schema is written, beside the folder of mutated copies, by the file's key. */
     private const string PATH = '%s/../schemata/%s%s';
 
-    /** The digest of a file's real path that keys its schema's switch and names the schema. */
-    private const string DIGEST = 'xxh3';
+    /** Where every schema is written, from the vendor directory: beside pest-plugin-mutate's `.temp/mutations`. */
+    private const string IN_VENDOR = '%s/.temp/schemata';
 
     /** The call each switch of a file's schema makes, by the file's key, `%d` where it takes the id. */
     private const string SWITCH = "\\%s::is('%s', %%d)";
 
+    /**
+     * The call a pure expression's site makes in a split stream, by the file's
+     * key (ADR-0117): `%1$d` where it takes the id, `%2$s` the original and
+     * `%3$s` the mutated code.
+     */
+    private const string VALUED = "\\%s::value('%s', %%1\$d, fn () => (%%2\$s), fn () => (%%3\$s))";
+
     /** The file in a run's warm directory that names each file's schema, by the file (ADR-0091). */
     private const string MAP = '%s/schemata.json';
+
+    private const string WRITTEN = 'written';
+
+    private const string SWITCHED = 'switched';
 
     /** @var array<string, list<array{string, Site}>> each mutant's id and site, by the file it mutates */
     private static array $sites = [];
@@ -87,8 +109,16 @@ final class Schemata
         $kept = array_key_exists($file, self::$sites) ? self::$sites[$file] : [];
         unset(self::$sites[$file]);
         $sites = array_map(static fn(array $kept): Site => $kept[1], $kept);
-        $key = hash(self::DIGEST, $file);
-        $schema = Schema::of($code, sprintf(self::SWITCH, SchemaSwitch::class, $key), ...$sites);
+        $key = hash(Digest::QUICK, $file);
+        $switch = SwitchCall::of(sprintf(self::SWITCH, SchemaSwitch::class, $key));
+        $streams = StreamSettings::fromEnvironment();
+        $schema = Schema::of(
+            $code,
+            $streams->isOn() && $streams->checksChanges()
+                ? $switch->valuing(sprintf(self::VALUED, SchemaSwitch::class, $key))
+                : $switch,
+            ...$sites,
+        );
 
         if ($schema->isEmpty()) {
             return;
@@ -111,6 +141,53 @@ final class Schemata
     }
 
     /**
+     * The schemata written of these files, and the switch of each mutant they
+     * switch, as another process takes them on (see SideBySideMutants), each
+     * path encoded so bytes that are not UTF-8 are kept.
+     *
+     * @param list<string> $files
+     */
+    public static function keptOf(array $files): Json
+    {
+        $written = array_intersect_key(self::$written, array_flip($files));
+        $switched = [];
+
+        foreach (self::$switched as $mutant => [$path, $id]) {
+            $switched[] = in_array($path, $written, strict: true)
+                ? [Member::of(strval($mutant), Json::items(ByteText::of($path), $id))]
+                : [];
+        }
+
+        return Json::object(
+            Member::of(
+                self::WRITTEN,
+                Json::object(...array_map(
+                    static fn(string $file, string $path): Member
+                        => Member::of(ByteText::of($file), ByteText::of($path)),
+                    array_keys($written),
+                    array_values($written),
+                )),
+            ),
+            Member::of(self::SWITCHED, Json::object(...array_merge(...$switched))),
+        );
+    }
+
+    /** Takes on the schemata, and the switches, another process wrote as {@see keptOf()} gives them. */
+    public static function taking(Decoded $kept): void
+    {
+        foreach ($kept->field(self::WRITTEN)->entries() as $file => $path) {
+            self::$written[ByteText::bytes(sprintf('%s', $file), $path->at())] = ByteText::read($path);
+        }
+
+        foreach ($kept->field(self::SWITCHED)->entries() as $mutant => $switch) {
+            self::$switched[sprintf('%s', $mutant)] = [
+                ByteText::read($switch->items()[0]),
+                $switch->items()[1]->integer(),
+            ];
+        }
+    }
+
+    /**
      * What a mutant's own run is told to serve its file's schema with: the
      * schema and its switch's id; nothing where its file has none, or the
      * schema does not switch it.
@@ -125,6 +202,25 @@ final class Schemata
                 GateVariable::SchemaOn->value => sprintf('%d', self::$switched[$mutation->id][1]),
             ]
             : [];
+    }
+
+    /**
+     * The key of a mutant's file and its switch's id, where its file's schema
+     * switches it and its mutator is not pinned by source; nothing otherwise.
+     *
+     * @return array{string, int}|NotGiven
+     */
+    public static function switchOf(Mutation $mutation): array|NotGiven
+    {
+        return array_key_exists($mutation->id, self::$switched) && ! Bridged::isPinnedBySource($mutation->mutator)
+            ? [hash(Digest::QUICK, strval($mutation->file->getRealPath())), self::$switched[$mutation->id][1]]
+            : NotGiven::value();
+    }
+
+    /** The directory every schema is written to, and served from, by its path from the vendor directory. */
+    public static function inVendor(): Path
+    {
+        return Path::of(sprintf(self::IN_VENDOR, Package::PestMutate->value));
     }
 
     /** Leaves each file's schema, by the file, in a run's warm directory, for its workers to serve as they boot. */

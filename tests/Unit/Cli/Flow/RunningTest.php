@@ -3,15 +3,18 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\GitHub\ArtifactAccess;
+use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
+use NightWorksIO\MutationGate\Cli\Flow\PlannedStartUp;
 use NightWorksIO\MutationGate\Cli\Flow\PreChecking;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Config\CheckTiming;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
-use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
@@ -20,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Shards as ConfiguredShards;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\UnnamedKillControls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -28,11 +32,15 @@ use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\LineSpan;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\MadeFile;
+use NightWorksIO\MutationGate\Core\Mutant\MadeLines;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -69,6 +77,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -77,13 +86,16 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
+use NightWorksIO\MutationGate\Tests\Support\Cloud;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Dooms;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
+use NightWorksIO\MutationGate\Tests\Support\RecordedShard;
 use NightWorksIO\MutationGate\Tests\Support\RunningCases;
+use NightWorksIO\MutationGate\Tests\Support\RuntimeToken;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
@@ -119,11 +131,11 @@ it('runs the shard it is named, on the commit its plan was made on, and leaves i
         ->toEqual(Keys::none()->with(Path::of('src/Money.php'), Digest::sha256Of('money')))
         ->and($statuses($result))
         ->toBe(['Plus-11 killed', 'GreaterThan-16 survived', 'Minus-21 uncovered', 'Decrement-27 timed-out'])
-        ->and($result instanceof ShardResult ? $result->measured()->spent() : $result)->toEqual(Seconds::of(33.0))
+        ->and($result instanceof ShardResult ? $result->measured()->spent() : $result)->toEqual(Seconds::of(48.0))
         ->and($result instanceof ShardResult ? $result->measured()->runner() : $result)->toBe('fake')
         ->and($result instanceof ShardResult ? $result->measured()->gate() : $result)->toEqual(GateRelease::of(Flows::setup()->gate))
         ->and($result instanceof ShardResult ? $result->measured()->at() : $result)
-        ->toEqual(Moment::at('2026-09-30T12:00:33Z'))
+        ->toEqual(Moment::at('2026-09-30T12:00:51Z'))
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
 });
 
@@ -143,7 +155,7 @@ it('refuses a shard the environment names that the plan does not hold', function
     $ran = new Running(Flows::adapters($project, ['SHARD' => '3']), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::twoShards()), Absent::setting(), Workspace::results());
 
-    expect($ran)->toEqual(Planned::twoShards()->shard(ShardId::of(3)));
+    expect($ran)->toEqual(Planned::twoShards()->shards()->numbered(ShardId::of(3)));
 });
 
 it('refuses a named shard the plan does not hold', function (): void {
@@ -164,8 +176,17 @@ it('refuses to run a plan made on another commit', function (): void {
     $ran = new Running(Flows::adapters($project, [], $elsewhere), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::twoShards()), ShardId::of(1), Workspace::results());
 
-    expect($ran)->toEqual(Planned::twoShards()->forCheckout(Revision::ref('other')))
+    expect($ran)->toEqual(CannotJudge::because(sprintf(
+        "The plan was made on %s, and this checkout is other.\nRun each shard and the verdict on the commit its plan was made on.",
+        Planned::twoShards()->commit()->name(),
+    )))
         ->and(is_dir(sprintf('%s/.mutation-gate/results', $project)))->toBeFalse();
+});
+
+it('follows a plan on the commit it was made on', function (): void {
+    $plan = Planned::twoShards();
+
+    expect(Running::followed($plan, RepositoryFake::onMain($plan->commit())))->toBe($plan);
 });
 
 it('refuses to run where the commit HEAD is at cannot be read', function (): void {
@@ -178,6 +199,21 @@ it('refuses to run where the commit HEAD is at cannot be read', function (): voi
         'The commit HEAD is at cannot be read, so the plan cannot be checked against it. git is not installed.',
     ));
 });
+
+it('leaves beside each shard\'s result what its streams recorded, where the run was planned without a fresh map, whether or not it pulls its items', function (bool $pulls): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->whileMutating(static fn() => RecordedShard::in($project));
+    $shard = Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(2.0), 'money');
+    $plan = Planned::of($pulls ? $shard->workedBy(ShardId::of(1)) : $shard);
+    $service = ArtifactAccess::of(RuntimeToken::scoped('Actions.GenericRead Actions.Results:run-1:job-7'), 'https://results.example/');
+    $adapters = Flows::adapters($project, ['GITHUB_RUN_ATTEMPT' => '1'], $runner, new Cloud(failing: 500)->exchange());
+
+    new Running($adapters, Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, $plan->briefed($plan->briefing()->plannedEarly())), ShardId::of(1), Workspace::results(), $service);
+
+    expect(sprintf('%s/%s', $project, Workspace::recorded(Workspace::results(), ShardId::of(1))->value()))->toBeFile()
+        ->and(sprintf('%s/%s', $project, Workspace::streamedSuite(Workspace::results(), ShardId::of(1))->value()))->toBeFile();
+})->with(['claiming its own shard' => [false], 'pulling its items' => [true]]);
 
 it('runs every shard of a plan one after another, each leaving its result', function () use ($makeResultIn): void {
     $resultIn = $makeResultIn();
@@ -254,6 +290,24 @@ it('tells the runner of each invocation the suite\'s files of test cases, a glob
     expect($told)->toBe([true, true]);
 });
 
+it('tells the runner of each invocation the shard\'s part of the test files, and of a held unit\'s every test file', function (): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $shard = static fn(int $number): Shard => Shard::of(
+        ShardId::of($number),
+        Package::at(Path::root()),
+        Units::of(Planned::money(), Planned::held()),
+        Seconds::of(3.0),
+        sprintf('everything, part %d of 2', $number),
+    )->inPart(TestPart::of($number, 2));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::of($shard(1), $shard(2))), ShardId::of(2), Workspace::results());
+
+    expect(array_map(static fn(MutationRequest $request): TestPart => $request->narrowing()->part()->testPart(), $runner->requests()))
+        ->toEqual([TestPart::whole(), TestPart::of(2, 2)]);
+});
+
 it('runs the held path by its group, the rest by the suite, on the shard\'s map, secrets withheld', function (): void {
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
@@ -268,8 +322,8 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
         ->and($held->judgedBy())->toEqual(Group::named('holds:src/Held.php'))
         ->and([...$rest->files()])->toEqual([Path::of('src/Money.php')])
         ->and($rest->judgedBy())->toEqual(WholeSuite::tests())
-        ->and($held->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
-        ->and($rest->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
+        ->and($held->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage())->openingOn(Handoff::opened()))
+        ->and($rest->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage())->openingOn(Handoff::opened()))
         ->and($held->pool())->toEqual(Pool::of(ProcessCount::single(), Workers::Fork)->startingIn(Seconds::of(1.5)))
         ->and($held->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
@@ -356,6 +410,30 @@ it('leaves every invocation\'s mutants in one result, with what each skipped add
         ->and($runner->retries())->toBe([]);
 });
 
+it('leaves in its result the lines its runner made each file\'s mutants on, where it made some on some lines alone', function () use (
+    $makeResultIn,
+): void {
+    $resultIn = $makeResultIn();
+    $project = Flows::project();
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+        'Plus-1',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    );
+    $made = MadeLines::whole()->with(MadeFile::of(Path::of('src/Money.php'), Line::of(9), LineSpan::of(Line::of(1), Line::of(3))));
+    $runner = ScriptedRunner::fixture()->answeringInTurn(MutationResult::skippingNone(Mutants::of($killed))->withMade($made));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
+
+    expect($outcome instanceof MutationResult ? $outcome->made() : $outcome)->toEqual($made);
+});
+
 it('runs each survivor once more and keeps those killed then as flaky', function (MutantStatus $killed) use ($makeResultIn, $makeFlaky): void {
     $resultIn = $makeResultIn();
     $flaky = $makeFlaky();
@@ -397,7 +475,7 @@ it('checks each survivor by static analysis before it runs again, and runs none 
     $survivor = Dooms::survivor('src/Money.php');
     $new = Finding::error(Path::of('src/Money.php'), 'new', 'New.');
     $checker = new StaticCheckerFake(AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')), Findings::none(), [
-        Workspace::checkedMutant($survivor->id())->value() => Findings::of($new),
+        CheckedFiles::mutant($survivor->id())->value() => Findings::of($new),
     ]);
 
     new Running(Flows::adapters($project, [], $runner, $checker), Flows::settings(), Flows::setup())
@@ -467,8 +545,8 @@ it('runs survivors again within what the budget has left, not what the invocatio
     expect($again)->toHaveCount(2)
         ->and($again[0])->toBeLessThan($first)->toBeGreaterThan(0.0)
         ->and($again[1])->toBeLessThan($again[0])
-        ->and(array_map(static fn(array $retry): Seconds|Unlimited => $retry[4]->deadline(), $unbudgeted->retries()))
-        ->toEqual([Unlimited::time(), Unlimited::time()]);
+        ->and(array_map(static fn(array $retry): bool => $retry[4]->deadline() instanceof Seconds && $retry[4]->deadline()->seconds() < ConfiguredShards::standard()->stop()->target()->seconds(), $unbudgeted->retries()))
+        ->toBe([true, true]);
 });
 
 it('runs survivors again with the most the config sets', function (): void {
@@ -583,7 +661,8 @@ it('mutates no held unit whose holding tests miss lines of it, and leaves why', 
 
     expect($runner->asked())->toEqual([
         CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
-            ->withholding($adapters->withheld),
+            ->withholding($adapters->withheld)
+            ->within(Paths::of(Path::of('tests/HeldTest.php'))),
     ])
         ->and($result instanceof ShardResult ? [...$result->held()->misses()] : $result)->toEqual([NotCovered::because(
             Planned::held(),
@@ -632,7 +711,8 @@ it('mutates a unit the whole suite judges, though the map reaches none of it, an
 
     expect($runner->asked())->toEqual([
         CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
-            ->withholding($adapters->withheld),
+            ->withholding($adapters->withheld)
+            ->within(Paths::of(Path::of('tests/HeldTest.php'))),
     ])
         ->and($result instanceof ShardResult ? [...$result->held()->misses()] : $result)->toBe([])
         ->and(array_map(static fn(MutationRequest $request): array => [...$request->files()], $scripted->requests()))
@@ -785,6 +865,21 @@ it('times a run of no test once before the first mutant, the fastest of three on
         ->each->toEqual(Pool::of(ProcessCount::single(), Workers::Fork)->startingIn(Seconds::of(1.2)));
 });
 
+it('lays every request on the start-up the plan measured for its runner\'s platform, timing no run of no test itself', function (): void {
+    $project = Flows::project();
+    $planning = ScriptedRunner::fixture()->startingUpIn(Seconds::of(0.7));
+    new PlannedStartUp(Flows::adapters($project, [], $planning), Flows::settings())
+        ->left(Planned::oneShard(), Flows::map());
+    $runner = ScriptedRunner::fixture()->startingUpIn(Seconds::of(2.0));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($runner->startedUp())->toBe([])
+        ->and(array_map(static fn(MutationRequest $request): Pool => $request->pool(), $runner->requests()))
+        ->each->toEqual(Pool::of(ProcessCount::single(), Workers::Fork)->startingIn(Seconds::of(0.7)));
+});
+
 it('lays each request on no start-up where a run of no test cannot run, so each limit keeps the start-up the rule gives', function (): void {
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->startingUpIn(CannotJudge::because('no run of no test'));
@@ -814,7 +909,7 @@ it('checks mutants before their tests by default where an analyser is wired, and
         [],
     );
 
-    new Running(Flows::adapters($project, [], $after, $checker()), Flows::settings(StaticCheck::afterTests()), $ticking())
+    new Running(Flows::adapters($project, [], $after, $checker()), Flows::settings(CheckTiming::afterTests()), $ticking())
         ->run($plan, ShardId::of(1), Workspace::results());
     new Running(Flows::adapters($project, [], $before, $checker()), Flows::settings(), $ticking())
         ->run($plan, ShardId::of(1), Workspace::results());

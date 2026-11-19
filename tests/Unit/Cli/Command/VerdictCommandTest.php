@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
+use NightWorksIO\MutationGate\Cli\Flow\Measuring;
+use NightWorksIO\MutationGate\Cli\InstalledGate;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
@@ -20,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\StreamedSuite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
@@ -34,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -325,7 +330,7 @@ it('plans nothing and passes, recording the commit, where only files that do not
     $proofs = new ProofStoreFake();
     $base = '5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90';
     $proofs->write(Scope::branch('main'), Ledger::empty()->withRuns(ScopeRuns::none()->passing(
-        Passed::of(Revision::ref($base), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable('2026-09-29T08:00:00Z'))),
+        Passed::of(Revision::ref($base), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable('2026-09-29T08:00:00Z')))->judgedBy(GateRelease::of(InstalledGate::version())),
     )));
     $composition = FlowCommands::reading(
         Trees::of(Tree::at(Path::of('src'), Floor::of(90.0), Package::at(Path::root()))),
@@ -358,7 +363,7 @@ it('plans nothing and passes, recording the commit, where only files that do not
         ->and($verdict->output)->not->toContain('The project has nothing to mutate.')
         ->and($again instanceof Verdict ? [$again->judgement(), count($again->trees())] : $again)->toBe([Judgement::Passed, 0])
         ->and(LedgerRead::ledger($proofs->read(Scope::branch('main')))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(InstalledGate::version())));
 });
 
 it('stands on the verdict the default branch passed where a pull request reaches no unit, reading no result and no map, and records the commit on its results', function (): void {
@@ -397,5 +402,125 @@ it('stands on the verdict the default branch passed where a pull request reaches
         ->and($verdict->output)->toContain(sprintf("The default branch's earlier verdict at %s stands.\n", $base))
         ->and($verdict->output)->not->toContain('The project has nothing to mutate.')
         ->and(LedgerRead::ledger($proofs->read(Scope::pullRequest(516)))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref($merge), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
+        ->toEqual(Passed::of(Revision::ref($merge), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(InstalledGate::version())));
 });
+
+it('cannot judge a run planned without a fresh map where a shard left no recorded map, or one that cannot be read', function (string $recorded, string $why) use ($composed): void {
+    $project = FlowCommands::project();
+    $composition = $composed($project, 50.0);
+    FlowCommands::run(PlanCommand::command($composition), '--shards=2');
+    $made = PlanFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)));
+    $early = $made instanceof Plan ? $made->briefed($made->briefing()->plannedEarly()) : $made;
+    file_put_contents(sprintf('%s/.mutation-gate/plan.json', $project), $early instanceof Plan ? PlanFile::encode($early) : '');
+
+    foreach (['1', '2'] as $shard) {
+        FlowCommands::run(
+            RunCommand::command($composition),
+            sprintf('--plan=.mutation-gate/plan.json --shard=%s --results=.mutation-gate/results', $shard),
+        );
+    }
+
+    if ($recorded !== '') {
+        foreach (['1', '2'] as $shard) {
+            file_put_contents(sprintf('%s/.mutation-gate/results/%s.recorded.json.gz', $project, $shard), $recorded);
+        }
+    }
+
+    $flow = $composition->compose(new ArrayInput([]));
+    $plan = $flow instanceof Composed ? VerdictCommand::planIn($flow, Path::of('.mutation-gate/plan.json')) : $flow;
+    $judged = $flow instanceof Composed && $plan instanceof Plan
+        ? VerdictCommand::judgedOf($flow, $plan, Path::of('.mutation-gate/results'))
+        : $plan;
+
+    expect($judged)->toBeInstanceOf(CannotJudge::class)
+        ->and($judged instanceof CannotJudge ? $judged->why() : '')->toContain($why);
+})->with([
+    'no recorded map' => ['', 'shard 1 left no map of what its streams executed'],
+    'a recorded map that cannot be read' => ['not a map', 'the map shard 1 recorded cannot be judged by'],
+]);
+
+/** A plan of two shards made in a project, briefed as planned without a fresh map, and both its shards run. */
+function verdictPlannedEarly(Composition $composition, string $project): void
+{
+    FlowCommands::run(PlanCommand::command($composition), '--shards=2');
+    $made = PlanFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)));
+    $early = $made instanceof Plan ? $made->briefed($made->briefing()->plannedEarly()) : $made;
+    file_put_contents(sprintf('%s/.mutation-gate/plan.json', $project), $early instanceof Plan ? PlanFile::encode($early) : '');
+
+    foreach (['1', '2'] as $shard) {
+        FlowCommands::run(
+            RunCommand::command($composition),
+            sprintf('--plan=.mutation-gate/plan.json --shard=%s --results=.mutation-gate/results', $shard),
+        );
+    }
+}
+
+/** Each shard's streams' record beside its result: the flows' map and a suite that ran no test. */
+function verdictRecorded(Composed $flow, string $project): void
+{
+    foreach (['1', '2'] as $shard) {
+        file_put_contents(
+            sprintf('%s/.mutation-gate/results/%s.recorded.json.gz', $project, $shard),
+            CoverageMapFile::encode(Flows::map(), Measuring::now($flow->adapters)),
+        );
+        file_put_contents(
+            sprintf('%s/.mutation-gate/results/%s.suite.json', $project, $shard),
+            StreamedSuite::of(complete: true, tests: [], reported: [])->encoded(),
+        );
+    }
+}
+
+/** A directory where a file of the project goes, in place of any file there. */
+function verdictBlocked(string $project, string $file): void
+{
+    $directory = sprintf('%s/%s', $project, $file);
+
+    if (is_file($directory)) {
+        unlink($directory);
+    }
+
+    mkdir($directory, recursive: true);
+}
+
+/**
+ * What judging a run planned without a fresh map comes to, its streams having recorded their map and suite,
+ * where a directory stands in place of this file of the project.
+ */
+function verdictEarly(Composition $composition, string $project, string $blocked = ''): Judged|Invalid|CannotJudge
+{
+    verdictPlannedEarly($composition, $project);
+    $flow = $composition->compose(new ArrayInput([]));
+
+    if (! $flow instanceof Composed) {
+        return $flow;
+    }
+
+    verdictRecorded($flow, $project);
+
+    if ($blocked !== '') {
+        verdictBlocked($project, $blocked);
+    }
+
+    $plan = VerdictCommand::planIn($flow, Path::of('.mutation-gate/plan.json'));
+
+    return $plan instanceof Plan ? VerdictCommand::judgedOf($flow, $plan, Path::of('.mutation-gate/results')) : $plan;
+}
+
+it('judges a run planned without a fresh map by the map its streams recorded, leaving the suite they ran for the job that runs the suite', function () use ($composed): void {
+    $project = FlowCommands::project();
+    $judged = verdictEarly($composed($project, 50.0), $project);
+
+    expect($judged)->toBeInstanceOf(Judged::class)
+        ->and(sprintf('%s/.mutation-gate/suite/suite.json', $project))->toBeFile()
+        ->and(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project))->toBeFile();
+});
+
+it('cannot judge a run planned without a fresh map where it cannot leave the suite its streams ran, or the map it keys by', function (string $blocked) use ($composed): void {
+    $project = FlowCommands::project();
+    $judged = verdictEarly($composed($project, 50.0), $project, $blocked);
+
+    expect($judged instanceof CannotJudge ? $judged->why() : '')->toEndWith(sprintf('%s could not be written.', $blocked));
+})->with([
+    'the suite' => ['.mutation-gate/suite/map.json.gz'],
+    'the map' => ['.mutation-gate/coverage/map.json.gz'],
+]);

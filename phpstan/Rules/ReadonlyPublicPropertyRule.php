@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\PHPStan\Rules;
 
-use function array_any;
-
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Node\ClassPropertyNode;
@@ -14,7 +12,6 @@ use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
 use function sprintf;
-use function str_ends_with;
 
 /**
  * D11 — a public property is readonly: anything may read it, and only its own
@@ -47,7 +44,7 @@ final readonly class ReadonlyPublicPropertyRule implements Rule
             && ! $node->isProtectedSet()
             && ! $node->getClassReflection()->isReadOnly();
 
-        if (! $open || $this->isAllowed($scope->getFile())) {
+        if (! $open || ListedFiles::hold($this->allowIn, $scope->getFile())) {
             return [];
         }
 
@@ -62,8 +59,4 @@ final readonly class ReadonlyPublicPropertyRule implements Rule
         ];
     }
 
-    private function isAllowed(string $file): bool
-    {
-        return array_any($this->allowIn, static fn(string $allowed): bool => str_ends_with($file, sprintf('/%s', $allowed)));
-    }
 }

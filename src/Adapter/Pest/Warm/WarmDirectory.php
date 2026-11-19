@@ -72,10 +72,10 @@ final readonly class WarmDirectory
     /**
      * What the workers of the run that records to these results warned of,
      * read once they are told the run is done and every worker has ended, or
-     * the wait for them has, before their directory is removed with every
+     * this wait for them has, before their directory is removed with every
      * file in it.
      */
-    public static function cleared(string $results): Warnings
+    public static function cleared(string $results, Seconds $wait): Warnings
     {
         $directory = self::beside($results);
 
@@ -84,12 +84,31 @@ final readonly class WarmDirectory
         }
 
         Polling::wait(
-            Seconds::of(Seat::WAIT),
+            $wait,
             static fn(): bool => ! array_any(self::files($directory), self::isRunning(...)),
             usleep(...),
         );
         $warnings = self::warnings($directory);
         self::removed($directory);
+
+        return $warnings;
+    }
+
+    /**
+     * What the kept workers of the run that records to these results warned
+     * of since it started, each warning read once, the workers left running
+     * for the shard's next chunk.
+     */
+    public static function warnedSoFar(string $results): Warnings
+    {
+        $directory = self::beside($results);
+        $warnings = self::warnings($directory);
+
+        foreach (self::files($directory) as $file) {
+            if (str_ends_with($file, self::WARNED)) {
+                unlink($file);
+            }
+        }
 
         return $warnings;
     }

@@ -159,7 +159,7 @@ Every release.
 
 
 class Signature(unittest.TestCase):
-    PINNED = release.gate_action.RELEASE_FINGERPRINT
+    PINNED = release.installs.RELEASE_FINGERPRINT
 
     def test_a_good_signature_by_the_pinned_key_passes(self):
         status = f"[GNUPG:] GOODSIG B757A4B1136116D2 Release\n[GNUPG:] VALIDSIG {self.PINNED} 2026-11-06 1 0 4 0 1 10 00 {self.PINNED}\n"

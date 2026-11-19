@@ -50,15 +50,15 @@ final readonly class FoundAgain
      */
     public static function evidenceAmong(Mutants $asked, MutationResult $found): Evidences
     {
-        $evidence = Evidences::none();
+        $evidence = [];
 
         foreach (self::paired($asked, $found->mutants()) as [$mutant, $again]) {
             if ($again instanceof Mutant) {
-                $evidence = $evidence->with($mutant->id(), $found->evidence()->of($again->id()));
+                $evidence[] = [$mutant->id(), $found->evidence()->of($again->id())];
             }
         }
 
-        return $evidence;
+        return Evidences::collected($evidence);
     }
 
     /** The mutants, each one found again replaced by what that run reported of it. */

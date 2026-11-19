@@ -61,6 +61,18 @@ final readonly class Proofs implements Countable, IteratorAggregate
         return new self($proofs);
     }
 
+    /** These, and each of those whose key none of these holds, which these come before (ADR-0131). */
+    public function before(self $later): self
+    {
+        $proofs = $this->proofs;
+
+        foreach ($later->proofs as $key => $proof) {
+            $proofs[$key] ??= $proof;
+        }
+
+        return new self($proofs);
+    }
+
     /**
      * Of these proofs, those that stand for a run of this kind: made with the
      * same mutators, judged by the same tests, and recording what it asks for.
@@ -131,6 +143,26 @@ final readonly class Proofs implements Countable, IteratorAggregate
     public function count(): int
     {
         return count($this->proofs);
+    }
+
+    /**
+     * Whether any of these proofs may have been established at a base whose
+     * first five inputs digest to this: one that records the same digest, or
+     * one that records none. Where none may, no key of such a base matches
+     * one (ADR-0135).
+     */
+    public function mayShareReads(Digest $reads): bool
+    {
+        foreach ($this as $proof) {
+            $inputs = $proof->inputs();
+            $theirs = $inputs instanceof Inputs ? $inputs->reads() : $inputs;
+
+            if (! $theirs instanceof Digest || $theirs->value() === $reads->value()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return Traversable<int, Proof> */

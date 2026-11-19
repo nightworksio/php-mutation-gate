@@ -9,23 +9,18 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
-use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
-use NightWorksIO\MutationGate\Core\Registry\Origin;
-use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutants;
 use NightWorksIO\MutationGate\Mutator\Mutator;
-use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Mutator\NodeClasses;
 use NightWorksIO\MutationGate\Tests\Fakes\MutatorFake;
+use NightWorksIO\MutationGate\Tests\Support\DefaultEngine;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\KeepLeft;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToPlus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveItem;
-use NightWorksIO\MutationGateDefault\DefaultExtension;
 use PhpParser\Node\Expr\BinaryOp;
 use PhpParser\Node\Expr\BinaryOp\Plus;
 use PhpParser\Node\Expr\FuncCall;
@@ -138,13 +133,6 @@ it('cannot count the mutants of a file that does not parse, saying which and why
 });
 
 /** The engine over the default set, as the plan counts with it. */
-function defaultEngine(): Engine
-{
-    $set = new DefaultExtension()->extend(Extensions::of(Origin::of('nightworksio/mutation-gate')))
-        ->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
-    return Enabled::of($set instanceof MutatorSet ? $set : MutatorSet::of())->engine();
-}
-
 /**
  * The runner contracts' libraries: code written to be mutated, by both runners.
  *
@@ -184,7 +172,7 @@ it('counts, line by line, the mutants the engine makes of every file of the corp
     foreach (corpus() as $file) {
         $path = Path::of(basename($file));
         $code = Contents::of((string) file_get_contents($file));
-        $engine = defaultEngine();
+        $engine = DefaultEngine::made();
         $sites = $engine->sitesOf($path, $code);
         $made = $engine->mutantsOf($path, $code);
         $starts = array_map(

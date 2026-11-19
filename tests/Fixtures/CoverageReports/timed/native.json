@@ -1,0 +1,1 @@
+{"format":1,"tests":[{"id":"T\\A::a","seconds":0.5},{"id":"T\\B::b"},{"id":"T\\C::c"}],"files":{"src/A.php":{"1":[0],"2":[0,1],"3":[]},"src/B.php":{"4":[2]}}}

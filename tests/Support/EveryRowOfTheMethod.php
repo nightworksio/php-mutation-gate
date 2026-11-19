@@ -32,6 +32,11 @@ final readonly class EveryRowOfTheMethod implements RunSelection
         ))));
     }
 
+    public function replaysKills(): bool
+    {
+        return false;
+    }
+
     private static function methodOf(TestId $test): string
     {
         $method = TestMethod::of($test);

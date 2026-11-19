@@ -11,17 +11,20 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\UnmutatedFailure;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * What an unmutated control found (see Control): its tests passed, in the
- * seconds the runner timed them; a test failed; they ran out of its limit;
- * or it never ran, and why.
+ * seconds the runner timed them; a test failed; they ran out of its limit,
+ * with the test it was running where its events tell; it was halted past
+ * the run's deadline (ADR-0197); or it never ran, and why.
  */
 final readonly class ControlRun
 {
@@ -34,6 +37,9 @@ final readonly class ControlRun
         private string|NotGiven $why,
         private TestIds $failing,
         private MemoryCap|NotGiven $peak = new NotGiven(),
+        private TestId|NotGiven $stoppedIn = new NotGiven(),
+        private Seconds|Unmeasured $wall = new Unmeasured(),
+        private int|NotGiven $cases = new NotGiven(),
     ) {
     }
 
@@ -88,31 +94,97 @@ final readonly class ControlRun
             MutantStatus::Skipped => self::ranOut(),
             MutantStatus::Uncovered,
             MutantStatus::Unjudged,
-            MutantStatus::IgnoredByMarker => self::unrun($reason instanceof Reason ? $reason->text() : self::NO_ANSWER),
+            MutantStatus::IgnoredByMarker,
+            MutantStatus::Equivalent,
+            MutantStatus::NotReached => self::unrun($reason instanceof Reason ? $reason->text() : self::NO_ANSWER),
         };
     }
 
     /**
      * What a control found that ran as a process of its own, by how the
-     * process ended: ran out where it was stopped at its limit, out of memory
+     * process ended: halted where it was halted past the run's deadline,
+     * ran out where it was stopped at its limit, out of memory
      * where PHP says it ran out of its memory limit, passed, in the time it
      * took, where it succeeded, and failed otherwise, these tests failing as
-     * its log records them.
+     * its log records them; how long its process lasted whatever its end, and
+     * how many test cases its log names, where it kept one.
      */
-    public static function ofProcess(Ran $ran, TestIds $failing): self
+    public static function ofProcess(Ran $ran, TestIds $failing, int|NotGiven $cases = new NotGiven()): self
     {
-        return match (true) {
+        $found = match (true) {
+            $ran->ending() === Ending::Halted => new self(
+                ControlEnd::Halted,
+                Unmeasured::duration(),
+                NotGiven::value(),
+                TestIds::none(),
+            ),
             $ran->wasStopped() => self::ranOut(),
             Exhaustion::in($ran->output()) instanceof MemoryCap => self::outOfMemory(),
             $ran->succeeded() => self::passed($ran->duration()),
             default => self::failed($failing),
         };
+
+        return new self(
+            $found->end,
+            $found->took,
+            $found->why,
+            $found->failing,
+            wall: $ran->duration(),
+            cases: $cases,
+        );
     }
 
     /** This run, whose processes held at most this much memory. */
     public function withPeak(MemoryCap $peak): self
     {
-        return new self($this->end, $this->took, $this->why, $this->failing, $peak);
+        return new self(
+            $this->end,
+            $this->took,
+            $this->why,
+            $this->failing,
+            $peak,
+            $this->stoppedIn,
+            $this->wall,
+            $this->cases,
+        );
+    }
+
+    /**
+     * This run, which stopped while this test ran, where it ran out: the test
+     * its events left running; as it is where it did not run out.
+     */
+    public function stoppedWhile(TestId|NotGiven $test): self
+    {
+        return $this->end === ControlEnd::RanOut
+            ? new self(
+                $this->end,
+                $this->took,
+                $this->why,
+                $this->failing,
+                $this->peak,
+                $test,
+                $this->wall,
+                $this->cases,
+            )
+            : $this;
+    }
+
+    /** How long its process lasted, whatever its end; unmeasured where it ran as no process of its own. */
+    public function wall(): Seconds|Unmeasured
+    {
+        return $this->wall;
+    }
+
+    /** How many test cases its log names; not given where it kept no log. */
+    public function cases(): int|NotGiven
+    {
+        return $this->cases;
+    }
+
+    /** The test it was running as it ran out, where its events named one; none otherwise. */
+    public function stoppedIn(): TestId|NotGiven
+    {
+        return $this->stoppedIn;
     }
 
     /**

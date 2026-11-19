@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\PackageWork;
 use NightWorksIO\MutationGate\Core\Plan\Run;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -63,6 +64,20 @@ it('cuts no more runs than asked, leaves none empty, and gives a unit costlier t
     expect(pathsOfRuns($work->runs(2)))->toBe([['A', 'B'], ['C', 'D']])
         ->and(pathsOfRuns($work->runs(3)))->toBe([['A'], ['B'], ['C', 'D']])
         ->and(pathsOfRuns($work->runs(9)))->toBe([['A'], ['B'], ['C', 'D']]);
+});
+
+it('lets one unit\'s cost bound its own run alone, so a bad estimate leaves the others their even share', function () use ($weighed): void {
+    $work = PackageWork::of(
+        $weighed('A', 1000.0),
+        $weighed('B', 1000.0),
+        $weighed('C', 28949.0),
+        $weighed('D', 1000.0),
+        $weighed('E', 1000.0),
+    );
+    $costs = array_map(static fn(Run $run): float => $run->cost()->seconds(), $work->runs(4));
+
+    expect(pathsOfRuns($work->runs(5)))->toBe([['A'], ['B'], ['C'], ['D'], ['E']])
+        ->and($costs)->toBe([2000.0, 28949.0, 2000.0]);
 });
 
 it('cuts units of 900, 900, 100, 900 and 100 seconds into three runs, the costliest 1000 seconds', function () use ($weighed): void {
@@ -122,4 +137,27 @@ it('cuts its units in time near linear in their number', function () use ($weigh
 
     expect($cutting(16)())->toBe(7)
         ->and(Growth::of(400, $cutting))->toBeLessThan(Growth::LINEAR);
+});
+
+it('gives every part of the test files every unit, in path order, each at its share of the cost', function () use ($weighed): void {
+    $parts = PackageWork::of($weighed('B', 30.0), $weighed('A', 60.0))->parts(3);
+
+    expect(pathsOfRuns($parts))->toBe([['A', 'B'], ['A', 'B'], ['A', 'B']])
+        ->and(array_map(static fn(Run $run): float => $run->cost()->seconds(), $parts))->toBe([30.0, 30.0, 30.0])
+        ->and(PackageWork::of()->parts(3))->toBe([]);
+});
+
+it('gives each held unit whole to one part in turn, and every part every other unit at its share', function () use ($weighed): void {
+    $held = static fn(string $path, float $cost): Weighed => Weighed::of(
+        Unit::held(Path::of($path), Group::named(sprintf('holds:%s', $path))),
+        Package::at(Path::root()),
+        Estimated::of(Seconds::of($cost), CostBasis::Measured),
+    );
+    $parts = PackageWork::of($held('H1', 12.0), $weighed('A', 60.0), $held('H2', 9.0), $held('H3', 6.0))->parts(2);
+    $everyPart = PackageWork::of($held('H1', 12.0), $weighed('A', 60.0))->parts(2, heldWhole: false);
+
+    expect(pathsOfRuns($parts))->toBe([['A', 'H1', 'H3'], ['A', 'H2']])
+        ->and(array_map(static fn(Run $run): float => $run->cost()->seconds(), $parts))->toBe([48.0, 39.0])
+        ->and(pathsOfRuns($everyPart))->toBe([['A', 'H1'], ['A', 'H1']])
+        ->and(array_map(static fn(Run $run): float => $run->cost()->seconds(), $everyPart))->toBe([36.0, 36.0]);
 });

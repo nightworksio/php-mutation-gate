@@ -53,10 +53,6 @@ final readonly class ContainerLedger implements EncodesLedgers, ObjectStore, Pro
 
     private const string VERSION_HEADER = 'x-ms-version';
 
-    private const string TYPE_HEADER = 'x-ms-blob-type';
-
-    private const string BLOCK_BLOB = 'BlockBlob';
-
     private function __construct(
         private ObjectLedger $ledgers,
         private string $account,
@@ -210,7 +206,7 @@ final readonly class ContainerLedger implements EncodesLedgers, ObjectStore, Pro
             ->carrying($token)
             ->sending(MediaType::Gzip)
             ->with(self::VERSION_HEADER, self::VERSION)
-            ->with(self::TYPE_HEADER, self::BLOCK_BLOB);
+            ->asBlockBlob();
     }
 
     /** The container a scope's ledger is kept in: the public one for the default branch's, where both are known. */

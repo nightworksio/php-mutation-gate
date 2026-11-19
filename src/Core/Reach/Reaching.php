@@ -34,7 +34,8 @@ use function sprintf;
  *    it moved match; a CI definition that runs the gate, as it is or as
  *    it was, reaches everything too, unless a change in its place moved
  *    only lines no runner reads (AsItRuns);
- * 2. a changed source file in a tree reaches its unit;
+ * 2. a changed source file in a tree reaches its unit, and, where
+ *    `outbreak.graph` widens, the files its joined tests run (ADR-0132);
  * 3. a changed test file reaches every unit its changed tests run, by the
  *    coverage map, or every unit its tests run (TestReach);
  * 4. changed test support reaches what the tests that use it run, and a
@@ -43,7 +44,10 @@ use function sprintf;
  *    what the other rules say of it where it is outside one;
  * 5. anything else reaches nothing by itself.
  *
- * Where version control cannot tell what changed, everything is reached.
+ * Where `outbreak.graph` narrows, a change rules 3 and 4 reach a whole
+ * package with only because the map cannot place it reaches what the static
+ * graph joins to it, where the graph answers (ADR-0132). Where version
+ * control cannot tell what changed, everything is reached.
  *
  * @internal
  */
@@ -67,8 +71,11 @@ final readonly class Reaching
 
     private const string LEFT = '`%s` was deleted, so it leaves its tree with nothing to mutate.';
 
-    public function __construct(private Layout $layout, private Trees $trees)
-    {
+    public function __construct(
+        private Layout $layout,
+        private Trees $trees,
+        private GraphReach $graph = new GraphReach(),
+    ) {
     }
 
     /**
@@ -85,10 +92,10 @@ final readonly class Reaching
             return $reach->everywhere(Reason::that(sprintf(self::CANNOT_TELL, $changes->why())));
         }
 
-        $tests = TestReach::of($this->layout, $this->trees, $coverage, $sources, $changes, $runs);
+        $tests = TestReach::of($this->layout, $this->trees, $coverage, $sources, $changes, $runs, $this->graph);
 
         foreach ($changes as $change) {
-            $reach = $this->withChange($reach, $change, $packages, $tests, $sources);
+            $reach = $this->withChange($reach, $change, $packages, $tests, $sources, $coverage);
         }
 
         return $reach;
@@ -100,6 +107,7 @@ final readonly class Reaching
         Packages $packages,
         TestReach $tests,
         Sources $sources,
+        Judges|NoMap $coverage,
     ): Reach {
         $path = $change->path();
         $deciding = $this->decidingIn($change, $packages);
@@ -111,7 +119,7 @@ final readonly class Reaching
             $deciding instanceof Path && $sources->decidesAlike($change) => $this->alike($reach, $deciding, $sources),
             $deciding instanceof Path => $this->decided($reach, $deciding, $packages->holding($deciding), $packages),
             $definition instanceof Path => $this->definitionChanged($reach, $change, $definition, $sources),
-            $this->isSource($path) => $this->sourceChanged($tests->inFixtures($reach, $change), $change),
+            $this->isSource($path) => $this->sourceChanged($tests->inFixtures($reach, $change), $change, $coverage),
             default => $tests->reach($reach, $change),
         };
     }
@@ -183,14 +191,18 @@ final readonly class Reaching
             : $reach->everywhere(Reason::that(sprintf(self::DECIDES, $definition->value())));
     }
 
-    private function sourceChanged(Reach $reach, Change $change): Reach
+    private function sourceChanged(Reach $reach, Change $change, Judges|NoMap $coverage): Reach
     {
         $path = $change->path();
 
         return $change->kind() === ChangeKind::Deleted
             ? $reach->because(Reason::that(sprintf(self::LEFT, $path->value())))
-            : $reach
-                ->files(Paths::of($path), Reason::that(sprintf(self::SOURCE, $path->value())))
-                ->withLines($path, $change->lines());
+            : $this->graph->widened(
+                $reach
+                    ->files(Paths::of($path), Reason::that(sprintf(self::SOURCE, $path->value())))
+                    ->withLines($path, $change->lines()),
+                $path,
+                $coverage,
+            );
     }
 }

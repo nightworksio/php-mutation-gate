@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Tests\Support\Passing;
@@ -48,7 +49,7 @@ $request = static fn(int $asker, string $mutated = ''): Request => Request::of(
 $warned = static function (Seat $seat): Warnings {
     unlink($seat->pid());
 
-    return WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($seat->directory())));
+    return WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($seat->directory())), Seconds::of(5.0));
 };
 
 it('runs a run in a child it forks, and writes how the child ended where the run\'s asker reads it', function () use ($seat, $request): void {
@@ -198,7 +199,7 @@ it('forks the run of a mutant the schema it serves switches, starts a pinned one
 
     unlink($at->pid());
 
-    expect(WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($at->directory()))))
+    expect(WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($at->directory())), Seconds::of(5.0)))
         ->toEqual(Warnings::of(Warning::noting(sprintf($warning, mb_strtolower($box->class), realpath($box->file)))));
 })->with([
     'a mutant the schema switches' => ['served', true, false, 'The warm worker could not fork, so a mutant ran fresh.'],

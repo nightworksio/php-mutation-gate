@@ -69,7 +69,7 @@ final readonly class RecheckRuns
             $made[$mutant->id()->key()] = $mutant;
         }
 
-        $triage = MutantTriage::under($this->settings->triage()->timeouts());
+        $triage = MutantTriage::under($this->settings->triage()->timeouts(), $this->settings->triage()->headroom());
         $rechecks = [];
 
         foreach ($taken->survivors() as $before) {
@@ -118,7 +118,11 @@ final readonly class RecheckRuns
         $request = RunRequest::of($this->adapters, $this->settings, Paths::of($file), $unit->judgedBy())
             ->across(
                 Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
-                    ->pacedBy($this->settings->runner()->pace()),
+                    ->pacedBy(
+                        $this->settings->runner()->pace(
+                            $this->settings->triage()->limits()->bounds()->startUp()->unmeasured(),
+                        ),
+                    ),
             )
             ->reusingCoverage(Handed::maps(Workspace::verdictCoverage(), Workspace::coverage()));
         $result = $this->adapters->runner->mutate($request->narrowedTo(

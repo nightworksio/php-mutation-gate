@@ -80,6 +80,7 @@ final readonly class Measured
             $settings->floors()->uncovered(),
             $settings->triage()->timeouts(),
             Ignoring::of($settings->ignores()->entries(), $now, $settings->ignores()->notice()),
+            $settings->triage()->headroom(),
         );
 
         $trees = $judge->trees($newest->carried());

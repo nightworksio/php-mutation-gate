@@ -16,6 +16,10 @@ final readonly class Request
 
     private const string CONTENT_TYPE = 'Content-Type';
 
+    private const string BLOB_TYPE = 'x-ms-blob-type';
+
+    private const string BLOCK_BLOB = 'BlockBlob';
+
     /** @param array<string, string> $headers by name */
     private function __construct(
         private Method $method,
@@ -66,6 +70,12 @@ final readonly class Request
     public function sending(MediaType $type): self
     {
         return $this->with(self::CONTENT_TYPE, $type->value);
+    }
+
+    /** This request, writing its body as one block blob of Azure's Blob service. */
+    public function asBlockBlob(): self
+    {
+        return $this->with(self::BLOB_TYPE, self::BLOCK_BLOB);
     }
 
     public function method(): Method

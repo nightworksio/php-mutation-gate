@@ -26,12 +26,13 @@ it('says what the budget ran out before, and the command that judges it', functi
     'mutating' => [OutOfTime::BeforeMutating, 'this run mutated its unit'],
     'confirming' => [OutOfTime::BeforeConfirming, 'its survival could be confirmed'],
     'running' => [OutOfTime::BeforeRunning, 'its own run finished'],
+    'checking' => [OutOfTime::BeforeChecking, 'static analysis could check it'],
     'controlling' => [OutOfTime::BeforeControlling, 'its tests could run unmutated to judge its timeout'],
 ]);
 
 it('knows a budget that left a mutant before its own run told anything of it', function (): void {
     expect(array_map(static fn(OutOfTime $before): bool => $before->isUnrun(), OutOfTime::cases()))
-        ->toBe([true, false, true, false]);
+        ->toBe([true, false, true, false, false]);
 });
 
 $mutant = static fn(MutantStatus $status): Mutant => Mutant::of(

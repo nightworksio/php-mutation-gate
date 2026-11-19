@@ -7,6 +7,6 @@ use NightWorksIO\MutationGate\Core\Watch\Poll;
 
 describe('Poll', function (): void {
     it('looks once a second', function (): void {
-        expect(Poll::interval())->toEqual(Seconds::of(1.0));
+        expect(Poll::interval())->toEqual(Seconds::of(2.0));
     });
 })->group('holds:src/Core/Watch/Poll.php');

@@ -182,3 +182,15 @@ it('reads a constant and an enum case named with a semi-reserved word where they
         ->and($source->symbolAt(Php::indexOf($source, "'d'")))->toEqual(Symbol::enumCase('App\Mode', 'Default'))
         ->and(Php::sites($codebase->references(Symbol::enumCase('App\Mode', 'Default'))))->toBe(['src/Box.php:6']);
 });
+
+it('takes more sources, a path it holds read anew, and stays itself given none', function () use ($codebase): void {
+    $read = $codebase();
+    $again = Php::source("<?php\nnamespace App;\nclass Money {}\n", 'src/Money.php');
+    $grown = $read->with($again, Php::source("<?php\nclass Clock {}\n", 'src/Clock.php'));
+
+    expect($read->with())->toBe($read)
+        ->and($grown->source(Path::of('src/Money.php')))->toBe($again)
+        ->and($grown->has(Path::of('src/Clock.php')))->toBeTrue()
+        ->and($grown->has(Path::of('tests/MoneyTest.php')))->toBeTrue()
+        ->and($read->has(Path::of('src/Clock.php')))->toBeFalse();
+});

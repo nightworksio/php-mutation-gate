@@ -16,6 +16,9 @@ use Traversable;
  */
 final readonly class ProgramArguments implements IteratorAggregate
 {
+    /** The two dashes that begin a long option, and alone end a program's options. */
+    public const string DOUBLE_DASH = '--';
+
     /** @param list<string> $arguments */
     private function __construct(private array $arguments)
     {

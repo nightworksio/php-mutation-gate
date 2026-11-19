@@ -20,15 +20,15 @@ it('reads back the bounds the flows write, and the standard where they write non
     );
     $written = Json::object(...BoundsOptions::of($triage));
 
-    expect(BoundsOptions::read(Configs::options($written->line())))->toEqual($triage->bounds())
-        ->and(BoundsOptions::read(Configs::options('{}')))->toEqual(Triage::standard()->bounds());
+    expect(BoundsOptions::read(Configs::options($written->line())))->toEqual($triage->limits()->bounds())
+        ->and(BoundsOptions::read(Configs::options('{}')))->toEqual(Triage::standard()->limits()->bounds());
 });
 
 it('reads back what a run gets to start in where nothing measured it', function (): void {
     $written = Json::object(...BoundsOptions::of(Triage::of(startUp: Seconds::of(9.0))));
     $read = BoundsOptions::read(Configs::options($written->line()));
 
-    expect($read instanceof LimitBounds ? $read->unmeasuredStartUp() : $read)->toEqual(Seconds::of(9.0));
+    expect($read instanceof LimitBounds ? $read->startUp()->unmeasured() : $read)->toEqual(Seconds::of(9.0));
 });
 
 it('says why where a bound is no number or the tighter mutators no list of text', function (string $options): void {
@@ -43,7 +43,7 @@ it('says why where a bound is no number or the tighter mutators no list of text'
 it('reads back a written multiple, and a learned floor and multiple, as the flows write them', function (Triage $triage): void {
     $written = Json::object(...BoundsOptions::of($triage));
 
-    expect(BoundsOptions::read(Configs::options($written->line())))->toEqual($triage->bounds());
+    expect(BoundsOptions::read(Configs::options($written->line())))->toEqual($triage->limits()->bounds());
 })->with([
     'a written multiple' => [fn(): Triage => Triage::of(multiple: 4.5)],
     'a learned floor' => [fn(): Triage => Triage::of(limit: Learned::Learned)],

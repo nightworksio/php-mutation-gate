@@ -7,20 +7,19 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_map;
 use function count;
 use function implode;
+use function is_array;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\PartLines;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
-use NightWorksIO\MutationGate\Core\Mutant\Ended;
-use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
@@ -30,8 +29,9 @@ use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 use function sprintf;
 
@@ -46,7 +46,9 @@ use function sprintf;
  * a mutant whose own process had loaded its file before the mutant was in
  * place, because its tests ran the original code; and a survivor whose own
  * process said it ran no test, because nothing judged it. Each kill keeps
- * the evidence its own run recorded (ADR-0014).
+ * the evidence its own run recorded (ADR-0014). A mutant the run's part of
+ * the test files left to another part is not reached, and each other keeps
+ * how many of its covering tests that part held (ADR-0117).
  *
  * @internal
  */
@@ -57,6 +59,15 @@ final readonly class Interpretation
     private const string UNSELECTED = "Pest's --filter cannot select %s, so Pest cannot run it against this mutant.";
 
     private const string RAN_NO_TEST = 'its own run ran no test';
+
+    /** The key of a span of a file's lines, whose covering tests every mutant on it shares. */
+    private const string SPAN = '%s:%d:%d';
+
+    /** What a run that counts its forks' states says of them (H5). */
+    private const string FORK_STATES = <<<'SAID'
+        Split streams read the state %d forks left in parent and child;
+        %d of them found it alike, so the fork changed nothing the call returned or held (outbreak.forkStates).
+        SAID;
 
     public function __construct(
         private Project $project,
@@ -79,6 +90,9 @@ final readonly class Interpretation
             default => $this->mutants($records, $coverage),
         };
 
+        $counted = $records instanceof Records ? $records->forkStates() : NotGiven::value();
+        $result = $result instanceof MutationResult ? $this->besides($result, $counted, $results) : $result;
+
         return $result instanceof MutationResult && $ran->wasStopped() ? $result->stoppedAtDeadline() : $result;
     }
 
@@ -95,20 +109,42 @@ final readonly class Interpretation
         )->because($reason);
     }
 
+    /**
+     * A run's result with what the run left beside its records: the warning
+     * of the states its forks left, where it counted them, and the lines it
+     * made each file on (ADR-0193).
+     *
+     * @param array{int, int}|NotGiven $counted
+     */
+    private function besides(MutationResult $result, array|NotGiven $counted, string $results): MutationResult
+    {
+        $made = $result->withMade(PartLines::madeBeside($results, Root::of($this->project->root())));
+
+        return is_array($counted)
+            ? $made->withWarnings(Warnings::of(Warning::that(sprintf(self::FORK_STATES, $counted[0], $counted[1]))))
+            : $made;
+    }
+
     private function mutants(Records $records, Covering $coverage): MutationResult|CannotJudge
     {
         $mutants = [];
-        $evidence = Evidences::none();
+        $evidence = [];
         $planned = $records->planned();
         $ids = Identities::of(Root::of($this->project->root()), $planned);
 
         $suite = Suite::of($coverage->tests());
+        $none = $this->patching->selecting(TestIds::none(), $suite);
+        $selections = [];
 
-        foreach ($planned as $at => $mutant) {
-            $selection = $this->patching->selecting(
-                $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
-                $suite,
-            );
+        foreach ($planned as $at => $made) {
+            $mutant = $this->handOff instanceof HandOff ? $this->handOff->judgedAs($made) : $made;
+            $span = sprintf(self::SPAN, $mutant->file()->value(), $mutant->start()->number(), $mutant->end()->number());
+            $selection = $records->runOf($mutant)->isMarked(RecordEvent::Unreached)
+                ? $none
+                : $selections[$span] ??= $this->patching->selecting(
+                    $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
+                    $suite,
+                );
 
             if (! $selection->fits() && ! $this->patching->isOn()) {
                 return CannotJudge::because(sprintf(
@@ -121,54 +157,10 @@ final readonly class Interpretation
 
             $judged = $this->rejected($this->mutant($ids[$at], $mutant, $records, $selection), $mutant);
             $mutants[] = $judged;
-            $evidence = $evidence->with(
-                $judged->id(),
-                $this->unfiltered($this->evidenceOf($judged, $mutant, $records), $mutant, $records),
-            );
+            $evidence[] = [$judged->id(), new RunEvidence($this->project)->of($judged, $mutant, $records)];
         }
 
-        return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);
-    }
-
-    /**
-     * The evidence of a kill (ADR-0014): how far its own run
-     * went, keyed by the test files it was narrowed to, or by none where it
-     * loaded every one; and, where it names no killer, how its process
-     * ended. None of a mutant that is not killed, or that shares its mutated
-     * copy with another, whose runs cannot be told apart.
-     */
-    private function evidenceOf(Mutant $judged, PlannedMutant $planned, Records $records): Evidence
-    {
-        if ($judged->status() !== MutantStatus::Killed || $records->sharesItsCopy($planned)) {
-            return Evidence::none();
-        }
-
-        $run = $records->runOf($planned);
-        $files = Paths::of(...array_map(
-            $this->project->relative(...),
-            $run->narrowedTo(),
-        ));
-        $prefix = $run->prefix($files);
-        $ended = $run->ended();
-        $evidence = $prefix instanceof Prefix ? Evidence::none()->withPrefix($prefix) : Evidence::none();
-
-        return $ended instanceof Ended && count($run->killers()) === 0 ? $evidence->withEnded($ended) : $evidence;
-    }
-
-    /**
-     * Evidence, with the test files a mutant's own run loaded with no
-     * filter, where a patched run left its filter out: those it was narrowed
-     * to, or every one.
-     */
-    private function unfiltered(Evidence $evidence, PlannedMutant $planned, Records $records): Evidence
-    {
-        $files = $records->runOf($planned)->loadedUnfiltered();
-
-        return match (true) {
-            $files instanceof NotGiven => $evidence,
-            $files === [] => $evidence->loadingUnfiltered(WholeSuite::tests()),
-            default => $evidence->loadingUnfiltered(Paths::of(...array_map($this->project->relative(...), $files))),
-        };
+        return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence(Evidences::collected($evidence));
     }
 
     /**
@@ -176,10 +168,15 @@ final readonly class Interpretation
      * after its own process recorded a failing test, as one that runs on
      * past its limit after its first failure under a full kill matrix does
      * (ADR-0014); a kill whose process ran out of exactly the
-     * gate's memory cap is out of memory (ADR-0004).
+     * gate's memory cap is out of memory (ADR-0004); one the run's part of
+     * the test files left to another part is not reached (ADR-0117).
      */
     private function statusOf(PlannedMutant $planned, Records $records): MutantStatus
     {
+        if ($records->runOf($planned)->isMarked(RecordEvent::Unreached)) {
+            return MutantStatus::NotReached;
+        }
+
         $run = $records->runOf($planned);
         $status = $records->statusOf($planned)->status();
         $status = $status === MutantStatus::TimedOut && count($run->killers()) > 0 ? MutantStatus::Killed : $status;
@@ -229,15 +226,22 @@ final readonly class Interpretation
     }
 
     /**
-     * A mutant whose mutated copy static analysis rejected before its tests,
-     * killed by it (ADR-0020), whether Pest ran it or not; as it
-     * was otherwise.
+     * A mutant `outbreak.so` proved equivalent before its tests, never run
+     * (ADR-0130); one whose mutated copy static analysis rejected before its
+     * tests, killed by it (ADR-0020), whether Pest ran it or not; as it was
+     * otherwise.
      */
     private function rejected(Mutant $mutant, PlannedMutant $planned): Mutant
     {
-        $rejection = $this->handOff instanceof HandOff ? $this->handOff->rejectionOf($planned) : NotGiven::value();
+        $handOff = $this->handOff;
+        $proof = $handOff instanceof HandOff ? $handOff->equivalenceOf($planned) : NotGiven::value();
+        $rejection = $handOff instanceof HandOff ? $handOff->rejectionOf($planned) : NotGiven::value();
 
-        return $rejection instanceof Rejection ? $mutant->rejected($rejection) : $mutant;
+        return match (true) {
+            $proof instanceof Reason => $mutant->provenEquivalent($proof),
+            $rejection instanceof Rejection => $mutant->rejected($rejection),
+            default => $mutant,
+        };
     }
 
     /**

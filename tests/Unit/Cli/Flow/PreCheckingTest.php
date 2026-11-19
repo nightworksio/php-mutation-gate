@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\AnalyserWarmUp;
+use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\PreChecking;
 use NightWorksIO\MutationGate\Cli\Flow\Stopwatch;
-use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
@@ -128,8 +128,8 @@ it('rejects a mutant whose check finds an error its original does not have, pass
     [$first, $second] = preOffered();
     $new = Finding::error(Path::of('src/Money.php'), 'return.type', 'Method Money::add() should return int.');
     $checker = preCheckedBy($project, [
-        Workspace::checkedMutant($first->id())->value() => Findings::of(...preOriginals(), ...Findings::of($new)),
-        Workspace::checkedMutant($second->id())->value() => preOriginals(),
+        CheckedFiles::mutant($first->id())->value() => Findings::of(...preOriginals(), ...Findings::of($new)),
+        CheckedFiles::mutant($second->id())->value() => preOriginals(),
     ]);
     $checking = preChecking($project, $checker, AnalyserHistory::of('fake'));
 
@@ -150,7 +150,7 @@ it('rejects a mutant whose check finds an error its original does not have, pass
             sprintf('<?php // %s', $first->id()->value()),
             sprintf('<?php // %s', $second->id()->value()),
         ])
-        ->and(is_file(sprintf('%s/%s', $project, Workspace::checkedMutant($first->id())->value())))->toBeFalse()
+        ->and(is_file(sprintf('%s/%s', $project, CheckedFiles::mutant($first->id())->value())))->toBeFalse()
         ->and($checker->warmUps())->toHaveCount(1);
 });
 
@@ -195,10 +195,10 @@ it('judges a printed mutant against its file\'s print, checked once, where it an
         Seconds::of(10.0),
     );
     $checker = preCheckedBy($project, [
-        Workspace::checkedOriginal($first->id())->value() => preOriginals(),
-        Workspace::checkedMutant($first->id())->value() => Findings::of(...preOriginals(), ...Findings::of(Finding::error(Path::of('src/Money.php'), 'new', 'New.'))),
-        Workspace::checkedMutant($second->id())->value() => preOriginals(),
-        Workspace::checkedOriginal($held->id())->value() => Findings::none(),
+        CheckedFiles::original($first->id())->value() => preOriginals(),
+        CheckedFiles::mutant($first->id())->value() => Findings::of(...preOriginals(), ...Findings::of(Finding::error(Path::of('src/Money.php'), 'new', 'New.'))),
+        CheckedFiles::mutant($second->id())->value() => preOriginals(),
+        CheckedFiles::original($held->id())->value() => Findings::none(),
     ]);
 
     $rejections = preChecking($project, $checker, AnalyserHistory::of('fake'))->rejected(
@@ -209,19 +209,19 @@ it('judges a printed mutant against its file\'s print, checked once, where it an
     expect(count($rejections))->toBe(1)
         ->and($rejections->of($first->id()))->toBeInstanceOf(Rejection::class)
         ->and(array_map(static fn(array $check): string => $check[1], $checker->asked()))->toBe([
-            Workspace::checkedOriginal($first->id())->value(),
-            Workspace::checkedOriginal($held->id())->value(),
-            Workspace::checkedMutant($first->id())->value(),
-            Workspace::checkedMutant($second->id())->value(),
+            CheckedFiles::original($first->id())->value(),
+            CheckedFiles::original($held->id())->value(),
+            CheckedFiles::mutant($first->id())->value(),
+            CheckedFiles::mutant($second->id())->value(),
         ])
-        ->and(is_file(sprintf('%s/%s', $project, Workspace::checkedOriginal($first->id())->value())))->toBeFalse();
+        ->and(is_file(sprintf('%s/%s', $project, CheckedFiles::original($first->id())->value())))->toBeFalse();
 });
 
 it('chooses by what this run has learned too: a mutator whose checks have now passed fifty times is checked no more', function (): void {
     $project = Scratch::directory();
     [$first] = preOffered();
     $known = AnalyserHistory::of('fake')->withRate(RejectionRate::of($first->mutator(), 49, 0));
-    $checker = preCheckedBy($project, [Workspace::checkedMutant($first->id())->value() => preOriginals()]);
+    $checker = preCheckedBy($project, [CheckedFiles::mutant($first->id())->value() => preOriginals()]);
     $checking = preChecking($project, $checker, $known);
 
     $checking->rejected(PreCheckables::of(preOffer($first)), ProcessCount::single());
@@ -234,8 +234,8 @@ it('learns the time of a check that gave no findings, and no rate; each check\'s
     $project = Scratch::directory();
     [$first, $second] = preOffered();
     $checker = preCheckedBy($project, [
-        Workspace::checkedMutant($first->id())->value() => OutOfScope::of(Path::of('src/Money.php')),
-        Workspace::checkedMutant($second->id())->value() => preOriginals(),
+        CheckedFiles::mutant($first->id())->value() => OutOfScope::of(Path::of('src/Money.php')),
+        CheckedFiles::mutant($second->id())->value() => preOriginals(),
     ]);
     $checking = preChecking($project, $checker, AnalyserHistory::of('fake'));
 
@@ -288,7 +288,7 @@ it('runs each check without what the gate withholds, and lists the files a mutan
 it('learns a check run beside none as taking the whole of its batch\'s time, and times the shard\'s static check step', function (): void {
     $project = Scratch::directory();
     [$first, $second] = preOffered();
-    $checker = preCheckedBy($project, [Workspace::checkedMutant($first->id())->value() => preOriginals()]);
+    $checker = preCheckedBy($project, [CheckedFiles::mutant($first->id())->value() => preOriginals()]);
     [$checking, $stopwatch] = preTimed($project, $checker, AnalyserHistory::of('fake'));
 
     $checking->rejected(PreCheckables::of(preOffer($first)), ProcessCount::of(2));
@@ -305,7 +305,7 @@ it('learns a check run beside none as taking the whole of its batch\'s time, and
 it('checks nothing, and rejects nothing, where no chosen mutant\'s print analyses as its file does', function (): void {
     $project = Scratch::directory();
     $held = [...Flows::mutantsOf('src/Held.php')][0];
-    $checker = preCheckedBy($project, [Workspace::checkedOriginal($held->id())->value() => Findings::none()]);
+    $checker = preCheckedBy($project, [CheckedFiles::original($held->id())->value() => Findings::none()]);
     $printed = PreCheckable::of(
         $held,
         Checkable::printed(Contents::of('<?php // the print'), Contents::of('<?php // the mutant')),
@@ -317,7 +317,7 @@ it('checks nothing, and rejects nothing, where no chosen mutant\'s print analyse
 
     expect(count($rejections))->toBe(0)
         ->and(array_map(static fn(array $check): string => $check[1], $checker->asked()))
-        ->toBe([Workspace::checkedOriginal($held->id())->value()])
+        ->toBe([CheckedFiles::original($held->id())->value()])
         ->and($checking->checks()->histories()->of(preIdentity())->time()->checks())->toBe(0);
 });
 
@@ -328,8 +328,8 @@ it('checks a mutator still being learned before its tests no more often in one b
         ->withRate(RejectionRate::of($first->mutator(), 48, 0))
         ->withTime(CheckTime::of(10, Seconds::of(1.0)));
     $checker = preCheckedBy($project, [
-        Workspace::checkedMutant($first->id())->value() => preOriginals(),
-        Workspace::checkedMutant($second->id())->value() => preOriginals(),
+        CheckedFiles::mutant($first->id())->value() => preOriginals(),
+        CheckedFiles::mutant($second->id())->value() => preOriginals(),
     ]);
 
     preChecking($project, $checker, $known)->rejected(
@@ -338,23 +338,23 @@ it('checks a mutator still being learned before its tests no more often in one b
     );
 
     expect(array_map(static fn(array $check): string => $check[1], $checker->asked()))->toBe([
-        Workspace::checkedMutant($first->id())->value(),
-        Workspace::checkedMutant($first->id())->value(),
-        Workspace::checkedMutant($second->id())->value(),
-        Workspace::checkedMutant($second->id())->value(),
+        CheckedFiles::mutant($first->id())->value(),
+        CheckedFiles::mutant($first->id())->value(),
+        CheckedFiles::mutant($second->id())->value(),
+        CheckedFiles::mutant($second->id())->value(),
     ]);
 });
 
 it('takes a check before any was timed to last as long as the warm-up, and checks no mutant whose tests take no longer', function (): void {
     $project = Scratch::directory();
     [$first, $second] = preOffered();
-    $checker = preCheckedBy($project, [Workspace::checkedMutant($second->id())->value() => preOriginals()]);
+    $checker = preCheckedBy($project, [CheckedFiles::mutant($second->id())->value() => preOriginals()]);
     $checking = preChecking($project, $checker, AnalyserHistory::of('fake'));
 
     $checking->rejected(PreCheckables::of(preOffer($first, 1.0), preOffer($second, 1.5)), ProcessCount::single());
 
     expect(array_map(static fn(array $check): string => $check[1], $checker->asked()))
-        ->toBe([Workspace::checkedMutant($second->id())->value()])
+        ->toBe([CheckedFiles::mutant($second->id())->value()])
         ->and($checker->warmUps())->toHaveCount(1);
 });
 

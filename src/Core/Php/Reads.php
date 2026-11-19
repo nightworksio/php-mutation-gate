@@ -8,6 +8,8 @@ use function array_any;
 use function array_last;
 use function explode;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
+
 /**
  * Where one file reads a value, by what kind of value it is.
  *
@@ -19,29 +21,37 @@ final readonly class Reads
     public const string LOOKUP = SymbolKind::Constant->value;
 
     /**
-     * Whether a file may read a value at all, from the words its names end
-     * in: a constant's read spells its name, its owner's, a reflection's or
-     * `constant`, and an enum case's and an attribute argument's spell their
-     * owner's. A file that spells none of them is left unread, which is what
-     * every read would find.
+     * Whether a file may read a value at all: whether it spells one of the
+     * words a read of the value must (see wordsOf).
      */
     public static function mayHold(Symbol $symbol, Source $source): bool
     {
-        $tokens = $source->tokens();
+        $words = self::wordsOf($symbol);
 
+        return $words instanceof NotGiven || array_any($words, $source->tokens()->words()->has(...));
+    }
+
+    /**
+     * The words one of which a file's names must end in for it to read a
+     * value: a constant's read spells its name, its owner's, a reflection's
+     * or `constant`, and an enum case's and an attribute argument's spell
+     * their owner's. A file that spells none of them is left unread, which
+     * is what every read would find. None for a value any file may read.
+     *
+     * @return non-empty-list<string>|NotGiven
+     */
+    public static function wordsOf(Symbol $symbol): array|NotGiven
+    {
         return match ($symbol->kind()) {
-            SymbolKind::Constant => $tokens->namesWord($symbol->name())
-                || $tokens->namesWord(self::LOOKUP)
-                || array_any(Reflections::CLASSES, $tokens->namesWord(...)),
-            SymbolKind::GlobalConstant => $tokens->namesWord($symbol->name())
-                || $tokens->namesWord(self::LOOKUP),
+            SymbolKind::Constant => [$symbol->name(), self::LOOKUP, ...Reflections::CLASSES],
+            SymbolKind::GlobalConstant => [$symbol->name(), self::LOOKUP],
             SymbolKind::EnumCase,
-            SymbolKind::AttributeArgument => $tokens->namesWord(self::lastSegment($symbol->owner())),
+            SymbolKind::AttributeArgument => [self::lastSegment($symbol->owner())],
             SymbolKind::StaticProperty,
             SymbolKind::Property,
             SymbolKind::FunctionParameter,
             SymbolKind::MethodParameter,
-            SymbolKind::ClosureParameter => true,
+            SymbolKind::ClosureParameter => NotGiven::value(),
         };
     }
 

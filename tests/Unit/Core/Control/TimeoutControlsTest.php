@@ -157,7 +157,7 @@ it('judges each timeout by what its control found', function (ControlRun $found,
     $applied = [...$controls->applied($mutants, ControlRuns::none()->with([...$controls->asked()][0], $found), Controls::none())];
     $said = $applied[0]->reason();
 
-    expect([$applied[0]->status(), $applied[0]->unmutatedNeed(), $said instanceof Reason ? $said->text() : ''])
+    expect([$applied[0]->status(), $applied[0]->stop()->need(), $said instanceof Reason ? $said->text() : ''])
         ->toEqual([$status, $need, $reason])
         ->and($applied[1])->toEqual([...$mutants][1]);
 })->with([
@@ -188,7 +188,7 @@ it('leaves a timeout unjudged, the budget having run out before its control, whe
     [$first, $second] = [...$controls->asked()];
     $applied = [...$controls->applied($mutants, ControlRuns::none()->with($first, ControlRun::passed(Seconds::of(1.0))), Controls::of($second))];
 
-    expect($applied[0]->unmutatedNeed())->toEqual(Seconds::of(1.0))
+    expect($applied[0]->stop()->need())->toEqual(Seconds::of(1.0))
         ->and($applied[1]->status())->toBe(MutantStatus::Unjudged)
         ->and($applied[1]->reason())->toEqual(OutOfTime::BeforeControlling->reason());
 });

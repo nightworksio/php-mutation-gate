@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -70,7 +71,7 @@ final readonly class MemoryControls implements ControlJudge
         $controls = [];
 
         foreach ($mutants as $mutant) {
-            if ($mutant->status() !== MutantStatus::OutOfMemory || ! $mutant->limit() instanceof MemoryCap) {
+            if ($mutant->status() !== MutantStatus::OutOfMemory || ! $mutant->stop()->limit() instanceof MemoryCap) {
                 continue;
             }
 
@@ -105,7 +106,7 @@ final readonly class MemoryControls implements ControlJudge
     public function judged(Mutant $mutant, ControlRun $run, Control $control): Mutant
     {
         $peak = $run->peak();
-        $need = $peak instanceof MemoryCap ? $peak : $mutant->limit();
+        $need = $peak instanceof MemoryCap ? $peak : $mutant->stop()->limit();
         $why = $run->why();
 
         return match ($run->end()) {
@@ -118,6 +119,7 @@ final readonly class MemoryControls implements ControlJudge
             ControlEnd::Unrun => $mutant->because(
                 Reason::that(sprintf(self::UNRUN, $why instanceof NotGiven ? ControlRuns::NOT_RUN : $why)),
             ),
+            ControlEnd::Halted => $mutant->unjudged(OutOfTime::BeforeControlling),
         };
     }
 }

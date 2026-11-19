@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function min;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -23,6 +25,8 @@ final readonly class Pool
         private Multiple $multiple,
         private bool $tail,
         private RunnerPace $pace,
+        private bool $sized = false,
+        private int $after = 0,
     ) {
     }
 
@@ -47,7 +51,16 @@ final readonly class Pool
     /** This pool, a run of no test having taken this long to start in it. */
     public function startingIn(Seconds|Unmeasured $startUp): self
     {
-        return new self($this->processes, $this->workers, $startUp, $this->multiple, $this->tail, $this->pace);
+        return new self(
+            $this->processes,
+            $this->workers,
+            $startUp,
+            $this->multiple,
+            $this->tail,
+            $this->pace,
+            $this->sized,
+            $this->after,
+        );
     }
 
     /**
@@ -57,7 +70,16 @@ final readonly class Pool
     public function learning(Multiple|NotGiven $multiple): self
     {
         return $multiple instanceof Multiple
-            ? new self($this->processes, $this->workers, $this->startUp, $multiple, $this->tail, $this->pace)
+            ? new self(
+                $this->processes,
+                $this->workers,
+                $this->startUp,
+                $multiple,
+                $this->tail,
+                $this->pace,
+                $this->sized,
+                $this->after,
+            )
             : $this;
     }
 
@@ -75,13 +97,93 @@ final readonly class Pool
             $this->multiple,
             tail: true,
             pace: $this->pace,
+            sized: $this->sized,
+            after: $this->after,
         );
     }
 
     /** This pool, its runner paced as `runner.recycleAfter` and `runner.warmSlack` say. */
     public function pacedBy(RunnerPace $pace): self
     {
-        return new self($this->processes, $this->workers, $this->startUp, $this->multiple, $this->tail, $pace);
+        return new self(
+            $this->processes,
+            $this->workers,
+            $this->startUp,
+            $this->multiple,
+            $this->tail,
+            $pace,
+            $this->sized,
+            $this->after,
+        );
+    }
+
+    /**
+     * This pool, each set of warm workers it boots no larger than the runs it
+     * has, `local.sizedPools` (ADR-0120).
+     */
+    public function sizedByWork(): self
+    {
+        return new self(
+            $this->processes,
+            $this->workers,
+            $this->startUp,
+            $this->multiple,
+            $this->tail,
+            $this->pace,
+            sized: true,
+            after: $this->after,
+        );
+    }
+
+    /** How many workers a set boots for this many runs: as many as run at once, or no more than the runs, sized. */
+    public function slotsFor(ProcessCount $runs): ProcessCount
+    {
+        return $this->sized ? ProcessCount::of(min($runs->count(), $this->processes->count())) : $this->processes;
+    }
+
+    /**
+     * This pool with only this many of its places, the first ones, the rest
+     * left to a run beside it (see besideTaking).
+     */
+    public function takingOnly(ProcessCount $taken): self
+    {
+        return new self(
+            ProcessCount::of(min($taken->count(), $this->processes->count())),
+            $this->workers,
+            $this->startUp,
+            $this->multiple,
+            $this->tail,
+            $this->pace,
+            $this->sized,
+            $this->after,
+        );
+    }
+
+    /**
+     * The rest of this pool's places, beside a run that takes this many of
+     * them: at least one, each numbered after the places taken, so no two
+     * processes running at once are told the same place.
+     */
+    public function besideTaking(ProcessCount $taken): self
+    {
+        $first = min($taken->count(), $this->processes->count() - 1);
+
+        return new self(
+            ProcessCount::atLeastOne($this->processes->count() - $first),
+            $this->workers,
+            $this->startUp,
+            $this->multiple,
+            $this->tail,
+            $this->pace,
+            $this->sized,
+            $this->after + $first,
+        );
+    }
+
+    /** How many places a run beside it took first, which its own places are numbered after. */
+    public function takenBeside(): int
+    {
+        return $this->after;
     }
 
     /** How its runner paces its work. */

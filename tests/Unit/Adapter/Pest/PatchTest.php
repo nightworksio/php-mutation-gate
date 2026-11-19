@@ -8,10 +8,12 @@ use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\ParsedSource;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
+use NightWorksIO\MutationGate\Adapter\Pest\PcovTests;
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnCovering;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -34,7 +36,7 @@ it('finds the patch in place and changes nothing when patching again', function 
     Patch::applyIn($at, new PackageDirectory());
     $patched = array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES);
 
-    expect(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 3 files it changes in pest.')
+    expect(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES))->toBe($patched);
 });
 
@@ -45,7 +47,7 @@ it('patches only the files that are not patched yet', function () use ($vendor, 
     file_put_contents(sprintf('%s/pestphp/pest-plugin-mutate/src/Tester/MutationTestRunner.php', $at), $pristine);
 
     expect(Patch::isAppliedIn($at, new PackageDirectory()))->toBeFalse()
-        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 1 of the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 3 files it changes in pest.')
+        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 1 of the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
         ->and(substr_count($source($at, 'Tester/MutationTestRunner.php'), 'MUTATION_GATE_SUITE_SECONDS'))->toBe(1);
 });
 
@@ -101,7 +103,7 @@ it('counts a vendor it already patched as patched, though none of its files can 
         array_map(static fn(string $file): bool => chmod($file, 0o644), $files);
     }
 
-    expect($again)->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 3 files it changes in pest.')
+    expect($again)->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
         ->and($applied)->toBeTrue();
 });
 
@@ -152,7 +154,7 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(29);
+    expect($marks)->toBe(36);
 });
 
 it('compiles each file\'s mutants into a schema and serves a switched mutant the schema, its switch in force, where the gate asks for schemata', function () use ($vendor, $source): void {
@@ -197,14 +199,33 @@ it('has each mutant\'s run select exactly the tests that cover it, a row of a da
         ->and($source($at, 'Tester/MutationTestRunner.php'))->toContain(sprintf('\\%s::remember($loadedCoverage)', LoadedMap::class));
 });
 
-it('asks each mutant\'s run of its place\'s warm worker, where the run has one', function () use ($vendor, $source): void {
+it('narrows a mutant\'s own run to the covering tests its shard\'s part of the test files holds, after Pest built its filter', function () use ($vendor, $source): void {
+    $at = $vendor();
+    Patch::applyIn($at, new PackageDirectory());
+    $test = $source($at, 'MutationTest.php');
+    $narrowed = sprintf('$covering = class_exists(\\%1$s::class) ? \\%1$s::of($this->mutation, $covering) : $covering;', OwnCovering::class);
+
+    $inPlace = sprintf(
+        '/%s.*%s.*%s/s',
+        preg_quote('$filters = array_unique($filters);', '/'),
+        preg_quote($narrowed, '/'),
+        preg_quote('CoveringFiles::of($covering', '/'),
+    );
+
+    expect($test)->toContain($narrowed)
+        ->and(preg_match($inPlace, $test))->toBe(1);
+});
+
+it('asks each mutant\'s run of its place\'s warm worker, where the run has one, unless a test of it reads the coverage driver, and starts it with pcov off unless one does', function () use ($vendor, $source): void {
     $at = $vendor();
     Patch::applyIn($at, new PackageDirectory());
 
-    expect($source($at, 'MutationTest.php'))->toContain(sprintf(
-        '...($processId !== null && class_exists(\\%1$s::class) ? \\%1$s::prefix($processId) : []),',
-        Pool::class,
-    ));
+    expect($source($at, 'MutationTest.php'))->toContain(
+        sprintf('$reads = class_exists(\\%1$s::class) && \\%1$s::of($coveredLines)->readBy($covering);', PcovTests::class),
+        sprintf('$warm = $processId !== null && ! $reads && class_exists(\\%1$s::class);', Pool::class),
+        sprintf('...($warm ? \\%1$s::prefix($processId) : []),', Pool::class),
+        'env: [...$envs, ...$pcov],',
+    );
 });
 
 it('serves a class Composer autoloads by an autoloader, and starts the wrapper for any other file or a mutant pinned by source', function () use ($vendor, $source): void {
@@ -237,7 +258,7 @@ it('plans what patching would write, writing nothing, and plans nothing once the
 
     expect($planned)->toBe($applied)
         ->and(array_keys($applied))->toContain(sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, MutatePlugin::FILES[0]))
-        ->and($applied)->toHaveCount(9)
+        ->and($applied)->toHaveCount(count(MutatePlugin::FILES) + count(MutatePlugin::PEST_FILES))
         ->and(Patch::plannedIn($at, new PackageDirectory()))->toBe([])
         ->and(Patch::plannedIn(Scratch::directory(), new PackageDirectory()))->toBeInstanceOf(CannotJudge::class);
 });

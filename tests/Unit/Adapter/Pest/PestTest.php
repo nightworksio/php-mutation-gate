@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
+use NightWorksIO\MutationGate\Adapter\Native\PestPlacements;
 use NightWorksIO\MutationGate\Adapter\Pest\Ceiling;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
@@ -13,19 +14,25 @@ use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Adapter\Pest\PestSteps;
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\ShardMap;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\Config\Triage;
-use NightWorksIO\MutationGate\Core\Control\Control;
-use NightWorksIO\MutationGate\Core\Control\ControlRun;
-use NightWorksIO\MutationGate\Core\Control\ControlRuns;
-use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -41,13 +48,15 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Native\Guard;
+use NightWorksIO\MutationGate\Core\Native\Variable;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
-use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
@@ -56,10 +65,12 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MadeMutants;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\PartNarrowing;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
@@ -67,6 +78,7 @@ use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\RunExtension;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -80,16 +92,23 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Tests\Fakes\MapEngineFake;
+use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\Described;
+use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
+use NightWorksIO\MutationGate\Tests\Support\JUnitLogs;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\PestCases;
+use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
+use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -105,7 +124,7 @@ it('names Pest, the exact versions it mutates with, and the PHP it runs on', fun
     Scratch::write($at->root(), 'vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
 
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: Described::output()));
-    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
     $withheld = Withheld::of('DEPLOY_*');
 
     expect($pest->identity($withheld))->toEqual(Identity::of(
@@ -126,7 +145,7 @@ it('cannot say which Pest it runs where the PHP it starts does not describe itse
     Scratch::write($at->root(), 'vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'Segmentation fault'));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->identity(Withheld::standard()))->toEqual(CannotJudge::because(
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->identity(Withheld::standard()))->toEqual(CannotJudge::because(
         'The PHP the runner starts could not describe itself, so no proof can be keyed: '
         . "it printed no description of itself:\nSegmentation fault",
     ));
@@ -135,7 +154,7 @@ it('cannot say which Pest it runs where the PHP it starts does not describe itse
 it('cannot say which Pest it runs where Composer installed none', function (): void {
     $at = PestCases::project();
     $shell = ShellFake::answering(Ran::stopped(''));
-    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     expect($pest->identity(Withheld::standard()))->toEqual(CannotJudge::because(sprintf(
         '%s/vendor/composer/installed.json does not list pestphp/pest, pestphp/pest-plugin-mutate, phpunit/phpunit, '
@@ -147,7 +166,7 @@ it('cannot say which Pest it runs where Composer installed none', function (): v
 it('lists the tests of some suites and their groups as Pest lists them into a file of its own', function (): void {
     $at = PestCases::project();
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
-    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     $listing = $pest->listing(Withheld::of('CI_JOB_TOKEN'), Suites::listed('Unit'));
 
@@ -162,7 +181,7 @@ it('lists the tests of some suites and their groups as Pest lists them into a fi
 
 it('lists the tests of each set of suites once', function (): void {
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
-    $pest = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     $pest->listing(Withheld::standard(), Suites::listed('Unit'));
     $pest->listing(Withheld::standard(), Suites::listed('Unit'));
@@ -171,10 +190,57 @@ it('lists the tests of each set of suites once', function (): void {
     expect($shell->commands())->toHaveCount(2);
 });
 
+it('lists several sets of suites side by side, each into a file of its own, as it lists each alone, and each set once', function (): void {
+    $at = PestCases::project();
+    $alone = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $together = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $pest = new Pest($at, $together, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $one = new Pest(PestCases::project(), $alone, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $listed = $pest->listingsStarted(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'))->taken();
+    $again = $pest->listingsStarted(Withheld::standard(), Suites::listed('Process'), Suites::listed('Unit'))->taken();
+
+    expect($listed)->toEqual([
+        $one->listing(Withheld::standard(), Suites::listed('Unit')),
+        $one->listing(Withheld::standard(), Suites::listed('Process')),
+    ])->and($again)->toEqual([$listed[1], $listed[0]])
+        ->and($together->batches())->toBe([2])
+        ->and($together->commands())->toEqual([
+            PestCases::invocation($at)->listing(Withheld::standard(), Suites::listed('Unit'), PestCases::listingFile($at)),
+            PestCases::invocation($at)->listing(
+                Withheld::standard(),
+                Suites::listed('Process'),
+                sprintf('%s/tests-2.xml', dirname(PestCases::listingFile($at))),
+            ),
+        ]);
+});
+
+it('says why it lists a set of suites side by side where an earlier list cannot be removed, and lists the others', function (): void {
+    $at = PestCases::project();
+    mkdir(PestCases::listingFile($at), recursive: true);
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $listed = $pest->listingsStarted(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'))->taken();
+
+    $blocked = PestCases::project();
+    $beside = sprintf('%s/tests-2.xml', dirname(PestCases::listingFile($blocked)));
+    mkdir(PestCases::listingFile($blocked), recursive: true);
+    mkdir($beside, recursive: true);
+    $untouched = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $none = new Pest($blocked, $untouched, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
+        ->listingsStarted(Withheld::standard(), Suites::listed('Unit'), Suites::listed('Process'))
+        ->taken();
+
+    expect($listed[0])->toEqual(Leftover::at(PestCases::listingFile($at)))
+        ->and($listed[1])->toBeInstanceOf(TestListing::class)
+        ->and($shell->batches())->toBe([1])
+        ->and($none)->toEqual([Leftover::at(PestCases::listingFile($blocked)), Leftover::at($beside)])
+        ->and($untouched->batches())->toBe([]);
+});
+
 it('cannot list the tests where Pest fails, or where an earlier list cannot be removed', function (): void {
     $at = PestCases::project();
     $failed = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
-    $pest = new Pest($at, $failed, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, $failed, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
     $blocked = PestCases::project();
     mkdir(PestCases::listingFile($blocked), recursive: true);
     $untouched = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
@@ -183,7 +249,7 @@ it('cannot list the tests where Pest fails, or where an earlier list cannot be r
         "Pest did not list the tests of the suite: %s holds no list of tests. It said:\nbroken",
         PestCases::listingFile($at),
     )))
-        ->and(new Pest($blocked, $untouched, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->listing(Withheld::standard(), Suites::all()))
+        ->and(new Pest($blocked, $untouched, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->listing(Withheld::standard(), Suites::all()))
         ->toEqual(Leftover::at(PestCases::listingFile($blocked)))
         ->and($untouched->commands())->toBe([]);
 });
@@ -204,7 +270,7 @@ it('runs the suite under coverage into a directory it makes, with pcov collectin
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $directory = sprintf('%s/.mutation-gate/coverage', $at->root());
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->coverage($request))->toEqual(CoverageMap::of()
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->coverage($request))->toEqual(CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
         ->timed(TestId::of(PestCases::RUN_ADDS), Seconds::of(0.5))
         ->timed(TestId::of('P\\Tests\\MoneySpec::__pest_evaluable_it_reads_its_rates'), Seconds::of(0.25)))
@@ -217,7 +283,7 @@ it('reads the map a coverage run this job started itself left in a directory, ru
     mkdir(sprintf('%s/build/suite', $at->root()), recursive: true);
     PestCases::map($at->root(), 'build/suite/coverage.php', ['src/Money.php' => [11 => [0]]], [PestCases::RUN_ADDS => 0.5]);
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'not run'));
-    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     expect($pest->coverage(CoverageRan::in(Path::of('build/suite'))))->toEqual(CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
@@ -228,11 +294,23 @@ it('reads the map a coverage run this job started itself left in a directory, ru
         ->and(sprintf('%s/build/none', $at->root()))->not->toBeDirectory();
 });
 
+it('names the report a coverage run this job started left in a directory, in the format it reads, with what it timed beside it', function (): void {
+    $at = PestCases::project();
+    Scratch::write($at->root(), 'build/suite/timed-tests.jsonl', '["P\\\\Tests\\\\MoneyTest::adds",0.5,{"process":1,"firstLoaded":[],"startedProcesses":false}]');
+    $report = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: 'not run')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
+        ->report(CoverageRan::in(Path::of('build/suite')));
+
+    expect($report->file())->toBe(sprintf('%s/build/suite/coverage.php', $at->root()))
+        ->and($report->format())->toBe(Serializer::SERIALIZATION_FORMAT)
+        ->and($report->recorded()->timed())->toEqual([TimedTest::of('P\Tests\MoneyTest::adds', 0.5)])
+        ->and($report->relative(sprintf('%s/src/Money.php', $at->root())))->toEqual(Path::of('src/Money.php'));
+});
+
 it('cannot judge a coverage run that failed, with what Pest said', function (): void {
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'No code coverage driver'));
 
-    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->coverage($request))
+    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->coverage($request))
         ->toEqual(CannotJudge::because("Pest's coverage run failed. Pest said:\nNo code coverage driver"));
 });
 
@@ -242,7 +320,7 @@ it('times a run of no test, started as a mutant\'s own run of a file whose mutan
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: 'No tests found.')->took(Seconds::of(1.8)));
     $copy = sprintf('%s/.mutation-gate/pest/start-up/Money.php', $at->root());
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->startUp(Path::of('src/Money.php'), Withheld::of('DEPLOY_*')))
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->startUp(Path::of('src/Money.php'), Withheld::of('DEPLOY_*')))
         ->toEqual(Seconds::of(1.8))
         ->and($shell->commands())->toEqual([
             PestCases::invocation($at)->startingUp(Withheld::of('DEPLOY_*'), sprintf('%s/src/Money.php', $at->root()), $copy),
@@ -254,7 +332,7 @@ it('cannot judge a run of no test that failed, with what Pest said, or one of a 
     $at = PestCases::project();
     Scratch::write($at->root(), 'src/Money.php', '<?php');
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'Fatal error')->took(Seconds::of(0.4)));
-    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     expect($pest->startUp(Path::of('src/Money.php'), Withheld::standard()))
         ->toEqual(CannotJudge::because("Pest's run of no test, timing a mutant's start-up, failed. Pest said:\nFatal error"))
@@ -269,7 +347,7 @@ it('cannot time a run of no test where an earlier copy cannot be removed', funct
     mkdir($copy, recursive: true);
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->startUp(Path::of('src/Money.php'), Withheld::standard()))
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->startUp(Path::of('src/Money.php'), Withheld::standard()))
         ->toEqual(CannotJudge::because(sprintf('An earlier run left %s, and the gate cannot remove it.', $copy)))
         ->and($shell->commands())->toBe([]);
 });
@@ -279,16 +357,28 @@ it('reads the gate\'s own map another job handed over, running nothing', functio
     $map = CoverageMap::of()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(PestCases::RUN_ADDS));
     PestCases::handedOver($at, 'planned', $map);
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'not run'));
-    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual($map)
         ->and($shell->commands())->toBe([]);
 });
 
+it('reads a handed map with the engine it was given, which may vouch for it, into the same map', function (): void {
+    $at = PestCases::project();
+    $map = CoverageMap::of()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(PestCases::RUN_ADDS));
+    PestCases::handedOver($at, 'planned', $map);
+    $text = Gunzipped::of((string) file_get_contents(sprintf('%s/planned/map.json.gz', $at->root())));
+    $engine = new MapEngineFake([$text]);
+    $pest = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: '')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), maps: $engine);
+
+    expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual($map)
+        ->and($engine->asked)->toBe([$text]);
+});
+
 it('never reads a runner\'s map another job wrote, which is PHP that reading runs', function (): void {
     $at = PestCases::project();
     Scratch::write($at->root(), 'planned/coverage.php', '<?php throw new RuntimeException(\'ran\');');
-    $pest = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: '')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: '')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual(CannotJudge::because(sprintf(
         'The gate wrote no coverage map at %s/planned/map.json.gz, and reads no runner\'s map another job wrote.',
@@ -302,7 +392,7 @@ it('names the tests of a map that some test files hold, by the class Pest declar
     $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
         ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('P\Tests\HeldSpec::__pest_evaluable_it_holds'));
-    $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     expect($pest->testsIn(Paths::of(Path::of('tests/MoneySpec.php')), $map))->toEqual(TestIds::of(TestId::of(PestCases::RUN_ADDS)));
 });
@@ -318,8 +408,8 @@ it('names the test files of a patched run\'s filter, every row it names, a class
     }
 
     $map = $whole->covered(Path::of('src/Other.php'), Line::of(1), TestId::of('P\Tests\HeldSpec::__pest_evaluable_it_holds#dataset "row 0"'));
-    $patched = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::on(Group::named('canary')), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
-    $unpatched = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $patched = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::on(Group::named('canary')), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
+    $unpatched = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
 
     expect($patched->judges(Path::of('src/Money.php'), $map))->toEqual(Paths::of(Path::of('tests/MoneySpec.php')))
         ->and($patched->judges(Path::of('src/Kernel.php'), $map))->toEqual(Paths::of(Path::of('tests/HeldSpec.php'), Path::of('tests/MoneySpec.php')))
@@ -335,7 +425,7 @@ it('names the test files a covering test\'s filter selects, or all when it will 
     $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
         ->covered(Path::of('src/Kernel.php'), Line::of(3), TestId::of($long));
-    $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
     $every = Paths::of(Path::of('tests/HeldSpec.php'), Path::of('tests/MoneySpec.php'));
 
     expect($pest->judges(Path::of('src/Money.php'), $map))->toEqual(Paths::of(Path::of('tests/MoneySpec.php')))
@@ -347,7 +437,7 @@ it('refuses to judge by a filter, which Pest cannot select held tests by', funct
     $shell = ShellFake::answering(Ran::stopped(''));
     $request = MutationRequest::of(Paths::of(Path::of('src/Kernel.php')), Filter::matching('KernelTest'));
 
-    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request))->toEqual(CannotJudge::because(
+    expect(new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request))->toEqual(CannotJudge::because(
         'Pest selects held tests by the holds: groups its plugin adds for #[Holds], not by the filter KernelTest.',
     ))->and($shell->commands())->toBe([]);
 });
@@ -357,11 +447,11 @@ it('mutates with a fresh results file, and reads what the plugin recorded', func
     Scratch::write($at->root(), '.mutation-gate/pest/results.jsonl', 'an earlier run');
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
 
-    $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect(PestCases::untimed($result))->toEqual(MutationResult::of(Mutants::of(PestCases::mutant()), 0))
         ->and($shell->commands())
-        ->toEqual([PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at))]);
+        ->toEqual([PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))]);
 });
 
 it('keeps every PHP process of a capped run to the cap, through an ini file beside the results it removes once done', function (): void {
@@ -375,11 +465,11 @@ it('keeps every PHP process of a capped run to the cap, through an ini file besi
     $capped = PestCases::money()->cappedAt(MemoryCap::standard());
     $directory = MemoryScan::directoryBeside(PestCases::results($at));
 
-    $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($capped);
+    $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($capped);
 
     expect(PestCases::untimed($result))->toEqual(MutationResult::of(Mutants::of(PestCases::mutant()), 0))
         ->and($shell->commands())->toEqual([
-            PestCases::invocation($at)->mutation($capped, WholeSuite::tests(), PestCases::results($at))->with([
+            PestCases::invocation($at)->mutation($capped, WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))->with([
                 MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory),
             ]),
         ])
@@ -392,7 +482,7 @@ it('cannot judge a capped run whose cap cannot be written', function (): void {
     mkdir(sprintf('%s/%s', MemoryScan::directoryBeside(PestCases::results($at)), MemoryCap::FILE), recursive: true);
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money()->cappedAt(MemoryCap::standard())))
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money()->cappedAt(MemoryCap::standard())))
         ->toEqual(CannotJudge::because(sprintf(
             MemoryCap::UNWRITTEN,
             sprintf('%s/%s', MemoryScan::directoryBeside(PestCases::results($at)), MemoryCap::FILE),
@@ -411,10 +501,10 @@ it('puts the likely killers first where the request asks, handing the plugin the
     );
     $request = PestCases::money()->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, $history), MatrixKind::FirstKiller));
 
-    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Order->value => $order]),
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))->with([GateVariable::Order->value => $order]),
     ])->and(Plan::read($order))->toEqual($history)
         ->and(is_file(sprintf('%s/m1/test-run-history', $order)))->toBeFalse();
 });
@@ -426,18 +516,46 @@ it('hands the patched plugin the mutators the request leaves out of its unchange
     $request = PestCases::money()->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->pruning($pruned));
     $list = sprintf('%s.pruned', PestCases::results($at));
 
-    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Pruned->value => $list]),
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))->with([GateVariable::Pruned->value => $list]),
     ])->and(PrunedFile::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), PestCases::RUN_PLUS))->toBeTrue();
+});
+
+it('tells the plugin the part of the test files whose tests judge the request\'s mutants, and nothing of every test file', function (): void {
+    $at = PestCases::project();
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+    $request = PestCases::money()->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->within(PartNarrowing::whole()->inTestPart(TestPart::of(2, 3))));
+
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+    expect($shell->commands())->toEqual([
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))->with([GateVariable::SplitPart->value => '2/3']),
+    ]);
+});
+
+it('tells the plugin the only mutants the request makes, and nothing where it makes every one', function (): void {
+    $at = PestCases::project();
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+    $request = PestCases::money()->narrowedTo(
+        Paths::of(Path::of('src/Money.php')),
+        Narrowing::none()->within(PartNarrowing::whole()->making(MadeMutants::only('n1', 'n9'))),
+    );
+
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+    expect($shell->commands())->toEqual([
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))->with([GateVariable::Only->value => sprintf('%s.only', PestCases::results($at))]),
+    ])->and(file_get_contents(sprintf('%s.only', PestCases::results($at))))->toBe("n1\nn9")
+        ->and([...MadeMutants::every()])->toBe([]);
 });
 
 it('hands a patched plugin\'s mutants to static analysis before their tests, where the gate checks them so, and never an unpatched one\'s', function (): void {
     $told = static function (Patching $patching, PreChecker $checker): array {
         $at = PestCases::project();
         $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
-        new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money(), $checker);
+        new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money(), $checker);
 
         return array_map(
             static fn(Command $command): string => (string) ($command->environment()[GateVariable::Verdicts->value] ?? ''),
@@ -458,7 +576,7 @@ it('cannot judge where an earlier run\'s orders cannot be removed', function ():
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
     $request = PestCases::money()->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, KillHistory::none()), MatrixKind::FirstKiller));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request))->toEqual(CannotJudge::because(sprintf(
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request))->toEqual(CannotJudge::because(sprintf(
         'An earlier run left orders in %s/.mutation-gate/order, and the gate cannot remove them.',
         $at->root(),
     )))->and($shell->commands())->toBe([]);
@@ -470,10 +588,10 @@ it('mutates against a group without reading a shared map', function (): void {
     $held = Group::named('holds:src/Money.php');
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $held)->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($request, $held, PestCases::results($at))->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1']),
+        PestCases::invocation($at)->mutation($request, $held, PestCases::results($at))->with(PestCases::driversOff($at))->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_LONG_FILTER' => 'set', 'MUTATION_GATE_MAKING_SIDE_BY_SIDE' => '1']),
     ]);
 });
 
@@ -485,7 +603,7 @@ it('tells a patched run the start-up the request\'s pool measured, which each mu
         ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')))
         ->across(Pool::single()->startingIn(Seconds::of(2.5)));
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($shell->commands()[0]->environment())->toMatchArray(['MUTATION_GATE_MUTANT_START_UP' => '2.500000']);
 });
@@ -496,7 +614,7 @@ it('tells a patched run where its warm workers share their files, where the requ
         ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
     $told = static function (Patching $patching, Workers $workers) use ($at, $request): array {
         $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
-        new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+        new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
             ->mutate($request->across(Pool::of(ProcessCount::single(), $workers)));
 
         return $shell->commands()[0]->environment();
@@ -521,10 +639,30 @@ it('makes the directory its warm workers share, its owner\'s alone, while Pest r
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'))
         ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')))
         ->across(Pool::of(ProcessCount::single(), Workers::Fork));
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($mode)->toBe(0o700)
         ->and(is_dir($directory))->toBeFalse();
+});
+
+it('takes the handed map as it is, reading no value, under pest.valueReaders: false', function (): void {
+    $at = PestCases::patched();
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
+        ? PestCases::listed($command)
+        : PestCases::killed($command, $at));
+    $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
+    $patching = PestCases::canary()->stepping(PestSteps::of(
+        Toggles::of(Toggle::PestValueReaders, on: false),
+        NarrowedKillTrust::Vouch,
+        LongFilter::Files,
+        Duplicates::JudgeOnce,
+    ));
+    $result = new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+    expect($result instanceof MutationResult ? array_slice(array_map(
+        static fn(StepTime $step): Step => $step->step(),
+        [...$result->steps()],
+    ), 0, 2) : $result)->toBe([Step::Coverage, Step::Mutation]);
 });
 
 it('opens a patched shard on the canary group, with the planning job\'s map written again for its Pest', function (): void {
@@ -537,20 +675,20 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
         return $before === 0 ? PestCases::listed($command) : PestCases::killed($command, $at);
     });
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($result)->toBeInstanceOf(MutationResult::class)
         ->and($result instanceof MutationResult ? array_slice(array_map(
             static fn(StepTime $step): Step => $step->step(),
             [...$result->steps()],
-        ), 0, 2) : [])->toBe([Step::Coverage, Step::Mutation])
+        ), 0, 4) : [])->toBe([Step::Coverage, Step::ValueReaderCoverage, Step::ValueReaders, Step::Mutation])
         ->and($loaded instanceof CoverageFile ? $loaded->map($at) : $loaded)->toEqual(
             CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 11, PestCases::RUN_ADDS))
                 ->timedEach(TimedTest::of(PestCases::RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)),
         )
         ->and($shell->commands())->toEqual([
             PestCases::invocation($at)->listing(Withheld::standard(), Suites::all(), PestCases::listingFile($at)),
-            PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([
+            PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))->with([
                 'MUTATION_GATE_SHARED_COVERAGE' => $written,
                 'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
                 'MUTATION_GATE_CANARY' => 'mutation-canary',
@@ -558,9 +696,67 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
                 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000',
                 'MUTATION_GATE_MUTANT_CAP' => '300.000000',
                 ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()),
-                'MUTATION_GATE_SCHEMATA' => '1',
+                'MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_LONG_FILTER' => 'set', 'MUTATION_GATE_MAKING_SIDE_BY_SIDE' => '1',
             ]),
         ]);
+});
+
+it('opens a patched shard on the map the plan readied, of its own files alone, reading no value again', function (): void {
+    $at = PestCases::patched();
+    PestCases::handedOver($at, 'readied', CoverageMap::of(
+        CoveredLine::of(Path::of('src/Money.php'), 5, 'Tests\B::c'),
+        CoveredLine::of(Path::of('src/Other.php'), 3, 'Tests\B::c'),
+    )->timedEach(TimedTest::of('Tests\B::c', 2.0)));
+    $written = ShardMap::fileFor(PestCases::results($at), PestCases::money()->files());
+    $loaded = null;
+    $shell = new ShellFake(static function (Command $command, int $before) use ($at, $written, &$loaded): Ran {
+        $loaded ??= is_file($written) ? CoverageFile::at($written) : null;
+
+        return $before === 0 ? PestCases::listed($command) : PestCases::killed($command, $at);
+    });
+    $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned'))->openingOn(Path::of('readied')));
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+    expect($result instanceof MutationResult ? array_slice(array_map(
+        static fn(StepTime $step): Step => $step->step(),
+        [...$result->steps()],
+    ), 0, 2) : $result)->toBe([Step::Coverage, Step::Mutation])
+        ->and($loaded instanceof CoverageFile ? $loaded->map($at) : $loaded)->toEqual(
+            CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 5, 'Tests\B::c'))->timedEach(TimedTest::of('Tests\B::c', 2.0)),
+        );
+});
+
+it('readies its own map where the plan left none to open on, and opens on the handed map as it is under pest.valueReaders: false', function (): void {
+    $at = PestCases::patched();
+    PestCases::handedOver($at, 'readied', CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 5, 'Tests\B::c')));
+    $written = ShardMap::fileFor(PestCases::results($at), PestCases::money()->files());
+    $opened = static function (Patching $patching, string $readied) use ($at, $written): array {
+        $loaded = null;
+        $shell = new ShellFake(static function (Command $command, int $before) use ($at, $written, &$loaded): Ran {
+            $loaded ??= is_file($written) ? CoverageFile::at($written) : null;
+
+            return $before === 0 ? PestCases::listed($command) : PestCases::killed($command, $at);
+        });
+        $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned'))->openingOn(Path::of($readied)));
+        $result = new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+        return [
+            $result instanceof MutationResult ? array_slice(array_map(
+                static fn(StepTime $step): Step => $step->step(),
+                [...$result->steps()],
+            ), 0, 2) : [],
+            $loaded instanceof CoverageFile ? count($loaded->map($at)->testsCovering(Path::of('src/Money.php'), Line::of(5), Line::of(5))) : null,
+        ];
+    };
+    $unread = PestCases::canary()->stepping(PestSteps::of(
+        Toggles::of(Toggle::PestValueReaders, on: false),
+        NarrowedKillTrust::Vouch,
+        LongFilter::Files,
+        Duplicates::JudgeOnce,
+    ));
+
+    expect($opened(PestCases::canary(), 'nowhere'))->toBe([[Step::Coverage, Step::ValueReaderCoverage], 0])
+        ->and($opened($unread, 'readied'))->toBe([[Step::Coverage, Step::Mutation], 0]);
 });
 
 it('covers the line of a constant a shard\'s file declares with the tests that read it, in the map written for its Pest', function (): void {
@@ -575,7 +771,7 @@ it('covers the line of a constant a shard\'s file declares with the tests that r
         return $before === 0 ? PestCases::listed($command) : PestCases::killed($command, $at);
     });
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($loaded instanceof CoverageFile ? $loaded->map($at) : $loaded)->toEqual(
         CoverageMap::of(
@@ -592,13 +788,13 @@ it('runs a patched shard\'s canary group again alone where its opening run faile
         : Ran::exited(1, "  Tests:    1 passed (1 assertions)\n"));
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
-    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($result)->toBeInstanceOf(CannotJudge::class)
         ->and($shell->commands())->toHaveCount(3)
         ->and($shell->commands()[2])->toEqual(
             PestCases::invocation($at)
-                ->opening($request, Group::named('mutation-canary'), sprintf('%s.events', PestCases::results($at)))
+                ->opening($request, Group::named('mutation-canary'), sprintf('%s.events', PestCases::results($at)))->with(PestCases::driversOffBeside($at))
                 ->within(Unlimited::time()),
         );
 });
@@ -610,11 +806,11 @@ it('runs the held tests again alone where a patched run against them failed none
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $held)
         ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($shell->commands())->toHaveCount(2)
         ->and($shell->commands()[1])->toEqual(
-            PestCases::invocation($at)->opening($request, $held, sprintf('%s.events', PestCases::results($at)))->within(Unlimited::time()),
+            PestCases::invocation($at)->opening($request, $held, sprintf('%s.events', PestCases::results($at)))->with(PestCases::driversOffBeside($at))->within(Unlimited::time()),
         );
 });
 
@@ -652,7 +848,7 @@ it('cannot judge a run whose plugin wrote no results, and judges no mutant left 
     $at = Unexecutables::project();
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '  Mutations: 1 uncovered'));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())))
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())))
         ->toEqual(CannotJudge::because(sprintf(
             'Pest wrote no results to %s/.mutation-gate/pest/results.jsonl. Is pestphp/pest-plugin allowed to run in composer.json?',
             $at->root(),
@@ -667,7 +863,7 @@ it('cannot judge a patched shard\'s run without the plan\'s whole map', function
         : PestCases::killed($command, $at));
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('whole')));
 
-    expect(new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request))
+    expect(new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request))
         ->toEqual(CoverageMapFile::missingAt($at->absolute(CoverageMapFile::in(Path::of('whole')))));
 });
 
@@ -676,13 +872,13 @@ it('opens a shard on its own suite unpatched, or when it collects its own map', 
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
     $reusing = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
-    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($reusing);
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($reusing);
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation($at)->mutation($reusing, WholeSuite::tests(), PestCases::results($at)),
-        PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at))
-            ->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1']),
+        PestCases::invocation($at)->mutation($reusing, WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at)),
+        PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at))->with(PestCases::driversOff($at))
+            ->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()), 'MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_LONG_FILTER' => 'set', 'MUTATION_GATE_MAKING_SIDE_BY_SIDE' => '1']),
     ]);
 });
 
@@ -690,7 +886,7 @@ it('cannot open a shard on the canary group without the patch applied', function
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
-    expect(new Pest(PestCases::project(), $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request))->toEqual(CannotJudge::because(
+    expect(new Pest(PestCases::project(), $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request))->toEqual(CannotJudge::because(
         'pest.patch is on, but pest-plugin-mutate in vendor is not patched. doctor says how to patch it.',
     ))->and($shell->commands())->toBe([]);
 });
@@ -705,7 +901,7 @@ it('finds Pest, what Composer installed and the patch in the vendor directory th
         1 => Ran::finished(succeeded: true, output: Described::output()),
         default => PestCases::killed($command, $at),
     });
-    $pest = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
+    $pest = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds());
     $invocation = Invocation::of($at);
 
     expect($pest->listing(Withheld::standard(), Suites::all()))->toBeInstanceOf(TestListing::class)
@@ -721,9 +917,9 @@ it('cannot open a shard on a canary group with no test, or one it cannot list', 
     $unlisted = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
     $other = Patching::on(Group::named('canary'));
 
-    expect(new Pest($at, $empty, $other, new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request))
+    expect(new Pest($at, $empty, $other, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request))
         ->toEqual(CannotJudge::because('pest.patch is on, but the canary group canary holds no test. Add one.'))
-        ->and(new Pest($at, $unlisted, $other, new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request))
+        ->and(new Pest($at, $unlisted, $other, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request))
         ->toEqual(CannotJudge::because(sprintf(
             "Pest did not list the tests of the suite: %s holds no list of tests. It said:\nbroken",
             PestCases::listingFile($at),
@@ -739,7 +935,7 @@ it('looks for the canary group among the suites its opening run runs, the holdin
     );
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
 
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
 
     expect($shell->commands()[0] ?? null)->toEqual(
         PestCases::invocation($at)->listing(Withheld::standard(), Suites::listed('Unit', 'Process'), PestCases::listingFile($at)),
@@ -751,30 +947,97 @@ it('cannot open a shard on the canary group without the planning job\'s map', fu
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('absent'), Path::of('absent')));
     $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
 
-    expect(new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request))->toEqual(CannotJudge::because(sprintf(
+    expect(new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request))->toEqual(CannotJudge::because(sprintf(
         'The gate wrote no coverage map at %s/absent/map.json.gz, and reads no runner\'s map another job wrote.',
         $at->root(),
     )));
 });
 
-it('runs each control with its file served unmutated through Pest\'s override', function (): void {
-    $at = PestCases::project();
-    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
-    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
-    $runs = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->controls(PestCases::money(), Controls::of($control));
+it('judges again in a fresh run a mutant of a placed project that its own run left unjudged as it had loaded the file first', function (): void {
+    $patched = PestCases::patched();
+    Scratch::write($patched->root(), 'src/Money.php', sprintf("<?php\n\nfinal class Money\n{\n%s    public function add(int \$a, int \$b): int\n    {\n        return \$a + \$b;\n    }\n}\n", str_repeat("\n", 4)));
+    $at = Project::at($patched->root(), $patched->tests(), Path::of('.mutation-gate'), Path::of('vendor'), new PestPlacements());
+    $shell = new ShellFake(static function (Command $command, int $before) use ($at): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value] ?? '');
 
-    expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::passed(Seconds::of(0.4)));
+        if ($before === 0) {
+            return PestCases::listed($command);
+        }
+
+        if ($results === '') {
+            file_put_contents((string) ($command->environment()[Variable::Guard->value] ?? ''), sprintf("%s\n", Guard::SERVED));
+            JUnitLogs::failing($command->arguments(), 'it adds', 'tests/MoneySpec.php::it adds');
+
+            return Ran::finished(succeeded: false, output: 'FAILED');
+        }
+
+        CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [PestCases::RUN_ADDS], []);
+        PestRun::write($results, [
+            PestRun::planned('n1', sprintf('%s/src/Money.php', $at->root()), 11, PestCases::RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::made(1),
+            PestRun::preloaded('n1'),
+            PestRun::finished('n1', PestStatus::Tested, 0.25),
+            PestRun::end(),
+        ]);
+
+        return Ran::finished(succeeded: true, output: '  Mutations: 1 tested');
+    });
+    $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
+
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+    expect($result instanceof MutationResult ? array_map(static fn(Mutant $mutant): array => [$mutant->status(), array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()])], [...$result->mutants()]) : $result)
+        ->toBe([[MutantStatus::Killed, [PestCases::RUN_ADDS]]])
+        ->and($shell->commands())->toHaveCount(3);
 });
 
-it('runs each control through the client of a warm worker where runner.workers forks the tail under pest.patch', function (Workers $workers, bool $forked): void {
+it('keeps the directory its warm workers share once Pest returns, where a shard\'s chunks keep their workers for the next chunk', function (): void {
     $at = PestCases::project();
-    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
-    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
-    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
-        ->controls(PestCases::money()->across(Pool::of(ProcessCount::single(), $workers)), Controls::of($control));
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'))
+        ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')))
+        ->across(Pool::of(ProcessCount::single(), Workers::Fork));
+    $patching = PestCases::canary()
+        ->working(PestWorkers::of(bootMutants: false))
+        ->working(PestWorkers::of(workerOpcache: false))
+        ->stepping(PestSteps::of(Toggles::standard(), NarrowedKillTrust::Vouch, LongFilter::Files, Duplicates::JudgeOnce, bootChunks: true));
 
-    expect(in_array(OwnScript::PestClient->started()[0], $shell->commands()[0]->arguments(), strict: true))->toBe($forked);
-})->with([
-    'fork' => [Workers::Fork, true],
-    'mutants' => [Workers::Mutants, false],
-]);
+    new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate($request);
+
+    expect(WarmDirectory::beside(PestCases::results($at)))->toBeDirectory();
+});
+
+it('asks the extension its PHP loads for the prover of the run, in the directory of its results', function (): void {
+    $at = PestCases::project();
+    $extension = new class implements RunExtension {
+        /** @var list<string> */
+        public private(set) array $asked = [];
+
+        public function recordsLines(): bool
+        {
+            return false;
+        }
+
+        public function stepFloor(): NotGiven
+        {
+            return NotGiven::value();
+        }
+
+        public function prover(string $directory): NotGiven
+        {
+            $this->asked[] = $directory;
+
+            return NotGiven::value();
+        }
+
+        public function forStreams(bool $recording): NotGiven
+        {
+            return NotGiven::value();
+        }
+    };
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), extension: $extension)->mutate(PestCases::money());
+
+    expect($extension->asked)->toBe([dirname(PestCases::results($at))]);
+});

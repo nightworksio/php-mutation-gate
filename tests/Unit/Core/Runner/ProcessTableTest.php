@@ -69,3 +69,29 @@ it('stops the lowest id that names one process', function (): void {
 it('leaves every id that names no one process out of what it signals', function (): void {
     expect(ProcessTable::killing(1, 101, 0, 2, -1))->toBe(['kill', '-KILL', '101', '2']);
 });
+
+it('kills, after the tree of a process that leads its session, the whole session at once', function (): void {
+    $ran = [];
+
+    ProcessTable::stop(100, static function (array $command) use (&$ran): string {
+        $ran[] = implode(' ', $command);
+
+        return $command === ProcessTable::LISTING ? "100 1\n101 100\n" : '';
+    }, leads: true);
+
+    expect($ran)->toBe([
+        'kill -STOP 100',
+        'ps -A -o pid= -o ppid=',
+        'kill -STOP 101',
+        'ps -A -o pid= -o ppid=',
+        'kill -KILL 101 100',
+        'kill -KILL -- -100',
+    ]);
+});
+
+it('kills every process left of the session a process led, and none by an id that names no one process', function (): void {
+    expect(ProcessTable::ending(100))->toBe(['kill', '-KILL', '--', '-100'])
+        ->and(ProcessTable::ending(2))->toBe(['kill', '-KILL', '--', '-2'])
+        ->and(ProcessTable::ending(1))->toBe(['kill', '-KILL'])
+        ->and(ProcessTable::ending(0))->toBe(['kill', '-KILL']);
+});

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function count;
 
 use DateTimeImmutable;
+use NightWorksIO\MutationGate\Core\Control\ControlTime;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -34,22 +35,25 @@ final class Stopwatch
         return $this->clock->now();
     }
 
-    /** A step that began then and ends now, having handled this many. */
-    public function stop(Step $step, DateTimeImmutable $from, int $count = 1): void
+    /** A step that began then and ends now, having handled this many, and run these controls. */
+    public function stop(Step $step, DateTimeImmutable $from, int $count = 1, ControlTime ...$controls): void
     {
         $this->steps = $this->steps->and(StepTimes::of(StepTime::of(
             $step,
             Seconds::between($this->began, $from),
             Seconds::between($from, $this->clock->now()),
             $count,
-        )));
+        )->controlling(...$controls)));
     }
 
-    /** A step that began then and ends now, having handled this many; no step where it handled none. */
-    public function handled(Step $step, DateTimeImmutable $from, int $count): void
+    /**
+     * A step that began then and ends now, having handled this many, and run
+     * these controls; no step where it handled none.
+     */
+    public function handled(Step $step, DateTimeImmutable $from, int $count, ControlTime ...$controls): void
     {
         if ($count > 0) {
-            $this->stop($step, $from, $count);
+            $this->stop($step, $from, $count, ...$controls);
         }
     }
 

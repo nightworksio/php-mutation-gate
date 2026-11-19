@@ -109,9 +109,9 @@ final readonly class Shape
     {
         $depth = $tokens->enclosing($declaring);
 
-        foreach ($tokens->between($declaring, $tokens->count()) as $at => $token) {
-            if ($tokens->enclosing($at) === $depth && $token->is(['{', ';'])) {
-                return $token->is('{') ? $at : Tokens::NONE;
+        foreach ($tokens->indices($declaring, $tokens->count()) as $at) {
+            if ($tokens->enclosing($at) === $depth && $tokens->is($at, '{', ';')) {
+                return $tokens->is($at, '{') ? $at : Tokens::NONE;
             }
         }
 

@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -34,7 +32,7 @@ it('runs no mutant the gate\'s static analysis rejects before its tests, nor its
     $test = Tree::at(sprintf('%s/tests/LoopedSpec.php', Library::DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/twins/src/Looped.php'), $source);
     copy(Tree::at('tests/Contract/Runner/twins/tests/LoopedSpec.php'), $test);
-    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    Library::patched();
     $checker = new PreCheckerFake([WhileAlwaysFalse::class, TrueToFalse::class]);
 
     try {

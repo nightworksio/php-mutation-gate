@@ -6,12 +6,14 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_filter;
 use function array_key_exists;
+use function array_map;
 use function array_pop;
 use function array_slice;
 use function array_values;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\File\Contents;
 use PhpToken;
 
 /**
@@ -58,6 +60,12 @@ final readonly class TopLevel
     /** @param list<non-empty-list<PhpToken>> $statements */
     private function __construct(private array $statements)
     {
+    }
+
+    /** The statements of a file's code, as {@see of()} reads them from its significant tokens. */
+    public static function read(Contents $contents): self
+    {
+        return self::of(SignificantTokens::of($contents));
     }
 
     /**
@@ -124,6 +132,12 @@ final readonly class TopLevel
         }
 
         return $names;
+    }
+
+    /** Every class, interface, trait, enum and function declared at the top, by its name in the file's namespace. */
+    public function declares(): Names
+    {
+        return Names::of(...array_map($this->scope()->declared(...), $this->declared()));
     }
 
     /** The namespace the file declares, and the names its `use` statements import. */

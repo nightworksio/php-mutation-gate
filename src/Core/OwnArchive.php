@@ -33,6 +33,9 @@ final readonly class OwnArchive
     public const string ALIAS = 'mutation-gate.phar';
 
     /** How PHP opens the archive's root. */
+    /** The lines that load the archive and its autoloader. */
+    private const string LOADED = "%srequire %s;\n";
+
     private const string ROOT = 'phar://%s';
 
     /** How PHP names a file inside an archive, before the archive's own path. */
@@ -102,6 +105,12 @@ final readonly class OwnArchive
     public function autoloader(): string
     {
         return sprintf(self::INSIDE, self::ALIAS, self::AUTOLOADER);
+    }
+
+    /** The lines of a script PHP prepends that load the archive, then its autoloader. */
+    public function loadingWithAutoloader(): string
+    {
+        return sprintf(self::LOADED, $this->loading(), var_export($this->autoloader(), return: true));
     }
 
     /** One of the gate's own scripts, in the archive, as PHP opens it. */

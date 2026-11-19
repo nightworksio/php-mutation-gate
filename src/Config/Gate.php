@@ -83,7 +83,7 @@ final readonly class Gate
         return $this->set('treeSource', $source->written());
     }
 
-    /** `trees`: every tree, in place of those the tree source would find. */
+    /** `trees`: laid over the tree source's trees, each listed path taking its floor, reason and exclude from here. */
     public function trees(Tree ...$trees): self
     {
         return $this->set('trees', $this->each($trees, static fn(Tree $tree): Json => $tree->written()));

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function getmypid;
 use function sprintf;
 
 /**
@@ -17,9 +18,17 @@ final readonly class Staged
 {
     private const string WRITING = '%s.writing';
 
+    private const string BY = '%s.writing.%d';
+
     /** The name the file is written under before it is moved to its own. */
     public static function beside(string $file): string
     {
         return sprintf(self::WRITING, $file);
+    }
+
+    /** The name this process writes the file under, apart from any other process writing it at once. */
+    public static function byThisProcess(string $file): string
+    {
+        return sprintf(self::BY, $file, getmypid());
     }
 }

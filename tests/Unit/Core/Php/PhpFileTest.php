@@ -165,7 +165,13 @@ describe('PhpFile', function (): void {
         'at its name' => ["<?php\nconst LIMIT", []],
         'at its =' => ["<?php\nconst LIMIT =", ['limit']],
         'at define(' => ["<?php\n\$set = true;\ndefine(", []],
+        'at define(\'NAME\'' => ["<?php\ndefine('NAME'", ['name']],
     ]);
+
+    it('names no constant a define() is given without a quoted name, or that a word other than define is given', function (): void {
+        expect(PhpFile::read(Contents::of("<?php\ndefine(\$name, 1);\nDEFINE('UPPER', 2);\ndefined('ASKED');\ndefine ('SPACED', 3);\n"))->constants()->all())
+            ->toBe(['upper', 'spaced']);
+    });
 
     it('mentions every name a class and a function imported under one alias stand for', function (): void {
         $file = PhpFile::read(Contents::of("<?php\nnamespace Billing;\n\nuse App\\{Equals};\nuse function Lib\\equals;\n\nfinal class Money\n{\n    use Equals;\n}\n"));

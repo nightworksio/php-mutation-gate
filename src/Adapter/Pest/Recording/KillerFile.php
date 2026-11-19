@@ -19,6 +19,7 @@ use function json_decode;
 use function json_encode;
 use function json_validate;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Noted;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\WholeNumber;
@@ -80,10 +81,27 @@ final readonly class KillerFile
         return sprintf(self::FILE, $results, '*');
     }
 
+    /** The line that says a split stream judged the mutant, against its own unmutated stream (ADR-0117). */
+    public static function streamed(): string
+    {
+        return self::marked(RecordEvent::Streamed);
+    }
+
     /** The line that says the process had loaded the original file before the mutant was in place. */
     public static function preloaded(): string
     {
-        return sprintf('%s%s', RecordEvent::Preloaded->value, self::LINE);
+        return self::marked(RecordEvent::Preloaded);
+    }
+
+    /**
+     * The line that marks the mutant with an event alone: that a split
+     * stream judged it, that its process had loaded the original file first,
+     * or how much of its covering tests the run's part of the test files
+     * holds (ADR-0117).
+     */
+    public static function marked(RecordEvent $event): string
+    {
+        return sprintf('%s%s', $event->value, self::LINE);
     }
 
     /**
@@ -146,14 +164,18 @@ final readonly class KillerFile
      */
     public static function taken(string $file, string $mutated): array
     {
-        $text = is_file($file) ? file_get_contents($file) : false;
+        $noted = Noted::taken($file);
+        $written = is_file($file) ? file_get_contents($file) : false;
 
-        if ($text === false) {
+        if ($written === false && $noted === '') {
             return [];
         }
 
-        unlink($file);
-        $lines = explode(self::LINE, $text);
+        if ($written !== false) {
+            unlink($file);
+        }
+
+        $lines = explode(self::LINE, sprintf('%s%s', $noted, $written === false ? '' : $written));
         array_pop($lines);
 
         return array_merge(...array_map(static fn(string $line): array => self::recordOf($line, $mutated), $lines));
@@ -171,10 +193,16 @@ final readonly class KillerFile
         $where = Placed::read(implode(self::SEPARATOR, array_slice($fields, 2)));
         $named = rawurldecode($test);
 
-        return match (RecordEvent::tryFrom($fields[0])) {
+        $event = RecordEvent::tryFrom($fields[0]);
+
+        return match ($event) {
             RecordEvent::Killed => $where instanceof Placed ? [RecordLine::killed($mutated, $named, $where)] : [],
             RecordEvent::Errored => $where instanceof Placed ? [RecordLine::errored($mutated, $named, $where)] : [],
-            RecordEvent::Preloaded => [RecordLine::preloaded($mutated)],
+            RecordEvent::Preloaded,
+            RecordEvent::Streamed,
+            RecordEvent::Unreached,
+            RecordEvent::OwnedPart,
+            RecordEvent::OtherPart => [RecordLine::marked($mutated, $event)],
             RecordEvent::Ran => WholeNumber::isDigits($test) ? [RecordLine::ran($mutated, (int) $test)] : [],
             RecordEvent::Arguments => self::startedWith($mutated, $named),
             RecordEvent::Ordered => self::orderedOf($mutated, $test, implode(self::SEPARATOR, array_slice($fields, 2))),

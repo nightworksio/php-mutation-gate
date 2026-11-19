@@ -14,7 +14,7 @@ final readonly class Started
 {
     public static function command(ProcessCommand $command): Running
     {
-        $running = Running::start($command, 0, WorkerSlot::alone(), 0.0);
+        $running = Running::start($command, 0, WorkerSlot::alone(), 0.0, INF);
 
         if (! $running instanceof Running) {
             throw new LogicException('The command did not start.');

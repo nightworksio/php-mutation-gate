@@ -88,9 +88,9 @@ it('observes the config, the runner, the trees, .gitignore, the Infection config
     Scratch::write($project, 'infection.json5', '{minMsi: 80, initialTestsPhpOptions: "-d memory_limit=1G"}');
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], ['extension_dir' => '/nowhere']));
     $observed = Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing());
-    $trees = $observed->trees();
+    $trees = $observed->config()->trees();
 
-    expect($observed->settings())->toBeInstanceOf(Settings::class)
+    expect($observed->config()->settings())->toBeInstanceOf(Settings::class)
         ->and($observed->runners())->toEqual(InstalledRunners::of(pest: false, infection: true, chosen: false)
             ->releasing(RunnerReleases::of(BuiltinRunner::Infection, sprintf('%s/vendor/composer/installed.json', $project))))
         ->and($trees instanceof Trees ? array_map(static fn(Tree $tree): string => $tree->path()->value(), [...$trees]) : [])->toBe(['src'])
@@ -254,8 +254,8 @@ it('observes no markers where the chosen runner cannot be built, and nothing of 
 
     $observed = Doctored::observed($project, $php)->of(CommandLine::nothing());
 
-    expect($observed->settings())->toBeInstanceOf(Settings::class)
-        ->and($observed->trees())->toBeInstanceOf(Trees::class)
+    expect($observed->config()->settings())->toBeInstanceOf(Settings::class)
+        ->and($observed->config()->trees())->toBeInstanceOf(Trees::class)
         ->and($observed->markers())->toEqual(NotGiven::value())
         ->and($bareObserved->files()->composer())->toEqual(NotGiven::value());
 })->group(...$holds);
@@ -266,11 +266,11 @@ it('observes the trees the config lays over the source\'s, and why there are non
     $unbuilt = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($unbuilt, 'mutation-gate.json', '{"treeSource": "\\\\Acme\\\\Missing"}');
     $php = sprintf('%s/php', FakePhp::printing(Described::output(['pcov' => '1.0.12'], [])));
-    $trees = Doctored::observed($project, $php)->of(CommandLine::nothing())->trees();
+    $trees = Doctored::observed($project, $php)->of(CommandLine::nothing())->config()->trees();
 
     expect($trees instanceof Trees ? array_map(static fn(Tree $tree): mixed => $tree->declared(), [...$trees]) : $trees)
         ->toEqual([Floor::of(60)])
-        ->and(Doctored::observed($unbuilt, $php)->of(CommandLine::nothing())->trees())
+        ->and(Doctored::observed($unbuilt, $php)->of(CommandLine::nothing())->config()->trees())
         ->not->toBeInstanceOf(Trees::class);
 })->group(...$holds);
 
@@ -281,8 +281,8 @@ it('observes both runners left to choose, and no trees where the config cannot b
 
     expect($observed->runners())->toEqual(InstalledRunners::of(pest: true, infection: true, chosen: false)
         ->withPestMutate(Version::of('pestphp/pest-plugin-mutate', '', '')))
-        ->and($observed->settings())->toBeInstanceOf(CannotJudge::class)
-        ->and($observed->trees())->toEqual(NotGiven::value())
+        ->and($observed->config()->settings())->toBeInstanceOf(CannotJudge::class)
+        ->and($observed->config()->trees())->toEqual(NotGiven::value())
         ->and($observed->files()->infection())->toEqual(NotGiven::value())
         ->and($observed->files()->gitIgnore() instanceof GitIgnore && $observed->files()->gitIgnore()->names(Path::of('.mutation-gate')))->toBeFalse()
         ->and(trim((string) file_get_contents(sprintf('%s/arguments.txt', $php))))->toBe(sprintf('-r %s', Platform::describing()[1]));

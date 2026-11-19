@@ -6,10 +6,12 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Heat\FunctionSpans;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
@@ -45,8 +47,13 @@ final readonly class Recordings
      *
      * @return list<array{UnitResult, Proof|NotRecorded}>
      */
-    public static function of(Plan $plan, UnitResults $fresh, Run $run, Directory $project): array
-    {
+    public static function of(
+        Plan $plan,
+        UnitResults $fresh,
+        Run $run,
+        Directory $project,
+        CoverageMap|CannotJudge|NotGiven $map,
+    ): array {
         $recordings = [];
         $pruned = $plan->considered()->pruned()->files();
 
@@ -60,7 +67,7 @@ final readonly class Recordings
                     $result->mutants(),
                     $result->flaky(),
                     $run,
-                    self::inputsOf($plan, $result),
+                    self::inputsOf($plan, $result, $map),
                 );
             $recordings[] = [
                 $result,
@@ -88,21 +95,26 @@ final readonly class Recordings
 
     /**
      * What a proof of a unit records of its inputs: its share of the plan's
-     * digests, with each test file that killed one of its mutants, where the
-     * plan names the test.
+     * digests, with each test file that killed one of its mutants or covers
+     * its file, where the plan names the test, so pruning carries it only
+     * while each reads as it did (ADR-0108).
      */
-    private static function inputsOf(Plan $plan, UnitResult $result): Inputs|Undigested
-    {
+    private static function inputsOf(
+        Plan $plan,
+        UnitResult $result,
+        CoverageMap|CannotJudge|NotGiven $map,
+    ): Inputs|Undigested {
         $digests = $plan->digests();
-        $killers = [];
+        $path = $result->unit()->path();
+        $tests = $map instanceof CoverageMap ? [...$map->testsCoveringFile($path)] : [];
 
         foreach ($result->mutants() as $mutant) {
-            $killers = $mutant->status() === MutantStatus::Killed ? [...$killers, ...$mutant->killers()] : $killers;
+            $tests = $mutant->status() === MutantStatus::Killed ? [...$tests, ...$mutant->killers()] : $tests;
         }
 
-        $files = self::filesOf(TestIds::of(...$killers), $plan->names());
+        $files = self::filesOf(TestIds::of(...$tests), $plan->names());
 
-        return $digests instanceof Digests ? $digests->inputsOf($result->unit()->path(), $files) : $digests;
+        return $digests instanceof Digests ? $digests->inputsOf($path, $files) : $digests;
     }
 
     /** The test files these tests are in, where their names say. */

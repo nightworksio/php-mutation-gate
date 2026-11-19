@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
+use NightWorksIO\MutationGate\Cli\Flow\CoverageEntries;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
@@ -12,6 +14,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
+use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
@@ -19,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
+use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
@@ -34,6 +38,7 @@ use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Hold\MeasuredHolds;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
@@ -55,8 +60,11 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\ProofEntry;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
@@ -68,6 +76,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -77,8 +86,10 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -89,9 +100,11 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
+use NightWorksIO\MutationGate\Tests\Fakes\KeepsProofsFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ServedStateFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -99,6 +112,7 @@ use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\NamesAsked;
+use NightWorksIO\MutationGate\Tests\Support\OutbreakStandIn;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -278,8 +292,8 @@ it('briefs every shard and the verdict that a run narrowed to the security mutat
     $secured = $plan(Flows::project(), Mode::full(), Cut::exactly(2), Narrowing::none()->toMutators(Mutators::named('security/HashEqualsToTrue')));
     $whole = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
 
-    expect($secured instanceof Plan ? $secured->briefing()->isSecurityOnly() : $secured)->toBeTrue()
-        ->and($whole instanceof Plan ? $whole->briefing()->isSecurityOnly() : $whole)->toBeFalse()
+    expect($secured instanceof Plan ? $secured->briefing()->profile()->isSecurityOnly() : $secured)->toBeTrue()
+        ->and($whole instanceof Plan ? $whole->briefing()->profile()->isSecurityOnly() : $whole)->toBeFalse()
         ->and($secured instanceof Plan && $whole instanceof Plan ? $secured->base() : $secured)
         ->not->toEqual($whole instanceof Plan ? $whole->base() : $whole);
 });
@@ -291,7 +305,7 @@ it('briefs every shard and the verdict that a run narrowed to one suite runs its
     $suited = $plan(Flows::project(), Mode::full(), Cut::exactly(2), $runner, Narrowing::none()->toSuite(SuiteName::of('unit')));
     $whole = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
 
-    expect($suited instanceof Plan ? $suited->briefing()->suite() : $suited)->toEqual(SuiteName::of('unit'))
+    expect($suited instanceof Plan ? $suited->briefing()->profile()->suite() : $suited)->toEqual(SuiteName::of('unit'))
         ->and($runner->ran()[0]->suites())->toEqual(Suites::named(SuiteName::of('unit')))
         ->and($runner->ran()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
         ->and($suited instanceof Plan && $whole instanceof Plan ? $suited->base() : $suited)
@@ -342,6 +356,26 @@ it('hands each shard the kill history the ledgers learned, which enters no key a
         ->toEqual($cold instanceof Plan ? $cold->keys() : $cold);
 });
 
+it('keys every unit by the whole timeouts.multiple it learned, where the config learns one', function () use ($coverage): void {
+    $keys = static function (float $kill) use ($coverage): Keys|CannotJudge {
+        $store = new ProofStoreFake();
+        $store->write(Scope::branch('main'), Ledger::empty()->withLearned(
+            LimitHistory::none()->afterKills(Multiple::of($kill)),
+        ));
+        $planned = Planned::from(new Planning(
+            Flows::adapters(Flows::project(), [], $store),
+            Flows::settings(Timeouts::learnedMultiple()),
+            Flows::setup(),
+        )->plan(Mode::full(), $coverage(), Cut::exactly(2), MatrixKind::FirstKiller));
+
+        return $planned instanceof Plan ? $planned->keys() : $planned;
+    };
+
+    expect($keys(4.2))->toBeInstanceOf(Keys::class)
+        ->and($keys(4.2))->toEqual($keys(4.9))
+        ->and($keys(4.2))->not->toEqual($keys(5.1));
+});
+
 it('names the coverage map\'s tests once, withholding what every process withholds, outside keys and digest', function () use (
     $plan,
 ): void {
@@ -351,7 +385,7 @@ it('names the coverage map\'s tests once, withholding what every process withhol
     $withoutNames = $plan(Flows::project(), Mode::full(), Cut::exactly(2), $unnamed);
     $tests = Flows::map()->tests();
 
-    expect($named->asked())->toEqual([[$tests, Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN'))]])
+    expect(array_slice($named->asked(), -1))->toEqual([[$tests, Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN'))]])
         ->and($withNames instanceof Plan ? $withNames->names() : $withNames)
         ->toEqual(RunnerFake::ofTheFixture()->names($tests, Withheld::nothing()))
         ->and($withoutNames instanceof Plan ? $withoutNames->names() : $withoutNames)
@@ -362,7 +396,7 @@ it('names the coverage map\'s tests once, withholding what every process withhol
         ->toEqual($withoutNames instanceof Plan ? $withoutNames->keys() : $withoutNames);
 });
 
-it('says of each shard what its estimate rests on, and that its runner opens on the coverage run\'s tests', function () use (
+it('says of each shard what its estimate rests on, and that a runner opening each shard opens on the coverage run\'s tests', function () use (
     $plan,
 ): void {
     $store = new ProofStoreFake();
@@ -373,17 +407,22 @@ it('says of each shard what its estimate rests on, and that its runner opens on 
                 ->measuredBy(GateRelease::of(Flows::setup()->gate)),
         )),
     );
-    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $store, new CostModelFake(Seconds::of(8.0)));
-    $estimates = array_map(
-        static fn(Shard $shard): array => [
-            $shard->estimate()->part(CostBasis::Learned),
-            $shard->estimate()->part(CostBasis::Guessed),
-            $shard->estimate()->openingRun(),
-        ],
-        $planned instanceof Plan ? [...$planned] : [],
-    );
+    $estimates = static function (RunnerFake $runner) use ($plan, $store): array {
+        $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $store, new CostModelFake(Seconds::of(8.0)), $runner);
 
-    expect($estimates)->toEqual([[Seconds::of(50.0), Seconds::of(8.0), Seconds::of(0.2)]]);
+        return array_map(
+            static fn(Shard $shard): array => [
+                $shard->estimate()->part(CostBasis::Learned),
+                $shard->estimate()->part(CostBasis::Guessed),
+                $shard->estimate()->openingRun(),
+            ],
+            $planned instanceof Plan ? [...$planned] : [],
+        );
+    };
+
+    expect($estimates(RunnerFake::ofTheFixture()->behaving(RunnerBehaviour::standard()->openingEachShard())))
+        ->toEqual([[Seconds::of(50.0), Seconds::of(8.0), Seconds::of(0.2)]])
+        ->and($estimates(RunnerFake::ofTheFixture()))->toEqual([[Seconds::of(50.0), Seconds::of(8.0), Seconds::none()]]);
 });
 
 it('estimates a unit no shard timed by what it measured of the first run, counting with the engine', function () use (
@@ -402,11 +441,11 @@ it('estimates a unit no shard timed by what it measured of the first run, counti
         $planned instanceof Plan ? [...$planned] : [],
     );
 
-    // The fake runner starts a run of no test in 1.5 s and runs one mutant at a time.
-    expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(1.7), Seconds::of(0.0)]]);
+    // The fake runner starts a run of no test in 1.5 s and runs one mutant at a time; a shard takes 2.5 times that.
+    expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(4.25), Seconds::of(0.0)]]);
 });
 
-it('counts nothing and starts no run of no test where every unit to run is timed', function () use ($plan): void {
+it('counts nothing where every unit to run is timed, and starts only the runs of no test that measure the shards\' start-up', function () use ($plan): void {
     $store = new ProofStoreFake();
     $at = Moment::at('2026-09-30T10:00:00Z');
     $store->write(
@@ -420,7 +459,7 @@ it('counts nothing and starts no run of no test where every unit to run is timed
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner, $store, Engine::with(new PlusToMinus()));
 
     expect($planned)->toBeInstanceOf(Plan::class)
-        ->and($runner->startedUp())->toBe([])
+        ->and($runner->startedUp())->toHaveCount(StartUpSamples::STANDARD)
         ->and($planned instanceof Plan ? [...$planned][0]->estimate()->part(CostBasis::Learned) : $planned)
         ->toEqual(Seconds::of(80.0));
 });
@@ -442,7 +481,7 @@ it('learns nothing from a timing another release of the gate measured, or one no
     $estimate = $planned instanceof Plan ? [...$planned][0]->estimate() : null;
 
     expect($estimate?->part(CostBasis::Learned))->toEqual(Seconds::of(0.0))
-        ->and($estimate?->part(CostBasis::Measured))->toEqual(Seconds::of(1.7))
+        ->and($estimate?->part(CostBasis::Measured))->toEqual(Seconds::of(4.25))
         ->and($runner->startedUp())->not->toBe([]);
 });
 
@@ -518,15 +557,25 @@ it('cannot plan where it cannot leave the whole map', function () use ($plan): v
     ));
 });
 
+it('measures the held units\' holding tests once, into the plan every shard reads', function () use ($plan): void {
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
+    $held = $planned instanceof Plan ? $planned->briefing()->held() : $planned;
+
+    expect($held instanceof MeasuredHolds ? iterator_to_array($held, preserve_keys: true) : $held)
+        ->toEqual(['src/Held.php' => TestIds::of(TestId::of('HeldTest::doubles'))]);
+});
+
 it('asks for coverage withholding what every process that runs the project\'s code withholds', function () use (
     $plan,
 ): void {
     $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::of());
     $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner);
 
-    expect($runner->asked())->toHaveCount(1)
+    expect($runner->asked())->toHaveCount(2)
         ->and($runner->ran()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
-        ->and($runner->ran()[0]->tests())->toEqual(WholeSuite::tests());
+        ->and($runner->ran()[0]->tests())->toEqual(WholeSuite::tests())
+        ->and($runner->ran()[1]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
+        ->and($runner->ran()[1]->tests())->toEqual(Group::named('holds:src/Held.php'));
 });
 
 it('weighs each unit by what the cost model expects of it, with what the ledgers learned', function () use (
@@ -630,11 +679,11 @@ it('proves and carries a run that records every killer only from proofs whose ru
     expect($shards($fromFirst))->toEqual([1 => [$money, $held]])
         ->and($fromFirst instanceof Plan ? $fromFirst->considered()->proved() : $fromFirst)->toEqual(Units::none())
         ->and($fromFirst instanceof Plan ? $fromFirst->considered()->carried() : $fromFirst)->toEqual(Units::none())
-        ->and($fromFirst instanceof Plan ? $fromFirst->briefing()->matrix() : $fromFirst)->toBe(MatrixKind::Full)
+        ->and($fromFirst instanceof Plan ? $fromFirst->briefing()->profile()->matrix() : $fromFirst)->toBe(MatrixKind::Full)
         ->and($fromFull instanceof Plan ? $fromFull->considered()->proved() : $fromFull)->toEqual(Units::of($money))
         ->and($fromFull instanceof Plan ? $fromFull->considered()->carried() : $fromFull)->toEqual(Units::of($held))
         ->and($firstFromFull instanceof Plan ? $firstFromFull->considered()->proved() : $firstFromFull)->toEqual(Units::of($money))
-        ->and($firstFromFull instanceof Plan ? $firstFromFull->briefing()->matrix() : $firstFromFull)->toBe(MatrixKind::FirstKiller);
+        ->and($firstFromFull instanceof Plan ? $firstFromFull->briefing()->profile()->matrix() : $firstFromFull)->toBe(MatrixKind::FirstKiller);
 });
 
 it('refuses a run that records every killer under a runner that cannot, and plans one that records first killers', function () use (
@@ -783,7 +832,7 @@ it('cannot plan where the runner cannot look for its own ignore markers', functi
         ->toEqual(CannotJudge::because('infection.json5 cannot be read.'));
 });
 
-it('cuts to a target wall time counting the coverage run\'s tests as each shard\'s opening run', function (
+it('cuts to a target wall time counting the coverage run\'s tests as the opening run of each shard a runner opens', function (
     float $opening,
     int $count,
 ) use ($plan): void {
@@ -792,7 +841,7 @@ it('cuts to a target wall time counting the coverage run\'s tests as each shard\
         Flows::project(),
         Mode::full(),
         Cut::toTarget(Seconds::of(17.0), Seconds::of(0.0), 20),
-        new CoverageAsked(RunnerFake::ofTheFixture(), $map),
+        new CoverageAsked(RunnerFake::ofTheFixture()->behaving(RunnerBehaviour::standard()->openingEachShard()), $map),
         new CostModelFake(Seconds::of(8.0)),
     );
 
@@ -907,7 +956,7 @@ it('keys the project\'s coverage entries once a plan, for measuring against the 
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner, $store);
 
     expect($planned)->toBeInstanceOf(Plan::class)
-        ->and($runner->identified())->toHaveCount(2);
+        ->and($runner->identified())->toHaveCount(4);
 });
 
 it('briefs a plan measured against the map its own scope keeps as such, and one measured against the default branch\'s as not', function (
@@ -923,7 +972,7 @@ it('briefs a plan measured against the map its own scope keeps as such, and one 
     $store = new ProofStoreFake();
     $adapters = Flows::adapters($project, [], $store, $checkout);
     $kept = new KeptCoverage($adapters, Flows::settings(), Flows::setup());
-    $keys = KeptCoverage::keysOf($kept->entries(Inventory::of($adapters, Flows::settings())), Flows::map());
+    $keys = CoverageEntries::keysOver($kept->entries(Inventory::of($adapters, Flows::settings())), Flows::map());
     $bytes = CoverageMapFile::encode(
         Flows::map(),
         MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false),
@@ -936,3 +985,20 @@ it('briefs a plan measured against the map its own scope keeps as such, and one 
 
     expect($planned instanceof Plan ? $planned->briefing()->isOnOwnScopeCoverage() : $planned)->toBe($own);
 })->with(['its own scope\'s map' => [true], 'the default branch\'s map' => [false]]);
+
+it('proves a unit by the proof outbreak serve keeps under its key where no ledger holds one', function () use ($makeMoney): void {
+    $project = Flows::project();
+    $first = Planned::from(new Planning(Flows::adapters($project), Flows::settings(), Flows::setup())
+        ->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller));
+    $key = $first instanceof Plan ? $first->keys()->keyOf(Path::of('src/Money.php')) : $first;
+    $state = KeepsProofsFake::running();
+    $run = Run::of('kept', Instant::at(new DateTimeImmutable('2026-11-01T00:00:00Z')), $first instanceof Plan ? $first->base() : Digest::sha256Of('base'));
+    $state->kept($key instanceof Digest ? [$key->value() => ProofEntry::text(Proof::of($key, Path::of('src/Money.php'), Mutants::none(), $run))] : []);
+    $engine = Outbreak::at(OutbreakStandIn::answering('{"outbreak":1,"vouched":true}')->binary(), $project)->servedBy(new ServedStateFake($state));
+
+    $planned = Planned::from(new Planning(Flows::adapters($project, [], $engine), Flows::settings(), Flows::setup())
+        ->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller));
+
+    expect($key)->toBeInstanceOf(Digest::class)
+        ->and($planned instanceof Plan ? [...$planned->considered()->proved()] : $planned)->toEqual([$makeMoney()]);
+});

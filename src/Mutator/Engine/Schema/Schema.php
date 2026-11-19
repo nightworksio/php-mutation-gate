@@ -8,6 +8,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use PhpParser\Error;
+use PhpParser\Node;
 use PhpParser\ParserFactory;
 
 /**
@@ -28,12 +29,12 @@ final readonly class Schema
     }
 
     /** The schema of a file's code with these sites, each switch this call, `%d` where it takes the site's id. */
-    public static function of(string $source, string $switch, Site ...$sites): self
+    public static function of(string $source, SwitchCall $switch, Site ...$sites): self
     {
         $placed = [];
 
         foreach ($sites as $site) {
-            $kind = Placement::of($site);
+            $kind = self::kindOf($site, $switch);
             $mutated = $kind instanceof SiteKind ? OneLine::of($site->replacement(), $kind) : NotGiven::value();
 
             if ($kind instanceof SiteKind && ! $mutated instanceof NotGiven) {
@@ -63,6 +64,24 @@ final readonly class Schema
     public function isEmpty(): bool
     {
         return $this->switched === [];
+    }
+
+    /**
+     * Where a site takes its place: as Placement says, and a pure expression
+     * by a call that takes both values, where the switches ask for one.
+     */
+    private static function kindOf(Site $site, SwitchCall $switch): SiteKind|NotGiven
+    {
+        $kind = Placement::of($site);
+        $replacement = $site->replacement();
+
+        return $kind === SiteKind::Expression
+            && $switch->values()
+            && $replacement instanceof Node
+            && PureExpression::is($site->original())
+            && PureExpression::is($replacement)
+            ? SiteKind::Value
+            : $kind;
     }
 
     private static function parses(string $text): bool

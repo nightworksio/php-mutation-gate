@@ -47,7 +47,7 @@ it('appends the shards, by id and label, to the file GitHub reads a step\'s outp
     expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()->jobs()))->toEqual(Publication::appended(
         GITHUB_OUTPUT,
         sprintf(
-            "shards=%s\nplan=%s\nstands=false\n",
+            "shards=%s\nplan=%s\nstands=false\npulls=false\nwaits=false\nearly=false\n",
             '[{"id":1,"label":"src, part 1 of 2"},{"id":2,"label":"src, part 2 of 2"}]',
             PlanListing::inline($plan),
         ),
@@ -62,7 +62,7 @@ it('writes a label as it is, slashes and all', function (): void {
     $published = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()->jobs());
 
     expect($published instanceof Publication ? $published->text() : $published)->toBe(sprintf(
-        "shards=[{\"id\":1,\"label\":\"src/Http, part 1 of 2 — naïve\"}]\nplan=%s\nstands=false\n",
+        "shards=[{\"id\":1,\"label\":\"src/Http, part 1 of 2 — naïve\"}]\nplan=%s\nstands=false\npulls=false\nwaits=false\nearly=false\n",
         PlanListing::inline($plan),
     ));
 });
@@ -83,7 +83,7 @@ it('hands a matrix nothing to run for a plan with no shards', function (): void 
     $plan = ShardedPlan::of(0);
 
     expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()->jobs()))
-        ->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\nstands=false\n", PlanListing::inline($plan))));
+        ->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\nstands=false\npulls=false\nwaits=false\nearly=false\n", PlanListing::inline($plan))));
 });
 
 it('says the verdict stands for a plan that runs nothing because a commit that passed stands, so the verdict reads no shard and no map', function (StandsBecause $because): void {
@@ -91,7 +91,7 @@ it('says the verdict stands for a plan that runs nothing because a commit that p
     $plan = ShardedPlan::of(0)->briefed(Briefing::standard()->unchangedSince(Unchanged::standing($because, $passed, Instant::at(new DateTimeImmutable('2026-11-02T12:43:14Z')))));
 
     expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()->jobs()))
-        ->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\nstands=true\n", PlanListing::inline($plan))));
+        ->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\nstands=true\npulls=false\nwaits=false\nearly=false\n", PlanListing::inline($plan))));
 })->with([
     'nothing judged changed' => [StandsBecause::NothingJudgedChanged],
     'nothing reached' => [StandsBecause::NothingReached],
@@ -257,7 +257,7 @@ it('reads the output file from the environment', function (): void {
     $published = GitHubPlan::fromOptions(Options::none())->publish($plan, GateCommand::installed()->jobs());
     putenv($before === false ? 'GITHUB_OUTPUT' : sprintf('GITHUB_OUTPUT=%s', $before));
 
-    expect($published)->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\nstands=false\n", PlanListing::inline($plan))));
+    expect($published)->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\nstands=false\npulls=false\nwaits=false\nearly=false\n", PlanListing::inline($plan))));
 });
 
 it('withholds the Actions runtime\'s credentials and the workflow\'s token', function (): void {

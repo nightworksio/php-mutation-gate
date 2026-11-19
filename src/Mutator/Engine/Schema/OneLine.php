@@ -46,7 +46,8 @@ final readonly class OneLine
         $printer = new Standard();
 
         return match (true) {
-            $kind === SiteKind::Expression && $replacement instanceof Expr => $printer->prettyPrintExpr($replacement),
+            ($kind === SiteKind::Expression || $kind === SiteKind::Value) && $replacement instanceof Expr
+                => $printer->prettyPrintExpr($replacement),
             $kind === SiteKind::Statement && $replacement instanceof Stmt => $printer->prettyPrint([$replacement]),
             $kind === SiteKind::ArrayItem && $replacement instanceof ArrayItem => self::item($printer, $replacement),
             default => NotGiven::value(),

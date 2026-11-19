@@ -5,12 +5,14 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Pest\StartsCommands;
 use NightWorksIO\MutationGate\Adapter\Pest\TailShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\PidFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
+use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\OwnScript;
@@ -18,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
@@ -27,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
+use NightWorksIO\MutationGate\Tests\Support\SideBySideShell;
 
 $holds = ['holds:src/Adapter/Pest/TailShell.php', 'holds:src/Adapter/Pest/Warm/Pool.php'];
 
@@ -100,7 +104,7 @@ it('forks a run of every test file of its suites from workers booted on them whe
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())->across(Pool::of(ProcessCount::single(), Workers::Fork)->tail());
     $every = Command::pest('vendor/bin/pest', Withheld::standard(), '--testsuite=unit')->loadingEveryTestFile();
 
-    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->bootingTail(boots: true), $request)
+    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->working(PestWorkers::of(bootTail: true)), $request)
         ->sideBySide(WorkerSlots::alone(), Unlimited::time(), $every, Command::pest('vendor/bin/pest', Withheld::standard()), $every);
 
     expect(array_column($booted, 1))->toBe([['unit'], 'unbooted', ['unit']])
@@ -144,7 +148,7 @@ it('forks a run of every test file of every suite from a booted set of its own u
     $project = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())->across(Pool::of(ProcessCount::single(), Workers::Fork)->tail());
 
-    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->bootingTail(boots: true), $request)
+    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->working(PestWorkers::of(bootTail: true)), $request)
         ->sideBySide(WorkerSlots::alone(), Unlimited::time(), Command::pest('vendor/bin/pest', Withheld::standard()), Command::pest('vendor/bin/pest', Withheld::standard())->loadingEveryTestFile());
 
     expect(array_column($booted, 1))->toBe(['unbooted', []])
@@ -163,7 +167,7 @@ it('starts the tail\'s workers keeping the run\'s files out of opcache where pes
     $project = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())->across(Pool::of(ProcessCount::single(), Workers::Fork)->tail());
 
-    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->cachingInWorkers($caches), $request)
+    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->working(PestWorkers::of(workerOpcache: $caches)), $request)
         ->in($root)
         ->sideBySide(WorkerSlots::alone(), Unlimited::time(), Command::pest('vendor/bin/pest', Withheld::standard()));
 
@@ -171,4 +175,27 @@ it('starts the tail\'s workers keeping the run\'s files out of opcache where pes
 })->with([
     'pest.workerOpcache on' => [true],
     'pest.workerOpcache off' => [false],
+])->group(...$holds);
+
+it('starts each command through its slot\'s worker, its workers named apart, whether the shell starts commands or only runs them side by side', function (bool $starts): void {
+    $root = Scratch::directory();
+    $fake = new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: ''));
+    $project = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(2), Workers::Fork));
+    $tail = TailShell::apart($starts ? $fake : new SideBySideShell($fake), $project, Patching::on(Group::named('canary')), $request);
+
+    $ends = $tail instanceof StartsCommands ? $tail->started(
+        WorkerSlots::of(ProcessCount::of(2), 'tail'),
+        Unlimited::time(),
+        Command::pest('vendor/bin/pest', Withheld::standard(), '--bail'),
+    )->ends() : ProcessEnds::of();
+    $directory = $fake->commands()[0]->arguments()[count(OwnScript::PestClient->started()) + 1];
+
+    expect([...$ends][0]->succeeded())->toBeTrue()
+        ->and($fake->handled())->toBe($starts ? [[true, false]] : [])
+        ->and($directory)->toContain('tail-apart')
+        ->and(is_dir($directory))->toBeFalse();
+})->with([
+    'a shell that starts commands' => [true],
+    'a shell that runs them side by side' => [false],
 ])->group(...$holds);

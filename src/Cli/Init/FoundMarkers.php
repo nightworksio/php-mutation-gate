@@ -27,7 +27,7 @@ final readonly class FoundMarkers
     public static function count(Extensions $extensions, Settings $settings): int
     {
         $chosen = new Chosen($extensions);
-        $source = $chosen->treeSource($settings->treeSource());
+        $source = $chosen->treeSource($settings->setup()->treeSource());
         $trees = $source instanceof TreeSource ? $source->trees() : Trees::none();
         $runner = $chosen->runner($settings->runner()->choice());
         $paths = Paths::none();

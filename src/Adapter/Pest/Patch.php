@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnCovering;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\PartLines;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Streams;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -14,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Composer\PackageSource;
 use NightWorksIO\MutationGate\Core\Composer\VendorPatch;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
@@ -29,7 +33,8 @@ use function sprintf;
  *   PCRE to compile, is dropped (see Selection::passable), so the mutant runs
  *   every test its run loads, which can only kill more mutants; its limit is
  *   sized from those tests, and the run is recorded as unfiltered (see
- *   MutantTime).
+ *   MutantTime). Under `pest.longFilter: set` its tests are named by their
+ *   ids in a file instead, and it selects them exactly (see LongFilterSet).
  * - Given a coverage map another job wrote, the opening run is the canary
  *   group alone, and the map is copied in place of the one that run wrote.
  * - Each mutant is allowed the standard mutant limit of the own time of the
@@ -68,15 +73,26 @@ use function sprintf;
  *   mutants' worker (ADR-0091); a booting worker leaves the kernel dump to
  *   each child, and a kernel shuts down only in the process that booted it
  *   (see Warm\Booted). An unbooted process runs as it ships.
+ * - In Pest itself, a run that names its tests by their ids, with
+ *   `--test-id-filter-file` or `--test-id-filter`, runs only those, as
+ *   PHPUnit's own filter of its suite does; Pest's override of that filter
+ *   ships without them, so it ran every test it loaded (ADR-0181).
  * - A file whose every class Composer autoloads, none loaded yet, is served
  *   with no override: an autoloader loads its mutated copy in its place (see
  *   ServedClasses). A mutant whose mutator is pinned by source is still
  *   served through the override, which shows its test the mutant's text.
+ * - A mutant's own run tells the PHP processes its tests start of its
+ *   mutant, so where `pest.childProcesses` serves, each of them runs the
+ *   mutant too (see ServedChildren, ADR-0150).
  * - Where the gate asks for schemata, every mutant is made afresh, each
  *   file's mutants are compiled into one schema once they are made, and a
  *   mutant the schema switches is served the schema in its file's place,
  *   its switch in force, rather than its own copy (see Schemata and
  *   SchemaSwitch, ADR-0091).
+ * - Where a run splits its streams, the mutants they can judge are judged
+ *   first, and where it cuts its test files across its shards, a mutant a
+ *   shard's part streams runs on its own, should a stream leave it, by the
+ *   covering tests of that part alone (see Split\Streams, ADR-0117).
  * - Each file is parsed once while its mutants are made, each attempt at a
  *   mutant traversing a copy of that parse, and printed once for every
  *   mutant's diff (see ParsedSource).
@@ -112,6 +128,24 @@ final readonly class Patch
                             $stmts = class_exists(\%1$s::class)
                                 ? \%1$s::statements($parser->parse(...), $contents)
                                 : $parser->parse($contents);
+        PHP;
+
+    private const string TAKEN_SHIPS = <<<'PHP'
+                $mutators = $this->filterMutators($mutators, $contents, $parser);
+        PHP;
+
+    private const string TAKEN_BECOMES = <<<'PHP'
+                $mutators = $this->filterMutators($mutators, $contents, $parser);
+
+                {MARK} no attempt is made with a mutator no node of the file can take.
+                $mutators = class_exists(\%1$s::class)
+                    ? \%1$s::taking(
+                        $mutators,
+                        static fn (string $mutator, Node $node): bool => $mutator::can($node), // @phpstan-ignore-line
+                        $parser->parse(...),
+                        $contents,
+                    )
+                    : $mutators;
         PHP;
 
     private const string PRINTED_SHIPS = <<<'PHP'
@@ -200,6 +234,12 @@ final readonly class Patch
                     {MARK} a mutant its file's schema switches is served the schema, its switch in force.
                     $schema = (string) getenv('%4$s');
                     $on = (string) getenv('%5$s');
+
+                    {MARK} the processes a mutant's tests start are told of the mutant, to serve it too.
+                    if (class_exists(\%6$s::class)) {
+                        \%6$s::tell($original, $copy, $schema, $on);
+                    }
+
                     $copy = class_exists(\%3$s::class) ? \%3$s::inForce($original, $copy, $schema, $on) : $copy;
 
                     if ($copy !== '' && ($pinned || ! class_exists(\%1$s::class) || ! \%1$s::serve($original, $copy))) {
@@ -238,23 +278,32 @@ final readonly class Patch
                         '--bail',
                         '--filter="'.implode('|', $filters).'"',
                     ],
+                    env: $envs,
         PHP;
 
     private const string FILTER_BECOMES = <<<'PHP'
-                {MARK} a run selects exactly its covering tests, each row alone; a filter too long to pass is left out.
+                {MARK} a run selects exactly its covering tests, each row alone; a filter too long to pass is left out,
+                // or its tests named by their ids in a file where the gate selects them so (ADR-0138).
                 $filter = class_exists(\%1$s::class)
                     ? \%1$s::covering($covering, \%4$s::suite())->argument()
                     : '--filter="'.implode('|', $filters).'"';
                 $passed = class_exists(\%1$s::class) ? \%1$s::passable($filter) : strlen($filter) < %2$d;
 
-                {MARK} a mutant's run is asked of its place's warm worker, where the run has them.
+                {MARK} a mutant's run is asked of its place's warm worker, where the run has them, but
+                // one a test of which reads the coverage driver runs alone, its pcov left as configured (ADR-0183).
+                $reads = class_exists(\%6$s::class) && \%6$s::of($coveredLines)->readBy($covering);
+                $pcov = class_exists(\%6$s::class) ? \%6$s::of($coveredLines)->variablesFor($covering) : [];
+                $warm = $processId !== null && ! $reads && class_exists(\%3$s::class);
                 $process = new Process(
                     command: [
-                        ...($processId !== null && class_exists(\%3$s::class) ? \%3$s::prefix($processId) : []),
+                        ...($warm ? \%3$s::prefix($processId) : []),
                         ...$filteredArguments,
                         '--bail',
-                        ...($passed ? [$filter] : []),
+                        ...(class_exists(\%5$s::class)
+                            ? \%5$s::arguments($covering, $filter)
+                            : ($passed ? [$filter] : [])),
                     ],
+                    env: [...$envs, ...$pcov],
         PHP;
 
     private const string CANARY_SHIPS = <<<'PHP'
@@ -382,7 +431,12 @@ final readonly class Patch
         PHP;
 
     private const string START_BECOMES = <<<'PHP'
-                {MARK} a mutant the gate's static analysis rejected is tested without a run (see Verdicts).
+                {MARK} a mutant judged without a run keeps its result: one a split stream judged
+                // (ADR-0117), and one the gate's static analysis rejected, which is tested (see Verdicts).
+                if ($this->result !== MutationTestResult::None) {
+                    return false;
+                }
+
                 if (class_exists(\%1$s::class) && \%1$s::rejects($this->mutation->modifiedSourcePath)) {
                     $this->updateResult(result: MutationTestResult::Tested);
                     Facade::instance()->emitter()->mutationTested($this);
@@ -391,6 +445,25 @@ final readonly class Patch
                 }
 
                 // TODO: we should pass the tests to run in another way, maybe via cache, mutation or env variable
+        PHP;
+
+    private const string SPLIT_SHIPS = <<<'PHP'
+                Facade::instance()->emitter()->startMutationSuite($mutationSuite);
+        PHP;
+
+    private const string SPLIT_BECOMES = <<<'PHP'
+                Facade::instance()->emitter()->startMutationSuite($mutationSuite);
+
+                {MARK} the mutants split streams can judge are judged first, before any runs on its own (ADR-0117).
+                if (class_exists(\%1$s::class) && \%1$s::areOn()) {
+                    \%1$s::judge(
+                        $mutationSuite,
+                        $coveredLines,
+                        $this->originalArguments,
+                        $this->getConfiguration()->processes,
+                        $part instanceof \%2$s ? $part : \%3$s::value(),
+                    );
+                }
         PHP;
 
     private const string ORDER_SHIPS = <<<'PHP'
@@ -444,8 +517,40 @@ final readonly class Patch
                 {MARK} the file the gate records the run in; none where it records nothing.
                 $recorded = class_exists(\%5$s::class) ? (string) getenv('%6$s') : '';
 
+                {MARK} the lines a part of a cut run's tests makes mutants on; none where the run is not cut.
+                $part = class_exists(\%8$s::class) ? \%8$s::ofRun($files, $coveredLines) : null;
+
+                {MARK} every file's mutants made side by side, a share for each core, before any is taken.
+                $made = class_exists(\%7$s::class) ? \%7$s::made(
+                    $files,
+                    fn ($file): array|false => ! $this->getConfiguration()->coveredOnly
+                        ? ($part instanceof \%8$s ? $part->of($file, $coveredLines[$file->getRealPath()] ?? []) : [])
+                        : (isset($coveredLines[$file->getRealPath()])
+                            ? array_keys($coveredLines[$file->getRealPath()])
+                            : false),
+                    fn ($file, array $lines): array => $generator->generate(
+                        file: $file,
+                        mutators: $this->getConfiguration()->mutators,
+                        linesToMutate: $lines,
+                        classesToMutate: $this->getConfiguration()->everything
+                            ? []
+                            : $this->getConfiguration()->classes,
+                    ),
+                ) : null;
+
                 foreach ($files as $file) {
                     $linesToMutate = [];
+        PHP;
+
+    private const string MADE_SHIPS = <<<'PHP'
+                    foreach ($generator->generate(
+                        file: $file,
+        PHP;
+
+    private const string MADE_BECOMES = <<<'PHP'
+                    {MARK} a file's mutants are taken as a child made them; any other's are made here.
+                    foreach ($made !== null ? $made->of($file, $linesToMutate) : $generator->generate(
+                        file: $file,
         PHP;
 
     private const string COVERING_SHIPS = <<<'PHP'
@@ -461,6 +566,17 @@ final readonly class Patch
                 foreach (range($this->mutation->startLine, $this->mutation->endLine) as $lineNumber) {
                     foreach ($coveredLines[$this->mutation->file->getRealPath()][$lineNumber] ?? [] as $test) {
                         $covering[] = $test;
+        PHP;
+
+    private const string NARROWED_SHIPS = <<<'PHP'
+                $filters = array_unique($filters);
+        PHP;
+
+    private const string NARROWED_BECOMES = <<<'PHP'
+                $filters = array_unique($filters);
+
+                {MARK} a mutant a shard's part of the test files streams runs on its own by that part's tests.
+                $covering = class_exists(\%1$s::class) ? \%1$s::of($this->mutation, $covering) : $covering;
         PHP;
 
     private const string PATHS_SHIPS = <<<'PHP'
@@ -577,6 +693,44 @@ final readonly class Patch
                 $suiteClassName = $this->classNameFromFileName($suiteClassFile);
         PHP;
 
+    private const string FILTERING = '../overrides/TextUI/TestSuiteFilterProcessor.php';
+
+    private const string FILTERED_SHIPS = <<<'PHP'
+                if (! $configuration->hasFilter() &&
+        PHP;
+
+    private const string FILTERED_BECOMES = <<<'PHP'
+                {MARK} a run that names its tests by their ids filters its suite to them (ADR-0181).
+                if (! $configuration->hasFilter() &&
+                    ! $configuration->hasTestIdFilterFile() &&
+                    ! $configuration->hasTestIdFilter() &&
+        PHP;
+
+    private const string IDS_SHIPS = <<<'PHP'
+                if ($configuration->hasFilter()) {
+                    $factory->addIncludeNameFilter(
+        PHP;
+
+    private const string IDS_BECOMES = <<<'PHP'
+                {MARK} the tests a run names by their ids, in a file or alone, are the only ones it runs (ADR-0181).
+                $named = $configuration->hasTestIdFilterFile()
+                    ? @file($configuration->testIdFilterFile(), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES)
+                    : [];
+
+                if ($named === false) {
+                    throw new RuntimeException('Cannot read from '.$configuration->testIdFilterFile());
+                }
+
+                $named = [...$named, ...($configuration->hasTestIdFilter() ? [$configuration->testIdFilter()] : [])];
+
+                if ($named !== []) {
+                    $factory->addTestIdFilter($named);
+                }
+
+                if ($configuration->hasFilter()) {
+                    $factory->addIncludeNameFilter(
+        PHP;
+
     /** Patch pest-plugin-mutate and Pest in a vendor directory, and say what was done. */
     public static function applyIn(string $vendor, PackageFiles $files): string|CannotJudge
     {
@@ -605,7 +759,10 @@ final readonly class Patch
         return VendorPatch::of(self::COMMAND, Package::PestMutate->value, ...self::hunks());
     }
 
-    /** Pest's own, which a booted warm worker of the verification tail relies on (ADR-0075). */
+    /**
+     * Pest's own, which a booted warm worker of the verification tail relies on (ADR-0075), and whose filter of its
+     * suite selects the tests a run names by their ids (ADR-0181).
+     */
     private static function pestPatch(): VendorPatch
     {
         return VendorPatch::of(
@@ -616,6 +773,8 @@ final readonly class Patch
             Hunk::in(self::KERNEL, self::PLUGINS_SHIPS, sprintf(self::PLUGINS_BECOMES, Booted::class)),
             Hunk::in(self::KERNEL, self::SHUTDOWN_SHIPS, self::SHUTDOWN_BECOMES),
             Hunk::in(self::LOADER, self::LOAD_SHIPS, sprintf(self::LOAD_BECOMES, Booted::class)),
+            Hunk::in(self::FILTERING, self::FILTERED_SHIPS, self::FILTERED_BECOMES),
+            Hunk::in(self::FILTERING, self::IDS_SHIPS, self::IDS_BECOMES),
         );
     }
 
@@ -626,10 +785,19 @@ final readonly class Patch
             Hunk::in(
                 self::MUTATION_TEST,
                 self::FILTER_SHIPS,
-                sprintf(self::FILTER_BECOMES, Selection::class, Ceiling::BYTES, Pool::class, LoadedMap::class),
+                sprintf(
+                    self::FILTER_BECOMES,
+                    Selection::class,
+                    Ceiling::BYTES,
+                    Pool::class,
+                    LoadedMap::class,
+                    LongFilterSet::class,
+                    PcovTests::class,
+                ),
             ),
             Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),
+            Hunk::in(self::MUTATION_TEST, self::NARROWED_SHIPS, sprintf(self::NARROWED_BECOMES, OwnCovering::class)),
             Hunk::in(self::MUTATION_TEST, self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),
             Hunk::in(self::MUTATION_TEST, self::LIMIT_SHIPS, sprintf(self::LIMIT_BECOMES, MutantTime::class)),
             Hunk::in(self::MUTATION_TEST, self::WATCH_SHIPS, sprintf(self::WATCH_BECOMES, Silence::class)),
@@ -661,10 +829,18 @@ final readonly class Patch
                     GateVariable::Pruned->value,
                     Twins::class,
                     GateVariable::Results->value,
+                    SideBySideMutants::class,
+                    PartLines::class,
                 ),
             ),
+            Hunk::in(self::TEST_RUNNER, self::MADE_SHIPS, self::MADE_BECOMES),
             Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class, Twins::class)),
             Hunk::in(self::TEST_RUNNER, self::ORDER_SHIPS, sprintf(self::ORDER_BECOMES, Verdicts::class)),
+            Hunk::in(
+                self::TEST_RUNNER,
+                self::SPLIT_SHIPS,
+                sprintf(self::SPLIT_BECOMES, Streams::class, PartLines::class, NotGiven::class),
+            ),
             Hunk::in(
                 self::MUTATE_PLUGIN,
                 self::SERVE_SHIPS,
@@ -675,6 +851,7 @@ final readonly class Patch
                     SchemaSwitch::class,
                     GateVariable::Schema->value,
                     GateVariable::SchemaOn->value,
+                    ServedChildren::class,
                 ),
             ),
             Hunk::in(
@@ -687,6 +864,7 @@ final readonly class Patch
             Hunk::in(self::GENERATOR, self::SITED_SHIPS, sprintf(self::SITED_BECOMES, Schemata::class)),
             Hunk::in(self::GENERATOR, self::COMPILED_SHIPS, sprintf(self::COMPILED_BECOMES, Schemata::class)),
             Hunk::in(self::GENERATOR, self::PARSE_SHIPS, sprintf(self::PARSE_BECOMES, ParsedSource::class)),
+            Hunk::in(self::GENERATOR, self::TAKEN_SHIPS, sprintf(self::TAKEN_BECOMES, ParsedSource::class)),
             Hunk::in(self::MUTATION, self::PRINTED_SHIPS, sprintf(self::PRINTED_BECOMES, ParsedSource::class)),
             Hunk::in(self::MUTATION_TEST, self::SWITCHED_SHIPS, sprintf(self::SWITCHED_BECOMES, Schemata::class)),
         ];

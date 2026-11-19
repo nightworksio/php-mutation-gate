@@ -75,7 +75,9 @@ final readonly class RunnerMarkers
             }
         }
 
-        $markers = $this->settings->ignores()->native() === NativeMarkers::Allow ? $this->in($units) : Markers::none();
+        $markers = $this->settings->ignores()->native() === NativeMarkers::Allow
+            ? $this->in($units->distinct())
+            : Markers::none();
 
         return match (true) {
             $markers instanceof CannotJudge => Warnings::of(Warning::that(sprintf(self::UNCOUNTED, $markers->why()))),

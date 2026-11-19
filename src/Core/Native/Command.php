@@ -50,6 +50,7 @@ final readonly class Command
         private DiskPath|Uncapped $scanned,
         private array $writing = [],
         private SilenceLimit|NotGiven $silence = new NotGiven(),
+        private Seconds|NotGiven $grace = new NotGiven(),
     ) {
     }
 
@@ -91,6 +92,7 @@ final readonly class Command
             $this->scanned,
             $this->writing,
             $this->silence,
+            grace: $this->grace,
         );
     }
 
@@ -104,6 +106,7 @@ final readonly class Command
             $this->scanned,
             $this->writing,
             $this->silence,
+            grace: $this->grace,
         );
     }
 
@@ -117,6 +120,7 @@ final readonly class Command
             $this->scanned,
             $this->writing,
             $this->silence,
+            grace: $this->grace,
         );
     }
 
@@ -134,6 +138,7 @@ final readonly class Command
             $this->scanned,
             $this->writing,
             $this->silence,
+            grace: $this->grace,
         );
     }
 
@@ -148,6 +153,7 @@ final readonly class Command
             $this->scanned,
             $this->writing,
             $silence,
+            grace: $this->grace,
         );
     }
 
@@ -165,6 +171,7 @@ final readonly class Command
             $directory,
             $this->writing,
             $this->silence,
+            grace: $this->grace,
         );
     }
 
@@ -182,6 +189,7 @@ final readonly class Command
             $this->scanned,
             [...self::WRITING, $out, $err],
             $this->silence,
+            grace: $this->grace,
         );
     }
 
@@ -217,5 +225,29 @@ final readonly class Command
     public function scanned(): DiskPath|Uncapped
     {
         return $this->scanned;
+    }
+
+    /**
+     * This command, also halted once it has run this long past the time its
+     * shell starts no more commands, its run then telling nothing (ADR-0197).
+     */
+    public function haltedPast(Seconds $grace): self
+    {
+        return new self(
+            $this->arguments,
+            $this->told,
+            $this->withheld,
+            $this->deadline,
+            $this->scanned,
+            $this->writing,
+            $this->silence,
+            $grace,
+        );
+    }
+
+    /** How long it may run past the time its shell starts no more commands; none where nothing halts it then. */
+    public function grace(): Seconds|NotGiven
+    {
+        return $this->grace;
     }
 }

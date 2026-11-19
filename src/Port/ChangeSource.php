@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Port;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -48,6 +49,13 @@ interface ChangeSource
 
     /** Every file in the working tree that is not ignored, with the digest of what it holds. */
     public function fingerprints(): Fingerprints|CannotTell;
+
+    /**
+     * Every file in the working tree that is not ignored, with the digest of
+     * what it holds, given the last look: only what version control says may
+     * have changed since it is hashed again (ADR-0120).
+     */
+    public function lookedSince(Looked $then): Looked|CannotTell;
 
     /**
      * Of these paths, and of the files under those that are directories, each

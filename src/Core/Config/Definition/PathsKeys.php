@@ -47,7 +47,7 @@ final readonly class PathsKeys
         $glob = Field::required('glob', Pattern::glob($origin), $matching);
         $mutators = Field::section('mutators', MutatorsKeys::section($matching));
         $timeouts = Field::section('timeouts', self::timeouts());
-        $staticCheck = Field::section('staticCheck', self::staticCheck($origin));
+        $staticCheck = Field::section(StaticCheck::SECTION, self::staticCheck($origin));
 
         return Section::of(
             static function (Node $entry) use ($glob, $mutators, $timeouts, $staticCheck): PathRule|Invalid {

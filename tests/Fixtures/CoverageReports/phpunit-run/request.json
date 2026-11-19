@@ -1,0 +1,1 @@
+{"report":"coverage.php","format":4,"into":"map.json.gz","paths":{"/project/src/Ledger.php":"src/Ledger.php","/project/src/Money.php":"src/Money.php","/project/src/Unused.php":"src/Unused.php"},"timed":[],"loads":[]}

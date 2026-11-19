@@ -75,6 +75,15 @@ final readonly class Ran
         return new self($output, Ending::Stopped, NotGiven::value(), Unmeasured::duration(), $printed);
     }
 
+    /**
+     * A process halted where it ran past the time its pool started no more
+     * commands by its grace, before its own deadline (ADR-0197).
+     */
+    public static function halted(string $output, string|NotGiven $printed = new NotGiven()): self
+    {
+        return new self($output, Ending::Halted, NotGiven::value(), Unmeasured::duration(), $printed);
+    }
+
     /** A process stopped where it made no progress for its silence limit, before its deadline. */
     public static function silenced(string $output, string|NotGiven $printed = new NotGiven()): self
     {

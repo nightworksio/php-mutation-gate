@@ -7,6 +7,11 @@ use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\AskingKinds;
+use NightWorksIO\MutationGate\Core\Control\ControlEnd;
+use NightWorksIO\MutationGate\Core\Control\ControlKind;
+use NightWorksIO\MutationGate\Core\Control\ControlTime;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -19,7 +24,10 @@ use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\LineSpan;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\MadeFile;
+use NightWorksIO\MutationGate\Core\Mutant\MadeLines;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -44,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
@@ -167,6 +176,26 @@ it('writes the gate that measured a shard, and reads it back, and reads none fro
     expect(ShardResultFile::encode($result))->toContain('"measuredBy": "nightworksio/mutation-gate 1.2.0"')
         ->and($read instanceof ShardResult ? $read->measured()->gate()->value() : $read)->toBe('nightworksio/mutation-gate 1.2.0')
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('measuredBy');
+});
+
+it('writes what its job measured of its own time and each pass\'s bound, and reads them back, and none where it measured none', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $passes = StepTimes::of(
+        StepTime::of(Step::FirstPass, Seconds::of(3.0), Seconds::of(40.0), 5)->bounded(Seconds::of(120.0)),
+        StepTime::of(Step::SecondPass, Seconds::of(43.0), Seconds::of(84.0), 2)->bounded(Seconds::of(120.0)),
+    );
+    $measured = $makeMeasured()->withSteps($passes)->timingTheJob(JobTimes::of('p', Seconds::of(52.5), Seconds::of(6.0), 0.7));
+    $result = $finished($survivor, $measured);
+    $read = ShardResultFile::decode(ShardResultFile::encode($result));
+
+    expect($read)->toEqual($result)
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'platform'))->toBe('p')
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'setup'))->toBe(52.5)
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'windDown'))->toBe(6.0)
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'passTwo'))->toBe(0.7)
+        ->and(Decoded::at(ShardResultFile::encode($result), 'measured', 'steps', 1, 'bound'))->toBe(120.0)
+        ->and(ShardResultFile::encode($finished($survivor, $makeMeasured())))->not->toContain('windDown')
+        ->and($read instanceof ShardResult ? $read->measured()->steps()->secondPassFactor() : $read)->toBe(0.7);
 });
 
 it('writes each kill\'s evidence beside its mutant, and reads it back', function () use ($makeMeasured): void {
@@ -348,6 +377,26 @@ it('lists what the shard warns of, and reads it back', function () use ($finishe
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"warnings"');
 });
 
+it('lists the lines its run made each file on where it made some on some lines alone, and reads them back', function () use ($makeSurvivor, $makeMeasured): void {
+    $made = MadeLines::whole()
+        ->with(MadeFile::of(Path::of('src/Money.php'), Line::of(30), LineSpan::of(Line::of(1), Line::of(12)), LineSpan::of(Line::of(20), Line::of(30))))
+        ->with(MadeFile::of(Path::of('src/Limit.php'), Line::of(9)));
+    $result = ShardResult::of(
+        Digest::of('9c1e'),
+        ShardId::of(2),
+        Keys::none(),
+        MutationResult::of(Mutants::of($makeSurvivor()), 0)->withMade($made),
+        $makeMeasured(),
+    );
+    $written = ShardResultFile::encode($result);
+    $read = ShardResultFile::decode($written);
+    $whole = ShardResult::of(Digest::of('9c1e'), ShardId::of(2), Keys::none(), MutationResult::of(Mutants::of($makeSurvivor()), 0), $makeMeasured());
+
+    expect($written)->toContain("    \"madeLines\": {\n        \"src/Money.php\": [\n            30,")
+        ->and($read instanceof ShardResult ? $read->outcome() : $read)->toEqual($result->outcome())
+        ->and(ShardResultFile::encode($whole))->not->toContain('"madeLines"');
+});
+
 it('lists the units its budget ran out before, and reads them back', function () use ($finished, $makeSurvivor, $makeMeasured): void {
     $survivor = $makeSurvivor();
     $measured = $makeMeasured();
@@ -439,6 +488,29 @@ it('lists the steps the shard\'s time went to under what it measured, even one, 
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"steps"');
 });
 
+it('lists where each control of a step went, what asked for it, and reads them back', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
+    $passed = ControlTime::read(AskingKinds::of(ControlKind::Kills, ControlKind::Timeout), 3, 4, Seconds::of(12.5), Seconds::of(2.25), ControlEnd::Passed);
+    $unrun = ControlTime::read(AskingKinds::of(ControlKind::Kill), 1, NotGiven::value(), Seconds::of(5.0), Unmeasured::duration(), ControlEnd::Unrun);
+    $steps = StepTimes::of(StepTime::of(Step::Controls, Seconds::of(2.0), Seconds::of(3.0), 2)->controlling($passed, $unrun));
+    $result = $finished($survivor, $measured->withSteps($steps));
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain(
+        "\"controls\": [\n                    {\n                        \"kinds\": [\n                            \"kills\",\n"
+            . "                            \"timeout\"\n                        ],\n                        \"tests\": 3,\n"
+            . "                        \"cases\": 4,\n                        \"limit\": 12.5,\n"
+            . "                        \"seconds\": 2.25,\n                        \"end\": \"passed\"\n                    },\n"
+            . "                    {\n                        \"kinds\": [\n                            \"kill\"\n                        ],\n"
+            . "                        \"tests\": 1,\n                        \"limit\": 5.0,\n                        \"end\": \"unrun\"\n",
+    )
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured->withSteps(StepTimes::of(StepTime::of(Step::Controls, Seconds::of(1.0), Seconds::of(2.0)))))))
+        ->not->toContain('"controls": [');
+});
+
 it('reads back a shard that could not judge', function () use ($makeMeasured): void {
     $measured = $makeMeasured();
 
@@ -485,6 +557,18 @@ it('refuses what is not a shard result, saying where it went wrong', function (s
             . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z", '
             . '"steps": [{"step": "dozing", "since": 0, "seconds": 1}]}}',
         'the file.measured.steps[0].step is not a step.',
+    ],
+    'a control asked for by nothing the gate knows' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z", '
+            . '"steps": [{"step": "controls", "since": 0, "seconds": 1, "controls": [{"kinds": ["whim"], "tests": 1, "limit": 1, "end": "passed"}]}]}}',
+        'the file.measured.steps[0].controls[0].kinds[0] is not a kind of control.',
+    ],
+    'a control that ended in no way the gate knows' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z", '
+            . '"steps": [{"step": "controls", "since": 0, "seconds": 1, "controls": [{"kinds": ["kill"], "tests": 1, "limit": 1, "end": "bored"}]}]}}',
+        'the file.measured.steps[0].controls[0].end is not how a control ended.',
     ],
     'an instant that is not one' => [
         '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '

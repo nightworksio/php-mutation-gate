@@ -23,6 +23,13 @@ it('gives each child a minute to compile, with what the tests\' PHP disables dis
         ->toEqual(new Prover(new Compiler(PHP_BINARY, $directory->value(), 60.0, 3, ['disable_functions=exec,system'])));
 });
 
+it('compiles as many children at once as it is given, and keeps every other setting', function (): void {
+    $directory = Root::of(Scratch::directory())->at(Path::of('equivalence'));
+
+    expect(Prover::of(PHP_BINARY, $directory, ProcessCount::of(8), 'exec', batch: 7, limit: 9.0)->across(ProcessCount::of(2)))
+        ->toEqual(Prover::of(PHP_BINARY, $directory, ProcessCount::of(2), 'exec', batch: 7, limit: 9.0));
+});
+
 it('proves none where there is nothing to check', function (): void {
     expect(Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), ProcessCount::of(1), disabled: false)->proven([]))
         ->toBe([]);

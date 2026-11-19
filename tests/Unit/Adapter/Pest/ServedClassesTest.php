@@ -27,7 +27,7 @@ it('serves the copy of a class file Composer autoloads in its place, its __FILE_
     }
 });
 
-it('names the served copy as loaded in the original\'s place, and the original loaded by its path as bypassing it', function (): void {
+it('names the served copy as loaded in the original\'s place, the original as what the served copy stands in for, and the original loaded by its path as bypassing it', function (): void {
     $box = ServedBox::registered();
     $served = sprintf('%s.served.php', $box->copy);
 
@@ -41,7 +41,9 @@ it('names the served copy as loaded in the original\'s place, and the original l
             ->and(ServedClasses::inPlaceOf(sprintf('%s/../src/Box.php', dirname($box->file))))->toBe($served)
             ->and(ServedClasses::inPlaceOf('/nowhere/Box.php'))->toBe('/nowhere/Box.php')
             ->and(ServedClasses::bypassed([$served, $box->file]))->toBeTrue()
-            ->and(ServedClasses::bypassed([$served]))->toBeFalse();
+            ->and(ServedClasses::bypassed([$served]))->toBeFalse()
+            ->and(ServedClasses::originalOf((string) realpath($served)))->toBe(realpath($box->file))
+            ->and(ServedClasses::originalOf($box->file))->toBe($box->file);
 
         $other = ServedBox::registered();
         ServedClasses::serve($other->file, $other->copy);
@@ -49,7 +51,10 @@ it('names the served copy as loaded in the original\'s place, and the original l
         $other->loader->unregister();
 
         expect(ServedClasses::inPlaceOf($box->file))->toBe($served)
-            ->and(ServedClasses::inPlaceOf($other->file))->toBe($other->file);
+            ->and(ServedClasses::inPlaceOf($other->file))->toBe($other->file)
+            ->and(ServedClasses::originalOf((string) realpath(sprintf('%s.served.php', $other->copy))))
+            ->toBe(realpath(sprintf('%s.served.php', $other->copy)))
+            ->and(ServedClasses::originalOf((string) realpath($served)))->toBe(realpath($box->file));
     } finally {
         ServedClasses::forget($box->file);
         $box->loader->unregister();

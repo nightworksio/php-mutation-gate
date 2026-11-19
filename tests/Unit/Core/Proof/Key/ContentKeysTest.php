@@ -737,3 +737,17 @@ it('keys a unit apart by what the paths entries matching it set, and as it alway
         ->and($key($judging->ruledBy('{"timeouts":{"seconds":60}}')))
         ->not->toEqual($key($judging->ruledBy('{"timeouts":{"seconds":90}}')));
 });
+
+it('digests the first five inputs alone as the reads of every digest its keys record, and apart for each of them', function () use ($bare): void {
+    $reads = static fn(string $config, string $installed): Digest => ContentKeys::readsOf(
+        Digest::sha256Of('verdict code'),
+        $config,
+        Identity::of('pest', Versions::none(), Digest::of('platform')),
+        NoAnalyser::configured(),
+        Digest::of($installed),
+    );
+
+    expect($reads('{}', 'installed'))->toEqual($bare()->digestsOf(Units::none())->reads())
+        ->and($reads('{"runner":"pest"}', 'installed'))->not->toEqual($reads('{}', 'installed'))
+        ->and($reads('{}', 'other'))->not->toEqual($reads('{}', 'installed'));
+});

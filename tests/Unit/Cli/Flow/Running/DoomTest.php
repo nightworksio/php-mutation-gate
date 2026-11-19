@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\CheckedFiles;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
@@ -413,7 +414,7 @@ function doomChecker(string $project, Findings ...$found): RecordingChecker
     $answers = [];
 
     foreach (['src/Money.php', 'src/Held.php'] as $at => $file) {
-        $answers[Workspace::checkedMutant(Dooms::survivor($file)->id())->value()] = $found[$at] ?? Findings::none();
+        $answers[CheckedFiles::mutant(Dooms::survivor($file)->id())->value()] = $found[$at] ?? Findings::none();
     }
 
     return new RecordingChecker(new StaticCheckerFake(AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')), Findings::none(), $answers), $project);
@@ -503,7 +504,7 @@ it('runs a pull request\'s shard on past a survivor whose static check could not
     $answers = [];
 
     foreach (['src/Money.php', 'src/Held.php'] as $file) {
-        $answers[Workspace::checkedMutant(Dooms::survivor($file)->id())->value()] = CannotJudge::because('The analyser crashed.');
+        $answers[CheckedFiles::mutant(Dooms::survivor($file)->id())->value()] = CannotJudge::because('The analyser crashed.');
     }
 
     $checker = new RecordingChecker(new StaticCheckerFake(AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')), Findings::none(), $answers), $project);

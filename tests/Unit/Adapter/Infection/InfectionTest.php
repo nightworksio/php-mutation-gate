@@ -302,7 +302,7 @@ it('mutates after running the tests under coverage, and reads every mutant with 
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
 
     expect(InfectionCases::statuses($result))->toBe([MutantStatus::TimedOut])
-        ->and($mutants[0]->limit())->toEqual(Seconds::of(4.0))
+        ->and($mutants[0]->stop()->limit())->toEqual(Seconds::of(4.0))
         ->and(count($shell->commands()))->toBe(2)
         ->and(InfectionCases::ran($shell)[0])->toContain(sprintf('--log-junit=%s/.gate/infection/coverage/junit.xml', $at->root()))
         ->and(InfectionCases::ran($shell)[1])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()))
@@ -326,7 +326,7 @@ it('gives each mutant Infection\'s own limit and warns where Infection is not pa
             ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     };
     $limits = static fn(MutationResult|CannotJudge $result): array => $result instanceof MutationResult
-        ? array_map(static fn(Mutant $mutant): mixed => $mutant->limit(), iterator_to_array($result->mutants(), preserve_keys: false))
+        ? array_map(static fn(Mutant $mutant): mixed => $mutant->stop()->limit(), iterator_to_array($result->mutants(), preserve_keys: false))
         : [];
     $warned = static fn(MutationResult|CannotJudge $result): array => $result instanceof MutationResult
         ? array_map(static fn(Warning $warning): string => $warning->text(), [...$result->warnings()])

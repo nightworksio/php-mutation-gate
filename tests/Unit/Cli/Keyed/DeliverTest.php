@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery as AlertDelivery;
 use NightWorksIO\MutationGate\Adapter\Alert\Pause;
+use NightWorksIO\MutationGate\Adapter\Outbreak\CacheDelivery;
 use NightWorksIO\MutationGate\Cli\Keyed\Deliver;
 use NightWorksIO\MutationGate\Cli\Keyed\Installation;
 use NightWorksIO\MutationGate\Cli\Keyed\LocatedStore;
@@ -18,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Proof\CacheClass;
+use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
@@ -34,7 +37,8 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 /**
- * What deliver says, on its output and its errors, and its exit code, run in this project from this vendor.
+ * What deliver says, on its output and its errors, and its exit code, run in this project from this vendor, where
+ * no Outbreak binary ships.
  *
  * @param  list<string>                 $argv
  * @param  array<string, string>        $environment
@@ -48,7 +52,7 @@ function deliverRun(string $project, string $vendor, bool $throughComposer, arra
     $sending = new Sending($environment, new LocatedStore(Variables::of($environment), Extensions::of(Origin::of('acme/gate'))->withProofStore(Name::of('s3'), static fn(): ProofStore => new ProofStoreFake())), $client, AlertDelivery::over($client, $clock, Pause::for(...)), $clock);
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
-    $code = new Deliver(Installation::of($project, $vendor, $throughComposer), $environment, $sending)->run(new ArgvInput($argv), $output, $errors);
+    $code = new Deliver(Installation::of($project, $vendor, $throughComposer), $environment, $sending, Scratch::directory())->run(new ArgvInput($argv), $output, $errors);
 
     return [$output->fetch(), $errors->fetch(), $code];
 }
@@ -137,7 +141,7 @@ it('writes the ledger and keeps the coverage map beside the delivery only on a t
     $located = new LocatedStore(Variables::of($environment), Extensions::of(Origin::of('acme/gate'))->withProofStore(Name::of('s3'), static fn(): ProofStore => $store));
     $sending = new Sending($environment, $located, $client, AlertDelivery::over($client, $clock, Pause::for(...)), $clock);
     $output = new BufferedOutput();
-    $code = new Deliver(Installation::of($project, Scratch::directory(), throughComposer: false), $environment, $sending)
+    $code = new Deliver(Installation::of($project, Scratch::directory(), throughComposer: false), $environment, $sending, Scratch::directory())
         ->run(new ArgvInput(['mutation-gate', 'deliver', sprintf('--from=%s/d', $project)]), $output, new BufferedOutput());
 
     expect($code)->toBe(0)
@@ -180,4 +184,13 @@ it('starts in this process with the gate\'s own adapters, and refuses before any
 
     expect([$output->fetch(), $errors->fetch(), $code])
         ->toBe(['', "deliver runs from the gate's own installation, never the project's, so it loads none of the project's code.\n", 2]);
+});
+
+it('pushes no proof pack the delivery holds where no binary ships for the machine, and says so', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'd/delivery.json', DeliveryFile::encode(Delivery::none()));
+    Scratch::write($project, sprintf('d/%s', CacheRequest::DELIVERED), CacheDelivery::request('ghcr.io/owner/proofs', Digest::sha256Of('base'), CacheClass::Branch)->text());
+
+    expect(deliverRun($project, Scratch::directory(), throughComposer: false, argv: ['mutation-gate', 'deliver', sprintf('--from=%s/d', $project)]))
+        ->toBe(["No Outbreak binary ships for this machine, so deliver pushes no proof pack.\n", '', 0]);
 });

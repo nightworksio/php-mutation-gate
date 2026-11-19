@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
+use NightWorksIO\MutationGate\Cli\Flow\Cores;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
 use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Pace;
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -62,6 +64,15 @@ it('tells the processes it starts runner.poll and proofs.limits.handoff, and not
         ->and(getenv(ChildVariable::Poll->value))->toBeFalse()
         ->and(getenv(ChildVariable::HandoffPacked->value))->toBeFalse()
         ->and(getenv(ChildVariable::HandoffUnpacked->value))->toBeFalse();
+});
+
+it('runs as many mutants at once as runner.processes says, and one per core where it says none', function (): void {
+    $wiring = new Wiring(Wirings::registry(), Variables::of([]), Wirings::detected());
+    $capped = $wiring->adapters(Flows::settings(Runner::pest()->paced(Pace::of(processes: 2))), Directory::at(Flows::project()));
+    $counted = $wiring->adapters(Flows::settings(Runner::pest()), Directory::at(Flows::project()));
+
+    expect($capped instanceof Adapters ? $capped->processes() : $capped)->toEqual(ProcessCount::of(2))
+        ->and($counted instanceof Adapters ? $counted->processes() : $counted)->toEqual(Cores::counted());
 });
 
 it('counts a plan\'s mutants with an engine of even one mutator, and with none of no mutator', function (bool $acme): void {

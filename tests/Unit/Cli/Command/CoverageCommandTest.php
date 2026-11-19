@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -13,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
+use NightWorksIO\MutationGate\Core\Coverage\RecordedBeside;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -21,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -30,12 +34,15 @@ use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\ChangingCheckout;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HoldingSuites;
+use NightWorksIO\MutationGate\Tests\Support\OutbreakStandIn;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\StepsAsked;
 use Symfony\Component\Console\Input\ArrayInput;
 
 afterEach(function (): void {
@@ -194,6 +201,40 @@ it('reads the reports this job\'s own coverage run left where it is told, runs n
         ->and($kept(sprintf('%s/build/coverage/map.json.gz', $project))[0])->toEqual(Flows::map());
 });
 
+it('reads a run\'s report the gate converts itself while the listings run, before it takes them', function () use (
+    $kept,
+): void {
+    $project = FlowCommands::project();
+    $runner = new StepsAsked(new CoverageAsked(ScriptedRunner::fixture(), Flows::map()));
+
+    $written = FlowCommands::run(
+        CoverageCommand::command(FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci())),
+        '--from=build/suite --into=build/coverage',
+    );
+
+    expect($runner->steps())->toBe([StepsAsked::STARTED, StepsAsked::READ, StepsAsked::TAKEN])
+        ->and($written->output)->toBe(sprintf("Wrote %s/build/coverage/map.json.gz.\n", $project))
+        ->and($kept(sprintf('%s/build/coverage/map.json.gz', $project))[0])->toEqual(Flows::map());
+});
+
+it('writes the map Outbreak converted of a run\'s report where it is told, and keeps no converted map', function (): void {
+    $binary = OutbreakStandIn::answering('{"outbreak": 1, "outline": {"files": [], "tests": []}, "written": 1}')->binary();
+    $project = FlowCommands::project(sprintf('"outbreak": {"enabled": true, "binary": "%s", "serve": {"enabled": false}}', $binary));
+    $converted = CoverageMapFile::in(Workspace::convertedCoverage())->value();
+    Scratch::write($project, $converted, 'the converted map');
+    $report = RanReport::at(sprintf('%s/build/suite/coverage.php', $project), 4, RecordedBeside::nothing(), Path::of(...));
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map())->reporting($report);
+
+    $written = FlowCommands::run(
+        CoverageCommand::command(FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci())),
+        '--from=build/suite --into=build/coverage',
+    );
+
+    expect($written->output)->toBe(sprintf("Wrote %s/build/coverage/map.json.gz.\n", $project))
+        ->and(file_get_contents(sprintf('%s/build/coverage/map.json.gz', $project)))->toBe('the converted map')
+        ->and(sprintf('%s/%s', $project, $converted))->not->toBeFile();
+});
+
 it('says why the reports it is told to read cannot be read, and writes no map', function (): void {
     $project = FlowCommands::project();
     $runner = new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('build/suite/coverage.php is not there.'));
@@ -316,4 +357,20 @@ it('measures again only the moved test files of the listed suites against the ma
 
     expect($written->errors)->toBe("Coverage: measured 1 of 3 test files again; kept the rest from the default branch's map.\n")
         ->and(($again->ran()[0] ?? null)?->tests())->toEqual(TestPaths::of(Paths::of(Path::of('tests/Unit/MoneyTest.php'))));
+});
+
+it('reads no run\'s reports where the files of the project cannot be listed, saying why', function (): void {
+    $project = FlowCommands::project();
+    $composition = FlowCommands::watching(
+        $project,
+        new CoverageAsked(ScriptedRunner::fixture(), Flows::map()),
+        new ProofStoreFake(),
+        ChangingCheckout::becomingAt(1, CannotTell::because('git is gone.')),
+    );
+
+    $written = FlowCommands::run(CoverageCommand::command($composition), '--from=build/suite');
+
+    expect($written->code)->toBe(2)
+        ->and($written->errors)->toContain('git is gone.')
+        ->and(file_exists(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))->toBeFalse();
 });

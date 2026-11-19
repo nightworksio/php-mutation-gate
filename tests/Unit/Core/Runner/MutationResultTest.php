@@ -9,7 +9,10 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\LineSpan;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\MadeFile;
+use NightWorksIO\MutationGate\Core\Mutant\MadeLines;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -108,4 +111,15 @@ it('leaves each mutant a run stopped at its deadline never told of unjudged by t
         $later->unjudged(OutOfTime::BeforeRunning),
     ])
         ->and($stopped->skipped())->toBe(2);
+});
+
+it('keeps the lines its runner made each file on through what it is given, and joins a later run\'s after them', function (): void {
+    $money = MadeFile::of(Path::of('src/Money.php'), Line::of(9), LineSpan::of(Line::of(1), Line::of(3)));
+    $tax = MadeFile::of(Path::of('src/Tax.php'), Line::of(4));
+    $result = MutationResult::skippingNone(Mutants::none())->withMade(MadeLines::whole()->with($money));
+
+    expect($result->withWarnings(Warnings::of(Warning::that('One.')))->stoppedAtDeadline()->made())->toEqual($result->made())
+        ->and([...$result->and(MutationResult::skippingNone(Mutants::none())->withMade(MadeLines::whole()->with($tax)))->made()])
+        ->toEqual([$money, $tax])
+        ->and(MutationResult::skippingNone(Mutants::none())->made()->isWhole())->toBeTrue();
 });

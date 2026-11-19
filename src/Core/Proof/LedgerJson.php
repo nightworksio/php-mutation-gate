@@ -61,12 +61,6 @@ final readonly class LedgerJson
         $bases = array_map(static fn(Digest $base): string => $base->value(), [...$retention->basesOf($ledger)]);
         $inputs = InputsTable::of(...$kept);
         $timings = self::timings($ledger->timings());
-        $analysers = AnalysersRecord::of($ledger->learned()->analysers());
-        $survival = SurvivalRecord::of($ledger->learned()->survival());
-        $tally = TallyRecord::of($ledger->learned()->tallies());
-        $subsumption = SubsumptionRecord::of($ledger->learned()->subsumption());
-        $passed = $ledger->runs()->passed();
-        $lastRun = $ledger->runs()->lastRun();
         $shared = ProofsShared::of(array_flip($mutators), $testIndex, $inputs, array_flip($bases));
         $proofs = self::proofsWritten($kept, $shared);
 
@@ -80,6 +74,22 @@ final readonly class LedgerJson
         yield KillersRecord::SECTION => JsonText::compact(
             KillersRecord::placing($killers, $testIndex, self::placesOf($kept)),
         );
+
+        yield from self::learned($ledger, $retention);
+        yield from self::ran($ledger);
+    }
+
+    /**
+     * The sections of what the ledger learned, each where it holds any.
+     *
+     * @return Generator<string, string>
+     */
+    private static function learned(Ledger $ledger, LedgerRetention $retention): Generator
+    {
+        $analysers = AnalysersRecord::of($ledger->learned()->analysers());
+        $survival = SurvivalRecord::of($ledger->learned()->survival());
+        $tally = TallyRecord::of($ledger->learned()->tallies());
+        $subsumption = SubsumptionRecord::of($ledger->learned()->subsumption());
 
         if ($analysers !== []) {
             yield AnalysersRecord::SECTION => JsonText::compact($analysers);
@@ -100,6 +110,18 @@ final readonly class LedgerJson
         if ($subsumption !== []) {
             yield SubsumptionRecord::SECTION => JsonText::compact($subsumption);
         }
+    }
+
+    /**
+     * The sections of the runs the ledger holds, each where it holds one.
+     *
+     * @return Generator<string, string>
+     */
+    private static function ran(Ledger $ledger): Generator
+    {
+        $passed = $ledger->runs()->passed();
+        $lastRun = $ledger->runs()->lastRun();
+        $judged = $ledger->runs()->judged();
 
         if ($passed instanceof Passed) {
             yield LedgerFile::PASSED => JsonText::compact(PassedRecord::of($passed));
@@ -107,6 +129,10 @@ final readonly class LedgerJson
 
         if ($lastRun instanceof LastRun) {
             yield LastRunRecord::SECTION => JsonText::compact(LastRunRecord::of($lastRun));
+        }
+
+        if ($judged instanceof Judged) {
+            yield JudgedRecord::SECTION => JsonText::compact(JudgedRecord::of($judged));
         }
     }
 

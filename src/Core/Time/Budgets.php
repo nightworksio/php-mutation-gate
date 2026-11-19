@@ -13,11 +13,11 @@ namespace NightWorksIO\MutationGate\Core\Time;
  */
 final readonly class Budgets
 {
-    /** A watch cycle's budget, in minutes. */
-    private const int WATCH_MINUTES = 1;
+    /** A watch cycle's budget, in seconds. */
+    private const float WATCH_SECONDS = 30.0;
 
     /** A pre-push run's budget, in minutes. */
-    private const int PRE_PUSH_MINUTES = 5;
+    private const int PRE_PUSH_MINUTES = 2;
 
     private function __construct(private Seconds|Unlimited $run, private Seconds $watch, private Seconds $prePush)
     {
@@ -28,7 +28,7 @@ final readonly class Budgets
     {
         return new self(
             Unlimited::time(),
-            Seconds::minutes(self::WATCH_MINUTES),
+            Seconds::of(self::WATCH_SECONDS),
             Seconds::minutes(self::PRE_PUSH_MINUTES),
         );
     }

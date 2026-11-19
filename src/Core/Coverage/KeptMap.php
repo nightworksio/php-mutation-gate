@@ -35,4 +35,10 @@ final readonly class KeptMap
     {
         return $this->keys;
     }
+
+    /** Whether the map was measured at a commit, in a clean working tree. */
+    public function isClean(): bool
+    {
+        return $this->at instanceof MeasuredAt && ! $this->at->isDirty();
+    }
 }

@@ -9,6 +9,7 @@ use function array_map;
 use function array_values;
 use function end;
 use function file_put_contents;
+use function getenv;
 use function in_array;
 use function is_file;
 use function json_encode;
@@ -21,11 +22,17 @@ use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Adapter\Pest\PestSteps;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Duplicates;
+use NightWorksIO\MutationGate\Core\Config\LongFilter;
+use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
@@ -42,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Runner\IniScan;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitTestList;
@@ -63,6 +71,7 @@ final readonly class PestCases
     public const string RUN_PLUS = PlusToMinus::class;
 
     public const string RUN_ADDS = 'P\Tests\MoneySpec::__pest_evaluable_it_adds';
+
 
     /** The list of tests Pest writes for the fixture: two tests, one of them the canary group's. */
     public const string RUN_LISTING = <<<'XML'
@@ -86,6 +95,43 @@ final readonly class PestCases
         XML;
 
     /** The file Pest lists a project's tests into. */
+    /**
+     * What Pest's own mutation process in this project is started with by default: the directory of the ini file
+     * that turns pcov off in each process it starts, and Xdebug's mode off.
+     *
+     * @return array<string, string>
+     */
+    public static function driversOff(Project $at): array
+    {
+        return [GateVariable::PcovOff->value => sprintf('%s/pcov-off', $at->workspace()), 'XDEBUG_MODE' => 'off'];
+    }
+
+    /**
+     * What every other process of a mutation run in this project is started with by default: pcov off, by the
+     * directory of its ini file scanned after what this process scans, and Xdebug's mode off.
+     *
+     * @return array<string, string>
+     */
+    public static function driversOffBeside(Project $at): array
+    {
+        return [...IniScan::adding(sprintf('%s/pcov-off', $at->workspace()), getenv()), 'XDEBUG_MODE' => 'off'];
+    }
+
+    /** A patched run whose pcov and Xdebug steps are on or off. */
+    /** @param list<string> $pcovKept */
+    public static function drivenBy(bool $pcovOff, bool $xdebugOff, array $pcovKept = []): Patching
+    {
+        $toggles = Toggles::of(Toggle::PestPcovOff, $pcovOff)->with(Toggle::PestXdebugOff, $xdebugOff);
+
+        return Patching::on(Group::named('mutation-canary'))->stepping(PestSteps::of(
+            $toggles,
+            NarrowedKillTrust::Vouch,
+            LongFilter::Files,
+            Duplicates::JudgeOnce,
+            pcovKept: $pcovKept,
+        ));
+    }
+
     public static function listingFile(Project $at): string
     {
         return sprintf('%s/%s', $at->workspace(), PhpUnitTestList::FILE);
@@ -140,13 +186,22 @@ final readonly class PestCases
         return Invocation::of($at);
     }
 
-    /** A project in a new directory, by its real path, holding src/Money.php, that installs its packages in `vendor` or another directory. */
-    public static function project(string $vendor = 'vendor'): Project
+    /**
+     * A project in a new directory, by its real path, holding src/Money.php, that installs its packages in `vendor`
+     * or another directory, its PHP prepending this file to every script, none by default.
+     */
+    public static function project(string $vendor = 'vendor', string $prepended = ''): Project
     {
         $root = (string) realpath(Scratch::directory());
         Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
 
-        return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of($vendor));
+        return Project::at(
+            $root,
+            Paths::of(Path::of('tests')),
+            Path::of('.mutation-gate'),
+            Path::of($vendor),
+            prepended: $prepended,
+        );
     }
 
     /** What Pest and the plugin leave when a run mutates src/Money.php's line 11 once, and a test it names kills it. */

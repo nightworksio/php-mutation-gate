@@ -1,0 +1,1 @@
+{"report":"coverage.php","format":4,"into":"map.json.gz","paths":{"/project/src/Alpha.php":"src/Alpha.php","/project/src/Beta.php":"src/Beta.php","/project/src/Mid/Inner.php":"src/Mid/Inner.php","/project/src/Zeta.php":"src/Zeta.php"},"timed":[],"loads":[]}

@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Process\ProcessTree;
+use NightWorksIO\MutationGate\Adapter\Process\SessionLeader;
+use NightWorksIO\MutationGate\Core\Config\ProcessHold;
+use NightWorksIO\MutationGate\Tests\Support\Orphan;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
@@ -11,7 +14,12 @@ $holds = [
     'holds:src/Adapter/Process/ProcessTree.php',
 ];
 
+beforeEach(function (): void {
+    SessionLeader::toldHere(ProcessHold::Require);
+});
+
 afterEach(function (): void {
+    putenv(SessionLeader::VARIABLE);
     Scratch::sweep();
 });
 
@@ -31,7 +39,7 @@ it('stops every process a program started, at any depth, and then the program', 
     // Stopped only once the whole tree has started, however long that takes.
     $program->waitUntil(static fn(string $type, string $output): bool => str_contains($output, 'ready'));
 
-    ProcessTree::of((int) $program->getPid())->stop();
+    ProcessTree::of((int) $program->getPid())->stop(leads: false);
     // The lock is released the moment the grandchild ends, so taking it waits for exactly that.
     $alive = fopen(sprintf('%s/alive', $directory), 'c');
     $ended = $alive !== false && flock($alive, LOCK_EX);
@@ -46,7 +54,35 @@ it('stops a program that started nothing', function (): void {
     $program->start();
     $program->waitUntil(static fn(string $type, string $output): bool => str_contains($output, 'ready'));
 
-    ProcessTree::of((int) $program->getPid())->stop();
+    ProcessTree::of((int) $program->getPid())->stop(leads: false);
 
     expect(static fn(): int => $program->wait())->toThrow(ProcessSignaledException::class, 'signal "9"');
+})->group(...$holds);
+
+it('stops, with the session a program leads, a process whose parent ended before it', function (): void {
+    $directory = (string) realpath(Scratch::directory());
+    $program = new Process(
+        [...SessionLeader::prefix(), 'sh', '-c', sprintf('%s; echo up; sleep 20', Orphan::LEFT), PHP_BINARY, Orphan::CODE],
+        $directory,
+    );
+    $program->start();
+    $program->waitUntil(static fn(string $type, string $output): bool => str_contains($output, 'up'));
+
+    ProcessTree::of((int) $program->getPid())->stop(leads: true);
+
+    expect(static fn(): int => $program->wait())->toThrow(ProcessSignaledException::class, 'signal "9"')
+        ->and(Orphan::isGone($directory))->toBeTrue();
+})->group(...$holds);
+
+it('kills every process left in the session a program led, once it ended', function (): void {
+    $directory = (string) realpath(Scratch::directory());
+    $program = new Process([...SessionLeader::prefix(), 'sh', '-c', Orphan::LEFT, PHP_BINARY, Orphan::CODE], $directory);
+    $program->start();
+    $pid = (int) $program->getPid();
+    $program->wait();
+
+    ProcessTree::of($pid)->ended();
+
+    expect($program->getExitCode())->toBe(0)
+        ->and(Orphan::isGone($directory))->toBeTrue();
 })->group(...$holds);
