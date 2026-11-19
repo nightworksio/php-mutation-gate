@@ -83,7 +83,6 @@ it('keeps the schemata of the files it is asked for, and the switches of their m
     $plus = generatedNode($code, Plus::class);
     Scratch::write($root, 'src/Money.php', $code);
     Scratch::write($root, 'src/Tax.php', $code);
-    mkdir(sprintf('%s/mutations', $root));
     $files = [strval(realpath(sprintf('%s/src/Money.php', $root))), strval(realpath(sprintf('%s/src/Tax.php', $root)))];
     $money = Mutations::mutation($files[0], 'money', 3);
     $tax = Mutations::mutation($files[1], 'tax', 3);
@@ -103,6 +102,26 @@ it('keeps the schemata of the files it is asked for, and the switches of their m
     expect($told)->not->toBe([])
         ->and(Schemata::variablesOf($money))->toBe($told)
         ->and(Schemata::variablesOf($tax))->toBe([]);
+});
+
+it('writes the schemata of two files beside a folder of copies not made yet', function (): void {
+    $root = Scratch::directory();
+    $code = "<?php\n\nreturn 1 + 2;\n";
+    $plus = generatedNode($code, Plus::class);
+    $schemata = [];
+
+    foreach (['Money', 'Tax'] as $name) {
+        Scratch::write($root, sprintf('src/%s.php', $name), $code);
+        $file = strval(realpath(sprintf('%s/src/%s.php', $root, $name)));
+        $mutant = Mutations::mutation($file, $name, 3);
+        Schemata::sited($mutant, $plus, new Minus($plus->left, $plus->right));
+        Schemata::written($file, $code, sprintf('%s/mutations', $root));
+        $schemata[] = Schemata::variablesOf($mutant)[GateVariable::Schema->value];
+    }
+
+    expect(is_dir(sprintf('%s/mutations', $root)))->toBeTrue()
+        ->and(array_map(static fn(string $schema): string|false => file_get_contents($schema), $schemata))
+        ->each->toContain('? (1 - 2) : (1 + 2)');
 });
 
 it('writes nothing for a file whose mutants no schema can switch, and forgets a file\'s mutants once written', function (): void {

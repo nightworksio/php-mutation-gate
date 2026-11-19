@@ -126,8 +126,10 @@ final class Schemata
 
         $path = sprintf(self::PATH, $copies, $key, Path::PHP);
 
-        if (! is_dir(dirname($path))) {
-            mkdir(dirname($path), recursive: true);
+        foreach ([$copies, dirname($path)] as $directory) {
+            if (! is_dir($directory)) {
+                mkdir($directory, recursive: true);
+            }
         }
 
         file_put_contents($path, $schema->text());
