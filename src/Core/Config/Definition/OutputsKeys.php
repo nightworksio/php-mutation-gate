@@ -51,15 +51,26 @@ final readonly class OutputsKeys
             $judges,
         );
         $costs = Field::optional('costs', Flag::boolean(), $judges);
+        $costReport = Field::optional('costReport', Flag::boolean(), $judges);
+        $costliest = Field::optional('costliest', Integer::atLeast(1), $judges);
 
         return [Field::section(
             'outputs',
             Section::of(
-                static function (Node $outputs) use ($verdictOnly, $automatic, $actionReports, $costs): Layer|Invalid {
+                static function (Node $outputs) use (
+                    $verdictOnly,
+                    $automatic,
+                    $actionReports,
+                    $costs,
+                    $costReport,
+                    $costliest,
+                ): Layer|Invalid {
                     $only = $verdictOnly->read($outputs);
                     $byRun = $automatic->read($outputs);
                     $forAction = $actionReports->read($outputs);
                     $said = $costs->read($outputs);
+                    $where = $costReport->read($outputs);
+                    $counted = $costliest->read($outputs);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Reports::outputting(Outputs::of(
@@ -67,17 +78,23 @@ final readonly class OutputsKeys
                             self::named($byRun->value()),
                             self::named($forAction->value()),
                             $said->value(),
+                            $where->value(),
+                            $counted->value(),
                         ))),
                         $only,
                         $byRun,
                         $forAction,
                         $said,
+                        $where,
+                        $counted,
                     );
                 },
                 $verdictOnly,
                 $automatic,
                 $actionReports,
                 $costs,
+                $costReport,
+                $costliest,
             ),
         )];
     }

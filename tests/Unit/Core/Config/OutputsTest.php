@@ -33,14 +33,16 @@ it('says what a run cost, unless outputs.costs is false', function (): void {
 });
 
 it('lays a later layer\'s outputs over an earlier one, key by key, and reads them back', function (): void {
-    $laid = Configs::valid(['outputs' => ['verdictOnly' => true, 'automatic' => ['badge'], 'costs' => false]])
-        ->over(Configs::valid(['outputs' => ['verdictOnly' => false, 'actionReports' => ['json']]]));
+    $laid = Configs::valid(['outputs' => ['verdictOnly' => true, 'automatic' => ['badge'], 'costs' => false, 'costliest' => 4]])
+        ->over(Configs::valid(['outputs' => ['verdictOnly' => false, 'actionReports' => ['json'], 'costReport' => false]]));
 
     expect(Configs::decoded($laid))->toMatchArray(['outputs' => [
         'verdictOnly' => false,
         'automatic' => ['badge'],
         'actionReports' => ['json'],
         'costs' => false,
+        'costReport' => false,
+        'costliest' => 4,
     ]]);
 });
 
@@ -53,7 +55,23 @@ it('writes each key into a config written as PHP', function (array $outputs, str
     'the action\'s' => [['actionReports' => ['json']], "Outputs::actionReports('json')"],
     'costs' => [['costs' => true], 'Outputs::withCosts()'],
     'no costs' => [['costs' => false], 'Outputs::withoutCosts()'],
+    'the cost report' => [['costReport' => true], 'Outputs::withCostReport()'],
+    'no cost report' => [['costReport' => false], 'Outputs::withoutCostReport()'],
+    'the costliest' => [['costliest' => 3], 'Outputs::costliest(3)'],
 ]);
+
+it('reports where a costed run\'s minutes went, naming its ten costliest, unless a layer says otherwise', function (): void {
+    expect([Outputs::of()->reportsCosts(), Outputs::of()->costliest()])->toBe([true, 10])
+        ->and([Outputs::standard()->reportsCosts(), Outputs::standard()->costliest()])->toBe([true, 10])
+        ->and(Outputs::of(costReport: false)->reportsCosts())->toBeFalse()
+        ->and(Outputs::of(costliest: 3)->costliest())->toBe(3)
+        ->and(Outputs::of(costliest: 3)->over(Outputs::of(costReport: false))->costliest())->toBe(3);
+});
+
+it('refuses a costliest count below one', function (): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'outputs' => ['costliest' => 0]])))
+        ->toHaveCount(1);
+});
 
 it('refuses a reporter that is not one it can leave out', function (): void {
     expect(Configs::problems(Configs::validated(['runner' => 'pest', 'outputs' => ['automatic' => ['json']]])))

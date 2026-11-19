@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
+use NightWorksIO\MutationGate\Core\Cost\Route;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -17,9 +18,10 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * which vouches for that kill (see UnnamedKillControls). Of any mutant: the
  * test files its own run loaded with no filter, where the runner left the
  * filter of its tests out, which its controls run the same way (see
- * Control); whether a split stream judged it (ADR-0117); and how many of
- * its covering tests the shard judged it by, where a run cuts its test files
- * across its shards (TestShare). A runner that cannot tell any of it gives
+ * Control); whether a split stream judged it (ADR-0117); how many of its
+ * covering tests the shard judged it by, where a run cuts its test files
+ * across its shards (TestShare); and the route that judged it, where the
+ * runner names one (ADR-0230). A runner that cannot tell any of it gives
  * none of it.
  */
 final readonly class Evidence
@@ -32,6 +34,7 @@ final readonly class Evidence
         private bool $streamed = false,
         private TestShare $share = TestShare::All,
         private TestIds|NotGiven $order = new NotGiven(),
+        private Route|NotGiven $route = new NotGiven(),
     ) {
     }
 
@@ -50,6 +53,7 @@ final readonly class Evidence
             $this->streamed,
             $this->share,
             $this->order,
+            $this->route,
         );
     }
 
@@ -63,6 +67,7 @@ final readonly class Evidence
             $this->streamed,
             $this->share,
             $this->order,
+            $this->route,
         );
     }
 
@@ -80,6 +85,7 @@ final readonly class Evidence
             streamed: true,
             share: $this->share,
             order: $this->order,
+            route: $this->route,
         );
     }
 
@@ -100,6 +106,7 @@ final readonly class Evidence
             $this->streamed,
             $share,
             $this->order,
+            $this->route,
         );
     }
 
@@ -120,6 +127,7 @@ final readonly class Evidence
             streamed: $this->streamed,
             share: $this->share,
             order: $this->order,
+            route: $this->route,
         );
     }
 
@@ -137,6 +145,7 @@ final readonly class Evidence
             $this->streamed,
             $this->share,
             $this->order,
+            $this->route,
         );
     }
 
@@ -167,6 +176,7 @@ final readonly class Evidence
             $this->streamed,
             $this->share,
             $order,
+            $this->route,
         );
     }
 
@@ -174,6 +184,27 @@ final readonly class Evidence
     public function order(): TestIds|NotGiven
     {
         return $this->order;
+    }
+
+    /** This evidence, of a mutant this route judged (ADR-0230). */
+    public function routed(Route $route): self
+    {
+        return new self(
+            $this->prefix,
+            $this->ended,
+            $this->vouched,
+            $this->unfiltered,
+            $this->streamed,
+            $this->share,
+            $this->order,
+            $route,
+        );
+    }
+
+    /** The route that judged the mutant; not given where the runner did not name one. */
+    public function route(): Route|NotGiven
+    {
+        return $this->route;
     }
 
     public function prefix(): Prefix|NotGiven
@@ -195,6 +226,7 @@ final readonly class Evidence
             && $this->unfiltered instanceof NotGiven
             && ! $this->streamed
             && $this->share->isWhole()
-            && $this->order instanceof NotGiven;
+            && $this->order instanceof NotGiven
+            && $this->route instanceof NotGiven;
     }
 }

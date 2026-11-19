@@ -288,6 +288,7 @@ final class Records
             RecordEvent::Preloaded,
             RecordEvent::Unfiltered,
             RecordEvent::Streamed,
+            RecordEvent::SecondPass,
             RecordEvent::Unreached,
             RecordEvent::OwnedPart,
             RecordEvent::OtherPart => $this->runs->marked($record, $event),

@@ -271,7 +271,9 @@ final readonly class SettingsCases
                 "html",
                 "digest"
             ],
-            "costs": true
+            "costs": true,
+            "costReport": true,
+            "costliest": 10
         },
         "badge": {
             "colors": {

@@ -49,6 +49,24 @@ final readonly class Outputs implements Setting
         return new self(Json::at('outputs.costs', value: false));
     }
 
+    /** `outputs.costReport`: a costed run's reports say where its minutes went, the default (ADR-0230). */
+    public static function withCostReport(): self
+    {
+        return new self(Json::at('outputs.costReport', value: true));
+    }
+
+    /** `outputs.costReport: false`: they do not. */
+    public static function withoutCostReport(): self
+    {
+        return new self(Json::at('outputs.costReport', value: false));
+    }
+
+    /** `outputs.costliest`: how many of its costliest mutants and tests the cost report names, 10 by default. */
+    public static function costliest(int $count): self
+    {
+        return new self(Json::at('outputs.costliest', $count));
+    }
+
     public function written(): Json
     {
         return $this->json;

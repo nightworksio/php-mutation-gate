@@ -43,6 +43,7 @@ const EVIDENCE_HOLDERS = [
     'src/Cli/Flow/Controlling.php',
     'src/Cli/Flow/Hidden.php',
     'src/Cli/Flow/Invoking.php',
+    'src/Cli/Flow/RunCosts.php',
     'src/Cli/Flow/Spent.php',
     'src/Core/Control/KillControls.php',
     'src/Core/Control/KillersAlone.php',
