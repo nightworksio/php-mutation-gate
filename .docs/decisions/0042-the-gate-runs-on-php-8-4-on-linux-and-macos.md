@@ -22,7 +22,7 @@ What holds the gate to PHP 8.5, read at source:
     on 8.4. `symfony/console` 8 and `infection/infection` already require it.
   - Nothing else: PHPStan, set to PHP 8.4, reports clone-with alone.
 - **The lowest 8.4 the lock can name.** `roave/security-advisories`
-  conflicts with PHP 8.4 below 8.4.27.
+  conflicts with PHP 8.4 below 8.4.28.
 - **What checks the version.** PHPStan and Rector's PHP sets read the
   lowest PHP from `composer.json`'s `require.php`.
 - **CI.** Every job runs PHP 8.5 on Linux, and the `lowest` job runs the
@@ -43,7 +43,7 @@ item 13.
 
 1. **The gate runs on PHP 8.4 and later 8.x.**
    - `composer.json` and each plugin's require `php: ^8.4`, and
-     `config.platform.php` is 8.4.27, the lowest 8.4 the lock can name.
+     `config.platform.php` is 8.4.28, the lowest 8.4 the lock can name.
    - `composer.json` requires `symfony/polyfill-php85` for `array_first`
      and `array_last`.
 

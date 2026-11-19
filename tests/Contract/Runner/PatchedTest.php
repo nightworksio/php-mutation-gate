@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Config\PestWorkers;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -48,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Runner\PartNarrowing;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -400,7 +402,8 @@ it('reports the same records for every mutant Pest makes of the library\'s files
 )->group(...$holds);
 
 // Every part reads one coverage map, handed over as a plan hands its shards
-// theirs, so each cuts the test files alike.
+// theirs, so each cuts the test files alike; every test in it takes the same
+// time, so the cut is the same on every run.
 it('reports the same records for every mutant Pest makes of the library\'s files from split streams across parts of the test files, each part making the mutants of its tests\' lines and of lines no test covers alone, merged as the verdict merges them, as from one part, whether or not they record each test\'s lines', function (int $parts, bool $recording): void {
     Library::patched();
     $files = Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php'));
@@ -408,10 +411,14 @@ it('reports the same records for every mutant Pest makes of the library\'s files
         StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true),
     ));
     $handed = Path::of('.mutation-gate/parted');
-    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handed));
+    $measured = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handed));
+    $map = $measured instanceof CoverageMap ? $measured : CoverageMap::of();
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in($handed)->value())),
-        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::of(), Unplaced::map()),
+        CoverageMapFile::encode(
+            $map->timedEach(...array_map(static fn(TestId $test): TimedTest => TimedTest::of($test->value(), 1.0), [...$map->tests()])),
+            Unplaced::map(),
+        ),
     );
     $part = $recording ? PartNarrowing::whole()->recordingInto(LineRecording::standingIn(Scratch::directory())) : PartNarrowing::whole();
     $run = static fn(TestPart $testPart): MutationResult|CannotJudge => $library->mutate(

@@ -459,7 +459,7 @@ class ProjectCode(unittest.TestCase):
     def test_the_plan_the_shards_the_survivors_and_the_verdict_run_the_project_s_code(self):
         running = sorted(name for name, lines in jobs(WORKFLOW).items() if runs_project_code(lines))
 
-        self.assertEqual(["plan", "shard", "survivors", "survivors-report", "verdict"], running)
+        self.assertEqual(["leftover", "leftovers", "plan", "shard", "survivors", "survivors-report", "verdict"], running)
 
     def test_no_job_that_runs_the_project_s_code_holds_a_secret_or_a_credential(self):
         for name, lines in jobs(WORKFLOW).items():
@@ -483,6 +483,8 @@ class ProjectCode(unittest.TestCase):
             [
                 ("plan", install, [INSTALLING[0]]),
                 ("shard", action_step, [INSTALLING[1]]),
+                ("leftovers", install, [INSTALLING[0]]),
+                ("leftover", action_step, [INSTALLING[1]]),
                 ("survivors", install, [INSTALLING[0]]),
                 ("survivors-report", install, [INSTALLING[0]]),
                 ("verdict", install, [INSTALLING[0]]),
@@ -549,6 +551,17 @@ class ProjectCode(unittest.TestCase):
 
 PREPARING = "- name: Prepare what the tests need besides the dependencies"
 
+WAITING = "- name: Wait for every service to report healthy"
+
+# The job that cuts what the shards left into shares, which installs the project but runs none of its tests.
+CUTTING = "leftovers"
+
+
+def after_install(found: list[list[str]], installed: int) -> list[str]:
+    """The step that follows the project's install, past the wait for its services."""
+    following = [one for one in found[installed + 1:] if one[0].strip() != WAITING]
+    return [line.strip() for line in following[0]]
+
 
 def run_line(of_step: list[str]) -> str:
     """The one-line command a step runs."""
@@ -561,8 +574,8 @@ class Prepare(unittest.TestCase):
         for name, lines in jobs(WORKFLOW).items():
             found = steps(lines)
             for at, one in enumerate(found):
-                if "ramsey/composer-install@" in one[0]:
-                    after = [line.strip() for line in found[at + 1]]
+                if "ramsey/composer-install@" in one[0] and name != CUTTING:
+                    after = after_install(found, at)
                     preparing.append(name)
                     with self.subTest(job=name):
                         self.assertEqual(PREPARING, after[0])
@@ -577,7 +590,7 @@ class Prepare(unittest.TestCase):
     def test_the_action_runs_it_right_after_the_project_installs_and_never_to_deliver(self):
         found = steps(lines_of(ACTION))
         installed = next(at for at, one in enumerate(found) if one[0].strip() == "- name: Install the project's dependencies")
-        after = [line.strip() for line in found[installed + 1]]
+        after = after_install(found, installed)
 
         self.assertEqual(PREPARING, after[0])
         self.assertIn("if: inputs.deliver != 'true' && inputs.prepare != ''", after)
@@ -609,7 +622,7 @@ class Prepare(unittest.TestCase):
             self.assertNotEqual(0, ran('echo "${UNSET_IN_PREPARE}"'))
 
 
-SERVICES = "services: ${{ fromJSON(inputs.services || '{}') }}"
+SERVICES = "services: ${{ inputs.services-start == 'job' && fromJSON(inputs.services || '{}') || fromJSON('{}') }}"
 
 
 class Services(unittest.TestCase):
@@ -617,8 +630,8 @@ class Services(unittest.TestCase):
         starting = [name for name, lines in jobs(WORKFLOW).items() if any(line.strip() == SERVICES for line in lines)]
         running = [name for name, lines in jobs(WORKFLOW).items() if runs_project_code(lines)]
 
-        self.assertEqual(["plan", "shard", "survivors", "survivors-report", "verdict"], starting)
-        self.assertEqual(sorted(running), sorted(starting))
+        self.assertEqual(["plan", "shard", "leftover", "survivors", "survivors-report", "verdict"], starting)
+        self.assertEqual(sorted(name for name in running if name != CUTTING), sorted(starting))
         self.assertEqual([], [name for name in CREDENTIALED if name in starting])
 
     def test_the_input_is_a_string_of_json_that_starts_nothing_unless_the_caller_names_it(self):

@@ -1,4 +1,4 @@
-# ADR-0161: The welcome is swept on a schedule, and no bot workflow runs on `pull_request_target`
+# ADR-0242: The welcome is swept on a schedule, and no bot workflow runs on `pull_request_target`
 
 **Status:** Accepted
 **Date:** 2026-11-16

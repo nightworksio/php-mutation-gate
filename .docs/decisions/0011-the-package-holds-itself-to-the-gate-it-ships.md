@@ -125,7 +125,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | OpenSSF Scorecard | `scorecard.yml` | **Copied** | A public package is what Scorecard exists for |
    | Mutation jobs | a scope job, a matrix of shards and an aggregating job, driven by the in-house script | **Adapted** | They become this package's reusable workflow: plan, shards and verdict |
 
-   ADR-0042 amends this table: `config.platform.php` is 8.4.27.
+   ADR-0042 amends this table: `config.platform.php` is 8.4.28.
 
 4. **The code conventions, and what enforces each here.** The rule IDs are this
    package's own, held in `ARCHITECTURE.md`.

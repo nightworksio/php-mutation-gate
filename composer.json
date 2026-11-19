@@ -149,7 +149,7 @@
             "pestphp/pest-plugin": true
         },
         "platform": {
-            "php": "8.4.27"
+            "php": "8.4.28"
         },
         "process-timeout": 0,
         "sort-packages": true
