@@ -63,24 +63,23 @@ impl Lexer<'_> {
             .is_some_and(|slice| slice.eq_ignore_ascii_case(word))
     }
 
+    fn current(&self) -> Option<u8> {
+        self.text.get(self.at).copied()
+    }
+
     /// Skips inline HTML up to and past the next open tag.
     fn html(&mut self) {
-        while self.at < self.text.len() {
-            if self.starts(b"<?php") {
-                self.at += 5;
-                return;
-            }
+        let rest = self.text.get(self.at..).unwrap_or_default();
+        let Some(open) = rest.windows(2).position(|pair| pair == b"<?") else {
+            self.at = self.text.len();
+            return;
+        };
 
-            if self.starts(b"<?=") {
-                self.at += 3;
-                return;
-            }
+        self.at += open + 2;
 
-            if self.starts(b"<?") {
-                self.at += 2;
-                return;
-            }
-
+        if self.starts(b"php") {
+            self.at += 3;
+        } else if self.peek(0) == b'=' {
             self.at += 1;
         }
     }
@@ -179,10 +178,11 @@ impl Lexer<'_> {
     }
 
     fn line_comment(&mut self) {
-        while self.at < self.text.len() && self.peek(0) != b'\n' {
-            if self.peek(0) == b'?' && self.peek(1) == b'>' {
+        while let Some(byte) = self.current() {
+            if byte == b'\n' || (byte == b'?' && self.peek(1) == b'>') {
                 return;
             }
+
             self.at += 1;
         }
     }
@@ -190,7 +190,7 @@ impl Lexer<'_> {
     fn block_comment(&mut self) {
         self.at += 2;
 
-        while self.at < self.text.len() && !(self.peek(0) == b'*' && self.peek(1) == b'/') {
+        while self.current().is_some() && !self.starts(b"*/") {
             self.at += 1;
         }
 
@@ -202,12 +202,16 @@ impl Lexer<'_> {
         let mut literal = true;
         self.at += 1;
 
-        while self.at < self.text.len() && self.peek(0) != quote {
-            if self.peek(0) == b'\\' {
+        while let Some(byte) = self.current() {
+            if byte == quote {
+                break;
+            }
+
+            if byte == b'\\' {
                 self.at += 1;
             } else if quote != b'\''
-                && ((self.peek(0) == b'$' && (is_name_start(self.peek(1)) || self.peek(1) == b'{'))
-                    || (self.peek(0) == b'{' && self.peek(1) == b'$'))
+                && ((byte == b'$' && (is_name_start(self.peek(1)) || self.peek(1) == b'{'))
+                    || (byte == b'{' && self.peek(1) == b'$'))
             {
                 literal = false;
             }
@@ -236,14 +240,10 @@ impl Lexer<'_> {
         self.word();
         let label = self.text.get(start..self.at).unwrap_or_default().to_vec();
 
-        if quoted {
-            self.at += 1;
-        }
-
         let mut literal = true;
 
-        while self.at < self.text.len() {
-            if self.peek(0) == b'\n' {
+        while let Some(byte) = self.current() {
+            if byte == b'\n' {
                 self.at += 1;
 
                 while self.peek(0) == b' ' || self.peek(0) == b'\t' {
@@ -259,7 +259,7 @@ impl Lexer<'_> {
                 continue;
             }
 
-            if !nowdoc && self.peek(0) == b'$' && is_name_start(self.peek(1)) {
+            if !nowdoc && byte == b'$' && is_name_start(self.peek(1)) {
                 literal = false;
             }
 
@@ -280,7 +280,16 @@ fn is_name_byte(byte: u8) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::Token::{Arrow, Attribute, DoubleColon, Number, Punct, Quoted, Str, Variable};
     use super::{Token, tokens};
+
+    fn name(text: &str) -> Token {
+        Token::Name(text.to_owned())
+    }
+
+    fn quoted(text: &str) -> Token {
+        Quoted(text.to_owned())
+    }
 
     fn names(text: &str) -> Vec<String> {
         tokens(text.as_bytes())
@@ -329,5 +338,130 @@ mod tests {
         assert_eq!(names("<?= $a ?>Gone<?php Foo;"), ["Foo"]);
         assert_eq!(names("<?php // Gone ?>Gone<?php Bar;"), ["Bar"]);
         assert_eq!(names("<?php <<< 'N'\n  Gone\n  N;\nBaz;"), ["Baz"]);
+    }
+
+    #[test]
+    fn starts_right_after_each_open_tag() {
+        assert_eq!(tokens(b"x<?phpFoo"), [name("Foo")]);
+        assert_eq!(tokens(b"x<?PHP Foo"), [name("Foo")]);
+        assert_eq!(tokens(b"x<?=Foo"), [name("Foo")]);
+        assert_eq!(tokens(b"x<?Foo"), [name("Foo")]);
+        assert_eq!(tokens(b"Foo"), []);
+        assert_eq!(
+            tokens(b"<?php Foo ?>x<?php Bar"),
+            [name("Foo"), Punct(b';'), name("Bar")]
+        );
+        assert_eq!(tokens(b"x<??><?php Bar"), [Punct(b';'), name("Bar")]);
+    }
+
+    #[test]
+    fn reads_each_token_of_an_expression() {
+        assert_eq!(
+            tokens(b"<?php $a = $b / 2 - 1.5 < $c ? Foo::BAR : $d?->e->f; #[A] $$g;"),
+            [
+                Variable,
+                Punct(b'='),
+                Variable,
+                Punct(b'/'),
+                Number,
+                Punct(b'-'),
+                Number,
+                Punct(b'<'),
+                Variable,
+                Punct(b'?'),
+                name("Foo"),
+                DoubleColon,
+                name("BAR"),
+                Punct(b':'),
+                Variable,
+                Arrow,
+                name("e"),
+                Arrow,
+                name("f"),
+                Punct(b';'),
+                Attribute,
+                name("A"),
+                Punct(b']'),
+                Punct(b'$'),
+                Variable,
+                Punct(b';'),
+            ]
+        );
+    }
+
+    #[test]
+    fn reads_a_question_mark_before_a_minus_or_a_greater_than_as_a_ternary() {
+        assert_eq!(
+            tokens(b"<?php $a?1>2:3"),
+            [
+                Variable,
+                Punct(b'?'),
+                Number,
+                Punct(b'>'),
+                Number,
+                Punct(b':'),
+                Number
+            ]
+        );
+        assert_eq!(
+            tokens(b"<?php $a?-1:2"),
+            [
+                Variable,
+                Punct(b'?'),
+                Punct(b'-'),
+                Number,
+                Punct(b':'),
+                Number
+            ]
+        );
+    }
+
+    #[test]
+    fn reads_a_number_with_its_letters_underscores_and_dots() {
+        assert_eq!(tokens(b"<?php 0x1F 1_000 1.5e3"), [Number, Number, Number]);
+    }
+
+    #[test]
+    fn reads_each_quoted_string_up_to_its_own_closing_quote() {
+        assert_eq!(
+            tokens(br#"<?php 'a\'b' "c\"d" "a{b" '$a' "a$" "{$e}" "${f}" `g` 'h"#),
+            [
+                quoted(r"a\'b"),
+                quoted(r#"c\"d"#),
+                quoted("a{b"),
+                quoted("$a"),
+                quoted("a$"),
+                Str { literal: false },
+                Str { literal: false },
+                Str { literal: false },
+                quoted("h"),
+            ]
+        );
+    }
+
+    #[test]
+    fn drops_every_kind_of_comment_up_to_its_end() {
+        assert_eq!(
+            names("<?php // a?b c>d\nFoo /* x * / */ Bar /*/ Baz */ Qux # z\nQuux"),
+            ["Foo", "Bar", "Qux", "Quux"]
+        );
+        assert_eq!(tokens(b"<?php /* open"), []);
+    }
+
+    #[test]
+    fn ends_a_heredoc_only_at_its_whole_label() {
+        assert_eq!(
+            tokens(b"<?php <<<EOT\n  $x\n  EOT;\n<<<\"Q\"\nplain\nQ;\n<<<E\nEX\n$\nE;\nA"),
+            [
+                Str { literal: false },
+                Punct(b';'),
+                Str { literal: true },
+                Punct(b';'),
+                Str { literal: true },
+                Punct(b';'),
+                name("A"),
+            ]
+        );
+        assert_eq!(tokens(b"<?php <<<\n;Foo"), [Str { literal: true }]);
     }
 }

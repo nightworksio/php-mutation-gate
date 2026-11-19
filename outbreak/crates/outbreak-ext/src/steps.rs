@@ -13,6 +13,12 @@
 
 use std::sync::atomic::{AtomicI64, AtomicPtr, AtomicU64, AtomicUsize, Ordering};
 
+#[cfg(not(unix))]
+mod elsewhere;
+
+#[cfg(not(unix))]
+use elsewhere::mapped;
+
 /// The limit of a slot no parent has limited.
 const UNLIMITED: i64 = i64::MAX;
 
@@ -70,7 +76,6 @@ impl Steps {
 
         let slots = count
             .checked_mul(size_of::<AtomicI64>())
-            .filter(|&length| length > 0)
             .map_or(std::ptr::null_mut(), mapped);
 
         if slots.is_null() {
@@ -135,12 +140,6 @@ fn mapped(length: usize) -> *mut AtomicI64 {
     } else {
         mapped.cast()
     }
-}
-
-/// No pages are shared where no child is forked.
-#[cfg(not(unix))]
-fn mapped(_length: usize) -> *mut AtomicI64 {
-    std::ptr::null_mut()
 }
 
 #[cfg(test)]

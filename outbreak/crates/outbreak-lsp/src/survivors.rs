@@ -259,6 +259,37 @@ mod tests {
     }
 
     #[test]
+    fn reads_each_status_and_severity_by_its_name() {
+        for (name, status) in [
+            ("killed", Status::Killed),
+            ("survived", Status::Survived),
+            ("timeout", Status::Timeout),
+            ("pending", Status::Pending),
+            ("equivalent", Status::Equivalent),
+        ] {
+            assert_eq!(Status::of(name), Some(status));
+        }
+        for (name, severity) in [
+            ("error", Severity::Error),
+            ("warning", Severity::Warning),
+            ("information", Severity::Information),
+            ("hint", Severity::Hint),
+        ] {
+            assert_eq!(Severity::named(name), Some(severity));
+        }
+
+        assert_eq!(Status::of("missed"), None);
+        assert_eq!(Severity::named("fatal"), None);
+    }
+
+    #[test]
+    fn reads_a_mutant_s_id_only_in_full() {
+        assert!(is_mutant("0123456789ab"));
+        assert!(!is_mutant("0123456789a"));
+        assert!(!is_mutant("0123456789ax"));
+    }
+
+    #[test]
     fn reads_an_event_and_no_other_line() {
         let read = Event::read(
             br#"{"mutant":"0123456789ab","site":"src/A.php:7","status":"survived","by":null,"quick":false,"unit":"src/A.php","digest":null}"#,

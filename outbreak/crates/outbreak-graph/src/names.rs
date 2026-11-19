@@ -171,25 +171,25 @@ impl<'a> Reader<'a> {
     fn run(&mut self) {
         let mut index = 0;
 
-        while index < self.tokens.len() {
-            index = self.step(index);
+        while let Some(token) = self.at(index) {
+            index = self.step(index, token);
         }
     }
 
-    fn step(&mut self, index: usize) -> usize {
+    fn step(&mut self, index: usize, token: &Token) -> usize {
         let before = index.checked_sub(1).and_then(|at| self.at(at)).cloned();
 
-        match self.at(index) {
-            Some(Token::Punct(b'{')) => self.depth += 1,
-            Some(Token::Punct(b'}')) => {
+        match token {
+            Token::Punct(b'{') => self.depth += 1,
+            Token::Punct(b'}') => {
                 self.depth = self.depth.saturating_sub(1);
                 if self.class_depth.is_some_and(|depth| depth > self.depth) {
                     self.class_depth = None;
                 }
             }
-            Some(Token::Variable) => self.variable(index, before.as_ref()),
-            Some(Token::Name(name)) => return self.name(index, &name.clone(), before.as_ref()),
-            Some(Token::Quoted(text)) => self.spelt(text),
+            Token::Variable => self.variable(index, before.as_ref()),
+            Token::Name(name) => return self.name(index, name, before.as_ref()),
+            Token::Quoted(text) => self.spelt(text),
             _ => {}
         }
 
@@ -205,10 +205,6 @@ impl<'a> Reader<'a> {
 
         if next == Some(&Token::DoubleColon) {
             self.unplace("a class named by a variable");
-        }
-
-        if before == Some(&Token::DoubleColon) && next == Some(&Token::Punct(b'(')) {
-            self.unplace("a static method named by a variable");
         }
     }
 
@@ -234,10 +230,10 @@ impl<'a> Reader<'a> {
             }
             "use" if self.class_depth.is_none() => return self.import(index + 1),
             "function" | "fn" => return self.declared_function(index + 1, &lower),
-            "const" => self.declared_constants(index + 1),
+            "const" => self.declared_constants(index),
             "new" => self.new_at(index + 1),
             word if DECLARING.contains(&word) => return self.declared_class(index + 1),
-            word if INCLUDES.contains(&word) => self.included(index + 1),
+            word if INCLUDES.contains(&word) => self.included(index),
             word if DYNAMIC_CALLS.contains(&word) && next == Some(Token::Punct(b'(')) => {
                 self.unplace("a call by a name held as it runs");
             }
@@ -285,7 +281,7 @@ impl<'a> Reader<'a> {
         let bytes = text.as_bytes();
         let mut at = 0;
 
-        while at < bytes.len() {
+        while bytes.get(at).is_some() {
             match qualified_at(bytes, at) {
                 Some(end) => {
                     let found = text
@@ -387,7 +383,7 @@ impl<'a> Reader<'a> {
             match token {
                 Token::Punct(b';') => {
                     self.imported(&prefix, current.take(), alias.take());
-                    return index + 1;
+                    return index;
                 }
                 Token::Punct(b',' | b'}') => self.imported(&prefix, current.take(), alias.take()),
                 Token::Punct(b'{') => prefix = current.take().unwrap_or_default(),
@@ -532,7 +528,7 @@ fn segment_at(bytes: &[u8], start: usize) -> Option<usize> {
         return None;
     }
 
-    let mut at = start + 1;
+    let mut at = start;
 
     while bytes
         .get(at)
@@ -675,6 +671,7 @@ mod tests {
             assert!(found.names.contains(name), "{name} in {:?}", found.names);
         }
         assert_eq!(found.unplaced, None);
+        assert!(!found.names.contains("use"), "{:?}", found.names);
         assert!(read(b"<?php use App\\Money").names.is_empty());
         let closure = read(b"<?php $f = function () use ($rate) { return new Money($rate); };");
         assert!(
@@ -690,5 +687,103 @@ mod tests {
             read(b"<?php app($key);").unplaced,
             Some("a container read by a key held as it runs")
         );
+    }
+
+    #[test]
+    fn tells_a_trait_s_use_from_an_import_by_the_braces_it_is_in() {
+        for text in [
+            &b"<?php namespace App; class A { function f() { } use T; } new T\\X;"[..],
+            b"<?php namespace App; class A { use T; } new T\\X;",
+        ] {
+            let found = read(text);
+
+            assert!(found.names.contains("app\\t\\x"), "{:?}", found.names);
+        }
+
+        let after = read(b"<?php namespace App; class A { } use Foo\\Bar; new Bar;");
+
+        assert!(after.names.contains("foo\\bar"), "{:?}", after.names);
+        assert!(!after.names.contains("app\\bar"), "{:?}", after.names);
+    }
+
+    #[test]
+    fn resolves_no_keyword() {
+        let found = read(b"<?php namespace App; echo 1; yield 2;");
+
+        for keyword in ["echo", "app\\echo", "yield", "app\\yield"] {
+            assert!(
+                !found.names.contains(keyword),
+                "{keyword} in {:?}",
+                found.names
+            );
+        }
+    }
+
+    #[test]
+    fn reads_a_container_s_key_only_where_a_resolver_is_called() {
+        for text in [
+            &b"<?php make($id);"[..],
+            b"<?php $c->make = $id;",
+            b"<?php $x; $c->make('cache', $y);",
+            b"<?php echo app, $y;",
+        ] {
+            assert_eq!(
+                read(text).unplaced,
+                None,
+                "{}",
+                String::from_utf8_lossy(text)
+            );
+        }
+
+        assert!(read(b"<?php echo define, 'X';").declares.is_empty());
+    }
+
+    #[test]
+    fn reads_each_declaration_up_to_its_own_end() {
+        assert_eq!(
+            read(b"<?php const A = 1; $o->b = 2;").declares,
+            ["const a".to_owned()].into()
+        );
+        assert!(
+            !read(b"<?php class A { function run() {} }")
+                .declares
+                .contains("run")
+        );
+        assert!(read(b"<?php use function;").names.is_empty());
+        assert!(read(b"<?php use as X;").names.contains("x"));
+    }
+
+    #[test]
+    fn reads_no_declared_name_again_as_a_use() {
+        for text in [
+            &b"<?php class ReflectionClass {}"[..],
+            b"<?php namespace App; function constant($x) {}",
+            b"<?php namespace Require { $x; }",
+        ] {
+            assert_eq!(
+                read(text).unplaced,
+                None,
+                "{}",
+                String::from_utf8_lossy(text)
+            );
+        }
+    }
+
+    #[test]
+    fn keeps_a_fully_qualified_name_only_as_resolved() {
+        let found = read(b"<?php namespace App; new \\Foo; new namespace\\Bar;");
+
+        assert!(found.names.contains("foo"), "{:?}", found.names);
+        assert!(found.names.contains("app\\bar"), "{:?}", found.names);
+        assert!(!found.names.contains("\\foo"), "{:?}", found.names);
+        assert!(!found.names.contains("namespace\\bar"), "{:?}", found.names);
+    }
+
+    #[test]
+    fn starts_a_segment_of_a_spelt_name_only_with_a_letter_or_an_underscore() {
+        let found = read(b"<?php 'App\\_Hidden'; 'App\\9Lives';");
+
+        assert!(found.names.contains("app\\_hidden"), "{:?}", found.names);
+        assert!(!found.names.contains("app\\9lives"), "{:?}", found.names);
     }
 }

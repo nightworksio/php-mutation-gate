@@ -1,0 +1,2 @@
+[profile.mutants]
+slow-timeout = { period = "3s", terminate-after = 2 }

@@ -441,7 +441,7 @@ fn base64(bytes: &[u8]) -> String {
         let first = chunk.first().copied().unwrap_or_default();
         let second = chunk.get(1).copied().unwrap_or_default();
         let third = chunk.get(2).copied().unwrap_or_default();
-        let joined = (u32::from(first) << 16) | (u32::from(second) << 8) | u32::from(third);
+        let joined = u32::from_be_bytes([0, first, second, third]);
 
         for at in 0..4 {
             if at <= chunk.len() {
@@ -471,7 +471,7 @@ mod tests {
     };
     use crate::Failure;
     use crate::request::{Limits, Request, Store};
-    use crate::tests::{packed, request, scratch};
+    use crate::tests::{LIMITS, packed, request, scratch};
 
     /// A request as the registry read it.
     struct Asked {
@@ -580,6 +580,18 @@ mod tests {
                     Some(format!("Basic {}", base64(b"token:secret")).as_str())
                 );
                 assert!(asked.target.contains("service=fake"));
+                let scope = asked
+                    .target
+                    .split_once("scope=")
+                    .map(|(_, rest)| rest.split('&').next().unwrap())
+                    .unwrap()
+                    .replace("%3A", ":")
+                    .replace("%2F", "/")
+                    .replace("%2C", ",");
+                assert!(
+                    ["repository:o/p:pull", "repository:o/p:pull,push"].contains(&scope.as_str()),
+                    "{scope}"
+                );
                 return (
                     200,
                     Vec::new(),
@@ -588,6 +600,12 @@ mod tests {
             }
 
             assert_eq!(asked.header("authorization"), asks.then_some("Bearer t"));
+            if let Some((_, named)) = path.split_once("/manifests/") {
+                assert!(
+                    named == "trusted" || named.starts_with("trusted-base"),
+                    "{named}"
+                );
+            }
             let mut kept = kept.lock().unwrap();
 
             match asked.method.as_str() {
@@ -650,6 +668,17 @@ mod tests {
         pulling.base = String::new();
 
         assert_eq!(pulled(&pulling, &at), Ok(1));
+    }
+
+    #[test]
+    fn reads_the_digest_of_the_first_layer() {
+        assert_eq!(
+            layer_of(
+                br#"{"layers":[{"mediaType":"m","digest":"sha256:a"},{"digest":"sha256:b"}]}"#
+            )
+            .ok(),
+            Some("sha256:a".to_owned())
+        );
     }
 
     #[test]
@@ -765,6 +794,13 @@ mod tests {
             ..pulling.clone()
         };
         let pushes = pushing(&directory, "a");
+        let exactly = Request {
+            limits: Limits {
+                packed: packed("trusted", "base1", "a").len() as u64,
+                unpacked: LIMITS.unpacked,
+            },
+            ..pulling.clone()
+        };
 
         assert!(
             failed(&origin, "status/x", &pulling, false).starts_with("the registry answered 500")
@@ -786,6 +822,13 @@ mod tests {
                 .starts_with("the blob the registry answered is not")
         );
         assert!(failed(&origin, "big/x", &small, false).starts_with("cannot read"));
+        assert_eq!(
+            pulled(
+                &exactly,
+                &Registry::at(origin.clone(), "big/x", String::new())
+            ),
+            Ok(1)
+        );
         assert!(
             failed(&origin, "unlocated/x", &pushes, true)
                 .starts_with("the registry began no upload")
