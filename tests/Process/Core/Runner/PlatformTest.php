@@ -23,7 +23,7 @@ it('is the PHP a runner starts, which a setting of the gate\'s own PHP never rea
         ->getOutput();
     $settings = ini_get_all();
     $before = ini_get('memory_limit');
-    ini_set('memory_limit', $before === '-1' ? '1G' : '-1');
+    ini_set('memory_limit', $before === '-1' ? (string) (memory_get_usage(real_usage: true) * 2) : '-1');
     $started = Platform::describedBy($describe());
     ini_set('memory_limit', $before);
     $text = $started instanceof Platform ? $started->text() : '';
