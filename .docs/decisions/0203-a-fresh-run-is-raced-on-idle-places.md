@@ -31,24 +31,39 @@ shard 18 judged nothing in 426 of its 470 s.
 5. **`pest.freshRace`**, on by default, turns it off.
 6. A part's time and its unmutated run's are the `mutation` step's.
 
-## Why no verdict moves
+## Which verdicts can differ
 
-- A survivor, a timeout, running out of memory and an unjudged mutant all
-  come from the fresh run alone, exactly as before. A part's own timeout
-  or failure to start settles nothing.
+- Where no part kills first, a survivor, a timeout, running out of memory
+  and an unjudged mutant come from the fresh run alone, exactly as before.
+  A part's own timeout or failure to start settles nothing.
 - A part's kill is a covering test that fails with the mutant served and
   passes with the file unmutated, in the same process shape as the fresh
-  run (ADR-0148). That is the evidence a fresh run's kill gives. The fresh
-  run reaches that test unless an earlier test kills the mutant first, so
-  only the test named for the kill can differ.
-- Two cases can differ. The first is a test whose result depends on the
-  tests before it in the fresh run: it fails in the part, without those
-  tests, and passes in the fresh run. Requiring the part to pass unmutated
-  is the same vouching ADR-0143 asks of a kill. The second is a fresh run
-  that would run out of its limit before it reaches the part's killing
-  test: the part judges that mutant killed, not timed out. A part runs
-  under the fresh run's whole limit, never its own share of it, so a part
-  never times out where the fresh run would not.
+  run (ADR-0148). That is the evidence a fresh run's kill gives, and the
+  vouching ADR-0143 asks of a kill. Where the part's unmutated run fails,
+  as a test that fails without the tests before it does, the fresh run
+  runs again in full and judges the mutant: that costs time and moves no
+  status.
+- A part's kill settles the mutant whatever the fresh run would have
+  ended in. A raced mutant can therefore be judged killed where the fresh
+  run alone judges it otherwise, never the other way round. These four
+  differences are approved:
+  1. **TimedOut becomes Killed**: the fresh run would reach its limit
+     before its killing test. A part runs under the fresh run's whole
+     limit, never its own share of it, so a part never times out where the
+     fresh run would not. Both are detections, and the gate's verdict does
+     not move.
+  2. **OutOfMemory becomes Killed**: the fresh run would run out of the
+     memory cap over the tests before its killing test, and the part runs
+     fewer. Both are detections, and the gate's verdict does not move.
+  3. **Unjudged becomes Killed**: the fresh run would end without a
+     verdict after the part's kill, for example by crashing in a later
+     test. The gate's verdict can move: the mutant counts as detected.
+  4. **Survived becomes Killed**: in the fresh run, an earlier test hides
+     the mutant from the killing test, for example by filling a memoised
+     value first, and the part runs the killing test without it. The
+     part's unmutated run passes, so the kill stands. The gate's verdict
+     can move: the mutant counts as detected.
+- Otherwise only the test named for the kill differs.
 
 ## Alternatives considered
 

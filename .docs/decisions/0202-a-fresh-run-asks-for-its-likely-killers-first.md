@@ -36,18 +36,25 @@ fresh process and judged nothing.
    than a release keeps Pest's own order, because Pest reads a history only
    when it names Pest's release.
 
-## Why no verdict moves
+## Which verdicts can differ
 
 A covering test that does not depend on the tests before it fails or
-passes in any order. The order decides only which failing test the run
-meets first,
-and so which one is named for the kill, as it does for a mutant's own run
-(ADR-0013). The limit, the memory cap, the guard and the control are as
-before (ADR-0148). A test that fails only after other tests is
-order-dependent under both orders alike.
+passes in any order. For such tests the order decides only which failing
+test the run meets first, and so which one is named for the kill, as it
+does for a mutant's own run (ADR-0013). The limit, the memory cap, the
+guard and the control are as before (ADR-0148).
 
-The setting changes no status, so, like `splitStream.firstFork`
-(ADR-0187), it is in no proof key.
+An order-dependent test can move a status either way, under any order. A
+test that fails only after another test ran mutated kills in one order
+and not in another. So does a test that an earlier test hides the mutant
+from, for example by filling a memoised value first: it kills where it
+runs before that test, and lets the mutant survive where it runs after
+it. A mutant's own run already reorders its tests the same way, likely
+killers first, so its status depends on the order in the same cases. A
+kill's control replays the kill's order (ADR-0143), so a test that fails
+unmutated in that order never counts as a kill.
+
+Like the order of a mutant's own run, the setting is in no proof key.
 
 ## Alternatives considered
 
@@ -64,5 +71,6 @@ The setting changes no status, so, like `splitStream.firstFork`
 ## Related
 
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md)
+- [ADR-0143](0143-a-kills-control-replays-its-order.md)
 - [ADR-0148](0148-a-mutant-of-a-file-pest-loads-first-is-judged-in-a-fresh-run.md)
 - [ADR-0187](0187-a-mutant-with-no-known-killer-forks-first-at-its-cheapest-test.md)
