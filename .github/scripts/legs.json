@@ -27,6 +27,7 @@
       "tests/Support/JudgedCommits.php",
       "tests/Support/Killings.php",
       "tests/Support/Layer.php",
+      "tests/Support/Measured.php",
       "tests/Support/Moment.php",
       "tests/Support/MutatePlugin.php",
       "tests/Support/Mutators/DecrementToIncrement.php",
