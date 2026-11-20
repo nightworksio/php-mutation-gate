@@ -42,9 +42,10 @@ use stdClass;
  * without `matrix` records first killers, one without `security` makes
  * mutants with every mutator the run turns on, and one without `suite` has
  * every test judge them; `sample`, where the run is sampled, holds what its
- * sample drew. Beside it, outside the digest since they judge nothing,
- * `names` holds the names the runner gives the suite's tests, or `unnamed`
- * why it gave none; a plan with neither was made without asking.
+ * sample drew; `selectionOnly`, where the plan stops at its selection, which
+ * no shard runs (ADR-0290). Beside it, outside the digest since they judge
+ * nothing, `names` holds the names the runner gives the suite's tests, or
+ * `unnamed` why it gave none; a plan with neither was made without asking.
  * A plan that cannot be read, or whose digest does not match what it holds,
  * is refused: a shard never guesses at its units.
  *
@@ -106,17 +107,22 @@ final readonly class PlanFile
 
     private const string DIGESTS = DigestsRecord::FIELD;
 
+    private const string SELECTION_ONLY = 'selectionOnly';
+
+    private const string SELECTION_ALONE = <<<'SAID'
+        This plan stops at its selection (plan --selection-only): it holds no timings and no mutant time limits,
+        so no shard runs it. Plan again without --selection-only.
+        SAID;
+
     public static function encode(Plan $plan): string
     {
-        $names = $plan->names();
+        return self::encoded($plan, []);
+    }
 
-        return JsonText::encode([
-            ...self::body($plan),
-            ...$names instanceof TestNames
-                ? [self::NAMES => TestNamesRecord::of($names)]
-                : [self::UNNAMED => $names->why()],
-            self::DIGEST => self::digestOf($plan)->value(),
-        ]);
+    /** A plan that stops at its selection, marked inside its digest so that no shard runs it (ADR-0290). */
+    public static function encodeSelection(Plan $plan): string
+    {
+        return self::encoded($plan, [self::SELECTION_ONLY => true]);
     }
 
     public static function decode(string $json): Plan|CannotJudge
@@ -135,6 +141,21 @@ final readonly class PlanFile
     public static function digestOf(Plan $plan): Digest
     {
         return Digest::sha256Of(JsonText::encode(self::body($plan)));
+    }
+
+    /** @param array{selectionOnly?: true} $marked */
+    private static function encoded(Plan $plan, array $marked): string
+    {
+        $names = $plan->names();
+        $body = [...self::body($plan), ...$marked];
+
+        return JsonText::encode([
+            ...$body,
+            ...$names instanceof TestNames
+                ? [self::NAMES => TestNamesRecord::of($names)]
+                : [self::UNNAMED => $names->why()],
+            self::DIGEST => Digest::sha256Of(JsonText::encode($body))->value(),
+        ]);
     }
 
     /** @return Body */
@@ -184,6 +205,10 @@ final readonly class PlanFile
     {
         if ($file->field('format')->integer() !== self::FORMAT) {
             throw NotInShape::at($file->field('format')->at(), sprintf('format %d', self::FORMAT));
+        }
+
+        if ($file->field(self::SELECTION_ONLY)->isPresent()) {
+            return CannotJudge::because(self::SELECTION_ALONE);
         }
 
         $shards = [];

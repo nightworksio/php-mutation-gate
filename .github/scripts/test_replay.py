@@ -1,7 +1,9 @@
 """The deciding half of replay.py: python3 -m unittest discover .github/scripts"""
 import contextlib
 import io
+import subprocess
 import unittest
+from unittest import mock
 
 import replay
 
@@ -62,17 +64,32 @@ class Judge(unittest.TestCase):
 
 class Table(unittest.TestCase):
     def test_writes_a_row_for_each_replay_and_a_line_for_each_skipped_one(self):
-        rows = [{"number": 538, "paths": 3, "units": 12, "shards": 2, "widening": []},
-                {"number": 532, "paths": 1, "units": 2239, "shards": 20, "widening": ["`a` decides.", "`b` decides."]}]
+        rows = [{"number": 538, "paths": 3, "units": 12, "widening": []},
+                {"number": 532, "paths": 1, "units": 2239, "widening": ["`a` decides.", "`b` decides."]}]
         self.assertEqual(replay.table(rows, [{"number": 529, "why": "reach.fixtures: unknown key"}]), "\n".join([
-            "| Pull request | Paths | Units reached | Shards | Widened by |",
-            "|---|---:|---:|---:|---|",
-            "| #538 | 3 | 12 | 2 | nothing |",
-            "| #532 | 1 | 2239 | 20 | `a` decides.<br>`b` decides. |",
+            "| Pull request | Paths | Units reached | Widened by |",
+            "|---|---:|---:|---|",
+            "| #538 | 3 | 12 | nothing |",
+            "| #532 | 1 | 2239 | `a` decides.<br>`b` decides. |",
             "",
             "- #529 could not be planned on this checkout: reach.fixtures: unknown key",
         ]) + "\n")
-        self.assertTrue(replay.table([], []).endswith("|---|---:|---:|---:|---|\n"))
+        self.assertTrue(replay.table([], []).endswith("|---|---:|---:|---|\n"))
+
+
+class Stalled(unittest.TestCase):
+    def test_lists_the_header_and_only_the_processes_of_the_plan_s_group(self):
+        listed = "\n".join([
+            "  PID  PPID  PGID STAT ELAPSED COMMAND",
+            "  10     1    10 S      00:05 php bin/mutation-gate plan",
+            "  11    10    10 S      00:04 php vendor/bin/pest --list-tests-xml",
+            "  12     1    12 S      00:09 python3 other.py",
+        ])
+        with mock.patch.object(replay.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, listed, "")):
+            said = replay.stalled(10).splitlines()
+
+        self.assertEqual(said[0], f"The plan did not end within {replay.PLAN_SECONDS} s; its processes:")
+        self.assertEqual([line.split()[0] for line in said[2:]], ["10", "11"])
 
 
 class Usage(unittest.TestCase):

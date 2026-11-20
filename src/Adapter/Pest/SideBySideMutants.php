@@ -199,8 +199,6 @@ final readonly class SideBySideMutants
         } finally {
             OwnEnd::by(SIGKILL);
         }
-
-        exit(1);
     }
 
     /**

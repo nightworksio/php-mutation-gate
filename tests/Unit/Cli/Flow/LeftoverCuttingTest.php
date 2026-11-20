@@ -220,3 +220,17 @@ it('names each shard that left no result, cutting none of its mutants, and none 
     expect($read instanceof LeftoverShares ? $read->unread() : $read)->toBe([])
         ->and($unread instanceof LeftoverShares ? [$unread->unread(), $unread->ofShard(ShardId::of(1))] : $unread)->toBe([[1], []]);
 });
+
+it('cuts by an empty map where the plan left none it can read', function (): void {
+    [$project, $plan] = LeftAtTheDeadline::run();
+    $map = sprintf('%s/.mutation-gate/coverage/map.json.gz', $project);
+    is_file($map) ? unlink($map) : null;
+    $cut = static fn(): LeftoverShares|CannotJudge => new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(600.0), StreamWall::of(1));
+    $unmapped = $cut();
+    leftoverCuttingMap($project, []);
+    $empty = $cut();
+
+    expect($unmapped instanceof LeftoverShares ? $unmapped->encode() : $unmapped)
+        ->toBe($empty instanceof LeftoverShares ? $empty->encode() : $empty)
+        ->and($unmapped instanceof LeftoverShares ? $unmapped->ofShard(ShardId::of(1)) : [])->not->toBe([]);
+});

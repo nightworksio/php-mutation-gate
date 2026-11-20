@@ -62,7 +62,10 @@ start() {
     done < "${directory}/failed"
     exit 1
   fi
-  printf '%s\n' ${names[@]+"${names[@]}"} > "${listed}"
+  : > "${listed}"
+  if [ "${#names[@]}" -gt 0 ]; then
+    printf '%s\n' "${names[@]}" > "${listed}"
+  fi
   chmod 0444 "${listed}"
 }
 
@@ -103,8 +106,13 @@ wait_for() {
   fi
   local most="${MUTATION_GATE_SERVICES_WAIT:-300}" started="${SECONDS}" container state
   while IFS= read -r container; do
+    if [ -z "${container}" ]; then
+      continue
+    fi
     while true; do
-      state="$("${docker}" inspect --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${container}" 2> /dev/null || echo 'missing none')"
+      if ! state="$("${docker}" inspect --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${container}" 2> /dev/null)"; then
+        state='missing none'
+      fi
       case "${state}" in
         "running healthy" | "running none") break ;;
         exited* | dead* | missing* | *unhealthy)
@@ -130,7 +138,9 @@ stop() {
     return
   fi
   while IFS= read -r container; do
-    "${docker}" rm --force --volumes "${container}" > /dev/null 2>&1 || true
+    if [ -n "${container}" ]; then
+      "${docker}" rm --force --volumes "${container}" > /dev/null 2>&1 || true
+    fi
   done < "${listed}"
 }
 

@@ -87,6 +87,12 @@ final readonly class RunArtifacts
         );
     }
 
+    /** These artifacts, reached through an exchange of their own for a forked process. */
+    public function forked(): self
+    {
+        return new self($this->exchange->forked(), $this->service, $this->token, $this->run, $this->job);
+    }
+
     /** The run's attempt, as the environment names it; the first where it names none. */
     public static function attempt(Variables $environment): int
     {

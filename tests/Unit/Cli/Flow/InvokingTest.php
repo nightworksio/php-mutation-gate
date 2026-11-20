@@ -366,6 +366,33 @@ it('runs again after its survivors\' runs each control it started beside them th
         ->and($scripted->controlled()[1][1]->pool()->processes()->count())->toBe(4);
 });
 
+it('cannot judge an invocation whose controls started beside its survivors\' runs could not be taken, and runs none of them again', function (): void {
+    $scripted = ScriptedRunner::fixture()->answering(Mutants::of(
+        invokedMutant('src/Money.php', 'a', MutantStatus::Survived),
+        invokedMutant('src/Money.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of(6.0)),
+    ), 0)->controlling(CannotJudge::because('the controls\' workers crashed'));
+    $runner = SideBySideRunner::over($scripted);
+    $clock = new StoppedClock('2026-09-30T12:00:00+00:00');
+    $adapters = Flows::adapters(Flows::project(), [], $runner);
+    $stopwatch = new Stopwatch($clock, $clock->now());
+    $map = invokedMap('src/Money.php');
+
+    $invoked = new Invoking(
+        $adapters,
+        Flows::settings(),
+        $clock,
+        Unlimited::time(),
+        $stopwatch,
+        $map,
+        HeldCovered::none(),
+        new SurvivorChecking($adapters, $clock, Unlimited::time(), Seconds::of(60.0), $stopwatch),
+        new PartedRuns($adapters, Flows::settings(), $map, HeldCovered::none()),
+    )->invoked(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(4), Workers::Fork)));
+
+    expect($invoked)->toEqual(CannotJudge::because('the controls\' workers crashed'))
+        ->and($runner->calls())->toBe(['started', 'retry', 'taken']);
+});
+
 it('runs its controls after its survivors\' runs again in the whole pool where there are no survivors to run beside them', function (): void {
     $scripted = ScriptedRunner::fixture()->answering(Mutants::of(
         invokedMutant('src/Money.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of(6.0)),

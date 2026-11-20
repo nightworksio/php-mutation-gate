@@ -85,7 +85,7 @@ final readonly class ProgressReporter
     /**
      * The progress of this shard, left through the service the gate was handed, every so long.
      *
-     * @param Closure(int): void $ending how the reporter ends itself, by a signal
+     * @param Closure(int): never $ending how the reporter ends itself, by a signal
      */
     public static function started(
         Seconds $every,
@@ -119,7 +119,7 @@ final readonly class ProgressReporter
     }
 
     /**
-     * @param Closure(int): void            $ending how the reporter ends itself, by a signal
+     * @param Closure(int): never           $ending how the reporter ends itself, by a signal
      * @param Closure(list<string>): string $run    runs a command, and answers what it printed
      * @param Seconds                       $grace  how long the gate waits for its reporter once the shard ends
      */
@@ -136,11 +136,12 @@ final readonly class ProgressReporter
         Closure $run,
         Seconds $grace,
     ): self {
-        $said = $service instanceof ArtifactAccess && $every->seconds() > 0 && Forking::isAvailable()
+        $reached = $service instanceof ArtifactAccess ? RunArtifacts::of($service, $exchange) : $service;
+        $said = $reached instanceof RunArtifacts && $every->seconds() > 0 && Forking::isAvailable()
             ? tempnam(sys_get_temp_dir(), self::KEPT)
             : false;
 
-        if (! $service instanceof ArtifactAccess || ! is_string($said)) {
+        if (! $reached instanceof RunArtifacts || ! is_string($said)) {
             return self::none();
         }
 
@@ -152,8 +153,7 @@ final readonly class ProgressReporter
             try {
                 self::report(
                     $every,
-                    $service,
-                    $exchange,
+                    $reached->forked(),
                     $clock,
                     $gate,
                     static fn(RunArtifacts $artifacts): ProgressArtifacts => ProgressArtifacts::of(
@@ -223,8 +223,7 @@ final readonly class ProgressReporter
      */
     private static function report(
         Seconds $every,
-        ArtifactAccess $service,
-        Exchange $exchange,
+        RunArtifacts $reached,
         ClockInterface $clock,
         int $gate,
         Closure $artifacts,
@@ -236,12 +235,6 @@ final readonly class ProgressReporter
         pcntl_signal(SIGTERM, static function () use (&$stopped): void {
             $stopped = true;
         });
-        $reached = RunArtifacts::of($service, $exchange->forked());
-
-        if ($reached instanceof CannotJudge) {
-            return;
-        }
-
         $left = $artifacts($reached);
         $started = (float) $clock->now()->format('U.u');
         $next = $started;

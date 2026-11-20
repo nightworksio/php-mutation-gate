@@ -855,13 +855,15 @@ jobs:
   # The newest merged pull requests, each planned again by this checkout's gate
   # with the map `coverage` wrote and main's cached ledger (replay.py): it fails
   # where a plan widens for no changed path, or documentation reaches a unit.
+  # Each plan selects alone, in a clone of its own, and says its time as it
+  # ends; one that outlasts replay.py's PLAN_SECONDS prints its processes.
   # The night runs it, and so does a pull request that changes reach or plans.
   replay:
     name: replay
     needs: [scope, coverage]
     if: ${{ !cancelled() && github.event_name != 'push' && needs.coverage.outputs.map == 'success' && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'replay')) }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

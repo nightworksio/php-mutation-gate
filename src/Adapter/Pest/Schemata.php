@@ -126,9 +126,8 @@ final class Schemata
 
         $path = sprintf(self::PATH, $copies, $key, Path::PHP);
 
-        if (! is_dir(dirname($path))) {
-            mkdir(dirname($path), recursive: true);
-        }
+        self::made($copies);
+        self::made(dirname($path));
 
         file_put_contents($path, $schema->text());
         self::$written[$file] = $path;
@@ -245,6 +244,14 @@ final class Schemata
     {
         foreach (self::schemataIn($directory) as [$file, $schema]) {
             ServedClasses::serve($file, $schema);
+        }
+    }
+
+    /** This folder, made where it is not there yet. */
+    private static function made(string $directory): void
+    {
+        if (! is_dir($directory)) {
+            mkdir($directory, recursive: true);
         }
     }
 

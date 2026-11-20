@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 $calls = [
     'Pest::trustingNarrowedKills' => [static fn(): Setting => Pest::trustingNarrowedKills(), 'pest.narrowedKills', 'trust', 'Pest::trustingNarrowedKills'],
+    'Pest::longFilterByFiles' => [static fn(): Setting => Pest::longFilterByFiles(), 'pest.longFilter', 'files', 'Pest::longFilterByFiles'],
     'Pest::longFilterBySet' => [static fn(): Setting => Pest::longFilterBySet(), 'pest.longFilter', 'set', 'Pest::longFilterBySet'],
     'Pest::longFilterUntilKiller' => [static fn(): Setting => Pest::longFilterUntilKiller(), 'pest.longFilter', 'until-killer', 'Pest::longFilterUntilKiller'],
     'Pest::preloadedUnjudged' => [static fn(): Setting => Pest::preloadedUnjudged(), 'pest.preloaded', 'unjudged', 'Pest::preloadedUnjudged'],

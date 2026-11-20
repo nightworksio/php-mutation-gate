@@ -5,21 +5,26 @@ Usage: replay.py <count> --map <directory> --findings <file> --table <file>
 
 Run by `replay` (ADR-0067). Each of the newest `count` pull requests
 squashed onto main, read from HEAD's first-parent history, is planned again
-on this checkout: two commits are made on top of HEAD, the first with every
-path the pull request changed as it stood before it, the second with each as
-the pull request left it. The checkout moves to the second, on the branch
-main and outside CI, so it reads no change since the ledger (ADR-0060), and
-the gate of HEAD, from a worktree of its own, runs
-`plan --changed-since=<first>` there with the coverage map in `--map` and
-the default branch's ledger the directory store holds. A plan of no change on
+in a clone of this checkout of its own, under a temporary directory, with
+this checkout's vendor and ledger: two commits are made on top of HEAD, the
+first with every path the pull request changed as it stood before it, the
+second with each as the pull request left it. The clone moves to the second,
+on the branch main and outside CI, so it reads no change since the ledger
+(ADR-0060), and this checkout's gate runs
+`plan --selection-only --changed-since=<first>` there with the coverage map
+in `--map` and the default branch's ledger the directory store holds: the
+selection alone, which is all a replay reads (ADR-0290). This checkout and
+its branches stay as they are. A plan of no change on
 HEAD itself gives the units that run whatever changed, the ones the ledger
 cannot carry, and a pull request's reach is what it runs beyond them.
 
 The findings file names each widening reason that quotes no path the pull
 request changed, and each pull request that changed only documentation and
 reached a unit. The table file holds a Markdown row for each pull request:
-its paths, the units it reached, its shards and why it widened, and why each
-the checkout's gate could not plan was skipped.
+its paths, the units it reached and why it widened, and why each the
+checkout's gate could not plan was skipped. Each plan says on standard error,
+as it ends, how long it took and how many units it selected; one that takes
+longer than PLAN_SECONDS is ended, its process group's processes printed.
 
 Two halves: `merged`, `reached`, `widening`, `judge` and `table` decide from
 text and plans alone, and `main` runs git and the gate.
@@ -27,11 +32,12 @@ text and plans alone, and `main` runs git and the gate.
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import shutil
 import tempfile
-from contextlib import contextmanager
+import time
 from pathlib import Path
 
 # The branch whose history holds the pull requests, and whose scope the plan runs in.
@@ -49,6 +55,12 @@ DOCUMENT_SUFFIX = ".md"
 
 # The variables that say a CI runs the job, which the plan must not read: it runs as a local plan of the branch.
 CI_VARIABLES = re.compile(r"^(CI|TF_BUILD|GITHUB_.*|RUNNER_.*|ACTIONS_.*)$")
+
+# How long one plan of the selection alone may take before it is ended and its processes printed.
+PLAN_SECONDS = 240
+
+# The checkout's directories a replay's clone takes along: the runner it plans with, and the ledger it reads.
+TAKEN = ("vendor", ".mutation-gate/ledger")
 
 # Who the replay's commits are made by; they are never pushed.
 IDENTITY = {
@@ -100,10 +112,10 @@ def judge(number: int, paths: list[str], plan: dict, beyond: set[str]) -> list[d
 
 def table(rows: list[dict], skipped: list[dict]) -> str:
     """The replays as a Markdown table, a row each, in the order given, and why each skipped one could not be planned."""
-    lines = ["| Pull request | Paths | Units reached | Shards | Widened by |", "|---|---:|---:|---:|---|"]
+    lines = ["| Pull request | Paths | Units reached | Widened by |", "|---|---:|---:|---|"]
     for row in rows:
         widened = "<br>".join(row["widening"]) or "nothing"
-        lines.append(f"| #{row['number']} | {row['paths']} | {row['units']} | {row['shards']} | {widened} |")
+        lines.append(f"| #{row['number']} | {row['paths']} | {row['units']} | {widened} |")
     lines += ["", *(f"- #{each['number']} could not be planned on this checkout: {each['why']}" for each in skipped)]
     return "\n".join(lines).rstrip("\n") + "\n"
 
@@ -128,32 +140,51 @@ def tree_with(base: str, commit: str, paths: list[str]) -> str:
 
 
 def planned(gate: Path, at: str, since: str, coverage: Path) -> dict:
-    """The plan a gate makes of this checkout at a commit, on the branch and outside CI, of the change since a ref.
+    """The selection a gate plans of this clone at a commit, on the branch and outside CI, of the change since a ref.
 
-    The checkout's own vendor gives the runner, and its ledgers stay where they are; or why it made no plan.
+    The clone's vendor gives the runner, and its ledgers stay where they are; or why it made no plan. A plan that
+    takes longer than PLAN_SECONDS is ended, its process group's processes printed first.
     """
     git("checkout", "--quiet", "--force", "-B", BRANCH, at)
     env = {name: value for name, value in os.environ.items() if not CI_VARIABLES.match(name)}
-    done = subprocess.run(
-        ["php", str(gate / "bin/mutation-gate"), "plan", f"--changed-since={since}", f"--coverage={coverage}"],
-        capture_output=True, text=True, env=env,
-    )
-    if done.returncode != 0:
-        return {"error": (done.stdout + done.stderr).strip().splitlines()[-1:] or ["it printed nothing"]}
+    command = ["php", str(gate / "bin/mutation-gate"), "plan", "--selection-only", f"--changed-since={since}",
+               f"--coverage={coverage}"]
+    started = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
+                               start_new_session=True)
+    try:
+        said, _ = started.communicate(timeout=PLAN_SECONDS)
+    except subprocess.TimeoutExpired:
+        print(stalled(started.pid), file=sys.stderr, flush=True)
+        os.killpg(started.pid, signal.SIGKILL)
+        started.communicate()
+        return {"error": [f"the plan did not end within {PLAN_SECONDS} s"]}
+    if started.returncode != 0:
+        return {"error": said.strip().splitlines()[-1:] or ["it printed nothing"]}
     return json.loads(Path(".mutation-gate/plan.json").read_text(encoding="utf-8"))
 
 
-@contextmanager
-def gate_at(head: str):
-    """This checkout's gate at HEAD, in a worktree of its own with a copy of the vendor, which runs whatever the checkout holds."""
-    with tempfile.TemporaryDirectory() as work:
-        gate = Path(work) / "gate"
-        git("worktree", "add", "--quiet", "--detach", str(gate), head)
-        try:
-            shutil.copytree("vendor", gate / "vendor", symlinks=True)
-            yield gate
-        finally:
-            git("worktree", "remove", "--force", str(gate))
+def stalled(group: int) -> str:
+    """The processes of a plan's process group, as `ps` lists them, for a plan that did not end in time."""
+    listed = subprocess.run(["ps", "-eo", "pid,ppid,pgid,stat,etime,command"], capture_output=True, text=True).stdout
+    lines = listed.splitlines()
+    held = [line for line in lines[1:] if line.split()[2:3] == [str(group)]]
+    return "\n".join([f"The plan did not end within {PLAN_SECONDS} s; its processes:", *lines[:1], *held])
+
+
+def cloned(root: Path, work: Path) -> Path:
+    """A clone of the checkout at ROOT under WORK, with the directories TAKEN copied in, to plan the replays in."""
+    clone = work / "replay"
+    git("clone", "--quiet", "--local", "--no-checkout", str(root), str(clone))
+    for taken in TAKEN:
+        if (root / taken).is_dir():
+            shutil.copytree(root / taken, clone / taken, symlinks=True)
+    return clone
+
+
+def said(label: str, started: float, plan: dict) -> None:
+    """One line on standard error as a plan ends: what it planned, how long it took, and how many units it selected."""
+    units = "no plan" if "error" in plan else f"{len(reached(plan))} units"
+    print(f"{label}: {time.monotonic() - started:.0f}s, {units}", file=sys.stderr, flush=True)
 
 
 def replayed(gate: Path, head: str, commit: str, coverage: Path) -> tuple[list[str], dict]:
@@ -169,27 +200,33 @@ def main(argv: list[str]) -> int:
     if len(argv) != 7 or argv[1:6:2] != ["--map", "--findings", "--table"] or not argv[0].isdigit():
         print(__doc__, file=sys.stderr)
         return 2
-    count, coverage, findings_file, table_file = int(argv[0]), Path(argv[2]).resolve(), Path(argv[4]), Path(argv[6])
+    count, coverage = int(argv[0]), Path(argv[2]).resolve()
+    findings_file, table_file = Path(argv[4]).resolve(), Path(argv[6]).resolve()
+    root = Path.cwd()
     head = git("rev-parse", "HEAD").strip()
     rows, skipped, findings = [], [], []
-    with gate_at(head) as gate:
+    with tempfile.TemporaryDirectory() as work:
+        os.chdir(cloned(root, Path(work)))
         try:
-            baseline = planned(gate, head, head, coverage)
+            started = time.monotonic()
+            baseline = planned(root, head, head, coverage)
+            said("HEAD", started, baseline)
             if "error" in baseline:
                 print(*baseline["error"], file=sys.stderr)
                 return 1
             always = reached(baseline)
             for number, commit in merged(git("log", "--first-parent", "--format=%H%x09%s", head), count):
-                paths, plan = replayed(gate, head, commit, coverage)
+                started = time.monotonic()
+                paths, plan = replayed(root, head, commit, coverage)
+                said(f"#{number}", started, plan)
                 if "error" in plan:
                     skipped.append({"number": number, "why": " ".join(plan["error"])})
                     continue
                 beyond = reached(plan) - always
                 findings.extend(judge(number, paths, plan, beyond))
-                rows.append({"number": number, "paths": len(paths), "units": len(beyond),
-                             "shards": len(plan.get("shards", [])), "widening": widening(plan)})
+                rows.append({"number": number, "paths": len(paths), "units": len(beyond), "widening": widening(plan)})
         finally:
-            git("checkout", "--quiet", "--force", "--detach", head)
+            os.chdir(root)
     findings_file.parent.mkdir(parents=True, exist_ok=True)
     findings_file.write_text(json.dumps(findings, indent=1) + "\n", encoding="utf-8")
     table_file.write_text(table(rows, skipped), encoding="utf-8")

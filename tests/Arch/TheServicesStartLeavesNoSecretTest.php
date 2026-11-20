@@ -25,7 +25,7 @@ const SERVICES_DOCKER = <<<'SH'
         [ ! -f "${root}/login-fails" ] || exit 1
         mkdir -p "${config}"; echo "{\"auths\": {\"r\": {\"auth\": \"$(cat)\"}}}" > "${config}/config.json" ;;
       run) [ ! -f "${root}/run-fails" ] || { echo "no such image" >&2; exit 1; }; touch "${root}/ran" ;;
-      inspect) if [ -f "${root}/ran" ]; then cat "${root}/state" 2> /dev/null || echo "running none"; else exit 1; fi ;;
+      inspect) if [ -f "${root}/ran" ]; then cat "${root}/state" 2> /dev/null || echo "running none"; else echo "Error: No such object: ${*: -1}"; exit 1; fi ;;
     esac
     SH;
 
@@ -200,4 +200,50 @@ it('starts nothing under services-start: job, and refuses any other value', func
 
     expect([$job, $other, dockerCalls($directory)])->toBe([0, 2, []])
         ->and($said)->toContain('services-start is later: background or job');
+});
+
+it('starts and waits for no service at once where the job declares none, leaving an empty list', function (string $services): void {
+    $directory = servicesRoot();
+    $from = hrtime(as_number: true);
+
+    $ran = [servicesRun($directory, 'start', $services), servicesRun($directory, 'wait'), servicesRun($directory, 'stop')];
+    $seconds = (hrtime(as_number: true) - $from) / 1e9;
+
+    expect($ran)->toBe([[0, ''], [0, ''], [0, '']])
+        ->and((string) file_get_contents(sprintf('%s/temp/mutation-gate-services/services', $directory)))->toBe('')
+        ->and(dockerCalls($directory))->toBe([])
+        ->and($seconds)->toBeLessThan(1.0);
+})->with([
+    'no services' => ['{}'],
+    'nothing set' => [''],
+]);
+
+it('waits for and removes only the containers the list names, an empty line in it skipped', function (): void {
+    $directory = servicesRoot();
+    servicesRun($directory, 'start', '{"db": {"image": "mysql:8.4"}}');
+    $listed = sprintf('%s/temp/mutation-gate-services/services', $directory);
+    chmod($listed, 0644);
+    file_put_contents($listed, "\nmutation-gate-db-local-0-job\n\n");
+    $started = count(dockerCalls($directory));
+
+    $ran = [servicesRun($directory, 'wait'), servicesRun($directory, 'stop')];
+
+    expect($ran)->toBe([[0, "mutation-gate-db-local-0-job: running none\n"], [0, '']])
+        ->and(array_slice(dockerCalls($directory), $started))->toBe([
+            'inspect --format {{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} mutation-gate-db-local-0-job',
+            'rm --force --volumes mutation-gate-db-local-0-job',
+        ]);
+});
+
+it('fails at once for a container that is gone, whatever docker says of it on its output', function (): void {
+    $directory = servicesRoot();
+    $listed = sprintf('%s/temp/mutation-gate-services/services', $directory);
+    mkdir(dirname($listed), recursive: true);
+    file_put_contents($listed, "mutation-gate-db-local-0-job\n");
+
+    [$code, $said] = servicesRun($directory, 'wait');
+
+    expect($code)->toBe(1)
+        ->and($said)->toContain('::error::The service container mutation-gate-db-local-0-job is missing none.')
+        ->and($said)->not->toContain('within 2 s');
 });

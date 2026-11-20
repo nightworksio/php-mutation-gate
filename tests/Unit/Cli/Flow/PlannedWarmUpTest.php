@@ -191,3 +191,19 @@ it('drops the warm-up it began early where the planning made no plan, and keeps 
         ->and(PlannedWarmUp::secondsFor(Directory::at($project), warmedIdentity()))->toEqual(NotGiven::value())
         ->and(WarmingUp::settled(NotGiven::value(), $made))->toBe($made);
 })->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
+
+it('takes a warm-up made already for a plan that holds a shard, and drops what it left for one that holds none', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/warm-up.json', '{}');
+    $file = Path::of('.mutation-gate/warm-up.json');
+    $made = Written::to($file->value());
+
+    $taken = WarmingUp::ended($made, Directory::at($project), $file)->leftFor(warmedPlan(1));
+    $kept = is_file(sprintf('%s/.mutation-gate/warm-up.json', $project));
+    $dropped = WarmingUp::ended($made, Directory::at($project), $file)->leftFor(warmedPlan(0));
+
+    expect($taken)->toBe($made)
+        ->and($kept)->toBeTrue()
+        ->and($dropped)->toBeInstanceOf(Missing::class)
+        ->and(is_file(sprintf('%s/.mutation-gate/warm-up.json', $project)))->toBeFalse();
+});

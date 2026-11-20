@@ -385,6 +385,21 @@ it('refuses a plan changed after it was made', function () use ($planWith): void
     ));
 });
 
+it('refuses a plan that stops at its selection, and one whose mark was taken off', function () use ($planWith): void {
+    $selection = PlanFile::encodeSelection($planWith('selection'));
+    $unmarked = str_replace("\"selectionOnly\": true,\n", '', $selection);
+
+    expect($selection)->toContain('"selectionOnly": true')
+        ->and($unmarked)->not->toContain('selectionOnly')
+        ->and(PlanFile::decode($selection))->toEqual(CannotJudge::because(<<<'SAID'
+            This plan stops at its selection (plan --selection-only): it holds no timings and no mutant time limits,
+            so no shard runs it. Plan again without --selection-only.
+            SAID))
+        ->and(PlanFile::decode($unmarked))->toEqual(CannotJudge::because(
+            'The plan does not match its digest, so it was changed after it was made. Plan again.',
+        ));
+});
+
 it('refuses what is not a plan, saying where it went wrong', function (string $json, string $where): void {
     expect(PlanFile::decode($json))
         ->toEqual(CannotJudge::because(sprintf('The plan cannot be read, so no shard can follow it: %s', $where)));

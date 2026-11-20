@@ -51,6 +51,11 @@ final readonly class PlanCommand
     /** The option that has a plan plan nothing where the run cannot start without a fresh map (ADR-0135). */
     public const string EARLY_ONLY = 'early-only';
 
+    /** The option that has a plan stop at its selection, which no shard runs (ADR-0290). */
+    public const string SELECTION_ONLY = 'selection-only';
+
+    private const string SELECTED = 'Wrote %s, the selection alone, with %d units to run: no shard runs it.';
+
     private const string UNPATCHED = <<<'SAID'
         Pest runs without the gate's patch, so each of the %d shards pays a full opening run under coverage.
         Set pest.patch to true to have every shard reuse the map the plan kept.
@@ -65,6 +70,11 @@ final readonly class PlanCommand
                 mode: InputOption::VALUE_NONE,
                 description: 'Plan nothing where the run cannot start without a fresh coverage map',
             )
+            ->addOption(
+                self::SELECTION_ONLY,
+                mode: InputOption::VALUE_NONE,
+                description: 'Stop at the selection: the units to run and why, uncut and untimed, which no shard runs',
+            )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = DeliverLater::composed(
                     FlowOptions::narrowed($composition->compose($input), $input),
@@ -78,9 +88,11 @@ final readonly class PlanCommand
 
                 $made = self::planOf($composed, $input);
 
-                return $made instanceof PlanMade
-                    ? self::published($composed, $made, $output)
-                    : Failed::because($output, $made);
+                return match (true) {
+                    ! $made instanceof PlanMade => Failed::because($output, $made),
+                    self::isOn($input, self::SELECTION_ONLY) => self::selected($composed, $made, $output),
+                    default => self::published($composed, $made, $output),
+                };
             });
     }
 
@@ -97,14 +109,18 @@ final readonly class PlanCommand
             $mode instanceof CannotJudge => $mode,
             $cut instanceof CannotJudge => $cut,
             $matrix instanceof CannotJudge => $matrix,
-            default => new Planning($composed->adapters, $composed->settings, $composed->setup)
-                ->plan(
-                    $mode,
-                    FlowOptions::coverage($input),
-                    $cut,
-                    $matrix,
-                    earlyOnly: $input->hasOption(self::EARLY_ONLY) && $input->getOption(self::EARLY_ONLY) === true,
-                ),
+            default => new Planning(
+                $composed->adapters,
+                $composed->settings,
+                $composed->setup,
+                selectionOnly: self::isOn($input, self::SELECTION_ONLY),
+            )->plan(
+                $mode,
+                FlowOptions::coverage($input),
+                $cut,
+                $matrix,
+                earlyOnly: self::isOn($input, self::EARLY_ONLY),
+            ),
         };
     }
 
@@ -163,6 +179,45 @@ final readonly class PlanCommand
         }
 
         return ExitCode::Passed->value;
+    }
+
+    /**
+     * Write a plan that stops at its selection, marked so that no shard runs
+     * it, and say why it reaches what it does and how many units it selected;
+     * it is handed to no CI and comments nowhere (ADR-0290).
+     */
+    private static function selected(Composed $composed, PlanMade $made, OutputInterface $output): int
+    {
+        $plan = $made->plan();
+        $written = LastRun::keepSelection($composed->adapters->project, $plan);
+
+        if ($written instanceof CannotJudge) {
+            return Failed::because($output, $written);
+        }
+
+        $aside = Aside::of($output);
+
+        foreach ($made->unread() as $warning) {
+            $aside->writeln($warning->text(), OutputInterface::OUTPUT_RAW);
+        }
+
+        self::saidHowMeasured($made, $aside);
+        self::saidReach($plan, $aside);
+        $units = 0;
+
+        foreach ($plan as $shard) {
+            $units += count($shard->units());
+        }
+
+        $aside->writeln(sprintf(self::SELECTED, Workspace::plan()->value(), $units));
+
+        return ExitCode::Passed->value;
+    }
+
+    /** Whether the command takes this option and it was given. */
+    private static function isOn(InputInterface $input, string $option): bool
+    {
+        return $input->hasOption($option) && $input->getOption($option) === true;
     }
 
     /** Why the plan reaches what it does, what reaches every unit of a package first, before its shards. */

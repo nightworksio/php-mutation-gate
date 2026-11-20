@@ -38,16 +38,6 @@ final readonly class StreamWall
         return new self(max(1, $processes), max(0.0, $passTwo));
     }
 
-    public function processes(): int
-    {
-        return $this->processes;
-    }
-
-    public function passTwo(): float
-    {
-        return $this->passTwo;
-    }
-
     /** How many seconds of the cost model's a second of this wall holds: its processes', its second pass scaled. */
     public function scale(): float
     {
