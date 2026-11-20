@@ -52,7 +52,14 @@ with 9 GB of memory available and no out-of-memory kill.
 4. **A warm worker's wake is not guarded.** It sends `SIGURG`, whose
    default action is to ignore it, so a wake that reaches the wrong process
    changes nothing.
-5. **The gate does not leave the runner's group itself.** A gate that led a
+5. **A cgroup is killed whole only inside the gate's own.** `CgroupFile`
+   writes `cgroup.kill` only where the cgroup's real path lies strictly
+   inside the cgroup this process was told is the gate's
+   (`MUTATION_GATE_CGROUP`). In CI, `CgroupDelegation` runs `sudo` only for
+   a cgroup one level under the mount and the gate's own one level under
+   that, so no fault in a path hands the gate's user the mount, or a
+   cgroup beside its own, to create, own or write (ADR-0158).
+6. **The gate does not leave the runner's group itself.** A gate that led a
    session of its own would no longer get the `SIGINT` a terminal sends its
    foreground group, so Ctrl-C would stop reaching a local run, and a CI
    runner that cancels a step by its group would leave the gate running.

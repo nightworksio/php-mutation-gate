@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Process;
 
 use Closure;
 
+use function dirname;
 use function getmypid;
 use function posix_getegid;
 use function posix_geteuid;
@@ -39,9 +40,21 @@ final readonly class CgroupDelegation
         $held = sprintf(self::HELD, $mount);
         $leaf = sprintf(self::LEAF, $held, getmypid());
 
-        return $succeeds(['sudo', '-n', 'mkdir', '-p', $leaf])
+        return self::isBelow($mount, $held, $leaf)
+            && $succeeds(['sudo', '-n', 'mkdir', '-p', $leaf])
             && $succeeds(['sudo', '-n', 'chown', '-R', sprintf('%d:%d', posix_geteuid(), posix_getegid()), $held])
             && $succeeds([...self::WRITES, CgroupKnob::SubtreeControl->of($held), '+memory +pids'])
             && $succeeds([...self::WRITES, CgroupKnob::Procs->of($leaf), sprintf('%d', getmypid())]);
+    }
+
+    /**
+     * Whether the cgroup the gate hands itself lies one level under the
+     * mount and its own one level under that: `sudo` writes, creates and
+     * hands over nothing else, so no fault in a path hands the gate's user
+     * the mount or a cgroup beside its own (ADR-0310).
+     */
+    public static function isBelow(string $mount, string $held, string $leaf): bool
+    {
+        return $mount !== '' && dirname($held) === $mount && dirname($leaf) === $held;
     }
 }
