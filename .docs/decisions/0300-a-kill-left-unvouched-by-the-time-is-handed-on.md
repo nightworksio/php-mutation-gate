@@ -30,9 +30,13 @@ time for the run again.
    where the cause is known, and `OutOfTime::left` stays the one test of
    which mutants are handed on.
 2. **A kill with no time to vouch for it is `before-vouching`.** A replay
-   with no time to start, or stopped at the time left, and a doubtful kill
-   with no time left to run again, are unjudged `before-vouching`: the
-   time budget ran out before its kill could be vouched for.
+   with no time to start, or stopped at the time left, a doubtful kill with
+   no time left to run again, and one whose run again the deadline stopped
+   before Pest made or wrote its mutants, are unjudged `before-vouching`:
+   the time budget ran out before its kill could be vouched for. Before,
+   that last run again left the whole item unjudgeable. A run again stopped
+   for any other cause, such as its silence limit, still cannot be judged:
+   the run's records say which cause stopped it.
 3. **A control the time left had no room to start is halted.** A control
    asked with no time left, or never started because the time to start it
    in had run out, ends as one halted past the deadline: it found nothing,

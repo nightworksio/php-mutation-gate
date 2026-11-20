@@ -134,7 +134,8 @@ final readonly class VouchedKills
 
     /**
      * The result, each doubtful kill run again with every test file, within
-     * the time left since the run began, or unjudged where none is left; a
+     * the time left since the run began, or unjudged where none is left or
+     * the deadline stopped the run again before it made them (ADR-0300); a
      * kill the run again confirms stands only where its control passes.
      */
     private function confirmed(
@@ -152,11 +153,13 @@ final readonly class VouchedKills
 
         $from = $laps->now();
         $left = ($this->left)();
+        $unvouched = MutationResult::skippingNone(
+            FoundAgain::among($doubtful, Mutants::none(), OutOfTime::BeforeVouching->reason()),
+        );
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
-            ? MutationResult::skippingNone(
-                FoundAgain::among($doubtful, Mutants::none(), OutOfTime::BeforeVouching->reason()),
-            )
+            ? $unvouched
             : $this->again($doubtful, $this->confirming($request, $left));
+        $again = $again instanceof CannotJudge && $again->isAtTheDeadline() ? $unvouched : $again;
         $runs = new AloneRuns($this->project, $this->tail, $this->remembered);
         $again = $again instanceof CannotJudge
             ? $again

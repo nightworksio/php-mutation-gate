@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function is_file;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -37,20 +39,48 @@ final readonly class RunRecords
     /**
      * The records of a run that reached its end, whatever its exit code, since
      * a project's own minimum score fails a run that finished; of a run
-     * stopped at its deadline once every mutant was written; and no others.
+     * stopped at its deadline once every mutant was written; and no others,
+     * one the deadline stopped before Pest made or wrote its mutants saying
+     * so (ADR-0300).
      */
     public function of(Ran $ran, string $results): Records|CannotJudge
     {
         $records = Records::in($results);
 
         return match (true) {
-            $records instanceof CannotJudge => $ran->succeeded() || $ran->wasStopped()
-                ? $records
-                : $this->failed($ran),
-            $ran->wasStopped() => $records->allMade() ? $records : CannotJudge::because(self::STOPPED_EARLY),
+            $records instanceof CannotJudge => $this->unread($ran, $records, $results),
+            $ran->wasStopped() => $records->allMade() ? $records : $this->stoppedEarly($ran),
             $ran->succeeded() || $records->ended() => $this->counted($records, $ran),
             default => $this->failed($ran),
         };
+    }
+
+    /**
+     * Why a run whose records cannot be read cannot be judged: the deadline,
+     * where it stopped the run before it wrote any; why they cannot be read,
+     * where the run succeeded or was stopped; and why it failed otherwise.
+     */
+    private function unread(Ran $ran, CannotJudge $unread, string $results): CannotJudge
+    {
+        return match (true) {
+            $this->atTheDeadline($ran) && ! is_file($results) => CannotJudge::atTheDeadline($unread->why()),
+            $ran->succeeded() || $ran->wasStopped() => $unread,
+            default => $this->failed($ran),
+        };
+    }
+
+    /** Why a run stopped before Pest made its mutants cannot be judged, saying where the deadline stopped it. */
+    private function stoppedEarly(Ran $ran): CannotJudge
+    {
+        return $this->atTheDeadline($ran)
+            ? CannotJudge::atTheDeadline(self::STOPPED_EARLY)
+            : CannotJudge::because(self::STOPPED_EARLY);
+    }
+
+    /** Whether the run was stopped at its deadline, the time left it was given, and not at its silence limit. */
+    private function atTheDeadline(Ran $ran): bool
+    {
+        return $ran->wasStopped() && ! $ran->wasSilenced();
     }
 
     /**

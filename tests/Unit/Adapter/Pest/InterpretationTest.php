@@ -294,21 +294,38 @@ it('reads a mutant Pest timed out after its own process recorded a failing test 
         ), 0));
 });
 
-it('cannot judge a run stopped while the plugin wrote the mutants Pest made', function () use ($plan, $read): void {
+it('cannot judge a run stopped while the plugin wrote the mutants Pest made, saying the deadline stopped it', function () use ($plan, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0]], []);
     PestRun::write($results, [$plan($root, 'n1', 'src/Money.php:11', 'ab')]);
 
     expect($read($project, Ran::stopped('half a run'), $results))
-        ->toEqual(CannotJudge::because('Pest was stopped at its deadline before it had made its mutants.'));
+        ->toEqual(CannotJudge::atTheDeadline('Pest was stopped at its deadline before it had made its mutants.'));
 });
 
-it('cannot judge a run stopped at its deadline before Pest made its mutants', function () use ($read): void {
+it('cannot judge a run stopped before Pest made its mutants, saying so where the deadline stopped it and not where its silence limit did', function (Ran $ran, bool $atTheDeadline) use ($read): void {
     [$project, $results] = interpretedRun([], []);
     PestRun::write($results, []);
+    $said = $read($project, $ran, $results);
 
-    expect($read($project, Ran::stopped('opening'), $results))
-        ->toEqual(CannotJudge::because('Pest was stopped at its deadline before it had made its mutants.'));
-});
+    expect($said)->toBeInstanceOf(CannotJudge::class)
+        ->and($said instanceof CannotJudge ? [$said->why(), $said->isAtTheDeadline()] : $said)
+        ->toBe(['Pest was stopped at its deadline before it had made its mutants.', $atTheDeadline]);
+})->with([
+    'at the deadline' => [fn(): Ran => Ran::stopped('opening'), true],
+    'at its silence limit' => [fn(): Ran => Ran::silenced('opening'), false],
+]);
+
+it('says the deadline stopped a run that wrote no records, and nothing of one that failed without them', function (Ran $ran, bool $atTheDeadline) use ($read): void {
+    [$project, $results] = interpretedRun([], []);
+    is_file($results) ? unlink($results) : null;
+    $said = $read($project, $ran, $results);
+
+    expect($said instanceof CannotJudge && $said->isAtTheDeadline())->toBe($atTheDeadline)
+        ->and($said)->toBeInstanceOf(CannotJudge::class);
+})->with([
+    'stopped at the deadline' => [fn(): Ran => Ran::stopped('opening'), true],
+    'failed' => [fn(): Ran => Ran::finished(succeeded: false, output: 'broken'), false],
+]);
 
 it('cannot judge a run that failed, with what Pest said', function () use ($read): void {
     [$project, $results] = interpretedRun([], []);
