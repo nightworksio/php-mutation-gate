@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
+use function sprintf;
+
 /**
  * Every shard's result, read from the files the shards left. The verdict
  * requires one for every shard in the plan: a shard that crashed, was
@@ -45,6 +47,10 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  */
 final readonly class Results
 {
+    private const string CANNOT_JUDGE = "The verdict cannot judge this run whatever a second wave judges:\n%s";
+
+    private const string FAILS = "The verdict fails whatever a second wave judges:\n%s";
+
     /**
      * @param list<array{Shard, ShardResult, MutationResult}> $read    each shard, with its result and its mutants
      * @param Stopped                                         $stopped how they stopped once the run could not pass
@@ -76,20 +82,7 @@ final readonly class Results
      */
     public static function read(Plan $plan, Path $directory, Directory $project): self|CannotJudge
     {
-        $read = [];
-        $missing = LeftNone::in($directory);
-        $unjudged = [];
-
-        foreach ($plan as $shard) {
-            $result = LeftResults::of($plan, $shard, $directory, $project);
-
-            match (true) {
-                $result instanceof Path => $missing = $missing->with($shard, $result, $project),
-                $result instanceof CannotJudge => $unjudged[] = $result->why(),
-                default => $read[] = [$shard, ...$result],
-            };
-        }
-
+        [$read, $missing, $unjudged] = self::shardsIn($plan, $directory, $project);
         $over = LeftoverParts::over($plan, $read, $directory, $project);
         $unjudged = $over instanceof CannotJudge ? [...$unjudged, $over->why()] : $unjudged;
         $read = $over instanceof CannotJudge ? $read : $over;
@@ -98,6 +91,27 @@ final readonly class Results
         $units = $why === [] ? MergedUnits::of($plan, $read) : CannotJudge::because(implode("\n", $why));
 
         return $units instanceof CannotJudge ? $units : new self($read, $stopped, $units);
+    }
+
+    /**
+     * Why the verdict is decided by the shards' results alone, so a second
+     * wave would judge nothing it reads (ADR-0301): a shard's result cannot
+     * be judged, or a shard left none and none stopped once the run could
+     * not pass, so the verdict cannot judge; or a shard stopped so, so it
+     * fails whatever the rest come to. None where the second wave can still
+     * move it.
+     */
+    public static function decided(Plan $plan, Path $directory, Directory $project): string|NotGiven
+    {
+        [$read, $missing, $unjudged] = self::shardsIn($plan, $directory, $project);
+        $stopped = Stopped::among($read, $missing->shards());
+        $why = [...$unjudged, ...$stopped->isDoomed() ? [] : $missing->why()];
+
+        return match (true) {
+            $why !== [] => sprintf(self::CANNOT_JUDGE, implode("\n", $why)),
+            $stopped->isDoomed() => sprintf(self::FAILS, $stopped->failures()->text()),
+            default => NotGiven::value(),
+        };
     }
 
     /**
@@ -190,6 +204,31 @@ final readonly class Results
     public function shards(): array
     {
         return $this->read;
+    }
+
+    /**
+     * Each shard that left a result, with it; the shards that left none; and
+     * why each result that cannot be judged cannot.
+     *
+     * @return array{list<array{Shard, ShardResult, MutationResult}>, LeftNone, list<string>}
+     */
+    private static function shardsIn(Plan $plan, Path $directory, Directory $project): array
+    {
+        $read = [];
+        $missing = LeftNone::in($directory);
+        $unjudged = [];
+
+        foreach ($plan as $shard) {
+            $result = LeftResults::of($plan, $shard, $directory, $project);
+
+            match (true) {
+                $result instanceof Path => $missing = $missing->with($shard, $result, $project),
+                $result instanceof CannotJudge => $unjudged[] = $result->why(),
+                default => $read[] = [$shard, ...$result],
+            };
+        }
+
+        return [$read, $missing, $unjudged];
     }
 
     /** Whether a time budget left one of these mutants unjudged. */

@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -493,9 +494,8 @@ it('leaves a mutant a narrowed run killed with no killer unjudged where no time 
     $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Unjudged])
-        ->and(array_map(static fn(Mutant $mutant): object => $mutant->reason(), $mutants))->toEqual([Reason::that(
-            "Killed where its covering tests' files alone cannot vouch for the kill; no time is left to run them all.",
-        )])
+        ->and(array_map(static fn(Mutant $mutant): object => $mutant->reason(), $mutants))
+        ->toEqual([OutOfTime::BeforeVouching->reason()])
         ->and($shell->commands())->toHaveCount(1);
 });
 

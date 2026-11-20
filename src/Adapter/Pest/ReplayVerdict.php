@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
@@ -40,9 +41,6 @@ enum ReplayVerdict
     /** The replay took its tests in another order than the run. */
     case OtherOrder;
 
-    private const string NO_TIME
-        = 'Killed, but no time was left to replay its run unmutated, so nothing vouches for the kill.';
-
     private const string OVER_LIMIT
         = 'Killed, but its run, replayed unmutated, ran past the limit its mutant had, so it vouches for nothing.';
 
@@ -66,7 +64,7 @@ enum ReplayVerdict
     {
         return match ($this) {
             self::Stands => NotGiven::value(),
-            self::NoTime => Reason::that(self::NO_TIME),
+            self::NoTime => OutOfTime::BeforeVouching->reason(),
             self::OverLimit => Reason::that(self::OVER_LIMIT),
             self::Unserved => Reason::that(self::UNSERVED),
             self::OtherCount => Reason::that(self::OTHER_COUNT),

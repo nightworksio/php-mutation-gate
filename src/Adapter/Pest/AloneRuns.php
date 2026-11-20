@@ -23,8 +23,10 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\JUnitFailures;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -45,9 +47,6 @@ use function strval;
  */
 final readonly class AloneRuns
 {
-    /** Why a control never ran where no time was left for it. */
-    private const string NO_TIME = 'no time was left for it';
-
     /** Where the parts of a run's key are joined. */
     private const string BETWEEN = "\n";
 
@@ -60,9 +59,9 @@ final readonly class AloneRuns
 
     /**
      * How each control ended, in the order given, the tests that failed as
-     * its log names them: none run where no time is left, none started once
-     * the time left has run out, and none run whose file cannot be served
-     * unmutated, saying why.
+     * its log names them: halted where no time is left or where none was
+     * started once the time left had run out (ADR-0300), and none run whose
+     * file cannot be served unmutated, saying why.
      *
      * @param  non-empty-list<Control> $controls
      * @param  string                  $results  the run's results file, beside which the unmutated copies are written
@@ -71,7 +70,10 @@ final readonly class AloneRuns
     public function ended(array $controls, MutationRequest $request, Seconds|Unlimited $left, string $results): array
     {
         if ($left instanceof Seconds && $left->seconds() <= 0.0) {
-            return array_map(static fn(): ControlRun => ControlRun::unrun(self::NO_TIME), $controls);
+            return array_map(
+                static fn(): ControlRun => ControlRun::ofProcess(Ran::halted(''), TestIds::none()),
+                $controls,
+            );
         }
 
         $withheld = $request->withheld();

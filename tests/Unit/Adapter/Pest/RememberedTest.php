@@ -118,7 +118,7 @@ it('stops the listings it started when stopped, and forgets them, so a set of su
         ->and($starts->asked)->toBe([[Suites::listed('Unit')->joined()]]);
 });
 
-it('runs each baseline once, all it does not know in one call, and keeps nothing of one stopped or never started', function (): void {
+it('runs each baseline once, all it does not know in one call, and keeps nothing of one stopped or never started, which was halted', function (): void {
     $remembered = new Remembered();
     $asked = [];
     $failed = ControlRun::failed(TestIds::of(TestId::of('Tests\MoneyTest::testAdds')));
@@ -150,7 +150,7 @@ it('runs each baseline once, all it does not know in one call, and keeps nothing
     $known = $remembered->baselines(['passes'], $running());
 
     expect([$ends($first), $ends($again), $ends($known)])->toBe([
-        [ControlEnd::Passed, ControlEnd::Failed, ControlEnd::Passed, ControlEnd::RanOut, ControlEnd::Unrun],
+        [ControlEnd::Passed, ControlEnd::Failed, ControlEnd::Passed, ControlEnd::RanOut, ControlEnd::Halted],
         [ControlEnd::Failed, ControlEnd::Passed, ControlEnd::Passed, ControlEnd::Passed],
         [ControlEnd::Passed],
     ])

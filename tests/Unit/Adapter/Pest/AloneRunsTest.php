@@ -115,7 +115,7 @@ it('runs a control of no test file over the judging suites, and one of test file
         ->and(implode(' ', $shell->commands()[1]->arguments()))->not->toContain('--testsuite');
 });
 
-it('runs no control where no time is left, and each where some is', function (float $left, bool $runs): void {
+it('halts each control where no time is left, so the time is what left it unjudged, and runs each where some is', function (float $left, bool $runs): void {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
     $at = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
@@ -128,7 +128,7 @@ it('runs no control where no time is left, and each where some is', function (fl
         sprintf('%s/results.jsonl', $root),
     );
 
-    expect(aloneEnds($passed))->toBe([$runs ? ControlEnd::Passed : ControlEnd::Unrun])
+    expect(aloneEnds($passed))->toBe([$runs ? ControlEnd::Passed : ControlEnd::Halted])
         ->and($shell->commands())->toHaveCount($runs ? 1 : 0)
         ->and(is_dir(sprintf('%s/originals', $root)))->toBe($runs);
 })->with([

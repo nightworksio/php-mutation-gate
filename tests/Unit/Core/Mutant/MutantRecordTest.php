@@ -102,21 +102,21 @@ it('writes the reason a runner left a mutant unjudged in the full record', funct
     expect(MutantRecord::full($unjudged))->toMatchArray(['status' => 'unjudged', 'reason' => 'No test references the constant it changes.']);
 });
 
-it('writes and reads back what a time budget ran out before, where one left the mutant unjudged', function () use ($makeTimedOut, $makeUnjudged, $read): void {
+it('writes and reads back what a time budget ran out before, where one left the mutant unjudged, whatever it ran out before', function (OutOfTime $before) use ($makeTimedOut, $makeUnjudged, $read): void {
     $timedOut = $makeTimedOut();
     $unjudged = $makeUnjudged();
 
-    $left = $timedOut->unjudged(OutOfTime::BeforeConfirming);
+    $left = $timedOut->unjudged($before);
 
     expect(MutantRecord::full($left))->toMatchArray([
         'status' => 'unjudged',
-        'reason' => OutOfTime::BeforeConfirming->reason()->text(),
-        'outOfTime' => 'before-confirming',
+        'reason' => $before->reason()->text(),
+        'outOfTime' => $before->value,
     ])
         ->and(MutantRecord::full($unjudged))->not->toHaveKey('outOfTime')
         ->and(MutantRecord::readFull($read(MutantRecord::full($left))))->toEqual($left)
         ->and(OutOfTime::left(MutantRecord::readFull($read(MutantRecord::full($left)))))->toBeTrue();
-});
+})->with(OutOfTime::cases());
 
 it('writes a killed mutant as its id, line, the index of its mutator and those of its killers', function () use ($makeKilled, $makeId): void {
     $killed = $makeKilled();

@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
 use NightWorksIO\MutationGate\Core\Written;
@@ -134,7 +135,7 @@ final readonly class Reporting
             return $reporters;
         }
 
-        $work = PlanEstimates::of($plan, $settings->shards()->setup())->work();
+        $work = PlanEstimates::of($plan, $settings->shards()->setup(), StreamWall::of(1))->work();
         $said = [];
 
         foreach ($reporters as $reporter) {

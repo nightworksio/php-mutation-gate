@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -205,7 +206,8 @@ it('counts a kill no test is named for only once the same run unmutated passed, 
         ->toBe([MutantStatus::Unjudged, [], 'Its fresh Pest run failed with no test named, and the same run with the file unmutated fails too.'])
         ->and(freshJudged($verdict->controlledBy(Ran::stopped('')), $ran)[0])->toBe(MutantStatus::Unjudged)
         ->and(freshJudged($verdict->controlledBy(NotGiven::value()), $ran))
-        ->toBe([MutantStatus::Unjudged, [], 'Its fresh Pest run failed with no test named, and no time was left for the same run unmutated.']);
+        ->toBe([MutantStatus::Unjudged, [], OutOfTime::BeforeControlling->reason()->text()])
+        ->and(OutOfTime::left($verdict->controlledBy(NotGiven::value())->mutant(freshMutant(), $ran->duration(), Seconds::of(7.0), MemoryCap::of(64, MemoryUnit::Megabytes))))->toBeTrue();
 });
 
 it('leaves a verdict that needs no control as it is, whatever the unmutated run did', function (): void {

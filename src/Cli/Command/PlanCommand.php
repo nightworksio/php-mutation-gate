@@ -256,7 +256,8 @@ final readonly class PlanCommand
     private static function estimated(Composed $composed, Plan $plan, OutputInterface $aside): void
     {
         $shards = $composed->settings->shards();
-        $estimates = PlanEstimates::of($plan, $shards->setup());
+        $wall = StreamWall::of($composed->adapters->processes()->count());
+        $estimates = PlanEstimates::of($plan, $shards->setup(), $wall);
 
         $summary = $estimates->summary(
             $composed->adapters->processes(),

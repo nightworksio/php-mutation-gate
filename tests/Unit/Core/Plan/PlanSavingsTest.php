@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Plan\PlanSavings;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
@@ -52,12 +53,12 @@ $plan = static fn(): Plan => Plan::of(Revision::ref('head'), Digest::ofNothing()
 $spent = static fn(): RunTime => RunTime::measured(Seconds::of(60.0), Seconds::of(90.0));
 
 it('has no history to say anything from where no ledger holds a timing', function () use ($plan, $spent): void {
-    expect(PlanSavings::of($plan(), Timings::none(), learnedOr(Timings::none()), Seconds::of(60.0))->saved($spent()))->toBeInstanceOf(NoHistory::class);
+    expect(PlanSavings::of($plan(), Timings::none(), learnedOr(Timings::none()), Seconds::of(60.0), StreamWall::of(1))->saved($spent()))->toBeInstanceOf(NoHistory::class);
 });
 
 it('saves by reach what the units it carried cost, a unit no ledger timed estimated, and by proofs what those it proved did', function () use ($plan, $timing, $spent): void {
     $timings = Timings::of($timing('src/Far.php', 100.0), $timing('src/Proved.php', 20.0), $timing('src/Other.php', 7.0));
-    $saved = PlanSavings::of($plan(), $timings, learnedOr($timings), Seconds::of(60.0))->saved($spent());
+    $saved = PlanSavings::of($plan(), $timings, learnedOr($timings), Seconds::of(60.0), StreamWall::of(1))->saved($spent());
 
     expect($saved)->toBeInstanceOf(Savings::class)
         ->and($saved instanceof Savings ? [
@@ -71,7 +72,7 @@ it('saves by reach what the units it carried cost, a unit no ledger timed estima
 
 it('says what reach and proofs spared in what the run cost', function () use ($plan, $timing, $spent): void {
     $timings = Timings::of($timing('src/Far.php', 100.0), $timing('src/Proved.php', 20.0));
-    $cost = PlanSavings::of($plan(), $timings, learnedOr($timings), Seconds::of(60.0))->cost($spent());
+    $cost = PlanSavings::of($plan(), $timings, learnedOr($timings), Seconds::of(60.0), StreamWall::of(1))->cost($spent());
 
     expect($cost->spared()->seconds())->toBe(125.0)
         ->and($cost->measured())->toEqual($spent())
@@ -79,10 +80,10 @@ it('says what reach and proofs spared in what the run cost', function () use ($p
 });
 
 it('puts what the run cost, priced, and what it saved into the account', function () use ($plan, $timing, $spent): void {
-    $saving = PlanSavings::of($plan(), Timings::of($timing('src/Far.php', 100.0)), learnedOr(Timings::of($timing('src/Far.php', 100.0))), Seconds::of(60.0));
+    $saving = PlanSavings::of($plan(), Timings::of($timing('src/Far.php', 100.0)), learnedOr(Timings::of($timing('src/Far.php', 100.0))), Seconds::of(60.0), StreamWall::of(1));
     $priced = $saving->into(RunAccount::none(), $spent(), Price::of(0.008, 'USD'));
     $unpriced = $saving->into(RunAccount::none(), $spent(), Absent::setting());
-    $cold = PlanSavings::of($plan(), Timings::none(), learnedOr(Timings::none()), Seconds::of(60.0))->into(RunAccount::none(), $spent(), Absent::setting());
+    $cold = PlanSavings::of($plan(), Timings::none(), learnedOr(Timings::none()), Seconds::of(60.0), StreamWall::of(1))->into(RunAccount::none(), $spent(), Absent::setting());
 
     $priceOf = static fn(RunAccount $account): mixed => ($cost = $account->cost()) instanceof Cost ? $cost->price() : $cost;
 
@@ -108,7 +109,7 @@ it('counts each shard\'s units as the plan expected them, measured where a ledge
             ->carrying(Units::of(Unit::file(Path::of('src/Far.php')), Unit::file(Path::of('src/Untimed.php'))))
             ->proving(Units::of(Unit::file(Path::of('src/Proved.php')))));
     $timings = Timings::of($timing('src/Far.php', 100.0), $timing('src/Proved.php', 20.0), $timing('src/Timed.php', 30.0));
-    $saved = PlanSavings::of($plan, $timings, learnedOr($timings), Seconds::of(60.0))->saved(RunTime::measured(Seconds::of($wall), Seconds::of(90.0)));
+    $saved = PlanSavings::of($plan, $timings, learnedOr($timings), Seconds::of(60.0), StreamWall::of(1))->saved(RunTime::measured(Seconds::of($wall), Seconds::of(90.0)));
 
     expect($saved instanceof Savings ? [
         $saved->fullRun()->seconds(),

@@ -25,8 +25,11 @@ enum OutOfTime: string
     /** The mutant survived, and static analysis's check of it, which may kill it, did not fit. */
     case BeforeChecking = 'before-checking';
 
-    /** The mutant timed out, and the unmutated control of its tests, which would judge it, did not fit. */
+    /** The unmutated control of the mutant's tests, which would judge its timeout or its kill, did not fit. */
     case BeforeControlling = 'before-controlling';
+
+    /** The mutant was killed, and the run that vouches for the kill, which would let it stand, did not fit. */
+    case BeforeVouching = 'before-vouching';
 
     private const string SAID = 'The time budget ran out before %s. A larger --budget judges it.';
 
@@ -51,7 +54,7 @@ enum OutOfTime: string
     {
         return match ($this) {
             self::BeforeMutating, self::BeforeRunning => true,
-            self::BeforeConfirming, self::BeforeChecking, self::BeforeControlling => false,
+            self::BeforeConfirming, self::BeforeChecking, self::BeforeControlling, self::BeforeVouching => false,
         };
     }
 
@@ -63,7 +66,8 @@ enum OutOfTime: string
             self::BeforeRunning => 'its own run finished',
             self::BeforeConfirming => 'its survival could be confirmed',
             self::BeforeChecking => 'static analysis could check it',
-            self::BeforeControlling => 'its tests could run unmutated to judge its timeout',
+            self::BeforeControlling => 'its tests could run unmutated to judge it',
+            self::BeforeVouching => 'its kill could be vouched for',
         };
     }
 }

@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Hold\HotPaths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -123,7 +124,8 @@ final readonly class FullRunEstimate
     private function lines(Composed $composed, Plan $plan): string
     {
         $shards = $composed->settings->shards();
-        $estimates = PlanEstimates::of($plan, $shards->setup());
+        $wall = StreamWall::of($composed->adapters->processes()->count());
+        $estimates = PlanEstimates::of($plan, $shards->setup(), $wall);
         $lines = [
             sprintf(self::MEASURED, count($plan)),
             ...$estimates->summary($composed->adapters->processes(), $shards->target(), $shards->max()),

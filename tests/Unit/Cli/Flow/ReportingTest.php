@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
@@ -269,7 +270,7 @@ it('writes the sticky comment in its planned state on a pull request it can writ
         ->and($post->getRequestMethod())->toBe('POST')
         ->and(Decoded::at(is_string($post->getRequestOptions()['body']) ? $post->getRequestOptions()['body'] : '', 'body'))
         ->toBe(PlannedMarkdown::comment(
-            PlanEstimates::of($plan, $settings->shards()->setup())->work(),
+            PlanEstimates::of($plan, $settings->shards()->setup(), StreamWall::of(1))->work(),
             'https://github.example/octo/gate/actions/runs/7',
         ));
 });
@@ -314,7 +315,7 @@ it('leaves the planned state in the delivery under --deliver-later, on a pull re
         ->and($client->getRequestsCount())->toBe(0)
         ->and($left)->toEqual(Delivery::none()->withComment(
             PlannedMarkdown::comment(
-                PlanEstimates::of($plan, $settings->shards()->setup())->work(),
+                PlanEstimates::of($plan, $settings->shards()->setup(), StreamWall::of(1))->work(),
                 'https://github.example/octo/gate/actions/runs/7',
             ),
             CommentWrite::sticky(),
@@ -339,7 +340,7 @@ it('leaves the planned state of a GitLab note in the delivery under --deliver-la
     expect($said)->toBe([sprintf('Wrote %s/.mutation-gate/delivery/planned/delivery.json.', $project)])
         ->and($left)->toEqual(Delivery::none()->withComment(
             PlannedMarkdown::comment(
-                PlanEstimates::of($plan, $settings->shards()->setup())->work(),
+                PlanEstimates::of($plan, $settings->shards()->setup(), StreamWall::of(1))->work(),
                 $pipeline,
             ),
             CommentWrite::sticky(),
@@ -366,7 +367,7 @@ it('chooses the comment on a pull request with no token under --deliver-later, a
 
 it('writes the re-checked survivors over the planned comment, and into the step summary, saying where', function (): void {
     $patch = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-5']);
-    $planned = PlannedMarkdown::comment(PlanEstimates::of(Planned::twoShards(), Flows::settings()->shards()->setup())->work(), '');
+    $planned = PlannedMarkdown::comment(PlanEstimates::of(Planned::twoShards(), Flows::settings()->shards()->setup(), StreamWall::of(1))->work(), '');
     $client = new MockHttpClient([
         new JsonMockResponse([['id' => 5, 'user' => ['login' => 'gate-bot'], 'body' => $planned]]),
         $patch,

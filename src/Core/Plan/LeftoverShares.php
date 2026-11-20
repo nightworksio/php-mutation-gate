@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
 
@@ -23,8 +24,8 @@ use function sprintf;
  * `.mutation-gate/results/leftovers.json` holds them: the digest of the plan
  * they were cut from, and each share's shard, number and mutants, each
  * mutant by the gate's id, the runner's own and the file it mutates; and,
- * as they are cut, the shards that left no result, whose mutants none of
- * them lists (ADR-0196).
+ * as they are cut, why none is, where the shards' results alone decide the
+ * verdict (ADR-0301).
  *
  * @internal the shape of the file
  */
@@ -39,22 +40,25 @@ final readonly class LeftoverShares
 
     /**
      * @param list<LeftoverShare> $shares
-     * @param list<int>           $unread the numbers of the shards that left no result to cut
+     * @param string|NotGiven     $decided why the verdict is decided without a second wave, where it is
      */
-    private function __construct(private string $plan, private array $shares, private array $unread = [])
-    {
+    private function __construct(
+        private string $plan,
+        private array $shares,
+        private string|NotGiven $decided = new NotGiven(),
+    ) {
     }
 
-    /** These shares, cut with the shards of these numbers leaving no result. */
-    public function without(int ...$unread): self
+    /** No shares, as the verdict is decided without a second wave, for this reason (ADR-0301). */
+    public static function decided(Digest $plan, string $why): self
     {
-        return new self($this->plan, $this->shares, [...$this->unread, ...array_values($unread)]);
+        return new self($plan->value(), [], $why);
     }
 
-    /** @return list<int> the numbers of the shards that left no result to cut, as the shares were cut */
-    public function unread(): array
+    /** Why the verdict is decided without a second wave, so none is cut; none where the shares were cut. */
+    public function decidedBy(): string|NotGiven
     {
-        return $this->unread;
+        return $this->decided;
     }
 
     /** These shares, cut from the mutants this plan's shards left. */
