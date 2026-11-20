@@ -14,7 +14,9 @@
 # times jwt's own suite under plain PHPUnit with pcov, a child process with
 # none of the gate's code, and runner_scale.py scales by its ratio to
 # RUNNER_REFERENCE_SECONDS, from 1 up to RUNNER_MOST_SCALE, past which the
-# job fails as on too slow a runner.
+# job fails as on too slow a runner. A whole run is also stopped as stuck
+# where one of its processes uses no CPU for NO_PROGRESS_SECONDS, a bound no
+# runner scales.
 name: local mode
 
 on:
@@ -45,6 +47,10 @@ env:
   # The most a slow runner scales a budget by; a slower runner fails the job.
   # The slowest hosted CPU measured, the EPYC 7763, scales by about 1.5.
   RUNNER_MOST_SCALE: 2.5
+  # The most seconds a process of a whole run may use no CPU before the run
+  # is stopped as stuck. It is not scaled: a slower runner takes longer to do
+  # the work, never longer to do nothing.
+  NO_PROGRESS_SECONDS: 30
 
 jobs:
   local-mode:
@@ -82,11 +88,19 @@ jobs:
           status=0
           timeout "${RUN_SECONDS_SCALED}" env -u CI -u GITHUB_ACTIONS -u GITHUB_EVENT_NAME -u GITHUB_EVENT_PATH \
             -u GITHUB_BASE_REF -u GITHUB_HEAD_REF \
-            vendor/bin/mutation-gate run --no-interaction --config=bench-local.json || status=$?
+            vendor/bin/mutation-gate run --no-interaction --config=bench-local.json &
+          run=$!
+          python3 "${GITHUB_WORKSPACE}/.github/scripts/progress_watch.py" "${run}" "${NO_PROGRESS_SECONDS}" stuck.txt &
+          wait "${run}" || status=$?
+          wait
           took=$(( SECONDS - started ))
           echo "local mode: \`run\` on lcobucci/jwt at ${half} processes took ${took} s and ended ${status}." >> "${GITHUB_STEP_SUMMARY}"
+          if [ -s stuck.txt ]; then
+            echo "::error title=local mode::A whole run at ${half} processes stopped: $(cat stuck.txt)"
+            exit 1
+          fi
           if [ "${status}" -eq 124 ]; then
-            echo "::error title=local mode::A whole run at ${half} processes took more than ${RUN_SECONDS_SCALED} s."
+            echo "::error title=local mode::A whole run at ${half} processes took more than ${RUN_SECONDS_SCALED} s: slow runner (${RUNNER_CPU}), factor ${RUNNER_SCALE}, budget ${RUN_SECONDS_SCALED} s of a base ${RUN_SECONDS} s."
           fi
           exit "${status}"
       # The job's evidence, whatever the steps above did (ADR-0019).

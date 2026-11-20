@@ -12,7 +12,9 @@ is the scale: never below 1, so a fast runner keeps the base budgets, and
 never above RUNNER_MOST_SCALE, past which the runner is too slow to judge on
 and the step fails with what it measured. Each budget named, an environment
 variable of seconds, is scaled and written to GITHUB_ENV as <budget>_SCALED,
-and every number goes to the log and the step summary (ADR-0159).
+beside RUNNER_SCALE and RUNNER_CPU, so a step that runs out of its budget
+says how slow its runner was; and every number goes to the log and the step
+summary (ADR-0159).
 """
 import json
 import math
@@ -41,6 +43,15 @@ def lines(machine: dict, reference: float, factor: float, most: float, budgets: 
     return said
 
 
+def exported(machine: dict, factor: float, budgets: dict[str, int]) -> list[str]:
+    """What later steps read: each budget scaled, the scale, and the processor on one line."""
+    cpu = " ".join(str(machine.get("cpu", "unknown")).split())
+    return [f"{name}_SCALED={scaled(base, factor)}" for name, base in budgets.items()] + [
+        f"RUNNER_SCALE={factor:.2f}",
+        f"RUNNER_CPU={cpu}",
+    ]
+
+
 def main(names: list[str]) -> int:
     reference = float(os.environ["RUNNER_REFERENCE_SECONDS"])
     most = float(os.environ["RUNNER_MOST_SCALE"])
@@ -58,7 +69,7 @@ def main(names: list[str]) -> int:
         )
         return 1
     with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-        env.write("".join(f"{name}_SCALED={scaled(base, factor)}\n" for name, base in budgets.items()))
+        env.write("".join(f"{line}\n" for line in exported(machine, factor, budgets)))
     return 0
 
 

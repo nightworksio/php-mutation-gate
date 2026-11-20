@@ -35,6 +35,14 @@ class Scale(unittest.TestCase):
 
         self.assertEqual(runner_scale.lines(machine, 1.0, 1.0, 2.5, {})[0], "runner speed: the processor is unknown.")
 
+    def test_it_hands_later_steps_each_budget_scaled_the_scale_and_the_processor_on_one_line(self):
+        machine = {"cpu": "AMD EPYC 7763\n64-Core  Processor", "rounds": 5, "seconds": 0.63}
+
+        self.assertEqual(
+            runner_scale.exported(machine, 1.5, {"RUN_SECONDS": 100}),
+            ["RUN_SECONDS_SCALED=150", "RUNNER_SCALE=1.50", "RUNNER_CPU=AMD EPYC 7763 64-Core Processor"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

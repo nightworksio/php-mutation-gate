@@ -365,7 +365,7 @@
         {"step": "whole-run", "tool": "local-mode"}
       ],
       "rules": {
-        "local-mode": "The whole run on lcobucci/jwt did not end within its scaled budget, or did not pass, or the runner was too slow to judge on. The job's step summary says the runner's scale, each budget, how long the run took and how it ended."
+        "local-mode": "The whole run on lcobucci/jwt did not end within its scaled budget, or one of its processes used no CPU for NO_PROGRESS_SECONDS and it was stopped as stuck, or it did not pass, or the runner was too slow to judge on. The job's step summary says the runner's scale, each budget, how long the run took and how it ended."
       }
     },
     "local-loop": {

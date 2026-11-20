@@ -67,6 +67,13 @@ Two more costs came with each round:
      times.
    - The reference is re-measured when jwt's pin, PHP or the hosted fleet
      changes, from the times and processors the step prints.
+   - A whole run is also stopped as stuck where one of its processes with
+     no child of its own uses no CPU for `NO_PROGRESS_SECONDS` (30 s), a
+     bound no runner scales: a slower runner takes longer to do the work,
+     never longer to do nothing, so a scaled budget cannot let a stuck
+     process sit. A red then says which process made no progress for how
+     long; a run past its scaled budget says the processor, the scale and
+     the budget against its base.
 
 ## Why no verdict moves
 
