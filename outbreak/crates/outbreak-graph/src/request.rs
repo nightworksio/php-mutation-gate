@@ -185,8 +185,8 @@ mod tests {
         let request = read(br#"{"root": "/p", "sources": ["src/A.php"], "tests": ["tests/ATest.php"], "reach": ["src/A.php"]}"#);
 
         assert_eq!(
-            request.map(|request| request.sources),
-            Ok(vec!["src/A.php".to_owned()])
+            request.map(|request| (request.root, request.sources)),
+            Ok(("/p".to_owned(), vec!["src/A.php".to_owned()]))
         );
     }
 

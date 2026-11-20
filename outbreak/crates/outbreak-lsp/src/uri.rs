@@ -24,7 +24,11 @@ pub fn path(uri: &str) -> Option<PathBuf> {
         return None;
     }
 
-    Some(PathBuf::from(local(decoded(path)?)))
+    let decoded = decoded(path)?;
+    #[cfg(windows)]
+    let decoded = drive_stripped(decoded);
+
+    Some(PathBuf::from(decoded))
 }
 
 /// The URI of a file at a path relative to the root this URI names, separated by `/` or `\`.
@@ -56,7 +60,7 @@ fn decoded(path: &str) -> Option<String> {
         }
 
         let (high, low) = (hex(*rest.first()?)?, hex(*rest.get(1)?)?);
-        bytes.push((high << 4) | low);
+        bytes.push(high * 16 + low);
         rest = rest.get(2..)?;
     }
 
@@ -79,8 +83,9 @@ fn encode(segment: &str, uri: &mut String) {
     }
 }
 
-#[cfg(windows)]
-fn local(path: String) -> String {
+/// A `file` URI's path as Windows reads it: without the `/` before its drive, as in `/C:/x`.
+#[cfg(any(windows, test))]
+fn drive_stripped(path: String) -> String {
     let bytes = path.as_bytes();
     let drive = bytes.first() == Some(&b'/')
         && bytes.get(1).is_some_and(u8::is_ascii_alphabetic)
@@ -90,11 +95,6 @@ fn local(path: String) -> String {
         Some(rest) if drive => rest.to_owned(),
         _ => path,
     }
-}
-
-#[cfg(not(windows))]
-fn local(path: String) -> String {
-    path
 }
 
 #[cfg(test)]
@@ -142,5 +142,21 @@ mod tests {
             path(&of("file:///app", "src/é.php")),
             Some(PathBuf::from("/app/src/é.php"))
         );
+    }
+
+    #[test]
+    fn strips_the_slash_before_a_drive_as_windows_reads_it() {
+        for (path, read) in [
+            ("/C:/app", "C:/app"),
+            ("/c:", "c:"),
+            ("/home/me", "/home/me"),
+            ("C:/app", "C:/app"),
+            ("xC:/app", "xC:/app"),
+            ("/1:/app", "/1:/app"),
+            ("/C/app", "/C/app"),
+            ("/", "/"),
+        ] {
+            assert_eq!(drive_stripped(path.to_owned()), read, "{path}");
+        }
     }
 }

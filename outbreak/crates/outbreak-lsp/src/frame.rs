@@ -149,4 +149,11 @@ mod tests {
             Some(&b"{\"id\":1}"[..])
         );
     }
+
+    #[test]
+    fn reads_on_into_a_frame_as_long_as_the_most_content() {
+        let failed = read(&mut &b"Content-Length: 67108864\r\n\r\n"[..]).unwrap_err();
+
+        assert_eq!(failed.kind(), io::ErrorKind::UnexpectedEof);
+    }
 }

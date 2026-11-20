@@ -1,4 +1,4 @@
-use super::{CLASS, FORMAT, File, Line, read};
+use super::{CLASS, FORMAT, File, Line, OPENING, read};
 
 pub fn s(text: &str) -> String {
     format!("s:{}:\"{text}\";", text.len())
@@ -276,6 +276,32 @@ fn refuses_a_report_that_is_not_whole_as_php_code_coverage_writes_it() {
             "build information, a base path, coverage data and results",
         ),
     ]);
+}
+
+#[test]
+fn says_where_in_the_file_it_refuses_a_report() {
+    let parts = Parts::valid();
+    let body = parts.body();
+    let without_build = body.replacen(
+        &format!("a:4:{{{}{}", s("buildInformation"), parts.build),
+        "a:3:{",
+        1,
+    );
+
+    assert_ne!(without_build, body);
+    assert_eq!(
+        refused(&wrapped(&without_build)),
+        "build information, a base path, coverage data and results"
+    );
+    for (text, at) in [
+        (wrapped(&format!("{body}N;")), OPENING.len() + body.len()),
+        (
+            wrapped(&format!("{}{body}", s("END_OF_COVERAGE_SERIALIZATION"))),
+            OPENING.len() + 6,
+        ),
+    ] {
+        assert_eq!(read(&text).unwrap_err().at, at);
+    }
 }
 
 #[test]

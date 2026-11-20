@@ -825,6 +825,7 @@ mod tests {
             output: Arc::new(Mutex::new(Box::new(broken()))),
         };
 
+        let since = std::time::Instant::now();
         told(
             &mut format!("Watching src for changes\n{SURVIVOR}\n").as_bytes(),
             &broken,
@@ -834,6 +835,7 @@ mod tests {
         );
 
         assert!(locked(&unheard).is_none());
+        assert!(since.elapsed() < std::time::Duration::from_secs(1));
 
         let heard = running();
         let written = Written::default();
@@ -852,5 +854,54 @@ mod tests {
         );
 
         assert!(answers(&written)[0].contains("mutation-gate watch ended"));
+    }
+
+    #[test]
+    fn exits_ignores_an_early_initialized_and_refuses_a_second_shutdown() {
+        let written = Written::default();
+        let mut session = Session::new(options(&[]).unwrap(), Box::new(written.clone()));
+
+        assert_eq!(
+            session.handled(br#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#),
+            Ok(Flow::Next)
+        );
+        assert_eq!(answers(&written), Vec::<String>::new());
+
+        for message in [
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":null}}"#,
+            r#"{"jsonrpc":"2.0","id":2,"method":"shutdown"}"#,
+            r#"{"jsonrpc":"2.0","id":3,"method":"shutdown"}"#,
+        ] {
+            assert_eq!(session.handled(message.as_bytes()), Ok(Flow::Next));
+        }
+
+        assert!(answers(&written)[2].contains(r#""id":3,"error":{"code":-32600"#));
+        assert_eq!(
+            session.handled(br#"{"jsonrpc":"2.0","method":"exit"}"#),
+            Ok(Flow::Exit)
+        );
+    }
+
+    #[test]
+    fn stops_its_watch_on_shutdown() {
+        let (root, options) = workspace("shutdown", "exec sleep 30");
+        let mut session = Session::new(options, Box::new(Written::default()));
+        let initialize = format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"file://{}"}}}}"#,
+            root.display()
+        );
+
+        session.handled(initialize.as_bytes()).unwrap();
+        session
+            .handled(br#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#)
+            .unwrap();
+
+        assert!(locked(&session.watching).is_some());
+
+        session
+            .handled(br#"{"jsonrpc":"2.0","id":2,"method":"shutdown"}"#)
+            .unwrap();
+
+        assert!(locked(&session.watching).is_none());
     }
 }

@@ -1,2 +1,23 @@
 # Every skip is written here with its reason beside it (ADR-0118).
 test_tool = "nextest"
+additional_cargo_test_args = ["--profile", "mutants"]
+minimum_test_timeout = 15
+exclude_globs = [
+  # outbreak.so's compiling and reading of op arrays and state, and its hooks
+  # into the engine, run only inside PHP: the boundary's contract suite holds
+  # them, not the Rust suite.
+  "crates/outbreak-ext/src/{engine,lib,program,state,value}.rs",
+  # Built off Unix alone, where no job runs the tests. Judging them needs a
+  # Windows job that runs the workspace's tests and cargo-mutants.
+  "crates/outbreak/src/elsewhere.rs",
+  "crates/outbreak-ext/src/steps/elsewhere.rs",
+]
+exclude_re = [
+  # libc defines PROT_READ (0x1) and PROT_WRITE (0x2), and MAP_SHARED (0x01)
+  # and MAP_ANON (0x20 on Linux), each as a single bit of its own: two
+  # values that share no bit give the same with ^ as with |.
+  'crates/outbreak-ext/src/steps\.rs:.*: replace \| with \^ in mapped$',
+  # mmap(2) on Linux, where the shards run, ignores the descriptor of a
+  # MAP_ANONYMOUS mapping, so -1 and 1 map the same fresh pages.
+  'crates/outbreak-ext/src/steps\.rs:.*: delete - in mapped$',
+]

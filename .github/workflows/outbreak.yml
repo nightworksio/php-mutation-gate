@@ -256,16 +256,89 @@ jobs:
         working-directory: .
         run: python3 .github/scripts/gate_summary.py outbreak/msrv
 
+  # How many shards the mutants of every crate but outbreak-ext take: as many
+  # of ci/mutants.sh's size as hold them, each within ten minutes, and one
+  # where there are none.
+  mutants-plan:
+    name: mutants plan
+    if: inputs.gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+          key: outbreak-mutants-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - run: ci/install-tool.sh cargo-mutants
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          shards="$(ci/mutants.sh shards)"
+          echo "shards=$(jq -cn --argjson count "${shards}" '[range($count)]')" >> "${GITHUB_OUTPUT}"
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/mutants-plan
+
   # Any missed mutant fails its shard.
   mutants:
     name: mutants ${{ matrix.shard }}
+    needs: mutants-plan
     if: inputs.gates
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: ${{ fromJSON(needs.mutants-plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+          key: outbreak-mutants-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - run: ci/install-tool.sh cargo-nextest
+      - run: ci/install-tool.sh cargo-mutants
+      - env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ strategy.job-total }}
+        run: ci/mutants.sh run "${SHARD}" "${SHARDS}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: outbreak-mutants-${{ matrix.shard }}
+          path: outbreak/mutants.out
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/mutants
+
+  # outbreak-ext's mutants, apart from the shards: its build alone needs PHP's
+  # headers and libclang.
+  mutants-ext:
+    name: mutants ext
+    if: inputs.gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -289,27 +362,17 @@ jobs:
       - env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          SHARD: ${{ matrix.shard }}
-          SHARDS: ${{ strategy.job-total }}
-        run: |
-          set -euo pipefail
-          scope=()
-          if [ "$EVENT" = "pull_request" ]; then
-            git diff "$(git merge-base "$BASE" HEAD)" HEAD -- . > "${RUNNER_TEMP}/change.diff"
-            scope=(--in-diff "${RUNNER_TEMP}/change.diff")
-          fi
-          cargo mutants --workspace --in-place --no-shuffle --shard "${SHARD}/${SHARDS}" "${scope[@]}" \
-            --exclude 'crates/outbreak-ext/src/{engine,lib,program,state,value}.rs'
+        run: ci/mutants.sh ext
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: outbreak-mutants-${{ matrix.shard }}
+          name: outbreak-mutants-ext
           path: outbreak/mutants.out
           retention-days: 7
       - name: what failed
         if: failure()
         working-directory: .
-        run: python3 .github/scripts/gate_summary.py outbreak/mutants
+        run: python3 .github/scripts/gate_summary.py outbreak/mutants-ext
 
   # Every parser and decoder: a map's text, a split request, a slice of a map
   # the slicer takes, which must itself be a map it vouches for, a run's
@@ -584,7 +647,7 @@ jobs:
   # check reads as passed.
   passed:
     name: passed
-    needs: [fmt, clippy, test, coverage, deny, audit, msrv, mutants, fuzz, boundary, build, extension]
+    needs: [fmt, clippy, test, coverage, deny, audit, msrv, mutants-plan, mutants, mutants-ext, fuzz, boundary, build, extension]
     if: ${{ !cancelled() && (inputs.gates || inputs.builds || inputs.boundary) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

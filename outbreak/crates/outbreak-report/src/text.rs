@@ -2,6 +2,8 @@
 //! flags (`JsonText::FLAGS`): slashes and Unicode unescaped, every float with
 //! a fraction, at PHP's `serialize_precision` of -1.
 
+use std::fmt::Write as _;
+
 /// A string as JSON text: `"` and `\` escaped, the control characters as
 /// `\b`, `\f`, `\n`, `\r`, `\t` or `\u00xx`, and the line and paragraph
 /// separators as ` ` and ` `, which PHP escapes without
@@ -75,9 +77,7 @@ fn exponential(text: &mut String, digits: &str, exponent: i32) {
         rest => text.push_str(rest),
     }
 
-    text.push('e');
-    text.push(if exponent < 0 { '-' } else { '+' });
-    text.push_str(&exponent.unsigned_abs().to_string());
+    let _ = write!(text, "e{exponent:+}");
 }
 
 /// The digits with the point after so many of them, padded with noughts.

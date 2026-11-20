@@ -323,6 +323,21 @@ mod tests {
         let kept = read.text(header("trusted", "base1").len() as u64 + 40);
 
         assert!(kept.contains("second") && !kept.contains("first"));
+
+        let merged = Pack::empty("trusted", "base1").merged(read);
+        let kept = merged.text(header("trusted", "base1").len() as u64 + 40);
+
+        assert!(kept.contains("second") && !kept.contains("first"));
+    }
+
+    #[test]
+    fn keeps_an_entry_that_fits_the_limit_exactly() {
+        let read = parse(&pack(&[("b", "second")])).unwrap();
+        let line = r#"{"key":"b","ledger":"second"}"#;
+        let exactly = (header("trusted", "base1").len() + 1 + line.len() + 1) as u64;
+
+        assert!(read.text(exactly).contains(line));
+        assert!(!read.text(exactly - 1).contains(line));
     }
 
     #[test]
@@ -389,6 +404,16 @@ mod tests {
             .contains("unpacked limit")
         );
         assert!(refused(read(b"plain", LIMITS)).contains("gzip"));
+        assert!(
+            read(
+                &bytes,
+                Limits {
+                    packed: bytes.len() as u64,
+                    unpacked: (header("trusted", "base1").len() + 1) as u64
+                }
+            )
+            .is_ok()
+        );
 
         let unpacked = Pack {
             class: "anyone".to_owned(),
@@ -419,6 +444,12 @@ mod tests {
         let at = parse(&text).unwrap_err().at;
 
         assert_eq!(text.get(at..at + 6), Some(&b"\"more\""[..]));
+
+        let mut third = pack(&[("a", "l")]);
+        third.extend_from_slice(b"{\"key\":\"b\",\"more\":1}");
+        let at = parse(&third).unwrap_err().at;
+
+        assert_eq!(third.get(at..at + 6), Some(&b"\"more\""[..]));
         assert!(parse(&pack(&[("", "l")])).is_err());
         assert!(parse(b"{\"outbreak\":1,\"pack\":\"proofs\",\"class\":\"trusted\",\"base\":\"b\"}\n{\"key\":\"a\"}").is_err());
     }

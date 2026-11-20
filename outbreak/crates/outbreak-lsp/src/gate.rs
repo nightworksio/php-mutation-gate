@@ -191,6 +191,14 @@ mod tests {
 
         assert_eq!(Action::named("mutation-gate.run"), None);
         assert_eq!(
+            Action::ALL.map(Action::title),
+            [
+                "Explain this mutant and show its diff",
+                "Show a failing test for this mutant",
+                "Write a failing test for this mutant",
+            ]
+        );
+        assert_eq!(
             Action::StubWrite.words("0123456789ab"),
             ["stub", "0123456789ab", "--write"]
         );
@@ -264,6 +272,10 @@ mod tests {
 
         assert_eq!(said, "watch --output=events --config=x\n");
         assert!(ended(child).unwrap().success());
+
+        let (_, failing) = scripted("failing", "exit 3\n");
+
+        assert_eq!(ended(failing.watch().unwrap()).unwrap().code(), Some(3));
     }
 
     #[test]
@@ -274,7 +286,10 @@ mod tests {
             "trap '' TERM\necho trapped\nwhile :; do sleep 1; done\n",
         );
 
+        let since = Instant::now();
+
         assert!(!stop(asked.watch().unwrap()).unwrap().success());
+        assert!(since.elapsed() < STOP_WAIT);
 
         let mut child = stubborn.watch().unwrap();
         let mut trapped = String::new();

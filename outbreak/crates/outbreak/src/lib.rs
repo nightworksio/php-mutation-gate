@@ -39,6 +39,8 @@
 //! why on its error stream and ends with a code other than nought, and the gate
 //! does the work itself.
 
+#[cfg(not(unix))]
+mod elsewhere;
 mod report;
 mod split;
 
@@ -48,6 +50,9 @@ use std::num::NonZero;
 
 use outbreak_map::json::Refused;
 use outbreak_map::map;
+
+#[cfg(not(unix))]
+use elsewhere::served;
 
 /// The contract every answer is written in.
 pub const CONTRACT: u32 = 1;
@@ -170,12 +175,6 @@ fn served(arguments: &[String]) -> Result<String, Failure> {
     outbreak_serve::server::serve(&options, CONTRACT).map_err(Failure::Io)?;
 
     Ok(format!(r#"{{"outbreak":{CONTRACT},"served":true}}"#))
-}
-
-/// `outbreak serve` serves on Unix alone.
-#[cfg(not(unix))]
-fn served(_: &[String]) -> Result<String, Failure> {
-    Err(Failure::Usage("serve runs on Unix alone".to_owned()))
 }
 
 /// How many packs a command of the cache moved, as its answer says it; or why it moved none.
