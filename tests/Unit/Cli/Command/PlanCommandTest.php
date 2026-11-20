@@ -233,6 +233,38 @@ it('cannot plan where the runner cannot run the suite', function () use ($plan):
         ->and($planned->errors)->toBe("No runner is installed.\n");
 });
 
+it('fails a selection it could not keep, saying why, and writes no plan', function () use ($plan): void {
+    $project = FlowCommands::project();
+    mkdir(sprintf('%s/.mutation-gate/plan.json', $project), recursive: true);
+    $ci = Flows::ci();
+
+    $planned = $plan($project, '--selection-only', ScriptedRunner::fixture(), $ci);
+
+    expect($planned->code)->toBe(2)
+        ->and($planned->errors)->toBe(sprintf("%s/.mutation-gate/plan.json could not be written.\n", $project))
+        ->and(is_file(sprintf('%s/.mutation-gate/plan.json', $project)))->toBeFalse()
+        ->and($ci->published)->toBe([]);
+});
+
+it('says which ledger the store could not read before the lines of a selection made without it', function (): void {
+    $unread = Unreadable::because(UnreadReason::Malformed, 's3://ledgers/refs/heads/main/ledger.json.gz', 'The ledger is of a format this gate does not read.');
+    $planned = FlowCommands::run(
+        PlanCommand::command(FlowCommands::composition(
+            FlowCommands::project(),
+            ScriptedRunner::fixture(),
+            ProofStoreFake::unreadable($unread),
+            Flows::ci(),
+        )),
+        '--selection-only',
+    );
+
+    expect($planned->code)->toBe(0)
+        ->and($planned->errors)->toBe(sprintf(
+            "%s\nCoverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, the selection alone, with 2 units to run: no shard runs it.\n",
+            $unread->why(),
+        ));
+});
+
 it('cannot hand a plan it could not write to the CI', function () use ($plan): void {
     $project = FlowCommands::project();
     mkdir(sprintf('%s/.mutation-gate/plan.json', $project), recursive: true);
