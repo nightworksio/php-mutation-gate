@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
+use function array_key_exists;
+
 use Closure;
 
 use function getenv;
+use function implode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -27,11 +30,13 @@ use Symfony\Component\Process\Process;
  * parent has ended (`processes.group`, ADR-0158): `setsid` where the system
  * has it, else this PHP with no ini of its own, where it can leave a session
  * and replace itself, else nothing. The gate tells its own process the
- * choice once, and every start reads it.
+ * choice once, and every start reads it. A process asks the system once
+ * where setsid is and whether this PHP can lead, as neither changes while
+ * the gate runs (ADR-0262).
  *
  * @internal
  */
-final readonly class SessionLeader
+final class SessionLeader
 {
     /** The variable of the gate's own process that names the leader: `setsid`'s path, or this PHP's. */
     public const string VARIABLE = 'MUTATION_GATE_LEADER';
@@ -59,6 +64,11 @@ final readonly class SessionLeader
         and %s cannot leave a session and replace itself without an ini of its own.
         Install util-linux, or set processes.group to auto or off.
         SAID;
+    /** @var array<string, string> each program's path this process found, by `PATH` and name; nothing where none */
+    private static array $found = [];
+
+    /** @var array<string, bool> whether each command this process asked about exited with 0, by its words */
+    private static array $succeeded = [];
 
     /**
      * The leader `processes.group` chooses, told to this process; or why it
@@ -86,15 +96,7 @@ final readonly class SessionLeader
     /** The leader `processes.group` chooses on this system, told to this process; or why it has none it requires. */
     public static function toldHere(ProcessHold $hold): true|CannotJudge
     {
-        return self::told(
-            $hold,
-            static function (string $program): string {
-                $found = new ExecutableFinder()->find($program);
-
-                return is_string($found) ? $found : '';
-            },
-            static fn(array $command): bool => new Process($command)->run() === 0,
-        );
+        return self::told($hold, self::foundOnce(...), self::succeedsOnce(...));
     }
 
     /**
@@ -118,5 +120,37 @@ final readonly class SessionLeader
     public static function leads(): bool
     {
         return self::prefix() !== [];
+    }
+
+    /**
+     * The path of a program by its name, as this process first found it on
+     * the `PATH` it has now; nothing where it found none.
+     */
+    private static function foundOnce(string $program): string
+    {
+        $where = sprintf("%s\0%s", (string) getenv('PATH'), $program);
+
+        if (! array_key_exists($where, self::$found)) {
+            $found = new ExecutableFinder()->find($program);
+            self::$found[$where] = is_string($found) ? $found : '';
+        }
+
+        return self::$found[$where];
+    }
+
+    /**
+     * Whether a command exited with 0 the first time this process ran it.
+     *
+     * @param list<string> $command
+     */
+    private static function succeedsOnce(array $command): bool
+    {
+        $words = implode("\0", $command);
+
+        if (! array_key_exists($words, self::$succeeded)) {
+            self::$succeeded[$words] = new Process($command)->run() === 0;
+        }
+
+        return self::$succeeded[$words];
     }
 }

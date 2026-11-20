@@ -274,7 +274,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\TimeoutLimits':
                     - TIMEOUT # seconds a mutant may run
                     - MOST # seconds a mutant may run
-                'NightWorksIO\MutationGate\Core\Config\Canonical':
+                'NightWorksIO\MutationGate\Core\Config\SettingPaths':
                     - EACH # how a list's entries are named in a setting's path
                 'NightWorksIO\MutationGate\Core\Config\Proofs':
                     - PATH # the directory store's option
