@@ -102,21 +102,28 @@ it('writes the reason a runner left a mutant unjudged in the full record', funct
     expect(MutantRecord::full($unjudged))->toMatchArray(['status' => 'unjudged', 'reason' => 'No test references the constant it changes.']);
 });
 
-it('writes and reads back what a time budget ran out before, where one left the mutant unjudged, whatever it ran out before', function (OutOfTime $before) use ($makeTimedOut, $makeUnjudged, $read): void {
+it('writes and reads back what a time budget ran out before, where one left the mutant unjudged, whatever it ran out before', function () use ($makeTimedOut, $makeUnjudged, $read): void {
     $timedOut = $makeTimedOut();
     $unjudged = $makeUnjudged();
+    $written = [];
+    $left = [];
+    $readBack = [];
 
-    $left = $timedOut->unjudged($before);
+    foreach (OutOfTime::cases() as $before) {
+        $left[] = $timedOut->unjudged($before);
+        $written[] = array_intersect_key(MutantRecord::full(end($left)), ['status' => true, 'reason' => true, 'outOfTime' => true]);
+        $readBack[] = MutantRecord::readFull($read(MutantRecord::full(end($left))));
+    }
 
-    expect(MutantRecord::full($left))->toMatchArray([
+    expect($written)->toBe(array_map(static fn(OutOfTime $before): array => [
         'status' => 'unjudged',
         'reason' => $before->reason()->text(),
         'outOfTime' => $before->value,
-    ])
-        ->and(MutantRecord::full($unjudged))->not->toHaveKey('outOfTime')
-        ->and(MutantRecord::readFull($read(MutantRecord::full($left))))->toEqual($left)
-        ->and(OutOfTime::left(MutantRecord::readFull($read(MutantRecord::full($left)))))->toBeTrue();
-})->with(OutOfTime::cases());
+    ], OutOfTime::cases()))
+        ->and($readBack)->toEqual($left)
+        ->and(array_filter($readBack, OutOfTime::left(...)))->toHaveCount(count(OutOfTime::cases()))
+        ->and(MutantRecord::full($unjudged))->not->toHaveKey('outOfTime');
+});
 
 it('writes a killed mutant as its id, line, the index of its mutator and those of its killers', function () use ($makeKilled, $makeId): void {
     $killed = $makeKilled();
