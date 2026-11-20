@@ -64,7 +64,7 @@ final class SessionLeader
         and %s cannot leave a session and replace itself without an ini of its own.
         Install util-linux, or set processes.group to auto or off.
         SAID;
-    /** @var array<string, string> each program's path this process found, by its name; nothing where none */
+    /** @var array<string, string> each program's path this process found, by `PATH` and name; nothing where none */
     private static array $found = [];
 
     /** @var array<string, bool> whether each command this process asked about exited with 0, by its words */
@@ -122,15 +122,20 @@ final class SessionLeader
         return self::prefix() !== [];
     }
 
-    /** The path of a program by its name, as this process first found it; nothing where it found none. */
+    /**
+     * The path of a program by its name, as this process first found it on
+     * the `PATH` it has now; nothing where it found none.
+     */
     private static function foundOnce(string $program): string
     {
-        if (! array_key_exists($program, self::$found)) {
+        $where = sprintf("%s\0%s", (string) getenv('PATH'), $program);
+
+        if (! array_key_exists($where, self::$found)) {
             $found = new ExecutableFinder()->find($program);
-            self::$found[$program] = is_string($found) ? $found : '';
+            self::$found[$where] = is_string($found) ? $found : '';
         }
 
-        return self::$found[$program];
+        return self::$found[$where];
     }
 
     /**
