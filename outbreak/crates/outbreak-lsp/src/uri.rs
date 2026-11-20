@@ -25,12 +25,10 @@ pub fn path(uri: &str) -> Option<PathBuf> {
     }
 
     let decoded = decoded(path)?;
+    #[cfg(windows)]
+    let decoded = drive_stripped(decoded);
 
-    Some(PathBuf::from(if cfg!(windows) {
-        drive_stripped(decoded)
-    } else {
-        decoded
-    }))
+    Some(PathBuf::from(decoded))
 }
 
 /// The URI of a file at a path relative to the root this URI names, separated by `/` or `\`.
@@ -86,6 +84,7 @@ fn encode(segment: &str, uri: &mut String) {
 }
 
 /// A `file` URI's path as Windows reads it: without the `/` before its drive, as in `/C:/x`.
+#[cfg(any(windows, test))]
 fn drive_stripped(path: String) -> String {
     let bytes = path.as_bytes();
     let drive = bytes.first() == Some(&b'/')

@@ -722,17 +722,12 @@ mod tests {
     #[test]
     fn reads_a_container_s_key_only_where_a_resolver_is_called() {
         for text in [
-            &b"<?php make($id);"[..],
-            b"<?php $c->make = $id;",
-            b"<?php $x; $c->make('cache', $y);",
-            b"<?php echo app, $y;",
+            "<?php make($id);",
+            "<?php $c->make = $id;",
+            "<?php $x; $c->make('cache', $y);",
+            "<?php echo app, $y;",
         ] {
-            assert_eq!(
-                read(text).unplaced,
-                None,
-                "{}",
-                String::from_utf8_lossy(text)
-            );
+            assert_eq!(read(text.as_bytes()).unplaced, None, "{text}");
         }
 
         assert!(read(b"<?php echo define, 'X';").declares.is_empty());
@@ -756,16 +751,11 @@ mod tests {
     #[test]
     fn reads_no_declared_name_again_as_a_use() {
         for text in [
-            &b"<?php class ReflectionClass {}"[..],
-            b"<?php namespace App; function constant($x) {}",
-            b"<?php namespace Require { $x; }",
+            "<?php class ReflectionClass {}",
+            "<?php namespace App; function constant($x) {}",
+            "<?php namespace Require { $x; }",
         ] {
-            assert_eq!(
-                read(text).unplaced,
-                None,
-                "{}",
-                String::from_utf8_lossy(text)
-            );
+            assert_eq!(read(text.as_bytes()).unplaced, None, "{text}");
         }
     }
 
