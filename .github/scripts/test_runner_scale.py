@@ -1,0 +1,56 @@
+"""runner_scale.py's arithmetic and lines: python3 -m unittest discover .github/scripts"""
+import unittest
+
+import runner_scale
+
+
+class Scale(unittest.TestCase):
+    def test_it_scales_by_how_much_slower_the_runner_is_and_never_below_one(self):
+        self.assertEqual(runner_scale.scale(1.5, 1.0), 1.5)
+        self.assertEqual(runner_scale.scale(1.0, 1.0), 1.0)
+        self.assertEqual(runner_scale.scale(0.5, 1.0), 1.0)
+
+    def test_it_rounds_a_scaled_budget_up_to_whole_seconds(self):
+        self.assertEqual(runner_scale.scaled(100, 1.0), 100)
+        self.assertEqual(runner_scale.scaled(100, 1.234), 124)
+        self.assertEqual(runner_scale.scaled(10, 1.01), 11)
+
+    def test_it_says_the_processor_the_measured_time_the_reference_the_scale_and_every_budget_both_ways(self):
+        machine = {"cpu": "AMD EPYC 7763 64-Core Processor", "cores": 4, "rounds": 5, "seconds": 1.3}
+        said = runner_scale.lines(machine, 1.0, 1.3, 2.5, {"RUN_SECONDS": 100, "LOOP_SECONDS": 10})
+
+        self.assertEqual(
+            said,
+            [
+                "runner speed: AMD EPYC 7763 64-Core Processor, estimated factor 1.30 from the suite it measured.",
+                "runner speed: the suite under pcov took 1.30 s, the median of 5; "
+                "the reference is 1.00 s, so the scale is 1.30 (at most 2.50).",
+                "runner speed: RUN_SECONDS is 100 s, scaled to 130 s.",
+                "runner speed: LOOP_SECONDS is 10 s, scaled to 13 s.",
+            ],
+        )
+
+    def test_an_unknown_cpu_takes_the_factor_its_suite_measured_never_the_fastest_runners(self):
+        machine = {"cpu": " ", "cores": 4, "rounds": 5, "seconds": 0.63}
+        factor = runner_scale.scale(machine["seconds"], 0.35)
+
+        self.assertEqual(
+            runner_scale.lines(machine, 0.35, factor, 2.5, {})[0],
+            "runner speed: unknown CPU, estimated factor 1.80 from the suite it measured.",
+        )
+        self.assertEqual(
+            runner_scale.exported({"rounds": 5, "seconds": 0.63}, factor, {"RUN_SECONDS": 100}),
+            ["RUN_SECONDS_SCALED=180", "RUNNER_SCALE=1.80", "RUNNER_CPU=unknown CPU"],
+        )
+
+    def test_it_hands_later_steps_each_budget_scaled_the_scale_and_the_processor_on_one_line(self):
+        machine = {"cpu": "AMD EPYC 7763\n64-Core  Processor", "rounds": 5, "seconds": 0.63}
+
+        self.assertEqual(
+            runner_scale.exported(machine, 1.5, {"RUN_SECONDS": 100}),
+            ["RUN_SECONDS_SCALED=150", "RUNNER_SCALE=1.50", "RUNNER_CPU=AMD EPYC 7763 64-Core Processor"],
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

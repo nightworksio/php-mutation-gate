@@ -373,24 +373,24 @@
     },
     "local-mode": {
       "check": "local mode",
-      "checks": "A whole run of the gate on lcobucci/jwt, prepared as bench/jwt.sh prepares it, at half the machine's cores, ends within ten minutes (ADR-0120); the gate's own run on what the change touched follows it, and only says what it found.",
-      "reproduce": "bench/prepare.sh jwt <dir>, then in <dir>: timeout 600 vendor/bin/mutation-gate run --config=<bench-phpunit.json with runner.processes at half the cores>",
+      "checks": "A whole run of the gate on lcobucci/jwt, prepared as bench/jwt.sh prepares it, at half the machine's cores, outside any CI, ends within RUN_SECONDS scaled to the runner: `mutation-gate machine` times jwt's suite under plain PHPUnit with pcov first, a child process with none of the gate's code, and runner_scale.py scales by its ratio to RUNNER_REFERENCE_SECONDS, from 1 up to RUNNER_MOST_SCALE (ADR-0120, ADR-0159).",
+      "reproduce": "bench/prepare.sh jwt <dir>, then in <dir>: timeout <RUN_SECONDS> vendor/bin/mutation-gate run --config=<bench-phpunit.json with runner.processes at half the cores>",
       "evidence": [
         {"step": "whole-run", "tool": "local-mode"}
       ],
       "rules": {
-        "local-mode": "The whole run on lcobucci/jwt did not end within ten minutes, or did not pass. The job's step summary says how long it took and how it ended."
+        "local-mode": "The whole run on lcobucci/jwt did not end within its scaled budget, or it made no progress for NO_PROGRESS_SECONDS and was stopped as stuck, or it did not pass, or the runner was too slow to judge on. The job's step summary says the runner's scale, each budget, how long the run took and how it ended."
       }
     },
     "local-loop": {
       "check": "local loop",
-      "checks": "A round of watch on lcobucci/jwt that starts from a map coverage --into carried, after one source line changed, ends within ten minutes under local.cpu balanced (ADR-0146).",
-      "reproduce": "bench/prepare.sh jwt <dir>, then in <dir>: vendor/bin/mutation-gate coverage --into=.mutation-gate/carried, change a line of src, timeout 600 vendor/bin/mutation-gate watch --rounds=1 --from-map=.mutation-gate/carried",
+      "checks": "The local settings in force are the shipped ones, and a round of watch on lcobucci/jwt that starts from a map coverage --into carried, after one source line changed, ends within LOOP_SECONDS scaled to the runner under local.cpu balanced (ADR-0146, ADR-0159).",
+      "reproduce": "bench/prepare.sh jwt <dir>, then in <dir>: vendor/bin/mutation-gate coverage --into=.mutation-gate/carried, change a line of src, timeout <LOOP_SECONDS> vendor/bin/mutation-gate watch --rounds=1 --from-map=.mutation-gate/carried",
       "evidence": [
         {"step": "round", "tool": "local-loop"}
       ],
       "rules": {
-        "local-loop": "The round of watch from the carried map did not end within ten minutes, or did not pass. The job's step summary says how long it took, and its log holds the round's whole report, which says why each mutant the round left unjudged is so."
+        "local-loop": "The round of watch from the carried map did not end within its scaled budget, or did not pass, or the runner was too slow to judge on. The job's step summary says the runner's scale, each budget and how long it took, and its log holds the round's whole report, which says why each mutant the round left unjudged is so."
       }
     },
     "local-evidence": {

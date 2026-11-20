@@ -39,6 +39,7 @@ it('offers every command the command-line reference lists', function (string $co
     expect($console()->has($command))->toBeTrue();
 })->with([
     'mutators',
+    'machine',
     'config:suggest',
     'run',
     'plan',

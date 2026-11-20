@@ -49,6 +49,42 @@ Two more costs came with each round:
      ones (`watchBudget` 30s, `prePushBudget` 2m, `quick` and `changeOnly`
      on), then fails a quick round above `LOOP_SECONDS` (10; 4 s measured
      on CI).
+   - Each job first times jwt's own suite under plain PHPUnit with pcov on
+     its runner with `mutation-gate machine`, once to warm up and
+     then the median of five, and scales its budget by the ratio to
+     `RUNNER_REFERENCE_SECONDS` (0.35 s, the fastest hosted CPU, on which
+     a whole run takes 77 s; a whole run slows by a little more than the
+     suite, so every slower runner keeps a margin):
+     never below 1, and at most `RUNNER_MOST_SCALE` (2.5), past which the
+     job fails as on too slow a runner. The log and the step summary print
+     the processor, the measured time, the reference, the scale and every
+     budget before and after.
+   - The signal runs none of the gate's code, so a regression in the gate
+     cannot raise its own budget: the suite runs as a child process, and
+     each timed interval runs from the child's start to its exit and holds
+     nothing of the gate's own work, which a test of `Machines` states. It
+     is the work the gate's coverage phase does, and it separates the
+     hosted CPUs as the coverage phase does: the EPYC 7763 takes 1.8 times
+     as long as the EPYC 9V45, where a synthetic PHP workload saw 1.5
+     times.
+   - The reference is re-measured when jwt's pin, PHP or the hosted fleet
+     changes, from the times and processors the step prints.
+   - A whole run is also stopped as stuck where it makes no progress for
+     `NO_PROGRESS_SECONDS` (30 s), a bound no runner scales: a slower
+     runner takes longer to do the work, never longer to do nothing, so a
+     scaled budget cannot let a stuck run sit. A second is progress where a
+     process of the run's tree starts or ends, where a process with no
+     child, which does the work, uses any CPU, or where a process with
+     children, which hands them work and waits on them, uses more than a
+     tenth of a CPU, more than its waiting costs. So a worker blocked on its
+     parent's pipe while the parent works, the gate waiting on busy
+     children, and one test asleep while another works never stop a run;
+     every process waiting at once does, and a mutant's run that waits
+     longer is ended first by the gate's own timeouts (10 s here). A red
+     then says the run made no progress for how long and names each
+     process; a run past its scaled budget names the processor, the scale
+     and the budget against its base; each job says the longest stretch it
+     saw without progress.
 
 ## Why no verdict moves
 
