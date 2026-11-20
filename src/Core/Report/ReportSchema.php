@@ -93,13 +93,15 @@ final readonly class ReportSchema
     /** A count, as a schema allows one. */
     public const array WHOLE = ['type' => 'integer', 'minimum' => 0];
 
+    public const array LINE = ['type' => 'integer', 'minimum' => 1];
+
+    public const array ID_SPELLING = ['type' => 'string', 'pattern' => '^[0-9a-f]{12}$'];
+
     private const string TESTS
         = 'The tests mutation says catch nothing, and those that can go without losing a kill (ADR-0014).';
 
     private const string EXPLAIN
         = 'One mutant, or a cluster of survivors and each of them, explained from what the gate keeps (ADR-0014).';
-
-    private const array LINE = ['type' => 'integer', 'minimum' => 1];
 
     private const array FLAG = ['type' => 'boolean'];
 
@@ -107,8 +109,6 @@ final readonly class ReportSchema
     private const array PRESENT = ['const' => true];
 
     private const array TRACE_ID = ['type' => 'string', 'pattern' => '^[0-9a-f]{32}$'];
-
-    private const array ID_SPELLING = ['type' => 'string', 'pattern' => '^[0-9a-f]{12}$'];
 
     private const array CLUSTER_ID = ['type' => 'string', 'pattern' => ClusterId::PATTERN];
 
@@ -241,6 +241,7 @@ final readonly class ReportSchema
                     'savedSeconds' => self::SECONDS,
                 ], []),
                 'heatmap' => HeatmapSchema::report(),
+                'costReport' => CostReportSchema::report(),
             ], [
                 'sample',
                 'score',
@@ -251,6 +252,7 @@ final readonly class ReportSchema
                 'savings',
                 'pruning',
                 'heatmap',
+                'costReport',
             ]),
         ]);
     }

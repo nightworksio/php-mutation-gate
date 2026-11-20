@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -25,4 +29,13 @@ it('names the steps the shard\'s time went to where the shard timed any', functi
     expect(count($measured->steps()))->toBe(0)
         ->and($measured->withSteps($steps)->steps())->toBe($steps)
         ->and($measured->withSteps($steps)->spent())->toEqual(Seconds::of(1.0));
+});
+
+it('keeps the cores of the shard\'s machine through whatever else it is given, and none where none were counted', function (): void {
+    $measured = Measurement::of(Seconds::of(1.0), 'pest', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
+    $counted = $measured->onCores(ProcessCount::of(4));
+
+    expect($measured->cores())->toEqual(NotGiven::value())
+        ->and($counted->withSteps(StepTimes::none())->measuredBy(GateRelease::unrecorded())->timingTheJob(JobTimes::none())
+            ->sharedBy(JobTimes::none())->cores())->toEqual(ProcessCount::of(4));
 });

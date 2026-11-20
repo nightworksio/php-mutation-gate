@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function array_map;
+
 use NightWorksIO\MutationGate\Core\Cost\Cost;
+use NightWorksIO\MutationGate\Core\Cost\CostlyMutant;
+use NightWorksIO\MutationGate\Core\Cost\CostlyTest;
+use NightWorksIO\MutationGate\Core\Cost\CostReport;
 use NightWorksIO\MutationGate\Core\Cost\Money;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\Rate;
+use NightWorksIO\MutationGate\Core\Cost\Route;
+use NightWorksIO\MutationGate\Core\Cost\RouteCost;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
@@ -27,7 +34,8 @@ use stdClass;
  * timings, what it cost, and what it saved, each left out where the flows gave
  * the verdict no timings (ADR-0016, and ADR-0017); and what pruning left out,
  * left out where it left nothing out (ADR-0025); and the `heatmap`, left out
- * where the run scored no file (ADR-0100).
+ * where the run scored no file (ADR-0100); and the `costReport`, where the
+ * run's minutes went, left out where the run was not costed (ADR-0230).
  *
  * @internal
  *
@@ -64,6 +72,37 @@ use stdClass;
  *     saved: array{reachSeconds: float, proofsSeconds: float},
  *     sharding?: array{waitSavedSeconds: float, setupSeconds: float},
  * }
+ * @phpstan-type RouteEntry array{
+ *     route: string,
+ *     mutants: int,
+ *     seconds: float,
+ *     coreSeconds: float,
+ *     coreSecondsPerMutant?: float,
+ * }
+ * @phpstan-type CostlyMutantEntry array{
+ *     id: string,
+ *     file: string,
+ *     line: int,
+ *     mutator: string,
+ *     seconds: float,
+ *     route?: string,
+ * }
+ * @phpstan-type CostlyTestEntry array{test: string, ownSeconds: float, mutants: int, atMostSeconds: float}
+ * @phpstan-type CostReportEntry array{
+ *     forkFloorSeconds: float,
+ *     routes: list<RouteEntry>,
+ *     outsideRoutesSeconds: float,
+ *     mutants: list<CostlyMutantEntry>,
+ *     tests: list<CostlyTestEntry>,
+ *     wallSeconds: float,
+ *     runnerSeconds: float,
+ *     jobs: int,
+ *     rounds: int,
+ *     unjudged: int,
+ *     coreSeconds: float,
+ *     suiteSeconds: float,
+ *     suiteMultiple?: float,
+ * }
  * @phpstan-type PrunedMutator array{name: string, window: int, lastSurvivor?: string}
  * @phpstan-type PruningEntry array{
  *     mutators: list<PrunedMutator>,
@@ -82,6 +121,7 @@ final readonly class AccountJson
      *     savings?: Saved|array{noHistory: true},
      *     pruning?: PruningEntry,
      *     heatmap?: list<FileEntry>,
+     *     costReport?: CostReportEntry,
      * }
      */
     public static function of(Verdict $verdict): array
@@ -100,6 +140,78 @@ final readonly class AccountJson
                 : [],
             ...$pruning->isNone() ? [] : ['pruning' => self::pruning($pruning)],
             ...HeatmapJson::report($account->heatmap()),
+            ...$timings instanceof RunTimings ? self::reported($timings) : [],
+        ];
+    }
+
+    /** @return array{costReport?: CostReportEntry} */
+    private static function reported(RunTimings $timings): array
+    {
+        $report = $timings->report();
+
+        return $report instanceof CostReport ? ['costReport' => self::report($report)] : [];
+    }
+
+    /** @return CostReportEntry */
+    private static function report(CostReport $report): array
+    {
+        $multiple = $report->multiple();
+
+        return [
+            'forkFloorSeconds' => CostReport::FORK_FLOOR,
+            'routes' => array_map(self::route(...), [...$report->routes()]),
+            'outsideRoutesSeconds' => $report->outside()->seconds(),
+            'mutants' => array_map(self::costlyMutant(...), [...$report->mutants()]),
+            'tests' => array_map(self::costlyTest(...), [...$report->tests()]),
+            'wallSeconds' => $report->spent()->wall()->seconds(),
+            'runnerSeconds' => $report->spent()->runner()->seconds(),
+            'jobs' => $report->jobs(),
+            'rounds' => $report->rounds(),
+            'unjudged' => $report->unjudged(),
+            'coreSeconds' => $report->coreSeconds()->seconds(),
+            'suiteSeconds' => $report->suite()->seconds(),
+            ...$multiple instanceof NotGiven ? [] : ['suiteMultiple' => $multiple],
+        ];
+    }
+
+    /** @return RouteEntry */
+    private static function route(RouteCost $route): array
+    {
+        $each = $route->perMutant();
+
+        return [
+            'route' => $route->route()->value,
+            'mutants' => $route->mutants(),
+            'seconds' => $route->seconds()->seconds(),
+            'coreSeconds' => $route->coreSeconds()->seconds(),
+            ...$each instanceof Seconds ? ['coreSecondsPerMutant' => $each->seconds()] : [],
+        ];
+    }
+
+    /** @return CostlyMutantEntry */
+    private static function costlyMutant(CostlyMutant $costly): array
+    {
+        $mutant = $costly->mutant();
+        $route = $costly->route();
+
+        return [
+            'id' => $mutant->id()->value(),
+            'file' => $mutant->location()->file()->value(),
+            'line' => $mutant->location()->start()->number(),
+            'mutator' => $mutant->mutator(),
+            'seconds' => $costly->seconds()->seconds(),
+            ...$route instanceof Route ? ['route' => $route->value] : [],
+        ];
+    }
+
+    /** @return CostlyTestEntry */
+    private static function costlyTest(CostlyTest $costly): array
+    {
+        return [
+            'test' => $costly->test()->value(),
+            'ownSeconds' => $costly->own()->seconds(),
+            'mutants' => $costly->mutants(),
+            'atMostSeconds' => $costly->atMost()->seconds(),
         ];
     }
 

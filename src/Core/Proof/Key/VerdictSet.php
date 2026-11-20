@@ -146,6 +146,7 @@ enum VerdictSet
                 'src/Adapter/Project/**',
                 'src/Adapter/Filesystem/MutatedFiles.php',
                 'src/Core/Cost/StartUpSamples.php',
+                'src/Core/Cost/Route.php',
             ],
             self::Native => [
                 'src/Adapter/Native/**',

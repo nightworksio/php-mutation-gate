@@ -111,6 +111,7 @@ final readonly class ShardResultFile
                     static fn(array $steps): bool => $steps !== [],
                 ),
                 ...JobTimesRecord::of($result->measured()->job()),
+                ...CoresRecord::of($result->measured()->cores()),
             ],
             ...$outcome instanceof CannotJudge ? [self::CANNOT_JUDGE => $outcome->why()] : [
                 'mutants' => array_map(
@@ -282,6 +283,7 @@ final readonly class ShardResultFile
             $at instanceof CannotJudge ? throw NotInShape::at($measured->field('at')->at(), 'an instant') : $at,
         )->withSteps(StepsRecord::read($measured->field(StepsRecord::SECTION)))
             ->timingTheJob(JobTimesRecord::read($measured))
+            ->onCores(CoresRecord::read($measured))
             ->measuredBy(
                 $measured->field(self::GATE)->isPresent()
                     ? GateRelease::spelt($measured->field(self::GATE)->text())

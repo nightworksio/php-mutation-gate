@@ -64,7 +64,12 @@ it('takes each mark a run notes of a mutant alone, of a split stream and of its 
 
     expect(KillerFile::marked($event))->toBe(sprintf("%s\n", $event->value))
         ->and(KillerFile::taken($file, '/m/a.php'))->toBe([RecordLine::marked('/m/a.php', $event)]);
-})->with([RecordEvent::Streamed, RecordEvent::Preloaded, RecordEvent::Unreached, RecordEvent::OwnedPart, RecordEvent::OtherPart]);
+})->with([RecordEvent::Streamed, RecordEvent::SecondPass, RecordEvent::Preloaded, RecordEvent::Unreached, RecordEvent::OwnedPart, RecordEvent::OtherPart]);
+
+it('writes the line that says a split stream judged the mutant in its second pass', function (): void {
+    expect(KillerFile::secondPass())->toBe(KillerFile::marked(RecordEvent::SecondPass))
+        ->and(KillerFile::streamed())->toBe(KillerFile::marked(RecordEvent::Streamed));
+});
 
 it('takes what Pest\'s own process noted of a mutant ahead of what its own process wrote, once, with no file written for the notes', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
