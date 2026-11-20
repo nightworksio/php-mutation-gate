@@ -585,6 +585,7 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
+    use std::sync::mpsc::{self, Sender};
     use std::time::Duration;
 
     use std::collections::{BTreeSet, VecDeque};
@@ -708,11 +709,12 @@ mod tests {
         }
     }
 
-    /// Notifications that never tell of a change.
-    struct Quiet;
+    /// Notifications that never tell of a change, and say each time they are asked.
+    struct Quiet(Sender<()>);
 
     impl Notices for Quiet {
         fn next(&mut self, within: Duration) -> Result<bool, String> {
+            let _ = self.0.send(());
             std::thread::sleep(within);
             Ok(false)
         }
@@ -739,16 +741,18 @@ mod tests {
 
     #[test]
     fn stops_its_watcher_when_told() {
+        let (asking, asked) = mpsc::channel();
         let quiet = Watching::of(
             PathBuf::from("/p"),
             Duration::ZERO,
-            Box::new(|_| Ok(Box::new(Quiet) as Box<dyn Notices>)),
+            Box::new(move |_| Ok(Box::new(Quiet(asking.clone())) as Box<dyn Notices>)),
         );
 
         assert_eq!(
             quiet.changed(&[String::from("src")], 0, Duration::ZERO),
             Noticed::Changed(0)
         );
+        assert_eq!(asked.recv_timeout(SETTLED), Ok(()));
         assert!(locked(&quiet.armed).running.is_some());
 
         quiet.stop();
