@@ -347,7 +347,8 @@ final readonly class SettingsCases
             },
             "opcache": {
                 "batch": 100,
-                "limit": "1m"
+                "limit": "1m",
+                "kept": 384
             },
             "after": true,
             "turbo": true,

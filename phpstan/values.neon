@@ -278,9 +278,11 @@ services:
                     - EACH # how a list's entries are named in a setting's path
                 'NightWorksIO\MutationGate\Core\Config\Proofs':
                     - PATH # the directory store's option
+                'NightWorksIO\MutationGate\Core\Config\OpcacheCompile':
+                    - BATCH # programs one opcache child compiles, not a percentage
+                    - LIMIT # one opcache child's limit, not a network read's
+                    - KEPT # compiled programs one process keeps, not a file mode
                 'NightWorksIO\MutationGate\Core\Config\StaticCheck':
-                    - OPCACHE_BATCH # programs one opcache child compiles, not a percentage
-                    - OPCACHE_LIMIT # one opcache child's limit, not a network read's
                     - AUTO # the analyser zero-config finds, not a proof-writing mode
                     - NONE # no analyser, not a mutator family or a Pest status
                 'NightWorksIO\MutationGate\Core\Format\Bytes':

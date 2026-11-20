@@ -8,7 +8,7 @@ use function array_key_exists;
 use function array_map;
 use function in_array;
 
-use NightWorksIO\MutationGate\Core\Config\StaticCheck;
+use NightWorksIO\MutationGate\Core\Config\OpcacheCompile;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\Mutant\BeforeRunPrograms;
@@ -40,25 +40,27 @@ final readonly class Prover
     /**
      * The prover that compiles with this PHP, in this directory, which the gate owns, this many children at once,
      * with the functions the PHP the tests ran on disables, as its `disable_functions` says them, disabled too;
-     * each child compiling this many programs at most, within this many seconds, as it proves none past them.
+     * each child compiling as many programs and for as long as `staticCheck.opcache` says, as it proves none past
+     * them, and the process keeping as many compiled programs as it says, so it compiles none of them again.
      */
     public static function of(
         string $binary,
         DiskPath $directory,
         ProcessCount $parallel,
         string|false $disabled,
-        int $batch = StaticCheck::OPCACHE_BATCH,
-        float $limit = StaticCheck::OPCACHE_LIMIT,
+        OpcacheCompile|NotGiven $opcache = new NotGiven(),
     ): self {
         $besides = [sprintf(self::DISABLED, $disabled)];
+        $opcache = $opcache instanceof OpcacheCompile ? $opcache : OpcacheCompile::standard();
 
         return new self(new Compiler(
             $binary,
             $directory->value(),
-            $limit,
+            $opcache->limit()->seconds(),
             $parallel->count(),
             $besides,
-            perChild: $batch,
+            perChild: $opcache->batch(),
+            kept: KeptOpcodes::inProcess($opcache->kept()),
         ));
     }
 

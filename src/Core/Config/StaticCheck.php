@@ -40,11 +40,6 @@ final readonly class StaticCheck implements Part
     /** No analyser: every mutant goes to its tests alone. */
     public const string NONE = 'none';
 
-    /** How many programs one opcache child compiles, where the config does not say. */
-    public const int OPCACHE_BATCH = 100;
-
-    /** How long one opcache child may take to compile its programs, in seconds, where the config does not say. */
-    public const float OPCACHE_LIMIT = 60.0;
 
     private function __construct(
         private Choice|Absent $tool,
@@ -54,6 +49,7 @@ final readonly class StaticCheck implements Part
         private TestsTime|Absent $testsTime,
         private int|Absent $opcacheBatch,
         private Seconds|Absent $opcacheLimit,
+        private int|Absent $opcacheKept,
         private int|Absent $dependents,
         private int|Absent $preCheckAfter,
         private Json|Absent $php,
@@ -68,6 +64,7 @@ final readonly class StaticCheck implements Part
         TestsTime|Absent $testsTime = new Absent(),
         int|Absent $opcacheBatch = new Absent(),
         Seconds|Absent $opcacheLimit = new Absent(),
+        int|Absent $opcacheKept = new Absent(),
         int|Absent $dependents = new Absent(),
         int|Absent $preCheckAfter = new Absent(),
         Json|Absent $php = new Absent(),
@@ -80,6 +77,7 @@ final readonly class StaticCheck implements Part
             $testsTime,
             $opcacheBatch,
             $opcacheLimit,
+            $opcacheKept,
             $dependents,
             $preCheckAfter,
             $php,
@@ -100,8 +98,9 @@ final readonly class StaticCheck implements Part
             seconds: $none->seconds(),
             before: $none->before(),
             testsTime: $none->testsTime(),
-            opcacheBatch: $none->opcacheBatch(),
-            opcacheLimit: $none->opcacheLimit(),
+            opcacheBatch: $none->opcache()->batch(),
+            opcacheLimit: $none->opcache()->limit(),
+            opcacheKept: $none->opcache()->kept(),
             dependents: $none->dependents(),
             preCheckAfter: $none->preCheckAfter(),
             php: $none->phpIni(),
@@ -120,6 +119,7 @@ final readonly class StaticCheck implements Part
                 Absent::laid($this->testsTime, $later->testsTime),
                 Absent::laid($this->opcacheBatch, $later->opcacheBatch),
                 Absent::laid($this->opcacheLimit, $later->opcacheLimit),
+                Absent::laid($this->opcacheKept, $later->opcacheKept),
                 Absent::laid($this->dependents, $later->dependents),
                 Absent::laid($this->preCheckAfter, $later->preCheckAfter),
                 Absent::laid($this->php, $later->php),
@@ -185,16 +185,16 @@ final readonly class StaticCheck implements Part
         return $this->testsTime instanceof TestsTime ? $this->testsTime : TestsTime::Learned;
     }
 
-    /** `staticCheck.opcache.batch`: the programs one child compiles, so opcache's memory never fills. */
-    public function opcacheBatch(): int
+    /** `staticCheck.opcache`: how opcache compiles the programs that prove a survivor equivalent. */
+    public function opcache(): OpcacheCompile
     {
-        return $this->opcacheBatch instanceof Absent ? self::OPCACHE_BATCH : $this->opcacheBatch;
-    }
+        $standard = OpcacheCompile::standard();
 
-    /** `staticCheck.opcache.limit`: the longest one child may compile for. */
-    public function opcacheLimit(): Seconds
-    {
-        return $this->opcacheLimit instanceof Seconds ? $this->opcacheLimit : Seconds::of(self::OPCACHE_LIMIT);
+        return OpcacheCompile::of(
+            $this->opcacheBatch instanceof Absent ? $standard->batch() : $this->opcacheBatch,
+            $this->opcacheLimit instanceof Seconds ? $this->opcacheLimit : $standard->limit(),
+            $this->opcacheKept instanceof Absent ? $standard->kept() : $this->opcacheKept,
+        );
     }
 
     /** `staticCheck.dependents`: how many dependents of a changed file an analyser reads at most. */
@@ -230,6 +230,7 @@ final readonly class StaticCheck implements Part
                     Json::object(
                         Member::of('batch', $this->opcacheBatch),
                         Member::of('limit', WholeSeconds::duration($this->opcacheLimit)),
+                        Member::of('kept', $this->opcacheKept),
                     ),
                 ),
             ),
@@ -259,7 +260,7 @@ final readonly class StaticCheck implements Part
         ]);
     }
 
-    /** @return list<string> the builder's calls for `staticCheck.opcacheBatch` and `staticCheck.opcacheLimit` */
+    /** @return list<string> the builder's calls for `staticCheck.opcache` */
     private function opcachePhp(): array
     {
         return [
@@ -269,6 +270,9 @@ final readonly class StaticCheck implements Part
             ...$this->opcacheLimit instanceof Seconds
                 ? [sprintf('StaticCheck::opcacheLimit(%s)', PhpCalls::literal($this->opcacheLimit->written()))]
                 : [],
+            ...$this->opcacheKept instanceof Absent
+                ? []
+                : [sprintf('StaticCheck::opcacheKept(%d)', $this->opcacheKept)],
         ];
     }
 

@@ -69,21 +69,23 @@ it('reads the remaining keys that tune a run, each at its default where no layer
     $standard = $settings();
     $set = $settings([
         'timeouts' => ['startUp' => '9s'],
-        'staticCheck' => ['opcache' => ['batch' => 50, 'limit' => '30s']],
+        'staticCheck' => ['opcache' => ['batch' => 50, 'limit' => '30s', 'kept' => 0]],
         'ignores' => ['notice' => 7],
         'local' => ['watchPoll' => '5s'],
         'triage' => ['fewest' => 3],
     ]);
 
     expect($standard->triage()->limits()->bounds()->startUp()->unmeasured())->toEqual(Seconds::of(5.0))
-        ->and($standard->staticCheck()->opcacheBatch())->toBe(100)
-        ->and($standard->staticCheck()->opcacheLimit())->toEqual(Seconds::of(60.0))
+        ->and($standard->staticCheck()->opcache()->batch())->toBe(100)
+        ->and($standard->staticCheck()->opcache()->limit())->toEqual(Seconds::of(60.0))
+        ->and($standard->staticCheck()->opcache()->kept())->toBe(384)
         ->and($standard->ignores()->notice())->toBe(14)
         ->and($standard->local()->watchPoll())->toEqual(Seconds::of(2.0))
         ->and($standard->local()->triageFewest())->toBe(2)
         ->and($set->triage()->limits()->bounds()->startUp()->unmeasured())->toEqual(Seconds::of(9.0))
-        ->and($set->staticCheck()->opcacheBatch())->toBe(50)
-        ->and($set->staticCheck()->opcacheLimit())->toEqual(Seconds::of(30.0))
+        ->and($set->staticCheck()->opcache()->batch())->toBe(50)
+        ->and($set->staticCheck()->opcache()->limit())->toEqual(Seconds::of(30.0))
+        ->and($set->staticCheck()->opcache()->kept())->toBe(0)
         ->and($set->ignores()->notice())->toBe(7)
         ->and($set->local()->watchPoll())->toEqual(Seconds::of(5.0))
         ->and($set->local()->triageFewest())->toBe(3);
@@ -146,6 +148,7 @@ it('writes each key into a config written as PHP, through the builder that reads
     'timeouts.startUp' => [['timeouts' => ['startUp' => '9s']], "Timeouts::startUp('9s')"],
     'staticCheck.opcache.batch' => [['staticCheck' => ['opcache' => ['batch' => 50]]], 'StaticCheck::opcacheBatch(50)'],
     'staticCheck.opcache.limit' => [['staticCheck' => ['opcache' => ['limit' => '30s']]], "StaticCheck::opcacheLimit('30s')"],
+    'staticCheck.opcache.kept' => [['staticCheck' => ['opcache' => ['kept' => 500]]], 'StaticCheck::opcacheKept(500)'],
     'ignores.notice' => [['ignores' => ['notice' => 7]], 'Ignores::notice(7)'],
     'proofs.keep.killers' => [['proofs' => ['keep' => ['killers' => 3]]], 'Retention::killers(3)'],
     'proofs.keep.killers, one' => [['proofs' => ['keep' => ['killers' => 1]]], 'Retention::killers(1)'],
@@ -216,6 +219,7 @@ it('refuses a tuning key out of its range', function (array $config, string $pro
     'a newest weight past one' => [['timing' => ['newest' => 1.5]], 'timing.newest: expected a number above 0 and at most 1, got 1.5'],
     'no start-up samples' => [['timing' => ['startUpSamples' => 0]], 'timing.startUpSamples: expected an integer of at least 1, got 0'],
     'no programs a child' => [['staticCheck' => ['opcache' => ['batch' => 0]]], 'staticCheck.opcache.batch: expected an integer of at least 1, got 0'],
+    'fewer than no programs kept' => [['staticCheck' => ['opcache' => ['kept' => -1]]], 'staticCheck.opcache.kept: expected an integer of at least 0, got -1'],
     'no bases kept' => [['proofs' => ['keep' => ['bases' => 0]]], 'proofs.keep.bases: expected an integer of at least 1, got 0'],
     'no killers kept' => [['proofs' => ['keep' => ['killers' => 0]]], 'proofs.keep.killers: expected an integer of at least 1, or "all", got 0'],
     'killers neither a count nor all' => [['proofs' => ['keep' => ['killers' => 'most']]], 'proofs.keep.killers: expected an integer of at least 1, or "all", got "most"'],

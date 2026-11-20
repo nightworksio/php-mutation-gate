@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Opcache;
 
 use function array_chunk;
+use function array_diff_key;
 use function array_filter;
 use function array_intersect_key;
 use function array_keys;
@@ -20,6 +21,8 @@ use function dirname;
 use function explode;
 use function file_put_contents;
 use function getmypid;
+use function hash;
+use function implode;
 use function is_dir;
 use function max;
 use function mb_str_split;
@@ -27,7 +30,7 @@ use function mb_strlen;
 use function min;
 use function mkdir;
 
-use NightWorksIO\MutationGate\Core\Config\StaticCheck;
+use NightWorksIO\MutationGate\Core\Config\OpcacheCompile;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Mutant\BeforeRunPrograms;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -56,7 +59,8 @@ use function usleep;
  * in a child shared with others is compiled again in a child of its own:
  * PHP declares a program's functions as it compiles it, so a second
  * program declaring one of them fails beside the first, and a child that
- * stops on a compile error fails every program it holds.
+ * stops on a compile error fails every program it holds. A program the
+ * process compiled before is not compiled again (ADR-0260).
  *
  * @internal
  */
@@ -109,6 +113,7 @@ final readonly class Compiler
      * @param list<string> $besides  settings the children take after the gate's own
      * @param (Closure(int): void)|NotGiven $pause pauses this many microseconds between reads of the children, as
      *                                             usleep does where none is given
+     * @param KeptOpcodes                   $kept  the opcodes of programs compiled before, which are not compiled again
      */
     public function __construct(
         private string $binary,
@@ -117,7 +122,8 @@ final readonly class Compiler
         private int $parallel,
         private array $besides = [],
         private Closure|NotGiven $pause = new NotGiven(),
-        private int $perChild = StaticCheck::OPCACHE_BATCH,
+        private int $perChild = OpcacheCompile::BATCH,
+        private KeptOpcodes $kept = new KeptOpcodes(0),
     ) {
     }
 
@@ -136,11 +142,13 @@ final readonly class Compiler
             $this->besides,
             $this->pause,
             $this->perChild,
+            $this->kept,
         );
     }
 
     /**
-     * Each program's opcodes, or why there are none, by its key.
+     * Each program's opcodes, or why there are none, by its key: those kept
+     * from an earlier compile as they were kept, and the rest compiled now.
      *
      * @template TKey of array-key
      *
@@ -149,6 +157,36 @@ final readonly class Compiler
      */
     public function compiled(array $programs): array
     {
+        $keys = array_map($this->keyOf(...), $programs);
+        $kept = $this->kept->of($keys);
+        $fresh = $this->fresh(array_diff_key($programs, $kept));
+
+        $this->kept->keep($keys, $fresh);
+
+        return array_replace(array_map(static fn(): Uncompiled => Uncompiled::Failed, $programs), $kept, $fresh);
+    }
+
+    /** What a program's compile reads: the PHP, the child's settings and the program's text. */
+    private function keyOf(Contents $program): string
+    {
+        return hash(
+            'xxh128',
+            implode(self::BETWEEN, [$this->binary, ...self::SETTINGS, ...$this->besides, $program->text()]),
+        );
+    }
+
+    /**
+     * @template TKey of array-key
+     *
+     * @param  array<TKey, Contents>             $programs
+     * @return array<TKey, Opcodes|Uncompiled>
+     */
+    private function fresh(array $programs): array
+    {
+        if ($programs === []) {
+            return [];
+        }
+
         $directory = sprintf('%s/%d', $this->directory, getmypid());
         $paths = $this->written($programs, $directory);
         $each = max(1, min($this->perChild, (int) ceil(count($paths) / $this->parallel)));
