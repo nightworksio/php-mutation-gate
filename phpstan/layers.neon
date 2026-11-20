@@ -296,9 +296,6 @@ parameters:
                 # A warm worker and its client wake each other from the pause between their looks with a signal a
                 # process with no handler for it ignores (ADR-0023).
                 - src/Adapter/Pest/Warm/Wake.php
-                # A daemon of `mutation-gate serve` stops the process group of a child whose client has gone, or
-                # every child's where it is asked to stop, through the forking the gate's script hands it (ADR-0078).
-                - bin/mutation-gate
                 # A client of `mutation-gate serve`, and its daemon, ask whether the process at the other end of the
                 # socket is one this user may signal, with signal 0, which tells and sends nothing (ADR-0078).
                 - src/Adapter/Serve/ServeSocket.php
@@ -306,17 +303,13 @@ parameters:
                 # test ended (ADR-0117), the plan's and a shard's progress reporter's so nothing the parent set to
                 # happen at its end runs twice (ADR-0157, ADR-0164, ADR-0169).
                 - src/Adapter/Pest/Split/OwnEnd.php
-                # A warm-up the plan began early is stopped where the plan turns out to hold no shard
-                # (ADR-0180).
-                - src/Cli/Flow/WarmingUp.php
-                # A split stream stops a child that runs past its limit (ADR-0117).
-                - src/Adapter/Pest/Split/Children.php
                 # watch halts the batch running in its own process with SIGUSR2 once a save moves one of its units
                 # (ADR-0146).
                 - src/Adapter/Process/Halting.php
-                # The gate stops a shard's progress reporter with SIGTERM once the shard ends, and with SIGKILL
-                # where it outlives its grace (ADR-0157).
-                - src/Adapter/GitHub/ProgressReporter.php
+                # Every signal the gate sends to another process or group, never to one it spares: the serve
+                # daemon's children (ADR-0078), a shard's progress reporter (ADR-0157), the plan's warm-up
+                # (ADR-0180) and a split stream's late children (ADR-0117) (ADR-0310).
+                - src/Core/Runner/SparedProcesses.php
                 # The served projects of the tests stop the daemons they started.
                 - tests/Support/ServedProjects.php
 

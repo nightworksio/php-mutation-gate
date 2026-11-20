@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
+use NightWorksIO\MutationGate\Adapter\Process\Lineage;
 use NightWorksIO\MutationGate\Adapter\Serve\Forking;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\FromArchive;
@@ -124,7 +125,7 @@ $forking = function_exists('pcntl_fork') && function_exists('posix_setsid') ? ne
 
     public function stopped(int $child): void
     {
-        posix_kill(-$child, SIGTERM);
+        Lineage::spared()->signalGroup($child, SIGTERM);
     }
 
     public function detached(): void

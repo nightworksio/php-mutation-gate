@@ -542,6 +542,7 @@ services:
                     - WATCH_SECONDS # a watch round's budget, in seconds, not a probe's limit
                 'NightWorksIO\MutationGate\Core\Runner\ProcessTable':
                     - SIGNALS # the program that signals processes, not a control's kind
+                'NightWorksIO\MutationGate\Core\Runner\SparedProcesses':
                     - LOWEST # the lowest process id that names one process, not an exit code or an argument
                 'NightWorksIO\MutationGate\Core\Runner\Headroom':
                     - TIMES # times a suite's peak memory a cap holds

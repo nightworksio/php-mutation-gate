@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function count;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Process\Lineage;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -16,7 +17,6 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function pcntl_waitpid;
-use function posix_kill;
 
 use const SIGKILL;
 
@@ -81,8 +81,8 @@ final class WarmingUp
     /** The warm-up stopped where it still runs, and nothing it left kept. */
     public function dropped(): Missing|CannotJudge
     {
-        if ($this->child > 0 && ! $this->done) {
-            posix_kill($this->child, SIGKILL);
+        if (! $this->done) {
+            Lineage::spared()->signal($this->child, SIGKILL);
         }
 
         $this->waited();

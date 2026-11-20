@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use Closure;
 
+use function getenv;
 use function is_file;
 use function is_string;
 use function min;
@@ -20,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Runner\Gauge;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\ProcessUse;
+use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function pcntl_async_signals;
@@ -28,7 +30,6 @@ use function pcntl_signal;
 use function pcntl_waitpid;
 use function posix_getpid;
 use function posix_getppid;
-use function posix_kill;
 
 use Psr\Clock\ClockInterface;
 
@@ -108,12 +109,7 @@ final readonly class ProgressReporter
             $gauge,
             $exchange,
             $ending,
-            static function (array $command): string {
-                $process = new Process($command);
-                $process->run();
-
-                return $process->getOutput();
-            },
+            self::listing(...),
             Seconds::of(self::GRACE),
         );
     }
@@ -187,7 +183,8 @@ final readonly class ProgressReporter
             return $this->letGo();
         }
 
-        posix_kill($this->reporter, SIGTERM);
+        $spared = SparedProcesses::toldOr($this->told(), self::listing(...));
+        $signals = $spared->signal($this->reporter, SIGTERM);
         $waited = 0.0;
 
         while (pcntl_waitpid($this->reporter, $status, WNOHANG) === 0 && $waited < $this->grace->seconds()) {
@@ -195,8 +192,8 @@ final readonly class ProgressReporter
             $waited += self::LOOK;
         }
 
-        if ($waited >= $this->grace->seconds()) {
-            posix_kill($this->reporter, SIGKILL);
+        if ($signals && $waited >= $this->grace->seconds()) {
+            $spared->signal($this->reporter, SIGKILL);
             pcntl_waitpid($this->reporter, $status);
         }
 
@@ -253,5 +250,22 @@ final readonly class ProgressReporter
         if ($stopped) {
             $left->clear();
         }
+    }
+
+    /** What the gate's own process was told it spares; nothing where it was told none. */
+    private function told(): string
+    {
+        $told = getenv(SparedProcesses::VARIABLE);
+
+        return is_string($told) ? $told : '';
+    }
+
+    /** @param list<string> $command */
+    private static function listing(array $command): string
+    {
+        $process = new Process($command);
+        $process->run();
+
+        return $process->getOutput();
     }
 }

@@ -8,6 +8,7 @@ use function array_diff;
 use function array_key_exists;
 
 use Closure;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function preg_match_all;
 use function sprintf;
@@ -36,13 +37,6 @@ final readonly class ProcessTable
 
     /** The command that freezes processes where they stand, so none starts another, before their ids. */
     private const array FREEZE = [self::SIGNALS, '-STOP'];
-
-    /**
-     * The lowest id that names one process the gate may stop: 1 is the
-     * system's own first process, 0 the caller's whole process group, and
-     * -1 every process the caller may signal.
-     */
-    private const int LOWEST = 2;
 
     /** @param array<int, list<int>> $children each process's children, by its id */
     private function __construct(private array $children)
@@ -84,18 +78,24 @@ final readonly class ProcessTable
      * listing by listing until a listing finds none it has not frozen, so no
      * process can start another between the listing and the kill; then all of
      * them killed, deepest first, and then the whole session, which holds
-     * those whose parent ended before them. An id that names no one process
-     * stops nothing.
+     * those whose parent ended before them. A process the caller spares
+     * (SparedProcesses) is never signalled, nor is the group of one.
      *
      * @param Closure(list<string>): string $run runs a command, and answers what it printed
      */
-    public static function stop(int $pid, Closure $run, bool $leads = false): void
-    {
-        if ($pid < self::LOWEST) {
+    public static function stop(
+        int $pid,
+        Closure $run,
+        bool $leads = false,
+        SparedProcesses|NotGiven $spared = new NotGiven(),
+    ): void {
+        $sparing = $spared instanceof SparedProcesses ? $spared : SparedProcesses::listed($run);
+
+        if (! $sparing->signals($pid)) {
             return;
         }
 
-        $run(self::signalling(self::FREEZE, $pid));
+        $run(self::signalling($sparing, self::FREEZE, $pid));
         $frozen = [];
 
         do {
@@ -104,62 +104,62 @@ final readonly class ProcessTable
             $frozen = [...$frozen, ...$fresh];
 
             if ($fresh !== []) {
-                $run(self::signalling(self::FREEZE, ...$fresh));
+                $run(self::signalling($sparing, self::FREEZE, ...$fresh));
             }
         } while ($fresh !== []);
 
-        $run(self::killing(...[...$under, $pid]));
+        $run(self::killing($sparing, ...[...$under, $pid]));
 
         if ($leads) {
-            $run(self::ending($pid));
+            $run(self::ending($sparing, $pid));
         }
     }
 
     /**
-     * The command that kills every process of the session a process led,
-     * which its group shares: those left once it ended, whose parent may
-     * have ended before them. An id that names no one process kills nothing.
+     * Kills every process left of the session a process led, which its group
+     * shares, once it ended: those whose parent may have ended before them.
      *
-     * @return list<string>
+     * @param Closure(list<string>): string $run runs a command, and answers what it printed
      */
-    public static function ending(int $leader): array
+    public static function end(int $leader, Closure $run, SparedProcesses $spared): void
     {
-        return self::grouped(self::KILL, $leader);
+        if ($spared->signalsGroup($leader)) {
+            $run(self::ending($spared, $leader));
+        }
     }
 
     /**
-     * The command that stops these processes at once, leaving out each id
-     * that names no one process.
+     * The command that kills every process of the group a process leads at
+     * once; nothing where the caller spares that group.
      *
      * @return list<string>
      */
-    public static function killing(int ...$pids): array
+    public static function ending(SparedProcesses $spared, int $leader): array
     {
-        return self::signalling(self::KILL, ...$pids);
+        return $spared->signalsGroup($leader) ? [...self::KILL, '--', sprintf('-%d', $leader)] : self::KILL;
     }
 
     /**
-     * The command that signals every process of the group a process leads,
-     * at once; nothing where its id names no one process.
+     * The command that stops these processes at once, leaving out each one
+     * the caller spares.
      *
+     * @return list<string>
+     */
+    public static function killing(SparedProcesses $spared, int ...$pids): array
+    {
+        return self::signalling($spared, self::KILL, ...$pids);
+    }
+
+    /**
      * @param  list<string> $command
      * @return list<string>
      */
-    private static function grouped(array $command, int $leader): array
-    {
-        return $leader < self::LOWEST ? $command : [...$command, '--', sprintf('-%d', $leader)];
-    }
-
-    /**
-     * @param  list<string> $command
-     * @return list<string>
-     */
-    private static function signalling(array $command, int ...$pids): array
+    private static function signalling(SparedProcesses $spared, array $command, int ...$pids): array
     {
         $named = [];
 
         foreach ($pids as $pid) {
-            $named = $pid < self::LOWEST ? $named : [...$named, sprintf('%d', $pid)];
+            $named = $spared->signals($pid) ? [...$named, sprintf('%d', $pid)] : $named;
         }
 
         return [...$command, ...$named];

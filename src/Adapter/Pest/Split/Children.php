@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_key_exists;
+use function exec;
 
 use const FILE_APPEND;
 
 use function file_put_contents;
 use function hrtime;
+use function implode;
 use function is_int;
 
 use const LOCK_EX;
@@ -17,6 +19,8 @@ use const LOCK_EX;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
+use NightWorksIO\MutationGate\Core\Runner\ShellWords;
+use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function pcntl_fork;
@@ -25,7 +29,6 @@ use function pcntl_wexitstatus;
 use function pcntl_wifexited;
 use function pcntl_wifsignaled;
 use function pcntl_wtermsig;
-use function posix_kill;
 use function register_shutdown_function;
 
 use const SIGKILL;
@@ -295,8 +298,16 @@ final class Children
      */
     private function stopped(array $late): void
     {
+        $spared = SparedProcesses::listed(static function (array $command): string {
+            $printed = [];
+            exec(ShellWords::line($command), $printed);
+
+            return implode("\n", $printed);
+        });
+
         foreach ($late as $pid => $child) {
-            posix_kill($pid, SIGKILL);
+            $spared->signal($pid, SIGKILL);
+
             pcntl_waitpid($pid, $status);
             $this->gone($pid);
             $this->write(StreamLine::timedOut($child->mutant, $child->test));

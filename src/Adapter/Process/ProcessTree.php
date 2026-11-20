@@ -32,13 +32,13 @@ final readonly class ProcessTree
      */
     public function stop(bool $leads): void
     {
-        ProcessTable::stop($this->pid, $this->ran(...), $leads);
+        ProcessTable::stop($this->pid, $this->ran(...), $leads, Lineage::spared());
     }
 
     /** Kills every process left in the session this one led, once it ended. */
     public function ended(): void
     {
-        $this->ran(ProcessTable::ending($this->pid));
+        ProcessTable::end($this->pid, $this->ran(...), Lineage::spared());
     }
 
     /** @param list<string> $command */
