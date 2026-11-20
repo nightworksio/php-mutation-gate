@@ -19,7 +19,9 @@ use function str_starts_with;
  * into, and the default branch, each where it is named. On a pull request the scope is `refs/pull/<n>`, and otherwise
  * `refs/heads/<branch>`. A detached `HEAD` has no scope, and neither has a
  * merge group, which is judged like a pull request from the commit its
- * queue built it on (ADR-0022).
+ * queue built it on (ADR-0022). A pull request whose head is in another
+ * repository is from a fork, whose records no run reuses unless `reuse.forks`
+ * says (ADR-0198).
  */
 final readonly class RunOn
 {
@@ -33,6 +35,7 @@ final readonly class RunOn
         private Revision|Unnamed $commit,
         private Scope|CannotTell $target,
         private Revision|NotGiven $groupBase,
+        private bool $fork = false,
     ) {
     }
 
@@ -69,17 +72,6 @@ final readonly class RunOn
         );
     }
 
-    /**
-     * The run on a full ref, as a CI names it: under the scope the ref spells, and detached for a tag or any
-     * other ref no proof is kept under.
-     */
-    public static function onRef(string $ref, Scope|CannotTell $defaultBranch): self
-    {
-        $scope = Scope::parse($ref);
-
-        return $scope instanceof Scope ? self::at($scope, $defaultBranch) : self::detached($defaultBranch);
-    }
-
     /** A run on a detached `HEAD`, which is never a pull request. */
     public static function detached(Scope|CannotTell $defaultBranch): self
     {
@@ -107,14 +99,6 @@ final readonly class RunOn
         );
     }
 
-    /** A default branch as a CI names it, which it may not. */
-    public static function branchNamed(string $branch): Scope|CannotTell
-    {
-        $scope = Scope::parse(sprintf('refs/heads/%s', $branch));
-
-        return $scope instanceof CannotJudge ? CannotTell::because($scope->why()) : $scope;
-    }
-
     public function scope(): Scope|Detached
     {
         return $this->scope;
@@ -137,6 +121,18 @@ final readonly class RunOn
         return $this->groupBase;
     }
 
+    /** This run, on a pull request whose head is in another repository than its base. */
+    public function fromAFork(): self
+    {
+        return new self($this->scope, $this->defaultBranch, $this->commit, $this->target, $this->groupBase, fork: true);
+    }
+
+    /** Whether the run is on a pull request whose head is in another repository than its base. */
+    public function isFromAFork(): bool
+    {
+        return $this->fork;
+    }
+
     public function defaultBranch(): Scope|CannotTell
     {
         return $this->defaultBranch;
@@ -151,19 +147,19 @@ final readonly class RunOn
     /** This run, on a pull request that merges into this branch. */
     public function withTarget(Scope $target): self
     {
-        return new self($this->scope, $this->defaultBranch, $this->commit, $target, $this->groupBase);
+        return new self($this->scope, $this->defaultBranch, $this->commit, $target, $this->groupBase, $this->fork);
     }
 
     /** This run, with the default branch `ci.defaultBranch` or git names, which replaces the CI's own answer. */
     public function withDefaultBranch(Scope $defaultBranch): self
     {
-        return new self($this->scope, $defaultBranch, $this->commit, $this->target, $this->groupBase);
+        return new self($this->scope, $defaultBranch, $this->commit, $this->target, $this->groupBase, $this->fork);
     }
 
     /** This run, for the commit the CI says it builds. */
     public function withCommit(Revision $commit): self
     {
-        return new self($this->scope, $this->defaultBranch, $commit, $this->target, $this->groupBase);
+        return new self($this->scope, $this->defaultBranch, $commit, $this->target, $this->groupBase, $this->fork);
     }
 
     /** The commit the CI says the run builds, where it names one. */
@@ -186,7 +182,7 @@ final readonly class RunOn
 
         $scope = $named && $onDefault ? Detached::head() : $this->scope;
 
-        return new self($scope, $this->defaultBranch, Unnamed::commit(), $this->target, $this->groupBase);
+        return new self($scope, $this->defaultBranch, Unnamed::commit(), $this->target, $this->groupBase, $this->fork);
     }
 
     private static function scoped(string $ref, Scope|CannotTell $defaultBranch): self|CannotTell

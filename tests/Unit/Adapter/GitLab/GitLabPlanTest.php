@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -138,7 +139,7 @@ it('cannot name the job that made the plan outside a GitLab job', function (): v
 });
 
 it('reads a merge request, a branch and the default branch from GitLab', function () use ($on): void {
-    $main = RunOn::branchNamed('main');
+    $main = Scope::branchNamed('main');
     $mergeRequest = Variables::of([
         'CI_COMMIT_REF_NAME' => 'feature',
         'CI_MERGE_REQUEST_IID' => '7',
@@ -150,7 +151,7 @@ it('reads a merge request, a branch and the default branch from GitLab', functio
         '"refs/heads/" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
     );
 
-    expect($on($mergeRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), $main, RunOn::branchNamed('release/2.x')))
+    expect($on($mergeRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), $main, Scope::branchNamed('release/2.x')))
         ->and($on($push)->runOn())->toEqual(RunOn::branch('feature', $main))
         ->and($on(Variables::of(['CI_COMMIT_REF_NAME' => 'feature']))->runOn())
         ->toEqual(RunOn::branch('feature', $unnamed));
@@ -189,7 +190,7 @@ it('refuses a template that is not written as text, or not given', function (): 
 it('gives no scope to a tag, which is no branch the gate writes for', function () use ($on): void {
     $tag = Variables::of(['CI_COMMIT_TAG' => 'v1', 'CI_COMMIT_REF_NAME' => 'v1', 'CI_DEFAULT_BRANCH' => 'main']);
 
-    expect($on($tag)->runOn())->toEqual(RunOn::detached(RunOn::branchNamed('main')));
+    expect($on($tag)->runOn())->toEqual(RunOn::detached(Scope::branchNamed('main')));
 });
 
 it('is run by the pipeline CI_CONFIG_PATH names, .gitlab-ci.yml by default, and by the template', function (): void {

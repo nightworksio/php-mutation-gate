@@ -13,8 +13,7 @@ use NightWorksIO\MutationGate\Core\Change\Looked;
 use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
-use NightWorksIO\MutationGate\Core\Config\MergedTrust;
-use NightWorksIO\MutationGate\Core\Config\OwnScopeTrust;
+use NightWorksIO\MutationGate\Core\Config\Reuse;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
@@ -24,7 +23,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
-use NightWorksIO\MutationGate\Core\Proof\Proofs;
+use NightWorksIO\MutationGate\Core\Proof\ReusablePass;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Port\ChangeSource;
@@ -34,19 +33,18 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * Another change source, and GitHub's word on what the default branch already
- * proved ({@see MergedHeads}). When every commit since the base is the tree
- * of a merged pull request's head, and that pull request's verdict passed on
- * that head, the branch was up to date and its run judged exactly the tree
- * that landed, so those commits reach nothing and only what is uncommitted
- * counts; and so where a commit is a merge group's whose verdict passed on
- * it. Under `delta`, a landed tree that differs reaches what changed from the
- * head the pull request's verdict judged (ADR-0139). On a merge group,
- * `GITHUB_REF` names the pull request it was built for, and the group reaches
- * nothing where its tree is that pull request's head, whose verdict passed
- * there (ADR-0022, ADR-0049). A range of more commits than the proving range
- * holds, or one commit it cannot prove, is read from the other source whole.
- * Where the checkout stands, and what changed from a commit itself, the other
- * source says.
+ * judged ({@see MergedHeads}). A merged pull request whose verdict passed on
+ * its head lends the default branch the results its run recorded, which prove
+ * a unit only where their key matches, and the pass of the pull request a head
+ * lands, or a merge group was built for, is one a run may reuse whole where
+ * every input is identical (ADR-0198). Under `reuse.delta`, every commit since
+ * the base that such a pull request or a merge group's passing verdict proves
+ * reaches nothing, and a landed tree that differs reaches what changed from
+ * the head the pull request's verdict judged (ADR-0139). On a merge group,
+ * `GITHUB_REF` names the pull request it was built for (ADR-0022, ADR-0049).
+ * A range of more commits than the proving range holds, or one commit it
+ * cannot prove, is read from the other source whole. Where the checkout
+ * stands, and what changed from a commit itself, the other source says.
  *
  * @internal
  */
@@ -93,10 +91,21 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
         return new self($source, $queued instanceof QueueBranch ? $heads->inGroupFor($queued->pullRequest()) : $heads);
     }
 
-    /** This source, reading each pull request's own ledger from this store, and taking from it what these allow. */
-    public function trusting(ProofStore $ledgers, MergedTrust $trust, OwnScopeTrust $ownScope): self
+    /** This source, reading each pull request's own ledger from this store, and taking from it what `reuse` allows. */
+    public function trusting(ProofStore $ledgers, Reuse $reuse): self
     {
-        return new self($this->source, $this->heads->trusting($ledgers, $trust, $ownScope));
+        return new self($this->source, $this->heads->trusting($ledgers, $reuse));
+    }
+
+    /**
+     * The pass of the pull request the head lands, or a merge group was built for, a run may reuse whole where
+     * every input is identical; none where there is none to read.
+     *
+     * @return list<ReusablePass>
+     */
+    public function reusable(): array
+    {
+        return $this->heads->reusable();
     }
 
     /**
@@ -120,14 +129,15 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
     }
 
     /**
-     * The results the pull requests merged since the default branch's last pass carry, where every commit since
-     * is proved; for a merge group, those of its pull request.
+     * What the pull requests merged since the default branch's last pass give its ledger: the results they carry
+     * where every commit since is proved, and those they lend where not; for a merge group, those of its pull
+     * request.
      */
-    public function carriedOnto(Ledger $defaultBranch): Proofs
+    public function mergedOnto(Ledger $defaultBranch): MergedRange
     {
         $passed = $defaultBranch->runs()->passed();
 
-        return $this->heads->since($passed instanceof Passed ? $passed->commit() : $this->heads->head())->carried();
+        return $this->heads->since($passed instanceof Passed ? $passed->commit() : $this->heads->head());
     }
 
     public function changesFrom(Revision $commit): Changes|CannotTell
@@ -201,4 +211,5 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
     {
         return $this->source->defaultBranch();
     }
+
 }

@@ -95,10 +95,10 @@ on:
       merged-records:
         description: >-
           Keep each pull request's pass as an artifact, and read it on the push that merged it or a merge
-          group built for it, so that ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers
-          (ADR-0139).
+          group built for it, so that reuse.identical finds it where the Actions cache keeps ledgers
+          (ADR-0139, ADR-0198).
         type: boolean
-        default: false
+        default: true
       merged-records-days:
         description: How many days a pull request's pass stays readable; a merge later than that is judged again.
         type: number
@@ -262,10 +262,14 @@ jobs:
   # branch's prefix and nothing else, and this job installs and runs none of
   # the project's code, so every run may hold it: the environment
   # mutation-gate-read has no branch policy. A fork's pull request is given no
-  # secret, and reads through the store's publicUrl instead.
+  # secret, and reads through the store's publicUrl instead. Under
+  # merged-records, a push to the default branch and a merge group also read
+  # what the pull requests merged passed here, whatever the store (ADR-0198).
   fetch:
     name: fetch
-    if: vars.MUTATION_GATE_STORE != ''
+    if: >-
+      vars.MUTATION_GATE_STORE != '' || (inputs.merged-records && (github.event_name == 'merge_group'
+      || (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch)))
     environment:
       name: mutation-gate-read
       deployment: false
@@ -309,6 +313,7 @@ jobs:
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - name: Fetch the default branch's ledger
         id: fetch
+        if: vars.MUTATION_GATE_STORE != ''
         env:
           MUTATION_GATE_DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
           MUTATION_GATE_STORE: ${{ vars.MUTATION_GATE_STORE }}

@@ -36,12 +36,14 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\JudgingRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -200,7 +202,7 @@ it('records a pass under the check the config names', function () use ($makeTree
 
     expect($verdict->judgement())->toBe(Judgement::Passed)
         ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'gate / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate)));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'gate / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate))->judgedIn(JudgingRun::of(NotGiven::value(), '', whole: true)));
 });
 
 it('records a pass measured against its own scope\'s coverage map as one that used its own scope, which the default branch never trusts', function () use ($makeTree, $makeReporting, $makeJudged): void {
@@ -213,14 +215,14 @@ it('records a pass measured against its own scope\'s coverage map as one that us
     $plan = Planned::twoShards();
 
     JudgingRuns::verdictOf($judged(
-        $plan->briefed($plan->briefing()->onOwnScopeCoverage()),
+        $plan->briefed($plan->briefing()->reading($plan->briefing()->inputs()->onOwnScopeCoverage())),
         Flows::adapters($project, [], $store, $tree(Floor::of(40))),
         JudgingRuns::settings(),
         $reporting(new ReporterFake()),
     ));
     $passed = LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed();
 
-    expect($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate))->onOwnScopeCoverage())
+    expect($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate))->judgedIn(JudgingRun::of(NotGiven::value(), '', whole: true))->onOwnScopeCoverage())
         ->and($passed instanceof Passed && $passed->usedOwnScope())->toBeTrue();
 });
 
@@ -768,7 +770,7 @@ it('uses none of its own scope where the default branch proved what it took', fu
     )->verdict($plan, JudgingRuns::noResults($project));
 
     expect(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate)));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->judgedBy(GateRelease::of(Flows::setup()->gate))->judgedIn(JudgingRun::of(NotGiven::value(), '', whole: true)));
 });
 
 it('cannot judge where a unit the plan proved or carried has lost its proof', function () use (
@@ -831,7 +833,7 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)
             ->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))
-            ->judgedBy(GateRelease::of(Flows::setup()->gate))
+            ->judgedBy(GateRelease::of(Flows::setup()->gate))->judgedIn(JudgingRun::of(NotGiven::value(), '', whole: true))
             ->takingOwnScope(Paths::of(Path::of('src/Money.php'))));
 });
 

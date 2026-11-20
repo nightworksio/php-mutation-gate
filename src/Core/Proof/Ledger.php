@@ -16,7 +16,9 @@ use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
  * What one scope has proved: its proofs, how long each unit took, the bases
  * the runs that wrote it keyed their units at, the most recent first, what it
  * holds of its runs ({@see ScopeRuns}), and what its runs learned beside its
- * proofs ({@see Learned}).
+ * proofs ({@see Learned}). Read, it may also hold proofs another scope's
+ * passing run lends it, which prove a unit only where their key matches and
+ * are never written with it (ADR-0198).
  */
 final readonly class Ledger
 {
@@ -26,6 +28,7 @@ final readonly class Ledger
         private Bases $bases,
         private ScopeRuns $runs,
         private Learned $learned,
+        private Proofs $lent,
     ) {
     }
 
@@ -37,6 +40,7 @@ final readonly class Ledger
             Bases::none(),
             ScopeRuns::none(),
             Learned::none(),
+            Proofs::none(),
         );
     }
 
@@ -48,6 +52,7 @@ final readonly class Ledger
             $this->bases,
             $this->runs,
             $this->learned,
+            $this->lent,
         );
     }
 
@@ -63,6 +68,7 @@ final readonly class Ledger
             $this->bases,
             $this->runs,
             $this->learned,
+            $this->lent,
         );
     }
 
@@ -75,6 +81,7 @@ final readonly class Ledger
             $this->bases,
             $this->runs,
             $this->learned,
+            $this->lent,
         );
     }
 
@@ -87,6 +94,7 @@ final readonly class Ledger
             $this->bases,
             $this->runs,
             $this->learned,
+            $this->lent,
         );
     }
 
@@ -99,6 +107,7 @@ final readonly class Ledger
             $this->bases->seen($base),
             $this->runs,
             $this->learned,
+            $this->lent,
         );
     }
 
@@ -111,6 +120,7 @@ final readonly class Ledger
             $this->bases->and($bases),
             $this->runs,
             $this->learned,
+            $this->lent,
         );
     }
 
@@ -123,6 +133,7 @@ final readonly class Ledger
             $this->bases,
             $runs,
             $this->learned,
+            $this->lent,
         );
     }
 
@@ -142,13 +153,14 @@ final readonly class Ledger
             $this->bases,
             $this->runs,
             $this->learned->with($learned),
+            $this->lent,
         );
     }
 
     /** This ledger without its proofs, keeping all else it holds. */
     public function withoutProofs(): self
     {
-        return new self(Proofs::none(), $this->timings, $this->bases, $this->runs, $this->learned);
+        return new self(Proofs::none(), $this->timings, $this->bases, $this->runs, $this->learned, Proofs::none());
     }
 
     /**
@@ -165,6 +177,7 @@ final readonly class Ledger
             $this->bases->and($other->bases),
             $this->runs,
             $this->learned->and($other->learned),
+            Proofs::of(...$this->lent, ...$other->lent),
         );
     }
 
@@ -177,7 +190,27 @@ final readonly class Ledger
             $this->bases,
             $this->runs,
             $this->learned->keepingKillersIn($files),
+            $this->lent,
         );
+    }
+
+    /** This ledger, also lent these proofs, which prove a unit only where their key matches; none is written. */
+    public function lending(Proofs $lent): self
+    {
+        return new self(
+            $this->proofs,
+            $this->timings,
+            $this->bases,
+            $this->runs,
+            $this->learned,
+            Proofs::of(...$this->lent, ...$lent),
+        );
+    }
+
+    /** The proofs another scope's passing run lends this ledger; none where none does. */
+    public function lent(): Proofs
+    {
+        return $this->lent;
     }
 
     public function proofs(): Proofs

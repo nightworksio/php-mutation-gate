@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Lowering;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -39,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Plan\PlanSavings;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
+use NightWorksIO\MutationGate\Core\Proof\JudgingRun;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -582,14 +584,19 @@ final readonly class Judging
         $passing = Passed::of($plan->commit(), $this->settings->ci()->check(), 0)
             ->takingOwnScope($assessed->ownScopeUnits)
             ->passedAt($at)
-            ->judgedBy(GateRelease::of($this->setup->gate));
+            ->judgedBy(GateRelease::of($this->setup->gate))
+            ->judgedIn(JudgingRun::of(
+                $plan->briefing()->inputs()->digest(),
+                CiRun::urlIn($this->adapters->environment),
+                whole: $plan->considered()->carried()->count() + $plan->considered()->carriedOwn()->count() === 0,
+            ));
         $passed = match (true) {
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),
             $unjudged > 0 => CannotTell::because(self::UNJUDGED),
             $verdict->trees()->sample()->isDrawn() => CannotTell::because(self::SAMPLED),
             $this->adapters->isSecurityOnly() => CannotTell::because(self::SECURITY_ONLY),
             $this->adapters->isSuiteOnly() => CannotTell::because(self::SUITE_ONLY),
-            $plan->briefing()->isOnOwnScopeCoverage() => $passing->onOwnScopeCoverage(),
+            $plan->briefing()->inputs()->isOnOwnScopeCoverage() => $passing->onOwnScopeCoverage(),
             default => $passing,
         };
         $lastRun = $judged instanceof JudgedCommit

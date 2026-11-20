@@ -159,6 +159,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/SupportPlaces.php',
             'src/Cli/Flow/TakenSurvivors.php',
             'src/Cli/Flow/Triaging.php',
+            'src/Cli/Flow/IdenticalPlan.php',
             'src/Cli/Flow/UnchangedPlan.php',
             'src/Cli/Flow/UnchangedVerdict.php',
             'src/Cli/Flow/UnitMutants.php',

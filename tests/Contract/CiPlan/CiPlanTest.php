@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -59,7 +60,7 @@ $job = static fn(): Variables => Variables::of([
 ]);
 
 $plans = [
-    'the fake' => fn(): CiPlan => new CiPlanFake(RunOn::branch('main', RunOn::branchNamed('main'))),
+    'the fake' => fn(): CiPlan => new CiPlanFake(RunOn::branch('main', Scope::branchNamed('main'))),
     'GitHub Actions' => fn(): CiPlan => GitHubPlan::in($job()),
     'GitLab CI' => fn(): CiPlan => GitLabPlan::writing(
         sprintf('%s/pipeline.yml', Scratch::directory()),

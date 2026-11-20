@@ -35,10 +35,9 @@ use function sprintf;
  */
 final readonly class UnchangedPlan
 {
-    private const string NOT_STANDARD = 'A run narrowed or recording more than first killers plans what it judges.';
-
     /** What the plan says of the coverage it did not measure. */
-    private const string UNMEASURED = 'Measured no coverage: %s';
+    public const string UNMEASURED = 'Measured no coverage: %s';
+    private const string NOT_STANDARD = 'A run narrowed or recording more than first killers plans what it judges.';
 
     private const string NOT_SINCE_PASSED = 'The run reads its change since another commit than the last that passed.';
 

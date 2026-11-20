@@ -84,7 +84,7 @@ describe('Settings', function (): void {
             ->and($settings->ci()->plan())->toEqual(Absent::setting())
             ->and($settings->ci()->defaultBranch())->toEqual(Absent::setting())
             ->and($settings->ci()->check())->toBe('mutation / verdict')
-            ->and($settings->ci()->trustsMergedPullRequests())->toBeFalse()
+            ->and($settings->ci()->reuse()->delta())->toBeFalse()
             ->and($settings->ci()->pipelines()->gitlabTemplate())->toEqual(Path::of('.gitlab/mutation-gate.yml'))
             ->and($settings->ci()->pipelines()->buildkiteStep()->json()->line())->toBe('{}')
             ->and($settings->ci()->pipelines()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
@@ -156,7 +156,7 @@ describe('Settings', function (): void {
             ->toBe('{"template":".gitlab/gate.yml"}')
             ->and($ci->defaultBranch())->toBe('trunk')
             ->and($ci->check())->toBe('gate / verdict')
-            ->and($ci->trustsMergedPullRequests())->toBeTrue()
+            ->and($ci->reuse()->delta())->toBeTrue()
             ->and($ci->pipelines()->gitlabTemplate())->toEqual(Path::of('.gitlab/gate.yml'))
             ->and($ci->pipelines()->buildkiteStep()->json()->line())->toBe('{"agents":{"queue":"mutation"}}')
             ->and($ci->pipelines()->buildkiteDefinition())->toEqual(Path::of('.buildkite/mutation.yml'))
@@ -323,7 +323,8 @@ describe('Settings', function (): void {
             'proofs' => ['write' => 'auto'],
             'coverage' => ['incremental' => true],
             'reach' => ['everything' => ['bootstrap/**']],
-            'ci' => [...SettingsCases::EVERYTHING['ci'], 'check' => 'other', 'trustMergedPullRequests' => false],
+            'ci' => [...SettingsCases::EVERYTHING['ci'], 'check' => 'other'],
+            'reuse' => [...SettingsCases::EVERYTHING['reuse'], 'identical' => 'off'],
         ];
 
         expect(Configs::settings($judging)->canonical())->toBe(Configs::settings(SettingsCases::EVERYTHING)->canonical());
@@ -357,7 +358,7 @@ describe('Settings', function (): void {
         'the packages whose move in a lock decides' => [['reach' => [...SettingsCases::EVERYTHING['reach'], 'lockPackages' => ['nikic/php-parser']]]],
         'the check' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'check' => 'other']]],
         'the default branch' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'defaultBranch' => 'develop']]],
-        'trusting merged pull requests' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'trustMergedPullRequests' => false]]],
+        'reusing identical verdicts' => [['reuse' => [...SettingsCases::EVERYTHING['reuse'], 'identical' => 'off']]],
         'the proof store' => [['proofs' => [...SettingsCases::EVERYTHING['proofs'], 'store' => ['use' => 's3', 'with' => ['bucket' => 'forged']]]]],
         'the paths proofs ignore' => [['proofs' => [...SettingsCases::EVERYTHING['proofs'], 'ignore' => ['build/**']]]],
         'kept coverage' => [['coverage' => ['incremental' => true]]],

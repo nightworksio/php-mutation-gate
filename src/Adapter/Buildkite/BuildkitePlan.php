@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\StoreVariable;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -159,7 +160,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     public function runOn(): RunOn|CannotTell
     {
         $variables = $this->job->variables();
-        $defaultBranch = RunOn::branchNamed($variables->valueOf('BUILDKITE_PIPELINE_DEFAULT_BRANCH'));
+        $defaultBranch = Scope::branchNamed($variables->valueOf('BUILDKITE_PIPELINE_DEFAULT_BRANCH'));
         $pullRequest = $variables->valueOf('BUILDKITE_PULL_REQUEST');
 
         return match (true) {
@@ -167,7 +168,7 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
                 => RunOn::pullRequest(
                     PullRequestNumber::parse($pullRequest),
                     $defaultBranch,
-                    RunOn::branchNamed($variables->valueOf('BUILDKITE_PULL_REQUEST_BASE_BRANCH')),
+                    Scope::branchNamed($variables->valueOf('BUILDKITE_PULL_REQUEST_BASE_BRANCH')),
                 ),
             $variables->valueOf('BUILDKITE_TAG') !== '' => RunOn::detached($defaultBranch),
             default => RunOn::branch($variables->valueOf('BUILDKITE_BRANCH'), $defaultBranch),

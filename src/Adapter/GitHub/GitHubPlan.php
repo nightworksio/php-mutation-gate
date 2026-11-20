@@ -174,10 +174,9 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         $group = $this->groupBaseIn($payload);
 
         return match (true) {
-            $number instanceof PullRequestNumber => RunOn::pullRequest(
-                $number,
-                $defaultBranch,
-                RunOn::branchNamed($this->baseIn($payload)),
+            $number instanceof PullRequestNumber => Forked::marking(
+                RunOn::pullRequest($number, $defaultBranch, Scope::branchNamed($this->baseIn($payload))),
+                $payload,
             ),
             $group instanceof Revision => RunOn::mergeGroup($group, $defaultBranch),
             $trusted && $branch !== '' => RunOn::branch($branch, $defaultBranch),
@@ -259,7 +258,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         }
 
         try {
-            return RunOn::branchNamed($payload->field('repository')->field('default_branch')->text());
+            return Scope::branchNamed($payload->field('repository')->field('default_branch')->text());
         } catch (NotInShape) {
             return CannotTell::because('The event payload does not name the default branch.');
         }

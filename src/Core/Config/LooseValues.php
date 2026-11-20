@@ -34,13 +34,13 @@ final readonly class LooseValues implements Countable, IteratorAggregate
 
     private const string TRIALS = 'a mutant left uncovered on a line that is not executable is left out of the score';
 
-    private const string MERGED = 'a pushed tree a merged pull request\'s verdict passed on is not judged again';
-
     private const string DELTA
         = 'a merged pull request whose landed tree differs carries what the change from its judged head does not reach';
 
     private const string OWN_SCOPE
         = 'a merged pull request\'s results that an earlier commit of it wrote carry onto the default branch';
+
+    private const string FORKS = 'a verdict or results a fork\'s run recorded are reused';
 
     private const string LOCK = 'a moved package reaches less than every unit';
 
@@ -66,8 +66,6 @@ final readonly class LooseValues implements Countable, IteratorAggregate
 
     private const string OFF = 'false';
 
-    private const string TRUST = 'ci.trustMergedPullRequests';
-
     /** @param list<LooseValue> $values */
     private function __construct(private array $values)
     {
@@ -77,8 +75,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
     public static function in(Settings $settings): self
     {
         $excluded = $settings->floors()->uncovered() === Uncovered::Exclude;
-        $ci = $settings->ci();
-        $merged = $ci->mergedTrust();
+        $reuse = $settings->ci()->reuse();
+        $reuses = $reuse->identical() !== IdenticalReuse::Off;
+        $merges = $reuse->identical()->reusesOn(defaultBranch: true);
         $reach = $settings->reach();
         $outbreak = $settings->shards()->outbreak();
         $pest = $settings->effective()->running()->pest();
@@ -94,17 +93,11 @@ final readonly class LooseValues implements Countable, IteratorAggregate
                 $excluded && $reach->held()->coverage() === HeldCoverageMode::Map,
                 LooseValue::of('holds.coverage', HeldCoverageMode::Map->value, self::HELD),
             ),
+            ...self::when($merges && $reuse->delta(), LooseValue::of('reuse.delta', 'true', self::DELTA)),
+            ...self::when($reuses && $reuse->forks(), LooseValue::of('reuse.forks', 'true', self::FORKS)),
             ...self::when(
-                $merged->trusts(),
-                LooseValue::of(
-                    self::TRUST,
-                    $merged->value,
-                    $merged === MergedTrust::Delta ? self::DELTA : self::MERGED,
-                ),
-            ),
-            ...self::when(
-                $ci->trustsMergedPullRequests() && $ci->mergedOwnScopeProofs() === OwnScopeTrust::Trust,
-                LooseValue::of('ci.mergedOwnScopeProofs', OwnScopeTrust::Trust->value, self::OWN_SCOPE),
+                $merges && $reuse->ownScopeProofs() === OwnScopeTrust::Trust,
+                LooseValue::of('reuse.ownScopeProofs', OwnScopeTrust::Trust->value, self::OWN_SCOPE),
             ),
             ...self::when(
                 $settings->triage()->flaky()->killControls() === KillControl::Alone,

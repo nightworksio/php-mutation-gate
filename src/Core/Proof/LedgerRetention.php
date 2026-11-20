@@ -26,7 +26,8 @@ use const SORT_STRING;
  * that bounds the file whatever the runs do. Its kill history keeps the
  * mutants those proofs hold, and of those and of its functions the ones that
  * most recently learned a killer, up to `proofs.keep.killers` and
- * `proofs.keep.functions`.
+ * `proofs.keep.functions`; and its newest passes that record their inputs, up
+ * to `reuse.passes`.
  *
  * @internal
  */
@@ -41,6 +42,9 @@ final readonly class LedgerRetention
     /** How many functions keep their killers at most, the ones that learned one most recently. */
     public const int FUNCTIONS = 5_000;
 
+    /** How many passes that record their inputs are kept, the newest, for a run whose every input is identical. */
+    public const int PASSED = 10;
+
     /** How many mutants keep their killers at most: the byte limits alone cap them. */
     private const int KILLED = PHP_INT_MAX;
 
@@ -49,6 +53,7 @@ final readonly class LedgerRetention
      * @param positive-int $functions
      * @param positive-int $kills
      * @param positive-int $runs
+     * @param positive-int $passed
      */
     private function __construct(
         private int $bases,
@@ -57,6 +62,7 @@ final readonly class LedgerRetention
         private int $functions,
         private int $kills,
         private int $runs,
+        private int $passed,
     ) {
     }
 
@@ -70,11 +76,12 @@ final readonly class LedgerRetention
             self::FUNCTIONS,
             LimitHistory::KILLS,
             LimitHistory::RUNS,
+            self::PASSED,
         );
     }
 
-    /** What `proofs.keep` says. */
-    public static function kept(Retained $kept): self
+    /** What `proofs.keep` says, keeping so many passes that record their inputs, as `reuse.passes` says. */
+    public static function kept(Retained $kept, int $passes): self
     {
         return new self(
             $kept->bases(),
@@ -83,6 +90,7 @@ final readonly class LedgerRetention
             max(1, $kept->functions()),
             max(1, $kept->kills()),
             max(1, $kept->runs()),
+            max(1, $passes),
         );
     }
 
@@ -96,6 +104,7 @@ final readonly class LedgerRetention
             $this->functions,
             $this->kills,
             $this->runs,
+            $this->passed,
         );
     }
 
@@ -103,6 +112,12 @@ final readonly class LedgerRetention
     public function limitsOf(Ledger $ledger): LimitHistory
     {
         return $ledger->learned()->limits()->keepingLast(Bound::atMost($this->kills), Bound::atMost($this->runs));
+    }
+
+    /** The passes that record their inputs a ledger keeps: the newest, at most so many. */
+    public function reusableOf(Ledger $ledger): Passes
+    {
+        return Passes::of(...array_slice([...$ledger->runs()->reusable()], 0, $this->passed));
     }
 
     /** The bases whose proofs a ledger keeps: the ones its runs saw most recently. */

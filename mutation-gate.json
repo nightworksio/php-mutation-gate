@@ -5,8 +5,7 @@
         "memory": "3G"
     },
     "ci": {
-        "check": "mutation verdict",
-        "trustMergedPullRequests": true
+        "check": "mutation verdict"
     },
     "trees": [
         {

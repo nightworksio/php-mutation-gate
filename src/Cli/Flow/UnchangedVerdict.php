@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Ignored;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -89,9 +90,11 @@ final readonly class UnchangedVerdict
             Writing::from($this->settings->proofs()->write()->value),
             $this->settings->proofs()->taken(),
         );
+        $inputs = $plan->briefing()->inputs()->digest();
+        $passing = $unchanged->passing($plan->commit(), $at);
         $recorded = new Recorded($this->adapters, $this->settings)->passing(
             $ledgers,
-            $unchanged->passing($plan->commit(), $at),
+            $inputs instanceof Digest ? $passing->judgedIn($passing->judging()->reading($inputs)) : $passing,
         );
         $verdict = self::verdictOf($unchanged);
         $said = Reported::by($verdict, EncodedReport::of($verdict), $reporters);

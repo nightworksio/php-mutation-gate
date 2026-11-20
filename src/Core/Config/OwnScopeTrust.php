@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 /**
- * `ci.mergedOwnScopeProofs`: what a merged pull request's pass that took results from its own scope's proofs is
- * trusted for (ADR-0139).
+ * `reuse.ownScopeProofs`: what a merged pull request's pass that took results from its own scope's proofs is
+ * trusted for (ADR-0139, ADR-0198).
  */
 enum OwnScopeTrust: string
 {
@@ -23,9 +23,9 @@ enum OwnScopeTrust: string
     public function php(): string
     {
         return match ($this) {
-            self::Reach => 'Ci::reachingMergedOwnScopeProofs()',
-            self::Refuse => 'Ci::refusingMergedOwnScopeProofs()',
-            self::Trust => 'Ci::trustingMergedOwnScopeProofs()',
+            self::Reach => 'Reuse::reachingOwnScopeProofs()',
+            self::Refuse => 'Reuse::refusingOwnScopeProofs()',
+            self::Trust => 'Reuse::trustingOwnScopeProofs()',
         };
     }
 }

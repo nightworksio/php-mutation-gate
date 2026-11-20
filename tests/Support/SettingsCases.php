@@ -119,8 +119,6 @@ final readonly class SettingsCases
         "ci": {
             "check": "mutation / verdict",
             "schedule": "0 3 * * 1",
-            "trustMergedPullRequests": false,
-            "mergedOwnScopeProofs": "reach",
             "gitlab": {
                 "template": ".gitlab/mutation-gate.yml"
             },
@@ -137,6 +135,14 @@ final readonly class SettingsCases
             "jenkins": {
                 "definition": "Jenkinsfile"
             }
+        },
+        "reuse": {
+            "identical": "on",
+            "forks": false,
+            "ownScopeProofs": "reach",
+            "delta": false,
+            "environment": [],
+            "passes": 10
         },
         "proofs": {
             "store": {
@@ -428,12 +434,19 @@ final readonly class SettingsCases
             'plan' => 'gitlab',
             'defaultBranch' => 'trunk',
             'check' => 'gate / verdict',
-            'trustMergedPullRequests' => true,
             'gitlab' => ['template' => '.gitlab/gate.yml'],
             'buildkite' => ['step' => ['agents' => ['queue' => 'mutation']], 'definition' => '.buildkite/mutation.yml'],
             'azure' => ['definition' => 'ci/azure.yml'],
             'bitbucket' => ['definition' => 'ci/bitbucket.yml'],
             'jenkins' => ['definition' => 'ci/Jenkinsfile'],
+        ],
+        'reuse' => [
+            'identical' => 'pulls',
+            'forks' => true,
+            'ownScopeProofs' => 'trust',
+            'delta' => true,
+            'environment' => ['APP_ENV'],
+            'passes' => 4,
         ],
         'proofs' => [
             'store' => ['use' => 's3', 'with' => ['bucket' => 'proofs', 'endpoint' => 'https://r2.example.com']],

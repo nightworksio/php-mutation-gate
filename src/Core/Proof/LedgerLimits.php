@@ -56,14 +56,14 @@ final readonly class LedgerLimits
         return new self($packed, $unpacked, $seconds, LedgerRetention::standard(), MapLimits::standard());
     }
 
-    /** What `proofs.keep` and `proofs.limits` say. */
-    public static function kept(Retained $kept): self
+    /** What `proofs.keep` and `proofs.limits` say, and `reuse.passes`, where a ledger is written. */
+    public static function kept(Retained $kept, int $passes): self
     {
         return new self(
             $kept->ledgerPacked(),
             $kept->ledgerUnpacked(),
             $kept->read()->seconds(),
-            LedgerRetention::kept($kept),
+            LedgerRetention::kept($kept, $passes),
             MapLimits::kept($kept),
         );
     }

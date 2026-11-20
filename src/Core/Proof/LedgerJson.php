@@ -76,7 +76,7 @@ final readonly class LedgerJson
         );
 
         yield from self::learned($ledger, $retention);
-        yield from self::ran($ledger);
+        yield from self::ran($ledger, $retention);
     }
 
     /**
@@ -117,14 +117,19 @@ final readonly class LedgerJson
      *
      * @return Generator<string, string>
      */
-    private static function ran(Ledger $ledger): Generator
+    private static function ran(Ledger $ledger, LedgerRetention $retention): Generator
     {
         $passed = $ledger->runs()->passed();
+        $reusable = $retention->reusableOf($ledger);
         $lastRun = $ledger->runs()->lastRun();
         $judged = $ledger->runs()->judged();
 
         if ($passed instanceof Passed) {
             yield LedgerFile::PASSED => JsonText::compact(PassedRecord::of($passed));
+        }
+
+        if ($reusable->count() > 0) {
+            yield LedgerFile::REUSABLE => JsonText::compact(array_map(PassedRecord::of(...), [...$reusable]));
         }
 
         if ($lastRun instanceof LastRun) {

@@ -241,6 +241,12 @@ final readonly class ReportSchema
                     'savedSeconds' => self::SECONDS,
                 ], []),
                 'heatmap' => HeatmapSchema::report(),
+                'reused' => self::object([
+                    'commit' => self::TEXT,
+                    'from' => self::TEXT,
+                    'inputs' => self::TEXT,
+                    'run' => self::TEXT,
+                ], ['run']),
             ], [
                 'sample',
                 'score',
@@ -251,6 +257,7 @@ final readonly class ReportSchema
                 'savings',
                 'pruning',
                 'heatmap',
+                'reused',
             ]),
         ]);
     }
