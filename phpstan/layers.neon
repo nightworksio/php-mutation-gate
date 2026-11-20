@@ -220,6 +220,10 @@ parameters:
                 # warning as well as an answer of false; the handler that keeps it from the run's output is restored
                 # before the answer is read (ADR-0158).
                 - src/Adapter/Process/CgroupFile.php
+                # scandir and file_get_contents raise a process that ended between the listing of /proc and the read
+                # of its state as a warning as well as answering false; the handler that keeps it from the run's
+                # output is restored before the answer is read (ADR-0312).
+                - src/Adapter/Process/LiveProcesses.php
                 # stream_socket_client, stream_socket_server, stream_socket_accept, stream_select and fwrite raise a
                 # socket nobody listens on, one that cannot be bound, a wait a signal cut short and a peer that has
                 # gone as warnings as well as answering false; the handler that keeps them from the run's output is

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
+use function array_map;
 use function getenv;
+use function intval;
 use function is_dir;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 
+use function preg_match_all;
 use function sprintf;
 use function str_contains;
 use function usleep;
@@ -28,6 +31,9 @@ final readonly class RunCgroup
     private const array JOINS = ['/bin/sh', '-c', 'echo $$ > "$0" && exec "$@"'];
 
     private const string RUN = '%s/started-%d';
+
+    /** A process's id, one to a line of `cgroup.procs`. */
+    private const string PROCESS = '/^\d+$/m';
 
     /** How many names a run tries, the first free one taken, before it runs uncontained. */
     private const int NAMES = 512;
@@ -70,6 +76,19 @@ final readonly class RunCgroup
     public function joining(): array
     {
         return [...self::JOINS, CgroupKnob::Procs->of($this->path)];
+    }
+
+    /**
+     * Every process it holds, however deep under the process that joined it
+     * or whoever's child it became, by its id.
+     *
+     * @return list<int>
+     */
+    public function held(): array
+    {
+        preg_match_all(self::PROCESS, CgroupFile::read($this->path, CgroupKnob::Procs), $held);
+
+        return array_map(intval(...), $held[0]);
     }
 
     /** Every process in it killed, and it removed once empty. */

@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function function_exists;
 
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
+
 /**
  * The split stream of this process, where it runs one (ADR-0117), as Pest's
  * own events and the zygote reach it: each answered by the stream itself
@@ -17,8 +19,11 @@ final class Stream
 {
     private static ?StreamRun $run = null;
 
-    /** Starts a split stream from the plan this file holds, where PHP can fork. */
-    public static function from(string $file): bool
+    /**
+     * Starts a split stream from the plan this file holds, where PHP can
+     * fork, which stops its children among these processes.
+     */
+    public static function from(string $file, RunningProcesses $running): bool
     {
         $plan = function_exists('pcntl_fork') && function_exists('posix_kill') ? StreamPlanFile::read($file) : false;
 
@@ -26,7 +31,7 @@ final class Stream
             return false;
         }
 
-        self::$run = StreamRun::of($plan);
+        self::$run = StreamRun::of($plan, $running);
 
         return true;
     }

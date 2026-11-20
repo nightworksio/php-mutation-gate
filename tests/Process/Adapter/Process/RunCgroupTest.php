@@ -83,6 +83,31 @@ it('kills and removes a run\'s cgroup once, and leaves it gone once removed', fu
         ->and(runCgroups())->toBe([]);
 })->skip(fn(): bool => ! $contained(), 'no cgroup can be had here')->group(...$holds);
 
+it('holds every process a run started, however deep, and the process that joined it', function () use ($contained): void {
+    $contained();
+    $run = RunCgroup::made();
+    $joining = $run instanceof RunCgroup ? $run->joining() : [];
+    $code = '$p = proc_open([PHP_BINARY, "-r", "fread(STDIN, 1);"], [0 => STDIN], $pipes); echo "up\n"; fread(STDIN, 1); proc_close($p);';
+    $process = proc_open([...$joining, PHP_BINARY, '-r', $code], [0 => ['pipe', 'r'], 1 => ['pipe', 'w']], $pipes);
+    fgets($pipes[1]);
+    $pid = is_resource($process) ? proc_get_status($process)['pid'] : 0;
+    $held = $run instanceof RunCgroup ? $run->held() : [];
+    array_map(fclose(...), $pipes);
+
+    if (is_resource($process)) {
+        proc_close($process);
+    }
+
+    if ($run instanceof RunCgroup) {
+        $run->killed();
+    }
+
+    expect($held)->toHaveCount(2)
+        ->and($held)->toContain($pid)
+        ->and(array_filter($held, is_int(...)))->toBe($held)
+        ->and(runCgroups())->toBe([]);
+})->skip(fn(): bool => ! $contained(), 'no cgroup can be had here')->group(...$holds);
+
 it('kills, once a process ended, every process it left in its cgroup, even one that left its session', function () use ($contained, $ended): void {
     $contained();
     $directory = Scratch::directory();

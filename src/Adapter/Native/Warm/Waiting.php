@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\Progress;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 use NightWorksIO\MutationGate\Core\Runner\ShellWords;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -43,13 +44,22 @@ final readonly class Waiting
         private Seconds $limit,
         private int|float $started,
         private SilenceLimit|NotGiven $silence,
+        private RunningProcesses $processes,
     ) {
     }
 
-    /** A wait for the child with this process id, allowed this many seconds from when it started, and this silence. */
-    public static function for(int $child, float $limit, int|float $started, SilenceLimit|NotGiven $silence): self
-    {
-        return new self($child, Seconds::of($limit), $started, $silence);
+    /**
+     * A wait for the child with this process id, allowed this many seconds
+     * from when it started, and this silence, stopped among these processes.
+     */
+    public static function for(
+        int $child,
+        float $limit,
+        int|float $started,
+        SilenceLimit|NotGiven $silence,
+        RunningProcesses $processes,
+    ): self {
+        return new self($child, Seconds::of($limit), $started, $silence, $processes);
     }
 
     /**
@@ -154,7 +164,7 @@ final readonly class Waiting
             exec(ShellWords::line($command), $printed);
 
             return implode("\n", $printed);
-        });
+        }, $this->processes);
         pcntl_waitpid($this->child, $status);
     }
 

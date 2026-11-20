@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Cli\PestPlugin;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
@@ -23,7 +24,7 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 /** The Pest adapter's plugin, reading issues as the plugin this package lists hands it the reader. */
 function pestPlugin(): Plugin
 {
-    return new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun(), LastError::file(...));
+    return new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun(), LastError::file(...), new LiveProcesses());
 }
 
 /**
@@ -149,6 +150,7 @@ it('writes the original as loaded where the last error PHP raised stands in it, 
                 $plugin = new Plugin(
                     static fn(): RunIssues => IssueKillers::ofThisRun(),
                     static fn(): string => $erredIn,
+                    new LiveProcesses(),
                 );
                 $plugin->boot();
 

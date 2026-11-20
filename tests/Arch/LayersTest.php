@@ -71,8 +71,18 @@ it('declares nothing but interfaces as ports', function (): void {
     ));
 });
 
+/**
+ * The adapters that are composition roots of code running in a process the
+ * gate does not wire itself, each with the names of other adapters it hands
+ * in: the hunks `Patch` writes into Pest, which run in Pest's own process
+ * (ADR-0312). The bin scripts are the other such roots; they are outside src.
+ */
+const LAYERS_FOREIGN_ROOTS = [
+    'src/Adapter/Pest/Patch.php names NightWorksIO\\MutationGate\\Adapter\\Process\\LiveProcesses',
+];
+
 it('keeps every adapter apart from every other', function (): void {
-    $offenders = namesRefusedIn(Layer::Adapter, static function (Source $source, string $name): bool {
+    $named = namesRefusedIn(Layer::Adapter, static function (Source $source, string $name): bool {
         if (! Layer::Adapter->holds($name)) {
             return false;
         }
@@ -81,12 +91,13 @@ it('keeps every adapter apart from every other', function (): void {
 
         return ! str_starts_with($name, sprintf('%s\\%s\\', Layer::Adapter->namespace(), $own));
     });
+    $offenders = array_values(array_diff($named, LAYERS_FOREIGN_ROOTS));
 
     // A3
     expect($offenders)->toBe([], sprintf(
         "These adapters name another adapter:\n  %s\n\nAn adapter adapts one outside thing. What two of them share belongs in the core, and the CLI is what puts them side by side (A3).",
         implode("\n  ", $offenders),
-    ));
+    ))->and(array_values(array_intersect($named, LAYERS_FOREIGN_ROOTS)))->toBe(LAYERS_FOREIGN_ROOTS, 'Each root that wires a process outside the gate\'s own names exactly what it is listed with (A3).');
 });
 
 it('lets a layer name only itself and the layers before it', function (): void {

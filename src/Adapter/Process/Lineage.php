@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
-use function exec;
 use function getenv;
-use function implode;
 use function is_string;
 
-use NightWorksIO\MutationGate\Core\Runner\ShellWords;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 
 use function putenv;
@@ -27,7 +24,7 @@ final readonly class Lineage
     /** What this process spares, listed now and told to it. */
     public static function told(): SparedProcesses
     {
-        $spared = SparedProcesses::listed(self::ran(...));
+        $spared = SparedProcesses::listed(new LiveProcesses());
         putenv(sprintf('%s=%s', SparedProcesses::VARIABLE, $spared->told()));
 
         return $spared;
@@ -38,15 +35,6 @@ final readonly class Lineage
     {
         $told = getenv(SparedProcesses::VARIABLE);
 
-        return SparedProcesses::toldOr(is_string($told) ? $told : '', self::ran(...));
-    }
-
-    /** @param list<string> $command */
-    private static function ran(array $command): string
-    {
-        $printed = [];
-        exec(ShellWords::line($command), $printed);
-
-        return implode("\n", $printed);
+        return SparedProcesses::toldOr(is_string($told) ? $told : '', new LiveProcesses());
     }
 }

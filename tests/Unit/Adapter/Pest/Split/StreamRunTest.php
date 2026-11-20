@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamRun;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Tests\Support\FreshProcess;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -17,7 +18,7 @@ afterEach(function (): void {
 
 it('runs a pure expression\'s site with its original\'s value, and forks nothing, where no test of the stream is running', function (): void {
     $results = sprintf('%s/results-1-0.jsonl', Scratch::directory());
-    StreamRun::of(new StreamPlan($results, ['money' => [3 => ['mutant-1', 'MoneyTest::adds', []]]], [], [], ChildPlaces::fixed(1), new ChildLimit(0.0, 0.0, 0.0)));
+    StreamRun::of(new StreamPlan($results, ['money' => [3 => ['mutant-1', 'MoneyTest::adds', []]]], [], [], ChildPlaces::fixed(1), new ChildLimit(0.0, 0.0, 0.0)), new LiveProcesses());
 
     $value = SchemaSwitch::value('money', 3, static fn(): string => 'original', static fn(): string => 'mutated');
 
@@ -69,7 +70,7 @@ function streamValuesRun(): array
             }
         };
 
-        Stream::from(%s);
+        Stream::from(%s, new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
         $told(new PreparationStarted(new ReflectionClass(Info::class)->newInstanceWithoutConstructor(), new TestMethod(
             stdClass::class,
             'adds',

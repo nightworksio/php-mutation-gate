@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Runner\ProcessListing;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
+use NightWorksIO\MutationGate\Tests\Support\Listed;
 
 const SPARED_LISTING = "    1     0     1\n  500     1   500\n  600   500   500\n  700   600   700\n  800   700   700\n  900   800   900\n  950   500   950\n";
 
 it('spares the caller and every process above it, and signals any other process', function (int $pid, bool $signals): void {
-    expect(SparedProcesses::of(SPARED_LISTING, 800, 500)->signals($pid))->toBe($signals);
+    expect(SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 500)->signals($pid))->toBe($signals);
 })->with([
     'itself' => [800, false],
     'its parent' => [700, false],
@@ -22,7 +24,7 @@ it('spares the caller and every process above it, and signals any other process'
 ]);
 
 it('spares the groups of the caller and of every process above it, and its session, and signals any other group', function (int $leader, bool $signals): void {
-    expect(SparedProcesses::of(SPARED_LISTING, 800, 450)->signalsGroup($leader))->toBe($signals);
+    expect(SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 450)->signalsGroup($leader))->toBe($signals);
 })->with([
     'its own group' => [700, false],
     'its session' => [450, false],
@@ -36,7 +38,7 @@ it('spares the groups of the caller and of every process above it, and its sessi
 ]);
 
 it('spares the caller alone where the listing does not hold it', function (): void {
-    $spared = SparedProcesses::of("  10   1  10\n", 800, 0);
+    $spared = SparedProcesses::of(Listed::of("  10   1  10\n"), 800, 0);
 
     expect($spared->signals(800))->toBeFalse()
         ->and($spared->signals(10))->toBeTrue()
@@ -45,34 +47,34 @@ it('spares the caller alone where the listing does not hold it', function (): vo
 });
 
 it('ends its walk up where a parent link loops back', function (): void {
-    $spared = SparedProcesses::of("  10  20  10\n  20  10  20\n", 10, 0);
+    $spared = SparedProcesses::of(Listed::of("  10  20  10\n  20  10  20\n"), 10, 0);
 
     expect($spared->signals(10))->toBeFalse()
         ->and($spared->signals(20))->toBeFalse()
         ->and($spared->signals(30))->toBeTrue();
 });
 
-it('lists the processes with their parents and groups, and spares this process', function (): void {
-    $listed = [];
-    $spared = SparedProcesses::listed(static function (array $command) use (&$listed): string {
-        $listed[] = $command;
+it('takes one listing of the processes, and spares this process', function (): void {
+    $listed = 0;
+    $spared = SparedProcesses::listed(new Listed(static function () use (&$listed): ProcessListing {
+        $listed++;
 
-        return '';
-    });
+        return ProcessListing::printed('');
+    }));
 
-    expect($listed)->toBe([['ps', '-A', '-o', 'pid=', '-o', 'ppid=', '-opgid=']])
+    expect($listed)->toBe(1)
         ->and($spared->signals((int) getmypid()))->toBeFalse()
         ->and($spared->signalsGroup((int) posix_getsid(0)))->toBeFalse();
 });
 
 it('takes what it was told where it was told to this process, without a listing', function (): void {
-    $told = SparedProcesses::of(sprintf("  10   1  10\n %d  10  10\n", getmypid()), (int) getmypid(), 77)->told();
+    $told = SparedProcesses::of(Listed::of(sprintf("  10   1  10\n %d  10  10\n", getmypid())), (int) getmypid(), 77)->told();
     $listed = 0;
-    $spared = SparedProcesses::toldOr($told, static function () use (&$listed): string {
+    $spared = SparedProcesses::toldOr($told, new Listed(static function () use (&$listed): ProcessListing {
         $listed++;
 
-        return '';
-    });
+        return ProcessListing::printed('');
+    }));
 
     expect($listed)->toBe(0)
         ->and($told)->toBe(sprintf('%1$d;%1$d,10,1;%1$d,10,1,77', getmypid()))
@@ -84,11 +86,11 @@ it('takes what it was told where it was told to this process, without a listing'
 
 it('lists anew where what it was told was told to another process, or is not whole', function (string $told): void {
     $listed = 0;
-    $spared = SparedProcesses::toldOr($told, static function () use (&$listed): string {
+    $spared = SparedProcesses::toldOr($told, new Listed(static function () use (&$listed): ProcessListing {
         $listed++;
 
-        return "  10   1  10\n";
-    });
+        return Listed::of("  10   1  10\n");
+    }));
 
     expect($listed)->toBe(1)
         ->and($spared->signals(10))->toBeTrue()
@@ -100,11 +102,11 @@ it('lists anew where what it was told was told to another process, or is not who
 
 it('lists anew where what it was told to this process is not whole', function (): void {
     $listed = 0;
-    SparedProcesses::toldOr(sprintf('%d;10', getmypid()), static function () use (&$listed): string {
+    SparedProcesses::toldOr(sprintf('%d;10', getmypid()), new Listed(static function () use (&$listed): ProcessListing {
         $listed++;
 
-        return '';
-    });
+        return ProcessListing::printed('');
+    }));
 
     expect($listed)->toBe(1);
 });

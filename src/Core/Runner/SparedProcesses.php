@@ -6,9 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_key_exists;
 use function array_keys;
-
-use Closure;
-
 use function explode;
 use function function_exists;
 use function getmypid;
@@ -16,7 +13,6 @@ use function implode;
 use function posix_getsid;
 use function posix_kill;
 use function preg_match;
-use function preg_match_all;
 use function sprintf;
 
 /**
@@ -30,9 +26,6 @@ use function sprintf;
  */
 final readonly class SparedProcesses
 {
-    /** The command that lists every process with its parent and its group, one to a line. */
-    public const array LISTING = [...ProcessTable::LISTING, '-opgid='];
-
     /** The variable of the gate's own process that holds what it spares, as it was told. */
     public const string VARIABLE = 'MUTATION_GATE_SPARED';
 
@@ -42,9 +35,6 @@ final readonly class SparedProcesses
      * caller may signal.
      */
     public const int LOWEST = 2;
-
-    /** A line of the listing: a process, its parent and its group. */
-    private const string ROW = '/^\s*(?<pid>\d+)\s+(?<parent>\d+)\s+(?<group>\d+)\s*$/m';
 
     /** How the ids are told to a process: its own id, the processes, the groups. */
     private const string TOLD = '%d;%s;%s';
@@ -63,21 +53,13 @@ final readonly class SparedProcesses
     }
 
     /**
-     * The processes this process spares, in what the listing printed: itself
-     * and each process above it, and as groups those, its own group and the
-     * session it is in.
+     * The processes this process spares, in a listing: itself and each
+     * process above it, and as groups those, its own group and the session
+     * it is in.
      */
-    public static function of(string $listing, int $self, int $session): self
+    public static function of(ProcessListing $listing, int $self, int $session): self
     {
-        preg_match_all(self::ROW, $listing, $rows);
-        $parents = [];
-        $groups = [];
-
-        foreach ($rows['pid'] as $row => $pid) {
-            $parents[(int) $pid] = (int) $rows['parent'][$row];
-            $groups[(int) $pid] = (int) $rows['group'][$row];
-        }
-
+        $parents = $listing->parents();
         $spared = [$self => true];
 
         for ($pid = $self; array_key_exists($pid, $parents) && ! array_key_exists($parents[$pid], $spared);) {
@@ -85,33 +67,25 @@ final readonly class SparedProcesses
             $spared[$pid] = true;
         }
 
-        $own = array_key_exists($self, $groups) ? [$groups[$self] => true] : [];
-
-        return new self($self, $spared, $spared + $own + [$session => true]);
+        return new self($self, $spared, $spared + [$listing->groupOf($self) => true, $session => true]);
     }
 
-    /**
-     * The processes this process spares, from a listing it runs.
-     *
-     * @param Closure(list<string>): string $run runs a command, and answers what it printed
-     */
-    public static function listed(Closure $run): self
+    /** The processes this process spares, from a listing of the processes running now. */
+    public static function listed(RunningProcesses $processes): self
     {
         $session = function_exists('posix_getsid') ? (int) posix_getsid(0) : 0;
 
-        return self::of($run(self::LISTING), (int) getmypid(), $session);
+        return self::of($processes->listed(), (int) getmypid(), $session);
     }
 
     /**
      * The processes a process was told it spares, where they were told to
      * this very process; else as it lists them.
-     *
-     * @param Closure(list<string>): string $run runs a command, and answers what it printed
      */
-    public static function toldOr(string $told, Closure $run): self
+    public static function toldOr(string $told, RunningProcesses $processes): self
     {
         if (preg_match(self::WHOLE, $told, $parts) !== 1 || (int) $parts['self'] !== (int) getmypid()) {
-            return self::listed($run);
+            return self::listed($processes);
         }
 
         return new self((int) $parts['self'], self::ids($parts['processes']), self::ids($parts['groups']));

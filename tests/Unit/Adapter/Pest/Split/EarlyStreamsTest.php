@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\EarlyStreams;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
 use Pest\Mutate\Support\MutationTestResult;
 
@@ -18,7 +19,7 @@ function earlyJudged(): array
     $suite = Mutations::suite('src/Money.php', MutationTestResult::None, MutationTestResult::None);
     $before = earlyStreamDirectories();
 
-    EarlyStreams::judge($suite, [], 1, StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true));
+    EarlyStreams::judge($suite, [], 1, StreamSettings::of(enabled: true, children: 1, changeCheck: true, killersFirst: true), new LiveProcesses());
     $results = [];
 
     foreach ($suite->repository->all() as $collection) {

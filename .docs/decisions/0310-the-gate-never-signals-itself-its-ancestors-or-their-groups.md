@@ -6,7 +6,7 @@
 ## Context
 
 The gate stops processes by id: `ProcessTable` freezes a process and every
-process a `ps` listing finds under it, kills them, and kills the group of a
+process a listing finds under it, kills them, and kills the group of a
 process that led its session (ADR-0158). The gate also signals single
 processes it forked: the progress reporter (ADR-0157), the plan's warm-up,
 a split stream's late children (ADR-0117) and the serve daemon's child.
@@ -24,10 +24,7 @@ shell and the job's other steps were in pgid and sid 2006, the group of
 `hosted-compute-agent`, which also holds `provjobd`, `Runner.Listener` and
 `Runner.Worker`. A group kill of the gate's own group, or a stop of any of
 the gate's ancestors, takes the runner down: GitHub then waits about 45
-minutes and reports that it lost communication with the server. That is how
-shard 77 of run 44613843075 and shard 75 of run 44574323996 ended, and a
-replay of shard 77 lost its runner the same way 3.5 minutes into the gate,
-with 9 GB of memory available and no out-of-memory kill.
+minutes and reports that it lost communication with the server.
 
 ## Decision
 
@@ -35,8 +32,8 @@ with 9 GB of memory available and no out-of-memory kill.
    under 2, the process itself, each process above it (its parent, its
    parent's parent, up to the system's first process), and as groups those
    ids, its own process group and its own session. It is read from one
-   `ps -A -o pid= -o ppid= -opgid=` listing and `posix_getsid()` where PHP
-   has it.
+   listing of the processes (ADR-0312) and `posix_getsid()` where PHP has
+   it.
 2. **Every signal the gate sends goes through it.** `ProcessTable` leaves a
    spared id out of every freeze and kill, stops nothing where the process
    it is asked to stop is spared, and kills no spared group.
@@ -74,7 +71,7 @@ with 9 GB of memory available and no out-of-memory kill.
   gate's group or session, 1, 0 or -1 now leaves the target alone. The test
   that needed the signal fails, so the mutant is killed; before, it could
   stop the runner and leave its shard without a verdict.
-- Stopping a process costs one more `ps` listing in a process other than the
+- Stopping a process costs one more listing in a process other than the
   gate's own.
 - A process beside the caller that is not its ancestor, such as another
   stream, is not spared: a signal sent to it by a fault still reaches it.
@@ -85,3 +82,4 @@ with 9 GB of memory available and no out-of-memory kill.
 - [ADR-0117](0117-a-kill-judged-against-its-own-unmutated-stream-needs-no-control.md): the children a split stream forks
 - [ADR-0157](0157-a-ci-shard-leaves-its-progress-as-it-runs.md): what a lost shard leaves to read
 - [ADR-0158](0158-the-gate-holds-every-process-it-starts-in-a-session-and-a-cgroup.md): the session and cgroup every process the gate starts is held in
+- [ADR-0312](0312-processes-are-listed-from-proc-and-a-stop-lists-at-most-32-times.md): the listing it is read from

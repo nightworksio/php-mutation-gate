@@ -8,6 +8,7 @@ use function exec;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 use NightWorksIO\MutationGate\Core\Runner\ShellWords;
 
 /**
@@ -19,14 +20,14 @@ use NightWorksIO\MutationGate\Core\Runner\ShellWords;
  */
 final readonly class WholeTree
 {
-    /** The process with this id stopped, with every process under it, deepest first. */
-    public static function stopped(int $pid): void
+    /** The process with this id stopped, with every process under it among these processes, deepest first. */
+    public static function stopped(int $pid, RunningProcesses $processes): void
     {
         ProcessTable::stop($pid, static function (array $command): string {
             $printed = [];
             exec(ShellWords::line($command), $printed);
 
             return implode("\n", $printed);
-        });
+        }, $processes);
     }
 }

@@ -63,7 +63,7 @@ function streamEventsLines(array $events): array
         use PHPUnit\Metadata\Metadata;
         use PHPUnit\Metadata\MetadataCollection;
 
-        Stream::from(%s);
+        Stream::from(%s, new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
 
         foreach (%s as $event) {
             $told = is_array($event)

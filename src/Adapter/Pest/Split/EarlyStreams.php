@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
 
@@ -37,8 +38,13 @@ final readonly class EarlyStreams
      *
      * @throws UnmadeDirectory
      */
-    public static function judge(MutationSuite $suite, array $arguments, int $processes, StreamSettings $settings): void
-    {
+    public static function judge(
+        MutationSuite $suite,
+        array $arguments,
+        int $processes,
+        StreamSettings $settings,
+        RunningProcesses $running,
+    ): void {
         [$sites, $paths, $byId] = Forking::isAvailable() && Recorded::usable() ? self::planned($suite) : [[], [], []];
 
         if ($byId === []) {
@@ -54,6 +60,7 @@ final readonly class EarlyStreams
             $arguments,
             $processes,
             $settings->children(),
+            $running,
             $settings->recording(),
         );
         $verdicts = $streaming->over(1, $sites, $units, StreamVerdicts::none());

@@ -12,6 +12,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\GateClasses;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Wake;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 
 require sprintf('%s/src/Adapter/Pest/Warm/GateClasses.php', dirname(__DIR__));
 
@@ -33,4 +34,4 @@ $errors = static function (string $bytes): void {
     fwrite(STDERR, $bytes);
 };
 
-exit(Client::at($directory, Client::placeOf($place), Wake::paused(...), $out, $errors)->ran($script, array_slice($arguments, 4)));
+exit(Client::at($directory, Client::placeOf($place), Wake::paused(...), $out, $errors, new LiveProcesses())->ran($script, array_slice($arguments, 4)));

@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\Forking;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\PhpUnitBoot;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Overrun;
@@ -39,7 +40,7 @@ afterEach(function (): void {
 it('forks a child for each run it claims, and writes how each ended with what it printed', function (): void {
     $workplace = WarmWorkers::place([WarmWorkers::run(['SAID' => 'one', 'CODE' => '3']), WarmWorkers::run(['SAID' => 'two', 'CODE' => '0'])]);
 
-    $code = Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking('printf "%s" "$SAID" >> "$1"; exit "$CODE"', $workplace->out(0)));
+    $code = Worker::at($workplace->directory(), 0, new LiveProcesses())->run(new PhpUnitBoot(), WarmWorkers::forking('printf "%s" "$SAID" >> "$1"; exit "$CODE"', $workplace->out(0)));
     $first = End::ranIn($workplace, 0);
     $second = End::ranIn($workplace, 1);
 
@@ -51,7 +52,7 @@ it('forks a child for each run it claims, and writes how each ended with what it
 it('writes the most memory a child that ended held, as its end, and none for one it stopped at its limit', function (): void {
     $workplace = WarmWorkers::place([WarmWorkers::run(['CODE' => '0']), WarmWorkers::run(['CODE' => '0', 'LIMITED' => '1'], limit: 0.2)]);
 
-    Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking('[ -z "$LIMITED" ] || sleep 5; exit "$CODE"', $workplace->out(0)));
+    Worker::at($workplace->directory(), 0, new LiveProcesses())->run(new PhpUnitBoot(), WarmWorkers::forking('[ -z "$LIMITED" ] || sleep 5; exit "$CODE"', $workplace->out(0)));
 
     expect(End::peakIn($workplace, 0))->toBeInstanceOf(MemoryCap::class)
         ->and(End::peakIn($workplace, 1))->toEqual(NotGiven::value());
@@ -66,7 +67,7 @@ it('writes no end for a run it could start no child for, and claims the next run
         }
     };
 
-    $code = Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), $forking);
+    $code = Worker::at($workplace->directory(), 0, new LiveProcesses())->run(new PhpUnitBoot(), $forking);
 
     expect([$code, End::ranIn($workplace, 0), End::ranIn($workplace, 1), file_get_contents($workplace->claimed())])
         ->toEqual([0, NotGiven::value(), NotGiven::value(), '2']);
@@ -76,7 +77,7 @@ it('stops a child at its limit with every process under it, reaps it, and says a
     $workplace = WarmWorkers::place([WarmWorkers::run(['ACT' => 'stop'], 2.0), WarmWorkers::run(['ACT' => 'kill'])]);
     $script = 'if [ "$ACT" = stop ]; then echo $$ > "$1.child"; sleep 30 & echo $! > "$1.under"; sleep 30; else kill -9 $$; fi';
 
-    Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking($script, $workplace->out(0)));
+    Worker::at($workplace->directory(), 0, new LiveProcesses())->run(new PhpUnitBoot(), WarmWorkers::forking($script, $workplace->out(0)));
     $stopped = End::ranIn($workplace, 0);
     $killed = End::ranIn($workplace, 1);
 
@@ -104,7 +105,7 @@ it('stops a child that has made no progress for its silence limit since it last 
         esac
         SH;
 
-    Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking($script, $workplace->out(0)));
+    Worker::at($workplace->directory(), 0, new LiveProcesses())->run(new PhpUnitBoot(), WarmWorkers::forking($script, $workplace->out(0)));
     $ends = array_map(static fn(int $at): Ran|NotGiven => End::ranIn($workplace, $at), [0, 1, 2]);
 
     expect(array_map(
@@ -137,7 +138,7 @@ it('stops a child whose test runs past its own limit, naming the test, and holds
         esac
         SH;
 
-    Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking($script, $workplace->out(0)));
+    Worker::at($workplace->directory(), 0, new LiveProcesses())->run(new PhpUnitBoot(), WarmWorkers::forking($script, $workplace->out(0)));
     $ends = array_map(static fn(int $at): Ran|NotGiven => End::ranIn($workplace, $at), [0, 1, 2]);
 
     expect(array_map(static fn(Ran|NotGiven $ran): array => $ran instanceof Ran ? [$ran->wasSilenced(), $ran->wasStopped()] : [], $ends))
@@ -150,7 +151,7 @@ it('waits on a child without spinning: it looks at it a hundred times a second, 
     $workplace = WarmWorkers::place([WarmWorkers::run(['CODE' => '0'])]);
     $before = CpuTime::spent();
 
-    Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking('sleep 1; exit "$CODE"', $workplace->out(0)));
+    Worker::at($workplace->directory(), 0, new LiveProcesses())->run(new PhpUnitBoot(), WarmWorkers::forking('sleep 1; exit "$CODE"', $workplace->out(0)));
 
     expect(CpuTime::spent() - $before)->toBeLessThan(0.5)
         ->and(End::ranIn($workplace, 0) instanceof Ran)->toBeTrue();
@@ -163,9 +164,9 @@ it('boots as PHPUnit\'s config says, its variables and its bootstrap, and forks 
     Scratch::write($root, 'bare.xml', '<?xml version="1.0"?><phpunit/>');
     $booted = WarmWorkers::place([WarmWorkers::run(['CODE' => '0'])], sprintf('%s/phpunit.xml', $root));
 
-    Worker::at($booted->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking('exit "$CODE"', $booted->out(0)));
+    Worker::at($booted->directory(), 0, new LiveProcesses())->run(new PhpUnitBoot(), WarmWorkers::forking('exit "$CODE"', $booted->out(0)));
     $bare = WarmWorkers::place([WarmWorkers::run(['CODE' => '1'])], sprintf('%s/bare.xml', $root));
-    Worker::at($bare->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking('exit "$CODE"', $bare->out(0)));
+    Worker::at($bare->directory(), 0, new LiveProcesses())->run(new PhpUnitBoot(), WarmWorkers::forking('exit "$CODE"', $bare->out(0)));
 
     expect($GLOBALS['workerBooted'] ?? null)->toBe('told')
         ->and(End::ranIn($booted, 0) instanceof Ran)->toBeTrue()

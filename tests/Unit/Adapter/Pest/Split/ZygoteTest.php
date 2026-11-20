@@ -113,7 +113,7 @@ it('hands the booted application to the test\'s own process forked from the stre
         use NightWorksIO\MutationGate\Adapter\Pest\Split\Zygote;
         use PHPUnit\Framework\SkippedTest;
 
-        Stream::from(%s);
+        Stream::from(%s, new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
         Stream::began('T::booted');
 
         try {

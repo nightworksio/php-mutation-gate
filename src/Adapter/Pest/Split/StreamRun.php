@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\ServedChildren;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 
 use function pcntl_fork;
 use function pcntl_signal;
@@ -99,9 +100,9 @@ final class StreamRun
      * A split stream started from this plan; each mutant of a file the
      * process loaded before its schema was served is left for its own run.
      */
-    public static function of(StreamPlan $plan): self
+    public static function of(StreamPlan $plan, RunningProcesses $running): self
     {
-        $run = new self($plan, new Children($plan), new Kills(), Descriptors::held());
+        $run = new self($plan, new Children($plan, $running), new Kills(), Descriptors::held());
 
         if ($plan->bootOnce && $plan->recording === '') {
             Zygote::prepared(sprintf('%s.zygote', $plan->results));

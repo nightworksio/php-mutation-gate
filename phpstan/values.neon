@@ -11,6 +11,12 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Runner\ProcessListing':
+                    - GROUP # the place of a process's group in Linux's stat file, not an argument or an exit code
+                    - STARTED # the place of a process's start in Linux's stat file, not a ledger level
+                    - PAGES # the place of a process's resident pages in Linux's stat file, not a line number
+                'NightWorksIO\MutationGate\Adapter\Process\LiveProcesses':
+                    - OWN # the name /proc gives the process that reads it, not PHP's own class keyword
                 'NightWorksIO\MutationGate\Core\Cost\FirstRunShape':
                     - TESTS_BEFORE_A_KILL # tests a first estimate expects a killed mutant to run, not a ranking's top
                 'NightWorksIO\MutationGate\Core\Runner\RunnerPace':
@@ -542,6 +548,7 @@ services:
                     - WATCH_SECONDS # a watch round's budget, in seconds, not a probe's limit
                 'NightWorksIO\MutationGate\Core\Runner\ProcessTable':
                     - SIGNALS # the program that signals processes, not a control's kind
+                    - LISTINGS # the most listings one stop takes, not a trace's length
                 'NightWorksIO\MutationGate\Core\Runner\SparedProcesses':
                     - LOWEST # the lowest process id that names one process, not an exit code or an argument
                 'NightWorksIO\MutationGate\Core\Runner\Headroom':

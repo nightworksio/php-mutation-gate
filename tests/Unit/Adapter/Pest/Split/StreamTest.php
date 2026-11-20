@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\TestHanding;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Tests\Support\Databases;
 use NightWorksIO\MutationGate\Tests\Support\FreshProcess;
 use NightWorksIO\MutationGate\Tests\Support\OutbreakCalls;
@@ -28,7 +29,7 @@ function streamedLines(array $plan, Closure $run): array
     $root = Scratch::directory();
     $results = sprintf('%s/results.jsonl', $root);
     Scratch::write($root, 'plan.json', (string) json_encode(['results' => $results, ...$plan]));
-    $started = Stream::from(sprintf('%s/plan.json', $root));
+    $started = Stream::from(sprintf('%s/plan.json', $root), new LiveProcesses());
 
     try {
         $run();
@@ -86,7 +87,7 @@ function streamedApart(array $plan, string $program, string $before = '', bool $
         use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
         use NightWorksIO\MutationGate\Adapter\Pest\Split\TestHanding;
 
-        Stream::from(%s);
+        Stream::from(%s, new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
         %s
         PHP, $before, var_export(sprintf('%s/plan.json', $root), return: true), $program));
 
@@ -115,7 +116,7 @@ it('writes how the parent came out of each test it ran', function (): void {
     expect(FreshProcess::answer(sprintf(<<<'PHP'
         use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
 
-        $started = Stream::from(%s);
+        $started = Stream::from(%s, new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
         Stream::began('T::passes');
         Stream::ended();
         Stream::began('T::fails');
@@ -189,7 +190,7 @@ it('keeps a test and forks no mutant where PHP can start no process', function (
         use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
         use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
 
-        Stream::from(%s);
+        Stream::from(%s, new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
         Stream::began('T::kept');
         posix_setrlimit(POSIX_RLIMIT_NPROC, 1, 1);
         $handed = Stream::forkedTest();
@@ -212,7 +213,7 @@ it('waits for no child from a child forked at a site, and writes how that child 
         use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
         use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
 
-        Stream::from(%s);
+        Stream::from(%s, new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
 
         if (pcntl_fork() === 0) {
             exit(0);
@@ -236,7 +237,7 @@ it('waits for no child from a child forked at a site, and writes how that child 
 })->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'a split stream needs a PHP that forks');
 
 it('starts no stream from a file that holds no plan', function (): void {
-    expect(Stream::from('/nowhere/plan.json'))->toBeFalse();
+    expect(Stream::from('/nowhere/plan.json', new LiveProcesses()))->toBeFalse();
 });
 
 it('boots nothing, keeps every test and is troubled by none where no stream runs', function (): void {
@@ -255,7 +256,7 @@ it('hands a test to a process forked from the booted application, which writes h
     expect(FreshProcess::answer(sprintf(<<<'PHP'
         use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
 
-        Stream::from(%s);
+        Stream::from(%s, new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
         Stream::booting(booting: true);
         Stream::booting(booting: false);
         Stream::began('T::forked');
@@ -291,7 +292,7 @@ it('holds a child that ran past its steps to have timed out, where outbreak.so c
     ]));
 
     OutbreakCalls::asked(sprintf(<<<'CODE'
-        NightWorksIO\MutationGate\Adapter\Pest\Split\Stream::from(%s);
+        NightWorksIO\MutationGate\Adapter\Pest\Split\Stream::from(%s, new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
         NightWorksIO\MutationGate\Adapter\Pest\Split\Stream::began('T::steps');
 
         if (NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch::is('f1', 1)) {

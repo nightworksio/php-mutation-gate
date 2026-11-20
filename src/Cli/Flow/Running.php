@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\ProgressReporter;
 use NightWorksIO\MutationGate\Adapter\GitHub\WatchedJob;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnEnd;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\SystemGauge;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -191,6 +192,7 @@ final readonly class Running
             new SystemGauge(SystemGauge::MEMINFO, $this->adapters->project->root()->value()),
             $this->adapters->exchange,
             OwnEnd::by(...),
+            new LiveProcesses(),
         ) : ProgressReporter::none();
 
         try {

@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Runner\MaxRss;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 
 use function pcntl_waitpid;
 use function pcntl_wexitstatus;
@@ -76,6 +77,7 @@ final readonly class Worker
         private Seat $seat,
         private int $parent,
         private Closure $pause,
+        private RunningProcesses $processes,
         private Closure|NotGiven $boot = new NotGiven(),
     ) {
     }
@@ -86,9 +88,14 @@ final readonly class Worker
      *
      * @param Closure(int): void $pause pauses this many microseconds, as usleep does
      */
-    public static function at(string $directory, int $place, int $parent, Closure $pause): self
-    {
-        return new self(Seat::at($directory, $place), $parent, $pause);
+    public static function at(
+        string $directory,
+        int $place,
+        int $parent,
+        Closure $pause,
+        RunningProcesses $processes,
+    ): self {
+        return new self(Seat::at($directory, $place), $parent, $pause, $processes);
     }
 
     /**
@@ -99,7 +106,7 @@ final readonly class Worker
      */
     public function booting(Closure $boot): self
     {
-        return new self($this->seat, $this->parent, $this->pause, $boot);
+        return new self($this->seat, $this->parent, $this->pause, $this->processes, $boot);
     }
 
     /**
@@ -254,7 +261,7 @@ final readonly class Worker
         [$waited, $status, $held] = $looked;
 
         if ($waited === 0) {
-            WholeTree::stopped($child);
+            WholeTree::stopped($child, $this->processes);
             pcntl_waitpid($child, $status);
         }
 

@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\PartLines;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Streams;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -476,6 +477,7 @@ final readonly class Patch
                         $this->originalArguments,
                         $this->getConfiguration()->processes,
                         $part instanceof \%2$s ? $part : \%3$s::value(),
+                        new \%4$s(),
                     );
                 }
         PHP;
@@ -859,7 +861,7 @@ final readonly class Patch
             Hunk::in(
                 self::TEST_RUNNER,
                 self::SPLIT_SHIPS,
-                sprintf(self::SPLIT_BECOMES, Streams::class, PartLines::class, NotGiven::class),
+                sprintf(self::SPLIT_BECOMES, Streams::class, PartLines::class, NotGiven::class, LiveProcesses::class),
             ),
             Hunk::in(
                 self::MUTATE_PLUGIN,

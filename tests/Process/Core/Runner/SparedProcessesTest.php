@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 
 $holds = [
@@ -29,12 +30,7 @@ function sparedStarted(bool $leads): array
 
 function sparedListed(): SparedProcesses
 {
-    return SparedProcesses::listed(static function (array $command): string {
-        $printed = [];
-        exec(implode(' ', array_map(escapeshellarg(...), $command)), $printed);
-
-        return implode("\n", $printed);
-    });
+    return SparedProcesses::listed(new LiveProcesses());
 }
 
 it('sends no signal to itself, its parent, its group or the group of a process above it', function (): void {

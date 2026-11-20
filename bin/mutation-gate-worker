@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\Refusal;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\PhpUnitBoot;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\ForkedChild;
 use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -40,7 +41,7 @@ define('PHPUNIT_COMPOSER_INSTALL', $autoloader);
 
 require $autoloader;
 
-$worker = Worker::at($workplace, (int) $place);
+$worker = Worker::at($workplace, (int) $place, new LiveProcesses());
 
 if (! function_exists('pcntl_fork')) {
     exit($worker->refused(Refusal::unforkable('The PHP the runner starts cannot fork: pcntl is not loaded.')));

@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSlowdown;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamStart;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamWatch;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\WatchedStream;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedProjects;
@@ -44,7 +45,7 @@ it('stops a stream whose parent passed its deadline, with what it started, and s
     };
     $started = microtime(as_float: true);
 
-    $wrote = new StreamWatch($directory, new StreamSlowdown())->ended([new WatchedStream($stuck, $results, ['a', 'stuck', 'b'], $again)]);
+    $wrote = new StreamWatch($directory, new StreamSlowdown(), new LiveProcesses())->ended([new WatchedStream($stuck, $results, ['a', 'stuck', 'b'], $again)]);
 
     expect([$wrote, $left, $slowed, $stuck->isRunning()])->toBe([[$results, sprintf('%s/results-1-2.jsonl', $directory)], ['b'], 3.5, false])
         ->and(microtime(as_float: true) - $started)->toBeLessThan(30.0)
@@ -69,7 +70,7 @@ it('waits for a stream within its deadline, takes away the mark one leaves, and 
     $done = new WatchedStream(watchedProcess('pcntl_fork(); sleep(60);'), $ended, ['a'], $never);
     file_put_contents(sprintf('%s/live-%d', $directory, (int) $done->pid), '{"t": "a", "d": 0}');
 
-    $wrote = new StreamWatch($directory, new StreamSlowdown())->ended([$running, $whole, $done]);
+    $wrote = new StreamWatch($directory, new StreamSlowdown(), new LiveProcesses())->ended([$running, $whole, $done]);
 
     expect($wrote)->toEqualCanonicalizing(['running', 'whole', $ended])
         ->and($started)->toBe([])
@@ -116,7 +117,7 @@ it('runs no more queued streams at once than it is given, starting the next, in 
         };
     }
 
-    $wrote = new StreamWatch($directory, new StreamSlowdown())->ended($queued, 2);
+    $wrote = new StreamWatch($directory, new StreamSlowdown(), new LiveProcesses())->ended($queued, 2);
 
     expect([$wrote, $started, $most])->toBe([['first', 'second', 'third'], ['first', 'second', 'third'], 2]);
 });

@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPace;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlanFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSlowdown;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamVerdicts;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Core\Config\SlowdownCarry;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -56,7 +57,7 @@ it('runs the whole suite in one part where it knows no test file', function (): 
 
 it('streams no pass of killers whose ids PHPUnit could not read back from a file, and writes none', function (): void {
     $directory = Scratch::directory();
-    $streaming = new Streaming($directory, [], [], 1, 1);
+    $streaming = new Streaming($directory, [], [], 1, 1, new LiveProcesses());
 
     expect($streaming->killersPass(1, ['m1' => ['f1', 1, "P\\Tests\\MoneySpec::it adds\nand more", []]], StreamVerdicts::none()))->toEqual(NotGiven::value())
         ->and(glob(sprintf('%s/*', $directory)))->toBe([]);
@@ -66,7 +67,7 @@ it('starts no stream of a pass whose tests no loaded file declares, leaving thei
     $directory = Scratch::directory();
     CoveringFiles::forget(Scratch::directory());
     $verdicts = StreamVerdicts::none();
-    $streaming = new Streaming($directory, [], [], 1, 1);
+    $streaming = new Streaming($directory, [], [], 1, 1, new LiveProcesses());
 
     expect($streaming->pass(1, ['m1' => ['f1', 1, '', []]], ['m1' => ['Never\\Loaded::test']], $verdicts))->toBe($verdicts)
         ->and(glob(sprintf('%s/*', $directory)))->toBe([]);
@@ -77,7 +78,7 @@ it('names each stream\'s covering tests by their ids where it runs them alone, a
     $recording = $records ? Scratch::directory() : '';
     $test = sprintf('%s::it_streams', $this::class);
     CoveringFiles::forget(Tree::at('tests/Unit/Adapter/Pest/Split'));
-    $streaming = new Streaming($directory, [], ['-r', 'exit(0);', '--'], 1, 1, $recording, coveringOnly: $coveringOnly);
+    $streaming = new Streaming($directory, [], ['-r', 'exit(0);', '--'], 1, 1, new LiveProcesses(), $recording, coveringOnly: $coveringOnly);
     $streaming->pass(1, ['m1' => ['f1', 1, '', []]], ['m1' => [$test]], StreamVerdicts::none());
     $ids = sprintf('%s/selected-1-0.ids', $directory);
 
@@ -99,7 +100,7 @@ it('starts each stream in a stopped one\'s place at the backoff times the slowdo
         file_put_contents(sprintf('%s/live-%d', $plan['live'], getmypid()), json_encode(['t' => $ids[0], 'd' => 0, 's' => $plan['slowdown'] + 0.5]));
         sleep(30);
         PHP;
-    $streaming = new Streaming($directory, [], ['-r', $stuck, '--'], 1, 1, coveringOnly: true, pace: new StreamPace(on: true, backoff: 2.0));
+    $streaming = new Streaming($directory, [], ['-r', $stuck, '--'], 1, 1, new LiveProcesses(), coveringOnly: true, pace: new StreamPace(on: true, backoff: 2.0));
 
     $streaming->pass(1, ['m1' => ['f1', 1, '', []]], ['m1' => $tests], StreamVerdicts::none());
     $slowdowns = [];
@@ -128,6 +129,7 @@ it('starts each pass\'s streams at the highest slowdown the streams of the pass 
         ['-r', $measured, '--'],
         1,
         1,
+        new LiveProcesses(),
         coveringOnly: true,
         pace: new StreamPace(on: true),
         slowdown: StreamSlowdown::carried(SlowdownCarry::Shard, $results),

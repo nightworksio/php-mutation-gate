@@ -22,6 +22,7 @@ use function max;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
 
 use function pcntl_exec;
@@ -58,6 +59,7 @@ final readonly class Client
         private Closure $pause,
         private Closure $out,
         private Closure $errors,
+        private RunningProcesses $processes,
     ) {
     }
 
@@ -69,9 +71,15 @@ final readonly class Client
      * @param Closure(string): void $out    prints on the run's standard output
      * @param Closure(string): void $errors prints on the run's standard error
      */
-    public static function at(string $directory, int $place, Closure $pause, Closure $out, Closure $errors): self
-    {
-        return new self(Seat::at($directory, $place), $pause, $out, $errors);
+    public static function at(
+        string $directory,
+        int $place,
+        Closure $pause,
+        Closure $out,
+        Closure $errors,
+        RunningProcesses $processes,
+    ): self {
+        return new self(Seat::at($directory, $place), $pause, $out, $errors, $processes);
     }
 
     /**
@@ -189,7 +197,7 @@ final readonly class Client
         $child = PidFile::read($this->seat->child($request->id()));
 
         if (is_int($child)) {
-            WholeTree::stopped($child);
+            WholeTree::stopped($child, $this->processes);
         }
     }
 

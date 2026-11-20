@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_key_exists;
-use function exec;
 
 use const FILE_APPEND;
 
 use function file_put_contents;
 use function hrtime;
-use function implode;
 use function is_int;
 
 use const LOCK_EX;
@@ -19,7 +17,7 @@ use const LOCK_EX;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
-use NightWorksIO\MutationGate\Core\Runner\ShellWords;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -75,7 +73,7 @@ final class Children
     /** @var array<int, Copies> the databases copied for each running child, by pid */
     private array $copies = [];
 
-    public function __construct(private readonly StreamPlan $plan)
+    public function __construct(private readonly StreamPlan $plan, private readonly RunningProcesses $running)
     {
         $this->steps = new ChildSteps($plan);
         $this->held = new HeldChildren();
@@ -298,12 +296,11 @@ final class Children
      */
     private function stopped(array $late): void
     {
-        $spared = SparedProcesses::listed(static function (array $command): string {
-            $printed = [];
-            exec(ShellWords::line($command), $printed);
+        if ($late === []) {
+            return;
+        }
 
-            return implode("\n", $printed);
-        });
+        $spared = SparedProcesses::listed($this->running);
 
         foreach ($late as $pid => $child) {
             $spared->signal($pid, SIGKILL);

@@ -69,7 +69,7 @@ these differently.
 |---|---|---|
 | **A1** | Core, Port, Mutator, Config and Extension name nothing outside the package but PHP and `Psr\Clock`, and Mutator, the SDK a mutator is written against, names php-parser too (ADR-0021) | arch: every class name each of their files writes |
 | **A2** | A port is an interface | arch: every declaration under `src/Port` |
-| **A3** | An adapter names no other adapter | arch: every class name each adapter's files write |
+| **A3** | An adapter names no other adapter, but an adapter that is the composition root of code the gate writes into another program's process may name the adapters it hands in, each listed by file and name: `Pest\Patch`'s hunks, which run in Pest's own process, name `Process\LiveProcesses` (ADR-0312) | arch: every class name each adapter's files write, and the list of roots is exactly what they name |
 | **A4** | A layer names only itself and the layers before it | arch: every class name each file under `src` writes |
 | **A5** | Attribute names nothing but PHP, and nothing else under `src` names it but the Pest plugin's filter, which reads `#[Holds]` from test closures (ADR-0004), the PhpSpec and Codeception runners' tests, which read it from specs, test classes and their methods, and the Testo runner's tests, which read it from a test's function and class (ADR-0027) | arch: every class name each file under `src` writes |
 | **A6** | Nothing under `src` names a plugin (ADR-0021) | arch: every class name each file under `src` writes |

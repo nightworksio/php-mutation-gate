@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Request;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
@@ -58,6 +59,7 @@ $running = static function (Closure $pause, string $directory, string $script, s
             static function (string $bytes) use (&$printed): void {
                 $printed['errors'] = sprintf('%s%s', $printed['errors'], $bytes);
             },
+            new LiveProcesses(),
         )->ran($script, array_values($arguments));
     } finally {
         restore_error_handler();

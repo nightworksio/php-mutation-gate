@@ -15,6 +15,7 @@ use function microtime;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 
 use const PHP_INT_MAX;
 
@@ -43,8 +44,11 @@ final readonly class StreamWatch
     /** How long it waits between two looks at the streams still running, in microseconds. */
     private const int BETWEEN = 50_000;
 
-    public function __construct(private string $directory, private StreamSlowdown $slowdown)
-    {
+    public function __construct(
+        private string $directory,
+        private StreamSlowdown $slowdown,
+        private RunningProcesses $running,
+    ) {
     }
 
     /**
@@ -134,7 +138,7 @@ final readonly class StreamWatch
         }
 
         if ($passed !== '' && is_int($pid)) {
-            ProcessTable::stop($pid, $this->ran(...));
+            ProcessTable::stop($pid, $this->ran(...), $this->running);
         }
 
         $stream->waited();

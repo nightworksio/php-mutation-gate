@@ -5,29 +5,29 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_diff;
-use function array_key_exists;
 
 use Closure;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
-use function preg_match_all;
 use function sprintf;
 
 /**
- * Every process and the one that started it, as `ps` lists them, which a
- * shell reads to stop a process at its deadline with every process under it,
- * such as a runner's workers and each mutant's own run, so none is left
- * running on its own.
+ * How the gate stops a process with every process under it, such as a
+ * runner's workers and each mutant's own run, so none is left running on its
+ * own, from the processes a listing finds under it or, where the process
+ * runs in a cgroup of its own, the processes the cgroup holds (ADR-0312).
  *
  * @internal
  */
 final readonly class ProcessTable
 {
-    /** The command that lists every process with its parent, one to a line. */
-    public const array LISTING = ['ps', '-A', '-o', 'pid=', '-o', 'ppid='];
-
-    /** A line of the listing: a process and its parent. */
-    private const string ROW = '/^\s*(?<pid>\d+)\s+(?<parent>\d+)\s*$/m';
+    /**
+     * The most listings one stop takes: each freezes every process it finds,
+     * so a tree that stands still is whole by its depth plus one, and a stop
+     * that lists this often is one whose tree a fault keeps growing
+     * (ADR-0312).
+     */
+    public const int LISTINGS = 32;
 
     /** The program that signals processes. */
     private const string SIGNALS = 'kill';
@@ -38,58 +38,26 @@ final readonly class ProcessTable
     /** The command that freezes processes where they stand, so none starts another, before their ids. */
     private const array FREEZE = [self::SIGNALS, '-STOP'];
 
-    /** @param array<int, list<int>> $children each process's children, by its id */
-    private function __construct(private array $children)
-    {
-    }
-
-    /** The table in what the listing printed. */
-    public static function parse(string $listing): self
-    {
-        preg_match_all(self::ROW, $listing, $rows);
-        $children = [];
-
-        foreach ($rows['pid'] as $row => $pid) {
-            $children[(int) $rows['parent'][$row]][] = (int) $pid;
-        }
-
-        return new self($children);
-    }
-
-    /**
-     * Every process under one, at any depth, each after the processes under it.
-     *
-     * @return list<int>
-     */
-    public function descendantsOf(int $pid): array
-    {
-        $under = [];
-
-        foreach (array_key_exists($pid, $this->children) ? $this->children[$pid] : [] as $child) {
-            $under = $child === $pid ? $under : [...$under, ...$this->descendantsOf($child), $child];
-        }
-
-        return $under;
-    }
-
     /**
      * Stops a process with every process under it, so none is left running
      * on its own: the process frozen first, then each process found under it,
      * listing by listing until a listing finds none it has not frozen, so no
-     * process can start another between the listing and the kill; then all of
-     * them killed, deepest first, and then the whole session, which holds
-     * those whose parent ended before them. A process the caller spares
-     * (SparedProcesses) is never signalled, nor is the group of one.
+     * process can start another between the listing and the kill, or until
+     * `LISTINGS` listings; then all of them killed, deepest first, and then
+     * the whole session, which holds those whose parent ended before them. A
+     * process the caller spares (SparedProcesses) is never signalled, nor is
+     * the group of one.
      *
      * @param Closure(list<string>): string $run runs a command, and answers what it printed
      */
     public static function stop(
         int $pid,
         Closure $run,
+        RunningProcesses $processes,
         bool $leads = false,
         SparedProcesses|NotGiven $spared = new NotGiven(),
     ): void {
-        $sparing = $spared instanceof SparedProcesses ? $spared : SparedProcesses::listed($run);
+        $sparing = $spared instanceof SparedProcesses ? $spared : SparedProcesses::listed($processes);
 
         if (! $sparing->signals($pid)) {
             return;
@@ -97,21 +65,45 @@ final readonly class ProcessTable
 
         $run(self::signalling($sparing, self::FREEZE, $pid));
         $frozen = [];
+        $listings = 0;
 
         do {
-            $under = self::parse($run(self::LISTING))->descendantsOf($pid);
+            $under = $processes->listed()->descendantsOf($pid);
             $fresh = array_diff($under, $frozen);
             $frozen = [...$frozen, ...$fresh];
+            $listings++;
 
             if ($fresh !== []) {
                 $run(self::signalling($sparing, self::FREEZE, ...$fresh));
             }
-        } while ($fresh !== []);
+        } while ($fresh !== [] && $listings < self::LISTINGS);
 
         $run(self::killing($sparing, ...[...$under, $pid]));
 
         if ($leads) {
             $run(self::ending($sparing, $pid));
+        }
+    }
+
+    /**
+     * Stops a process with every process its cgroup holds, however deep or
+     * whoever's child, without a listing: all of them killed, the process
+     * last, and then the whole session where it leads one. A process the
+     * caller spares is never signalled.
+     *
+     * @param list<int>                     $held every process the cgroup holds
+     * @param Closure(list<string>): string $run  runs a command, and answers what it printed
+     */
+    public static function stopHeld(int $pid, array $held, Closure $run, bool $leads, SparedProcesses $spared): void
+    {
+        if (! $spared->signals($pid)) {
+            return;
+        }
+
+        $run(self::killing($spared, ...[...array_diff($held, [$pid]), $pid]));
+
+        if ($leads) {
+            $run(self::ending($spared, $pid));
         }
     }
 
