@@ -52,7 +52,9 @@ Two more costs came with each round:
    - Each job first times jwt's own suite under plain PHPUnit with pcov on
      its runner with `mutation-gate machine`, once to warm up and
      then the median of five, and scales its budget by the ratio to
-     `RUNNER_REFERENCE_SECONDS` (0.42 s, the fast hosted CPUs' median):
+     `RUNNER_REFERENCE_SECONDS` (0.35 s, the fastest hosted CPU, on which
+     a whole run takes 77 s; a whole run slows by a little more than the
+     suite, so every slower runner keeps a margin):
      never below 1, and at most `RUNNER_MOST_SCALE` (2.5), past which the
      job fails as on too slow a runner. The log and the step summary print
      the processor, the measured time, the reference, the scale and every

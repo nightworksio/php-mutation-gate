@@ -38,14 +38,17 @@ env:
   RUN_SECONDS: 100
   # The most seconds one quick round on jwt may take: 4 s measured on CI.
   LOOP_SECONDS: 10
-  # The seconds jwt's suite under pcov takes on a fast hosted runner, the median
-  # of the fast CPUs measured on CI (EPYC 9V45 0.35, Xeon 6975P-C 0.42, EPYC 9V74
-  # 0.47; the slow EPYC 7763 takes 0.63). Re-measure it when jwt's pin, PHP or
-  # the hosted fleet changes: the "this runner, timed" step prints the time and
-  # the processor of every run.
-  RUNNER_REFERENCE_SECONDS: 0.42
+  # The seconds jwt's suite under pcov takes on the fastest hosted runner
+  # measured, the EPYC 9V45 (Xeon 6975P-C 0.42, EPYC 9V74 0.47, Xeon Platinum
+  # 8573C 0.55, EPYC 7763 0.63), on which a whole run takes 77 s. A whole run
+  # slows by more than the suite does (the 7763: 143 s, 1.9 times, where the
+  # suite takes 1.8 times), so the fastest runner is the reference and every
+  # other keeps a margin. Re-measure it when jwt's pin, PHP or the hosted
+  # fleet changes: the "this runner, timed" step prints the time and the
+  # processor of every run.
+  RUNNER_REFERENCE_SECONDS: 0.35
   # The most a slow runner scales a budget by; a slower runner fails the job.
-  # The slowest hosted CPU measured, the EPYC 7763, scales by about 1.5.
+  # The slowest hosted CPU measured, the EPYC 7763, scales by about 1.8.
   RUNNER_MOST_SCALE: 2.5
   # The most seconds a process of a whole run may use no CPU before the run
   # is stopped as stuck. It is not scaled: a slower runner takes longer to do

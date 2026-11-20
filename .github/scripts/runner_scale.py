@@ -7,7 +7,7 @@ It reads the one JSON line `mutation-gate machine` prints: the
 processor, the rounds timed and their median seconds of the project's suite
 under plain PHPUnit with pcov, the work the gate's coverage phase does with
 none of the gate's code in it, so no change to the gate can slow it. Its
-ratio to RUNNER_REFERENCE_SECONDS, what the suite takes on a typical runner,
+ratio to RUNNER_REFERENCE_SECONDS, what the suite takes on the fastest runner,
 is the scale: never below 1, so a fast runner keeps the base budgets, and
 never above RUNNER_MOST_SCALE, past which the runner is too slow to judge on
 and the step fails with what it measured. Each budget named, an environment
