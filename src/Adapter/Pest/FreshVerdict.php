@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -66,9 +67,6 @@ final readonly class FreshVerdict
 
     private const string CONTROL_FAILS
         = 'Its fresh Pest run failed with no test named, and the same run with the file unmutated fails too.';
-
-    private const string UNCONTROLLED
-        = 'Its fresh Pest run failed with no test named, and no time was left for the same run unmutated.';
 
     private function __construct(
         private MutantStatus|Reason $verdict,
@@ -131,7 +129,7 @@ final readonly class FreshVerdict
     {
         return match (true) {
             ! $this->needsControl() => $this,
-            $control instanceof NotGiven => self::unjudged(Reason::that(self::UNCONTROLLED)),
+            $control instanceof NotGiven => self::unjudged(OutOfTime::BeforeControlling->reason()),
             $control->succeeded() => new self(
                 MutantStatus::Killed,
                 TestIds::none(),
@@ -150,7 +148,7 @@ final readonly class FreshVerdict
      */
     public function mutant(Mutant $was, Seconds|Unmeasured $took, Seconds $limit, MemoryCap $cap): Mutant
     {
-        $verdict = $this->needsControl() ? Reason::that(self::UNCONTROLLED) : $this->verdict;
+        $verdict = $this->needsControl() ? OutOfTime::BeforeControlling->reason() : $this->verdict;
         $mutant = Mutant::of(
             $was->id(),
             $was->nativeId(),

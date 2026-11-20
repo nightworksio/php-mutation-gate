@@ -55,14 +55,17 @@ final readonly class PlanEstimates
         Raise shards.max, or spend less on the longest shard, to fit it.
         SAID;
 
-    private function __construct(private Plan $plan, private Seconds $setup)
+    private function __construct(private Plan $plan, private Seconds $setup, private StreamWall $wall)
     {
     }
 
-    /** The estimates of a plan whose every job first spends this long on its setup. */
-    public static function of(Plan $plan, Seconds $setup): self
+    /**
+     * The estimates of a plan whose every job first spends this long on its
+     * setup, and judges one part of the test files at this wall (ADR-0302).
+     */
+    public static function of(Plan $plan, Seconds $setup, StreamWall $wall): self
     {
-        return new self($plan, $setup);
+        return new self($plan, $setup, $wall);
     }
 
     /** The wall time of the longest shard, and the runner time of every shard together. */
@@ -240,10 +243,14 @@ final readonly class PlanEstimates
             )));
     }
 
-    /** A shard's job: its units, its opening run and its setup; no time for a shard of no units. */
+    /**
+     * A shard's job: its units, at the wall its streams take them in where it
+     * judges one part of the test files, its opening run and its setup; no
+     * time for a shard of no units.
+     */
     private function jobOf(Shard $shard): float
     {
-        return $shard->isEmpty() ? 0.0 : $shard->cost()->seconds()
+        return $shard->isEmpty() ? 0.0 : $this->wall->ofShard($shard)->seconds()
             + $shard->estimate()->openingRun()->seconds()
             + $this->setup->seconds();
     }

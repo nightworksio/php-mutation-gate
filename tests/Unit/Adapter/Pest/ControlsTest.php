@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -106,7 +107,7 @@ it('leaves unjudged each kill confirmed again whose control fails, and keeps eve
         ->and($shell->commands())->toHaveCount(2);
 });
 
-it('leaves a kill confirmed again unjudged, saying why, where its control runs out of its time, of the memory cap, or never runs', function (Ran $ran, Seconds|Unlimited $left, string $why): void {
+it('leaves a kill confirmed again unjudged, saying why, where its control runs out of its time, of the memory cap, or the time left has no room for it', function (Ran $ran, Seconds|Unlimited $left, Reason $why, bool $handedOn): void {
     $at = controlledProject();
     $killed = controlledMutant(11, MutantStatus::Killed);
     $controls = Controls::of($at, Patching::off(), Mutants::of($killed), Group::named('g'), static fn(): Covering => controlledCovering('P\Tests\MoneySpec::__pest_evaluable_it_adds'));
@@ -120,11 +121,12 @@ it('leaves a kill confirmed again unjudged, saying why, where its control runs o
     )];
 
     expect($applied[0]->status())->toBe(MutantStatus::Unjudged)
-        ->and($applied[0]->reason())->toEqual(Reason::that($why));
+        ->and($applied[0]->reason())->toEqual($why)
+        ->and(OutOfTime::left($applied[0]))->toBe($handedOn);
 })->with([
-    'out of its time' => [fn(): Ran => Ran::stopped(''), fn(): Unlimited => Unlimited::time(), 'Killed, but its covering tests run out of their time with the file unmutated too.'],
-    'out of the memory cap' => [fn(): Ran => Ran::finished(succeeded: false, output: 'Allowed memory size of 1024 bytes exhausted'), fn(): Unlimited => Unlimited::time(), 'Killed, but its covering tests run out of the memory cap with the file unmutated too.'],
-    'no time left' => [fn(): Ran => Ran::finished(succeeded: true, output: ''), fn(): Seconds => Seconds::of(0.0), 'Killed, but no unmutated control of its covering tests ran, so nothing vouches for it: no time was left for it.'],
+    'out of its time' => [fn(): Ran => Ran::stopped(''), fn(): Unlimited => Unlimited::time(), fn(): Reason => Reason::that('Killed, but its covering tests run out of their time with the file unmutated too.'), false],
+    'out of the memory cap' => [fn(): Ran => Ran::finished(succeeded: false, output: 'Allowed memory size of 1024 bytes exhausted'), fn(): Unlimited => Unlimited::time(), fn(): Reason => Reason::that('Killed, but its covering tests run out of the memory cap with the file unmutated too.'), false],
+    'no time left' => [fn(): Ran => Ran::finished(succeeded: true, output: ''), fn(): Seconds => Seconds::of(0.0), fn(): Reason => OutOfTime::BeforeControlling->reason(), true],
 ]);
 
 it('controls a kill confirmed again by the rows of a data set its own run ran: the covering rows patched, every row unpatched', function (): void {

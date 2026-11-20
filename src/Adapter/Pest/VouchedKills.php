@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -40,10 +41,6 @@ final readonly class VouchedKills
 {
     /** Why such a mutant is unjudged where the run again made no mutant with its id. */
     private const string NOT_MADE_TO_CONFIRM = 'Run again with every test file, Pest made no mutant with this id.';
-
-    /** Why a narrowed run's doubtful kill is unjudged where no time is left to run it again. */
-    private const string NO_TIME_TO_CONFIRM
-        = "Killed where its covering tests' files alone cannot vouch for the kill; no time is left to run them all.";
 
     /**
      * @param Closure(): (Seconds|Unlimited)                                 $left     the time the run has left
@@ -137,7 +134,8 @@ final readonly class VouchedKills
 
     /**
      * The result, each doubtful kill run again with every test file, within
-     * the time left since the run began, or unjudged where none is left; a
+     * the time left since the run began, or unjudged where none is left or
+     * the deadline stopped the run again before it made them (ADR-0300); a
      * kill the run again confirms stands only where its control passes.
      */
     private function confirmed(
@@ -155,10 +153,13 @@ final readonly class VouchedKills
 
         $from = $laps->now();
         $left = ($this->left)();
-        $unconfirmed = Reason::that(self::NO_TIME_TO_CONFIRM);
+        $unvouched = MutationResult::skippingNone(
+            FoundAgain::among($doubtful, Mutants::none(), OutOfTime::BeforeVouching->reason()),
+        );
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
-            ? MutationResult::skippingNone(FoundAgain::among($doubtful, Mutants::none(), $unconfirmed))
+            ? $unvouched
             : $this->again($doubtful, $this->confirming($request, $left));
+        $again = $again instanceof CannotJudge && $again->isAtTheDeadline() ? $unvouched : $again;
         $runs = new AloneRuns($this->project, $this->tail, $this->remembered);
         $again = $again instanceof CannotJudge
             ? $again

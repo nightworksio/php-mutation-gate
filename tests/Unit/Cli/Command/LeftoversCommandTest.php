@@ -84,17 +84,26 @@ it('prints the second wave\'s matrix of the shares it cut and wrote beside the r
     'none stopped' => [false, '[]'],
 ]);
 
-it('names the shards that left no result on its error output, cutting nothing of them', function (): void {
+it('cuts no second wave where a shard left no result, as the verdict cannot judge the run, saying why on its error output', function (): void {
     [$project, $composition] = leftoversRan('shards');
+    $file = sprintf('%s/shards/1.json', $project);
+    $whole = ShardResultFile::decode((string) file_get_contents($file));
+
+    if ($whole instanceof ShardResult) {
+        file_put_contents($file, ShardResultFile::encode(LeftAtTheDeadline::resultOf(
+            $whole,
+            static fn(Mutant $mutant): Mutant => $mutant->unjudged(OutOfTime::BeforeRunning),
+        )));
+    }
+
     unlink(sprintf('%s/shards/2.json', $project));
 
     $cut = FlowCommands::run(LeftoversCommand::command($composition), '--results=shards');
+    $written = LeftoverShares::decode((string) file_get_contents(sprintf('%s/shards/leftovers.json', $project)));
 
-    expect([$cut->code, $cut->output, $cut->errors])->toBe([
-        0,
-        "[]\n",
-        "Shards 2 left no result, so no share holds their mutants and the verdict cannot judge them.\n",
-    ]);
+    expect([$cut->code, $cut->output])->toBe([0, "[]\n"])
+        ->and($cut->errors)->toStartWith("No second wave is cut: its jobs would change no verdict (ADR-0301).\nThe verdict cannot judge this run whatever a second wave judges:\nShard 2 (")
+        ->and($written instanceof LeftoverShares ? $written->matrix() : $written)->toBe([]);
 });
 
 it('cannot cut without a plan', function (): void {

@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -477,6 +478,30 @@ it('cannot judge a narrowed run whose run again with every test file failed', fu
         ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
 });
 
+it('leaves a mutant a narrowed run killed with no killer unjudged by the time where the deadline stopped its run again before Pest made it, and cannot judge one its silence limit stopped', function (Ran $stopped, bool $handedOn): void {
+    $at = PestCases::project();
+    $loaded = PestCases::loadedNothing($at);
+    $shell = new ShellFake(static function (Command $command, int $before) use ($loaded, $stopped): Ran {
+        if ($before === 0) {
+            return $loaded->run($command);
+        }
+
+        PestRun::write(sprintf('%s', $command->environment()[GateVariable::Results->value] ?? ''), []);
+
+        return $stopped;
+    });
+
+    $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())->mutate(PestCases::money());
+    $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
+
+    expect($result instanceof MutationResult)->toBe($handedOn)
+        ->and(array_map(static fn(Mutant $mutant): bool => OutOfTime::left($mutant), $mutants))->toBe($handedOn ? [true] : [])
+        ->and($result instanceof CannotJudge ? $result->why() : '')->toBe($handedOn ? '' : 'Pest was stopped at its deadline before it had made its mutants.');
+})->with([
+    'at the deadline' => [fn(): Ran => Ran::stopped(''), true],
+    'at its silence limit' => [fn(): Ran => Ran::silenced(''), false],
+]);
+
 it('leaves a mutant a narrowed run killed with no killer unjudged where no time is left to run it again', function (): void {
     $at = PestCases::project();
     $shell = PestCases::loadedNothing($at);
@@ -493,9 +518,8 @@ it('leaves a mutant a narrowed run killed with no killer unjudged where no time 
     $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Unjudged])
-        ->and(array_map(static fn(Mutant $mutant): object => $mutant->reason(), $mutants))->toEqual([Reason::that(
-            "Killed where its covering tests' files alone cannot vouch for the kill; no time is left to run them all.",
-        )])
+        ->and(array_map(static fn(Mutant $mutant): object => $mutant->reason(), $mutants))
+        ->toEqual([OutOfTime::BeforeVouching->reason()])
         ->and($shell->commands())->toHaveCount(1);
 });
 

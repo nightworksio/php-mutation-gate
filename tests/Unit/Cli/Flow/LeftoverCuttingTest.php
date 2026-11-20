@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
+use NightWorksIO\MutationGate\Adapter\Pest\ReplayVerdict;
 use NightWorksIO\MutationGate\Cli\Flow\LeftoverCutting;
 use NightWorksIO\MutationGate\Cli\Flow\LeftoverParts;
+use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -18,7 +22,10 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
@@ -210,15 +217,15 @@ it('prices a left mutant\'s first fork at the likely killer its shard\'s handed 
     'a killer named, the whole of both passes in one job: one share' => [true, 1.0, 210.0, 1],
 ]);
 
-it('names each shard that left no result, cutting none of its mutants, and none of a shard that left one', function (): void {
+it('cuts no share of any shard where one left no result, saying why, and cuts the left mutants where every shard left one', function (): void {
     [$project, $plan] = LeftAtTheDeadline::run();
     $cut = static fn(): LeftoverShares|CannotJudge => new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(600.0), StreamWall::of(1));
     $read = $cut();
-    unlink(sprintf('%s/%s', $project, Workspace::result(Workspace::results(), ShardId::of(1))->value()));
-    $unread = $cut();
+    unlink(sprintf('%s/%s', $project, Workspace::result(Workspace::results(), ShardId::of(2))->value()));
+    $decided = $cut();
 
-    expect($read instanceof LeftoverShares ? $read->unread() : $read)->toBe([])
-        ->and($unread instanceof LeftoverShares ? [$unread->unread(), $unread->ofShard(ShardId::of(1))] : $unread)->toBe([[1], []]);
+    expect($read instanceof LeftoverShares ? [$read->decidedBy(), $read->ofShard(ShardId::of(1)) !== []] : $read)->toEqual([NotGiven::value(), true])
+        ->and($decided instanceof LeftoverShares ? [$decided->matrix(), is_string($decided->decidedBy())] : $decided)->toBe([[], true]);
 });
 
 it('cuts by an empty map where the plan left none it can read', function (): void {
@@ -233,4 +240,53 @@ it('cuts by an empty map where the plan left none it can read', function (): voi
     expect($unmapped instanceof LeftoverShares ? $unmapped->encode() : $unmapped)
         ->toBe($empty instanceof LeftoverShares ? $empty->encode() : $empty)
         ->and($unmapped instanceof LeftoverShares ? $unmapped->ofShard(ShardId::of(1)) : [])->not->toBe([]);
+});
+
+it('hands on each kill its shard ran out of time to vouch for, which a later job judges as one job judging every mutant would, and no mutant its shard left unjudged for another reason', function (): void {
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    $file = sprintf('%s/1.json', Workspace::results()->value());
+    $left = [
+        'Plus-11' => ReplayVerdict::NoTime->reason(),
+        'GreaterThan-16' => OutOfTime::BeforeVouching->reason(),
+        'Decrement-27' => ReplayVerdict::Failed->reason(),
+    ];
+    Scratch::write($project, $file, ShardResultFile::encode(LeftAtTheDeadline::resultOf(
+        $whole,
+        static fn(Mutant $mutant): Mutant => array_key_exists($mutant->nativeId(), $left) && $left[$mutant->nativeId()] instanceof Reason
+            ? Interpretation::unjudged($mutant, $left[$mutant->nativeId()])
+            : $mutant,
+    )));
+
+    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), Seconds::of(600.0), StreamWall::of(1));
+    $shares = $cut instanceof LeftoverShares ? $cut->ofShard(ShardId::of(1)) : [];
+    $handed = [];
+
+    foreach ($shares as $share) {
+        $ids = array_map(static fn(MutantId $id): string => $id->value(), [...$share->mutants()]);
+        $handed = [...$handed, ...$ids];
+        Scratch::write($project, LeftoverParts::resultOf(Workspace::results(), $share)->value(), ShardResultFile::encode(LeftAtTheDeadline::resultOf(
+            $whole,
+            static fn(Mutant $mutant): Mutant|false => in_array($mutant->id()->value(), $ids, strict: true) ? $mutant : false,
+        )));
+    }
+
+    $judged = Results::read($plan, Workspace::results(), Directory::at($project));
+    $statuses = [];
+
+    foreach ($judged instanceof Results ? $judged->units() : [] as $unit) {
+        foreach ($unit->mutants() as $mutant) {
+            $statuses[$mutant->id()->value()] = $mutant->status();
+        }
+    }
+
+    $expected = [];
+
+    foreach (LeftAtTheDeadline::mutantsOf($whole) as $mutant) {
+        $expected[$mutant->id()->value()] = $mutant->nativeId() === 'Decrement-27' ? MutantStatus::Unjudged : $mutant->status();
+    }
+
+    expect($handed)->toEqualCanonicalizing(array_map(static fn(MutantId $id): string => $id->value(), [...LeftAtTheDeadline::ids($whole, 'Plus-11', 'GreaterThan-16')]))
+        ->and(array_intersect_key($statuses, $expected))->toEqual($expected)
+        ->and(array_count_values(array_map(static fn(MutantStatus $status): string => $status->value, $expected)))
+        ->toMatchArray(['killed' => 1, 'survived' => 1, 'unjudged' => 1]);
 });

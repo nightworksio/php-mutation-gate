@@ -554,3 +554,35 @@ it('holds the held units its shards\' holding tests miss, and those the verdict 
     expect($results instanceof Results ? count($results->misses()) : -1)->toBe(0)
         ->and([...$missing])->toEqual([$kernel, $http]);
 });
+
+it('decides the verdict without a second wave where it reads a shard\'s result alone as a fail or as no verdict, and leaves it open otherwise', function (bool $doomed, string $second, string $decided, string $read) use ($left, $makeDoomed): void {
+    $project = Flows::project();
+    $plan = Planned::twoShards();
+    $left($project, $plan, 1, Units::none(), $doomed ? $makeDoomed() : Undoomed::run());
+
+    if ($second === 'left') {
+        $left($project, $plan, 2, Units::none(), Undoomed::run());
+    }
+
+    if ($second === 'garbled') {
+        Scratch::write($project, '.mutation-gate/results/2.json', '{');
+    }
+
+    $said = Results::decided($plan, Workspace::results(), Directory::at($project));
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($said instanceof NotGiven ? '' : strtok($said, "\n"))->toBe($decided)
+        ->and(match (true) {
+            $results instanceof CannotJudge => 'cannot judge',
+            $results->stopped()->isDoomed() => 'fails',
+            default => 'open',
+        })->toBe($read)
+        ->and($said instanceof NotGiven || $results instanceof CannotJudge ? true : str_contains($said, $results->stopped()->failures()->text()))->toBeTrue()
+        ->and($said instanceof NotGiven || ! $results instanceof CannotJudge ? true : str_contains($said, $results->why()))->toBeTrue();
+})->with([
+    'every shard left a result' => [false, 'left', '', 'open'],
+    'a shard left none' => [false, 'none', 'The verdict cannot judge this run whatever a second wave judges:', 'cannot judge'],
+    'a shard\'s result cannot be read' => [false, 'garbled', 'The verdict cannot judge this run whatever a second wave judges:', 'cannot judge'],
+    'a shard stopped once the run could not pass' => [true, 'left', 'The verdict fails whatever a second wave judges:', 'fails'],
+    'a shard stopped so, beside one that left none' => [true, 'none', 'The verdict fails whatever a second wave judges:', 'fails'],
+]);

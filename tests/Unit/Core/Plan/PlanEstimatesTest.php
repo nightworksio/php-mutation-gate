@@ -21,9 +21,11 @@ use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -55,17 +57,27 @@ function estimatedPlan(Shard ...$shards): Plan
 it('expects the longest job as wall time and every job as runner time, each with its opening run and setup', function (): void {
     $plan = estimatedPlan(estimatedShard(1, 100.0, 0.0, 20.0), estimatedShard(2, 0.0, 300.0, 20.0), Shard::empty(ShardId::of(3)));
 
-    expect(PlanEstimates::of($plan, Seconds::of(60.0))->runTime())
+    expect(PlanEstimates::of($plan, Seconds::of(60.0), StreamWall::of(1))->runTime())
         ->toEqual(RunTime::estimated(Seconds::of(380.0), Seconds::of(560.0)));
 });
 
+it('expects a shard that judges one part of the test files at the wall its streams take its cost in, and a whole shard at its cost', function (): void {
+    $parted = estimatedShard(1, 0.0, 400.0, 20.0)->inPart(TestPart::of(1, 2));
+    $whole = estimatedShard(2, 0.0, 400.0, 20.0);
+
+    expect(PlanEstimates::of(estimatedPlan($parted), Seconds::of(60.0), StreamWall::of(4))->runTime())
+        ->toEqual(RunTime::estimated(Seconds::of(180.0), Seconds::of(180.0)))
+        ->and(PlanEstimates::of(estimatedPlan($whole), Seconds::of(60.0), StreamWall::of(4))->runTime())
+        ->toEqual(RunTime::estimated(Seconds::of(480.0), Seconds::of(480.0)));
+});
+
 it('says what share of the units\' time each basis gives, and none of a plan of no time', function (): void {
-    $estimates = PlanEstimates::of(estimatedPlan(estimatedShard(1, 100.0, 300.0, 0.0)), Seconds::of(0.0));
+    $estimates = PlanEstimates::of(estimatedPlan(estimatedShard(1, 100.0, 300.0, 0.0)), Seconds::of(0.0), StreamWall::of(1));
 
     expect($estimates->share(CostBasis::Learned))->toEqual(Percentage::parse(25))
         ->and($estimates->share(CostBasis::Guessed))->toEqual(Percentage::parse(75))
         ->and($estimates->share(CostBasis::Measured))->toEqual(Percentage::none())
-        ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0))->share(CostBasis::Guessed))->toEqual(Percentage::none())
+        ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0), StreamWall::of(1))->share(CostBasis::Guessed))->toEqual(Percentage::none())
         ->and($estimates->work()->measured())->toEqual(Percentage::parse(25))
         ->and($estimates->work()->estimate())->toEqual($estimates->runTime());
 });
@@ -76,15 +88,15 @@ it('sets the planned work the changed lines the plan says no test runs, by file'
         Considered::everything()->untesting(Changes::of(Change::modified(Path::of('src/Money.php'), $lines))),
     );
 
-    expect(PlanEstimates::of($plan, Seconds::of(0.0))->work()->uncovered())
+    expect(PlanEstimates::of($plan, Seconds::of(0.0), StreamWall::of(1))->work()->uncovered())
         ->toEqual(ByPath::none()->with(Path::of('src/Money.php'), $lines))
-        ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0))->work()->uncovered())->toEqual(ByPath::none());
+        ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0), StreamWall::of(1))->work()->uncovered())->toEqual(ByPath::none());
 });
 
 it('writes a line for each shard with units', function (): void {
     $plan = estimatedPlan(estimatedShard(1, 0.0, 540.0, 60.0), estimatedShard(2, 120.0, 0.0, 60.0), Shard::empty(ShardId::of(3)));
 
-    expect(PlanEstimates::of($plan, Seconds::of(60.0))->lines())->toBe([
+    expect(PlanEstimates::of($plan, Seconds::of(60.0), StreamWall::of(1))->lines())->toBe([
         'Shard 1 (src, part 1): about 11m, guessed.',
         'Shard 2 (src, part 2): about 4m, learned.',
     ]);
@@ -93,14 +105,14 @@ it('writes a line for each shard with units', function (): void {
 it('sums the run up in one line where nothing is measured and the target is met', function (): void {
     $plan = estimatedPlan(estimatedShard(1, 0.0, 540.0, 60.0), estimatedShard(2, 120.0, 0.0, 60.0), Shard::empty(ShardId::of(3)));
 
-    expect(PlanEstimates::of($plan, Seconds::of(60.0))->summary(ProcessCount::of(4), Absent::setting(), 2))->toBe([
+    expect(PlanEstimates::of($plan, Seconds::of(60.0), StreamWall::of(1))->summary(ProcessCount::of(4), Absent::setting(), 2))->toBe([
         'The plan expects about 11m of wall time and 15m of runner time: 18% learned, 0% measured, 81% guessed.',
     ]);
 });
 
 it('warns where the plan cannot meet shards.target, saying what stops it', function (): void {
     $plan = estimatedPlan(estimatedShard(1, 0.0, 700.0, 60.0), estimatedShard(2, 0.0, 400.0, 60.0));
-    $estimates = PlanEstimates::of($plan, Seconds::of(60.0));
+    $estimates = PlanEstimates::of($plan, Seconds::of(60.0), StreamWall::of(1));
     $total = 'The plan expects about 14m of wall time and 22m of runner time: 0% learned, 0% measured, 100% guessed.';
 
     expect($estimates->summary(ProcessCount::of(4), Seconds::of(600.0), 2))
@@ -126,7 +138,7 @@ it('warns where the plan cannot meet shards.target, saying what stops it', funct
 });
 
 it('says one shard as one where the plan cannot split it to meet shards.target', function (): void {
-    $estimates = PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.0, 700.0, 60.0)), Seconds::of(60.0));
+    $estimates = PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.0, 700.0, 60.0)), Seconds::of(60.0), StreamWall::of(1));
 
     expect($estimates->summary(ProcessCount::of(4), Seconds::of(600.0), 3)[1])->toBe(<<<'SAID'
         shards.target is 10m, and at 1 shard the longest is expected to take 14m.
@@ -141,7 +153,7 @@ it('says each shard\'s runner is taken to run as many mutants at once as this ma
         ShardEstimate::none()->with(Estimated::of(Seconds::of(5.0), CostBasis::Measured)),
     );
 
-    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0))->summary(ProcessCount::of(4), Absent::setting(), 2))
+    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0), StreamWall::of(1))->summary(ProcessCount::of(4), Absent::setting(), 2))
         ->toBe([
             'The plan expects about 5s of wall time and 5s of runner time: 0% learned, 100% measured, 0% guessed.',
             'It takes each shard\'s runner to run 4 mutants at once, as this machine does.',
@@ -149,14 +161,14 @@ it('says each shard\'s runner is taken to run as many mutants at once as this ma
 });
 
 it('expects a plan of shards under a second at their own time, and no time of a plan of none', function (): void {
-    expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.0, 0.5, 0.0)), Seconds::of(0.0))->runTime())
+    expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.0, 0.5, 0.0)), Seconds::of(0.0), StreamWall::of(1))->runTime())
         ->toEqual(RunTime::estimated(Seconds::of(0.5), Seconds::of(0.5)))
-        ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0))->runTime())
+        ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0), StreamWall::of(1))->runTime())
         ->toEqual(RunTime::estimated(Seconds::of(0.0), Seconds::of(0.0)));
 });
 
 it('gives the whole share to the one basis of a plan of a microsecond', function (): void {
-    $estimates = PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.000001, 0.0, 0.0)), Seconds::of(0.0));
+    $estimates = PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.000001, 0.0, 0.0)), Seconds::of(0.0), StreamWall::of(1));
 
     expect($estimates->share(CostBasis::Learned))->toEqual(Percentage::whole())
         ->and($estimates->share(CostBasis::Guessed))->toEqual(Percentage::none());
@@ -167,11 +179,11 @@ it('says how many mutants a runner is taken to run at once where a microsecond o
         ShardEstimate::none()->with(Estimated::of(Seconds::of(0.000001), CostBasis::Measured)),
     );
 
-    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0))->summary(ProcessCount::of(4), Absent::setting(), 2))
+    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0), StreamWall::of(1))->summary(ProcessCount::of(4), Absent::setting(), 2))
         ->toContain('It takes each shard\'s runner to run 4 mutants at once, as this machine does.');
 });
 
 it('names every basis a shard\'s estimate rests on, however little of it each gives', function (): void {
-    expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.5, 0.5, 0.0)), Seconds::of(0.0))->lines())
+    expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.5, 0.5, 0.0)), Seconds::of(0.0), StreamWall::of(1))->lines())
         ->toBe(['Shard 1 (src, part 1): about 1s, learned and guessed.']);
 });

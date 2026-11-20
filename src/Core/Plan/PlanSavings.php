@@ -44,6 +44,7 @@ final readonly class PlanSavings
         private Timings $timings,
         private Closure $estimate,
         private Seconds $setup,
+        private StreamWall $wall,
     ) {
     }
 
@@ -53,9 +54,14 @@ final readonly class PlanSavings
      *
      * @param Closure(Unit): Estimated $estimate
      */
-    public static function of(Plan $plan, Timings $timings, Closure $estimate, Seconds $setup): self
-    {
-        return new self($plan, $timings, $estimate, $setup);
+    public static function of(
+        Plan $plan,
+        Timings $timings,
+        Closure $estimate,
+        Seconds $setup,
+        StreamWall $wall,
+    ): self {
+        return new self($plan, $timings, $estimate, $setup, $wall);
     }
 
     /** This account, with what the run cost, priced where a price is given, and what it saved, having spent this. */
@@ -80,7 +86,7 @@ final readonly class PlanSavings
     public function cost(RunTime $spent): Cost
     {
         return Cost::of(
-            PlanEstimates::of($this->plan, $this->setup)->runTime(),
+            PlanEstimates::of($this->plan, $this->setup, $this->wall)->runTime(),
             $spent,
             Seconds::of($this->spared()),
             $this->setup,

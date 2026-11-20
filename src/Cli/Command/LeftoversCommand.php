@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use function implode;
 use function is_float;
+use function is_string;
 
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
@@ -32,7 +32,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * after the shards, cuts the mutants each one left at its deadline into the
  * shares a second wave of jobs judges (ADR-0190), writes them beside the
  * results, and prints on standard output the matrix of those jobs, a JSON
- * list of each share's shard and number, `[]` where no shard left any.
+ * list of each share's shard and number, `[]` where no shard left any, or
+ * where the shards' results alone decide the verdict, saying why (ADR-0301).
  *
  * @internal
  */
@@ -40,8 +41,7 @@ final readonly class LeftoversCommand
 {
     public const string NAME = 'leftovers';
 
-    private const string UNREAD
-        = 'Shards %s left no result, so no share holds their mutants and the verdict cannot judge them.';
+    private const string DECIDED = "No second wave is cut: its jobs would change no verdict (ADR-0301).\n%s";
 
     public static function command(Composition $composition): Command
     {
@@ -67,18 +67,19 @@ final readonly class LeftoversCommand
                 }
 
                 $output->writeln(JsonText::compact($cut->matrix()), OutputInterface::OUTPUT_RAW);
-                self::saidUnread($cut, $output);
+                self::saidDecided($cut, $output);
 
                 return ExitCode::Passed->value;
             });
     }
 
-    /** A line on the error output naming the shards that left no result, whose mutants no share lists. */
-    private static function saidUnread(LeftoverShares $cut, OutputInterface $output): void
+    /** On the error output, why no share is cut where the shards' results alone decide the verdict. */
+    private static function saidDecided(LeftoverShares $cut, OutputInterface $output): void
     {
-        $unread = $cut->unread();
-        if ($unread !== []) {
-            Aside::of($output)->writeln(sprintf(self::UNREAD, implode(', ', $unread)), OutputInterface::OUTPUT_RAW);
+        $decided = $cut->decidedBy();
+
+        if (is_string($decided)) {
+            Aside::of($output)->writeln(sprintf(self::DECIDED, $decided), OutputInterface::OUTPUT_RAW);
         }
     }
 

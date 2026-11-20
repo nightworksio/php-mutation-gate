@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanSavings;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
@@ -628,6 +629,7 @@ final readonly class Judging
                 $timings,
                 static fn(Unit $unit): Estimated => $costs->cost($unit, $timings, FirstRun::unmeasured()),
                 $this->settings->shards()->setup(),
+                StreamWall::of($this->adapters->processes()->count()),
             )->into($assessed->verdict->account(), $spent, $this->settings->shards()->costs()->perRunnerMinute()),
             $plan->runOn(),
             $this->adapters->project,

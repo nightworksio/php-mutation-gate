@@ -20,7 +20,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Selector;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
-use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -29,8 +28,10 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\PendingListings;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Port\MapEngine;
 
@@ -233,7 +234,8 @@ final class Remembered
      * How each baseline run ended, by its key, in the order given: the keys
      * not yet kept run once each, all in one call. A run that passed or
      * failed is kept; one stopped at its deadline, or out of memory, says
-     * nothing of the tests and is not kept, and one never started never ran.
+     * nothing of the tests and is not kept, and one never started, as none
+     * starts past the deadline, was halted before it began (ADR-0300).
      *
      * @param  list<string>                                            $keys
      * @param  Closure(non-empty-list<string>): array<int, ControlRun> $running how the runs of these keys ended,
@@ -262,7 +264,7 @@ final class Remembered
             fn(string $key): ControlRun => match (true) {
                 array_key_exists($key, $this->baselines) => $this->baselines[$key],
                 array_key_exists($key, $found) => $found[$key],
-                default => ControlRun::unrun(ControlRuns::NOT_RUN),
+                default => ControlRun::ofProcess(Ran::halted(''), TestIds::none()),
             },
             $keys,
         );

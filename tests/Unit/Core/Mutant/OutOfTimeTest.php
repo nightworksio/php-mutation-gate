@@ -27,12 +27,13 @@ it('says what the budget ran out before, and the command that judges it', functi
     'confirming' => [OutOfTime::BeforeConfirming, 'its survival could be confirmed'],
     'running' => [OutOfTime::BeforeRunning, 'its own run finished'],
     'checking' => [OutOfTime::BeforeChecking, 'static analysis could check it'],
-    'controlling' => [OutOfTime::BeforeControlling, 'its tests could run unmutated to judge its timeout'],
+    'controlling' => [OutOfTime::BeforeControlling, 'its tests could run unmutated to judge it'],
+    'vouching' => [OutOfTime::BeforeVouching, 'its kill could be vouched for'],
 ]);
 
 it('knows a budget that left a mutant before its own run told anything of it', function (): void {
     expect(array_map(static fn(OutOfTime $before): bool => $before->isUnrun(), OutOfTime::cases()))
-        ->toBe([true, false, true, false, false]);
+        ->toBe([true, false, true, false, false, false]);
 });
 
 $mutant = static fn(MutantStatus $status): Mutant => Mutant::of(
@@ -49,6 +50,7 @@ it('knows a mutant or a kill a time budget left unjudged by what its reason reco
     expect(OutOfTime::left($mutant))->toBe($left);
 })->with([
     'a survivor it had no time to confirm' => [fn(): Mutant => $mutant(MutantStatus::Survived)->unjudged(OutOfTime::BeforeConfirming), true],
+    'a kill it had no time to vouch for' => [fn(): Mutant => $mutant(MutantStatus::Killed)->unjudged(OutOfTime::BeforeVouching), true],
     'a kill that no longer stands' => [fn(): ProvedKill => $kill()->unjudged(OutOfTime::BeforeMutating), true],
     'a kill' => [fn(): ProvedKill => $kill(), false],
     'a mutant the runner left unjudged for its own reason' => [fn(): Mutant => $mutant(MutantStatus::Unjudged)->because(Reason::that('No test could be named.')), false],
