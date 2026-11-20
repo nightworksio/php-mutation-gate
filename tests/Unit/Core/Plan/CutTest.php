@@ -3,13 +3,17 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\CostMode;
+use NightWorksIO\MutationGate\Core\Config\ShardTail;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
+use NightWorksIO\MutationGate\Core\Plan\JobTail;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\StreamWall;
+use NightWorksIO\MutationGate\Core\Plan\TailRule;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -505,6 +509,29 @@ it('cuts a run that streams its test parts to the fewest shards whose wall time 
     ],
     'not cutting test files: as sized, a unit a shard' => [fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 20)->streamedOver(StreamWall::of(4)), 2],
     'a count asked for: as asked' => [fn(): Cut => Cut::exactly(3)->cuttingTestFiles()->streamedOver(StreamWall::of(4)), 3],
+]);
+
+it('cuts a run whose jobs run their own tail and come to more than the pool to the pool, each within the stop of a job that runs its tail, and says how its jobs stop', function (
+    ShardTail $tail,
+    CostMode $mode,
+    int $pool,
+    Cut $cut,
+    int $count,
+    bool $runs,
+) use ($weighed, $makeSrc, $shards): void {
+    $work = Workload::of($weighed('src/A.php', 4000.0), $weighed('src/B.php', 4000.0));
+    $jobs = JobTail::of(Seconds::minutes(360), $pool);
+    $made = $cut->tailing(TailRule::of($tail, $mode, $jobs, Seconds::minutes(350)))->cut($work, $makeSrc());
+
+    expect($shards($made))->toHaveCount($count)
+        ->and($made instanceof Shards ? $made->tail() : $made)->toEqual($runs ? $jobs->running() : $jobs);
+})->with([
+    'auto, more than the pool: cut to the pool, running its tail' => [ShardTail::Auto, CostMode::Wall, 4, fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 2)->cuttingTestFiles()->streamedOver(StreamWall::of(1)), 4, true],
+    'auto, within the pool: stopping at the target' => [ShardTail::Auto, CostMode::Wall, 20, fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 2)->cuttingTestFiles()->streamedOver(StreamWall::of(1)), 15, false],
+    'auto under minutes, within the pool: running its tail' => [ShardTail::Auto, CostMode::Minutes, 20, fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 2)->cuttingTestFiles()->streamedOver(StreamWall::of(1)), 15, true],
+    'stop, more than the pool: as today' => [ShardTail::Stop, CostMode::Wall, 4, fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 2)->cuttingTestFiles()->streamedOver(StreamWall::of(1)), 15, false],
+    'run, within the pool: its count, running its tail' => [ShardTail::Run, CostMode::Wall, 20, fn(): Cut => Cut::bySize(600, Seconds::of(60.0), 2)->cuttingTestFiles()->streamedOver(StreamWall::of(1)), 15, true],
+    'a count asked for past the pool: as asked, running its tail' => [ShardTail::Auto, CostMode::Wall, 4, fn(): Cut => Cut::exactly(6)->cuttingTestFiles()->streamedOver(StreamWall::of(1)), 6, true],
 ]);
 
 it('cuts each package, where the minutes are billed, at the count whose jobs bill the fewest whole minutes, a tie going to more shards', function (

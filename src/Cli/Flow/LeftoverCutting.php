@@ -7,9 +7,9 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function array_key_exists;
 use function array_keys;
 use function is_array;
-use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
@@ -22,9 +22,9 @@ use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\LeftForks;
 use NightWorksIO\MutationGate\Core\Plan\LeftMutant;
-use NightWorksIO\MutationGate\Core\Plan\LeftoverCut;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShares;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\SecondWave;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\StreamWall;
@@ -46,7 +46,11 @@ use function sprintf;
  * to start judging, written where the second wave's jobs and the verdict
  * read them; a test the map has no time for is predicted to take none.
  * Where the shards' results alone decide the verdict, as where a shard left
- * none, none is cut, saying why (ADR-0301).
+ * none, none is cut, saying why (ADR-0301). Where the plan's jobs run their
+ * own tail, its shares are at most the pool's jobs, each its job's limit;
+ * where they stop at their target and their shares come to more than the
+ * pool, as `shards.tail` and `costs.mode` say, they are folded into at most
+ * the pool's jobs that run their own tail to their job's limit (ADR-0303).
  *
  * @internal
  */
@@ -57,46 +61,55 @@ final readonly class LeftoverCutting
     }
 
     /**
-     * The shares cut from the results in this directory, for jobs of this
-     * limit, written beside them; or why they could not be written.
+     * The shares cut from the results in this directory, for jobs that stop
+     * as the plan and these shard settings leave them, written beside them;
+     * or why they could not be written.
      */
     public function cut(
         Plan $plan,
         Path $results,
         Path $coverage,
-        Seconds $limit,
+        Shards $settings,
         StreamWall $wall,
     ): LeftoverShares|CannotJudge {
         $decided = Results::decided($plan, $results, $this->adapters->project);
         $shares = $decided instanceof NotGiven
-            ? $this->shares($plan, $results, $coverage, $limit, $wall)
+            ? $this->shares($plan, $results, $coverage, $settings, $wall)
             : LeftoverShares::decided($plan->digest(), $decided);
         $written = $this->adapters->project->write(LeftoverParts::file($results), Contents::of($shares->encode()));
 
         return $written instanceof Written ? $shares : $written;
     }
 
-    /** The shares cut from the results in this directory, for jobs of this limit. */
+    /** The shares cut from the results in this directory, for jobs that stop as the plan and these settings say. */
     private function shares(
         Plan $plan,
         Path $results,
         Path $coverage,
-        Seconds $limit,
+        Shards $settings,
         StreamWall $wall,
     ): LeftoverShares {
         $map = $this->mapIn($coverage);
         $left = [];
-        $capacity = [];
+        $started = [];
 
         foreach ($plan as $shard) {
             $read = LeftResults::of($plan, $shard, $results, $this->adapters->project);
             $number = $shard->id()->number();
             $history = $this->historyIn($coverage, $shard->id());
             $left[$number] = is_array($read) ? $this->leftIn($map, $history, [...$read[1]->mutants()]) : [];
-            $capacity[$number] = is_array($read) ? $this->capacityOf($read[0], $limit) : $limit;
+            $started[$number] = is_array($read) ? $this->startedAfter($read[0]) : Seconds::none();
         }
 
-        return LeftoverCut::of($plan->digest(), $left, $this->filesOf($map), $capacity, $wall);
+        return SecondWave::cut(
+            $plan->digest(),
+            $left,
+            $this->filesOf($map),
+            $started,
+            $plan->briefing()->learned(),
+            $settings,
+            $wall,
+        );
     }
 
     /**
@@ -171,16 +184,16 @@ final readonly class LeftoverCutting
         return $files;
     }
 
-    /** The seconds a job of this limit has to judge in, as long as the shard took to start judging is spent first. */
-    private function capacityOf(ShardResult $result, Seconds $limit): Seconds
+    /** How long the shard took to start judging; none where it recorded no mutation step. */
+    private function startedAfter(ShardResult $result): Seconds
     {
         foreach ($result->measured()->steps() as $step) {
             if ($step->step() === Step::Mutation) {
-                return Seconds::of(max(0.0, $limit->seconds() - $step->since()->seconds()));
+                return $step->since();
             }
         }
 
-        return $limit;
+        return Seconds::none();
     }
 
     /** The plan's map in this directory; an empty one where none can be read. */

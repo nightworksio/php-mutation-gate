@@ -87,6 +87,18 @@ final readonly class Units implements Countable, IteratorAggregate
         )));
     }
 
+    /** Those of these units one of these files lies in: a file's own unit, or the held directory it is inside. */
+    public function holdingAny(Paths $files): self
+    {
+        return new self(array_values(array_filter(
+            $this->units,
+            static fn(Unit $unit): bool => array_any(
+                [...$files],
+                static fn(Path $file): bool => $file->within($unit->path()),
+            ),
+        )));
+    }
+
     /** The path of each of these units. */
     public function paths(): Paths
     {

@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\Pulling;
 use NightWorksIO\MutationGate\Core\Config\ShardPull;
 use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Config\ShardTail;
 use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -42,6 +43,7 @@ final readonly class ShardsKeys
         $pull = Field::optional(Pulling::PULL, Enumerated::of(ShardPull::cases()), $judges);
         $progress = Field::optional('progress', Duration::written(), $judges);
         $margin = Field::optional('margin', Duration::written(), $judges);
+        $tail = Field::optional('tail', Enumerated::of(ShardTail::cases()), $judges);
         $perLine = Field::optional(SecondsPerLine::KEY, NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
         $perMinute = Field::optional('perRunnerMinute', self::price(), $judges);
         $window = Field::optional(SavingsWindow::KEY, Duration::written(), $judges);
@@ -66,6 +68,7 @@ final readonly class ShardsKeys
                         $pull,
                         $progress,
                         $margin,
+                        $tail,
                     ): Layer|Invalid {
                         $cut = $seconds->read($shards);
                         $most = $max->read($shards);
@@ -77,6 +80,7 @@ final readonly class ShardsKeys
                         $pulled = $pull->read($shards);
                         $every = $progress->read($shards);
                         $clear = $margin->read($shards);
+                        $tails = $tail->read($shards);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
@@ -90,6 +94,7 @@ final readonly class ShardsKeys
                                 pulling: Pulling::of($pulled->value()),
                                 progress: $every->value(),
                                 margin: $clear->value(),
+                                tail: $tails->value(),
                             )),
                             $cut,
                             $most,
@@ -101,6 +106,7 @@ final readonly class ShardsKeys
                             $pulled,
                             $every,
                             $clear,
+                            $tails,
                         );
                     },
                     $seconds,
@@ -113,6 +119,7 @@ final readonly class ShardsKeys
                     $pull,
                     $progress,
                     $margin,
+                    $tail,
                 )->atMostOne(['seconds', 'target']),
             ),
             Field::section('plan', self::plan()),

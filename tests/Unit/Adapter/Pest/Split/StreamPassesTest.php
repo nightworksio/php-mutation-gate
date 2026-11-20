@@ -41,3 +41,17 @@ it('lists no pass of a run that names no results, and none once cleared for the 
     expect($none)->toEqual(StepTimes::none())
         ->and(StreamPasses::within($results, $mutation))->toEqual(StepTimes::none());
 });
+
+it('reads a pass that started and never ended, as the stop cut it short, as running to the mutation step\'s end', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $mutation = StepTime::of(Step::Mutation, Seconds::of(20.0), Seconds::of(446.0), 250);
+
+    StreamPasses::started($results, Step::FirstPass, 250, 900.0);
+    StreamPasses::ended($results, Step::FirstPass, 22.0, 250, 900.0);
+    StreamPasses::started($results, Step::SecondPass, 240, 900.0);
+
+    expect(StreamPasses::within($results, $mutation))->toEqual(StepTimes::of(
+        StepTime::of(Step::FirstPass, Seconds::of(20.0), Seconds::of(22.0), 250)->bounded(Seconds::of(900.0)),
+        StepTime::of(Step::SecondPass, Seconds::of(42.0), Seconds::of(424.0), 240)->bounded(Seconds::of(900.0)),
+    ));
+});

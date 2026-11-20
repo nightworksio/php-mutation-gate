@@ -91,7 +91,8 @@ final readonly class SettingsCases
             "cutAt": 2.0,
             "pull": "auto",
             "progress": "3m",
-            "margin": "45s"
+            "margin": "45s",
+            "tail": "auto"
         },
         "costs": {
             "secondsPerLine": {

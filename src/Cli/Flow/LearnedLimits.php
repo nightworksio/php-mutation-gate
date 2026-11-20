@@ -8,7 +8,6 @@ use function is_float;
 use function min;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\JobStop;
 use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -19,7 +18,9 @@ use NightWorksIO\MutationGate\Core\Cost\JobsLearned;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
+use NightWorksIO\MutationGate\Core\Plan\JobTail;
 use NightWorksIO\MutationGate\Core\Plan\PlanLearned;
+use NightWorksIO\MutationGate\Core\Plan\TailRule;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
@@ -125,14 +126,19 @@ final readonly class LearnedLimits
         ], $jobs, $settings);
     }
 
-    /** The briefing, telling every shard the multiple and the pace learned, where each was. */
-    public function briefing(Briefing $briefing): Briefing
+    /**
+     * The briefing, telling every shard the multiple and the pace learned,
+     * where each was, and how the plan's jobs stop.
+     */
+    public function briefing(Briefing $briefing, JobTail $tail): Briefing
     {
         $none = PlanLearned::none();
         $kills = $this->multiple instanceof NotGiven ? $none : $none->allowing($this->multiple);
 
         return $briefing->learning(
-            ($this->pace instanceof NotGiven ? $kills : $kills->pacing($this->pace))->timing($this->jobs),
+            ($this->pace instanceof NotGiven ? $kills : $kills->pacing($this->pace))
+                ->timing($this->jobs)
+                ->tailing($tail),
         );
     }
 
@@ -154,15 +160,29 @@ final readonly class LearnedLimits
         return $this->shards instanceof NotGiven ? $within : $within->atMost($this->shards);
     }
 
-    /** How long a job's gate runs before it stops, as the jobs learned leave it. */
-    public function stop(): Seconds
+    /**
+     * The cut, its jobs' tail decided by `shards.tail` under `costs.mode`,
+     * the shards learned or `shards.max` running at once, each job of this
+     * limit (ADR-0303).
+     */
+    public function tailing(Cut $cut, Seconds $limit): Cut
     {
         $shards = $this->settings->shards();
+        $jobs = JobTail::of($limit, $this->shards instanceof NotGiven ? $shards->max() : $this->shards);
+        $learned = PlanLearned::none()->timing($this->jobs)->tailing($jobs->running());
 
-        return $shards->stop()->after(
-            $this->jobs->setupOr($shards->setup()),
-            $this->jobs->windDownOr(Seconds::of(JobStop::WIND_DOWN_SECONDS)),
-        );
+        return $cut->tailing(TailRule::of(
+            $shards->tail(),
+            $shards->costs()->mode(),
+            $jobs,
+            $learned->stop($shards),
+        ));
+    }
+
+    /** How long a job's gate runs before it stops at its target, as the jobs learned leave it. */
+    public function stop(): Seconds
+    {
+        return PlanLearned::none()->timing($this->jobs)->stop($this->settings->shards());
     }
 
     /** What the plan learned of the jobs on its platform. */

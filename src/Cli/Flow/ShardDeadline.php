@@ -11,14 +11,15 @@ use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Ci\Variables;
-use NightWorksIO\MutationGate\Core\Config\JobStop;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Shards;
-use NightWorksIO\MutationGate\Core\Cost\JobsLearned;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\JobTail;
+use NightWorksIO\MutationGate\Core\Plan\PlanLearned;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
 /**
  * When a shard's job stops to keep what it judged (ADR-0114, ADR-0196): the
@@ -29,8 +30,10 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
  * says when it began, in `MUTATION_GATE_JOB_STARTED`, as seconds since the
  * epoch; otherwise it is the longest the plan learned of recent jobs, or
  * `shards.setup`. The wind-down is the longest the plan learned, or a
- * standard one. A budget also starts nothing its estimate says will not
- * fit; the stop alone starts every unit and stops the runner.
+ * standard one. Where the plan's jobs run their own tail, the stop is the
+ * job's limit less the same, or `shards.jobLimit` (ADR-0303). A budget also
+ * starts nothing its estimate says will not fit; the stop alone starts
+ * every unit and stops the runner.
  *
  * @internal
  */
@@ -38,6 +41,9 @@ final readonly class ShardDeadline
 {
     /** The variable a CI job names the instant it began in, as seconds since the epoch. */
     public const string JOB_STARTED = 'MUTATION_GATE_JOB_STARTED';
+
+    /** The variable a CI hands the plan's job the minutes each shard's job may run in. */
+    public const string JOB_LIMIT = 'MUTATION_GATE_JOB_LIMIT';
 
     private function __construct(private Deadline $deadline, private Seconds|NotGiven $setup)
     {
@@ -49,23 +55,36 @@ final readonly class ShardDeadline
         return $this->setup;
     }
 
-    /** The deadline of a shard whose gate starts at this instant, in a job this environment describes. */
+    /**
+     * The deadline of a shard whose gate starts at this instant, in a job
+     * this environment describes, of a plan that learned and decided this.
+     */
     public static function of(
         Settings $settings,
-        JobsLearned $jobs,
+        PlanLearned $learned,
         Variables $environment,
         DateTimeImmutable $now,
     ): self {
         $shards = $settings->shards();
         $setup = self::setupOf($environment, $now, $shards);
-        $stop = $shards->stop()->after(
-            $setup instanceof Seconds ? $setup : $jobs->setupOr($shards->setup()),
-            $jobs->windDownOr(Seconds::of(JobStop::WIND_DOWN_SECONDS)),
-        );
+        $stop = $learned->stop($shards, $setup);
         $budget = $settings->triage()->budget();
         $sooner = $budget instanceof Seconds && $stop->outlasts($budget) ? $budget : $stop;
 
         return new self(Deadline::after($now, $sooner), $setup);
+    }
+
+    /**
+     * The longest a shard's job may run, its setup included, as the CI hands
+     * it in whole minutes; GitHub's six hours where it hands none.
+     */
+    public static function limitOf(Variables $environment): Seconds
+    {
+        $minutes = $environment->valueOf(self::JOB_LIMIT);
+
+        return WholeNumber::isPositive($minutes)
+            ? Seconds::minutes((int) $minutes)
+            : Seconds::of(JobTail::LIMIT_SECONDS);
     }
 
     /** What this deadline's estimates must fit: it, under a budget; nothing under the stop alone. */

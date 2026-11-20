@@ -264,7 +264,7 @@ final readonly class Planning
                 $at,
                 $keying,
                 $mode,
-                $learned->cut($cut),
+                $learned->tailing($learned->cut($cut), ShardDeadline::limitOf($this->adapters->environment)),
                 $matrix,
                 $saved,
                 $quick instanceof QuickRound,
@@ -278,6 +278,7 @@ final readonly class Planning
             ? PlanMade::of(
                 $planned->briefed($learned->briefing(
                     $this->adapters->briefing($briefing->standingAs($planned->briefing())),
+                    $planned->shards()->tail(),
                 )),
                 $measured->said(),
             )->without($ledgers->unread())->learning(
@@ -400,6 +401,7 @@ final readonly class Planning
             $cut,
             $opening,
             $planned->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun)->saving($saved),
+            $map,
         );
         $digests = $this->committed($now, $inventory->standing->head());
         $standing = new NothingReached($this->adapters, $this->settings, $this->setup)->briefing(

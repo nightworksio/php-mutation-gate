@@ -76,6 +76,12 @@ final readonly class Shards implements Setting
         return new self(Json::at('shards.margin', $duration));
     }
 
+    /** `shards.tail`: `auto`, `stop` or `run`, whether a job runs its own tail to its job's limit (ADR-0303). */
+    public static function tail(string $tail): self
+    {
+        return new self(Json::at('shards.tail', $tail));
+    }
+
     /** `shards.progress`: how long a CI shard waits between two artifacts saying how far it got; `0s` for none. */
     public static function progress(string $duration): self
     {

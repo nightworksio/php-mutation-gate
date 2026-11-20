@@ -11,6 +11,7 @@ $calls = [
     'Shards::pullingBySteals' => [static fn(): Setting => Shards::pullingBySteals(), 'shards.pull', 'steal', 'Shards::pullingBySteals'],
     'Shards::pullingByRedoing' => [static fn(): Setting => Shards::pullingByRedoing(), 'shards.pull', 'redo', 'Shards::pullingByRedoing'],
     'Shards::owningTheirParts' => [static fn(): Setting => Shards::owningTheirParts(), 'shards.pull', 'off', 'Shards::owningTheirParts'],
+    'Shards::tail' => [static fn(): Setting => Shards::tail('run'), 'shards.tail', 'run', 'Shards::tail'],
 ];
 
 it('writes each call\'s key, and writes the config back with the same call', function (Closure $call, string $path, string|bool $value, string $method): void {

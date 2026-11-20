@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\BriefingRecord;
+use NightWorksIO\MutationGate\Core\Plan\JobTail;
 use NightWorksIO\MutationGate\Core\Plan\PlanLearned;
 use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
@@ -77,7 +78,20 @@ it('tells every shard the multiple and the pace the plan learned, which its file
         fn(): PlanLearned => PlanLearned::none()->timing(JobsLearned::learned(NotGiven::value(), Seconds::of(9.0))),
         ['learnedWindDown' => 9.0],
     ],
+    'jobs that stop at their target' => [
+        fn(): PlanLearned => PlanLearned::none()->tailing(JobTail::of(Seconds::of(21600.0), 19)),
+        ['tailLimit' => 21600.0, 'tailPool' => 19],
+    ],
+    'jobs that run their own tail' => [
+        fn(): PlanLearned => PlanLearned::none()->tailing(JobTail::of(Seconds::of(3600.0), 4)->running()),
+        ['tailLimit' => 3600.0, 'tailPool' => 4, 'ownTail' => true],
+    ],
 ]);
+
+it('reads a plan file that names no tail, as one written before it, as jobs that stop at their target', function (): void {
+    expect(BriefingRecord::read(Node::decode('{"ownTail": true}'))->learned()->tail())->toEqual(JobTail::unknown())
+        ->and(BriefingRecord::of(Briefing::standard()))->not->toHaveKeys(['tailLimit', 'tailPool', 'ownTail']);
+});
 
 it('waits for a fresh map only once told to, keeping the rest of what it tells', function (): void {
     $peak = MemoryCap::of(300, MemoryUnit::Megabytes);

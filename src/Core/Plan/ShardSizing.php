@@ -46,6 +46,7 @@ final readonly class ShardSizing
         private float $scale = 1.0,
         private bool $streamed = false,
         private bool $billed = false,
+        private TailRule|Absent $tail = new Absent(),
     ) {
     }
 
@@ -85,20 +86,42 @@ final readonly class ShardSizing
      */
     public function atMost(int $most): self
     {
-        return $this->exact || $this->streamed
-            ? $this
-            : new self(
-                $this->size,
-                $most,
-                $this->exact,
-                $this->target,
-                $this->overhead,
-                $this->workPerOverhead,
-                $this->jobLimit,
-                $this->scale,
-                $this->streamed,
-                $this->billed,
-            );
+        return $this->exact || $this->streamed ? $this : $this->pooledAt($most, $this->jobLimit);
+    }
+
+    /**
+     * This sizing, its jobs' tail decided by this rule (ADR-0303): where they
+     * run their own tail and come to more than the pool, cut to the pool,
+     * each within the stop of a job that runs its tail; a count asked for is
+     * kept as asked.
+     */
+    public function tailing(TailRule $tail): self
+    {
+        return new self(
+            $this->size,
+            $this->most,
+            $this->exact,
+            $this->target,
+            $this->overhead,
+            $this->workPerOverhead,
+            $this->jobLimit,
+            $this->scale,
+            $this->streamed,
+            $this->billed,
+            $tail,
+        );
+    }
+
+    /**
+     * How the jobs of the cut these packages make stop.
+     *
+     * @param list<PackageWork> $packages
+     */
+    public function tail(array $packages): JobTail
+    {
+        return $this->tail instanceof TailRule
+            ? $this->tail->job(array_sum($this->cutCounts($packages)))
+            : JobTail::unknown();
     }
 
     /** This sizing, making no shard whose share of the cost is below this many times its overhead. */
@@ -115,26 +138,14 @@ final readonly class ShardSizing
             $this->scale,
             $this->streamed,
             $this->billed,
+            $this->tail,
         );
     }
 
     /** This sizing, its shards no longer than this while the most there may be leaves room; a count as asked. */
     public function withinJobLimit(Seconds $limit): self
     {
-        return $this->exact
-            ? $this
-            : new self(
-                $this->size,
-                $this->most,
-                $this->exact,
-                $this->target,
-                $this->overhead,
-                $this->workPerOverhead,
-                $limit,
-                $this->scale,
-                $this->streamed,
-                $this->billed,
-            );
+        return $this->exact ? $this : $this->pooledAt($this->most, $limit);
     }
 
     /** This sizing, each shard's overhead this much longer. */
@@ -151,6 +162,7 @@ final readonly class ShardSizing
             $this->scale,
             $this->streamed,
             $this->billed,
+            $this->tail,
         );
     }
 
@@ -177,6 +189,7 @@ final readonly class ShardSizing
                 $wall->scale(),
                 streamed: true,
                 billed: $this->billed,
+                tail: $this->tail,
             );
     }
 
@@ -201,6 +214,7 @@ final readonly class ShardSizing
                 $this->scale,
                 $this->streamed,
                 billed: true,
+                tail: $this->tail,
             );
     }
 
@@ -214,12 +228,46 @@ final readonly class ShardSizing
      */
     public function counts(array $packages): array
     {
+        $counts = $this->cutCounts($packages);
+
+        return ! $this->exact && $this->tail instanceof TailRule && $this->tail->folds(array_sum($counts))
+            ? $this->pooledAt($this->tail->pool(), $this->tail->stop())->cutCounts($packages)
+            : $counts;
+    }
+
+    /** This sizing, at most this many shards, each no longer than this. */
+    private function pooledAt(int $most, Seconds|Absent $jobLimit): self
+    {
+        return new self(
+            $this->size,
+            $most,
+            $this->exact,
+            $this->target,
+            $this->overhead,
+            $this->workPerOverhead,
+            $jobLimit,
+            $this->scale,
+            $this->streamed,
+            $this->billed,
+            $this->tail,
+        );
+    }
+
+    /**
+     * @param  list<PackageWork> $packages
+     * @return list<int>
+     */
+    private function cutCounts(array $packages): array
+    {
         $size = match (true) {
             $this->size instanceof Seconds => $this->size->seconds(),
             $this->target instanceof Seconds => $this->sizeToFit($this->target, $this->costOf($packages)),
             default => $this->costOf($packages) / $this->most,
         };
-        $size = $this->withinTheLimit($size);
+        $room = $this->jobLimit instanceof Seconds
+            ? ($this->jobLimit->seconds() - $this->overhead->seconds()) * $this->scale
+            : 0.0;
+        $size = $room > 0.0 ? min($size, $room) : $size;
         $counts = $this->countsAt($packages, $size);
 
         while (array_sum($counts) > max($this->most, count($packages))) {
@@ -235,16 +283,6 @@ final readonly class ShardSizing
         $worth = $overheads->worthCutting($packages, $counts);
 
         return $this->billed ? $overheads->fewestMinutes($packages, $worth, $this->most) : $worth;
-    }
-
-    /** This size, no more than a shard's job can spend on its share of the cost once its overhead is paid. */
-    private function withinTheLimit(float $size): float
-    {
-        $room = $this->jobLimit instanceof Seconds
-            ? ($this->jobLimit->seconds() - $this->overhead->seconds()) * $this->scale
-            : 0.0;
-
-        return $room > 0.0 ? min($size, $room) : $size;
     }
 
     /**

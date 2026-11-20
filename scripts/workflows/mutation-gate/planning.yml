@@ -339,6 +339,7 @@
           COVERAGE: ${{ inputs.coverage }}
           EARLY_ONLY: ${{ inputs.early-only }}
           GATE_PCOV: ${{ inputs.gate-pcov }}
+          MUTATION_GATE_JOB_LIMIT: ${{ inputs.shard-timeout }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")

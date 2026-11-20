@@ -32,3 +32,12 @@ it('stops at the job limit alone where the config sets it and no target', functi
         ->and(new JobStop(Seconds::of(600.0), Seconds::of(45.0), Absent::setting(), limitAlone: true)->after(Seconds::of(50.0), Seconds::of(10.0)))
         ->toEqual(Seconds::of(495.0));
 });
+
+it('stops a job that runs its own tail at shards.jobLimit where it is set, and otherwise at its limit less its setup, wind-down and margin', function (): void {
+    expect(new JobStop(Seconds::of(600.0), Seconds::of(45.0), Seconds::of(1200.0))->tailAfter(Seconds::of(3600.0), Seconds::of(50.0), Seconds::of(10.0)))
+        ->toEqual(Seconds::of(1200.0))
+        ->and(new JobStop(Seconds::of(600.0), Seconds::of(45.0), Absent::setting())->tailAfter(Seconds::of(3600.0), Seconds::of(50.0), Seconds::of(10.0)))
+        ->toEqual(Seconds::of(3495.0))
+        ->and(new JobStop(Seconds::of(600.0), Seconds::of(45.0), Absent::setting())->tailAfter(Seconds::of(60.0), Seconds::of(50.0), Seconds::of(10.0)))
+        ->toEqual(Seconds::of(0.0));
+});

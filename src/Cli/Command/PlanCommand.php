@@ -19,14 +19,12 @@ use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
-use NightWorksIO\MutationGate\Core\Config\JobStop;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Sample\SampleText;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Written;
 
@@ -263,10 +261,7 @@ final readonly class PlanCommand
             $composed->adapters->processes(),
             $shards->target(),
             $shards->max(),
-            $shards->stop()->after(
-                $plan->briefing()->learned()->jobs()->setupOr($shards->setup()),
-                $plan->briefing()->learned()->jobs()->windDownOr(Seconds::of(JobStop::WIND_DOWN_SECONDS)),
-            ),
+            $plan->briefing()->learned()->stop($shards),
         );
 
         foreach ([...$estimates->lines(), ...$summary] as $line) {

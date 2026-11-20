@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanLearned;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\MadeMutants;
@@ -38,12 +39,20 @@ final readonly class LeftoverScope
         return $plan->shards()->pulls() && $this->share instanceof NotGiven;
     }
 
-    /** The shard's units the run mutates. */
+    /** The shard's units the run mutates: for a share, those its mutants' files lie in, a held directory among them. */
     public function shardOf(Shard $shard): Shard
     {
         return $this->share instanceof LeftoverShare
-            ? $shard->holding($shard->units()->within($this->share->files()))
+            ? $shard->holding($shard->units()->holdingAny($this->share->files()))
             : $shard;
+    }
+
+    /** What the plan learned, its jobs running their own tail where the share's job does (ADR-0303). */
+    public function learned(PlanLearned $learned): PlanLearned
+    {
+        return $this->share instanceof LeftoverShare && $this->share->runsItsTail()
+            ? $learned->tailing($learned->tail()->running())
+            : $learned;
     }
 
     public function made(): MadeMutants

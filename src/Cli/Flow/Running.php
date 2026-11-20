@@ -276,12 +276,16 @@ final readonly class Running
         return ShardLeft::after($result, $this->written($result, $results));
     }
 
-    /** When a shard of this plan whose gate starts now stops, in the job the environment describes. */
+    /**
+     * When a shard of this plan whose gate starts now stops, in the job the
+     * environment describes: running its own tail where the plan's jobs do,
+     * or where the share it judges says so (ADR-0303).
+     */
     private function shardDeadline(Plan $plan): ShardDeadline
     {
         return ShardDeadline::of(
             $this->settings,
-            $plan->briefing()->learned()->jobs(),
+            LeftoverScope::of($this->share)->learned($plan->briefing()->learned()),
             $this->adapters->environment,
             $this->setup->clock->now(),
         );
