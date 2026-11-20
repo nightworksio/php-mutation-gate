@@ -143,6 +143,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Costs::secondsPerLine('', 0.3),
                 Costs::secondsPerLine('src', 1),
                 Costs::savingsWindow('14d'),
+                Costs::minutes(),
                 CostModel::uses('acme', Option::of('rate', 2)),
                 VersionControl::uses('hg', Option::of('branch', 'tip')),
                 Ci::gitlab(),
@@ -252,7 +253,7 @@ it('writes every setting of the configuration reference', function (): void {
         'reach' => ['everything' => ['config/**'], 'lockPackages' => ['pestphp/*'], 'changedTests' => 'file', 'fixtures' => ['tests/fixtures/*']],
         'holds' => ['hotPath' => 0.5],
         'shards' => ['seconds' => 900, 'max' => 8],
-        'costs' => ['secondsPerLine' => ['' => 0.3, 'src' => 1], 'savingsWindow' => '14d', 'model' => ['use' => 'acme', 'with' => ['rate' => 2]]],
+        'costs' => ['secondsPerLine' => ['' => 0.3, 'src' => 1], 'savingsWindow' => '14d', 'mode' => 'minutes', 'model' => ['use' => 'acme', 'with' => ['rate' => 2]]],
         'versionControl' => ['use' => 'hg', 'with' => ['branch' => 'tip']],
         'ci' => [
             'plan' => 'gitlab',

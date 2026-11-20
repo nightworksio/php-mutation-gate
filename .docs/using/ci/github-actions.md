@@ -469,7 +469,7 @@ These reporters run on their own under GitHub Actions
   teams without a mention, since that token cannot read an organisation's
   teams; `owners.mention: never` mentions no one
   ([survivors and their owners](../reports.md#survivors-and-their-owners)).
-- **Runner time**: the reusable workflow's verdict reads what each job of its run took, so the headline says exact runner time. The one-step action runs in one job, and reads none, so its headline says `(estimated)`, from the flows' own timings and `shards.setup`.
+- **Runner time**: the reusable workflow's verdict reads what each job of its run took, so the headline says exact runner time. The one-step action runs in one job, and reads none, so its headline says `(estimated)`, from the flows' own timings and `shards.setup`. Its cost section also says the minutes GitHub bills for the run's jobs, each rounded up to a whole minute, against what the plan expected, priced at `costs.perRunnerMinute` where it is set ([ADR-0240](../../decisions/0240-a-metered-runner-plans-for-the-fewest-billed-minutes.md)).
 - **`badge`**: on the default branch, `badge.json`, `trend.json`, `trend.svg`,
   `savings.json` and `summary.json`, what an organisation's dashboard reads,
   in `--publish-dir` (`.mutation-gate/publish` by default). Publishing that directory is up to your workflow. Published to a

@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use function implode;
+use function is_int;
 
 use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\Rate;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
+use NightWorksIO\MutationGate\Core\Cost\Unpriced;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 use function sprintf;
@@ -30,6 +33,10 @@ final readonly class CostText
     private const string SETUP = 'Setup is estimated at %s a job, from `shards.setup`.';
 
     private const string MONEY = 'At %s a runner minute: planned %s, measured %s, spared %s.';
+
+    private const string BILLED = 'The CI bills %d runner minutes, each job rounded up; the plan expected %d.';
+
+    private const string BILLED_MONEY = 'At %s a runner minute, the billed minutes cost %s.';
 
     /** The section of a verdict whose run was costed; nothing for one the flows gave no timings. */
     public static function of(Verdict $verdict): string
@@ -55,6 +62,7 @@ final readonly class CostText
                 sprintf(self::SPARED, $cost->spared()->text()),
                 ...$cost->isSetupEstimated() ? [sprintf(self::SETUP, $cost->setup()->text())] : [],
                 ...$price instanceof Rate ? [self::money($cost, $price)] : [],
+                ...self::billed($cost, $price),
             ]),
             '</details>',
         ]);
@@ -63,6 +71,31 @@ final readonly class CostText
     private static function row(string $name, RunTime $time): string
     {
         return sprintf('| %s | %s | %s |', $name, $time->wall()->text(), $time->runner()->text());
+    }
+
+    /**
+     * What the CI bills for the run's jobs against what the plan expected,
+     * priced at the team's rate; nothing for a run on no CI (ADR-0240).
+     *
+     * @return list<string>
+     */
+    private static function billed(Cost $cost, Rate|Unpriced $price): array
+    {
+        $billed = $cost->measured()->billed();
+        $expected = $cost->planned()->billed();
+
+        if (! is_int($billed) || ! is_int($expected)) {
+            return [];
+        }
+
+        return [
+            sprintf(self::BILLED, $billed, $expected),
+            ...$price instanceof Rate ? [sprintf(
+                self::BILLED_MONEY,
+                Escape::text($price->perRunnerMinute()->text()),
+                Escape::text($price->of(Seconds::minutes($billed))->text()),
+            )] : [],
+        ];
     }
 
     /** The figures at the team's rate, each in the currency the config names, escaped as text the config holds. */

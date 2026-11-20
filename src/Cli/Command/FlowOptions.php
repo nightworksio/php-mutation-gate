@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\CostMode;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\JobStop;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -308,7 +309,11 @@ final readonly class FlowOptions
         };
     }
 
-    /** The cut the config asks for: to `shards.target`, where it sets one, or by `shards.seconds`. */
+    /**
+     * The cut the config asks for: to `shards.target`, where it sets one, or
+     * by `shards.seconds`; to the fewest billed minutes where `costs.mode` is
+     * `minutes`.
+     */
     public static function configuredCut(Settings $settings): Cut
     {
         $shards = $settings->shards();
@@ -318,9 +323,11 @@ final readonly class FlowOptions
             ? Cut::toTarget($target, $shards->setup(), $shards->max())
             : Cut::bySize((int) $shards->seconds()->seconds(), $shards->setup(), $shards->max());
 
+        $cut = $cut->cuttingAt($shards->planning()->cutAt())
+            ->withinJobLimit($shards->stop()->after($shards->setup(), Seconds::of(JobStop::WIND_DOWN_SECONDS)));
+
         return self::parting(
-            $cut->cuttingAt($shards->planning()->cutAt())
-                ->withinJobLimit($shards->stop()->after($shards->setup(), Seconds::of(JobStop::WIND_DOWN_SECONDS))),
+            $shards->costs()->mode() === CostMode::Minutes ? $cut->billedByTheMinute() : $cut,
             $settings,
         );
     }

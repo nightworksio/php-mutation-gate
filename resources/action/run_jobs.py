@@ -2,6 +2,7 @@
 each shard job ended. gate_action.py reads the jobs and writes what these decide.
 """
 from datetime import datetime, timezone
+import math
 import re
 
 # What a job's conclusion and status are once it failed and once it ended.
@@ -49,9 +50,9 @@ TIMED_OUT_SAID = "has exceeded the maximum execution time"
 
 
 def run_times(jobs: list[dict], now: datetime) -> dict | None:
-    """The wall and runner seconds of a run's jobs, a job still running counted up to now, and when the plan's job
-    began and what it took; none of a run with no job that started. Runner seconds are each job's own, not what
-    GitHub bills, which rounds each up to a minute."""
+    """The wall and runner seconds of a run's jobs, a job still running counted up to now, the minutes GitHub bills
+    for them, each job rounded up to a whole minute, and when the plan's job began and what it took; none of a run
+    with no job that started. Runner seconds are each job's own, not what GitHub bills."""
     spans = []
     plan = {}
     for job in jobs:
@@ -67,7 +68,8 @@ def run_times(jobs: list[dict], now: datetime) -> dict | None:
         return None
     wall = max(end for _, end in spans) - min(start for start, _ in spans)
     runner = sum(((end - start).total_seconds() for start, end in spans), 0.0)
-    return {"wallSeconds": wall.total_seconds(), "runnerSeconds": runner, **plan}
+    billed = sum(math.ceil((end - start).total_seconds() / 60) for start, end in spans)
+    return {"wallSeconds": wall.total_seconds(), "runnerSeconds": runner, "billedMinutes": billed, **plan}
 
 
 def _instant(text: object) -> datetime | None:

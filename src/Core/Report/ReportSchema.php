@@ -151,8 +151,14 @@ final readonly class ReportSchema
         ], []);
         $money = self::object(['amount' => self::SECONDS, 'currency' => self::TEXT], []);
         $figure = self::object(
-            ['wallSeconds' => self::SECONDS, 'runnerSeconds' => self::SECONDS, 'price' => $money],
-            ['price'],
+            [
+                'wallSeconds' => self::SECONDS,
+                'runnerSeconds' => self::SECONDS,
+                'billedMinutes' => self::WHOLE,
+                'price' => $money,
+                'billedPrice' => $money,
+            ],
+            ['billedMinutes', 'price', 'billedPrice'],
         );
 
         return JsonText::encode([

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
+use NightWorksIO\MutationGate\Core\Config\CostMode;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
@@ -63,6 +64,18 @@ final readonly class Costs implements Setting
     public static function savingsWindow(string $duration): self
     {
         return new self(Json::object(Member::of('costs', Json::object(Member::of('savingsWindow', $duration)))));
+    }
+
+    /** `costs.mode: "minutes"`: plan for the fewest billed runner minutes, as on a metered runner (ADR-0240). */
+    public static function minutes(): self
+    {
+        return new self(Json::at('costs.mode', CostMode::Minutes->value));
+    }
+
+    /** `costs.mode: "wall"`: plan for the shortest wall time, as on free runners; the default. */
+    public static function wall(): self
+    {
+        return new self(Json::at('costs.mode', CostMode::Wall->value));
     }
 
     public function written(): Json

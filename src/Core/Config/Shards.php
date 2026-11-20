@@ -82,6 +82,7 @@ final readonly class Shards implements Part
         Pulling|Absent $pulling = new Absent(),
         Seconds|Absent $progress = new Absent(),
         Seconds|Absent $margin = new Absent(),
+        CostMode|Absent $costMode = new Absent(),
     ): self {
         return new self(
             $seconds,
@@ -96,6 +97,7 @@ final readonly class Shards implements Part
                 $testsBeforeAKill,
                 $surviving,
                 $shardOverhead,
+                $costMode,
             ),
             $learnedFrom,
             $planning instanceof Planning ? $planning : Planning::of(),
@@ -213,11 +215,13 @@ final readonly class Shards implements Part
     /** When a job's gate stops: `shards.target`, `shards.margin` and `shards.jobLimit` (ADR-0196). */
     public function stop(): JobStop
     {
+        $target = $this->target();
+
         return new JobStop(
-            $this->target instanceof Seconds ? $this->target : Seconds::of(self::SECONDS),
+            $target instanceof Seconds ? $target : $this->costs->mode()->target(),
             $this->margin instanceof Seconds ? $this->margin : Seconds::of(self::MARGIN_SECONDS),
             $this->jobLimit,
-            limitAlone: $this->target instanceof Absent && $this->jobLimit instanceof Seconds,
+            limitAlone: $target instanceof Absent && $this->jobLimit instanceof Seconds,
         );
     }
 
@@ -231,10 +235,18 @@ final readonly class Shards implements Part
         return $this->progress instanceof Seconds ? $this->progress : Seconds::minutes(self::PROGRESS_MINUTES);
     }
 
-    /** `shards.target`: the wall time the count is cut to fit, in place of `shards.seconds` (ADR-0013). */
+    /**
+     * `shards.target`: the wall time the count is cut to fit, in place of
+     * `shards.seconds` (ADR-0013); where neither is set and `costs.mode` is
+     * `minutes`, the target that mode cuts to (ADR-0240).
+     */
     public function target(): Seconds|Absent
     {
-        return $this->target;
+        $mode = $this->costs->mode();
+
+        return $this->target instanceof Absent && $this->seconds instanceof Absent && $mode === CostMode::Minutes
+            ? $mode->target()
+            : $this->target;
     }
 
     public function written(PathOrigin $origin): Json

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function is_int;
+
 use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\Money;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
@@ -51,7 +53,13 @@ use stdClass;
  *     measured: bool,
  * }
  * @phpstan-type Priced array{amount: float, currency: string}
- * @phpstan-type Figure array{wallSeconds: float, runnerSeconds: float, price?: Priced}
+ * @phpstan-type Figure array{
+ *     wallSeconds: float,
+ *     runnerSeconds: float,
+ *     billedMinutes?: int,
+ *     price?: Priced,
+ *     billedPrice?: Priced,
+ * }
  * @phpstan-type CostEntry array{
  *     planned: Figure,
  *     measured: Figure,
@@ -201,10 +209,16 @@ final readonly class AccountJson
     /** @return Figure */
     private static function figure(RunTime $time, Rate|Unpriced $price): array
     {
+        $billed = $time->billed();
+
         return [
             'wallSeconds' => $time->wall()->seconds(),
             'runnerSeconds' => $time->runner()->seconds(),
+            ...is_int($billed) ? ['billedMinutes' => $billed] : [],
             ...self::price($time->runner(), $price),
+            ...is_int($billed) && $price instanceof Rate
+                ? ['billedPrice' => self::money($price->of(Seconds::minutes($billed)))]
+                : [],
         ];
     }
 

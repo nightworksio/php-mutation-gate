@@ -73,14 +73,16 @@ final readonly class PlanEstimates
     {
         $wall = 0.0;
         $runner = 0.0;
+        $jobs = [];
 
         foreach ($this->plan as $shard) {
             $job = $this->jobOf($shard);
             $wall = max($wall, $job);
             $runner += $job;
+            $jobs[] = Seconds::of($job);
         }
 
-        return RunTime::estimated(Seconds::of($wall), Seconds::of($runner));
+        return RunTime::estimated(Seconds::of($wall), Seconds::of($runner), RunTime::billedFor(...$jobs));
     }
 
     /** The share of the units' time that rests on this basis; none of a plan with no units' time. */

@@ -29,7 +29,9 @@ use function sprintf;
  * within it is by size. Either way, no shard is cut past the limit its job
  * has, `shards.jobLimit`, while `shards.max` leaves room, and no package is
  * cut into shards whose share of its cost is below `shards.cutAt` times
- * their overhead, twice by default (ADR-0013, ADR-0114).
+ * their overhead, twice by default (ADR-0013, ADR-0114). Where `costs.mode`
+ * is `minutes`, each package takes the count its jobs bill the fewest whole
+ * minutes at, from the one it fits in (ADR-0240).
  * Exactly, as `--shards=<n>` asks, there are n shards,
  * and those the units do not fill are empty and say so. Where a run that
  * splits its streams shards by tests (ADR-0117), each of a package's shards
@@ -106,6 +108,12 @@ final readonly class Cut
     public function withinJobLimit(Seconds $limit): self
     {
         return new self($this->sizing->withinJobLimit($limit), $this->testParts, $this->item, $this->heldWhole);
+    }
+
+    /** This cut, each package at the count its jobs bill the fewest whole minutes at (ADR-0240). */
+    public function billedByTheMinute(): self
+    {
+        return new self($this->sizing->billedByTheMinute(), $this->testParts, $this->item, $this->heldWhole);
     }
 
     /** This cut, where each shard's runner first spends this long on its opening run. */

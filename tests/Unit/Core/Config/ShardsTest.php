@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Ci;
+use NightWorksIO\MutationGate\Core\Config\CostMode;
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Ignores;
 use NightWorksIO\MutationGate\Core\Config\Learned;
@@ -74,6 +76,7 @@ describe('Shards', function (): void {
             surviving: 0.05,
             shardOverhead: 2,
             progress: Seconds::minutes(5),
+            costMode: CostMode::Minutes,
         );
 
         expect($shards->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith(
@@ -90,8 +93,29 @@ describe('Shards', function (): void {
             'Costs::testsBeforeAKill(3)',
             'Costs::surviving(0.05)',
             'Costs::shardOverhead(2)',
+            'Costs::minutes()',
         ));
     });
+
+    it('cuts to the target costs.mode gives where neither shards.target nor shards.seconds is set, and stops its jobs there', function (Shards $shards, Seconds|Absent $target, float $stop): void {
+        expect($shards->target())->toEqual($target)
+            ->and($shards->stop()->target()->seconds())->toBe($stop)
+            ->and(Shards::standard()->over($shards)->costs()->mode())->toBe($shards->costs()->mode());
+    })->with([
+        'the wall time, by default' => [fn(): Shards => Shards::none(), fn(): Absent => Absent::setting(), 600.0],
+        'the wall time, as written' => [fn(): Shards => Shards::of(costMode: CostMode::Wall), fn(): Absent => Absent::setting(), 600.0],
+        'the billed minutes' => [fn(): Shards => Shards::of(costMode: CostMode::Minutes), fn(): Seconds => Seconds::minutes(30), 1800.0],
+        'the billed minutes, to a target set' => [
+            fn(): Shards => Shards::of(target: Seconds::minutes(20), costMode: CostMode::Minutes),
+            fn(): Seconds => Seconds::minutes(20),
+            1200.0,
+        ],
+        'the billed minutes, by the seconds set' => [
+            fn(): Shards => Shards::of(seconds: Seconds::of(300), costMode: CostMode::Minutes),
+            fn(): Absent => Absent::setting(),
+            1800.0,
+        ],
+    ]);
 
     it('leaves a CI shard\'s progress every three minutes where no layer says, and as often as one says', function (): void {
         expect(Shards::standard()->progress())->toEqual(Seconds::minutes(3))

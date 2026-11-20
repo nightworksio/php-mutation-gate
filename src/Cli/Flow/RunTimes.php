@@ -48,10 +48,13 @@ final readonly class RunTimes
         try {
             $file = Node::decode($contents->text());
 
+            $billed = $file->field('billedMinutes');
+
             return new self(
                 RunTime::measured(
                     Seconds::of($file->field('wallSeconds')->number()),
                     Seconds::of($file->field('runnerSeconds')->number()),
+                    $billed->isPresent() ? $billed->integer() : NotGiven::value(),
                 ),
                 self::planIn($file->field('plan')),
             );

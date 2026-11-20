@@ -100,7 +100,8 @@ final readonly class SettingsCases
             "savingsWindow": "30d",
             "testsBeforeAKill": 5,
             "surviving": 0.02,
-            "shardOverhead": 2.5
+            "shardOverhead": 2.5,
+            "mode": "wall"
         },
         "plan": {
             "chunkMinutes": 15,

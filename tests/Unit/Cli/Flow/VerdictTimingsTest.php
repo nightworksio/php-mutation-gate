@@ -100,6 +100,7 @@ it('times each shard from its start to its result, with its steps, and the verdi
         ->toBe(['2026-09-30T13:00:00Z', 30.0])
         ->and($timings->spent()->wall())->toEqual(Seconds::of(3627.0 + 60.0))
         ->and($timings->spent()->runner())->toEqual(Seconds::of(30.0 + 60.0 + $spent[0] + 60.0 + $spent[1] + 60.0))
+        ->and($timings->spent()->billed())->toBe(2 + (int) ceil(($spent[0] + 60.0) / 60) + (int) ceil(($spent[1] + 60.0) / 60))
         ->and($timings->spent()->isMeasured())->toBeFalse();
 });
 
@@ -115,6 +116,7 @@ it('adds no setup to a run on no CI, whose clock measures what it took', functio
 
     expect($timings->spent()->wall())->toEqual(Seconds::of(50.0))
         ->and($timings->spent()->runner())->toEqual(Seconds::of(45.0))
+        ->and($timings->spent()->billed())->toEqual(NotGiven::value())
         ->and($timings->spent()->isMeasured())->toBeTrue();
 });
 
@@ -150,10 +152,18 @@ it('takes what the CI\'s API said the jobs took in place of its estimate, with t
         ->and($timings->plan())->toEqual(Phase::of(Instant::at(new DateTimeImmutable('2026-11-07T11:00:00Z')), Seconds::of(120.0)));
 });
 
+it('takes the minutes the CI\'s API said the jobs bill', function (): void {
+    $read = RunTimes::read(Contents::of('{"wallSeconds": 600, "runnerSeconds": 1500, "billedMinutes": 27}'));
+
+    expect($read instanceof RunTimes ? $read->spent() : $read)
+        ->toEqual(RunTime::measured(Seconds::of(600.0), Seconds::of(1_500.0), 27));
+});
+
 it('reads nothing of what the jobs took from what cannot be read', function (Contents|Missing $file): void {
     expect(RunTimes::read($file))->toEqual(NotGiven::value());
 })->with([
     'a field short' => [fn(): Contents => Contents::of('{"wallSeconds": 60.5}')],
+    'billed minutes that are no whole number' => [fn(): Contents => Contents::of('{"wallSeconds": 1, "runnerSeconds": 1, "billedMinutes": 1.5}')],
     'not JSON' => [fn(): Contents => Contents::of('{')],
     'a plan with no instant' => [fn(): Contents => Contents::of('{"wallSeconds": 1, "runnerSeconds": 1, "plan": {"at": "soon", "seconds": 1}}')],
     'no file' => [fn(): Missing => Missing::at(RunTimes::file())],

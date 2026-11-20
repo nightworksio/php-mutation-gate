@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\CostMode;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -48,6 +49,7 @@ final readonly class ShardsKeys
         $beforeAKill = Field::optional('testsBeforeAKill', Integer::atLeast(1), $judges);
         $surviving = Field::optional('surviving', Number::between(0, 1), $judges);
         $overhead = Field::optional('shardOverhead', Number::atLeast(1), $judges);
+        $mode = Field::optional('mode', Enumerated::of(CostMode::cases()), $judges);
 
         return [
             Field::section(
@@ -126,6 +128,7 @@ final readonly class ShardsKeys
                         $beforeAKill,
                         $surviving,
                         $overhead,
+                        $mode,
                     ): Layer|Invalid {
                         $lines = $perLine->read($costs);
                         $minutes = $perMinute->read($costs);
@@ -134,6 +137,7 @@ final readonly class ShardsKeys
                         $kill = $beforeAKill->read($costs);
                         $share = $surviving->read($costs);
                         $times = $overhead->read($costs);
+                        $spending = $mode->read($costs);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
@@ -144,6 +148,7 @@ final readonly class ShardsKeys
                                 testsBeforeAKill: $kill->value(),
                                 surviving: $share->value(),
                                 shardOverhead: $times->value(),
+                                costMode: $spending->value(),
                             )),
                             $lines,
                             $minutes,
@@ -152,6 +157,7 @@ final readonly class ShardsKeys
                             $kill,
                             $share,
                             $times,
+                            $spending,
                         );
                     },
                     $perLine,
@@ -161,6 +167,7 @@ final readonly class ShardsKeys
                     $beforeAKill,
                     $surviving,
                     $overhead,
+                    $mode,
                 ),
             ),
         ];

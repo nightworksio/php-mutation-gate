@@ -34,6 +34,7 @@ final readonly class Costs
         private int|Absent $testsBeforeAKill,
         private int|float|Absent $surviving,
         private int|float|Absent $shardOverhead,
+        private CostMode|Absent $mode,
     ) {
     }
 
@@ -45,6 +46,7 @@ final readonly class Costs
         int|Absent $testsBeforeAKill = new Absent(),
         int|float|Absent $surviving = new Absent(),
         int|float|Absent $shardOverhead = new Absent(),
+        CostMode|Absent $mode = new Absent(),
     ): self {
         return new self(
             $secondsPerLine,
@@ -54,6 +56,7 @@ final readonly class Costs
             $testsBeforeAKill,
             $surviving,
             $shardOverhead,
+            $mode,
         );
     }
 
@@ -66,6 +69,7 @@ final readonly class Costs
             testsBeforeAKill: FirstRunShape::TESTS_BEFORE_A_KILL,
             surviving: FirstRunShape::SURVIVING,
             shardOverhead: FirstRunShape::SHARD_OVERHEAD,
+            mode: CostMode::Wall,
         );
     }
 
@@ -84,7 +88,14 @@ final readonly class Costs
             Absent::laid($this->testsBeforeAKill, $later->testsBeforeAKill),
             Absent::laid($this->surviving, $later->surviving),
             Absent::laid($this->shardOverhead, $later->shardOverhead),
+            Absent::laid($this->mode, $later->mode),
         );
+    }
+
+    /** `costs.mode`: what a plan spends least of, the wall time where no layer chooses (ADR-0240). */
+    public function mode(): CostMode
+    {
+        return $this->mode instanceof CostMode ? $this->mode : CostMode::Wall;
     }
 
     /** What a line costs before anything was measured, by path prefix. */
@@ -171,6 +182,7 @@ final readonly class Costs
                 Member::of('testsBeforeAKill', $this->testsBeforeAKill),
                 Member::of('surviving', $this->surviving),
                 Member::of('shardOverhead', $this->shardOverhead),
+                Member::of('mode', $this->mode instanceof CostMode ? $this->mode->value : $this->mode),
             ),
         );
     }
@@ -203,6 +215,7 @@ final readonly class Costs
                 ? [PhpCalls::chosen($this->model, AdapterBuilder::CostModel, BuiltinCostModel::Learned->value)]
                 : [],
             ...$this->firstRunCalls(),
+            ...$this->mode instanceof CostMode ? [$this->mode->php()] : [],
         );
     }
 
