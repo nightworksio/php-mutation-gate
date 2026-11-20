@@ -14,11 +14,11 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
-use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
+use NightWorksIO\MutationGate\Tests\Support\RunnerContracts;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use Pest\Mutate\Mutators\Arithmetic\PostDecrementToPostIncrement;
@@ -35,11 +35,11 @@ function hangSeconds(Seconds|MemoryCap|Unmeasured $time): float
 
 // In src/Hang.php one loop says nothing and the other prints as fast as it
 // can on its output and its error output; under their mutants neither
-// ends. Each one test takes no time, so each own limit is the floor and
-// the start-up a run takes. Under the first bounds nothing stops them
+// ends. Each one test takes no time, so each own limit is the floor, above
+// the start-up a run is allowed. Under the first bounds nothing stops them
 // sooner; under the second their mutator is one timeouts.tighter lists, so
-// no test finishing for seven seconds stops them first. The sum beside
-// them is killed.
+// no test finishing for two seconds stops them first. The sum beside them
+// is killed.
 it('stops a mutant whose loop never ends, saying nothing or printing, by its limit, names it, and judges the run\'s other mutant, with patched Pest', function (LimitBounds $bounds, string $reason): void {
     $copied = ['src/Hang.php', 'tests/HangSpec.php'];
 
@@ -84,12 +84,11 @@ it('stops a mutant whose loop never ends, saying nothing or printing, by its lim
         ->and($took)->toBeLessThan(array_sum($limits) + 15.0);
 })->with([
     'at its own limit' => [
-        fn(): LimitBounds => LimitBounds::between(Seconds::of(3.0), Seconds::of(300.0)),
+        fn(): LimitBounds => LimitBounds::between(Seconds::of(2.0), Seconds::of(300.0), RunnerContracts::START_UP),
         '',
     ],
     'at its silence limit' => [
-        fn(): LimitBounds => LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))
-            ->tighterFor(TighterSilence::of(Seconds::of(7.0), 'PostDecrementToPostIncrement')),
-        fn(): string => Reason::silent(Seconds::of(7.0))->text(),
+        fn(): LimitBounds => RunnerContracts::tighterBounds('PostDecrementToPostIncrement'),
+        fn(): string => Reason::silent(Seconds::of(RunnerContracts::TIGHTER))->text(),
     ],
 ])->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);

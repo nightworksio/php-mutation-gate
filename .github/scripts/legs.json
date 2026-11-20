@@ -61,7 +61,8 @@
       "tests/Support/Tree.php",
       "tests/Support/Verdicts.php",
       "tests/Support/VouchedMaps.php"
-    ]
+    ],
+    "job": "pest"
   },
   "infection-13": {
     "dir": "tests/Contract/Runner/infection-fixture",
@@ -93,7 +94,8 @@
       "tests/Support/Scratch.php",
       "tests/Support/Source.php",
       "tests/Support/Tree.php"
-    ]
+    ],
+    "job": "infection-13"
   },
   "infection-12": {
     "dir": "tests/Contract/Runner/infection-fixture/phpunit-12",
@@ -125,7 +127,8 @@
       "tests/Support/Scratch.php",
       "tests/Support/Source.php",
       "tests/Support/Tree.php"
-    ]
+    ],
+    "job": "infection-12"
   },
   "phpunit": {
     "dir": "tests/Contract/Runner/phpunit-fixture",
@@ -160,7 +163,8 @@
       "tests/Support/Scratch.php",
       "tests/Support/Source.php",
       "tests/Support/Tree.php"
-    ]
+    ],
+    "job": "phpunit"
   },
   "phpspec": {
     "dir": "tests/Contract/Runner/phpspec-fixture",
@@ -190,7 +194,8 @@
       "tests/Support/RunnerContracts.php",
       "tests/Support/Scratch.php",
       "tests/Support/Tree.php"
-    ]
+    ],
+    "job": "phpspec-codeception-testo"
   },
   "codeception": {
     "dir": "tests/Contract/Runner/codeception-fixture",
@@ -220,7 +225,8 @@
       "tests/Support/RunnerContracts.php",
       "tests/Support/Scratch.php",
       "tests/Support/Tree.php"
-    ]
+    ],
+    "job": "phpspec-codeception-testo"
   },
   "testo": {
     "dir": "tests/Contract/Runner/testo-fixture",
@@ -250,7 +256,8 @@
       "tests/Support/RunnerContracts.php",
       "tests/Support/Scratch.php",
       "tests/Support/Tree.php"
-    ]
+    ],
+    "job": "phpspec-codeception-testo"
   },
   "analysers": {
     "dir": "tests/Contract/StaticChecker/fixture",
@@ -278,6 +285,7 @@
       "tests/Support/Scratch.php",
       "tests/Support/StoppedClock.php",
       "tests/Support/Tree.php"
-    ]
+    ],
+    "job": "analysers"
   }
 }

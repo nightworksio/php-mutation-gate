@@ -10,15 +10,15 @@ use PHPUnit\Framework\TestCase;
 
 use function usleep;
 
-// Infection times each test by its whole class. Three classes of a second
-// each cover the stalled loop, so the silence limit of the slowest falls
-// seconds short of the limit of all three.
+// Infection times each test by its whole class. Three classes of more than
+// half a second each cover the stalled loop, so the silence limit of the
+// slowest falls seconds short of the limit of all three.
 final class StallSecondSpec extends TestCase
 {
     #[Test]
     public function drainsAnAmount(): void
     {
-        usleep(1_000_000);
+        usleep(600_000);
 
         self::assertSame(0, new Stall()->drain(3));
     }

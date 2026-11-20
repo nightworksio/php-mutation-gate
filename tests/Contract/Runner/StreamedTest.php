@@ -504,7 +504,7 @@ it('gives a mutant the first pass settled its verdict before the second pass sta
     try {
         $whole = $run($request);
         putenv('LIBRARY_STALL=1');
-        $stopped = $run($request->within(Seconds::of(30.0)));
+        $stopped = $run($request->within(Seconds::of(12.0)));
     } finally {
         putenv('LIBRARY_STALL');
 
