@@ -69,13 +69,22 @@ Two more costs came with each round:
      times.
    - The reference is re-measured when jwt's pin, PHP or the hosted fleet
      changes, from the times and processors the step prints.
-   - A whole run is also stopped as stuck where one of its processes with
-     no child of its own uses no CPU for `NO_PROGRESS_SECONDS` (30 s), a
-     bound no runner scales: a slower runner takes longer to do the work,
-     never longer to do nothing, so a scaled budget cannot let a stuck
-     process sit. A red then says which process made no progress for how
-     long; a run past its scaled budget says the processor, the scale and
-     the budget against its base.
+   - A whole run is also stopped as stuck where it makes no progress for
+     `NO_PROGRESS_SECONDS` (30 s), a bound no runner scales: a slower
+     runner takes longer to do the work, never longer to do nothing, so a
+     scaled budget cannot let a stuck run sit. A second is progress where a
+     process of the run's tree starts or ends, where a process with no
+     child, which does the work, uses any CPU, or where a process with
+     children, which hands them work and waits on them, uses more than a
+     tenth of a CPU, more than its waiting costs. So a worker blocked on its
+     parent's pipe while the parent works, the gate waiting on busy
+     children, and one test asleep while another works never stop a run;
+     every process waiting at once does, and a mutant's run that waits
+     longer is ended first by the gate's own timeouts (10 s here). A red
+     then says the run made no progress for how long and names each
+     process; a run past its scaled budget names the processor, the scale
+     and the budget against its base; each job says the longest stretch it
+     saw without progress.
 
 ## Why no verdict moves
 

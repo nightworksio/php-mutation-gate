@@ -32,10 +32,16 @@ def scaled(base: int, factor: float) -> int:
     return math.ceil(round(base * factor, 6))
 
 
+def processor(machine: dict) -> str:
+    """The processor the machine names, on one line; an unknown CPU where it names none."""
+    named = " ".join(str(machine.get("cpu", "")).split())
+    return named if named else "unknown CPU"
+
+
 def lines(machine: dict, reference: float, factor: float, most: float, budgets: dict[str, int]) -> list[str]:
     """What the log and the step summary say of the runner and the budgets."""
     said = [
-        f"runner speed: the processor is {machine.get('cpu', 'unknown')}.",
+        f"runner speed: {processor(machine)}, estimated factor {factor:.2f} from the suite it measured.",
         f"runner speed: the suite under pcov took {machine['seconds']:.2f} s, the median of {machine['rounds']}; "
         f"the reference is {reference:.2f} s, so the scale is {factor:.2f} (at most {most:.2f}).",
     ]
@@ -45,7 +51,7 @@ def lines(machine: dict, reference: float, factor: float, most: float, budgets: 
 
 def exported(machine: dict, factor: float, budgets: dict[str, int]) -> list[str]:
     """What later steps read: each budget scaled, the scale, and the processor on one line."""
-    cpu = " ".join(str(machine.get("cpu", "unknown")).split())
+    cpu = processor(machine)
     return [f"{name}_SCALED={scaled(base, factor)}" for name, base in budgets.items()] + [
         f"RUNNER_SCALE={factor:.2f}",
         f"RUNNER_CPU={cpu}",
