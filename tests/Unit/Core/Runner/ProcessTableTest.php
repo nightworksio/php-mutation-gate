@@ -2,27 +2,35 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessListing;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Tests\Support\Listed;
 
+/** The processes the caller spares: itself (20), its parent (10) and the system's first, their groups and session 10. */
 function processTableSpared(): SparedProcesses
 {
-    return SparedProcesses::of(Listed::of("10 1\n20 10\n"), 20, 10);
+    return SparedProcesses::of(Listed::of("10 1\n20 10\n"), 20, 10)->signallingWith(NotGiven::value());
 }
 
 /**
- * What a stop ran and listed, in order: each command it ran, and `listing` where it took a listing, which answers
- * these listings in turn and the last of them from then on.
+ * What a stop ran, sent and listed, in order: each `kill` command it ran, each signal it sent itself where it
+ * sends them directly (written as the command that sends the one signal), and `listing` where it took a listing,
+ * which answers these listings in turn and the last of them from then on.
  *
- * @param  list<string>           $listings
- * @param  Closure(Closure(list<string>): string, Listed): void $stop
+ * @param  list<string>                                                          $listings
+ * @param  Closure(Closure(list<string>): string, Listed, SparedProcesses): void $stop
  * @return list<string>
  */
-function processTableStopped(array $listings, Closure $stop): array
+function processTableStopped(array $listings, Closure $stop, bool $directly = false): array
 {
     $ran = [];
+    $sent = static function (int $pid, int $signal) use (&$ran): bool {
+        $ran[] = sprintf('kill -%s %s', $signal === SIGSTOP ? 'STOP' : 'KILL', $pid < 0 ? sprintf('-- %d', $pid) : $pid);
+
+        return true;
+    };
     $stop(static function (array $command) use (&$ran): string {
         $ran[] = implode(' ', $command);
 
@@ -31,7 +39,7 @@ function processTableStopped(array $listings, Closure $stop): array
         $ran[] = 'listing';
 
         return Listed::of(count($listings) > 1 ? array_shift($listings) : $listings[0] ?? '');
-    }));
+    }), processTableSpared()->signallingWith($directly ? $sent : NotGiven::value()));
 
     return $ran;
 }
@@ -40,21 +48,16 @@ it('stops processes at once, by their ids', function (): void {
     expect(ProcessTable::killing(processTableSpared(), 101, 102))->toBe(['kill', '-KILL', '101', '102']);
 });
 
-it('freezes a process, then each process a listing finds under it, until a listing finds no new one, and only then kills them all, deepest first', function (): void {
-    $ran = processTableStopped(["100 1\n101 100\n", "100 1\n101 100\n102 101\n"], static function (Closure $run, Listed $listed): void {
-        ProcessTable::stop(100, $run, $listed, spared: processTableSpared());
-    });
+it('freezes a process, then each process a listing finds under it, until a listing finds no new one, and only then kills them all, deepest first', function (bool $directly, array $killed): void {
+    $ran = processTableStopped(["100 1\n101 100\n", "100 1\n101 100\n102 101\n"], static function (Closure $run, Listed $listed, SparedProcesses $spared): void {
+        ProcessTable::stop(100, $run, $listed, spared: $spared);
+    }, $directly);
 
-    expect($ran)->toBe([
-        'kill -STOP 100',
-        'listing',
-        'kill -STOP 101',
-        'listing',
-        'kill -STOP 102',
-        'listing',
-        'kill -KILL 102 101 100',
-    ]);
-});
+    expect($ran)->toBe(['kill -STOP 100', 'listing', 'kill -STOP 101', 'listing', 'kill -STOP 102', 'listing', ...$killed]);
+})->with([
+    'by the kill program' => [false, ['kill -KILL 102 101 100']],
+    'by itself' => [true, ['kill -KILL 102', 'kill -KILL 101', 'kill -KILL 100']],
+]);
 
 it('ends a stop whose tree keeps growing after its most listings, and kills every process it found', function (): void {
     $listings = [];
@@ -63,8 +66,8 @@ it('ends a stop whose tree keeps growing after its most listings, and kills ever
         $listings[] = implode("\n", array_map(static fn(int $child): string => sprintf('%d 100', 100 + $child), range(1, $grown)));
     }
 
-    $ran = processTableStopped($listings, static function (Closure $run, Listed $listed): void {
-        ProcessTable::stop(100, $run, $listed, leads: true, spared: processTableSpared());
+    $ran = processTableStopped($listings, static function (Closure $run, Listed $listed, SparedProcesses $spared): void {
+        ProcessTable::stop(100, $run, $listed, leads: true, spared: $spared);
     });
     $found = array_map(static fn(int $child): string => (string) (100 + $child), range(1, ProcessTable::LISTINGS));
 
@@ -80,8 +83,8 @@ it('stops at its last listing where that one finds no new process', function ():
         $listings[] = implode("\n", array_map(static fn(int $child): string => sprintf('%d 100', 100 + $child), range(1, $grown)));
     }
 
-    $ran = processTableStopped($listings, static function (Closure $run, Listed $listed): void {
-        ProcessTable::stop(100, $run, $listed, spared: processTableSpared());
+    $ran = processTableStopped($listings, static function (Closure $run, Listed $listed, SparedProcesses $spared): void {
+        ProcessTable::stop(100, $run, $listed, spared: $spared);
     });
 
     expect(array_count_values($ran)['listing'])->toBe(ProcessTable::LISTINGS)
@@ -92,34 +95,30 @@ it('stops at its last listing where that one finds no new process', function ():
         ]);
 });
 
-it('stops nothing by an id that names no one process: init, the caller\'s process group, or every process', function (int $pid): void {
-    expect(processTableStopped([''], static function (Closure $run, Listed $listed) use ($pid): void {
-        ProcessTable::stop($pid, $run, $listed, spared: processTableSpared());
-    }))->toBe([]);
-})->with([1, 0, -1]);
+it('stops nothing by an id that names no one process: init, the caller\'s process group, or every process', function (int $pid, bool $directly): void {
+    expect(processTableStopped([''], static function (Closure $run, Listed $listed, SparedProcesses $spared) use ($pid): void {
+        ProcessTable::stop($pid, $run, $listed, spared: $spared);
+    }, $directly))->toBe([]);
+})->with([1, 0, -1])->with(['by the kill program' => [false], 'by itself' => [true]]);
 
-it('stops the lowest id that names one process', function (): void {
-    expect(processTableStopped([''], static function (Closure $run, Listed $listed): void {
-        ProcessTable::stop(2, $run, $listed, spared: processTableSpared());
-    }))->toBe(['kill -STOP 2', 'listing', 'kill -KILL 2']);
-});
+it('stops the lowest id that names one process', function (bool $directly): void {
+    expect(processTableStopped([''], static function (Closure $run, Listed $listed, SparedProcesses $spared): void {
+        ProcessTable::stop(2, $run, $listed, spared: $spared);
+    }, $directly))->toBe(['kill -STOP 2', 'listing', 'kill -KILL 2']);
+})->with(['by the kill program' => [false], 'by itself' => [true]]);
 
 it('leaves every id that names no one process out of what it signals', function (): void {
     expect(ProcessTable::killing(processTableSpared(), 1, 101, 0, 2, -1))->toBe(['kill', '-KILL', '101', '2']);
 });
 
-it('kills, after the tree of a process that leads its session, the whole session at once', function (): void {
-    expect(processTableStopped(["100 1\n101 100\n"], static function (Closure $run, Listed $listed): void {
-        ProcessTable::stop(100, $run, $listed, leads: true, spared: processTableSpared());
-    }))->toBe([
-        'kill -STOP 100',
-        'listing',
-        'kill -STOP 101',
-        'listing',
-        'kill -KILL 101 100',
-        'kill -KILL -- -100',
-    ]);
-});
+it('kills, after the tree of a process that leads its session, the whole session at once', function (bool $directly, array $killed): void {
+    expect(processTableStopped(["100 1\n101 100\n"], static function (Closure $run, Listed $listed, SparedProcesses $spared): void {
+        ProcessTable::stop(100, $run, $listed, leads: true, spared: $spared);
+    }, $directly))->toBe(['kill -STOP 100', 'listing', 'kill -STOP 101', 'listing', ...$killed, 'kill -KILL -- -100']);
+})->with([
+    'by the kill program' => [false, ['kill -KILL 101 100']],
+    'by itself' => [true, ['kill -KILL 101', 'kill -KILL 100']],
+]);
 
 it('kills every process left of the session a process led, and none by an id that names no one process', function (): void {
     expect(ProcessTable::ending(processTableSpared(), 100))->toBe(['kill', '-KILL', '--', '-100'])
@@ -129,46 +128,50 @@ it('kills every process left of the session a process led, and none by an id tha
 });
 
 it('lists what the caller spares before it signals anything, where it was handed none', function (): void {
-    expect(processTableStopped([''], static function (Closure $run, Listed $listed): void {
-        ProcessTable::stop(100, $run, $listed);
-    }))->toBe(['listing', 'kill -STOP 100', 'listing', 'kill -KILL 100']);
-});
-
-it('never stops the caller, a process above it, nor one of them found under the process it stops', function (int $pid): void {
-    expect(processTableStopped(["100 1\n10 100\n101 100\n"], static function (Closure $run, Listed $listed) use ($pid): void {
-        ProcessTable::stop($pid, $run, $listed, spared: processTableSpared());
-    }))->toBe($pid === 100 ? ['kill -STOP 100', 'listing', 'kill -STOP 101', 'listing', 'kill -KILL 101 100'] : []);
-})->with([10, 20, 100]);
-
-it('kills every process a cgroup holds, the process last, and then its session, without a listing', function (bool $leads): void {
-    $ran = processTableStopped([''], static function (Closure $run) use ($leads): void {
-        ProcessTable::stopHeld(100, [100, 300, 101, 10], $run, leads: $leads, spared: processTableSpared());
+    $ran = processTableStopped([''], static function (Closure $run, Listed $listed): void {
+        ProcessTable::stop(2_147_483_646, $run, $listed);
     });
 
-    expect($ran)->toBe($leads ? ['kill -KILL 300 101 100', 'kill -KILL -- -100'] : ['kill -KILL 300 101 100']);
-})->with(['a session leader' => [true], 'a process' => [false]]);
+    expect($ran[0])->toBe('listing')
+        ->and(array_count_values($ran)['listing'])->toBe(2);
+});
+
+it('never stops the caller, a process above it, nor one of them found under the process it stops', function (int $pid, bool $directly): void {
+    $killed = $directly ? ['kill -KILL 101', 'kill -KILL 100'] : ['kill -KILL 101 100'];
+
+    expect(processTableStopped(["100 1\n10 100\n101 100\n"], static function (Closure $run, Listed $listed, SparedProcesses $spared) use ($pid): void {
+        ProcessTable::stop($pid, $run, $listed, spared: $spared);
+    }, $directly))->toBe($pid === 100 ? ['kill -STOP 100', 'listing', 'kill -STOP 101', 'listing', ...$killed] : []);
+})->with([10, 20, 100])->with(['by the kill program' => [false], 'by itself' => [true]]);
+
+it('kills every process a cgroup holds, the process last, and then its session, without a listing', function (bool $leads, bool $directly, array $killed): void {
+    $ran = processTableStopped([''], static function (Closure $run, Listed $listed, SparedProcesses $spared) use ($leads): void {
+        ProcessTable::stopHeld(100, [100, 300, 101, 10], $run, leads: $leads, spared: $spared);
+    }, $directly);
+
+    expect($ran)->toBe($leads ? [...$killed, 'kill -KILL -- -100'] : $killed);
+})->with(['a session leader' => [true], 'a process' => [false]])->with([
+    'by the kill program' => [false, ['kill -KILL 300 101 100']],
+    'by itself' => [true, ['kill -KILL 300', 'kill -KILL 101', 'kill -KILL 100']],
+]);
 
 it('kills the process a cgroup was made for where the cgroup holds nothing', function (): void {
-    expect(processTableStopped([''], static function (Closure $run): void {
-        ProcessTable::stopHeld(100, [], $run, leads: false, spared: processTableSpared());
+    expect(processTableStopped([''], static function (Closure $run, Listed $listed, SparedProcesses $spared): void {
+        ProcessTable::stopHeld(100, [], $run, leads: false, spared: $spared);
     }))->toBe(['kill -KILL 100']);
 });
 
-it('stops nothing a cgroup holds where the process it was made for is one the caller spares', function (int $pid): void {
-    expect(processTableStopped([''], static function (Closure $run) use ($pid): void {
-        ProcessTable::stopHeld($pid, [300], $run, leads: true, spared: processTableSpared());
-    }))->toBe([]);
-})->with([10, 20, 1]);
+it('stops nothing a cgroup holds where the process it was made for is one the caller spares', function (int $pid, bool $directly): void {
+    expect(processTableStopped([''], static function (Closure $run, Listed $listed, SparedProcesses $spared) use ($pid): void {
+        ProcessTable::stopHeld($pid, [300], $run, leads: true, spared: $spared);
+    }, $directly))->toBe([]);
+})->with([10, 20, 1])->with(['by the kill program' => [false], 'by itself' => [true]]);
 
-it('never kills the group or the session of the caller, nor the group a process above it leads', function (int $leader): void {
-    $ran = [];
-
-    ProcessTable::end($leader, static function (array $command) use (&$ran): string {
-        $ran[] = implode(' ', $command);
-
-        return '';
-    }, processTableSpared());
+it('never kills the group or the session of the caller, nor the group a process above it leads', function (int $leader, bool $directly): void {
+    $ran = processTableStopped([''], static function (Closure $run, Listed $listed, SparedProcesses $spared) use ($leader): void {
+        ProcessTable::end($leader, $run, $spared);
+    }, $directly);
 
     expect($ran)->toBe($leader === 30 ? ['kill -KILL -- -30'] : [])
         ->and(ProcessTable::ending(processTableSpared(), $leader))->toBe($leader === 30 ? ['kill', '-KILL', '--', '-30'] : ['kill', '-KILL']);
-})->with([10, 20, 1, 0, -1, 30]);
+})->with([10, 20, 1, 0, -1, 30])->with(['by the kill program' => [false], 'by itself' => [true]]);

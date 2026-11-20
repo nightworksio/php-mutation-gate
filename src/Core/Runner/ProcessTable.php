@@ -9,6 +9,9 @@ use function array_diff;
 use Closure;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
+use const SIGKILL;
+use const SIGSTOP;
+
 use function sprintf;
 
 /**
@@ -63,7 +66,7 @@ final readonly class ProcessTable
             return;
         }
 
-        $run(self::signalling($sparing, self::FREEZE, $pid));
+        self::sent($sparing, $run, self::FREEZE, $pid);
         $frozen = [];
         $listings = 0;
 
@@ -74,14 +77,14 @@ final readonly class ProcessTable
             $listings++;
 
             if ($fresh !== []) {
-                $run(self::signalling($sparing, self::FREEZE, ...$fresh));
+                self::sent($sparing, $run, self::FREEZE, ...$fresh);
             }
         } while ($fresh !== [] && $listings < self::LISTINGS);
 
-        $run(self::killing($sparing, ...[...$under, $pid]));
+        self::sent($sparing, $run, self::KILL, ...[...$under, $pid]);
 
         if ($leads) {
-            $run(self::ending($sparing, $pid));
+            self::ended($sparing, $run, $pid);
         }
     }
 
@@ -100,10 +103,10 @@ final readonly class ProcessTable
             return;
         }
 
-        $run(self::killing($spared, ...[...array_diff($held, [$pid]), $pid]));
+        self::sent($spared, $run, self::KILL, ...[...array_diff($held, [$pid]), $pid]);
 
         if ($leads) {
-            $run(self::ending($spared, $pid));
+            self::ended($spared, $run, $pid);
         }
     }
 
@@ -116,7 +119,7 @@ final readonly class ProcessTable
     public static function end(int $leader, Closure $run, SparedProcesses $spared): void
     {
         if ($spared->signalsGroup($leader)) {
-            $run(self::ending($spared, $leader));
+            self::ended($spared, $run, $leader);
         }
     }
 
@@ -155,5 +158,42 @@ final readonly class ProcessTable
         }
 
         return [...$command, ...$named];
+    }
+
+    /**
+     * Sends a signal to these processes, but to none the caller spares:
+     * itself where it can, else by the `kill` program this command starts.
+     *
+     * @param list<string>                  $command
+     * @param Closure(list<string>): string $run
+     */
+    private static function sent(SparedProcesses $spared, Closure $run, array $command, int ...$pids): void
+    {
+        if (! $spared->sends()) {
+            $run(self::signalling($spared, $command, ...$pids));
+
+            return;
+        }
+
+        foreach ($pids as $pid) {
+            $spared->signal($pid, $command === self::FREEZE ? SIGSTOP : SIGKILL);
+        }
+    }
+
+    /**
+     * Kills every process of the group a process leads at once, but not one
+     * the caller spares: itself where it can, else by the `kill` program.
+     *
+     * @param Closure(list<string>): string $run
+     */
+    private static function ended(SparedProcesses $spared, Closure $run, int $leader): void
+    {
+        if (! $spared->sends()) {
+            $run(self::ending($spared, $leader));
+
+            return;
+        }
+
+        $spared->signalGroup($leader, SIGKILL);
     }
 }

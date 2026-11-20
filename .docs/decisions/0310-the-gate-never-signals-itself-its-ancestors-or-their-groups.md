@@ -38,8 +38,9 @@ minutes and reports that it lost communication with the server.
    spared id out of every freeze and kill, stops nothing where the process
    it is asked to stop is spared, and kills no spared group.
    `SparedProcesses` itself is the one place the gate calls `posix_kill` on
-   another process or group: the progress reporter's end, the warm-up's
-   drop, a stream's late children and the serve daemon's children.
+   another process or group: a stop's freezes and kills (ADR-0312), the
+   progress reporter's end, the warm-up's drop, a stream's late children and
+   the serve daemon's children.
 3. **The gate's own process lists once.** Once its settings are read it
    tells itself what it spares (`MUTATION_GATE_SPARED`), so letting go of
    each process it started costs no listing. Any other process, such as a
@@ -82,4 +83,4 @@ minutes and reports that it lost communication with the server.
 - [ADR-0117](0117-a-kill-judged-against-its-own-unmutated-stream-needs-no-control.md): the children a split stream forks
 - [ADR-0157](0157-a-ci-shard-leaves-its-progress-as-it-runs.md): what a lost shard leaves to read
 - [ADR-0158](0158-the-gate-holds-every-process-it-starts-in-a-session-and-a-cgroup.md): the session and cgroup every process the gate starts is held in
-- [ADR-0312](0312-processes-are-listed-from-proc-and-a-stop-lists-at-most-32-times.md): the listing it is read from
+- [ADR-0312](0312-processes-are-listed-from-proc-a-stop-sends-its-signals-itself-and-lists-at-most-32-times.md): the listing it is read from

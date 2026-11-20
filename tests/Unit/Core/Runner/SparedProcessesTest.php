@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessListing;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Tests\Support\Listed;
@@ -110,3 +111,38 @@ it('lists anew where what it was told to this process is not whole', function ()
 
     expect($listed)->toBe(1);
 });
+
+it('sends a signal by what it was handed, to a process or to a group by its leader\'s negated id, never to one it spares', function (): void {
+    $sent = [];
+    $spared = SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 500)->signallingWith(static function (int $pid, int $signal) use (&$sent): bool {
+        $sent[] = [$pid, $signal];
+
+        return true;
+    });
+
+    expect($spared->sends())->toBeTrue()
+        ->and($spared->signal(900, 9))->toBeTrue()
+        ->and($spared->signalGroup(950, 15))->toBeTrue()
+        ->and($spared->signal(700, 9))->toBeFalse()
+        ->and($spared->signal(1, 9))->toBeFalse()
+        ->and($spared->signalGroup(500, 9))->toBeFalse()
+        ->and($spared->signalGroup(0, 9))->toBeFalse()
+        ->and($sent)->toBe([[900, 9], [-950, 15]]);
+});
+
+it('sends no signal itself where it was handed nothing to send one by, and says so', function (): void {
+    $spared = SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 500)->signallingWith(NotGiven::value());
+
+    expect($spared->sends())->toBeFalse()
+        ->and($spared->signal(900, 0))->toBeFalse()
+        ->and($spared->signalGroup(950, 0))->toBeFalse()
+        ->and($spared->signals(900))->toBeTrue();
+});
+
+it('sends a signal itself where PHP has posix and the signals\' names, as one it lists or was told', function (): void {
+    $told = SparedProcesses::of(Listed::of(''), (int) getmypid(), 0)->told();
+
+    expect(SparedProcesses::of(Listed::of(''), 800, 0)->sends())->toBeTrue()
+        ->and(SparedProcesses::toldOr($told, Listed::always(''))->sends())->toBeTrue()
+        ->and(SparedProcesses::of(Listed::of(''), 800, 0)->signal(2_147_483_646, 0))->toBeFalse();
+})->skip(fn(): bool => ! function_exists('posix_kill') || ! function_exists('pcntl_signal'), 'PHP here cannot send a signal itself');

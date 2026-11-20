@@ -6,10 +6,16 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_key_exists;
 use function array_keys;
+
+use Closure;
+
 use function explode;
 use function function_exists;
 use function getmypid;
 use function implode;
+
+use NightWorksIO\MutationGate\Core\NotGiven;
+
 use function posix_getsid;
 use function posix_kill;
 use function preg_match;
@@ -45,11 +51,18 @@ final readonly class SparedProcesses
     private const string WHOLE = '/^(?<self>\d+);(?<processes>[\d,]+);(?<groups>[\d,]+)$/';
 
     /**
-     * @param array<int, true> $processes each spared process, by its id
-     * @param array<int, true> $groups    each spared group or session, by its leader's id
+     * @param array<int, true>                     $processes each spared process, by its id
+     * @param array<int, true>                     $groups    each spared group or session, by its leader's id
+     * @param (Closure(int, int): bool)|NotGiven $kill      what sends a signal to a process, or a group by its
+     *                                                        leader's negated id, where PHP can; none where it
+     *                                                        cannot, and a signal goes by the `kill` program
      */
-    private function __construct(private int $self, private array $processes, private array $groups)
-    {
+    private function __construct(
+        private int $self,
+        private array $processes,
+        private array $groups,
+        private Closure|NotGiven $kill,
+    ) {
     }
 
     /**
@@ -67,7 +80,7 @@ final readonly class SparedProcesses
             $spared[$pid] = true;
         }
 
-        return new self($self, $spared, $spared + [$listing->groupOf($self) => true, $session => true]);
+        return new self($self, $spared, $spared + [$listing->groupOf($self) => true, $session => true], self::direct());
     }
 
     /** The processes this process spares, from a listing of the processes running now. */
@@ -88,7 +101,29 @@ final readonly class SparedProcesses
             return self::listed($processes);
         }
 
-        return new self((int) $parts['self'], self::ids($parts['processes']), self::ids($parts['groups']));
+        return new self(
+            (int) $parts['self'],
+            self::ids($parts['processes']),
+            self::ids($parts['groups']),
+            self::direct(),
+        );
+    }
+
+    /**
+     * The same processes spared, a signal sent by this, or by the `kill`
+     * program where none is given.
+     *
+     * @param (Closure(int, int): bool)|NotGiven $kill
+     */
+    public function signallingWith(Closure|NotGiven $kill): self
+    {
+        return new self($this->self, $this->processes, $this->groups, $kill);
+    }
+
+    /** Whether this process sends a signal itself, rather than by the `kill` program. */
+    public function sends(): bool
+    {
+        return $this->kill instanceof Closure;
     }
 
     /** The ids as they are told to the process that spares them. */
@@ -117,13 +152,19 @@ final readonly class SparedProcesses
     /** Whether the process with this id was sent the signal: never one this process spares. */
     public function signal(int $pid, int $signal): bool
     {
-        return $this->signals($pid) && posix_kill($pid, $signal);
+        return $this->signals($pid) && $this->kill instanceof Closure && ($this->kill)($pid, $signal);
     }
 
     /** Whether the group a process with this id leads was sent the signal: never one this process spares. */
     public function signalGroup(int $leader, int $signal): bool
     {
-        return $this->signalsGroup($leader) && posix_kill(-$leader, $signal);
+        return $this->signalsGroup($leader) && $this->kill instanceof Closure && ($this->kill)(-$leader, $signal);
+    }
+
+    /** What sends a signal where PHP can: `posix_kill`, where PHP has it and the signals' names. */
+    private static function direct(): Closure|NotGiven
+    {
+        return function_exists('posix_kill') && function_exists('pcntl_signal') ? posix_kill(...) : NotGiven::value();
     }
 
     /** @return array<int, true> */

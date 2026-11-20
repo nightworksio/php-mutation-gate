@@ -1,4 +1,4 @@
-# ADR-0312: Processes are listed from /proc, and a stop lists at most 32 times
+# ADR-0312: Processes are listed from /proc, a stop sends its signals itself, and lists at most 32 times
 
 **Status:** Accepted
 **Date:** 2026-11-20
@@ -12,8 +12,9 @@ it has not frozen, and then kills them all. It tells the processes it spares
 from a listing too (ADR-0310), and a CI shard's progress reports the
 largest processes from one (ADR-0157).
 
-Each listing ran `ps` through a shell: one fork and two programs started
-for every listing, in the gate, in each stream and in each warm worker.
+Each listing ran `ps` through a shell, and each freeze and kill ran `kill`
+through one: a fork and a program or two started for every listing and
+every signal, in the gate, in each stream and in each warm worker.
 The loop that lists had no bound. A mutant of the gate's own stopping code
 that keeps the loop from ending, judged by a test that stops a process tree,
 lists without pause until its test's deadline: the trace of shard 77 of run
@@ -60,9 +61,14 @@ name in one `stat` file, which PHP reads without starting a process.
    listings: a stop of a runner's tree (the gate, a worker, a test, a shell
    and a program) takes at most six. 32 leaves more than five times that
    for processes started between two listings, and at the most a stop costs
-   32 listings, about 50 ms on a machine with 300 processes. A stop that
+   32 listings, about 55 ms on a machine with 300 processes. A stop that
    reaches the bound kills every process it found and the session it leads,
    and the cgroup kill follows where the process has one.
+4. **A stop sends its signals itself.** Each freeze and kill goes through
+   `SparedProcesses::signal` and `signalGroup`, `posix_kill` where PHP has
+   posix and the signals' names (pcntl), so it refuses exactly what ADR-0310
+   refuses. Only where PHP has neither does a stop run the `kill` program,
+   with the same refusals.
 
 ## Consequences
 
@@ -73,13 +79,13 @@ name in one `stat` file, which PHP reads without starting a process.
   and its test goes on to what it asserts, instead of listing until the
   test's deadline. Such a mutant was a timeout before; now it is killed
   where its test's assertion fails, and survives where its test passes,
-  which names a test that does not assert the stop's bound. Every other
-  status is the same.
-- On Linux a listing starts no process. In a Linux container with 300
-  processes, a listing takes 1.6 ms from `/proc` against 4.9 ms through
-  `ps` (627 against 203 a second), and a stop of a tree three deep 17.5 ms
-  against 28.1 ms (median of 20). What a stop still starts is its `kill`
-  commands.
+  which names a test that does not assert the stop's bound: the gate's own
+  suite then kills it with a real assertion. Every other status is the same.
+  This one status change was approved by the user on 2026-11-20.
+- On Linux a stop starts no process: its listings read `/proc`, and it
+  sends its signals itself. In a Linux container with 300 processes, a
+  listing takes 1.7 ms from `/proc` against 5 ms through `ps` (584 to 627
+  against 198 to 203 a second).
 - A process started after a stop's 32nd listing, outside a session the
   stopped process leads and outside a cgroup, is left running, as one whose
   parent ended before the stop always was.
