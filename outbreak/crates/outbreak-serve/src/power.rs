@@ -4,96 +4,22 @@
 //! Low Power Mode keys, through `notifyutil`; on Linux the kernel's
 //! `power_supply` events and the ACPI platform profile's changes.
 
-use crate::watching::Notices;
-
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+mod elsewhere;
 #[cfg(target_os = "macos")]
-pub(crate) fn source() -> Result<Box<dyn Notices>, String> {
-    notifyd::Notifyd::started().map(|notices| Box::new(notices) as Box<dyn Notices>)
-}
+mod macos;
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub(crate) use elsewhere::source;
+#[cfg(target_os = "macos")]
+pub(crate) use macos::source;
+
+#[cfg(target_os = "linux")]
+use crate::watching::Notices;
 
 #[cfg(target_os = "linux")]
 pub(crate) fn source() -> Result<Box<dyn Notices>, String> {
     uevents::Uevents::bound().map(|notices| Box::new(notices) as Box<dyn Notices>)
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
-pub(crate) fn source() -> Result<Box<dyn Notices>, String> {
-    Err(String::from(
-        "this platform tells the daemon of no change of the power source",
-    ))
-}
-
-#[cfg(target_os = "macos")]
-mod notifyd {
-    use std::io::{BufRead as _, BufReader};
-    use std::process::{Child, Command, Stdio};
-    use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
-    use std::thread;
-    use std::time::Duration;
-
-    use crate::watching::Notices;
-
-    /// The program that reports notifyd's notifications, one line each.
-    const NOTIFYUTIL: &str = "/usr/bin/notifyutil";
-
-    /// The keys notifyd posts as the power source changes and as Low Power Mode turns on or off.
-    const KEYS: [&str; 2] = [
-        "com.apple.system.powersources.source",
-        "com.apple.system.lowpowermode",
-    ];
-
-    /// notifyd's notifications of the power source, as `notifyutil` reports them.
-    pub(super) struct Notifyd {
-        child: Child,
-        lines: Receiver<()>,
-    }
-
-    impl Notifyd {
-        pub(super) fn started() -> Result<Self, String> {
-            let mut child = Command::new(NOTIFYUTIL)
-                .args(KEYS.iter().flat_map(|key| ["-w", *key]))
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::null())
-                .spawn()
-                .map_err(|error| format!("cannot start {NOTIFYUTIL}: {error}"))?;
-            let output = child
-                .stdout
-                .take()
-                .ok_or_else(|| format!("{NOTIFYUTIL} has no output"))?;
-            let (told, lines) = mpsc::channel();
-
-            thread::spawn(move || {
-                for line in BufReader::new(output).lines() {
-                    if line.is_err() || told.send(()).is_err() {
-                        return;
-                    }
-                }
-            });
-
-            Ok(Self { child, lines })
-        }
-    }
-
-    impl Notices for Notifyd {
-        fn next(&mut self, within: Duration) -> Result<bool, String> {
-            match self.lines.recv_timeout(within) {
-                Ok(()) => {
-                    while self.lines.try_recv().is_ok() {}
-                    Ok(true)
-                }
-                Err(RecvTimeoutError::Timeout) => Ok(false),
-                Err(RecvTimeoutError::Disconnected) => Err(format!("{NOTIFYUTIL} stopped")),
-            }
-        }
-    }
-
-    impl Drop for Notifyd {
-        fn drop(&mut self) {
-            let _ = self.child.kill();
-            let _ = self.child.wait();
-        }
-    }
 }
 
 #[cfg(target_os = "linux")]
@@ -222,7 +148,7 @@ mod uevents {
     #[cfg(test)]
     mod tests {
         use std::fs::File;
-        use std::io::Write as _;
+        use std::io::{Seek as _, SeekFrom, Write as _};
         use std::os::fd::OwnedFd;
         use std::time::Duration;
 
@@ -286,9 +212,18 @@ mod uevents {
                 std::env::temp_dir().join(format!("outbreak-profile-{}", std::process::id()));
             std::fs::write(&path, b"balanced\n").unwrap();
             let (socket, _kernel) = pair();
-            let mut events = Uevents::over(socket, Some(File::open(&path).unwrap()));
+            let mut profile = File::open(&path).unwrap();
+            profile.seek(SeekFrom::Start(3)).unwrap();
+            let mut events = Uevents::over(socket, Some(profile));
             std::fs::remove_file(&path).unwrap();
 
+            assert_eq!(
+                events
+                    .profile
+                    .as_mut()
+                    .map(|profile| profile.stream_position().unwrap()),
+                Some(9)
+            );
             assert!(events.next(Duration::ZERO).is_ok());
         }
 
@@ -309,6 +244,16 @@ mod uevents {
         fn binds_to_the_kernel_s_device_events() {
             let mut events = Uevents::bound().unwrap();
 
+            assert!(
+                rustix::fs::fcntl_getfl(&events.socket)
+                    .unwrap()
+                    .contains(rustix::fs::OFlags::NONBLOCK)
+            );
+            assert!(
+                rustix::io::fcntl_getfd(&events.socket)
+                    .unwrap()
+                    .contains(rustix::io::FdFlags::CLOEXEC)
+            );
             assert!(events.next(Duration::ZERO).is_ok());
             assert!(super::super::source().is_ok());
         }

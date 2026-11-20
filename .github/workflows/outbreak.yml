@@ -101,11 +101,25 @@ jobs:
         working-directory: .
         run: python3 .github/scripts/gate_summary.py outbreak/clippy
 
+  # The suite on Linux, and on macOS, where the daemon watches through kqueue
+  # and notifyd, which no Linux job builds.
   test:
-    name: test
+    name: test ${{ matrix.os }}
     if: inputs.gates
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-latest
+          - os: macos
+            runner: macos-15
+    defaults:
+      run:
+        shell: bash
+        working-directory: outbreak
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -116,13 +130,14 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             outbreak/target
-          key: outbreak-test-${{ runner.arch }}-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+          key: outbreak-test-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
           tools: php-config, phpize
-      - run: bash .github/scripts/libclang.sh
+      - if: runner.os == 'Linux'
+        run: bash .github/scripts/libclang.sh
         working-directory: .
       - run: ci/install-tool.sh cargo-nextest
       - run: cargo nextest run --workspace --locked
@@ -373,6 +388,46 @@ jobs:
         if: failure()
         working-directory: .
         run: python3 .github/scripts/gate_summary.py outbreak/mutants-ext
+
+  # The mutants of the code built on macOS alone (.cargo/mutants-macos.toml),
+  # which the Linux shards leave out: kqueue's watch and notifyd's power
+  # source.
+  mutants-macos:
+    name: mutants macos
+    if: inputs.gates
+    runs-on: macos-15
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: outbreak
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+          key: outbreak-mutants-${{ runner.os }}-${{ hashFiles('outbreak/rust-toolchain.toml', 'outbreak/Cargo.lock') }}
+      - run: ci/install-tool.sh cargo-nextest
+      - run: ci/install-tool.sh cargo-mutants
+      - env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: ci/mutants.sh macos
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: outbreak-mutants-macos
+          path: outbreak/mutants.out
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/mutants-macos
 
   # Every parser and decoder: a map's text, a split request, a slice of a map
   # the slicer takes, which must itself be a map it vouches for, a run's
@@ -647,7 +702,7 @@ jobs:
   # check reads as passed.
   passed:
     name: passed
-    needs: [fmt, clippy, test, coverage, deny, audit, msrv, mutants-plan, mutants, mutants-ext, fuzz, boundary, build, extension]
+    needs: [fmt, clippy, test, coverage, deny, audit, msrv, mutants-plan, mutants, mutants-ext, mutants-macos, fuzz, boundary, build, extension]
     if: ${{ !cancelled() && (inputs.gates || inputs.builds || inputs.boundary) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

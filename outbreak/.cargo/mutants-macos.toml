@@ -1,0 +1,15 @@
+# The mutants of the code built on macOS alone, which .cargo/mutants.toml
+# leaves out of the Linux shards (ADR-0118), judged as those are.
+test_tool = "nextest"
+additional_cargo_test_args = ["--profile", "mutants"]
+minimum_test_timeout = 15
+examine_globs = [
+  "crates/outbreak-serve/src/power/macos.rs",
+  "crates/outbreak-serve/src/watching/kqueue.rs",
+]
+exclude_re = [
+  # kqueue's NOTE_DELETE (0x1), NOTE_WRITE (0x2), NOTE_EXTEND (0x4),
+  # NOTE_RENAME (0x20) and NOTE_REVOKE (0x40) are each a single bit of their
+  # own: values that share no bit give the same with ^ as with |.
+  'crates/outbreak-serve/src/watching/kqueue\.rs:.*: replace \| with \^ in Kqueue::added$',
+]

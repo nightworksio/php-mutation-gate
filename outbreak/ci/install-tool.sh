@@ -3,11 +3,14 @@
 # by version and by the SHA-256 of the asset, the pins herald's CI holds
 # (ADR-0118). Where a release lists checksums, the pin is the one it lists;
 # where it lists none, the one first downloaded. cargo-mutants and cargo-fuzz
-# release no build for arm64 Linux, so their jobs run on x86_64.
+# release no build for arm64 Linux, so their jobs run on x86_64. On macOS,
+# cargo-nextest and cargo-mutants alone are pinned: nextest's universal build,
+# and cargo-mutants' x86_64 build, which Rosetta runs on arm64.
 set -euo pipefail
 
 tool="${1:?usage: install-tool.sh <cargo-nextest|cargo-llvm-cov|cargo-deny|cargo-audit|cargo-mutants|cargo-fuzz>}"
 arch="$(uname -m)"
+os="$(uname -s)"
 
 # The pin of this machine's build of a tool, from its x86_64 and its aarch64 pin.
 pinned() {
@@ -24,8 +27,13 @@ pinned() {
 case "$tool" in
   cargo-nextest)
     version="0.9.150"
-    url="https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${version}/cargo-nextest-${version}-${arch}-unknown-linux-gnu.tar.gz"
-    sha256="$(pinned b0959bc64232974224cf9fb22c915845398c0e8668fa7831eb5b43fb1eef781f 9164568e9840c6509177086828ac7d3178c2d8feb0658b4d2bff62fa620e98c8)"
+    if [[ "$os" == Darwin ]]; then
+      url="https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${version}/cargo-nextest-${version}-universal-apple-darwin.tar.gz"
+      sha256="82a759b4d218d38359424196ab244c470e8f7c7d149c814fbbeef4d67c3c301a"
+    else
+      url="https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${version}/cargo-nextest-${version}-${arch}-unknown-linux-gnu.tar.gz"
+      sha256="$(pinned b0959bc64232974224cf9fb22c915845398c0e8668fa7831eb5b43fb1eef781f 9164568e9840c6509177086828ac7d3178c2d8feb0658b4d2bff62fa620e98c8)"
+    fi
     member="cargo-nextest"
     ;;
   cargo-llvm-cov)
@@ -48,8 +56,13 @@ case "$tool" in
     ;;
   cargo-mutants)
     version="27.1.0"
-    url="https://github.com/sourcefrog/cargo-mutants/releases/download/v${version}/cargo-mutants-x86_64-unknown-linux-gnu.tar.gz"
-    sha256="$(pinned dfe6dc37d0342c891d2829b5a695aa57c2d0edecef7e7d0399a30cc6e206411e "")"
+    if [[ "$os" == Darwin ]]; then
+      url="https://github.com/sourcefrog/cargo-mutants/releases/download/v${version}/cargo-mutants-x86_64-apple-darwin.tar.gz"
+      sha256="7109a9e9673fe0b977f622e6f32383b6d1cbbf3fbb63b7c30db3267462c74670"
+    else
+      url="https://github.com/sourcefrog/cargo-mutants/releases/download/v${version}/cargo-mutants-x86_64-unknown-linux-gnu.tar.gz"
+      sha256="$(pinned dfe6dc37d0342c891d2829b5a695aa57c2d0edecef7e7d0399a30cc6e206411e "")"
+    fi
     member="cargo-mutants"
     ;;
   cargo-fuzz)
@@ -70,7 +83,11 @@ else
   archive="${RUNNER_TEMP:-/tmp}/${tool}.${url##*.}"
 fi
 curl -sSfL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --retry-all-errors -o "$archive" "$url"
-sha256sum --check --strict <<<"${sha256}  ${archive}"
+if [[ "$os" == Darwin ]]; then
+  shasum --algorithm 256 --check --strict <<<"${sha256}  ${archive}"
+else
+  sha256sum --check --strict <<<"${sha256}  ${archive}"
+fi
 mkdir -p "${HOME}/.cargo/bin"
 case "$archive" in
   "${RUNNER_TEMP:-/tmp}/${tool}") install -m 0755 "$archive" "${HOME}/.cargo/bin/${tool}" ;;

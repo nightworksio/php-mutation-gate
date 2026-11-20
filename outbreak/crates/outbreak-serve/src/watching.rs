@@ -20,6 +20,46 @@ use std::time::{Duration, Instant};
 
 use crate::server::TICK;
 
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonfly"
+)))]
+mod elsewhere;
+#[cfg(any(
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonfly"
+))]
+mod kqueue;
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonfly"
+)))]
+use elsewhere::native;
+#[cfg(any(
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonfly"
+))]
+use kqueue::native;
+
 /// The directories version control keeps its own state in, never watched.
 const UNWATCHED: [&str; 3] = [".git", ".hg", ".svn"];
 
@@ -293,33 +333,6 @@ fn native(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Box<dyn Notices>,
     inotify::Inotify::armed(paths, skipped).map(|notices| Box::new(notices) as Box<dyn Notices>)
 }
 
-#[cfg(any(
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "netbsd",
-    target_os = "dragonfly"
-))]
-fn native(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Box<dyn Notices>, String> {
-    kqueue::Kqueue::armed(paths, skipped).map(|notices| Box::new(notices) as Box<dyn Notices>)
-}
-
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "netbsd",
-    target_os = "dragonfly"
-)))]
-fn native(_: &BTreeSet<PathBuf>, _: &Path) -> Result<Box<dyn Notices>, String> {
-    Err(String::from(
-        "this platform has no notifications the daemon watches through",
-    ))
-}
-
 #[cfg(target_os = "linux")]
 mod inotify {
     use std::collections::{BTreeSet, HashMap};
@@ -371,16 +384,7 @@ mod inotify {
         }
 
         fn added(&mut self, paths: &BTreeSet<PathBuf>) -> Result<(), String> {
-            let flags = WatchFlags::MODIFY
-                | WatchFlags::CLOSE_WRITE
-                | WatchFlags::CREATE
-                | WatchFlags::DELETE
-                | WatchFlags::DELETE_SELF
-                | WatchFlags::MOVED_FROM
-                | WatchFlags::MOVED_TO
-                | WatchFlags::MOVE_SELF
-                | WatchFlags::ONLYDIR
-                | WatchFlags::DONT_FOLLOW;
+            let flags = mask();
             let fd = &self.fd;
             let directories = &mut self.directories;
 
@@ -396,6 +400,21 @@ mod inotify {
                 Ok(())
             })
         }
+    }
+
+    /// What a directory's watch tells of: each change of its entries and of itself, on a directory alone, never
+    /// through a link.
+    fn mask() -> WatchFlags {
+        WatchFlags::MODIFY
+            | WatchFlags::CLOSE_WRITE
+            | WatchFlags::CREATE
+            | WatchFlags::DELETE
+            | WatchFlags::DELETE_SELF
+            | WatchFlags::MOVED_FROM
+            | WatchFlags::MOVED_TO
+            | WatchFlags::MOVE_SELF
+            | WatchFlags::ONLYDIR
+            | WatchFlags::DONT_FOLLOW
     }
 
     /// The watch a directory was given; none where it is gone; why not, where it could not be watched.
@@ -487,8 +506,29 @@ mod inotify {
         use rustix::fs::inotify::ReadFlags;
         use rustix::io::Errno;
 
-        use super::{Batch, Inotify, watched};
+        use super::{Batch, Inotify, mask, watched};
         use crate::watching::Notices;
+
+        #[test]
+        fn watches_a_directory_alone_and_never_through_a_link() {
+            let root = std::env::temp_dir().join(format!("outbreak-mask-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::create_dir_all(root.join("directory")).unwrap();
+            std::fs::write(root.join("file"), "").unwrap();
+            std::os::unix::fs::symlink(root.join("directory"), root.join("link")).unwrap();
+            let fd = rustix::fs::inotify::init(rustix::fs::inotify::CreateFlags::CLOEXEC).unwrap();
+
+            assert!(rustix::fs::inotify::add_watch(&fd, root.join("directory"), mask()).is_ok());
+            assert_eq!(
+                rustix::fs::inotify::add_watch(&fd, root.join("file"), mask()),
+                Err(Errno::NOTDIR)
+            );
+            assert_eq!(
+                rustix::fs::inotify::add_watch(&fd, root.join("link"), mask()),
+                Err(Errno::NOTDIR)
+            );
+            std::fs::remove_dir_all(&root).unwrap();
+        }
 
         #[test]
         fn says_why_it_cannot_wait_that_long() {
@@ -540,186 +580,19 @@ mod inotify {
     }
 }
 
-#[cfg(any(
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "netbsd",
-    target_os = "dragonfly"
-))]
-mod kqueue {
-    use std::collections::{BTreeSet, HashSet};
-    use std::fs;
-    use std::path::{Path, PathBuf};
-    use std::time::Duration;
-
-    use kqueue::{EventData, EventFilter, FilterFlag, Ident, Vnode, Watcher};
-    use rustix::process::{Resource, Rlimit, getrlimit, setrlimit};
-
-    use super::{Notices, walked};
-
-    /// The most descriptors macOS lets a process raise its limit to where its hard limit is unlimited.
-    const OPEN_MAX: u64 = 10_240;
-
-    /// kqueue's notifications: a descriptor on each directory and file, which tells of its own changes.
-    pub(super) struct Kqueue {
-        watcher: Watcher,
-        known: HashSet<PathBuf>,
-        skipped: PathBuf,
-    }
-
-    impl Kqueue {
-        pub(super) fn armed(paths: &BTreeSet<PathBuf>, skipped: &Path) -> Result<Self, String> {
-            raised();
-            let watcher =
-                Watcher::new().map_err(|error| format!("cannot start kqueue: {error}"))?;
-            let mut armed = Self {
-                watcher,
-                known: HashSet::new(),
-                skipped: skipped.to_path_buf(),
-            };
-            armed.added(paths)?;
-
-            Ok(armed)
-        }
-
-        fn added(&mut self, paths: &BTreeSet<PathBuf>) -> Result<(), String> {
-            let flags = FilterFlag::NOTE_DELETE
-                | FilterFlag::NOTE_WRITE
-                | FilterFlag::NOTE_EXTEND
-                | FilterFlag::NOTE_RENAME
-                | FilterFlag::NOTE_REVOKE;
-            let watcher = &mut self.watcher;
-            let known = &mut self.known;
-            let mut any = false;
-
-            walked(paths, &self.skipped, &mut |path, _| {
-                if known.contains(path) {
-                    return Ok(());
-                }
-
-                match watcher.add_filename(path, EventFilter::EVFILT_VNODE, flags) {
-                    Ok(()) => {
-                        known.insert(path.to_path_buf());
-                        any = true;
-                        Ok(())
-                    }
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                    Err(error) => Err(format!("cannot watch {}: {error}", path.display())),
-                }
-            })?;
-
-            if any {
-                self.watcher
-                    .watch()
-                    .map_err(|error| format!("cannot arm kqueue: {error}"))?;
-            }
-
-            Ok(())
-        }
-
-        /// A watched path's change: a path gone or replaced is let go, and
-        /// the entries its directory, or it as a directory, holds that are
-        /// not watched yet are.
-        fn handled(&mut self, path: PathBuf, gone: bool) -> Result<(), String> {
-            let rescanned = match fs::symlink_metadata(&path) {
-                Ok(metadata) if !gone => metadata.is_dir().then_some(path),
-                _ => {
-                    let _ = self
-                        .watcher
-                        .remove_filename(&path, EventFilter::EVFILT_VNODE);
-                    self.known.remove(&path);
-                    path.parent().map(Path::to_path_buf)
-                }
-            };
-            let Some(directory) = rescanned.filter(|directory| self.known.contains(directory))
-            else {
-                return Ok(());
-            };
-            let unknown = fs::read_dir(&directory)
-                .map(|entries| {
-                    entries
-                        .filter_map(Result::ok)
-                        .map(|entry| entry.path())
-                        .filter(|entry| !self.known.contains(entry))
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            self.added(&unknown)
-        }
-    }
-
-    impl Notices for Kqueue {
-        fn next(&mut self, within: Duration) -> Result<bool, String> {
-            let mut changed = Vec::new();
-            let mut wait = Some(within);
-
-            while let Some(event) = self.watcher.poll(wait) {
-                wait = Some(Duration::ZERO);
-
-                match (event.ident, event.data) {
-                    (_, EventData::Error(error)) => return Err(format!("kqueue failed: {error}")),
-                    (Ident::Filename(_, name), EventData::Vnode(vnode)) => {
-                        changed.push((
-                            PathBuf::from(name),
-                            matches!(vnode, Vnode::Delete | Vnode::Rename | Vnode::Revoke),
-                        ));
-                    }
-                    _ => {}
-                }
-            }
-
-            let any = !changed.is_empty();
-
-            for (path, gone) in changed {
-                self.handled(path, gone)?;
-            }
-
-            Ok(any)
-        }
-    }
-
-    /// The process's limit of open descriptors raised as far as it may be, each watched path holding one.
-    fn raised() {
-        let limit = getrlimit(Resource::Nofile);
-        let most = limit.maximum;
-
-        if setrlimit(
-            Resource::Nofile,
-            Rlimit {
-                current: most,
-                maximum: most,
-            },
-        )
-        .is_err()
-        {
-            let bounded = most.map_or(OPEN_MAX, |most| most.min(OPEN_MAX));
-
-            if limit.current.is_some_and(|current| current < bounded) {
-                let _ = setrlimit(
-                    Resource::Nofile,
-                    Rlimit {
-                        current: Some(bounded),
-                        maximum: most,
-                    },
-                );
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
+    use std::sync::mpsc::{self, Sender};
     use std::time::Duration;
 
     use std::collections::{BTreeSet, VecDeque};
 
-    use super::{Noticed, Notices, Watching, walked};
+    use std::sync::atomic::AtomicBool;
+
+    use super::{Noticed, Notices, Watching, locked, settled, walked};
 
     const SETTLED: Duration = Duration::from_secs(5);
 
@@ -834,6 +707,82 @@ mod tests {
                 String::from("told all")
             })
         }
+    }
+
+    /// Notifications that never tell of a change, and say each time they are asked.
+    struct Quiet(Sender<()>);
+
+    impl Notices for Quiet {
+        fn next(&mut self, within: Duration) -> Result<bool, String> {
+            let _ = self.0.send(());
+            std::thread::sleep(within);
+            Ok(false)
+        }
+    }
+
+    #[test]
+    fn settles_a_burst_of_changes_as_one_until_stopped() {
+        let mut burst = Told(VecDeque::from([true, true, true, false, true]));
+
+        assert_eq!(
+            settled(&mut burst, Duration::ZERO, &AtomicBool::new(false)),
+            Ok(true)
+        );
+        assert_eq!(burst.0, [true]);
+
+        let mut stopped = Told(VecDeque::from([true, true]));
+
+        assert_eq!(
+            settled(&mut stopped, Duration::ZERO, &AtomicBool::new(true)),
+            Ok(true)
+        );
+        assert_eq!(stopped.0, [true]);
+    }
+
+    #[test]
+    fn stops_its_watcher_when_told() {
+        let (asking, asked) = mpsc::channel();
+        let quiet = Watching::of(
+            PathBuf::from("/p"),
+            Duration::ZERO,
+            Box::new(move |_| Ok(Box::new(Quiet(asking.clone())) as Box<dyn Notices>)),
+        );
+
+        assert_eq!(
+            quiet.changed(&[String::from("src")], 0, Duration::ZERO),
+            Noticed::Changed(0)
+        );
+        assert_eq!(asked.recv_timeout(SETTLED), Ok(()));
+        assert!(locked(&quiet.armed).running.is_some());
+
+        quiet.stop();
+
+        assert!(locked(&quiet.armed).running.is_none());
+    }
+
+    #[test]
+    fn counts_a_file_deleted_moved_out_or_in_and_a_watched_directory_moved() {
+        let root = fresh("moves");
+        let watching = watching(&root);
+        let paths = [String::from("src")];
+        let mut seen = generation(watching.changed(&paths, 0, Duration::ZERO));
+
+        for change in [
+            &(|root: &Path| fs::rename(root.join("src/deep/A.php"), root.join(".git/A.php")))
+                as &dyn Fn(&Path) -> std::io::Result<()>,
+            &|root: &Path| fs::rename(root.join(".git/A.php"), root.join("src/deep/A.php")),
+            &|root: &Path| fs::remove_file(root.join("src/deep/A.php")),
+            &|root: &Path| fs::rename(root.join("src"), root.join("moved")),
+        ] {
+            change(&root).unwrap();
+            let now = generation(watching.changed(&paths, seen, SETTLED));
+
+            assert!(now > seen);
+            seen = now;
+        }
+
+        watching.stop();
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

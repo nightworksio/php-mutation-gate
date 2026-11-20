@@ -224,5 +224,9 @@ mod tests {
 
         assert_eq!(journal(&written(&forgotten).unwrap()), vec![forgotten]);
         assert_eq!(written(&proof("a", &"x".repeat(LONGEST))), None);
+
+        let longest = proof("a", &"x".repeat(LONGEST - 6));
+
+        assert_eq!(journal(&written(&longest).unwrap()), vec![longest]);
     }
 }

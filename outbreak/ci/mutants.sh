@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: mutants.sh shards | mutants.sh run <shard> <shards> | mutants.sh ext
+# Usage: mutants.sh shards | mutants.sh run <shard> <shards> | mutants.sh ext | mutants.sh macos
 #
 # Outbreak's mutants (ADR-0118), as .cargo/mutants.toml configures them.
 # `shards` says how many shards of at most PER_SHARD mutants hold those of
@@ -7,8 +7,10 @@
 # deal out each of them exactly once; `run` tests one shard's, dealt
 # round-robin. `ext` tests outbreak-ext's, the one crate whose build needs
 # PHP's headers and libclang. Each runs in place, since tests read fixtures
-# outside the workspace. A pull request's run takes the mutants of its diff
-# against its base (EVENT, BASE); any other run takes every one.
+# outside the workspace. `macos` tests those of the code built on macOS alone,
+# as .cargo/mutants-macos.toml names it. A pull request's run takes the
+# mutants of its diff against its base (EVENT, BASE); any other run takes
+# every one.
 set -euo pipefail
 
 PER_SHARD=170
@@ -43,8 +45,12 @@ case "${1:-}" in
   ext)
     cargo mutants --workspace --in-place --no-shuffle --file "${EXT}" ${scope[@]+"${scope[@]}"}
     ;;
+  macos)
+    cargo mutants --workspace --in-place --no-shuffle --config .cargo/mutants-macos.toml \
+      ${scope[@]+"${scope[@]}"}
+    ;;
   *)
-    echo "usage: mutants.sh shards | mutants.sh run <shard> <shards> | mutants.sh ext" >&2
+    echo "usage: mutants.sh shards | mutants.sh run <shard> <shards> | mutants.sh ext | mutants.sh macos" >&2
     exit 2
     ;;
 esac
