@@ -385,7 +385,7 @@ final readonly class Running
 
         return $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
             Warning::noting(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
-        ) : Warnings::none())->and(Unsplit::warnings($this->settings, $id)));
+        ) : Warnings::none())->and(Unsplit::warnings($this->settings, $id))->and($scope->unjudged($outcome)));
     }
 
     /**

@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\LeftAtTheDeadline;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -99,6 +100,27 @@ it('keeps only its share\'s mutants and flaky ones where its runner makes every 
         LeftAtTheDeadline::mutantsOf($left),
     ) : $left)->toEqual([...$share->mutants()])
         ->and($left instanceof ShardResult ? $left->flaky()->without($share->mutants())->count() : -1)->toBe(0);
+});
+
+it('says which mutants a share lists that its run did not judge, leaving each as its shard left it', function (): void {
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    $unmade = LeftMutant::of(MutantId::hash(Path::of('src/Money.php'), 'Minus', 'nowhere', 99), 'nowhere', Path::of('src/Money.php'));
+    $share = LeftoverShare::of(ShardId::of(1), 2, ...[...LeftAtTheDeadline::listed($whole, 'Minus-21'), $unmade]);
+
+    new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), Flows::setup())
+        ->judging($share)
+        ->run($plan, ShardId::of(1), Workspace::results());
+    $left = ShardResultFile::decode((string) file_get_contents(sprintf('%s/%s', $project, LeftoverParts::resultOf(Workspace::results(), $share)->value())));
+    $said = $left instanceof ShardResult ? array_map(
+        static fn(Warning $warning): string => $warning->text(),
+        [...$left->warnings()],
+    ) : [];
+
+    expect($said)->toContain(sprintf(
+        'Share 1.2 lists 1 mutants its run did not judge, the first %s: each stays as shard 1 left it, unjudged.',
+        $unmade->id()->value(),
+    ))
+        ->and($left instanceof ShardResult ? count(LeftAtTheDeadline::mutantsOf($left)) : -1)->toBe(1);
 });
 
 it('judges a share of a shard whose plan pulls its work by that shard alone, pulling nothing', function (): void {

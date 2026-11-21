@@ -25,7 +25,9 @@ use NightWorksIO\MutationGate\Core\Test\TestPart;
  * covering test each mutant it owns, and leaves the rest; judging parted, it
  * judges every mutant its part's tests cover by those tests (ADR-0174). The
  * lines of a source file no test covers fall to one part alone, where the
- * parts make the mutants their tests reach (ADR-0193).
+ * parts make the mutants their tests reach (ADR-0193); a run that makes only
+ * the mutants it is told to, as a share of the second wave does, owns every
+ * such line, since each mutant it is told to make is one its part owned.
  *
  * @internal
  */
@@ -41,6 +43,7 @@ final readonly class TestParts
         private array $parts,
         private StreamJudging $judging,
         private array $uncovered,
+        private bool $toldWhat = false,
     ) {
     }
 
@@ -86,7 +89,17 @@ final readonly class TestParts
             $this->parts,
             $this->judging,
             array_map(static fn(int $at): int => $at + 1, TestFileParts::placed($uncovered, $this->part->parts())),
+            $this->toldWhat,
         );
+    }
+
+    /**
+     * These parts, in a run that makes only the mutants it is told to: its
+     * part makes and owns the lines no test covers of every file.
+     */
+    public function makingWhatItIsTold(): self
+    {
+        return new self($this->part, $this->parts, $this->judging, $this->uncovered, toldWhat: true);
     }
 
     /**
@@ -95,7 +108,9 @@ final readonly class TestParts
      */
     public function makesUncovered(string $file): bool
     {
-        return ! array_key_exists($file, $this->uncovered) || $this->uncovered[$file] === $this->part->number();
+        return $this->toldWhat
+            || ! array_key_exists($file, $this->uncovered)
+            || $this->uncovered[$file] === $this->part->number();
     }
 
     /**
@@ -107,9 +122,11 @@ final readonly class TestParts
      */
     public function ownsUncovered(string $mutant, string $file): bool
     {
-        return array_key_exists($file, $this->uncovered)
-            ? $this->uncovered[$file] === $this->part->number()
-            : crc32($mutant) % $this->part->parts() + 1 === $this->part->number();
+        return match (true) {
+            $this->toldWhat => true,
+            array_key_exists($file, $this->uncovered) => $this->uncovered[$file] === $this->part->number(),
+            default => crc32($mutant) % $this->part->parts() + 1 === $this->part->number(),
+        };
     }
 
     /**

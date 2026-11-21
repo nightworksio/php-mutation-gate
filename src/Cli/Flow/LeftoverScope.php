@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function count;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -13,17 +16,26 @@ use NightWorksIO\MutationGate\Core\Plan\PlanLearned;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\MadeMutants;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
+
+use function sprintf;
 
 /**
  * What a shard's run judges: the whole shard, or, in a job of the second
  * wave, one share of the mutants it left at its deadline (ADR-0190), in the
  * shard's units that hold them, making them alone, its result keeping them
- * alone, left where the verdict reads the share's.
+ * alone, left where the verdict reads the share's. A share whose run did not
+ * judge a mutant it lists says so: the mutant stays as its shard left it,
+ * unjudged, and the verdict counts it unfinished.
  *
  * @internal
  */
 final readonly class LeftoverScope
 {
+    private const string UNJUDGED
+        = 'Share %d.%d lists %d mutants its run did not judge, the first %s: each stays as shard %d left it, unjudged.';
+
     private function __construct(private LeftoverShare|NotGiven $share)
     {
     }
@@ -68,6 +80,31 @@ final readonly class LeftoverScope
         return $this->share instanceof LeftoverShare && $outcome instanceof Mutated
             ? $outcome->keeping($this->share->mutants())
             : $outcome;
+    }
+
+    /** A warning for each mutant the share lists that its run's outcome lacks; none for a whole shard. */
+    public function unjudged(Mutated|CannotJudge $outcome): Warnings
+    {
+        if (! $this->share instanceof LeftoverShare || $outcome instanceof CannotJudge) {
+            return Warnings::none();
+        }
+
+        $judged = [];
+
+        foreach ($outcome->result->mutants() as $mutant) {
+            $judged[] = $mutant->id();
+        }
+
+        $lacking = [...$this->share->mutants()->without(MutantIds::of(...$judged))];
+
+        return $lacking === [] ? Warnings::none() : Warnings::of(Warning::that(sprintf(
+            self::UNJUDGED,
+            $this->share->shard()->number(),
+            $this->share->number(),
+            count($lacking),
+            $lacking[0]->value(),
+            $this->share->shard()->number(),
+        )));
     }
 
     /** Where the run leaves its result in this directory of results. */
