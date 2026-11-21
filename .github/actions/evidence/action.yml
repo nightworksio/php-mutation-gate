@@ -1,23 +1,54 @@
 name: Gather the run's evidence
 description: >-
-  Every job's evidence this attempt left, laid over what an earlier attempt of
-  the run gathered, as the one artifact `evidence` the bot reads (ADR-0019), so
-  a job run again speaks for itself and a job not run again keeps what it said.
+  Every job's evidence, laid over what an earlier attempt of the run gathered,
+  as the one artifact `evidence` the bot reads (ADR-0019), so a job run again
+  speaks for itself and a job not run again keeps what it said. Each job's
+  `evidence-*` is read where it lies, the newest of each name; GitHub lists an
+  artifact a moment before it serves it, so a read that fails is tried again
+  after 5, 10 and 20 seconds before the job fails (ADR-0321).
 runs:
   using: composite
   steps:
-    - uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-      id: attempt
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      id: jobs
       continue-on-error: true
       with:
-        name: attempt-${{ github.run_attempt }}-evidence
         pattern: evidence-*
-        delete-merged: true
-        retention-days: 1
+        merge-multiple: true
+        path: ${{ runner.temp }}/evidence/attempt
+    - name: Wait for the evidence GitHub listed but did not serve
+      if: steps.jobs.outcome == 'failure'
+      shell: bash
+      run: sleep 5
     - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-      if: steps.attempt.outcome == 'success'
+      id: jobs-second
+      if: steps.jobs.outcome == 'failure'
+      continue-on-error: true
       with:
-        name: attempt-${{ github.run_attempt }}-evidence
+        pattern: evidence-*
+        merge-multiple: true
+        path: ${{ runner.temp }}/evidence/attempt
+    - name: Wait longer for the evidence GitHub listed but did not serve
+      if: steps.jobs-second.outcome == 'failure'
+      shell: bash
+      run: sleep 10
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      id: jobs-third
+      if: steps.jobs-second.outcome == 'failure'
+      continue-on-error: true
+      with:
+        pattern: evidence-*
+        merge-multiple: true
+        path: ${{ runner.temp }}/evidence/attempt
+    - name: Wait longest for the evidence GitHub listed but did not serve
+      if: steps.jobs-third.outcome == 'failure'
+      shell: bash
+      run: sleep 20
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      if: steps.jobs-third.outcome == 'failure'
+      with:
+        pattern: evidence-*
+        merge-multiple: true
         path: ${{ runner.temp }}/evidence/attempt
     - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       if: github.run_attempt != '1'

@@ -4,8 +4,8 @@
 Usage: evidence_overlay.py <earlier> <attempt> <gathered>
 
 <earlier> holds what an earlier attempt of the run gathered into the artifact
-`evidence`, and <attempt> what this attempt's jobs left; either may be
-missing. Each file of <attempt> takes the place of the file of its name in
+`evidence`, and <attempt> the newest evidence each job of the run left; either
+may be missing. Each file of <attempt> takes the place of the file of its name in
 <earlier>, so a job run again speaks for itself and a job not run again keeps
 what it said (ADR-0019). <gathered> holds the result. It exits 1, saying so,
 where neither holds a file, as the run left no evidence at all.

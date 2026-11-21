@@ -39,6 +39,8 @@ use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
+use function sprintf;
+
 /**
  * `plan`: the units of the trees, what the change reaches, each considered
  * unit's key, and the shards the units no proof covers are cut into. A shard
@@ -52,6 +54,13 @@ final readonly class Planning
     private const string WAITS = <<<'SAID'
         The run cannot start without a fresh coverage map, and the plan was asked to plan early alone,
         so it plans nothing: the caller that hands a fresh map runs it (ADR-0135).
+        SAID;
+
+    private const string REFUSED = <<<'SAID'
+        The map the default branch keeps cannot plan the run early:
+        %s
+        The plan was asked to plan early alone, so it plans nothing:
+        the caller that hands a fresh map runs it (ADR-0320).
         SAID;
 
     private const string NOT_FULL = <<<'SAID'
@@ -104,27 +113,37 @@ final readonly class Planning
             return $unchanged;
         }
 
-        $early = $this->early($inventory, $ledgers, $mode, $coverage);
+        $early = new EarlyStart($this->adapters, $this->settings, $this->setup)
+            ->keptMap($inventory, $ledgers, $mode, $coverage);
+        $planned = $early instanceof CoverageMeasured
+            ? $this->plannedEarly($inventory, $writing, $mode, $early, $cut, $matrix, $ownMap, $quick)
+            : $early;
 
         return match (true) {
-            $early instanceof CoverageMeasured
-                => $this->plannedEarly($inventory, $writing, $mode, $early, $cut, $matrix, $ownMap, $quick),
-            $earlyOnly => $this->waiting($inventory),
+            $planned instanceof PlanMade => $planned,
+            $earlyOnly => $this->waiting($inventory, $planned),
             default => $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap, $quick),
         };
     }
 
-    /** The plan of a run that waits for a fresh map, planning nothing: the caller that hands one runs it. */
-    private function waiting(Inventory $inventory): PlanMade
+    /**
+     * The plan of a run that waits for a fresh map, planning nothing, saying
+     * why the kept map could not plan it where it was tried: the caller that
+     * hands one runs it.
+     */
+    private function waiting(Inventory $inventory, CannotJudge|NotGiven $refused): PlanMade
     {
         $waits = Plan::of($inventory->standing->head(), Digest::ofNothing(), Keys::none(), Shards::none());
+        $said = $refused instanceof CannotJudge ? sprintf(self::REFUSED, $refused->why()) : self::WAITS;
 
-        return PlanMade::of($waits->briefed(Briefing::standard()->waitingForAMap()), self::WAITS);
+        return PlanMade::of($waits->briefed(Briefing::standard()->waitingForAMap()), $said);
     }
 
     /**
      * The plan of a run started early against the map it keeps, taking no
-     * proof, since what it runs is judged again once the fresh map is in.
+     * proof, since what it runs is judged again once the fresh map is in; or
+     * why the kept map cannot plan it, where the run takes the path it takes
+     * with no map kept (ADR-0320).
      */
     private function plannedEarly(
         Inventory $inventory,
@@ -141,42 +160,6 @@ final readonly class Planning
         $made = $this->measured($inventory, $none, $taking, $early->request(), $cut, $matrix, $ownMap, $quick);
 
         return $made instanceof PlanMade ? $made->plannedEarly($early) : $made;
-    }
-
-    /**
-     * The kept map a full split-stream run plans by without a fresh one,
-     * where `splitStream.early` starts it early (ADR-0135): none handed, the
-     * run full, its streams split by tests, and, under `no-match`, no proof
-     * of the ledgers it reads may share its first five inputs; none where it
-     * waits for a fresh map, or none is kept.
-     */
-    private function early(
-        Inventory $inventory,
-        Ledgers $ledgers,
-        Mode $mode,
-        CoverageRun|CoverageRead $coverage,
-    ): CoverageMeasured|NotGiven {
-        $pest = $this->settings->effective()->running()->pest();
-
-        $splits = $pest->splitsByTests($this->settings->runner()->choice());
-
-        if (! $coverage instanceof CoverageRun || ! $mode->isFull() || ! $splits) {
-            return NotGiven::value();
-        }
-
-        $reads = Keying::readsOf(
-            $this->adapters,
-            $this->settings,
-            $this->setup,
-            LearnedLimits::of($this->settings, $ledgers)->multiple(),
-        );
-        $match = ! $reads instanceof Digest
-            || $ledgers->own()->proofs()->mayShareReads($reads)
-            || $ledgers->defaultBranch()->proofs()->mayShareReads($reads);
-
-        return $pest->splitStream()->early()->startsEarly($mode->isUnproven(), $match)
-            ? new KeptMaps($this->adapters, $this->settings)->keptAsIs($inventory)
-            : NotGiven::value();
     }
 
     /**
