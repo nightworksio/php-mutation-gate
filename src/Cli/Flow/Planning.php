@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
@@ -264,7 +265,7 @@ final readonly class Planning
                 $at,
                 $keying,
                 $mode,
-                $learned->cut($cut),
+                $learned->tailing($learned->cut($cut), ShardDeadline::limitOf($this->adapters->environment)),
                 $matrix,
                 $saved,
                 $quick instanceof QuickRound,
@@ -278,6 +279,7 @@ final readonly class Planning
             ? PlanMade::of(
                 $planned->briefed($learned->briefing(
                     $this->adapters->briefing($briefing->standingAs($planned->briefing())),
+                    $planned->shards()->tail(),
                 )),
                 $measured->said(),
             )->without($ledgers->unread())->learning(
@@ -390,7 +392,12 @@ final readonly class Planning
         }
 
         $opening = $map->durations()->total();
-        $firstRun = $this->firstRun($quick, $map, $ledgers->costs($this->setup->gate)->untimed($toRun));
+        $firstRun = $this->firstRun(
+            $quick,
+            $map,
+            $ledgers->costs($this->setup->gate)->untimed($toRun),
+            $quick ? MutantSites::none() : $this->made($map, $toRun),
+        );
         $planned = new PlannedShards($this->adapters, $this->settings, $this->setup);
         $shards = $planned->of(
             $toRun,
@@ -400,6 +407,7 @@ final readonly class Planning
             $cut,
             $opening,
             $planned->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun)->saving($saved),
+            $map,
         );
         $digests = $this->committed($now, $inventory->standing->head());
         $standing = new NothingReached($this->adapters, $this->settings, $this->setup)->briefing(
@@ -491,12 +499,30 @@ final readonly class Planning
      * What the plan measures of the first run of these units, untimed so
      * far; nothing in a quick round, whose one shard no estimate cuts.
      */
-    private function firstRun(bool $quick, CoverageMap $map, Units $untimed): FirstRun
+    private function firstRun(bool $quick, CoverageMap $map, Units $untimed, MutantSites $made): FirstRun
     {
         return $quick ? FirstRun::unmeasured() : new FirstRuns(
             $this->adapters,
             $this->settings->shards()->planning()->startUpSamples(),
             $this->settings->shards()->costs()->firstRunShape(),
-        )->measured($map, $untimed);
+        )->measured($map, $untimed, $made);
+    }
+
+    /**
+     * Every mutant the runner makes of each file of these units, made once as
+     * the plan is made and kept for every shard to number its own by
+     * (ADR-0306): where each starts. None where the runner numbers alike
+     * whichever it makes, or could not make them: each part that makes some
+     * lines of a file then makes the file whole itself, and says so.
+     */
+    private function made(CoverageMap $map, Units $units): MutantSites
+    {
+        $made = $this->adapters->runner->behaviour()->opening()->made(
+            StartUpTiming::filesOf($map, $units),
+            $this->adapters->narrowing->mutators(),
+            $this->adapters->withheld,
+        );
+
+        return $made instanceof MutantSites ? $made : MutantSites::none();
     }
 }

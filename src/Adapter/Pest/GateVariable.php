@@ -246,4 +246,10 @@ enum GateVariable: string
 
     /** The plan a split stream's own Pest run reads, unset in every other run (see Split\Stream). */
     case SplitPlan = 'MUTATION_GATE_SPLIT_PLAN';
+
+    /** The plan's table of each file's change places, which a part of a cut run numbers by (see ChangeTable). */
+    case Places = 'MUTATION_GATE_PLACES';
+
+    /** The files the plan's run that tables their change places makes, set in no other run (see ChangeTableMade). */
+    case Tabling = 'MUTATION_GATE_TABLING';
 }

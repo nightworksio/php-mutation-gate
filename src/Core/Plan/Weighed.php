@@ -44,9 +44,15 @@ final readonly class Weighed
      */
     public function sharedAmong(TestPart $part): self
     {
-        $share = Seconds::of($this->cost()->seconds() / $part->parts());
+        return $this->sharedAs(1.0, $part->parts());
+    }
 
-        return new self($this->unit, $this->package, Estimated::of($share, $this->estimated->basis()), $this->control);
+    /** The unit, weighed at this share of a whole of its cost, on the same basis. */
+    public function sharedAs(float $share, float $whole): self
+    {
+        $cost = Seconds::of($this->cost()->seconds() * $share / $whole);
+
+        return new self($this->unit, $this->package, Estimated::of($cost, $this->estimated->basis()), $this->control);
     }
 
     public function unit(): Unit

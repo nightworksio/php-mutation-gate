@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Native\PestPlacements;
 use NightWorksIO\MutationGate\Adapter\Native\Placement;
 use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
+use NightWorksIO\MutationGate\Adapter\Pest\ChangeTabling;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\EveryRow;
 use NightWorksIO\MutationGate\Adapter\Pest\ExactRows;
@@ -225,8 +226,8 @@ it('reads holds as it loads them, readies the map each shard opens on as the pla
         ->writingTestsIn(AssertionStyle::Pest);
 
     expect($patched->behaviour()->selection())->toBeInstanceOf(ExactRows::class)
-        ->and($patched->behaviour()->selecting(new EveryRow()))->toEqual($pest->readingInEveryKey($canary)->selecting(new EveryRow())->readyingOpening(new ReadersOpening($project, Patching::on($canary))))
-        ->and($unpatched->behaviour())->toEqual($pest->openingEachShard()->selecting(new EveryRow())->readyingOpening(new ReadersOpening($project, Patching::off())));
+        ->and($patched->behaviour()->selecting(new EveryRow()))->toEqual($pest->readingInEveryKey($canary)->selecting(new EveryRow())->readyingOpening(new ReadersOpening($project, Patching::on($canary), new ChangeTabling($project, $shell, Patching::on($canary), new Bridges()))))
+        ->and($unpatched->behaviour())->toEqual($pest->openingEachShard()->selecting(new EveryRow())->readyingOpening(new ReadersOpening($project, Patching::off(), new ChangeTabling($project, $shell, Patching::off(), new Bridges()))));
 });
 
 it('gives a mutant as an analyser checks it: its diff put onto the file as Pest prints it', function (): void {

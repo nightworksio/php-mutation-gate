@@ -995,6 +995,20 @@
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$",
                     "default": "45s"
+                },
+                "tail": {
+                    "enum": [
+                        "auto",
+                        "stop",
+                        "run"
+                    ],
+                    "default": "auto"
+                },
+                "fill": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1,
+                    "default": 0.92
                 }
             },
             "additionalProperties": false,
@@ -6010,6 +6024,18 @@
                         "margin": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?(?:[0-9]+ms)?$"
+                        },
+                        "tail": {
+                            "enum": [
+                                "auto",
+                                "stop",
+                                "run"
+                            ]
+                        },
+                        "fill": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1
                         }
                     },
                     "additionalProperties": false,

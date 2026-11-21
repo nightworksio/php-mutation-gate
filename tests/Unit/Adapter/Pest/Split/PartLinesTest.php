@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\PartLines;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\TestParts;
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
@@ -19,7 +20,7 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 afterEach(function (): void {
     Scratch::sweep();
 
-    foreach ([GateVariable::Split, GateVariable::Schemata, GateVariable::SplitPart, GateVariable::SplitRecording, GateVariable::SplitReachableOnly, GateVariable::Results] as $variable) {
+    foreach ([GateVariable::Only, GateVariable::Split, GateVariable::Schemata, GateVariable::SplitPart, GateVariable::SplitRecording, GateVariable::SplitReachableOnly, GateVariable::Results] as $variable) {
         putenv($variable->value);
     }
 });
@@ -115,6 +116,55 @@ it('spreads the lines no test covers of each file to one part alone, the file wi
         ->toBeFalse()
         ->and(partLinesOf(1, $directory, $files, $map)->parts()->ownsUncovered('m', strval($files[0]->getRealPath())))
         ->toBeTrue();
+});
+
+it('makes and owns, in a run told which mutants to make, the lines no test covers of every file, however the run\'s own files would spread them', function (): void {
+    $directory = Scratch::directory();
+    $everything = [partLinesFile($directory, 'Big'), partLinesFile($directory, 'Small'), partLinesFile($directory, 'Mid')];
+    $map = [
+        strval($everything[0]->getRealPath()) => [],
+        strval($everything[1]->getRealPath()) => array_fill(1, 5, ['A::a']),
+        strval($everything[2]->getRealPath()) => array_fill(1, 3, ['B::b']),
+    ];
+    $small = $everything[1];
+    $covered = $map[strval($small->getRealPath())];
+    $told = PartLines::cutBy(TestParts::cut(
+        TestPart::of(2, 2),
+        [
+            'tests/ATest.php' => ['files' => ['tests/ATest.php'], 'tests' => ['A::a']],
+            'tests/BTest.php' => ['files' => ['tests/BTest.php'], 'tests' => ['B::b']],
+        ],
+        ['A::a' => 2.0, 'B::b' => 1.0],
+        StreamJudging::Parted,
+    )->makingWhatItIsTold(), sprintf('%s/results.jsonl', $directory), [$small], $covered === [] ? [] : [strval($small->getRealPath()) => $covered]);
+
+    expect(partLinesOf(2, $directory, $everything, $map)->of($small, $covered))->toBe([6])
+        ->and(partLinesOf(2, $directory, [$small], [strval($small->getRealPath()) => $covered])->of($small, $covered))->toBeFalse()
+        ->and($told->of($small, $covered))->toBe([6])
+        ->and($told->parts()->ownsUncovered('m', strval($everything[0]->getRealPath())))->toBeTrue();
+});
+
+it('is told which mutants to make where the run lists them, and owns the lines no test covers then', function (): void {
+    $directory = Scratch::directory();
+    $file = partLinesFile($directory, 'Small');
+    $variables = [
+        GateVariable::Split->value => '1',
+        GateVariable::Schemata->value => '1',
+        GateVariable::SplitPart->value => '2/2',
+        GateVariable::Results->value => sprintf('%s/results.jsonl', $directory),
+        GateVariable::Only->value => OnlyList::write(OnlyList::beside(sprintf('%s/results.jsonl', $directory)), 'native-1'),
+    ];
+
+    foreach ($variables as $name => $value) {
+        putenv(sprintf('%s=%s', $name, $value));
+    }
+
+    $told = PartLines::ofRun([$file], []);
+    putenv(GateVariable::Only->value);
+    $untold = PartLines::ofRun([$file], []);
+
+    expect($told instanceof PartLines && $told->parts()->ownsUncovered('m', strval($file->getRealPath())))->toBeTrue()
+        ->and($untold instanceof PartLines && $untold->parts()->ownsUncovered('m', strval($file->getRealPath())))->toBeFalse();
 });
 
 it('reads every file whole where the run listed none, or what it listed cannot be read, and clears a list before a run', function (string $listed): void {

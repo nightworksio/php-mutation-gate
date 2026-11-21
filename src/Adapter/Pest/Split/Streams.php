@@ -17,6 +17,7 @@ use function microtime;
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
+use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\PcovTests;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\Cost\Step;
@@ -121,12 +122,14 @@ final readonly class Streams
         );
         $bound = self::boundOf($covering, $processes);
         $from = microtime(as_float: true);
+        StreamPasses::started($results, Step::FirstPass, count($sites), $bound);
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, self::firstHeld($held, $sites, $cheapest), $settings);
         StreamPasses::ended($results, Step::FirstPass, microtime(as_float: true) - $from, count($sites), $bound);
         [$again, $left] = new SecondPass($sites, $covering, $held, $cheapest)->of($byId, $unrun, $verdicts, $settings);
         $settled = $settings->pace()->earlyVerdicts ? SettledFirst::of($byId, $covering, $again, $left) : [];
         self::given($verdicts, $settled, $covering);
         $from = microtime(as_float: true);
+        StreamPasses::started($results, Step::SecondPass, count($again), $bound);
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $left, $verdicts);
         StreamPasses::ended($results, Step::SecondPass, microtime(as_float: true) - $from, count($again), $bound);
         self::given($verdicts, array_diff_key($byId, $settled), $covering);
@@ -222,16 +225,24 @@ final readonly class Streams
         return $held;
     }
 
-    /** The coverage map's test files cut into the run's parts, this shard's part among them; one part of every one. */
+    /**
+     * The coverage map's test files cut into the run's parts, this shard's
+     * part among them, making what the run is told to where it is told; one
+     * part of every one.
+     */
     private static function partsOf(TestPart $part, StreamSettings $settings): TestParts
     {
-        return $part->isWhole()
-            ? TestParts::whole()
-            : TestParts::cut(
-                $part,
-                CoveringFiles::streamed(LoadedMap::tests()),
-                LoadedMap::timed(),
-                $settings->judging(),
-            );
+        if ($part->isWhole()) {
+            return TestParts::whole();
+        }
+
+        $parts = TestParts::cut(
+            $part,
+            CoveringFiles::streamed(LoadedMap::tests()),
+            LoadedMap::timed(),
+            $settings->judging(),
+        );
+
+        return OnlyList::in((string) getenv(GateVariable::Only->value)) === [] ? $parts : $parts->makingWhatItIsTold();
     }
 }

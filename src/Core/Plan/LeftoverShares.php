@@ -124,6 +124,7 @@ final readonly class LeftoverShares
      *     share: int,
      *     mutants: list<array{id: string, native: string, file: string}>,
      *     predicted: array{first: float, second: float},
+     *     ownTail?: true,
      * }
      */
     private function shareRecord(LeftoverShare $share): array
@@ -143,6 +144,7 @@ final readonly class LeftoverShares
             'share' => $share->number(),
             'mutants' => $mutants,
             self::PREDICTED => $share->predicted()->record(),
+            ...$share->runsItsTail() ? [JobTailRecord::OWN => true] : [],
         ];
     }
 
@@ -177,11 +179,13 @@ final readonly class LeftoverShares
         }
 
         $predicted = PassSeconds::read($share->field(self::PREDICTED));
-
-        return LeftoverShare::of(
+        $read = LeftoverShare::of(
             ShardId::of($share->field('shard')->integer()),
             $share->field('share')->integer(),
             ...$mutants,
         )->predicting($predicted->first(), $predicted->second());
+        $tail = $share->field(JobTailRecord::OWN);
+
+        return $tail->isPresent() && $tail->boolean() ? $read->runningItsTail() : $read;
     }
 }

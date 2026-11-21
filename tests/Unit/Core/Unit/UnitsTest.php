@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -64,4 +65,17 @@ it('keeps each path once, where it first comes, as shards that each take every u
 
     expect($paths($units->distinct()))->toBe(['src/B.php', 'src/Kernel', 'src/A.php'])
         ->and(iterator_to_array($units->distinct(), preserve_keys: false)[1])->toBe($held);
+});
+
+it('keeps the units these files lie in, a held directory among them, and none no file lies in', function () use ($paths): void {
+    $units = Units::of(
+        Unit::file(Path::of('src/A.php')),
+        Unit::held(Path::of('bootstrap/Composition'), Group::named('holds:bootstrap/Composition')),
+        Unit::file(Path::of('src/B.php')),
+    );
+
+    expect($paths($units->holdingAny(Paths::of(Path::of('bootstrap/Composition/TheWay.php'), Path::of('src/B.php')))))
+        ->toBe(['bootstrap/Composition', 'src/B.php'])
+        ->and($paths($units->holdingAny(Paths::of(Path::of('bootstrap/CompositionRoot.php')))))->toBe([])
+        ->and($paths($units->holdingAny(Paths::of())))->toBe([]);
 });

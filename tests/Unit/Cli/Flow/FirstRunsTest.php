@@ -56,7 +56,7 @@ it('measures where the engine makes each unit\'s mutants, the fastest run of no 
     $adapters = Flows::adapters(measuredProject(), [], $runner, Engine::with(new PlusToMinus()));
     $held = Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel'));
     $measured = new FirstRuns($adapters, StartUpSamples::standard(), FirstRunShape::standard())
-        ->measured(measuredMap(), Units::of(Unit::file(Path::of('src/Money.php')), $held));
+        ->measured(measuredMap(), Units::of(Unit::file(Path::of('src/Money.php')), $held), MutantSites::none());
 
     expect($measured)->toEqual(FirstRun::of(
         measuredMap(),
@@ -68,14 +68,33 @@ it('measures where the engine makes each unit\'s mutants, the fastest run of no 
     ))->and($runner->startedUp())->toEqual(array_fill(0, 3, [Path::of('src/Money.php'), $adapters->withheld]));
 });
 
+it('measures where the runner made each unit\'s mutants as the plan was made, the engine counting only the files it did not make', function (): void {
+    $runner = ScriptedRunner::fixture()
+        ->behaving(RunnerBehaviour::standard()->runningPerCore())
+        ->startingUpIn(Seconds::of(2.5), Seconds::of(1.25), Seconds::of(3.0));
+    $adapters = Flows::adapters(measuredProject(), [], $runner, Engine::with(new PlusToMinus()));
+    $held = Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel'));
+    $made = MutantSites::inFile(Path::of('src/Money.php'), Line::of(3), Line::of(4), Line::of(4));
+    $measured = new FirstRuns($adapters, StartUpSamples::standard(), FirstRunShape::standard())
+        ->measured(measuredMap(), Units::of(Unit::file(Path::of('src/Money.php')), $held), $made);
+
+    expect($measured)->toEqual(FirstRun::of(
+        measuredMap(),
+        $made->and(MutantSites::inFile(Path::of('src/Kernel/Rates.php'), Line::of(3), Line::of(3))),
+        Seconds::of(1.25),
+        ProcessCount::of(2),
+        FirstRunShape::standard(),
+    ));
+});
+
 it('measures nothing where no engine counts, or no file of the units is there to count, running nothing', function (): void {
     $runner = ScriptedRunner::fixture();
     $counting = Flows::adapters(measuredProject(), [], $runner, Engine::with(new PlusToMinus()));
     $units = Units::of(Unit::file(Path::of('src/Money.php')));
 
-    expect(new FirstRuns(Flows::adapters(measuredProject(), [], $runner), StartUpSamples::standard(), FirstRunShape::standard())->measured(measuredMap(), $units))
+    expect(new FirstRuns(Flows::adapters(measuredProject(), [], $runner), StartUpSamples::standard(), FirstRunShape::standard())->measured(measuredMap(), $units, MutantSites::none()))
         ->toEqual(FirstRun::unmeasured())
-        ->and(new FirstRuns($counting, StartUpSamples::standard(), FirstRunShape::standard())->measured(CoverageMap::of(), Units::of(Unit::file(Path::of('src/Gone.php')))))
+        ->and(new FirstRuns($counting, StartUpSamples::standard(), FirstRunShape::standard())->measured(CoverageMap::of(), Units::of(Unit::file(Path::of('src/Gone.php'))), MutantSites::none()))
         ->toEqual(FirstRun::unmeasured())
         ->and($runner->startedUp())->toBe([]);
 });
@@ -91,8 +110,8 @@ it('measures nothing where a run of no test cannot run, the first or a later one
         FirstRunShape::standard(),
     );
 
-    expect($firstRuns($first)->measured(measuredMap(), $units))->toEqual(FirstRun::unmeasured())
+    expect($firstRuns($first)->measured(measuredMap(), $units, MutantSites::none()))->toEqual(FirstRun::unmeasured())
         ->and(count($first->startedUp()))->toBe(1)
-        ->and($firstRuns($later)->measured(measuredMap(), $units))->toEqual(FirstRun::unmeasured())
+        ->and($firstRuns($later)->measured(measuredMap(), $units, MutantSites::none()))->toEqual(FirstRun::unmeasured())
         ->and(count($later->startedUp()))->toBe(2);
 });

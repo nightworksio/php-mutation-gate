@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\PackageWork;
 use NightWorksIO\MutationGate\Core\Plan\Run;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -35,6 +38,17 @@ function pathsOfRuns(array $runs): array
     }
 
     return $paths;
+}
+
+/**
+ * Each run's cost, in seconds.
+ *
+ * @param  list<Run>   $runs
+ * @return list<float>
+ */
+function costsOfRuns(array $runs): array
+{
+    return array_map(static fn(Run $run): float => $run->cost()->seconds(), $runs);
 }
 
 it('takes its units in path order, however they came', function () use ($weighed): void {
@@ -160,4 +174,19 @@ it('gives each held unit whole to one part in turn, and every part every other u
         ->and(array_map(static fn(Run $run): float => $run->cost()->seconds(), $parts))->toBe([48.0, 39.0])
         ->and(pathsOfRuns($everyPart))->toBe([['A', 'H1'], ['A', 'H1']])
         ->and(array_map(static fn(Run $run): float => $run->cost()->seconds(), $everyPart))->toBe([36.0, 36.0]);
+});
+
+it('prices each part of the test files by the tests in it that cover each unit, the parts adding up to the whole', function () use ($weighed): void {
+    $map = CoverageMap::of()
+        ->covered(Path::of('A'), Line::of(1), TestId::of('ATest::one'))
+        ->covered(Path::of('B'), Line::of(1), TestId::of('BTest::one'))
+        ->covered(Path::of('H'), Line::of(1), TestId::of('BTest::one'))
+        ->timed(TestId::of('ATest::one'), Seconds::of(2.0))
+        ->timed(TestId::of('BTest::one'), Seconds::of(1.0));
+    $held = Weighed::of(Unit::held(Path::of('H'), Group::named('holds:H')), Package::at(Path::root()), Estimated::of(Seconds::of(12.0), CostBasis::Measured));
+    $work = PackageWork::of($weighed('A', 60.0), $weighed('B', 30.0), $weighed('C', 10.0), $held);
+
+    expect(costsOfRuns($work->timedBy($map)->parts(2)))->toBe([77.0, 35.0])
+        ->and(costsOfRuns($work->timedBy($map)->parts(2, heldWhole: false)))->toBe([65.0, 47.0])
+        ->and(costsOfRuns($work->parts(2)))->toBe([62.0, 50.0]);
 });

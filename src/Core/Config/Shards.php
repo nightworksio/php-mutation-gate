@@ -54,6 +54,7 @@ final readonly class Shards implements Part
         private Pulling $pulling,
         private Seconds|Absent $progress,
         private Seconds|Absent $margin,
+        private ShardTail|Absent $tail,
     ) {
     }
 
@@ -83,6 +84,7 @@ final readonly class Shards implements Part
         Seconds|Absent $progress = new Absent(),
         Seconds|Absent $margin = new Absent(),
         CostMode|Absent $costMode = new Absent(),
+        ShardTail|Absent $tail = new Absent(),
     ): self {
         return new self(
             $seconds,
@@ -106,6 +108,7 @@ final readonly class Shards implements Part
             $pulling instanceof Pulling ? $pulling : Pulling::of(),
             $progress,
             $margin,
+            $tail,
         );
     }
 
@@ -131,6 +134,7 @@ final readonly class Shards implements Part
             Pulling::of($none->pulling()->pull()),
             $none->progress(),
             $none->stop()->margin(),
+            $none->tail(),
         );
     }
 
@@ -160,6 +164,7 @@ final readonly class Shards implements Part
             $this->pulling->over($later->pulling),
             Absent::laid($this->progress, $later->progress),
             Absent::laid($this->margin, $later->margin),
+            Absent::laid($this->tail, $later->tail),
         );
     }
 
@@ -194,7 +199,7 @@ final readonly class Shards implements Part
         return $this->costs;
     }
 
-    /** `plan`, `timing` and `shards.cutAt`: how a run plans its work and learns what it costs. */
+    /** `plan`, `timing`, `shards.cutAt` and `shards.fill`: how a run plans its work and learns what it costs. */
     public function planning(): Planning
     {
         return $this->planning;
@@ -223,6 +228,16 @@ final readonly class Shards implements Part
             $this->jobLimit,
             limitAlone: $target instanceof Absent && $this->jobLimit instanceof Seconds,
         );
+    }
+
+    /**
+     * `shards.tail`: whether a job stops at its target and hands on what it
+     * left, or runs its own tail to its job's limit; `auto` where unset
+     * (ADR-0303).
+     */
+    public function tail(): ShardTail
+    {
+        return $this->tail instanceof ShardTail ? $this->tail : ShardTail::Auto;
     }
 
     /**
@@ -258,19 +273,18 @@ final readonly class Shards implements Part
                     Member::of('seconds', WholeSeconds::written($this->seconds)),
                     Member::of('max', LimitCalls::maxWritten($this->max)),
                     Member::of('learnedFrom', LimitCalls::statisticWritten($this->learnedFrom)),
-                    Member::of('target', $this->target instanceof Seconds ? $this->target->written() : $this->target),
-                    Member::of('setup', $this->setup instanceof Seconds ? $this->setup->written() : $this->setup),
+                    Member::of('target', $this->durationWritten($this->target)),
+                    Member::of('setup', $this->durationWritten($this->setup)),
                     $this->planning->cutAtWritten(),
+                    $this->planning->fillWritten(),
                     Member::of(
                         'jobLimit',
-                        $this->jobLimit instanceof Seconds ? $this->jobLimit->written() : $this->jobLimit,
+                        $this->durationWritten($this->jobLimit),
                     ),
                     $this->pulling->written(),
-                    Member::of(
-                        'progress',
-                        $this->progress instanceof Seconds ? $this->progress->written() : $this->progress,
-                    ),
-                    Member::of('margin', $this->margin instanceof Seconds ? $this->margin->written() : $this->margin),
+                    Member::of('progress', $this->durationWritten($this->progress)),
+                    Member::of('margin', $this->durationWritten($this->margin)),
+                    Member::of('tail', $this->tail instanceof ShardTail ? $this->tail->value : $this->tail),
                 ),
             ),
             $this->costs->written($origin),
@@ -299,6 +313,9 @@ final readonly class Shards implements Part
             ...$this->margin instanceof Seconds
                 ? [sprintf('Shards::margin(%s)', PhpCalls::literal($this->margin->written()))]
                 : [],
+            ...$this->tail instanceof ShardTail
+                ? [sprintf('Shards::tail(%s)', PhpCalls::literal($this->tail->value))]
+                : [],
         ];
 
         return PhpCalls::inWith(...$settings)
@@ -306,5 +323,11 @@ final readonly class Shards implements Part
             ->and($this->planning->php())
             ->and($this->pulling->php())
             ->and($this->outbreak->php());
+    }
+
+    /** A duration as the config writes it, or none where it is not set. */
+    private function durationWritten(Seconds|Absent $duration): string|Absent
+    {
+        return $duration instanceof Seconds ? $duration->written() : $duration;
     }
 }

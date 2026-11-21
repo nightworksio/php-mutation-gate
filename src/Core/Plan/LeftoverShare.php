@@ -17,7 +17,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * One share of the mutants a shard left at its deadline, which one job of
  * the second wave judges (ADR-0190): the shard, the share's number among
  * that shard's shares, counted from 1, the mutants it lists and the wall
- * seconds its job's passes were predicted to take (ADR-0195).
+ * seconds its job's passes were predicted to take (ADR-0195), and whether
+ * its job runs its own tail to its job's limit (ADR-0303).
  *
  * @internal
  */
@@ -29,6 +30,7 @@ final readonly class LeftoverShare
         private int $number,
         private array $mutants,
         private PassSeconds $predicted,
+        private bool $tails = false,
     ) {
     }
 
@@ -40,7 +42,19 @@ final readonly class LeftoverShare
     /** This share, its job's passes predicted to take these wall seconds (ADR-0195). */
     public function predicting(Seconds $first, Seconds $second): self
     {
-        return new self($this->shard, $this->number, $this->mutants, PassSeconds::of($first, $second));
+        return new self($this->shard, $this->number, $this->mutants, PassSeconds::of($first, $second), $this->tails);
+    }
+
+    /** This share, its job running its own tail to its job's limit (ADR-0303). */
+    public function runningItsTail(): self
+    {
+        return new self($this->shard, $this->number, $this->mutants, $this->predicted, tails: true);
+    }
+
+    /** Whether its job runs its own tail to its job's limit. */
+    public function runsItsTail(): bool
+    {
+        return $this->tails;
     }
 
     /** The wall seconds its job's passes were predicted to take; none where the cut predicted none. */

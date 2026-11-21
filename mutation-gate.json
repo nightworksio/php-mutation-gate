@@ -2,7 +2,7 @@
     "$schema": "resources/mutation-gate.schema.json",
     "runner": {
         "use": "pest",
-        "memory": "3G"
+        "memory": "4G"
     },
     "ci": {
         "check": "mutation verdict",
@@ -88,7 +88,8 @@
         "enabled": true
     },
     "shards": {
-        "max": "learned"
+        "max": "learned",
+        "jobLimit": "8m"
     },
     "timeouts": {
         "seconds": "learned",

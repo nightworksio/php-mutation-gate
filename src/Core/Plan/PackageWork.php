@@ -12,6 +12,7 @@ use function count;
 use function max;
 use function min;
 
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -20,14 +21,15 @@ use function usort;
 /**
  * The units of one package, in path order, which its shards take in turn,
  * or each take whole, one part of the test files apiece, where the run cuts
- * its test files across its shards (ADR-0117). Packages never share a shard.
+ * its test files across its shards (ADR-0117), each part priced by the
+ * coverage map that times its tests. Packages never share a shard.
  *
  * @internal
  */
 final readonly class PackageWork
 {
     /** @param list<Weighed> $units in path order */
-    private function __construct(private array $units)
+    private function __construct(private array $units, private CoverageMap $map)
     {
     }
 
@@ -40,7 +42,13 @@ final readonly class PackageWork
                 <=> $other->unit()->path()->value(),
         );
 
-        return new self($sorted);
+        return new self($sorted, CoverageMap::of());
+    }
+
+    /** These units, each part of the test files priced by the tests this map times as covering them. */
+    public function timedBy(CoverageMap $map): self
+    {
+        return new self($this->units, $map);
     }
 
     public function cost(): Seconds
@@ -58,7 +66,7 @@ final readonly class PackageWork
 
     /**
      * Every unit, in path order, in as many runs as asked, each judged by its
-     * own part of the test files and weighed at its share of the cost; each
+     * own part of the test files and weighed at its price there; each
      * held unit, where held units are judged whole, in one run alone, in turn,
      * weighed whole, its holding tests judging it (ADR-0162).
      *
@@ -74,6 +82,7 @@ final readonly class PackageWork
         $held = $heldWhole
             ? array_values(array_filter($this->units, static fn(Weighed $unit): bool => $unit->unit()->isHeld()))
             : [];
+        $prices = PartPrices::of($this->map, $count, ...$shared);
 
         for ($number = 1; $this->units !== [] && $number <= $count; $number++) {
             $whole = array_values(array_filter(
@@ -81,7 +90,7 @@ final readonly class PackageWork
                 static fn(int $at): bool => $at % $count === $number - 1,
                 ARRAY_FILTER_USE_KEY,
             ));
-            $parts[] = Run::inPart(TestPart::of($number, $count), ...$shared)->holdingWhole(...$whole);
+            $parts[] = Run::inPart(TestPart::of($number, $count), $prices, ...$shared)->holdingWhole(...$whole);
         }
 
         return $parts;

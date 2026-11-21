@@ -32,23 +32,35 @@ final readonly class Shards implements Countable, IteratorAggregate
         = 'The plan has no shard %d. It holds %d shards, so this job was not planned from it.';
 
     /** @param list<Shard> $shards */
-    private function __construct(private array $shards)
+    private function __construct(private array $shards, private JobTail $tail)
     {
     }
 
     public static function none(): self
     {
-        return new self([]);
+        return new self([], JobTail::unknown());
     }
 
     public static function of(Shard ...$shards): self
     {
-        return new self(array_values($shards));
+        return new self(array_values($shards), JobTail::unknown());
     }
 
     public function with(Shard $shard): self
     {
-        return new self([...$this->shards, $shard]);
+        return new self([...$this->shards, $shard], $this->tail);
+    }
+
+    /** These shards, their jobs stopping as this says (ADR-0303). */
+    public function tailing(JobTail $tail): self
+    {
+        return new self($this->shards, $tail);
+    }
+
+    /** How the jobs of these shards stop, as their cut decided. */
+    public function tail(): JobTail
+    {
+        return $this->tail;
     }
 
     /** The shard of this number, or why there is none: a job planned from another plan. */

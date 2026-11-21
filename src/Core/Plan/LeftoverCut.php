@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_key_exists;
+use function array_map;
 use function array_merge;
 use function array_slice;
 use function array_values;
@@ -26,10 +27,12 @@ use function usort;
  * mutant each, costliest first, each to the share, of the latest few it
  * still fits the shard's capacity in, it adds the fewest seconds to, else to
  * a share of its own; one that fits no job alone takes a share of its own.
- * Where the shares of every shard come to more than one matrix of jobs
- * holds, every capacity grows, by a quarter or by the root of how many times
- * too many shares there are, whichever is more, and the mutants are cut
- * again, until they fit one or each shard has a single share.
+ * Where the shares of every shard come to more than the most jobs given,
+ * one matrix of jobs where none is given, every capacity grows, by a
+ * quarter or by the root of how many times too many shares there are,
+ * whichever is more, and the mutants are cut again, until they fit or each
+ * shard has a single share; a share never holds two shards' mutants.
+ * Shares cut for jobs that run their own tail say so (ADR-0303).
  *
  * @internal
  */
@@ -61,6 +64,14 @@ final readonly class LeftoverCut
      * @param array<int, Seconds>                                          $capacity the seconds a job of the second
      *                                                                               wave has to judge each shard's
      *                                                                               mutants in, by its number
+     * @param int                                                          $most     the most shares there may be
+     * @param bool                                                         $tails    whether each share's job runs
+     *                                                                               its own tail, so no capacity
+     *                                                                               grows past its job's limit and
+     *                                                                               more shares run in waves
+     * @param array<int, StreamWall>                                       $walls    the wall each shard's shares are
+     *                                                                               priced at, by its number; this
+     *                                                                               wall where none is given
      */
     public static function of(
         Digest $plan,
@@ -68,6 +79,9 @@ final readonly class LeftoverCut
         array $timed,
         array $capacity,
         StreamWall $wall,
+        int $most = self::MATRIX_MOST,
+        bool $tails = false,
+        array $walls = [],
     ): LeftoverShares {
         $groups = [];
 
@@ -78,11 +92,16 @@ final readonly class LeftoverCut
         $grown = 1.0;
 
         do {
-            [$shares, $split] = self::cutAt($groups, $timed, $capacity, $grown, $wall);
-            $grown *= max(self::GROWTH, sqrt(count($shares) / self::MATRIX_MOST));
-        } while ($split && count($shares) > self::MATRIX_MOST);
+            [$shares, $split] = self::cutAt($groups, $timed, $capacity, $grown, $wall, $walls);
+            $grown *= max(self::GROWTH, sqrt(count($shares) / $most));
+        } while ($split && count($shares) > $most && ! $tails);
 
-        return LeftoverShares::cut($plan, ...$shares);
+        return LeftoverShares::cut(
+            $plan,
+            ...$tails
+                ? array_map(static fn(LeftoverShare $share): LeftoverShare => $share->runningItsTail(), $shares)
+                : $shares,
+        );
     }
 
     /**
@@ -91,17 +110,26 @@ final readonly class LeftoverCut
      * @param  array<int, list<array{LeftGroup, list<LeftGroup>}>> $groups
      * @param  array<string, float>                                $timed
      * @param  array<int, Seconds>                                 $capacity
+     * @param  array<int, StreamWall>                              $walls    each shard's own wall, by its number
      * @return array{list<LeftoverShare>, bool}
      */
-    private static function cutAt(array $groups, array $timed, array $capacity, float $grown, StreamWall $wall): array
-    {
+    private static function cutAt(
+        array $groups,
+        array $timed,
+        array $capacity,
+        float $grown,
+        StreamWall $wall,
+        array $walls,
+    ): array {
         $shares = [];
         $split = false;
 
         foreach ($groups as $shard => $each) {
             $within = array_key_exists($shard, $capacity) ? $capacity[$shard]->seconds() : 0.0;
             $fits = max($within, self::LEAST) * $grown;
-            $cut = self::sharesOf(ShardId::of($shard), self::fittingGroups($each, $fits, $wall), $timed, $fits, $wall);
+            $priced = array_key_exists($shard, $walls) ? $walls[$shard] : $wall;
+            $fitting = self::fittingGroups($each, $fits, $priced);
+            $cut = self::sharesOf(ShardId::of($shard), $fitting, $timed, $fits, $priced);
             $split = $split || count($cut) > 1;
             $shares = [...$shares, ...$cut];
         }

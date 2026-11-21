@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
+use NightWorksIO\MutationGate\Adapter\Pest\ChangeTabling;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestSteps;
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\ReadersOpening;
 use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
@@ -16,13 +19,21 @@ use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestCases;
 use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 
 afterEach(function (): void {
     Scratch::sweep();
 });
+
+/** The opening a patched shard of this project readies, under these patch settings. */
+function readersOf(Project $at, Patching $patching): ReadersOpening
+{
+    return new ReadersOpening($at, $patching, new ChangeTabling($at, ShellFake::answering(Ran::stopped('')), $patching, new Bridges()));
+}
 
 it('readies the plan\'s map of the shards\' files with the line of each value they declare covered by the tests that read it', function (): void {
     $at = PestCases::project();
@@ -33,7 +44,7 @@ it('readies the plan\'s map of the shards\' files with the line of each value th
         CoveredLine::of(Path::of('src/Other.php'), 3, 'Tests\B::c'),
     )->timedEach(TimedTest::of(PestCases::RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0));
 
-    expect(new ReadersOpening($at, PestCases::canary())->readied($whole, Paths::of(Path::of('src/Money.php')), TestCases::unknown()))
+    expect(readersOf($at, PestCases::canary())->readied($whole, Paths::of(Path::of('src/Money.php')), TestCases::unknown()))
         ->toEqual(CoverageMap::of(
             CoveredLine::of(Path::of('src/Money.php'), 11, PestCases::RUN_ADDS),
             CoveredLine::of(Path::of('src/Money.php'), 5, PestCases::RUN_ADDS),
@@ -45,7 +56,7 @@ it('leaves the cycle collector as it found it once the map is readied', function
     Scratch::write($at->root(), 'src/Money.php', "<?php\n\nfinal class Money\n{\n    public const RATE = 2;\n}\n");
     $collecting ? gc_enable() : gc_disable();
 
-    new ReadersOpening($at, PestCases::canary())->readied(CoverageMap::of(), Paths::of(Path::of('src/Money.php')), TestCases::unknown());
+    readersOf($at, PestCases::canary())->readied(CoverageMap::of(), Paths::of(Path::of('src/Money.php')), TestCases::unknown());
     $after = gc_enabled();
     gc_enable();
 
@@ -60,7 +71,7 @@ it('readies nothing for shards that open on their own suite, or that read no val
         LongFilter::Files,
         Duplicates::JudgeOnce,
     ));
-    $readied = static fn(Patching $patching): CoverageMap|NotGiven => new ReadersOpening($at, $patching)
+    $readied = static fn(Patching $patching): CoverageMap|NotGiven => readersOf($at, $patching)
         ->readied(CoverageMap::of(), Paths::none(), TestCases::unknown());
 
     expect($readied(Patching::off()))->toEqual(NotGiven::value())

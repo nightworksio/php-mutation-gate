@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a2a518d005c7dcfb30863b87e48e9bfe",
+    "content-hash": "82b4d169914da6f365e789ee0537d020",
     "packages": [
         {
             "name": "fidry/cpu-core-counter",

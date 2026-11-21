@@ -11,15 +11,18 @@ use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
+use NightWorksIO\MutationGate\Cli\Flow\ShardDeadline;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
+use NightWorksIO\MutationGate\Config\Shards as ConfiguredShards;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -52,9 +55,16 @@ use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
+use NightWorksIO\MutationGate\Core\Plan\LeftForks;
+use NightWorksIO\MutationGate\Core\Plan\LeftMutant;
+use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+use NightWorksIO\MutationGate\Core\Plan\PlanLearned;
+use NightWorksIO\MutationGate\Core\Plan\SecondWave;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
@@ -88,6 +98,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -106,6 +117,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ServedStateFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -908,3 +920,58 @@ it('proves a unit by the proof outbreak serve keeps under its key where no ledge
     expect($key)->toBeInstanceOf(Digest::class)
         ->and($planned instanceof Plan ? [...$planned->considered()->proved()] : $planned)->toEqual([$makeMoney()]);
 });
+
+it('carries how its jobs stop from the cut through the plan file to each job\'s stop and to the second wave', function (
+    int $pool,
+    int $count,
+    bool $ownTail,
+) use ($coverage): void {
+    $settings = Flows::settings(ConfiguredShards::max($pool));
+    $map = Flows::map()->timed(TestId::of('MoneyTest::adds'), Seconds::of(2.0));
+    $planned = Planned::from(new Planning(
+        Flows::adapters(
+            Flows::project(),
+            [],
+            new CoverageAsked(RunnerFake::ofTheFixture()->behaving(RunnerBehaviour::standard()->openingEachShard()), $map),
+            new CostModelFake(Seconds::of(8.0)),
+        ),
+        $settings,
+        Flows::setup(),
+    )->plan(Mode::full(), $coverage(), Cut::toTarget(Seconds::of(17.0), Seconds::of(0.0), 20), MatrixKind::FirstKiller));
+    $written = $planned instanceof Plan ? PlanFile::encode($planned) : '';
+    $read = PlanFile::decode($written);
+    $learned = $read instanceof Plan ? $read->briefing()->learned() : null;
+    $now = new DateTimeImmutable('2026-11-21T12:00:00Z');
+    $left = [];
+
+    foreach ([1, 2, 3] as $at) {
+        $file = sprintf('src/S%d.php', $at);
+        $left[] = [LeftMutant::of(MutantId::hash(Path::of($file), 'Minus', 'a', $at), 'Minus', Path::of($file)), [sprintf('T%d', $at)], LeftForks::atKiller(0.0)];
+    }
+
+    $shares = $learned instanceof PlanLearned ? SecondWave::cut(
+        Digest::sha256Of('plan'),
+        [1 => $left],
+        ['T1' => 900.0, 'T2' => 900.0, 'T3' => 900.0],
+        [1 => Seconds::of(60.0)],
+        $learned,
+        $settings->shards(),
+        StreamWall::of(1),
+    )->ofShard(ShardId::of(1)) : [];
+    $fields = Decoded::keys($written);
+
+    expect($planned instanceof Plan ? count($planned) : $planned)->toBe($count)
+        ->and($fields)->toContain('tailLimit', 'tailPool')
+        ->and(Decoded::at($written, 'tailPool'))->toBe($pool)
+        ->and(in_array('ownTail', $fields, strict: true))->toBe($ownTail)
+        ->and($learned?->tail()->runs())->toBe($ownTail)
+        ->and($learned instanceof PlanLearned ? ShardDeadline::of($settings, $learned, Variables::of([]), $now)->deadline() : null)
+        ->toEqual($learned instanceof PlanLearned ? Deadline::after($now, $learned->stop($settings->shards())) : null)
+        ->and($learned instanceof PlanLearned ? $learned->stop($settings->shards())->seconds() > 3600.0 : 0.0)->toBe($ownTail)
+        ->and(count($shares) <= $pool)->toBeTrue()
+        ->and(array_values(array_unique(array_map(static fn(LeftoverShare $share): bool => $share->runsItsTail(), $shares))))
+        ->toBe([true]);
+})->with([
+    'two shards at the target over a pool of one: one shard running its own tail' => [1, 1, true],
+    'two shards at the target within a pool of two: each stopping at its target' => [2, 2, false],
+]);

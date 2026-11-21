@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Plan\Batching;
+use NightWorksIO\MutationGate\Core\Plan\PartPrices;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
@@ -260,10 +261,11 @@ final readonly class Mutating
 
     /**
      * The shard's units in order, each weighed by what the cost model expects
-     * of it, with what the ledgers the plan reads learned, at its share of the
-     * shard's part of the test files, and by the control its kills ask for
-     * where the run controls kills: its file's covering tests run unmutated
-     * in this pool (ADR-0008); a shard measures no first run of its own.
+     * of it, with what the ledgers the plan reads learned, at its price in the
+     * shard's part of the test files by the map's covering tests there, and
+     * by the control its kills ask for where the run controls kills: its
+     * file's covering tests run unmutated in this pool (ADR-0008); a shard
+     * measures no first run of its own.
      *
      * @return list<Weighed>
      */
@@ -278,12 +280,19 @@ final readonly class Mutating
         $costs = $ledgers->costs($this->setup->gate);
         $controls = Controlling::controlsKills($this->settings);
         $bounds = Controlling::killBounds($this->settings, $pool);
-        $weighed = [];
+        $whole = [];
 
         foreach ($shard->units() as $unit) {
             $estimated = $costs->estimated($this->adapters->costs, $unit, FirstRun::unmeasured());
-            $one = Weighed::of($unit, $shard->package(), $estimated)
-                ->sharedAmong($this->partOf($unit->isHeld(), $shard));
+            $whole[] = Weighed::of($unit, $shard->package(), $estimated);
+        }
+
+        $prices = PartPrices::of($map, $shard->testPart()->parts(), ...$whole);
+        $weighed = [];
+
+        foreach ($whole as $each) {
+            $unit = $each->unit();
+            $one = $prices->weighed($each, $this->partOf($unit->isHeld(), $shard));
             $weighed[] = $controls
                 ? $one->controlledWithin(KillControls::ofFile($unit->path(), $map, $held, $bounds)->limit())
                 : $one;

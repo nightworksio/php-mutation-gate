@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
+use NightWorksIO\MutationGate\Core\Plan\JobTail;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\PlanJobs;
@@ -57,6 +58,13 @@ it('keeps its shards in the order they came, one per number, numbered from nough
     expect($numbers($plan))->toBe([2, 1])
         ->and($plan)->toHaveCount(2)
         ->and($plan->shards()->numbered(ShardId::of(2)))->toBe($later);
+});
+
+it('keeps how its shards\' jobs stop, as their cut decided', function () use ($shard): void {
+    $tail = JobTail::of(Seconds::minutes(60), 19)->running();
+    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::of($shard(1))->tailing($tail));
+
+    expect($plan->shards()->tail())->toBe($tail);
 });
 
 it('answers the shard a job names', function () use ($shard, $planOf): void {

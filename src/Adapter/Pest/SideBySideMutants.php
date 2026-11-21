@@ -23,6 +23,7 @@ use function function_exists;
 use function getenv;
 use function getmypid;
 use function is_file;
+use function is_int;
 use function is_string;
 use function min;
 
@@ -31,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function pcntl_fork;
 use function pcntl_waitpid;
@@ -78,8 +80,12 @@ final readonly class SideBySideMutants
      * @param array<string, list<int>|false>                       $lines  each file's lines to mutate, false where
      *                                                                     none, by path
      */
-    private function __construct(private array $made, private Closure $making, private array $lines)
-    {
+    private function __construct(
+        private array $made,
+        private Closure $making,
+        private array $lines,
+        private ChangeTable|NotGiven $placing,
+    ) {
     }
 
     /**
@@ -88,8 +94,13 @@ final readonly class SideBySideMutants
      * @param iterable<SplFileInfo>                                  $files
      * @param Closure(SplFileInfo): (list<int>|false)                $lines  a file's lines to mutate, false where none
      * @param Closure(SplFileInfo, list<int>): array<int, Mutation> $making a file's mutants, as Pest makes them
+     * @param bool                                                  $cut    whether a part of a cut run's tests
+     *                                                                     picks the lines, so each mutant is
+     *                                                                     placed among its whole file's, by the
+     *                                                                     plan's table where it holds the file
+     *                                                                     (ADR-0306)
      */
-    public static function made(iterable $files, Closure $lines, Closure $making): self
+    public static function made(iterable $files, Closure $lines, Closure $making, bool $cut = false): self
     {
         $jobs = [];
         $mutating = [];
@@ -104,7 +115,14 @@ final readonly class SideBySideMutants
             ? min(count($jobs), new CpuCoreCounter()->getCountWithFallback(1))
             : 1;
 
-        return new self($cores < 2 ? [] : self::left($jobs, self::shares($jobs, $cores), $making), $making, $mutating);
+        $placing = ChangeTable::forCut($cut);
+
+        return new self(
+            $cores < 2 ? [] : self::left($jobs, self::shares($jobs, $cores), $making, $placing),
+            $making,
+            $mutating,
+            $placing,
+        );
     }
 
     /**
@@ -112,19 +130,47 @@ final readonly class SideBySideMutants
      * run asked for, these where it asked for none; none of a file it asked
      * for no lines of.
      *
-     * @param  list<int>            $lines
-     * @return array<int, Mutation>
+     * @param  list<int>      $lines
+     * @return list<Mutation>
      */
     public function of(SplFileInfo $file, array $lines): array
     {
         $path = strval($file->getRealPath());
         $mutated = array_key_exists($path, $this->lines) ? $this->lines[$path] : $lines;
 
-        return match (true) {
-            array_key_exists($path, $this->made) => $this->made[$path],
-            $mutated === false => [],
-            default => ($this->making)($file, $mutated),
-        };
+        if (array_key_exists($path, $this->made)) {
+            return $this->made[$path];
+        }
+
+        return $mutated === false ? [] : self::placed($file, $mutated, $this->making, $this->placing);
+    }
+
+    /**
+     * A file's mutants made of these lines, each placed among the mutants of
+     * its whole file that make its change, where a part of a cut run picked
+     * some lines: by the plan's table, where it holds them, or else among
+     * those of every line, made apart with no schema touched, and noted.
+     *
+     * @param  list<int>                                            $lines
+     * @param  Closure(SplFileInfo, list<int>): array<int, Mutation> $making
+     * @return list<Mutation>
+     */
+    private static function placed(
+        SplFileInfo $file,
+        array $lines,
+        Closure $making,
+        ChangeTable|NotGiven $placing,
+    ): array {
+        $made = array_values($making($file, $lines));
+        $placing instanceof ChangeTable && $lines !== []
+            ? $placing->place(
+                $file,
+                $made,
+                static fn(): array => Schemata::off(static fn(): array => $making($file, [])),
+            )
+            : ChangePlaces::among($made, $made);
+
+        return $made;
     }
 
     /**
@@ -162,14 +208,14 @@ final readonly class SideBySideMutants
      * @param  Closure(SplFileInfo, list<int>): array<int, Mutation> $making
      * @return array<string, list<Mutation>>
      */
-    private static function left(array $jobs, array $shares, Closure $making): array
+    private static function left(array $jobs, array $shares, Closure $making, ChangeTable|NotGiven $placing): array
     {
         $children = [];
 
         foreach ($shares as $number => $share) {
             $left = sprintf(self::LEFT, sys_get_temp_dir(), getmypid(), $number);
             $child = pcntl_fork();
-            $child === 0 ? self::child($jobs, $share, $making, $left) : null;
+            $child === 0 ? self::child($jobs, $share, $making, $placing, $left) : null;
             $children += $child > 0 ? [$left => $child] : [];
         }
 
@@ -192,10 +238,15 @@ final readonly class SideBySideMutants
      * @param list<int>                                            $share
      * @param Closure(SplFileInfo, list<int>): array<int, Mutation> $making
      */
-    private static function child(array $jobs, array $share, Closure $making, string $left): never
-    {
+    private static function child(
+        array $jobs,
+        array $share,
+        Closure $making,
+        ChangeTable|NotGiven $placing,
+        string $left,
+    ): never {
         try {
-            self::leave($jobs, $share, $making, $left);
+            self::leave($jobs, $share, $making, $placing, $left);
         } finally {
             OwnEnd::by(SIGKILL);
         }
@@ -208,8 +259,13 @@ final readonly class SideBySideMutants
      * @param list<int>                                            $share
      * @param Closure(SplFileInfo, list<int>): array<int, Mutation> $making
      */
-    private static function leave(array $jobs, array $share, Closure $making, string $left): void
-    {
+    private static function leave(
+        array $jobs,
+        array $share,
+        Closure $making,
+        ChangeTable|NotGiven $placing,
+        string $left,
+    ): void {
         $made = [];
         $files = [];
 
@@ -218,7 +274,7 @@ final readonly class SideBySideMutants
             $files[] = strval($file->getRealPath());
             $made[] = Member::of(
                 sprintf('%d', $place),
-                Json::items(...array_map(self::written(...), array_values($making($file, $lines)))),
+                Json::items(...array_map(self::written(...), self::placed($file, $lines, $making, $placing))),
             );
         }
 
@@ -231,16 +287,28 @@ final readonly class SideBySideMutants
         rename($part, $left);
     }
 
+    /** A mutant as a child leaves it: its fields, then its place among its whole file's where the run placed it. */
     private static function written(Mutation $mutation): Json
     {
         return Json::items(
-            $mutation->id,
-            $mutation->mutator,
-            $mutation->startLine,
-            $mutation->endLine,
-            ByteText::of($mutation->diff),
-            ByteText::of($mutation->modifiedSourcePath),
+            Json::items(
+                $mutation->id,
+                $mutation->mutator,
+                $mutation->startLine,
+                $mutation->endLine,
+                ByteText::of($mutation->diff),
+                ByteText::of($mutation->modifiedSourcePath),
+            ),
+            ...self::placeOf($mutation),
         );
+    }
+
+    /** @return list<int> the mutant's place among its whole file's, where the run placed it */
+    private static function placeOf(Mutation $mutation): array
+    {
+        $place = ChangePlaces::of($mutation);
+
+        return is_int($place) ? [$place] : [];
     }
 
     /**
@@ -277,9 +345,11 @@ final readonly class SideBySideMutants
 
     private static function mutant(SplFileInfo $file, Node $written): Mutation
     {
-        [$id, $mutator, $start, $end, $diff, $copy] = $written->items();
-
-        return new Mutation(
+        $items = $written->items();
+        [$fields] = $items;
+        [$id, $mutator, $start, $end, $diff, $copy] = $fields->items();
+        $place = array_key_exists(1, $items) ? $items[1] : null;
+        $mutant = new Mutation(
             $file,
             $id->text(),
             $mutator->text(),
@@ -288,5 +358,8 @@ final readonly class SideBySideMutants
             ByteText::read($diff),
             ByteText::read($copy),
         );
+        $place instanceof Node ? ChangePlaces::placing($mutant, $place->integer()) : null;
+
+        return $mutant;
     }
 }
