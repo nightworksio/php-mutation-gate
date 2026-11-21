@@ -150,8 +150,11 @@ it('lists the processes the shard runs through the system\'s own listing', funct
 
 it('kills a reporter that outlives its grace, which leaves its artifact where it was', function () use ($reporter, $calls, $listed): void {
     $file = sprintf('%s/calls', Scratch::directory());
-    $deaf = new Listed(static function () use ($listed): ProcessListing {
-        pcntl_signal(SIGTERM, SIG_IGN);
+    $gate = posix_getpid();
+    $deaf = new Listed(static function () use ($listed, $gate): ProcessListing {
+        if (posix_getpid() !== $gate) {
+            pcntl_signal(SIGTERM, SIG_IGN);
+        }
 
         return $listed()->listed();
     });
@@ -166,5 +169,6 @@ it('kills a reporter that outlives its grace, which leaves its artifact where it
     expect($stopped)->toBeLessThan(5.0)
         ->and((string) file_get_contents($file))->toBe($left)
         ->and($left)->not->toContain('DeleteArtifact')
-        ->and(getenv(ProcessLog::KEPT))->toBeFalse();
+        ->and(getenv(ProcessLog::KEPT))->toBeFalse()
+        ->and(pcntl_signal_get_handler(SIGTERM))->toBe(SIG_DFL);
 })->skip(fn(): bool => ! Forking::isAvailable(), 'the reporter forks');
