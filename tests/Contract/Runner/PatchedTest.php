@@ -426,7 +426,13 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     );
     $part = $recording ? PartNarrowing::whole()->recordingInto(LineRecording::standingIn(Scratch::directory())) : PartNarrowing::whole();
     $run = static fn(TestPart $testPart): MutationResult|CannotJudge => $library->mutate(
-        sprintf('every mutant, split, part %d of %d%s', $testPart->number(), $testPart->parts(), $recording ? ', recording' : ''),
+        sprintf(
+            'every mutant, split, part %d of %d%s%s',
+            $testPart->number(),
+            $testPart->parts(),
+            $recording ? ', recording' : '',
+            $tabled && ! $testPart->isWhole() ? ', tabled' : '',
+        ),
         MutationRequest::of($files, WholeSuite::tests())
             ->narrowedTo($files, Narrowing::none()->within($part->inTestPart($testPart)))
             ->across(Pool::of(ProcessCount::of(2), Workers::Fork))
@@ -468,7 +474,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
         $partial += $mutated->made()->isWhole() ? 0 : 1;
         $warned = [...$warned, ...array_filter(
             array_map(static fn(Warning $warning): string => $warning->text(), [...$mutated->warnings()]),
-            static fn(string $text): bool => str_contains($text, 'table of change places'),
+            static fn(string $text): bool => str_contains($text, 'whole to number the mutants'),
         )];
     }
 

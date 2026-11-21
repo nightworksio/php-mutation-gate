@@ -66,7 +66,8 @@ final readonly class ChangeTabling
             return $listing;
         }
 
-        $ran = DriversSetShell::asMutating($this->shell, $this->patching, $this->project)->run(
+        $drivers = CoverageDrivers::of($this->patching, recordsWithPcov: false, project: $this->project);
+        $ran = $this->shell->run($drivers->mutating(
             Invocation::of($this->project)
                 ->tabling($withheld, $canary, array_values($onDisk)[0], $mutators, $this->bridges)
                 ->with([
@@ -74,7 +75,7 @@ final readonly class ChangeTabling
                     GateVariable::Places->value => $table,
                     GateVariable::MakingSideBySide->value => '1',
                 ]),
-        );
+        ));
         $this->project->without($listing);
 
         return is_file($table)
