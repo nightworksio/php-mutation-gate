@@ -67,6 +67,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/Digesting.php',
             'src/Cli/Flow/Dooming.php',
             'src/Cli/Flow/EarlyKeys.php',
+            'src/Cli/Flow/EarlyStart.php',
             'src/Cli/Flow/EveryEntryReads.php',
             'src/Cli/Flow/Explaining.php',
             'src/Cli/Flow/FirstRuns.php',

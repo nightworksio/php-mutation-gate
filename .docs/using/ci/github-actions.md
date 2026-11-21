@@ -202,7 +202,7 @@ download may take before it is tried once again, each in minutes,
 the plan sets up, `publish-branch` (`mutation-gate`), where publish writes
 the badge and trend, `early-only` (`false`), with which the plan plans
 nothing, and says why, where a full split-stream run cannot start without a
-fresh map, `job-started` (empty), when the shard's job began, as seconds
+fresh map or the kept map cannot plan it (ADR-0320), `job-started` (empty), when the shard's job began, as seconds
 since the epoch, which its stop is read from (ADR-0196), `watch-jobs`
 (empty), the names of jobs of the calling run,
 one per line, whose failure stops each shard before its next item
