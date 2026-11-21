@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
  * The gate's id of each mutant Pest planned, the one place it is made: its
  * file as the project spells it, its mutator and its change, and how many
  * mutants before it, by file and then by line, share all three: of its whole
- * file, where the run that made it placed it there (ADR-0004), or else of
+ * file, where the run that made it placed it there (ADR-0306), or else of
  * those planned.
  *
  * @internal

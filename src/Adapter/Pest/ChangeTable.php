@@ -33,7 +33,7 @@ use Symfony\Component\Finder\SplFileInfo;
 
 /**
  * The plan's table of where each mutant stands among the mutants of its whole
- * file that make its change (ADR-0004), made once as the plan is made (see
+ * file that make its change (ADR-0306), made once as the plan is made (see
  * ChangeTableMade) and kept beside the plan for every shard. A part of a cut
  * run that makes some lines of a file places each mutant it made by the
  * table, where the table holds the file's code as it is on disk, was made by
@@ -185,12 +185,17 @@ final readonly class ChangeTable
         return is_string($code) ? hash('sha256', $code) : '';
     }
 
-    /** The packages that make a file's mutants, each at the commit it is installed from. */
-    public static function makers(): string
+    /**
+     * The packages that make a file's mutants, each at the commit it is
+     * installed from, by name alone where it is not installed.
+     *
+     * @param list<string> $packages
+     */
+    public static function makers(array $packages = self::MAKERS): string
     {
         $makers = [];
 
-        foreach (self::MAKERS as $package) {
+        foreach ($packages as $package) {
             $makers[] = InstalledVersions::isInstalled($package)
                 ? sprintf('%s@%s', $package, strval(InstalledVersions::getReference($package)))
                 : $package;

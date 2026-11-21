@@ -98,7 +98,7 @@ final readonly class SideBySideMutants
      *                                                                     picks the lines, so each mutant is
      *                                                                     placed among its whole file's, by the
      *                                                                     plan's table where it holds the file
-     *                                                                     (ADR-0004)
+     *                                                                     (ADR-0306)
      */
     public static function made(iterable $files, Closure $lines, Closure $making, bool $cut = false): self
     {

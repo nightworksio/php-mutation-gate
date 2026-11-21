@@ -15,12 +15,16 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Runner\Leftover;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
+use NightWorksIO\MutationGateSecurity\Mutators\HashEqualsToTrue;
 use Pest\Mutate\Cache\NullStore;
 use Pest\Mutate\Mutation;
 use Pest\Mutate\Mutators\Sets\DefaultSet;
@@ -105,4 +109,36 @@ it('makes no table where Pest is not patched or no file is on disk, and says why
         ->and($shell->commands())->toBe([])
         ->and($silent instanceof CannotJudge ? $silent->why() : $silent)
         ->toBe('Pest left no table of the change places it was to make, and printed: Pest stopped');
+});
+
+it('makes no table and says why where the list of files it is to table cannot be written', function (): void {
+    $at = PestCases::project();
+    $listing = sprintf('%s/.mutation-gate/change-places.files', $at->root());
+    mkdir($listing, recursive: true);
+    $shell = tablingShell();
+    $made = new ChangeTabling($at, $shell, PestCases::canary(), new Bridges())
+        ->made(Paths::of(Path::of('src/Money.php')), Mutators::all(), Withheld::nothing());
+
+    expect($made)->toEqual(Leftover::at($listing))
+        ->and($shell->commands())->toBe([]);
+});
+
+it('loads the bridges to the registered mutators the config turns on, as a mutation run does, and says why where it cannot', function (): void {
+    $at = PestCases::project();
+    $shell = tablingShell();
+    $bridged = Bridges::to(Enabled::of(MutatorSet::of(HashEqualsToTrue::class)));
+    $why = CannotJudge::because('The pest runner cannot make mutants with stdClass, which is not a mutator.');
+    $tabling = static fn(Bridges $bridges): MutantSites|CannotJudge => new ChangeTabling($at, $shell, PestCases::canary(), $bridges)
+        ->made(Paths::of(Path::of('src/Money.php')), Mutators::all(), Withheld::nothing());
+    $refused = $tabling(Bridges::refusing($why));
+    $commands = $shell->commands();
+    $made = $tabling($bridged);
+    $environment = $shell->commands() === [] ? [] : $shell->commands()[0]->environment();
+
+    expect($refused)->toBe($why)
+        ->and($commands)->toBe([])
+        ->and(is_file(sprintf('%s/.mutation-gate/change-places.files', $at->root())))->toBeFalse()
+        ->and($made)->toBeInstanceOf(MutantSites::class)
+        ->and($environment[GateVariable::Mutators->value] ?? '')
+        ->toBe(sprintf('%s/.mutation-gate/mutators/pest/bridges.php', $at->root()));
 });

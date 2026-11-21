@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Composer\InstalledVersions;
 use NightWorksIO\MutationGate\Adapter\Pest\ChangeTable;
 use NightWorksIO\MutationGate\Adapter\Pest\ChangeTableMade;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
@@ -12,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\SideBySideMutants;
 use NightWorksIO\MutationGate\Adapter\Pest\UnplacedFiles;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -280,7 +282,7 @@ it('makes the file whole to number its mutants, and says so, where the plan tabl
             static fn(Warning $warning): string => $warning->text(),
             [...UnplacedFiles::warned(repeatedResultsOf($root), repeatedProject($root))],
         ))->toBe([
-            'Made 1 file whole to number the mutants of some lines, src/Packs.php first: the plan\'s table did not match (ADR-0004).',
+            'Made 1 file whole to number the mutants of some lines, src/Packs.php first: the plan\'s table did not match (ADR-0306).',
         ])
         ->and(repeatedUnplaced($root))->toBe([]);
 });
@@ -297,6 +299,25 @@ it('reads no table another install of Pest made', function (): void {
     expect($made)->not->toBe([])
         ->and(ChangeTable::told())->toEqual(ChangeTable::none())
         ->and(repeatedUnplaced($root))->toBe([strval($file->getRealPath())]);
+});
+
+it('reads a table that is not in its shape as none', function (string $text): void {
+    $root = Scratch::directory();
+    Scratch::write($root, sprintf('.mutation-gate/%s', ChangeTable::FILE), $text);
+
+    expect(ChangeTable::in(sprintf('%s/.mutation-gate/%s', $root, ChangeTable::FILE)))->toEqual(ChangeTable::none());
+})->with([
+    'not JSON' => '{"changePlaces":',
+    'a shape that is no number' => '{"changePlaces":"one"}',
+    'no files' => '{"changePlaces":1,"madeBy":"","mutatorClasses":[]}',
+]);
+
+it('names a package that makes mutants by its name alone where it is not installed', function (): void {
+    $reference = InstalledVersions::getReference(Package::PestMutate->value);
+
+    expect(ChangeTable::makers(['nightworksio/not-installed', Package::PestMutate->value]))
+        ->toBe(sprintf('nightworksio/not-installed %s@%s', Package::PestMutate->value, strval($reference)))
+        ->and(ChangeTable::makers())->toStartWith(sprintf('%s@%s ', Package::PestMutate->value, strval($reference)));
 });
 
 it('tables where every mutant of a file starts, as a run that makes the whole file makes them', function (): void {

@@ -332,7 +332,7 @@ final readonly class Patch
                     microtime(true) - $this->startTime
                 );
 
-                {MARK} a run that tables its files' change places makes each whole, and judges none (ADR-0004).
+                {MARK} a run that tables its files' change places makes each whole, and judges none (ADR-0306).
                 if (class_exists(\%3$s::class) && \%3$s::isAsked()) {
                     return \%3$s::tabled(fn ($file, array $lines): array => Container::getInstance()
                         ->get(MutationGenerator::class)

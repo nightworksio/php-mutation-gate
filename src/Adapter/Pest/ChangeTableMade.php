@@ -18,12 +18,10 @@ use function file_get_contents;
 use function file_put_contents;
 use function getenv;
 use function implode;
-use function is_int;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use Pest\Mutate\Mutation;
 
 use function sprintf;
@@ -77,9 +75,7 @@ final readonly class ChangeTableMade
         $entries = [];
 
         foreach ($files as $at => $file) {
-            $spots = self::entriesOf($whole[$at], $mutators);
-            $digest = ChangeTable::digestOf(strval($file->getRealPath()));
-            $entries = $spots instanceof NotGiven ? $entries : [...$entries, $digest => $spots];
+            $entries[ChangeTable::digestOf(strval($file->getRealPath()))] = self::entriesOf($whole[$at], $mutators);
         }
 
         return self::written($mutators, $entries) ? 0 : 1;
@@ -128,25 +124,19 @@ final readonly class ChangeTableMade
     }
 
     /**
-     * Each of a file's mutants' spot and place, as the whole file's making
-     * placed them; none where it left one unplaced.
+     * Each of a whole file's mutants' spot and place.
      *
      * @param list<Mutation>     $mutants
      * @param array<string, int> $mutators
      */
-    private static function entriesOf(array $mutants, array $mutators): string|NotGiven
+    private static function entriesOf(array $mutants, array $mutators): string
     {
         $entries = [];
+        $places = ChangePlaces::counted($mutants);
 
-        foreach ($mutants as $mutant) {
-            $place = ChangePlaces::of($mutant);
-
-            if (! is_int($place)) {
-                return NotGiven::value();
-            }
-
+        foreach ($mutants as $at => $mutant) {
             $spot = ChangeTable::spotOf($mutant, $mutators[$mutant->mutator]);
-            $entries[] = sprintf(ChangeTable::PLACED, $spot, $place);
+            $entries[] = sprintf(ChangeTable::PLACED, $spot, $places[$at]);
         }
 
         return implode(ChangeTable::BETWEEN, $entries);

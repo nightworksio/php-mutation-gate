@@ -188,7 +188,7 @@ final readonly class PlannedMutant
 
     /**
      * Its place among the mutants of its whole file that make its change, as
-     * the run that made it placed it (ADR-0004); none where it did not.
+     * the run that made it placed it (ADR-0306); none where it did not.
      */
     public function place(): int|NotGiven
     {

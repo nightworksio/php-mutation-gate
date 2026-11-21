@@ -21,7 +21,7 @@ use WeakMap;
 /**
  * Each mutant's place among the mutants of its file that make its change, its
  * mutator and its diff, as a run that makes every mutant of the file numbers
- * them: the occurrence its gate id holds (ADR-0004), whatever lines a part of
+ * them: the occurrence its gate id holds (ADR-0306), whatever lines a part of
  * a cut run makes and whichever mutants a run is told to make.
  *
  * @internal
@@ -40,14 +40,11 @@ final class ChangePlaces
      */
     public static function among(array $made, array $whole): void
     {
-        $counted = [];
         $free = [];
+        $places = self::counted($whole);
 
-        foreach (array_values($whole) as $mutant) {
-            $key = self::keyOf($mutant);
-            $place = array_key_exists($key, $counted) ? $counted[$key] : 0;
-            $counted[$key] = $place + 1;
-            $free[self::spotOf($mutant)][] = $place;
+        foreach (array_values($whole) as $at => $mutant) {
+            $free[self::spotOf($mutant)][] = $places[$at];
         }
 
         foreach (array_values($made) as $mutant) {
@@ -55,6 +52,28 @@ final class ChangePlaces
             $place = array_key_exists($spot, $free) ? array_shift($free[$spot]) : null;
             $place === null ? null : self::placing($mutant, $place);
         }
+    }
+
+    /**
+     * Each of a whole file's mutants' place among those before it that make
+     * its change, in the order Pest makes them.
+     *
+     * @param  array<int, Mutation> $whole
+     * @return list<int>
+     */
+    public static function counted(array $whole): array
+    {
+        $counted = [];
+        $places = [];
+
+        foreach (array_values($whole) as $mutant) {
+            $key = self::keyOf($mutant);
+            $place = array_key_exists($key, $counted) ? $counted[$key] : 0;
+            $counted[$key] = $place + 1;
+            $places[] = $place;
+        }
+
+        return $places;
     }
 
     /** Places a mutant at the occurrence its gate id holds. */

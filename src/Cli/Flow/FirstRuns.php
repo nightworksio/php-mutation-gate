@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
  * What a plan measures of the first run of the units it runs, for a cost
  * model to estimate each unit no shard has timed by (ADR-0006):
  * where the runner's mutants of each of their files start, as it made them
- * once as the plan was made (ADR-0004), or else the default set's, the
+ * once as the plan was made (ADR-0306), or else the default set's, the
  * fastest of a few runs of no test, and how many mutants the runner runs
  * at once on this machine. Shard runners are taken to be like the plan's.
  * Where neither counts any file, or a run of no test cannot run, nothing is

@@ -511,7 +511,7 @@ final readonly class Planning
     /**
      * Every mutant the runner makes of each file of these units, made once as
      * the plan is made and kept for every shard to number its own by
-     * (ADR-0004): where each starts. None where the runner numbers alike
+     * (ADR-0306): where each starts. None where the runner numbers alike
      * whichever it makes, or could not make them: each part that makes some
      * lines of a file then makes the file whole itself, and says so.
      */

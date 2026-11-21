@@ -46,7 +46,7 @@ final readonly class UnplacedFiles
     private const string LINE = "\n";
 
     private const string WARNING
-        = 'Made %d %s whole to number the mutants of some lines, %s first: the plan\'s table did not match (ADR-0004).';
+        = 'Made %d %s whole to number the mutants of some lines, %s first: the plan\'s table did not match (ADR-0306).';
 
     /** Notes beside the run's results that it made a file whole to number the mutants of some of its lines. */
     public static function noted(SplFileInfo $file): void
