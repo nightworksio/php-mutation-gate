@@ -12,6 +12,7 @@ use function is_file;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Runner\Gauge;
+use NightWorksIO\MutationGate\Core\Runner\ProcessListing;
 use NightWorksIO\MutationGate\Core\Runner\ProcessUse;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -58,10 +59,10 @@ final readonly class ProgressReport
         return new self($shard, $gauge, $said);
     }
 
-    /** The report this long after the shard started, with what this listing of `ProcessUse::LISTING` printed. */
-    public function at(Seconds $since, string $listing): string
+    /** The report this long after the shard started, with the processes this listing holds. */
+    public function at(Seconds $since, ProcessListing $listing): string
     {
-        $processes = ProcessUse::parse($listing);
+        $processes = ProcessUse::of($listing);
         $remaining = $this->gauge->remaining()->text();
 
         return sprintf(

@@ -2,8 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildLimit;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\ChildPlaces;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Children;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan;
+use NightWorksIO\MutationGate\Core\Runner\ProcessListing;
 use NightWorksIO\MutationGate\Tests\Support\FreshProcess;
+use NightWorksIO\MutationGate\Tests\Support\Listed;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -27,7 +33,7 @@ it('takes no child it did not fork, and drops each copy a child still running ho
         $manager = LaravelTesting::managing(['main' => ['driver' => 'sqlite', 'database' => %1$s]]);
         $manager->getConnections()['main']->getPdo()->exec('SELECT 1');
         $copies = Copies::taken(Descriptors::held(), %2$s);
-        $children = new Children(new StreamPlan(%2$s . '/stream.jsonl', [], [], [], ChildPlaces::fixed(1), new ChildLimit(1.0, 1.0, 10.0)));
+        $children = new Children(new StreamPlan(%2$s . '/stream.jsonl', [], [], [], ChildPlaces::fixed(1), new ChildLimit(1.0, 1.0, 10.0)), new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
         $other = pcntl_fork();
 
         if ($other === 0) {
@@ -64,7 +70,7 @@ function childrenAnswer(string $program, int $places, float $multiple): string
         use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlan;
 
         $results = %s . '/stream.jsonl';
-        $children = new Children(new StreamPlan($results, [], [], ['t1' => 0.01], ChildPlaces::fixed(%d), new ChildLimit(%F, 0.2, 30.0)));
+        $children = new Children(new StreamPlan($results, [], [], ['t1' => 0.01], ChildPlaces::fixed(%d), new ChildLimit(%F, 0.2, 30.0)), new \NightWorksIO\MutationGate\Adapter\Process\LiveProcesses());
         $since = static fn(int $from): float => (hrtime(true) - $from) / 1e9;
         $written = static fn(): string => is_file($results) ? (string) file_get_contents($results) : '';
         %s
@@ -150,4 +156,20 @@ it('lets a child out of its place run on where the parent\'s own time of the tes
         $children->ended('t1', $since($began));
         echo json_encode([$children->reapedAll(), $written()]);
         PHP, places: 1, multiple: 1.0))->toBe('[[],""]');
+});
+
+it('lists the processes running only once a child is late, never at a look that finds none', function (): void {
+    $listings = 0;
+    $children = new Children(
+        new StreamPlan(sprintf('%s/stream.jsonl', Scratch::directory()), [], [], [], ChildPlaces::fixed(1), new ChildLimit(1.0, 1.0, 10.0)),
+        new Listed(static function () use (&$listings): ProcessListing {
+            $listings++;
+
+            return ProcessListing::printed('');
+        }),
+    );
+
+    expect($children->reaped(blocking: false))->toBe([])
+        ->and($children->reapedAll())->toBe([])
+        ->and($listings)->toBe(0);
 });

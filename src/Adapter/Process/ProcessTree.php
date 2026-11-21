@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
-use Symfony\Component\Process\Process;
 
 /**
- * A running process and every process under it, at any depth, as `ps` lists
- * them, and the session it leads where it leads one.
+ * A running process and every process under it, at any depth, as a listing
+ * finds them or its cgroup holds them, and the session it leads where it
+ * leads one.
  *
  * @internal
  */
@@ -32,21 +32,24 @@ final readonly class ProcessTree
      */
     public function stop(bool $leads): void
     {
-        ProcessTable::stop($this->pid, $this->ran(...), $leads);
+        ProcessTable::stop($this->pid, new LiveProcesses(), $leads, Lineage::spared());
+    }
+
+    /**
+     * Stops every process its cgroup holds, and then the process itself,
+     * with the session it leads where it leads one, without a listing (see
+     * ProcessTable).
+     *
+     * @param list<int> $held
+     */
+    public function stopHeld(array $held, bool $leads): void
+    {
+        ProcessTable::stopHeld($this->pid, $held, $leads, Lineage::spared());
     }
 
     /** Kills every process left in the session this one led, once it ended. */
     public function ended(): void
     {
-        $this->ran(ProcessTable::ending($this->pid));
-    }
-
-    /** @param list<string> $command */
-    private function ran(array $command): string
-    {
-        $process = new Process($command);
-        $process->run();
-
-        return $process->getOutput();
+        ProcessTable::end($this->pid, Lineage::spared());
     }
 }

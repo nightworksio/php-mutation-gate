@@ -7,18 +7,17 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function count;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Process\Lineage;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Runner\Signal;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function pcntl_waitpid;
-use function posix_kill;
-
-use const SIGKILL;
 
 /**
  * The analyser's warm-up the plan began (see PlannedWarmUp): running in a
@@ -81,8 +80,8 @@ final class WarmingUp
     /** The warm-up stopped where it still runs, and nothing it left kept. */
     public function dropped(): Missing|CannotJudge
     {
-        if ($this->child > 0 && ! $this->done) {
-            posix_kill($this->child, SIGKILL);
+        if (! $this->done) {
+            Lineage::spared()->signal($this->child, Signal::Kill);
         }
 
         $this->waited();

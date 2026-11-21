@@ -9,56 +9,41 @@ use function count;
 use function intdiv;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
-
-use function preg_match_all;
-
-use const PREG_SET_ORDER;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function usort;
 
 /**
- * Every process on the machine with the memory it holds, as `ps` lists
- * them, which a shard's progress says the largest of, so a machine that ran
- * short can be read after its job was lost.
+ * Every process on the machine with the memory it holds, as a listing holds
+ * them (ProcessListing), which a shard's progress says the largest of, so a
+ * machine that ran short can be read after its job was lost.
  *
  * @internal
  */
 final readonly class ProcessUse
 {
-    /** The command that lists every process with its parent, its resident memory, its age and its name. */
-    public const array LISTING = [...ProcessTable::LISTING, '-orss=', '-oetime=', '-ocomm='];
-
-    /** A line of the listing: a process, its parent, its kibibytes, its age and its name. */
-    private const string ROW = '/^\s*(?<pid>\d+)\s+(?<parent>\d+)\s+(?<rss>\d+)\s+(?<age>\S+)\s+(?<name>.+?)\s*$/m';
-
     private const string LINE = '%d MiB  %s  pid %d of %d  %s';
 
-    /** @param list<array{pid: int, parent: int, rss: int, age: string, name: string}> $processes */
+    /** A process's age as `ps` says it: minutes and seconds, the hours before them, the days before those. */
+    private const string MINUTES = '%02d:%02d';
+
+    private const string HOURS = '%02d:%s';
+
+    private const string DAYS = '%d-%s';
+
+    /** @param list<array{pid: int, parent: int, rss: int, age: int, name: string}> $processes */
     private function __construct(private array $processes)
     {
     }
 
-    /** The processes the listing printed. */
-    public static function parse(string $listing): self
+    /** The processes the listing holds. */
+    public static function of(ProcessListing $listing): self
     {
-        preg_match_all(self::ROW, $listing, $rows, PREG_SET_ORDER);
-        $processes = [];
-
-        foreach ($rows as $row) {
-            $processes[] = [
-                'pid' => (int) $row['pid'],
-                'parent' => (int) $row['parent'],
-                'rss' => (int) $row['rss'],
-                'age' => $row['age'],
-                'name' => $row['name'],
-            ];
-        }
-
-        return new self($processes);
+        return new self($listing->uses());
     }
 
-    /** How many processes the listing printed. */
+    /** How many processes the listing holds. */
     public function count(): int
     {
         return count($this->processes);
@@ -80,7 +65,7 @@ final readonly class ProcessUse
             $lines[] = sprintf(
                 self::LINE,
                 intdiv($process['rss'] * Bytes::PER_KIBIBYTE, Bytes::PER_MEBIBYTE),
-                $process['age'],
+                $this->age($process['age']),
                 $process['pid'],
                 $process['parent'],
                 $process['name'],
@@ -88,5 +73,22 @@ final readonly class ProcessUse
         }
 
         return $lines;
+    }
+
+    private function age(int $seconds): string
+    {
+        $days = intdiv($seconds, Seconds::PER_DAY);
+        $hours = intdiv($seconds % Seconds::PER_DAY, Seconds::PER_HOUR);
+        $minutes = sprintf(
+            self::MINUTES,
+            intdiv($seconds % Seconds::PER_HOUR, Seconds::PER_MINUTE),
+            $seconds % Seconds::PER_MINUTE,
+        );
+
+        return match (true) {
+            $days > 0 => sprintf(self::DAYS, $days, sprintf(self::HOURS, $hours, $minutes)),
+            $hours > 0 => sprintf(self::HOURS, $hours, $minutes),
+            default => $minutes,
+        };
     }
 }

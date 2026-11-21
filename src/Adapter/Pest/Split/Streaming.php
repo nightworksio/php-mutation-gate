@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 use NightWorksIO\MutationGate\Core\Runner\ToldSeconds;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -87,6 +88,7 @@ final readonly class Streaming
         private array $arguments,
         private int $processes,
         private int|StreamChildren $children,
+        private RunningProcesses $running,
         private string $recording = '',
         private bool $bootOnce = false,
         private bool $reconnect = false,
@@ -281,7 +283,7 @@ final readonly class Streaming
             $queued[] = fn(): WatchedStream => $this->watched($start, $part['tests'], $part['files'], $selects);
         }
 
-        $watch = new StreamWatch($this->directory, $this->slowdown);
+        $watch = new StreamWatch($this->directory, $this->slowdown, $this->running);
 
         foreach ($watch->ended($queued, max(1, $this->processes)) as $results) {
             $verdicts = $verdicts->reading($results);

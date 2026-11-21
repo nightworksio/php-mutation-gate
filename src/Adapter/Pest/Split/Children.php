@@ -17,6 +17,9 @@ use const LOCK_EX;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
+use NightWorksIO\MutationGate\Core\Runner\Signal;
+use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function pcntl_fork;
@@ -25,7 +28,6 @@ use function pcntl_wexitstatus;
 use function pcntl_wifexited;
 use function pcntl_wifsignaled;
 use function pcntl_wtermsig;
-use function posix_kill;
 use function register_shutdown_function;
 
 use const SIGKILL;
@@ -72,7 +74,7 @@ final class Children
     /** @var array<int, Copies> the databases copied for each running child, by pid */
     private array $copies = [];
 
-    public function __construct(private readonly StreamPlan $plan)
+    public function __construct(private readonly StreamPlan $plan, private readonly RunningProcesses $running)
     {
         $this->steps = new ChildSteps($plan);
         $this->held = new HeldChildren();
@@ -295,8 +297,15 @@ final class Children
      */
     private function stopped(array $late): void
     {
+        if ($late === []) {
+            return;
+        }
+
+        $spared = SparedProcesses::listed($this->running);
+
         foreach ($late as $pid => $child) {
-            posix_kill($pid, SIGKILL);
+            $spared->signal($pid, Signal::Kill);
+
             pcntl_waitpid($pid, $status);
             $this->gone($pid);
             $this->write(StreamLine::timedOut($child->mutant, $child->test));

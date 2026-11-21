@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Adapter\Process\Cgroups;
+use NightWorksIO\MutationGate\Adapter\Process\Lineage;
 use NightWorksIO\MutationGate\Adapter\Process\SessionLeader;
 use NightWorksIO\MutationGate\Adapter\Runtime\SystemGauge;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -28,6 +29,7 @@ final readonly class HeldProcesses
 
     public function by(Processes $processes, Variables $environment): true|CannotJudge
     {
+        Lineage::told();
         $led = SessionLeader::toldHere($processes->group());
         $contained = Cgroups::toldHere($processes, $environment->inCi(), SystemGauge::MEMINFO, $this->own);
 

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Wake;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -56,7 +57,7 @@ it('runs a run in a child it forks, and writes how the child ended where the run
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
     $paused = new Pauses();
-    $served = Worker::at($at->directory(), 1, Passing::for('10'), $paused->pausing())->served(ShellForking::running($at, 'sleep 0.2; exit 3'));
+    $served = Worker::at($at->directory(), 1, Passing::for('10'), $paused->pausing(), new LiveProcesses())->served(ShellForking::running($at, 'sleep 0.2; exit 3'));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($served)->toBe(0)
@@ -75,7 +76,7 @@ it('wakes the run\'s asker once it writes how the run ended, or why it forked th
     });
 
     try {
-        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::running($at, 'exit 3'));
+        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing(), new LiveProcesses())->served(ShellForking::running($at, 'exit 3'));
         pcntl_signal_dispatch();
     } finally {
         pcntl_signal(Wake::SIGNAL, SIG_DFL);
@@ -91,7 +92,7 @@ it('wakes the run\'s asker once it writes how the run ended, or why it forked th
 it('stops a child, with every process under it, once the run\'s asker is gone', function () use ($seat, $request): void {
     $at = $seat();
     $request(Passing::for('0.3'))->leftIn($at->request());
-    Worker::at($at->directory(), 1, Passing::for('10'), new Pauses()->pausing())->served(ShellForking::running($at, 'sleep 30'));
+    Worker::at($at->directory(), 1, Passing::for('10'), new Pauses()->pausing(), new LiveProcesses())->served(ShellForking::running($at, 'sleep 30'));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish ? $finish->signal() : $finish)->toBe(SIGKILL);
@@ -101,7 +102,7 @@ it('forks no child for a run whose asker is gone, and serves on until its parent
     $at = $seat();
     $request(Passing::NONE)->leftIn($at->request());
     $paused = new Pauses();
-    $served = Worker::at($at->directory(), 1, Passing::for('0.3'), $paused->pausing())->served(ShellForking::none($at));
+    $served = Worker::at($at->directory(), 1, Passing::for('0.3'), $paused->pausing(), new LiveProcesses())->served(ShellForking::none($at));
 
     expect($served)->toBe(0)
         ->and(is_file($at->request()) || is_file($at->started('42-1')) || is_file($at->ended('42-1')))->toBeFalse()
@@ -114,7 +115,7 @@ it('starts fresh, and warns of it, the run of a mutant of a file it loaded', fun
     $at = $seat();
     $mutated = (string) realpath(__FILE__);
     $request((int) getmypid(), $mutated)->leftIn($at->request());
-    Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::none($at));
+    Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing(), new LiveProcesses())->served(ShellForking::none($at));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
@@ -130,7 +131,7 @@ it('starts fresh, and warns of it, the run of a mutant of a file that declares w
     Scratch::write($root, 'copy/Declared.php', sprintf("<?php\n%s\n", $code));
     $mutated = (string) realpath(sprintf('%s/copy/Declared.php', $root));
     $request((int) getmypid(), $mutated)->leftIn($at->request());
-    Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::none($at));
+    Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing(), new LiveProcesses())->served(ShellForking::none($at));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
@@ -160,7 +161,7 @@ it('forks the run of a mutant of a file whose names it has not declared, and loa
 
     try {
         $request((int) getmypid(), $mutated)->leftIn($at->request());
-        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::none($at));
+        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing(), new LiveProcesses())->served(ShellForking::none($at));
     } finally {
         spl_autoload_unregister($lazy);
     }
@@ -191,7 +192,7 @@ it('forks the run of a mutant the schema it serves switches, starts a pinned one
             ...$pin === false ? [] : [GateVariable::SourcePinned->value => $pin],
         ];
         Request::of('42-1', (int) getmypid(), ['vendor/bin/pest'], $environment, (string) getcwd())->leftIn($at->request());
-        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::none($at));
+        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing(), new LiveProcesses())->served(ShellForking::none($at));
     } finally {
         ServedClasses::forget($box->file);
         $box->loader->unregister();
@@ -223,7 +224,7 @@ it('forks the run of a mutant the schema it serves switches, starts a pinned one
 it('starts fresh, and warns of it, a run it could fork no child for', function () use ($seat, $request, $warned): void {
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
-    Worker::at($at->directory(), 1, Passing::for('10'), new Pauses()->pausing())->served(ShellForking::none($at));
+    Worker::at($at->directory(), 1, Passing::for('10'), new Pauses()->pausing(), new LiveProcesses())->served(ShellForking::none($at));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
@@ -233,7 +234,7 @@ it('starts fresh, and warns of it, a run it could fork no child for', function (
 it('starts fresh, and warns of it, a run whose child the system no longer tells of', function () use ($seat, $request, $warned): void {
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
-    $served = Worker::at($at->directory(), 1, Passing::for('10'), new Pauses()->pausing())->served(new readonly class ($at) implements Forking {
+    $served = Worker::at($at->directory(), 1, Passing::for('10'), new Pauses()->pausing(), new LiveProcesses())->served(new readonly class ($at) implements Forking {
         public function __construct(private Seat $seat)
         {
         }
@@ -261,7 +262,7 @@ it('boots once it has written its process id, and starts fresh, warning why, eve
 
         return 'The boot left a socket open.';
     };
-    Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->booting($boot)->served(ShellForking::none($at));
+    Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing(), new LiveProcesses())->booting($boot)->served(ShellForking::none($at));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($pid)->toBe((string) getmypid())

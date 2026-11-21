@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamEvents;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use Pest\Contracts\Plugins\Bootable;
 use Pest\Contracts\Plugins\HandlesArguments;
@@ -80,8 +81,11 @@ final class Plugin implements Bootable, HandlesArguments
      * @param Closure(): RunIssues $issues where a mutant's own process reads the tests whose issues failed its run
      * @param Closure(): string    $erred  the file the last error PHP raised stands in, empty where it raised none
      */
-    public function __construct(private readonly Closure $issues, private readonly Closure $erred)
-    {
+    public function __construct(
+        private readonly Closure $issues,
+        private readonly Closure $erred,
+        private readonly RunningProcesses $running,
+    ) {
     }
 
     /**
@@ -96,7 +100,7 @@ final class Plugin implements Bootable, HandlesArguments
         $loaded = get_included_files();
         $plan = getenv(GateVariable::SplitPlan->value);
 
-        if (is_string($plan) && $plan !== '' && Stream::from($plan)) {
+        if (is_string($plan) && $plan !== '' && Stream::from($plan, $this->running)) {
             Schemata::servedIn(dirname($plan));
             StreamEvents::registerIn(Facade::instance());
         }

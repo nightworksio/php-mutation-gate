@@ -13,6 +13,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Native\WarmBoot;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 
 use function sprintf;
 
@@ -34,14 +35,14 @@ final readonly class Worker
 {
     private const string UNREAD = 'The worker could not read its job: %s';
 
-    private function __construct(private Workplace $workplace, private int $place)
+    private function __construct(private Workplace $workplace, private int $place, private RunningProcesses $processes)
     {
     }
 
-    /** The worker in this place of the workplace in this directory. */
-    public static function at(string $directory, int $place): self
+    /** The worker in this place of the workplace in this directory, which stops a child among these processes. */
+    public static function at(string $directory, int $place, RunningProcesses $processes): self
     {
-        return new self(Workplace::at($directory), $place);
+        return new self(Workplace::at($directory), $place, $processes);
     }
 
     /** Boots, then runs each run it claims: the worker's exit code, 0 also where it says why it forked none. */
@@ -124,7 +125,7 @@ final readonly class Worker
         $child = $forking->forked($run);
 
         if (is_int($child)) {
-            Waiting::for($child, $run->limit(), $started, $run->silence())
+            Waiting::for($child, $run->limit(), $started, $run->silence(), $this->processes)
                 ->ended($printed, $this->workplace)
                 ->writtenTo($this->workplace->end($at));
         }

@@ -49,11 +49,21 @@ final readonly class Holding
         $this->uncontained();
     }
 
-    /** It stopped with every process under it and in the session it leads, and its cgroup killed and removed. */
+    /**
+     * It stopped with every process under it, or every process its cgroup
+     * holds where it has one, and in the session it leads, and its cgroup
+     * killed and removed.
+     */
     public function stopped(int $pid): void
     {
+        if ($this->cgroup instanceof RunCgroup) {
+            ProcessTree::of($pid)->stopHeld($this->cgroup->held(), $this->leads);
+            $this->cgroup->killed();
+
+            return;
+        }
+
         ProcessTree::of($pid)->stop($this->leads);
-        $this->uncontained();
     }
 
     /** Its cgroup let go, for a process that never started. */

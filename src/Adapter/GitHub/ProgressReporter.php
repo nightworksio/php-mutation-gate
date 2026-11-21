@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use Closure;
 
+use function getenv;
 use function is_file;
 use function is_string;
 use function min;
@@ -19,7 +20,9 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Runner\Gauge;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
-use NightWorksIO\MutationGate\Core\Runner\ProcessUse;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
+use NightWorksIO\MutationGate\Core\Runner\Signal;
+use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function pcntl_async_signals;
@@ -28,7 +31,6 @@ use function pcntl_signal;
 use function pcntl_waitpid;
 use function posix_getpid;
 use function posix_getppid;
-use function posix_kill;
 
 use Psr\Clock\ClockInterface;
 
@@ -38,9 +40,6 @@ use const SIGKILL;
 use const SIGTERM;
 
 use function sprintf;
-
-use Symfony\Component\Process\Process;
-
 use function sys_get_temp_dir;
 use function tempnam;
 use function unlink;
@@ -72,7 +71,11 @@ final readonly class ProgressReporter
 
     private const string KEPT = 'mutation-gate-said-';
 
-    private function __construct(private int|NotGiven $reporter, private string $said, private Seconds $grace)
+    /**
+     * @param array{int, RunningProcesses}|NotGiven $reporter the reporter's process, and the processes it is
+     *                                                  stopped among
+     */
+    private function __construct(private array|NotGiven $reporter, private string $said, private Seconds $grace)
     {
     }
 
@@ -97,6 +100,7 @@ final readonly class ProgressReporter
         Gauge $gauge,
         Exchange $exchange,
         Closure $ending,
+        RunningProcesses $processes,
     ): self {
         return self::startedWith(
             $every,
@@ -108,20 +112,14 @@ final readonly class ProgressReporter
             $gauge,
             $exchange,
             $ending,
-            static function (array $command): string {
-                $process = new Process($command);
-                $process->run();
-
-                return $process->getOutput();
-            },
+            $processes,
             Seconds::of(self::GRACE),
         );
     }
 
     /**
-     * @param Closure(int): never           $ending how the reporter ends itself, by a signal
-     * @param Closure(list<string>): string $run    runs a command, and answers what it printed
-     * @param Seconds                       $grace  how long the gate waits for its reporter once the shard ends
+     * @param Closure(int): never $ending how the reporter ends itself, by a signal
+     * @param Seconds             $grace  how long the gate waits for its reporter once the shard ends
      */
     public static function startedWith(
         Seconds $every,
@@ -133,7 +131,7 @@ final readonly class ProgressReporter
         Gauge $gauge,
         Exchange $exchange,
         Closure $ending,
-        Closure $run,
+        RunningProcesses $processes,
         Seconds $grace,
     ): self {
         $reached = $service instanceof ArtifactAccess ? RunArtifacts::of($service, $exchange) : $service;
@@ -163,7 +161,7 @@ final readonly class ProgressReporter
                         $shard,
                     ),
                     ProgressReport::of($shard->number(), $gauge, $said),
-                    $run,
+                    $processes,
                 );
             } finally {
                 $ending(SIGKILL);
@@ -171,7 +169,7 @@ final readonly class ProgressReporter
         }
 
         return $reporter > 0
-            ? new self($reporter, $said, $grace)
+            ? new self([$reporter, $processes], $said, $grace)
             : new self(NotGiven::value(), $said, $grace)->stopped();
     }
 
@@ -187,17 +185,19 @@ final readonly class ProgressReporter
             return $this->letGo();
         }
 
-        posix_kill($this->reporter, SIGTERM);
+        [$reporter, $processes] = $this->reporter;
+        $spared = SparedProcesses::toldOr($this->told(), $processes);
+        $signals = $spared->signal($reporter, Signal::Terminate);
         $waited = 0.0;
 
-        while (pcntl_waitpid($this->reporter, $status, WNOHANG) === 0 && $waited < $this->grace->seconds()) {
+        while (pcntl_waitpid($reporter, $status, WNOHANG) === 0 && $waited < $this->grace->seconds()) {
             usleep((int) (self::LOOK * Seconds::MICROSECONDS));
             $waited += self::LOOK;
         }
 
-        if ($waited >= $this->grace->seconds()) {
-            posix_kill($this->reporter, SIGKILL);
-            pcntl_waitpid($this->reporter, $status);
+        if ($signals && $waited >= $this->grace->seconds()) {
+            $spared->signal($reporter, Signal::Kill);
+            pcntl_waitpid($reporter, $status);
         }
 
         return $this->letGo();
@@ -219,7 +219,6 @@ final readonly class ProgressReporter
      * until the gate is gone or stops it; stopped, it deletes what it left.
      *
      * @param Closure(RunArtifacts): ProgressArtifacts $artifacts
-     * @param Closure(list<string>): string              $run
      */
     private static function report(
         Seconds $every,
@@ -228,7 +227,7 @@ final readonly class ProgressReporter
         int $gate,
         Closure $artifacts,
         ProgressReport $report,
-        Closure $run,
+        RunningProcesses $processes,
     ): void {
         $stopped = false;
         pcntl_async_signals(enable: true);
@@ -243,7 +242,7 @@ final readonly class ProgressReporter
             $now = (float) $clock->now()->format('U.u');
 
             if ($now >= $next) {
-                $left->leave($report->at(Seconds::of($now - $started), $run(ProcessUse::LISTING)));
+                $left->leave($report->at(Seconds::of($now - $started), $processes->listed()));
                 $next += $every->seconds();
             }
 
@@ -253,5 +252,13 @@ final readonly class ProgressReporter
         if ($stopped) {
             $left->clear();
         }
+    }
+
+    /** What the gate's own process was told it spares; nothing where it was told none. */
+    private function told(): string
+    {
+        $told = getenv(SparedProcesses::VARIABLE);
+
+        return is_string($told) ? $told : '';
     }
 }

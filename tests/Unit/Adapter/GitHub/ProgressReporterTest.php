@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\ProgressReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnEnd;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\KeptLog;
+use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
 use NightWorksIO\MutationGate\Adapter\Process\Running;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -19,11 +20,13 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
+use NightWorksIO\MutationGate\Core\Runner\ProcessListing;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
-use NightWorksIO\MutationGate\Core\Runner\ProcessUse;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\GaugeFake;
+use NightWorksIO\MutationGate\Tests\Support\Listed;
 use NightWorksIO\MutationGate\Tests\Support\RuntimeToken;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -66,9 +69,9 @@ function progressExchange(string $file): Exchange
     };
 }
 
-$listed = static fn(array $command): string => $command === ProcessUse::LISTING ? "  1     0   100 00:01 init\n" : '';
+$listed = static fn(): Listed => new Listed(static fn(): ProcessListing => ProcessListing::printed("  1     0     1   100 00:01 init\n"));
 
-$reporter = static fn(string $calls, Seconds $every, ArtifactAccess|CannotJudge|NotGiven|false $service = false, Closure|false $run = false, Seconds|false $grace = false): ProgressReporter => ProgressReporter::startedWith(
+$reporter = static fn(string $calls, Seconds $every, ArtifactAccess|CannotJudge|NotGiven|false $service = false, RunningProcesses|false $listing = false, Seconds|false $grace = false): ProgressReporter => ProgressReporter::startedWith(
     $every,
     $service === false ? ArtifactAccess::of(RuntimeToken::scoped('Actions.Results:run-1:job-7'), 'https://results.example/') : $service,
     Variables::of(['GITHUB_RUN_ATTEMPT' => '1']),
@@ -78,7 +81,7 @@ $reporter = static fn(string $calls, Seconds $every, ArtifactAccess|CannotJudge|
     GaugeFake::silent(),
     progressExchange($calls),
     OwnEnd::by(...),
-    $run === false ? $listed : $run,
+    $listing === false ? $listed() : $listing,
     $grace === false ? Seconds::of(10) : $grace,
 );
 
@@ -136,6 +139,7 @@ it('lists the processes the shard runs through the system\'s own listing', funct
         GaugeFake::silent(),
         progressExchange($file),
         OwnEnd::by(...),
+        new LiveProcesses(),
     );
     $seen = $calls($file, 'upload ');
     $progress->stop();
@@ -146,12 +150,15 @@ it('lists the processes the shard runs through the system\'s own listing', funct
 
 it('kills a reporter that outlives its grace, which leaves its artifact where it was', function () use ($reporter, $calls, $listed): void {
     $file = sprintf('%s/calls', Scratch::directory());
-    $deaf = static function (array $command) use ($listed): string {
-        pcntl_signal(SIGTERM, SIG_IGN);
+    $gate = posix_getpid();
+    $deaf = new Listed(static function () use ($listed, $gate): ProcessListing {
+        if (posix_getpid() !== $gate) {
+            pcntl_signal(SIGTERM, SIG_IGN);
+        }
 
-        return $listed($command);
-    };
-    $progress = $reporter($file, Seconds::of(0.3), run: $deaf, grace: Seconds::of(0.2));
+        return $listed()->listed();
+    });
+    $progress = $reporter($file, Seconds::of(0.3), listing: $deaf, grace: Seconds::of(0.2));
     $calls($file, 'upload ');
     $started = hrtime(as_number: true);
     $progress->stop();
@@ -162,5 +169,6 @@ it('kills a reporter that outlives its grace, which leaves its artifact where it
     expect($stopped)->toBeLessThan(5.0)
         ->and((string) file_get_contents($file))->toBe($left)
         ->and($left)->not->toContain('DeleteArtifact')
-        ->and(getenv(ProcessLog::KEPT))->toBeFalse();
+        ->and(getenv(ProcessLog::KEPT))->toBeFalse()
+        ->and(pcntl_signal_get_handler(SIGTERM))->toBe(SIG_DFL);
 })->skip(fn(): bool => ! Forking::isAvailable(), 'the reporter forks');

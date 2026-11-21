@@ -34,3 +34,13 @@ it('stops at the first step sudo refuses, and says the gate was not moved', func
     expect($moved)->toBeFalse()
         ->and($ran)->toBe($refused);
 })->with([1, 2, 3, 4])->skip(fn(): bool => ! function_exists('posix_geteuid'), 'the user is read through posix');
+
+it('hands over only a cgroup one level under the mount, and the gate\'s own one level under that', function (string $held, string $leaf, bool $below): void {
+    expect(CgroupDelegation::isBelow('/sys/fs/cgroup', $held, $leaf))->toBe($below);
+})->with([
+    'the gate\'s' => ['/sys/fs/cgroup/mutation-gate', '/sys/fs/cgroup/mutation-gate/gate-7', true],
+    'the mount itself' => ['/sys/fs/cgroup', '/sys/fs/cgroup/gate-7', false],
+    'beside the mount' => ['/sys/fs/mutation-gate', '/sys/fs/mutation-gate/gate-7', false],
+    'two levels down' => ['/sys/fs/cgroup/system.slice/mutation-gate', '/sys/fs/cgroup/system.slice/mutation-gate/gate-7', false],
+    'a leaf beside its cgroup' => ['/sys/fs/cgroup/mutation-gate', '/sys/fs/cgroup/gate-7', false],
+]);

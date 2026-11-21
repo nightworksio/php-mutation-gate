@@ -5,163 +5,104 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_diff;
-use function array_key_exists;
 
-use Closure;
-
-use function preg_match_all;
-use function sprintf;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * Every process and the one that started it, as `ps` lists them, which a
- * shell reads to stop a process at its deadline with every process under it,
- * such as a runner's workers and each mutant's own run, so none is left
- * running on its own.
+ * How the gate stops a process with every process under it, such as a
+ * runner's workers and each mutant's own run, so none is left running on its
+ * own, from the processes a listing finds under it or, where the process
+ * runs in a cgroup of its own, the processes the cgroup holds (ADR-0312).
  *
  * @internal
  */
 final readonly class ProcessTable
 {
-    /** The command that lists every process with its parent, one to a line. */
-    public const array LISTING = ['ps', '-A', '-o', 'pid=', '-o', 'ppid='];
-
-    /** A line of the listing: a process and its parent. */
-    private const string ROW = '/^\s*(?<pid>\d+)\s+(?<parent>\d+)\s*$/m';
-
-    /** The program that signals processes. */
-    private const string SIGNALS = 'kill';
-
-    /** The command that stops processes at once, before their ids. */
-    private const array KILL = [self::SIGNALS, '-KILL'];
-
-    /** The command that freezes processes where they stand, so none starts another, before their ids. */
-    private const array FREEZE = [self::SIGNALS, '-STOP'];
-
     /**
-     * The lowest id that names one process the gate may stop: 1 is the
-     * system's own first process, 0 the caller's whole process group, and
-     * -1 every process the caller may signal.
+     * The most listings one stop takes: each freezes every process it finds,
+     * so a tree that stands still is whole by its depth plus one, and a stop
+     * that lists this often is one whose tree a fault keeps growing
+     * (ADR-0312).
      */
-    private const int LOWEST = 2;
-
-    /** @param array<int, list<int>> $children each process's children, by its id */
-    private function __construct(private array $children)
-    {
-    }
-
-    /** The table in what the listing printed. */
-    public static function parse(string $listing): self
-    {
-        preg_match_all(self::ROW, $listing, $rows);
-        $children = [];
-
-        foreach ($rows['pid'] as $row => $pid) {
-            $children[(int) $rows['parent'][$row]][] = (int) $pid;
-        }
-
-        return new self($children);
-    }
-
-    /**
-     * Every process under one, at any depth, each after the processes under it.
-     *
-     * @return list<int>
-     */
-    public function descendantsOf(int $pid): array
-    {
-        $under = [];
-
-        foreach (array_key_exists($pid, $this->children) ? $this->children[$pid] : [] as $child) {
-            $under = $child === $pid ? $under : [...$under, ...$this->descendantsOf($child), $child];
-        }
-
-        return $under;
-    }
+    public const int LISTINGS = 32;
 
     /**
      * Stops a process with every process under it, so none is left running
      * on its own: the process frozen first, then each process found under it,
      * listing by listing until a listing finds none it has not frozen, so no
-     * process can start another between the listing and the kill; then all of
-     * them killed, deepest first, and then the whole session, which holds
-     * those whose parent ended before them. An id that names no one process
-     * stops nothing.
-     *
-     * @param Closure(list<string>): string $run runs a command, and answers what it printed
+     * process can start another between the listing and the kill, or until
+     * `LISTINGS` listings; then all of them killed, deepest first, and then
+     * the whole session, which holds those whose parent ended before them. A
+     * process the caller spares (SparedProcesses) is never signalled, nor is
+     * the group of one.
      */
-    public static function stop(int $pid, Closure $run, bool $leads = false): void
-    {
-        if ($pid < self::LOWEST) {
+    public static function stop(
+        int $pid,
+        RunningProcesses $processes,
+        bool $leads = false,
+        SparedProcesses|NotGiven $spared = new NotGiven(),
+    ): void {
+        $sparing = $spared instanceof SparedProcesses ? $spared : SparedProcesses::listed($processes);
+
+        if (! $sparing->signals($pid)) {
             return;
         }
 
-        $run(self::signalling(self::FREEZE, $pid));
+        self::sent($sparing, Signal::Freeze, $pid);
         $frozen = [];
+        $listings = 0;
 
         do {
-            $under = self::parse($run(self::LISTING))->descendantsOf($pid);
+            $under = $processes->listed()->descendantsOf($pid);
             $fresh = array_diff($under, $frozen);
             $frozen = [...$frozen, ...$fresh];
+            $listings++;
+            self::sent($sparing, Signal::Freeze, ...$fresh);
+        } while ($fresh !== [] && $listings < self::LISTINGS);
 
-            if ($fresh !== []) {
-                $run(self::signalling(self::FREEZE, ...$fresh));
-            }
-        } while ($fresh !== []);
-
-        $run(self::killing(...[...$under, $pid]));
+        self::sent($sparing, Signal::Kill, ...[...$under, $pid]);
 
         if ($leads) {
-            $run(self::ending($pid));
+            $sparing->signalGroup($pid, Signal::Kill);
         }
     }
 
     /**
-     * The command that kills every process of the session a process led,
-     * which its group shares: those left once it ended, whose parent may
-     * have ended before them. An id that names no one process kills nothing.
+     * Stops a process with every process its cgroup holds, however deep or
+     * whoever's child, without a listing: all of them killed, the process
+     * last, and then the whole session where it leads one. A process the
+     * caller spares is never signalled.
      *
-     * @return list<string>
+     * @param list<int> $held every process the cgroup holds
      */
-    public static function ending(int $leader): array
+    public static function stopHeld(int $pid, array $held, bool $leads, SparedProcesses $spared): void
     {
-        return self::grouped(self::KILL, $leader);
+        if (! $spared->signals($pid)) {
+            return;
+        }
+
+        self::sent($spared, Signal::Kill, ...[...array_diff($held, [$pid]), $pid]);
+
+        if ($leads) {
+            $spared->signalGroup($pid, Signal::Kill);
+        }
     }
 
     /**
-     * The command that stops these processes at once, leaving out each id
-     * that names no one process.
-     *
-     * @return list<string>
+     * Kills every process left of the session a process led, which its group
+     * shares, once it ended: those whose parent may have ended before them;
+     * none where the caller spares that group.
      */
-    public static function killing(int ...$pids): array
+    public static function end(int $leader, SparedProcesses $spared): void
     {
-        return self::signalling(self::KILL, ...$pids);
+        $spared->signalGroup($leader, Signal::Kill);
     }
 
-    /**
-     * The command that signals every process of the group a process leads,
-     * at once; nothing where its id names no one process.
-     *
-     * @param  list<string> $command
-     * @return list<string>
-     */
-    private static function grouped(array $command, int $leader): array
+    /** Sends a signal to each of these processes in turn, but to none the caller spares. */
+    private static function sent(SparedProcesses $spared, Signal $signal, int ...$pids): void
     {
-        return $leader < self::LOWEST ? $command : [...$command, '--', sprintf('-%d', $leader)];
-    }
-
-    /**
-     * @param  list<string> $command
-     * @return list<string>
-     */
-    private static function signalling(array $command, int ...$pids): array
-    {
-        $named = [];
-
         foreach ($pids as $pid) {
-            $named = $pid < self::LOWEST ? $named : [...$named, sprintf('%d', $pid)];
+            $spared->signal($pid, $signal);
         }
-
-        return [...$command, ...$named];
     }
 }

@@ -69,7 +69,7 @@ these differently.
 |---|---|---|
 | **A1** | Core, Port, Mutator, Config and Extension name nothing outside the package but PHP and `Psr\Clock`, and Mutator, the SDK a mutator is written against, names php-parser too (ADR-0021) | arch: every class name each of their files writes |
 | **A2** | A port is an interface | arch: every declaration under `src/Port` |
-| **A3** | An adapter names no other adapter | arch: every class name each adapter's files write |
+| **A3** | An adapter names no other adapter, but an adapter that is the composition root of code the gate writes into another program's process may name the adapters it hands in, each listed by file and name: `Pest\Patch`'s hunks, which run in Pest's own process, name `Process\LiveProcesses` (ADR-0312) | arch: every class name each adapter's files write, and the list of roots is exactly what they name |
 | **A4** | A layer names only itself and the layers before it | arch: every class name each file under `src` writes |
 | **A5** | Attribute names nothing but PHP, and nothing else under `src` names it but the Pest plugin's filter, which reads `#[Holds]` from test closures (ADR-0004), the PhpSpec and Codeception runners' tests, which read it from specs, test classes and their methods, and the Testo runner's tests, which read it from a test's function and class (ADR-0027) | arch: every class name each file under `src` writes |
 | **A6** | Nothing under `src` names a plugin (ADR-0021) | arch: every class name each file under `src` writes |
@@ -172,6 +172,7 @@ what semver covers of the code.
 |---|---|---|
 | **S1** | The dangerous, execution, insecure and non-timing-safe call bundles are on | phpstan `disallowed-calls`, the four shipped bundles |
 | **S2** | No package with a published advisory resolves | `roave/security-advisories` + `composer audit --locked` in ci |
+| **S3** | A signal reaches another process only through `Core\Runner\SparedProcesses`, whose refusals spare the system's first process, the gate itself, every process above it and their groups and session: only it calls the raw send `RunningProcesses::signalledUnspared`, which `Process\LiveProcesses` sends by `posix_kill`, or by the `kill` program where PHP has no `posix` and `pcntl` (ADR-0310, ADR-0312) | arch: every method call each file under `src` and each PHP script under `bin` makes, and the list of senders is exactly what calls it |
 
 Secrets and vulnerable dependencies are scanned in CI by gitleaks and
 osv-scanner, which read the repository rather than the code.

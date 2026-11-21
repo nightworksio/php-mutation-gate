@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
@@ -73,11 +74,12 @@ final readonly class Streams
         array $arguments,
         int $processes,
         PartLines|NotGiven $made,
+        RunningProcesses $running,
     ): void {
         $settings = StreamSettings::fromEnvironment();
 
         if ($settings->recording() !== '') {
-            EarlyStreams::judge($suite, $arguments, $processes, $settings);
+            EarlyStreams::judge($suite, $arguments, $processes, $settings, $running);
 
             return;
         }
@@ -112,6 +114,7 @@ final readonly class Streams
             $arguments,
             $processes,
             $settings->children(),
+            $running,
             $settings->lines(),
             $settings->bootsOnce(),
             $settings->reconnects(),

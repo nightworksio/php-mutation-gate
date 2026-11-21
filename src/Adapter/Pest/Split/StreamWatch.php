@@ -15,10 +15,9 @@ use function microtime;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
+use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 
 use const PHP_INT_MAX;
-
-use Symfony\Component\Process\Process;
 
 use function unlink;
 use function usleep;
@@ -43,8 +42,11 @@ final readonly class StreamWatch
     /** How long it waits between two looks at the streams still running, in microseconds. */
     private const int BETWEEN = 50_000;
 
-    public function __construct(private string $directory, private StreamSlowdown $slowdown)
-    {
+    public function __construct(
+        private string $directory,
+        private StreamSlowdown $slowdown,
+        private RunningProcesses $running,
+    ) {
     }
 
     /**
@@ -134,7 +136,7 @@ final readonly class StreamWatch
         }
 
         if ($passed !== '' && is_int($pid)) {
-            ProcessTable::stop($pid, $this->ran(...));
+            ProcessTable::stop($pid, $this->running);
         }
 
         $stream->waited();
@@ -144,15 +146,6 @@ final readonly class StreamWatch
         $again = $passed === '' ? NotGiven::value() : $stream->againWithout($passed, $slowdown);
 
         return [$again instanceof WatchedStream ? [$again] : [], [$stream->results]];
-    }
-
-    /** @param list<string> $command */
-    private function ran(array $command): string
-    {
-        $process = new Process($command);
-        $process->run();
-
-        return $process->getOutput();
     }
 
     private function unmarked(string $mark): void

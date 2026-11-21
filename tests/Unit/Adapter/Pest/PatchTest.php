@@ -5,6 +5,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
+use NightWorksIO\MutationGate\Adapter\Pest\MutantSpan;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\ParsedSource;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
@@ -36,7 +37,7 @@ it('finds the patch in place and changes nothing when patching again', function 
     Patch::applyIn($at, new PackageDirectory());
     $patched = array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES);
 
-    expect(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
+    expect(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch found its patch already in place in the 7 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES))->toBe($patched);
 });
 
@@ -47,7 +48,7 @@ it('patches only the files that are not patched yet', function () use ($vendor, 
     file_put_contents(sprintf('%s/pestphp/pest-plugin-mutate/src/Tester/MutationTestRunner.php', $at), $pristine);
 
     expect(Patch::isAppliedIn($at, new PackageDirectory()))->toBeFalse()
-        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 1 of the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
+        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 1 of the 7 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
         ->and(substr_count($source($at, 'Tester/MutationTestRunner.php'), 'MUTATION_GATE_SUITE_SECONDS'))->toBe(1);
 });
 
@@ -103,7 +104,7 @@ it('counts a vendor it already patched as patched, though none of its files can 
         array_map(static fn(string $file): bool => chmod($file, 0o644), $files);
     }
 
-    expect($again)->toBe('pest:patch found its patch already in place in the 6 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
+    expect($again)->toBe('pest:patch found its patch already in place in the 7 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 4 files it changes in pest.')
         ->and($applied)->toBeTrue();
 });
 
@@ -154,7 +155,7 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(37);
+    expect($marks)->toBe(39);
 });
 
 it('compiles each file\'s mutants into a schema and serves a switched mutant the schema, its switch in force, where the gate asks for schemata', function () use ($vendor, $source): void {
@@ -188,6 +189,15 @@ it('parses each file once while its mutants are made, and prints it once for eve
         ->and($generator)->not->toContain('$stmts = $parser->parse($contents);')
         ->and($mutation)->toContain(sprintf('? \\%s::printed($parser->parse(...), $file->getContents())', ParsedSource::class))
         ->and($mutation)->not->toContain('$orignalAst');
+});
+
+it('makes a mutant where a line it records spanning is one to mutate, and records its last line by the same rule', function () use ($vendor, $source): void {
+    $at = $vendor();
+    Patch::applyIn($at, new PackageDirectory());
+
+    expect($source($at, 'Support/NodeVisitor.php'))->toContain(sprintf('if (! \\%s::touches($node, $this->linesToMutate)) {', MutantSpan::class))
+        ->and($source($at, 'Mutation.php'))->toContain(sprintf('$endLine = class_exists(\\%1$s::class) ? \\%1$s::lastOf($originalNode) : $originalNode->getEndLine();', MutantSpan::class))
+        ->and($source($at, 'Mutation.php'))->toContain(sprintf('! class_exists(\\%s::class) &&', MutantSpan::class));
 });
 
 it('has each mutant\'s run select exactly the tests that cover it, a row of a data set alone, named whole by the map Pest loaded', function () use ($vendor, $source): void {

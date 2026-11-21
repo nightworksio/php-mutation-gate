@@ -493,6 +493,23 @@ final readonly class Fixtures
                 "\"name\": \"symfony/process\",\n            \"version\": \"v7.1.6\",",
                 'CVE-2024-51736',
             ),
+            Fixture::suite('S3', 'src/Core/Runner/PlantedSignal.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Core\Runner;
+
+                final readonly class PlantedSignal
+                {
+                    public function __construct(private RunningProcesses $processes) {}
+
+                    public function stopped(int $target): bool
+                    {
+                        return $this->processes->signalledUnspared($target, Signal::Kill);
+                    }
+                }
+                PHP, 'sends another process a signal only through what the gate spares'),
         ];
     }
 
