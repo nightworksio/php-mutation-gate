@@ -15,6 +15,9 @@ use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
+
+use function strcmp;
+
 use Traversable;
 
 use function usort;
@@ -62,7 +65,16 @@ final readonly class Clusters implements Countable, IteratorAggregate
             }
         }
 
-        usort($clusters, static fn(Cluster $one, Cluster $other): int => self::order($one) <=> self::order($other));
+        usort($clusters, static function (Cluster $one, Cluster $other): int {
+            $first = $one->representative()->mutant();
+            $second = $other->representative()->mutant();
+
+            return [
+                strcmp($first->location()->file()->value(), $second->location()->file()->value()),
+                $first->location()->start()->number() <=> $second->location()->start()->number(),
+                strcmp($first->id()->value(), $second->id()->value()),
+            ] <=> [0, 0, 0];
+        });
 
         return new self($clusters, $of);
     }
@@ -84,13 +96,5 @@ final readonly class Clusters implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->clusters);
-    }
-
-    /** @return array{string, int, string} where a cluster's representative stands: its file, line and id */
-    private static function order(Cluster $cluster): array
-    {
-        $mutant = $cluster->representative()->mutant();
-
-        return [$mutant->location()->file()->value(), $mutant->location()->start()->number(), $mutant->id()->value()];
     }
 }

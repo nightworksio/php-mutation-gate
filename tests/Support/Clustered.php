@@ -9,7 +9,11 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily as Family;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -18,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -28,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement as Judged;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use RuntimeException;
 
 use function sprintf;
 
@@ -90,6 +96,24 @@ final class Clustered
     {
         return self::judged(
             Verdicts::mutant('src/Cart.php:11', 'FalseValue', Family::Literal, Verdicts::diff('return false;', 'return true;')),
+            Judged::Survived,
+        );
+    }
+
+    /** A survivor on this line of src/Cart.php under this id, which may read as a number. */
+    public static function withId(string $id, int $line): JudgedMutant
+    {
+        $parsed = MutantId::parse($id);
+
+        return self::judged(
+            Mutant::of(
+                $parsed instanceof MutantId ? $parsed : throw new RuntimeException($parsed->why()),
+                sprintf('native-%s', $id),
+                Location::of(Path::of(self::FILE), Line::of($line), Line::of($line)),
+                Mutation::of('LessThan', Family::Boundary, Verdicts::diff('if ($amount < $limit) {', 'if ($amount <= $limit) {')),
+                MutantStatus::Survived,
+                Unmeasured::duration(),
+            ),
             Judged::Survived,
         );
     }

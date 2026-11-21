@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 
+use function strcmp;
 use function usort;
 
 /**
@@ -30,7 +31,10 @@ final readonly class Cluster
         $members = [$first, ...$others];
         usort(
             $members,
-            static fn(JudgedMutant $one, JudgedMutant $other): int => self::order($one) <=> self::order($other),
+            static fn(JudgedMutant $one, JudgedMutant $other): int => [
+                $one->mutant()->location()->start()->number() <=> $other->mutant()->location()->start()->number(),
+                strcmp($one->mutant()->id()->value(), $other->mutant()->id()->value()),
+            ] <=> [0, 0],
         );
 
         return new self($membership, $members[0], Survivors::of(...$members));
@@ -80,11 +84,5 @@ final readonly class Cluster
     public function explain(GateCommand $gate): string
     {
         return $gate->explain($this->id());
-    }
-
-    /** @return array{int, string} where a member stands: its line, then its id */
-    private static function order(JudgedMutant $judged): array
-    {
-        return [$judged->mutant()->location()->start()->number(), $judged->mutant()->id()->value()];
     }
 }

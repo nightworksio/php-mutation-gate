@@ -14,6 +14,9 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 
 use function preg_match;
 use function sort;
+
+use const SORT_STRING;
+
 use function sprintf;
 use function str_starts_with;
 
@@ -47,7 +50,7 @@ final readonly class ClusterId
             $ids[] = $id->value();
         }
 
-        sort($ids);
+        sort($ids, SORT_STRING);
 
         return new self(sprintf(
             '%s%s',
