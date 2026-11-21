@@ -268,7 +268,7 @@ it('lays another map beside it, a line both hold keeping the tests of both and a
     expect(array_map(static fn(TestId $test): string => $test->value(), [...$both->testsCovering($file, Line::of(3), Line::of(3))]))
         ->toBe(['a', 'b'])
         ->and($both->durations()->of(TestId::of('a')))->toEqual(Seconds::of(2.0));
-});
+})->group('holds:src/Core/Coverage/LineTests.php');
 
 it('keeps the longer time a test took where its own map timed it longer than the other', function (): void {
     $one = CoverageMap::of()->timed(TestId::of('a'), Seconds::of(3.0));
@@ -277,7 +277,7 @@ it('keeps the longer time a test took where its own map timed it longer than the
 
     expect($both->durations()->of(TestId::of('a')))->toEqual(Seconds::of(3.0))
         ->and($both->durations()->of(TestId::of('b')))->toEqual(Seconds::of(1.0));
-});
+})->group('holds:src/Core/Coverage/LineTests.php');
 
 it('lays lines beside its own at once, a line both hold keeping the tests of both, and keeps every test in its place with its time', function () use ($ids): void {
     $file = Path::of('src/Money.php');
@@ -293,4 +293,4 @@ it('lays lines beside its own at once, a line both hold keeping the tests of bot
         ->and($ids($map->tests()))->toBe(['a', 'idle', 'b', 'c'])
         ->and($map->durations()->of(TestId::of('idle')))->toEqual(Seconds::of(1.5))
         ->and($map->executed()->methods()->at($file, ExecutedMethods::none()))->toEqual(ExecutedMethods::of($add));
-});
+})->group('holds:src/Core/Coverage/LineTests.php');
