@@ -71,6 +71,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/EveryEntryReads.php',
             'src/Cli/Flow/Explaining.php',
             'src/Cli/Flow/FirstRuns.php',
+            'src/Cli/Flow/HandedEach.php',
             'src/Cli/Flow/HandedWhole.php',
             'src/Cli/Flow/Handoff.php',
             'src/Cli/Flow/Hidden.php',

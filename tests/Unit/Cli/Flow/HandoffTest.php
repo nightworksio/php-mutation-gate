@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\HandedEach;
 use NightWorksIO\MutationGate\Cli\Flow\HandedWhole;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -233,8 +234,9 @@ it('reads each shard\'s map in their order as it reads one, a map handed to seve
         sprintf('%s/.mutation-gate/coverage/shard-1/map.json.gz', $project),
     ));
 
-    $read = iterator_to_array($handoff->readEach(...array_map(ShardId::of(...), [1, 2, 3, 4, 5])));
-    $each = $handoff->readEach(ShardId::of(1), ShardId::of(2), ShardId::of(1));
+    $handed = new HandedEach($handoff, Directory::at($project), HandedMaps::limits());
+    $read = iterator_to_array($handed->read(...array_map(ShardId::of(...), [1, 2, 3, 4, 5])), preserve_keys: true);
+    $each = $handed->read(ShardId::of(1), ShardId::of(2), ShardId::of(1));
     $held = WeakReference::create($each->current());
     $each->next();
     $second = WeakReference::create($each->current());

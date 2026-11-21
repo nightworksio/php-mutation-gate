@@ -151,17 +151,19 @@ final readonly class Learning
         Plan $plan,
     ): Ledger|CannotJudge {
         $pruned = $plan->considered()->pruned()->files();
+        $limits = Handoff::limits();
         $handoff = new Handoff(
             $this->adapters->project,
-            Handoff::limits(),
+            $limits,
             $this->adapters->maps,
             $this->settings->proofs()->coverageCompressionLevel(),
         );
         $times = MutantTimes::none();
         $timings = Timings::none();
         $read = $results->shards();
+        $shards = array_map(static fn(array $one): ShardId => $one[0]->id(), $read);
 
-        foreach ($handoff->readEach(...array_map(static fn(array $one): ShardId => $one[0]->id(), $read)) as $at => $map) {
+        foreach (new HandedEach($handoff, $this->adapters->project, $limits)->read(...$shards) as $at => $map) {
             if ($map instanceof CannotJudge) {
                 return $map;
             }
