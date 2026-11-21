@@ -27,5 +27,8 @@ it('sends another process a signal only through what the gate spares', function 
 
     // S3
     expect($scripts)->not->toBe([])
-        ->and($senders)->toBe(SIGNALS_RAW_SENDERS, 'Only SparedProcesses sends by RunningProcesses::signalledUnspared, so every signal to another process passes its refusals (S3, ADR-0310).');
+        ->and($senders)->toBe(SIGNALS_RAW_SENDERS, sprintf(
+            'Only SparedProcesses sends by RunningProcesses::signalledUnspared, so every signal to another process passes its refusals (S3, ADR-0310). These send by it: %s.',
+            implode(', ', $senders),
+        ));
 });
