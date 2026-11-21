@@ -4,12 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use function array_key_exists;
+use function array_keys;
+use function array_values;
 use function count;
+use function is_float;
 use function is_int;
 use function max;
 
 use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Cost\JobsLearned;
+use NightWorksIO\MutationGate\Core\Cost\JobTimes;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
@@ -31,6 +38,8 @@ final readonly class SecondWave
      *                                                                              took together, by the file
      * @param array<int, Seconds>                                          $started how long each shard took to start
      *                                                                              judging, by its number
+     * @param array<int, JobTimes>                                         $jobs    what each shard's job of the first
+     *                                                                              wave measured, by its number
      */
     public static function cut(
         Digest $plan,
@@ -40,7 +49,9 @@ final readonly class SecondWave
         PlanLearned $learned,
         Shards $settings,
         StreamWall $wall,
+        array $jobs = [],
     ): LeftoverShares {
+        $walls = self::walls($left, $wall, $jobs);
         $tail = $learned->tail();
         $pool = $tail->pool();
         $most = is_int($pool) ? $pool : LeftoverCut::MATRIX_MOST;
@@ -52,6 +63,7 @@ final readonly class SecondWave
             $wall,
             $tail->runs() ? $most : LeftoverCut::MATRIX_MOST,
             $tail->runs(),
+            $walls,
         );
 
         $outnumbers = is_int($pool) && count($shares->matrix()) > $pool;
@@ -69,8 +81,33 @@ final readonly class SecondWave
                 $wall,
                 $most,
                 tails: true,
+                walls: $walls,
             )
             : $shares;
+    }
+
+    /**
+     * The wall each shard's shares are priced at: the second pass's factor
+     * its own job of the first wave measured; else the median of those the
+     * run's jobs measured; else this wall's, the factor the plan learned, or
+     * 1.0 where it learned none.
+     *
+     * @param  array<int, list<array{LeftMutant, list<string>, LeftForks}>> $left
+     * @param  array<int, JobTimes>                                         $jobs
+     * @return array<int, StreamWall>
+     */
+    private static function walls(array $left, StreamWall $wall, array $jobs): array
+    {
+        $median = JobsLearned::of(...array_values($jobs))->passTwo();
+        $run = is_float($median) ? $wall->passingTwiceAt($median) : $wall;
+        $walls = [];
+
+        foreach (array_keys($left) as $shard) {
+            $own = array_key_exists($shard, $jobs) ? $jobs[$shard]->passTwo() : NotGiven::value();
+            $walls[$shard] = is_float($own) ? $wall->passingTwiceAt($own) : $run;
+        }
+
+        return $walls;
     }
 
     /**

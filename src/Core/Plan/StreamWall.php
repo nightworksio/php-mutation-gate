@@ -38,6 +38,12 @@ final readonly class StreamWall
         return new self(max(1, $processes), max(0.0, $passTwo));
     }
 
+    /** This wall, its second pass's children scaled by this factor, as a job measured it. */
+    public function passingTwiceAt(float $passTwo): self
+    {
+        return self::of($this->processes, $passTwo);
+    }
+
     /** How many seconds of the cost model's a second of this wall holds: its processes', its second pass scaled. */
     public function scale(): float
     {

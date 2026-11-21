@@ -92,6 +92,7 @@ final readonly class LeftoverCutting
         $map = $this->mapIn($coverage);
         $left = [];
         $started = [];
+        $jobs = [];
 
         foreach ($plan as $shard) {
             $read = LeftResults::of($plan, $shard, $results, $this->adapters->project);
@@ -99,6 +100,7 @@ final readonly class LeftoverCutting
             $history = $this->historyIn($coverage, $shard->id());
             $left[$number] = is_array($read) ? $this->leftIn($map, $history, [...$read[1]->mutants()]) : [];
             $started[$number] = is_array($read) ? $this->startedAfter($read[0]) : Seconds::none();
+            $jobs += is_array($read) ? [$number => $read[0]->measured()->job()] : [];
         }
 
         return SecondWave::cut(
@@ -109,6 +111,7 @@ final readonly class LeftoverCutting
             $plan->briefing()->learned(),
             $settings,
             $wall,
+            $jobs,
         );
     }
 

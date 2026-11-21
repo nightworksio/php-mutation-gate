@@ -221,7 +221,11 @@ final readonly class ShardSizing
     /**
      * How many shards each package is cut into. Where that comes to more than
      * the most there may be, every shard is made larger, until it fits or
-     * every package has one shard.
+     * every package has one shard. Where the jobs run their own tail and come
+     * to more than the pool, the pool's shards, each made larger only up to
+     * the stop of a job that runs its tail: more shards than the pool where
+     * the cost needs them, running in waves, never a job past its limit
+     * (ADR-0303).
      *
      * @param  list<PackageWork> $packages
      * @return list<int>
@@ -231,7 +235,7 @@ final readonly class ShardSizing
         $counts = $this->cutCounts($packages);
 
         return ! $this->exact && $this->tail instanceof TailRule && $this->tail->folds(array_sum($counts))
-            ? $this->pooledAt($this->tail->pool(), $this->tail->stop())->cutCounts($packages)
+            ? $this->pooledAt($this->tail->pool(), $this->tail->stop())->cutCounts($packages, withinLimit: true)
             : $counts;
     }
 
@@ -255,25 +259,24 @@ final readonly class ShardSizing
 
     /**
      * @param  list<PackageWork> $packages
+     * @param  bool              $withinLimit whether no shard grows past its job's limit, more shards running in waves
      * @return list<int>
      */
-    private function cutCounts(array $packages): array
+    private function cutCounts(array $packages, bool $withinLimit = false): array
     {
+        $cost = array_sum(array_map(static fn(PackageWork $package): float => $package->cost()->seconds(), $packages));
         $size = match (true) {
             $this->size instanceof Seconds => $this->size->seconds(),
-            $this->target instanceof Seconds => $this->sizeToFit($this->target, $this->costOf($packages)),
-            default => $this->costOf($packages) / $this->most,
+            $this->target instanceof Seconds => $this->sizeToFit($this->target, $cost),
+            default => $cost / $this->most,
         };
-        $room = $this->jobLimit instanceof Seconds
-            ? ($this->jobLimit->seconds() - $this->overhead->seconds()) * $this->scale
-            : 0.0;
-        $size = $room > 0.0 ? min($size, $room) : $size;
-        $counts = $this->countsAt($packages, $size);
-
-        while (array_sum($counts) > max($this->most, count($packages))) {
-            $size = $size * array_sum($counts) / $this->most;
-            $counts = $this->countsAt($packages, $size);
-        }
+        $room = $this->room();
+        $bound = $withinLimit && $room > 0.0;
+        $counts = $this->grownCounts(
+            $packages,
+            $room > 0.0 ? min($size, $room) : $size,
+            $bound ? $room : PHP_FLOAT_MAX,
+        );
 
         if ($this->exact) {
             return $counts;
@@ -281,17 +284,45 @@ final readonly class ShardSizing
 
         $overheads = ShardOverheads::of($this->overhead, $this->workPerOverhead, $this->scale);
         $worth = $overheads->worthCutting($packages, $counts);
+        $cut = $this->billed ? $overheads->fewestMinutes($packages, $worth, $this->most) : $worth;
 
-        return $this->billed ? $overheads->fewestMinutes($packages, $worth, $this->most) : $worth;
+        return $bound ? array_map(
+            static fn(PackageWork $package, int $count): int => max($count, $package->shardsAt($room)),
+            $packages,
+            $cut,
+        ) : $cut;
+    }
+
+    /** The seconds of the cost a shard's job holds within its limit, its overhead taken off; none where none is set. */
+    private function room(): float
+    {
+        return $this->jobLimit instanceof Seconds
+            ? ($this->jobLimit->seconds() - $this->overhead->seconds()) * $this->scale
+            : 0.0;
     }
 
     /**
+     * How many shards each package is cut into at this size, every shard
+     * made larger, up to this ceiling, where they come to more than the most
+     * there may be.
+     *
      * @param  list<PackageWork> $packages
      * @return list<int>
      */
-    private function countsAt(array $packages, float $size): array
+    private function grownCounts(array $packages, float $size, float $ceiling): array
     {
-        return array_map(static fn(PackageWork $package): int => $package->shardsAt($size), $packages);
+        $at = static fn(float $size): array => array_map(
+            static fn(PackageWork $package): int => $package->shardsAt($size),
+            $packages,
+        );
+        $counts = $at($size);
+
+        while (array_sum($counts) > max($this->most, count($packages)) && $size < $ceiling) {
+            $size = min($ceiling, $size * array_sum($counts) / $this->most);
+            $counts = $at($size);
+        }
+
+        return $counts;
     }
 
     /**
@@ -305,11 +336,5 @@ final readonly class ShardSizing
         $count = $room > 0.0 ? ceil($cost / $room) : $this->most;
 
         return $cost / max(1, min($count, $this->most));
-    }
-
-    /** @param list<PackageWork> $packages */
-    private function costOf(array $packages): float
-    {
-        return array_sum(array_map(static fn(PackageWork $package): float => $package->cost()->seconds(), $packages));
     }
 }

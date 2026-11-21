@@ -66,7 +66,12 @@ final readonly class LeftoverCut
      *                                                                               mutants in, by its number
      * @param int                                                          $most     the most shares there may be
      * @param bool                                                         $tails    whether each share's job runs
-     *                                                                               its own tail
+     *                                                                               its own tail, so no capacity
+     *                                                                               grows past its job's limit and
+     *                                                                               more shares run in waves
+     * @param array<int, StreamWall>                                       $walls    the wall each shard's shares are
+     *                                                                               priced at, by its number; this
+     *                                                                               wall where none is given
      */
     public static function of(
         Digest $plan,
@@ -76,6 +81,7 @@ final readonly class LeftoverCut
         StreamWall $wall,
         int $most = self::MATRIX_MOST,
         bool $tails = false,
+        array $walls = [],
     ): LeftoverShares {
         $groups = [];
 
@@ -86,9 +92,9 @@ final readonly class LeftoverCut
         $grown = 1.0;
 
         do {
-            [$shares, $split] = self::cutAt($groups, $timed, $capacity, $grown, $wall);
+            [$shares, $split] = self::cutAt($groups, $timed, $capacity, $grown, $wall, $walls);
             $grown *= max(self::GROWTH, sqrt(count($shares) / $most));
-        } while ($split && count($shares) > $most);
+        } while ($split && count($shares) > $most && ! $tails);
 
         return LeftoverShares::cut(
             $plan,
@@ -104,17 +110,26 @@ final readonly class LeftoverCut
      * @param  array<int, list<array{LeftGroup, list<LeftGroup>}>> $groups
      * @param  array<string, float>                                $timed
      * @param  array<int, Seconds>                                 $capacity
+     * @param  array<int, StreamWall>                              $walls    each shard's own wall, by its number
      * @return array{list<LeftoverShare>, bool}
      */
-    private static function cutAt(array $groups, array $timed, array $capacity, float $grown, StreamWall $wall): array
-    {
+    private static function cutAt(
+        array $groups,
+        array $timed,
+        array $capacity,
+        float $grown,
+        StreamWall $wall,
+        array $walls,
+    ): array {
         $shares = [];
         $split = false;
 
         foreach ($groups as $shard => $each) {
             $within = array_key_exists($shard, $capacity) ? $capacity[$shard]->seconds() : 0.0;
             $fits = max($within, self::LEAST) * $grown;
-            $cut = self::sharesOf(ShardId::of($shard), self::fittingGroups($each, $fits, $wall), $timed, $fits, $wall);
+            $priced = array_key_exists($shard, $walls) ? $walls[$shard] : $wall;
+            $fitting = self::fittingGroups($each, $fits, $priced);
+            $cut = self::sharesOf(ShardId::of($shard), $fitting, $timed, $fits, $priced);
             $split = $split || count($cut) > 1;
             $shares = [...$shares, ...$cut];
         }
