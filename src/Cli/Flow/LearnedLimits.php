@@ -163,7 +163,7 @@ final readonly class LearnedLimits
     /**
      * The cut, its jobs' tail decided by `shards.tail` under `costs.mode`,
      * the shards learned or `shards.max` running at once, each job of this
-     * limit (ADR-0303).
+     * limit, filled to `shards.fill` of its stop (ADR-0303).
      */
     public function tailing(Cut $cut, Seconds $limit): Cut
     {
@@ -176,6 +176,7 @@ final readonly class LearnedLimits
             $shards->costs()->mode(),
             $jobs,
             $learned->stop($shards),
+            $shards->planning()->fill(),
         ));
     }
 

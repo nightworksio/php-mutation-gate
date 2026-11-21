@@ -199,7 +199,7 @@ final readonly class Shards implements Part
         return $this->costs;
     }
 
-    /** `plan`, `timing` and `shards.cutAt`: how a run plans its work and learns what it costs. */
+    /** `plan`, `timing`, `shards.cutAt` and `shards.fill`: how a run plans its work and learns what it costs. */
     public function planning(): Planning
     {
         return $this->planning;
@@ -276,6 +276,7 @@ final readonly class Shards implements Part
                     Member::of('target', $this->durationWritten($this->target)),
                     Member::of('setup', $this->durationWritten($this->setup)),
                     $this->planning->cutAtWritten(),
+                    $this->planning->fillWritten(),
                     Member::of(
                         'jobLimit',
                         $this->durationWritten($this->jobLimit),

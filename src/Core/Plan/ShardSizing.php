@@ -223,9 +223,9 @@ final readonly class ShardSizing
      * the most there may be, every shard is made larger, until it fits or
      * every package has one shard. Where the jobs run their own tail and come
      * to more than the pool, the pool's shards, each made larger only up to
-     * the stop of a job that runs its tail: more shards than the pool where
-     * the cost needs them, running in waves, never a job past its limit
-     * (ADR-0303).
+     * the share of its stop a job that runs its tail is filled to: more
+     * shards than the pool where the cost needs them, running in waves, never
+     * a job past its limit (ADR-0303).
      *
      * @param  list<PackageWork> $packages
      * @return list<int>
@@ -235,7 +235,7 @@ final readonly class ShardSizing
         $counts = $this->cutCounts($packages);
 
         return ! $this->exact && $this->tail instanceof TailRule && $this->tail->folds(array_sum($counts))
-            ? $this->pooledAt($this->tail->pool(), $this->tail->stop())->cutCounts($packages, withinLimit: true)
+            ? $this->pooledAt($this->tail->pool(), $this->tail->filled())->cutCounts($packages, withinLimit: true)
             : $counts;
     }
 

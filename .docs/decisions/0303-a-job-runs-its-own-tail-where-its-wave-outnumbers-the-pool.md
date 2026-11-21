@@ -49,10 +49,18 @@ run of a9505f98, whose shards ran their own tails.
    pool, and never a job past its limit.** A run whose shards come to more
    than the pool at their target is cut into the larger of two counts: the
    shards the target asks for, bounded by the pool, and the cost divided by
-   the room a job's limit leaves, its overhead taken off. Where the pool's
-   shards fit their limit, the run is cut into them. Where they do not, it
-   is cut into as many shards as hold the cost within the limit, and the
-   pool runs them in waves. No shard is made larger than its limit holds.
+   the room a job's limit leaves: the share of its limit `shards.fill`
+   says, 0.92 where unset, its overhead taken off. Where the pool's shards
+   fit that room, the run is cut into them. Where they do not, it is cut
+   into as many shards as hold the cost within it, and the pool runs them
+   in waves. No shard is made larger than that room holds. A job's gate
+   stops its limit after the gate starts, while the room takes the job's
+   setup off too, so the setup is room left for costs the plan misjudged.
+   The share `shards.fill` leaves is for the gate's own steps in the job
+   that no unit's cost holds: on the gate's own run, about 38 s of an
+   8-minute limit, where its shards started in about 3 s, opened their map
+   in about 11 s and read their results in 6 to 15 s. A job that still
+   reaches its stop hands what it left to a second wave.
    This reverses ADR-0195 §4's bound of one matrix of jobs for that case.
    A count `--shards` asks for is kept as asked; under `auto` its jobs run
    their own tail where it is more than the pool.
@@ -83,7 +91,14 @@ run of a9505f98, whose shards ran their own tails.
      The share carries `"ownTail": true` in `leftovers.json`, and its job's
      deadline reads it. A share without the field stops at its target.
    - A share never holds two shards' mutants, so where more shards left
-     work than the pool holds, each shard keeps one share.
+     work than the pool holds, each shard keeps one share: the second wave
+     is at least as many jobs as shards left work. A share's job is its
+     shard's run over the share (ADR-0190 §4): its shard's units, test part,
+     map and keys, its result read as that shard's. A job that ran several
+     shards' shares one after another would judge each mutant as its own
+     shard does, but needs a run, a map and a result for each, and a stop
+     for each that leaves the later ones their time. `shards.fill` keeps the
+     first wave's jobs from reaching their stop instead.
    - Each shard's shares are priced at the second pass's factor its own
      job of the first wave measured. Where it measured none, they are
      priced at the median of the factors the run's jobs measured. Where
@@ -154,8 +169,9 @@ decision.
 - The gate's own config sets `shards.jobLimit` to `8m`. With a job's setup
   and wind-down, each of its jobs stays within ten minutes. On its run of
   60,063 mutants, the plan predicted 111,425 s of cost over a pool of 19
-  and four streams. That cuts 65 shards of at most 1,716 s of cost each,
-  where the pool's 19 would each have been up to 53 minutes.
+  and four streams. Filled to its whole stop, that cuts 65 shards of at
+  most 1,716 s of cost each, where the pool's 19 would each have been up to
+  53 minutes; at `shards.fill`'s 0.92, it cuts 72 of at most 1,562 s.
 - On that run, the second wave was cut into 206 shares, priced at a second
   pass's factor of 1.0: 968,668 s, 934,482 s of it second passes. The
   first wave's jobs measured factors of 0.002 to 0.018. Priced at each

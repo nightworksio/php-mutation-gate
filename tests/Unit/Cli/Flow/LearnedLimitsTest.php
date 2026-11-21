@@ -69,7 +69,7 @@ it('learns the multiple from its own scope\'s kills, and the most shards from th
 
     $hour = Seconds::minutes(60);
     $jobs = JobTail::of($hour, 7);
-    $rule = TailRule::of(ShardTail::Auto, CostMode::Wall, $jobs, PlanLearned::none()->tailing($jobs->running())->stop(learningSettings()->shards()));
+    $rule = TailRule::of(ShardTail::Auto, CostMode::Wall, $jobs, PlanLearned::none()->tailing($jobs->running())->stop(learningSettings()->shards()), TailRule::FILL);
 
     expect($learned->briefing(Briefing::standard(), $jobs)->learned())->toEqual(PlanLearned::none()->allowing(Multiple::of(5.0))->pacing(Multiple::of(4.5))->tailing($jobs))
         ->and($learned->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 7))

@@ -89,6 +89,7 @@ final readonly class SettingsCases
             "learnedFrom": "max",
             "setup": "1m",
             "cutAt": 2.0,
+            "fill": 0.92,
             "pull": "auto",
             "progress": "3m",
             "margin": "45s",
