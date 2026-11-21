@@ -332,6 +332,20 @@ final readonly class Patch
                     microtime(true) - $this->startTime
                 );
 
+                {MARK} a run that tables its files' change places makes each whole, and judges none (ADR-0004).
+                if (class_exists(\%3$s::class) && \%3$s::isAsked()) {
+                    return \%3$s::tabled(fn ($file, array $lines): array => Container::getInstance()
+                        ->get(MutationGenerator::class)
+                        ->generate(
+                            file: $file,
+                            mutators: $this->getConfiguration()->mutators,
+                            linesToMutate: $lines,
+                            classesToMutate: $this->getConfiguration()->everything
+                                ? []
+                                : $this->getConfiguration()->classes,
+                        ));
+                }
+
                 {MARK} read the shared coverage map, and time mutants by its suite.
                 if ((string) getenv('%1$s') !== '') {
                     $seconds = (float) getenv('%2$s');
@@ -812,7 +826,12 @@ final readonly class Patch
             Hunk::in(
                 self::TEST_RUNNER,
                 self::MAP_SHIPS,
-                sprintf(self::MAP_BECOMES, GateVariable::SharedCoverage->value, GateVariable::SuiteSeconds->value),
+                sprintf(
+                    self::MAP_BECOMES,
+                    GateVariable::SharedCoverage->value,
+                    GateVariable::SuiteSeconds->value,
+                    ChangeTableMade::class,
+                ),
             ),
             Hunk::in(
                 self::TEST_RUNNER,

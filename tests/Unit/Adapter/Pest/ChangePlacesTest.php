@@ -2,14 +2,20 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\ChangeTable;
+use NightWorksIO\MutationGate\Adapter\Pest\ChangeTableMade;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Identities;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\SideBySideMutants;
+use NightWorksIO\MutationGate\Adapter\Pest\UnplacedFiles;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\LineSpan;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -23,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation as GateMutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Cache\NullStore;
@@ -154,6 +161,49 @@ function repeatedIds(string $root, array $made, bool $placed): array
 }
 
 /**
+ * The plan's table of the file's change places, made as the plan's run makes
+ * it, and told to every run after it.
+ */
+function repeatedTable(string $root, SplFileInfo $file): void
+{
+    Scratch::write($root, '.mutation-gate/change-places.files', strval($file->getRealPath()));
+    putenv(sprintf('%s=%s/.mutation-gate/change-places.files', GateVariable::Tabling->value, $root));
+    putenv(sprintf('%s=%s/.mutation-gate/%s', GateVariable::Places->value, $root, ChangeTable::FILE));
+    ChangeTableMade::tabled(repeatedMaking());
+    putenv(GateVariable::Tabling->value);
+}
+
+function repeatedProject(string $root): Project
+{
+    return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
+}
+
+function repeatedResultsOf(string $root): string
+{
+    return sprintf('%s/.mutation-gate/pest/results.jsonl', $root);
+}
+
+/** A run that records its results beside the plan's table. */
+function repeatedResults(string $root): void
+{
+    Scratch::write($root, '.mutation-gate/pest/results.jsonl', '');
+    putenv(sprintf('%s=%s', GateVariable::Results->value, repeatedResultsOf($root)));
+}
+
+/**
+ * The files a run noted it made whole to number its mutants, each once.
+ *
+ * @return list<string>
+ */
+function repeatedUnplaced(string $root): array
+{
+    $note = sprintf('%s.unplaced', repeatedResultsOf($root));
+    $text = is_file($note) ? (string) file_get_contents($note) : '';
+
+    return array_values(array_unique(array_filter(explode("\n", $text), static fn(string $line): bool => $line !== '')));
+}
+
+/**
  * The file's lines cut into parts by a seed: each line to one part.
  *
  * @return list<list<int>>
@@ -170,12 +220,14 @@ function repeatedSplit(int $seed, int $parts, int $lines): array
     return array_values(array_filter($split, static fn(array $part): bool => $part !== []));
 }
 
-it('numbers each mutant of a file whose changes repeat as a run that makes every one does, however its lines are cut into parts and whichever a share makes', function (int $seed, int $parts): void {
+it('numbers each mutant of a file whose changes repeat as a run that makes every one does, however its lines are cut into parts and whichever a share makes, placed by either source', function (int $seed, int $parts, bool $tabled): void {
     $root = Scratch::directory();
     $file = repeatedFile($root);
     $making = repeatedMaking();
     $whole = repeatedIds($root, $making($file, []), placed: false);
     $count = substr_count(repeatedSource(), "\n");
+    $tabled ? repeatedTable($root, $file) : null;
+    repeatedResults($root);
     $merged = [];
     $differing = [];
 
@@ -195,7 +247,8 @@ it('numbers each mutant of a file whose changes repeat as a run that makes every
     $judged = MergedParts::made(Path::of('src/Packs.php'), $merged);
 
     expect($differing)->toBe([])
-        ->and($judged instanceof CannotJudge ? $judged->why() : count($judged))->toBe(count($whole));
+        ->and($judged instanceof CannotJudge ? $judged->why() : count($judged))->toBe(count($whole))
+        ->and(repeatedUnplaced($root))->toBe($tabled ? [] : [strval($file->getRealPath())]);
 })->with([
     'two parts' => [1, 2],
     'three parts' => [2, 3],
@@ -203,7 +256,66 @@ it('numbers each mutant of a file whose changes repeat as a run that makes every
     'two other parts' => [4, 2],
     'five parts' => [5, 5],
     'every line a part of its own' => [6, 64],
+])->with([
+    'by the plan\'s table' => [true],
+    'by each part making its file whole' => [false],
 ]);
+
+it('makes the file whole to number its mutants, and says so, where the plan tabled its code as it was before', function (): void {
+    $root = Scratch::directory();
+    $file = repeatedFile($root);
+    $making = repeatedMaking();
+    repeatedTable($root, $file);
+    repeatedResults($root);
+    Scratch::write($root, 'src/Packs.php', str_replace('return [', "return [\n            2,", repeatedSource()));
+    $whole = repeatedIds($root, $making($file, []), placed: false);
+    $made = SideBySideMutants::made([$file], static fn(): array => [27, 28], $making, cut: true)->of($file, []);
+    $placed = repeatedIds($root, $made, placed: true);
+
+    expect($placed)->not->toBe([])
+        ->and(array_map(static fn(MutantId $id): string => $id->value(), array_values($placed)))
+        ->toBe(array_map(static fn(string $spot): string => $whole[$spot]->value(), array_keys($placed)))
+        ->and(repeatedUnplaced($root))->toBe([strval($file->getRealPath())])
+        ->and(array_map(
+            static fn(Warning $warning): string => $warning->text(),
+            [...UnplacedFiles::warned(repeatedResultsOf($root), repeatedProject($root))],
+        ))->toBe([
+            'Made 1 file whole to number the mutants of some lines, src/Packs.php first: the plan\'s table did not match (ADR-0004).',
+        ])
+        ->and(repeatedUnplaced($root))->toBe([]);
+});
+
+it('reads no table another install of Pest made', function (): void {
+    $root = Scratch::directory();
+    $file = repeatedFile($root);
+    repeatedTable($root, $file);
+    $table = sprintf('%s/.mutation-gate/%s', $root, ChangeTable::FILE);
+    Scratch::write($root, sprintf('.mutation-gate/%s', ChangeTable::FILE), str_replace('"madeBy":"', '"madeBy":"another ', (string) file_get_contents($table)));
+    repeatedResults($root);
+    $made = SideBySideMutants::made([$file], static fn(): array => [8], repeatedMaking(), cut: true)->of($file, []);
+
+    expect($made)->not->toBe([])
+        ->and(ChangeTable::told())->toEqual(ChangeTable::none())
+        ->and(repeatedUnplaced($root))->toBe([strval($file->getRealPath())]);
+});
+
+it('tables where every mutant of a file starts, as a run that makes the whole file makes them', function (): void {
+    $root = Scratch::directory();
+    $file = repeatedFile($root);
+    repeatedTable($root, $file);
+    $starts = array_map(static fn(Mutation $mutant): int => $mutant->startLine, repeatedMaking()($file, []));
+    $sites = ChangeTable::in(sprintf('%s/.mutation-gate/%s', $root, ChangeTable::FILE))
+        ->sitesOf(repeatedProject($root), Paths::of(Path::of('src/Packs.php'), Path::of('src/Absent.php')));
+    $counted = [];
+
+    foreach ($sites->linesOf(Path::of('src/Packs.php')) as $line) {
+        $counted[$line->number()] = $sites->countAt(Path::of('src/Packs.php'), $line);
+    }
+
+    expect($counted)->toBe(array_count_values($starts))
+        ->and($sites->count())->toBe(count($starts))
+        ->and($sites->has(Path::of('src/Absent.php')))->toBeFalse();
+});
 
 it('numbers the second of two lines alike as the second where a part makes it alone, as the gate\'s own run left it out', function (): void {
     $root = Scratch::directory();

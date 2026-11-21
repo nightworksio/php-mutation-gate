@@ -9,11 +9,15 @@ use function gc_enable;
 use function gc_enabled;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Selector;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ShardOpening;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\TestCases;
 
 /**
@@ -26,13 +30,15 @@ use NightWorksIO\MutationGate\Core\Test\TestCases;
  * handed; or under `pest.readyAtPlan: false`, where each shard readies its
  * own. It is built with PHP's cycle collector paused: the build makes
  * millions of objects, none garbage before it ends, and each pass of the
- * collector would walk the plan's whole heap and free nothing.
+ * collector would walk the plan's whole heap and free nothing. Beside it,
+ * the plan's one run that makes every mutant of each file and tables where
+ * each stands among its whole file's (see ChangeTabling).
  *
  * @internal
  */
 final readonly class ReadersOpening implements ShardOpening
 {
-    public function __construct(private Project $project, private Patching $patching)
+    public function __construct(private Project $project, private Patching $patching, private ChangeTabling $tabling)
     {
     }
 
@@ -56,5 +62,11 @@ final readonly class ReadersOpening implements ShardOpening
         } finally {
             $collecting ? gc_enable() : null;
         }
+    }
+
+    /** Every mutant of each of these files, made once by the plan's run that tables their change places. */
+    public function made(Paths $files, Mutators $mutators, Withheld $withheld): MutantSites|CannotJudge
+    {
+        return $this->tabling->made($files, $mutators, $withheld);
     }
 }

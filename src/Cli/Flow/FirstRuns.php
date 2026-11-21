@@ -20,11 +20,12 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 /**
  * What a plan measures of the first run of the units it runs, for a cost
  * model to estimate each unit no shard has timed by (ADR-0006):
- * where the default set's mutants of each of their files start, the
+ * where the runner's mutants of each of their files start, as it made them
+ * once as the plan was made (ADR-0004), or else the default set's, the
  * fastest of a few runs of no test, and how many mutants the runner runs
  * at once on this machine. Shard runners are taken to be like the plan's.
- * Where the default set is not registered, or a run of no test cannot run,
- * nothing is measured, and every unit is guessed: an estimate decides where
+ * Where neither counts any file, or a run of no test cannot run, nothing is
+ * measured, and every unit is guessed: an estimate decides where
  * a unit runs, never whether a plan can be made.
  *
  * @internal
@@ -38,12 +39,14 @@ final readonly class FirstRuns
     ) {
     }
 
-    public function measured(CoverageMap $map, Units $units): FirstRun
+    /**
+     * What the plan measures of the first run of these units: where each of
+     * their files' mutants start, as the runner made them as the plan was
+     * made, or else as the gate's own engine makes them.
+     */
+    public function measured(CoverageMap $map, Units $units, MutantSites $made): FirstRun
     {
-        $engine = $this->adapters->engine;
-        $sites = $engine instanceof NotGiven
-            ? MutantSites::none()
-            : $this->sites($engine, StartUpTiming::filesOf($map, $units));
+        $sites = $this->sites($this->adapters->engine, StartUpTiming::filesOf($map, $units), $made);
         $first = $sites->first();
 
         return $first instanceof Path ? $this->measuredWith($map, $sites, $first) : FirstRun::unmeasured();
@@ -58,20 +61,24 @@ final readonly class FirstRuns
             : FirstRun::of($map, $sites, $startUp, $this->adapters->processes(), $this->shape);
     }
 
-    /** Where the engine makes the mutants of each of these files it can read and parse. */
-    private function sites(Engine $engine, Paths $files): MutantSites
+    /** Where the runner made the mutants of each of these files, or else where the engine makes them. */
+    private function sites(Engine|NotGiven $engine, Paths $files, MutantSites $made): MutantSites
     {
         $sites = MutantSites::none();
 
         foreach ($files as $file) {
-            $sites = $sites->and($this->siteOf($engine, $file));
+            $sites = $sites->and($made->has($file) ? $made->of($file) : $this->siteOf($engine, $file));
         }
 
         return $sites;
     }
 
-    private function siteOf(Engine $engine, Path $file): MutantSites
+    private function siteOf(Engine|NotGiven $engine, Path $file): MutantSites
     {
+        if (! $engine instanceof Engine) {
+            return MutantSites::none();
+        }
+
         $code = $this->adapters->project->read($file);
         $counted = $code instanceof Contents ? $engine->sitesOf($file, $code) : $code;
 

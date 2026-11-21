@@ -23,8 +23,9 @@ use function strval;
  * makes, or else those its request makes (see OnlyList), the mutators it prunes (see PrunedFile), whether each
  * mutant's own run is narrowed (see CoveringFiles), where it waits for the
  * gate's verdicts (see Verdicts), where its warm workers share their files
- * (see Warm\Pool), the bounds of each mutant's limits, and the part of
- * the test files whose tests judge its mutants (see Split\TestPartVariable).
+ * (see Warm\Pool), the bounds of each mutant's limits, the part of the
+ * test files whose tests judge its mutants (see Split\TestPartVariable),
+ * and the plan's table its part numbers its mutants by (see ChangeTable).
  *
  * @internal
  */
@@ -66,6 +67,7 @@ final readonly class Told
             ...$this->patching->schemata(),
             ...$this->patching->stepVariables(),
             ...TestPartVariable::told($request->narrowing()->part()->testPart()),
+            ...ChangeTable::variables($this->project),
             ...RecordingVariables::of($request->narrowing()->part()->recording()),
         ];
     }

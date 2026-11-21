@@ -331,6 +331,7 @@ final readonly class MutationRun
         $this->warmFor($request, $command, $results);
         PartLines::cleared($results);
         StreamPasses::cleared($results);
+        UnplacedFiles::cleared($results);
         $drivers = CoverageDrivers::of(
             $this->patching,
             ToldExtension::recordsWithPcov($this->extension, $request->narrowing()->part()->recording()),
@@ -343,7 +344,7 @@ final readonly class MutationRun
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
         $children->remove();
-        $warned = $this->warned($request, $results);
+        $warned = $this->warned($request, $results)->and(UnplacedFiles::warned($results, $this->project));
         $coverage = $this->coveringOf($shared, $results);
         $opensOn = $this->patching->opensOn($request->judgedBy(), $shared instanceof CoverageMap);
         $left = fn(): Seconds|Unlimited => $this->left($request, $started);

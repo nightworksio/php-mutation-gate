@@ -171,6 +171,34 @@ final readonly class Invocation
     }
 
     /**
+     * The run that makes every mutant of the files a list names, each whole,
+     * and judges none (see ChangeTableMade): Pest under `--mutate` as a mutation
+     * run of the first of them, with the same mutators, opening on the canary
+     * group, whose tests it runs alone.
+     */
+    public function tabling(
+        Withheld $withheld,
+        Group $canary,
+        Path $first,
+        Mutators $mutators,
+        Bridges $bridges,
+    ): Command {
+        return $this->pest(
+            $withheld,
+            '--mutate',
+            '--no-cache',
+            '--no-tia',
+            '--everything',
+            '--covered-only=false',
+            '--retry=false',
+            PhpUnitOption::NoColors->value,
+            sprintf('--path=%s', $first->value()),
+            ...$this->narrowedTo($canary),
+            ...$this->applying($mutators, $bridges),
+        );
+    }
+
+    /**
      * A kill's own run started again with the arguments Pest started it
      * with, after its script, as a replay of it runs (see PrefixReplays):
      * those hold the cache directory already, which a second would make

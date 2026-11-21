@@ -148,7 +148,18 @@ its parser attributes. Both change when the checkout moves.
        makes (ADR-0193) and whichever mutants a run is told to make. A run
        that makes only some of a file's mutants still numbers each as a run
        that makes them all does, so the parts and shares of one plan name
-       each mutant alike, and the verdict can merge them.
+       each mutant alike, and the verdict can merge them. Under Pest the
+       plan makes every mutant of each file it runs once, whole, in one
+       patched run that judges none, and keeps each one's position in a
+       table beside the plan (`change-places.json`), by the SHA-256 of the
+       file's code and, for each mutant, its mutator, the name of its mutated
+       copy, which Pest takes from the copy's code, and its lines. A part
+       that makes some lines of a file takes each position from the table
+       where it holds the file's code as the part reads it, was made by the
+       same pest-plugin-mutate and php-parser, and holds every mutant the
+       part made; otherwise the part makes the whole file itself, with no
+       schema touched, and its result warns which files it made whole. Both
+       give the same position.
 
      The line number is not an input, so an id survives code above it moving.
      The runner's native id is kept alongside for use within the same run only.

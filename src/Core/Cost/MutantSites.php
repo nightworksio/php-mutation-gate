@@ -18,9 +18,9 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * Where the gate's own engine makes the mutants of the files it counted: how
- * many start on each line. A file it counted with no mutant holds no line,
- * and a file it never counted is not held at all.
+ * Where the gate's own engine, or the runner, makes the mutants of the files
+ * it counted: how many start on each line. A file it counted with no mutant
+ * holds no line, and a file it never counted is not held at all.
  */
 final readonly class MutantSites
 {
@@ -50,6 +50,12 @@ final readonly class MutantSites
     public function and(self $other): self
     {
         return new self(array_replace($this->counts, $other->counts));
+    }
+
+    /** The sites of one file these hold; none where they do not hold it. */
+    public function of(Path $file): self
+    {
+        return $this->has($file) ? new self([$file->value() => $this->counts[$file->value()]]) : self::none();
     }
 
     /** Whether the engine counted this file. */
