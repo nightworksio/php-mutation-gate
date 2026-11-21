@@ -143,7 +143,12 @@ its parser attributes. Both change when the checkout moves.
        name for Infection;
      - the removed and added lines of the diff, with whitespace collapsed;
      - the mutant's position among mutants in the same file that share
-       everything above.
+       everything above: among every mutant the runner makes of that whole
+       file, in the order it makes them, whatever lines a part of a cut run
+       makes (ADR-0193) and whichever mutants a run is told to make. A run
+       that makes only some of a file's mutants still numbers each as a run
+       that makes them all does, so the parts and shares of one plan name
+       each mutant alike, and the verdict can merge them.
 
      The line number is not an input, so an id survives code above it moving.
      The runner's native id is kept alongside for use within the same run only.

@@ -536,6 +536,7 @@ final readonly class Patch
                             ? []
                             : $this->getConfiguration()->classes,
                     ),
+                    $part instanceof \%8$s && ! $this->getConfiguration()->coveredOnly,
                 ) : null;
 
                 foreach ($files as $file) {

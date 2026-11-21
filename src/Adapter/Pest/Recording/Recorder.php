@@ -15,6 +15,7 @@ use function is_string;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
+use NightWorksIO\MutationGate\Adapter\Pest\ChangePlaces;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -230,6 +231,7 @@ final readonly class Recorder
             Bridged::nameOf($mutation->mutator),
             $mutation->diff,
             DiskPath::of($mutation->modifiedSourcePath),
+            ChangePlaces::of($mutation),
         );
     }
 

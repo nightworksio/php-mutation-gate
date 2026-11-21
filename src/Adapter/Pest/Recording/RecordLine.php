@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
+use function is_int;
 use function json_encode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
@@ -43,6 +44,7 @@ final readonly class RecordLine
             RecordField::Mutator->value => $mutant->mutator(),
             RecordField::Diff->value => $mutant->diff(),
             RecordField::Mutated->value => $mutant->mutated()->value(),
+            ...is_int($mutant->place()) ? [RecordField::Place->value => $mutant->place()] : [],
         ]);
     }
 

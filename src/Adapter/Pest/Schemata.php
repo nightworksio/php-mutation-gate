@@ -11,6 +11,9 @@ use function array_keys;
 use function array_map;
 use function array_merge;
 use function array_values;
+
+use Closure;
+
 use function count;
 use function dirname;
 use function file_put_contents;
@@ -18,6 +21,7 @@ use function getenv;
 use function hash;
 use function in_array;
 use function is_dir;
+use function is_string;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
@@ -37,6 +41,7 @@ use Pest\Mutate\Mutation;
 use PhpParser\Node;
 use PhpParser\NodeVisitor;
 
+use function putenv;
 use function sprintf;
 use function strval;
 
@@ -90,6 +95,26 @@ final class Schemata
     public static function areOn(): bool
     {
         return getenv(GateVariable::Schemata->value) === '1';
+    }
+
+    /**
+     * The mutants this makes with no schema asked for, so none of them is
+     * sited and no file's schema is written again; the run's ask restored.
+     *
+     * @param  Closure(): array<int, Mutation> $making
+     * @return array<int, Mutation>
+     */
+    public static function off(Closure $making): array
+    {
+        $variable = GateVariable::Schemata->value;
+        $asked = getenv($variable);
+        putenv(sprintf('%s=0', $variable));
+
+        try {
+            return $making();
+        } finally {
+            putenv(is_string($asked) ? sprintf('%s=%s', $variable, $asked) : $variable);
+        }
     }
 
     /** Keeps a mutant Pest made, by the node it changed and what replaced it, false where it removed it. */
