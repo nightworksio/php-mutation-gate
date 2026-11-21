@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Runner\Gauge;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
+use NightWorksIO\MutationGate\Core\Runner\Signal;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -186,7 +187,7 @@ final readonly class ProgressReporter
 
         [$reporter, $processes] = $this->reporter;
         $spared = SparedProcesses::toldOr($this->told(), $processes);
-        $signals = $spared->signal($reporter, SIGTERM);
+        $signals = $spared->signal($reporter, Signal::Terminate);
         $waited = 0.0;
 
         while (pcntl_waitpid($reporter, $status, WNOHANG) === 0 && $waited < $this->grace->seconds()) {
@@ -195,7 +196,7 @@ final readonly class ProgressReporter
         }
 
         if ($signals && $waited >= $this->grace->seconds()) {
-            $spared->signal($reporter, SIGKILL);
+            $spared->signal($reporter, Signal::Kill);
             pcntl_waitpid($reporter, $status);
         }
 

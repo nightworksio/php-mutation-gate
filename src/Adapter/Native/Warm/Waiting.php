@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 
-use function exec;
 use function getenv;
 use function hrtime;
-use function implode;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -18,7 +16,6 @@ use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\Progress;
 use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
-use NightWorksIO\MutationGate\Core\Runner\ShellWords;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -159,12 +156,7 @@ final readonly class Waiting
     /** The child stopped with every process under it, deepest first, and reaped. */
     private function stop(): void
     {
-        ProcessTable::stop($this->child, static function (array $command): string {
-            $printed = [];
-            exec(ShellWords::line($command), $printed);
-
-            return implode("\n", $printed);
-        }, $this->processes);
+        ProcessTable::stop($this->child, $this->processes);
         pcntl_waitpid($this->child, $status);
     }
 

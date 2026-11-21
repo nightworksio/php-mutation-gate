@@ -18,6 +18,10 @@ use function mb_substr;
 use PhpParser\Node;
 use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\NullsafeMethodCall;
+use PhpParser\Node\Expr\StaticCall;
+use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Name\FullyQualified;
 use PhpParser\Node\Stmt\ClassLike;
@@ -33,6 +37,7 @@ use function sort;
 use function sprintf;
 use function str_replace;
 use function str_starts_with;
+use function strtolower;
 
 /**
  * One PHP file of the repository, read with the parser rather than loaded, so
@@ -132,6 +137,26 @@ final readonly class Source
         }
 
         return $found;
+    }
+
+    /** Whether the file calls a method of this name, on an object or a class. */
+    public function callsMethod(string $name): bool
+    {
+        return new NodeFinder()->findFirst(
+            $this->statements,
+            static fn(Node $node): bool => ($node instanceof MethodCall || $node instanceof NullsafeMethodCall || $node instanceof StaticCall)
+                && $node->name instanceof Identifier
+                && $node->name->toLowerString() === strtolower($name),
+        ) instanceof Node;
+    }
+
+    /** Whether the file calls the function of this name, or takes it as a callable. */
+    public function callsFunction(string $name): bool
+    {
+        return new NodeFinder()->findFirst(
+            $this->statements,
+            static fn(Node $node): bool => $node instanceof FuncCall && $node->name instanceof Name && $node->name->getLast() === $name,
+        ) instanceof Node;
     }
 
     /** The class PSR-4 says a file at this path declares, or nothing where no PSR-4 root holds it. */

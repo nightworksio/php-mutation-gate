@@ -65,10 +65,14 @@ name in one `stat` file, which PHP reads without starting a process.
    reaches the bound kills every process it found and the session it leads,
    and the cgroup kill follows where the process has one.
 4. **A stop sends its signals itself.** Each freeze and kill goes through
-   `SparedProcesses::signal` and `signalGroup`, `posix_kill` where PHP has
-   posix and the signals' names (pcntl), so it refuses exactly what ADR-0310
-   refuses. Only where PHP has neither does a stop run the `kill` program,
-   with the same refusals.
+   `SparedProcesses::signal` and `signalGroup`, so it refuses exactly what
+   ADR-0310 refuses, one process at a time. What they let through is sent by
+   the port's raw send, `RunningProcesses::signalledUnspared`:
+   `LiveProcesses` sends it by `posix_kill` where PHP has posix and the
+   signals' numbers (pcntl), and only where PHP has neither by the `kill`
+   program, with the same outcome. A signal is named by `Core\Runner\Signal`,
+   as the `kill` program names it, so the core needs no pcntl to name one.
+   `ProcessTable` runs no command.
 
 ## Consequences
 

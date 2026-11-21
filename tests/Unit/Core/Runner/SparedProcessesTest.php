@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessListing;
+use NightWorksIO\MutationGate\Core\Runner\Signal;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Tests\Support\Listed;
 
 const SPARED_LISTING = "    1     0     1\n  500     1   500\n  600   500   500\n  700   600   700\n  800   700   700\n  900   800   900\n  950   500   950\n";
 
 it('spares the caller and every process above it, and signals any other process', function (int $pid, bool $signals): void {
-    expect(SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 500)->signals($pid))->toBe($signals);
+    expect(SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 500, Listed::always(''))->signals($pid))->toBe($signals);
 })->with([
     'itself' => [800, false],
     'its parent' => [700, false],
@@ -25,7 +25,7 @@ it('spares the caller and every process above it, and signals any other process'
 ]);
 
 it('spares the groups of the caller and of every process above it, and its session, and signals any other group', function (int $leader, bool $signals): void {
-    expect(SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 450)->signalsGroup($leader))->toBe($signals);
+    expect(SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 450, Listed::always(''))->signalsGroup($leader))->toBe($signals);
 })->with([
     'its own group' => [700, false],
     'its session' => [450, false],
@@ -39,7 +39,7 @@ it('spares the groups of the caller and of every process above it, and its sessi
 ]);
 
 it('spares the caller alone where the listing does not hold it', function (): void {
-    $spared = SparedProcesses::of(Listed::of("  10   1  10\n"), 800, 0);
+    $spared = SparedProcesses::of(Listed::of("  10   1  10\n"), 800, 0, Listed::always(''));
 
     expect($spared->signals(800))->toBeFalse()
         ->and($spared->signals(10))->toBeTrue()
@@ -48,7 +48,7 @@ it('spares the caller alone where the listing does not hold it', function (): vo
 });
 
 it('ends its walk up where a parent link loops back', function (): void {
-    $spared = SparedProcesses::of(Listed::of("  10  20  10\n  20  10  20\n"), 10, 0);
+    $spared = SparedProcesses::of(Listed::of("  10  20  10\n  20  10  20\n"), 10, 0, Listed::always(''));
 
     expect($spared->signals(10))->toBeFalse()
         ->and($spared->signals(20))->toBeFalse()
@@ -69,7 +69,7 @@ it('takes one listing of the processes, and spares this process', function (): v
 });
 
 it('takes what it was told where it was told to this process, without a listing', function (): void {
-    $told = SparedProcesses::of(Listed::of(sprintf("  10   1  10\n %d  10  10\n", getmypid())), (int) getmypid(), 77)->told();
+    $told = SparedProcesses::of(Listed::of(sprintf("  10   1  10\n %d  10  10\n", getmypid())), (int) getmypid(), 77, Listed::always(''))->told();
     $listed = 0;
     $spared = SparedProcesses::toldOr($told, new Listed(static function () use (&$listed): ProcessListing {
         $listed++;
@@ -112,37 +112,45 @@ it('lists anew where what it was told to this process is not whole', function ()
     expect($listed)->toBe(1);
 });
 
-it('sends a signal by what it was handed, to a process or to a group by its leader\'s negated id, never to one it spares', function (): void {
+it('sends a signal by the processes it was handed, to a process or to a group by its leader\'s negated id, never to one it spares', function (): void {
     $sent = [];
-    $spared = SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 500)->signallingWith(static function (int $pid, int $signal) use (&$sent): bool {
-        $sent[] = [$pid, $signal];
+    $sender = Listed::always('')->sendingTo(static function (int $target, Signal $signal) use (&$sent): bool {
+        $sent[] = [$target, $signal];
 
         return true;
     });
+    $spared = SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 500, $sender);
 
-    expect($spared->sends())->toBeTrue()
-        ->and($spared->signal(900, 9))->toBeTrue()
-        ->and($spared->signalGroup(950, 15))->toBeTrue()
-        ->and($spared->signal(700, 9))->toBeFalse()
-        ->and($spared->signal(1, 9))->toBeFalse()
-        ->and($spared->signalGroup(500, 9))->toBeFalse()
-        ->and($spared->signalGroup(0, 9))->toBeFalse()
-        ->and($sent)->toBe([[900, 9], [-950, 15]]);
+    expect($spared->signal(900, Signal::Kill))->toBeTrue()
+        ->and($spared->signalGroup(950, Signal::Terminate))->toBeTrue()
+        ->and($spared->signal(800, Signal::Kill))->toBeFalse()
+        ->and($spared->signal(700, Signal::Kill))->toBeFalse()
+        ->and($spared->signal(1, Signal::Freeze))->toBeFalse()
+        ->and($spared->signal(0, Signal::Kill))->toBeFalse()
+        ->and($spared->signal(-1, Signal::Kill))->toBeFalse()
+        ->and($spared->signalGroup(700, Signal::Kill))->toBeFalse()
+        ->and($spared->signalGroup(500, Signal::Kill))->toBeFalse()
+        ->and($spared->signalGroup(0, Signal::Kill))->toBeFalse()
+        ->and($sent)->toBe([[900, Signal::Kill], [-950, Signal::Terminate]]);
 });
 
-it('sends no signal itself where it was handed nothing to send one by, and says so', function (): void {
-    $spared = SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 500)->signallingWith(NotGiven::value());
+it('says a signal was not sent where its sender could not send it', function (): void {
+    $spared = SparedProcesses::of(Listed::of(SPARED_LISTING), 800, 500, Listed::always('')->sendingTo(static fn(): bool => false));
 
-    expect($spared->sends())->toBeFalse()
-        ->and($spared->signal(900, 0))->toBeFalse()
-        ->and($spared->signalGroup(950, 0))->toBeFalse()
-        ->and($spared->signals(900))->toBeTrue();
+    expect($spared->signal(900, Signal::Kill))->toBeFalse()
+        ->and($spared->signalGroup(950, Signal::Kill))->toBeFalse();
 });
 
-it('sends a signal itself where PHP has posix and the signals\' names, as one it lists or was told', function (): void {
-    $told = SparedProcesses::of(Listed::of(''), (int) getmypid(), 0)->told();
+it('sends by the processes it lists or was told by, and by nothing else', function (): void {
+    $sent = [];
+    $sender = static function (int $target) use (&$sent): bool {
+        $sent[] = $target;
 
-    expect(SparedProcesses::of(Listed::of(''), 800, 0)->sends())->toBeTrue()
-        ->and(SparedProcesses::toldOr($told, Listed::always(''))->sends())->toBeTrue()
-        ->and(SparedProcesses::of(Listed::of(''), 800, 0)->signal(2_147_483_646, 0))->toBeFalse();
-})->skip(fn(): bool => ! function_exists('posix_kill') || ! function_exists('pcntl_signal'), 'PHP here cannot send a signal itself');
+        return true;
+    };
+    $told = SparedProcesses::of(Listed::of(''), (int) getmypid(), 0, Listed::always(''))->told();
+    SparedProcesses::listed(Listed::always('')->sendingTo($sender))->signal(2_147_483_646, Signal::Kill);
+    SparedProcesses::toldOr($told, Listed::always('')->sendingTo($sender))->signal(2_147_483_645, Signal::Kill);
+
+    expect($sent)->toBe([2_147_483_646, 2_147_483_645]);
+});

@@ -310,10 +310,11 @@ parameters:
                 # watch halts the batch running in its own process with SIGUSR2 once a save moves one of its units
                 # (ADR-0146).
                 - src/Adapter/Process/Halting.php
-                # Every signal the gate sends to another process or group, never to one it spares: the serve
-                # daemon's children (ADR-0078), a shard's progress reporter (ADR-0157), the plan's warm-up
-                # (ADR-0180) and a split stream's late children (ADR-0117) (ADR-0310).
-                - src/Core/Runner/SparedProcesses.php
+                # The raw send of every signal the gate sends to another process or group, which only
+                # SparedProcesses calls, so none reaches a process it spares (S3): a stop's freezes and kills
+                # (ADR-0312), the serve daemon's children (ADR-0078), a shard's progress reporter (ADR-0157), the
+                # plan's warm-up (ADR-0180) and a split stream's late children (ADR-0117) (ADR-0310).
+                - src/Adapter/Process/LiveProcesses.php
                 # The served projects of the tests stop the daemons they started.
                 - tests/Support/ServedProjects.php
 

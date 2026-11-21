@@ -172,6 +172,7 @@ what semver covers of the code.
 |---|---|---|
 | **S1** | The dangerous, execution, insecure and non-timing-safe call bundles are on | phpstan `disallowed-calls`, the four shipped bundles |
 | **S2** | No package with a published advisory resolves | `roave/security-advisories` + `composer audit --locked` in ci |
+| **S3** | A signal reaches another process only through `Core\Runner\SparedProcesses`, whose refusals spare the system's first process, the gate itself, every process above it and their groups and session: only it calls the raw send `RunningProcesses::signalledUnspared`, which `Process\LiveProcesses` sends by `posix_kill`, or by the `kill` program where PHP has no `posix` and `pcntl` (ADR-0310, ADR-0312) | arch: every method call each file under `src` and each PHP script under `bin` makes, and the list of senders is exactly what calls it |
 
 Secrets and vulnerable dependencies are scanned in CI by gitleaks and
 osv-scanner, which read the repository rather than the code.

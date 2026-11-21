@@ -6,18 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_key_exists;
 use function array_keys;
-
-use Closure;
-
 use function explode;
 use function function_exists;
 use function getmypid;
 use function implode;
-
-use NightWorksIO\MutationGate\Core\NotGiven;
-
 use function posix_getsid;
-use function posix_kill;
 use function preg_match;
 use function sprintf;
 
@@ -51,26 +44,24 @@ final readonly class SparedProcesses
     private const string WHOLE = '/^(?<self>\d+);(?<processes>[\d,]+);(?<groups>[\d,]+)$/';
 
     /**
-     * @param array<int, true>                     $processes each spared process, by its id
-     * @param array<int, true>                     $groups    each spared group or session, by its leader's id
-     * @param (Closure(int, int): bool)|NotGiven $kill      what sends a signal to a process, or a group by its
-     *                                                        leader's negated id, where PHP can; none where it
-     *                                                        cannot, and a signal goes by the `kill` program
+     * @param array<int, true> $processes each spared process, by its id
+     * @param array<int, true> $groups    each spared group or session, by its leader's id
+     * @param RunningProcesses $sender    what sends a signal once this lets it
      */
     private function __construct(
         private int $self,
         private array $processes,
         private array $groups,
-        private Closure|NotGiven $kill,
+        private RunningProcesses $sender,
     ) {
     }
 
     /**
      * The processes this process spares, in a listing: itself and each
      * process above it, and as groups those, its own group and the session
-     * it is in.
+     * it is in; each signal it lets sent by the sender.
      */
-    public static function of(ProcessListing $listing, int $self, int $session): self
+    public static function of(ProcessListing $listing, int $self, int $session, RunningProcesses $sender): self
     {
         $parents = $listing->parents();
         $spared = [$self => true];
@@ -80,20 +71,20 @@ final readonly class SparedProcesses
             $spared[$pid] = true;
         }
 
-        return new self($self, $spared, $spared + [$listing->groupOf($self) => true, $session => true], self::direct());
+        return new self($self, $spared, $spared + [$listing->groupOf($self) => true, $session => true], $sender);
     }
 
-    /** The processes this process spares, from a listing of the processes running now. */
+    /** The processes this process spares, from a listing of the processes running now, which signal them. */
     public static function listed(RunningProcesses $processes): self
     {
         $session = function_exists('posix_getsid') ? (int) posix_getsid(0) : 0;
 
-        return self::of($processes->listed(), (int) getmypid(), $session);
+        return self::of($processes->listed(), (int) getmypid(), $session, $processes);
     }
 
     /**
      * The processes a process was told it spares, where they were told to
-     * this very process; else as it lists them.
+     * this very process; else as it lists them. The processes signal them.
      */
     public static function toldOr(string $told, RunningProcesses $processes): self
     {
@@ -105,25 +96,8 @@ final readonly class SparedProcesses
             (int) $parts['self'],
             self::ids($parts['processes']),
             self::ids($parts['groups']),
-            self::direct(),
+            $processes,
         );
-    }
-
-    /**
-     * The same processes spared, a signal sent by this, or by the `kill`
-     * program where none is given.
-     *
-     * @param (Closure(int, int): bool)|NotGiven $kill
-     */
-    public function signallingWith(Closure|NotGiven $kill): self
-    {
-        return new self($this->self, $this->processes, $this->groups, $kill);
-    }
-
-    /** Whether this process sends a signal itself, rather than by the `kill` program. */
-    public function sends(): bool
-    {
-        return $this->kill instanceof Closure;
     }
 
     /** The ids as they are told to the process that spares them. */
@@ -150,21 +124,15 @@ final readonly class SparedProcesses
     }
 
     /** Whether the process with this id was sent the signal: never one this process spares. */
-    public function signal(int $pid, int $signal): bool
+    public function signal(int $pid, Signal $signal): bool
     {
-        return $this->signals($pid) && $this->kill instanceof Closure && ($this->kill)($pid, $signal);
+        return $this->signals($pid) && $this->sender->signalledUnspared($pid, $signal);
     }
 
     /** Whether the group a process with this id leads was sent the signal: never one this process spares. */
-    public function signalGroup(int $leader, int $signal): bool
+    public function signalGroup(int $leader, Signal $signal): bool
     {
-        return $this->signalsGroup($leader) && $this->kill instanceof Closure && ($this->kill)(-$leader, $signal);
-    }
-
-    /** What sends a signal where PHP can: `posix_kill`, where PHP has it and the signals' names. */
-    private static function direct(): Closure|NotGiven
-    {
-        return function_exists('posix_kill') && function_exists('pcntl_signal') ? posix_kill(...) : NotGiven::value();
+        return $this->signalsGroup($leader) && $this->sender->signalledUnspared(-$leader, $signal);
     }
 
     /** @return array<int, true> */

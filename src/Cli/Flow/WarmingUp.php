@@ -14,11 +14,10 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Runner\Signal;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function pcntl_waitpid;
-
-use const SIGKILL;
 
 /**
  * The analyser's warm-up the plan began (see PlannedWarmUp): running in a
@@ -82,7 +81,7 @@ final class WarmingUp
     public function dropped(): Missing|CannotJudge
     {
         if (! $this->done) {
-            Lineage::spared()->signal($this->child, SIGKILL);
+            Lineage::spared()->signal($this->child, Signal::Kill);
         }
 
         $this->waited();

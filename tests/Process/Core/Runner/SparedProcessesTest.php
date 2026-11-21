@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Process\LiveProcesses;
+use NightWorksIO\MutationGate\Core\Runner\ProcessListing;
+use NightWorksIO\MutationGate\Core\Runner\Signal;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
+use NightWorksIO\MutationGate\Tests\Support\Listed;
 
 $holds = [
     'holds:src/Core/Runner/SparedProcesses.php',
@@ -33,19 +36,25 @@ function sparedListed(): SparedProcesses
     return SparedProcesses::listed(new LiveProcesses());
 }
 
-it('sends no signal to itself, its parent, its group or the group of a process above it', function (): void {
-    $spared = sparedListed();
+it('sends no signal to itself, its parent, its group or the group of a process above it, as the system lists them', function (): void {
+    $sent = [];
+    $spared = SparedProcesses::listed(new Listed(static fn(): ProcessListing => new LiveProcesses()->listed(), static function (int $target) use (&$sent): bool {
+        $sent[] = $target;
 
-    expect($spared->signal((int) getmypid(), 0))->toBeFalse()
-        ->and($spared->signal(posix_getppid(), 0))->toBeFalse()
-        ->and($spared->signalGroup(posix_getpgrp(), 0))->toBeFalse()
-        ->and($spared->signalGroup(posix_getppid(), 0))->toBeFalse()
-        ->and($spared->signalGroup((int) getmypid(), 0))->toBeFalse();
+        return true;
+    }));
+
+    expect($spared->signal((int) getmypid(), Signal::Terminate))->toBeFalse()
+        ->and($spared->signal(posix_getppid(), Signal::Terminate))->toBeFalse()
+        ->and($spared->signalGroup(posix_getpgrp(), Signal::Terminate))->toBeFalse()
+        ->and($spared->signalGroup(posix_getppid(), Signal::Terminate))->toBeFalse()
+        ->and($spared->signalGroup((int) getmypid(), Signal::Terminate))->toBeFalse()
+        ->and($sent)->toBe([]);
 })->group(...$holds);
 
 it('sends a signal to a process it started, and to the group that process leads', function (bool $leads): void {
     [$pid, $process, $pipes] = sparedStarted($leads);
-    $sent = $leads ? sparedListed()->signalGroup($pid, SIGKILL) : sparedListed()->signal($pid, SIGKILL);
+    $sent = $leads ? sparedListed()->signalGroup($pid, Signal::Kill) : sparedListed()->signal($pid, Signal::Kill);
 
     do {
         $status = proc_get_status($process);

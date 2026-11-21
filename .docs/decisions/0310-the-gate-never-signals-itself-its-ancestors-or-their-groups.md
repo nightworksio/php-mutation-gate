@@ -37,10 +37,15 @@ minutes and reports that it lost communication with the server.
 2. **Every signal the gate sends goes through it.** `ProcessTable` leaves a
    spared id out of every freeze and kill, stops nothing where the process
    it is asked to stop is spared, and kills no spared group.
-   `SparedProcesses` itself is the one place the gate calls `posix_kill` on
-   another process or group: a stop's freezes and kills (ADR-0312), the
-   progress reporter's end, the warm-up's drop, a stream's late children and
-   the serve daemon's children.
+   `SparedProcesses::signal` and `signalGroup` are the one way the gate
+   signals another process or group: a stop's freezes and kills (ADR-0312),
+   the progress reporter's end, the warm-up's drop, a stream's late children
+   and the serve daemon's children. Once they let a signal through, it is
+   sent by the processes running (`RunningProcesses::signalledUnspared`,
+   ADR-0312), which nothing else calls: rule S3 holds that list. Every other
+   place that calls `posix_kill` signals its own process, sends signal 0, or
+   wakes a warm worker, each named in PHPStan's list of where `posix_kill`
+   may be called.
 3. **The gate's own process lists once.** Once its settings are read it
    tells itself what it spares (`MUTATION_GATE_SPARED`), so letting go of
    each process it started costs no listing. Any other process, such as a

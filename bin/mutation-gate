@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Proof\LedgerMemory;
+use NightWorksIO\MutationGate\Core\Runner\Signal;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -125,7 +126,7 @@ $forking = function_exists('pcntl_fork') && function_exists('posix_setsid') ? ne
 
     public function stopped(int $child): void
     {
-        Lineage::spared()->signalGroup($child, SIGTERM);
+        Lineage::spared()->signalGroup($child, Signal::Terminate);
     }
 
     public function detached(): void

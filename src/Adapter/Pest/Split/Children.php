@@ -18,6 +18,7 @@ use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Reconnect\Copies;
 use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
+use NightWorksIO\MutationGate\Core\Runner\Signal;
 use NightWorksIO\MutationGate\Core\Runner\SparedProcesses;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -303,7 +304,7 @@ final class Children
         $spared = SparedProcesses::listed($this->running);
 
         foreach ($late as $pid => $child) {
-            $spared->signal($pid, SIGKILL);
+            $spared->signal($pid, Signal::Kill);
 
             pcntl_waitpid($pid, $status);
             $this->gone($pid);

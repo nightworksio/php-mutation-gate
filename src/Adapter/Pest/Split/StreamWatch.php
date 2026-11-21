@@ -19,8 +19,6 @@ use NightWorksIO\MutationGate\Core\Runner\RunningProcesses;
 
 use const PHP_INT_MAX;
 
-use Symfony\Component\Process\Process;
-
 use function unlink;
 use function usleep;
 
@@ -138,7 +136,7 @@ final readonly class StreamWatch
         }
 
         if ($passed !== '' && is_int($pid)) {
-            ProcessTable::stop($pid, $this->ran(...), $this->running);
+            ProcessTable::stop($pid, $this->running);
         }
 
         $stream->waited();
@@ -148,15 +146,6 @@ final readonly class StreamWatch
         $again = $passed === '' ? NotGiven::value() : $stream->againWithout($passed, $slowdown);
 
         return [$again instanceof WatchedStream ? [$again] : [], [$stream->results]];
-    }
-
-    /** @param list<string> $command */
-    private function ran(array $command): string
-    {
-        $process = new Process($command);
-        $process->run();
-
-        return $process->getOutput();
     }
 
     private function unmarked(string $mark): void
