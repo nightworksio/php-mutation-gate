@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 
 /**
  * How large a kept coverage map may be, each limit twice what the gate's own
- * suite's whole map measures: 13,118 tests and 8,012,128 covered line-test
+ * suite's whole map measures: 16,913 tests and 18,987,623 covered line-test
  * pairs. A map past either is not kept, which costs the next run a full
  * measure and never a verdict. A read over a network takes as long as a
  * ledger's may, since it is the same read.
@@ -19,11 +19,11 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
  */
 final readonly class MapLimits
 {
-    /** Twice the 2,058,884 bytes that map measures gzipped. */
-    public const int PACKED = 4_200_000;
+    /** Twice the 4,025,585 bytes that map measures gzipped. */
+    public const int PACKED = 8_100_000;
 
-    /** Twice the 42,415,890 bytes it measures decompressed. */
-    public const int UNPACKED = 85_000_000;
+    /** Twice the 100,564,003 bytes it measures decompressed. */
+    public const int UNPACKED = 201_200_000;
 
     private function __construct(private int $packed, private int $unpacked)
     {

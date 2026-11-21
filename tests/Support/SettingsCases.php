@@ -167,8 +167,8 @@ final readonly class SettingsCases
                     "unpacked": 38000000
                 },
                 "map": {
-                    "packed": 4200000,
-                    "unpacked": 85000000
+                    "packed": 8100000,
+                    "unpacked": 201200000
                 },
                 "handoff": {
                     "packed": 256000000

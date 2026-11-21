@@ -56,13 +56,13 @@ final readonly class Retention implements Setting
         return new self(Json::at('proofs.limits.ledger.unpacked', $bytes));
     }
 
-    /** `proofs.limits.map.packed`: the most compressed bytes of a kept coverage map; 4,200,000. */
+    /** `proofs.limits.map.packed`: the most compressed bytes of a kept coverage map; 8,100,000. */
     public static function mapPacked(int $bytes): self
     {
         return new self(Json::at('proofs.limits.map.packed', $bytes));
     }
 
-    /** `proofs.limits.map.unpacked`: the most decompressed bytes of a kept coverage map; 85,000,000. */
+    /** `proofs.limits.map.unpacked`: the most decompressed bytes of a kept coverage map; 201,200,000. */
     public static function mapUnpacked(int $bytes): self
     {
         return new self(Json::at('proofs.limits.map.unpacked', $bytes));
