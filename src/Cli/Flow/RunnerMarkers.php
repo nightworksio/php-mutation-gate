@@ -67,16 +67,8 @@ final readonly class RunnerMarkers
     /** How many markers the run's shards let through under `allow`; nothing under `refuse`. */
     public function allowed(Plan $plan): Warnings
     {
-        $units = Units::none();
-
-        foreach ($plan as $shard) {
-            foreach ($shard->units() as $unit) {
-                $units = $units->with($unit);
-            }
-        }
-
         $markers = $this->settings->ignores()->native() === NativeMarkers::Allow
-            ? $this->in($units->distinct())
+            ? $this->at($plan->shards()->paths())
             : Markers::none();
 
         return match (true) {
@@ -89,13 +81,13 @@ final readonly class RunnerMarkers
     /** The markers in the units' files; none where no unit runs. */
     private function in(Units $units): Markers|CannotJudge
     {
-        $files = Paths::none();
+        return $this->at($units->paths());
+    }
 
-        foreach ($units as $unit) {
-            $files = $files->with($unit->path());
-        }
-
-        return count($units) === 0 ? Markers::none() : $this->adapters->runner->markers($files);
+    /** The markers in these files; none where there are none. */
+    private function at(Paths $files): Markers|CannotJudge
+    {
+        return count($files) === 0 ? Markers::none() : $this->adapters->runner->markers($files);
     }
 
     private function listed(Markers $markers): string

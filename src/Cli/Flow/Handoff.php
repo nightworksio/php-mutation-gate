@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
+use function array_flip;
+use function array_map;
+
+use Generator;
+
 use function getenv;
 use function hash;
 use function implode;
@@ -22,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Coverage\MapText;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -62,6 +68,9 @@ final readonly class Handoff
     private const string UNHANDED = 'Shard %d was handed no coverage map at %s. Hand every job the plan\'s %s.';
 
     private const string NO_ENGINE = 'No engine writes the maps.';
+
+    /** What tells apart the maps of shards whose map cannot be read, each its own. */
+    private const string UNREAD = 'unread %d';
 
     private const string NO_MATRIX = 'The verdict was handed no coverage map at %s. Hand it the plan\'s %s.';
 
@@ -179,6 +188,41 @@ final readonly class Handoff
                 sprintf(self::UNHANDED, $shard->number(), $file->value(), Workspace::coverage()->value()),
             ),
         };
+    }
+
+    /**
+     * The map each of these shards was handed, by its place among them, in
+     * their order: shards handed the same bytes share one map, decoded once
+     * and held only until the last of them.
+     *
+     * @return Generator<int, CoverageMap|CannotJudge>
+     */
+    public function readEach(ShardId ...$shards): Generator
+    {
+        $handed = array_map($this->handedKey(...), $shards);
+        $last = array_flip($handed);
+        $decoded = [];
+
+        foreach ($shards as $at => $shard) {
+            $key = $handed[$at];
+            $decoded[$key] ??= $this->read($shard);
+
+            yield $at => $decoded[$key];
+
+            if ($last[$key] === $at) {
+                unset($decoded[$key]);
+            }
+        }
+    }
+
+    /** What tells the map a shard was handed from another's: its bytes' digest, or the shard where it has none. */
+    private function handedKey(ShardId $shard): string
+    {
+        $contents = $this->project->readAtMost($this->fileOf($shard), $this->limits->packed());
+
+        return $contents instanceof Contents
+            ? hash(Digest::QUICK, $contents->text())
+            : sprintf(self::UNREAD, $shard->number());
     }
 
     /** What `write()` writes, once the runner readied the map every shard opens on, or none. */

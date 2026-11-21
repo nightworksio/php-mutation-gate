@@ -222,6 +222,36 @@ it('writes the whole map itself where its child wrote none, and says why it cann
         ));
 })->skip(fn(): bool => ! Forking::isAvailable(), 'The process cannot fork.');
 
+it('reads each shard\'s map in their order as it reads one, a map handed to several shards decoded once and shared', function () use (
+    $makePlan,
+    $makeMap,
+): void {
+    $project = Scratch::directory();
+    $handoff = new Handoff(Directory::at($project), HandedMaps::limits());
+    $handoff->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map());
+    Scratch::write($project, '.mutation-gate/coverage/shard-3/map.json.gz', (string) file_get_contents(
+        sprintf('%s/.mutation-gate/coverage/shard-1/map.json.gz', $project),
+    ));
+
+    $read = iterator_to_array($handoff->readEach(...array_map(ShardId::of(...), [1, 2, 3, 4, 5])));
+    $each = $handoff->readEach(ShardId::of(1), ShardId::of(2), ShardId::of(1));
+    $held = WeakReference::create($each->current());
+    $each->next();
+    $second = WeakReference::create($each->current());
+    $each->next();
+
+    expect(array_keys($read))->toBe([0, 1, 2, 3, 4])
+        ->and($held->get())->toBeInstanceOf(CoverageMap::class)
+        ->and($second->get())->toBeNull()
+        ->and($read[4])->toEqual($handoff->read(ShardId::of(5)))
+        ->and($read[0])->toBe($read[2])
+        ->and($read[0])->toEqual($handoff->read(ShardId::of(1)))
+        ->and($read[1])->toEqual($handoff->read(ShardId::of(2)))
+        ->and($read[1])->not->toEqual($read[0])
+        ->and($read[3])->toEqual($handoff->read(ShardId::of(4)))
+        ->and($read[3])->toBeInstanceOf(CannotJudge::class);
+});
+
 it('says a shard was handed no map where there is none', function (): void {
     expect(new Handoff(Directory::at(Scratch::directory()), HandedMaps::limits())->read(ShardId::of(4)))->toEqual(CannotJudge::because(
         'Shard 4 was handed no coverage map at .mutation-gate/coverage/shard-4/map.json.gz. '
