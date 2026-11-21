@@ -246,3 +246,22 @@ it('merges parts that hold the same mutants in any order, whatever their ids rea
 
     expect(mergedOutcomes($merged))->toHaveCount(12);
 })->with(range(1, 40));
+
+it('merges parts made on some lines alone of a file whose path reads as a number', function (): void {
+    $file = Path::of('2026');
+    $mutant = static fn(int $line, MutantStatus $status): Mutant => Mutant::of(
+        MutantId::hash($file, 'Minus', '- a + b', $line),
+        sprintf('native-%d', $line),
+        Location::of($file, Line::of($line), Line::of($line)),
+        Mutation::of('Minus', MutatorFamily::Arithmetic, '- a + b'),
+        $status,
+        Unmeasured::duration(),
+    );
+
+    $merged = MergedParts::made($file, [
+        [Mutants::of($mutant(2, MutantStatus::Killed)), mergedMadeIn($file, 6, [[1, 3]])],
+        [Mutants::of($mutant(5, MutantStatus::Survived)), mergedMadeIn($file, 6, [[4, 6]])],
+    ]);
+
+    expect(mergedOutcomes($merged))->toBe([[2, 'killed'], [5, 'survived']]);
+});

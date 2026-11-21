@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
@@ -118,6 +119,24 @@ it('merges each unit\'s mutants across the shards that each judge it by a part o
             mergedUnitMutant('src/B.php', 5, MutantStatus::Uncovered),
         ), Units::none(), MutantIds::none()),
     ])))->toBe(['src/A.php: 3 killed, 4 survived', 'src/B.php: 5 uncovered']);
+});
+
+it('gives a held unit the mutants of every file inside it, and none of a file that only shares its prefix', function () use ($plan): void {
+    $units = Units::of(Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel')), Unit::file(Path::of('src/KernelX.php')));
+    $shard = static fn(int $number): Shard => Shard::of(ShardId::of($number), Package::at(Path::root()), $units, Seconds::of(1.0), sprintf('src, part %d of 2', $number))
+        ->inPart(TestPart::of($number, 2));
+    $one = $shard(1);
+    $two = $shard(2);
+    $mutants = Mutants::of(
+        mergedUnitMutant('src/KernelX.php', 2, MutantStatus::Survived),
+        mergedUnitMutant('src/Kernel/Deep/B.php', 7, MutantStatus::Survived),
+        mergedUnitMutant('src/Kernel/A.php', 3, MutantStatus::Survived),
+    );
+
+    expect(mergedUnitsDescribed(MergedUnits::of($plan($one, $two), [
+        mergedUnitRead($one, $mutants, Units::none(), MutantIds::none()),
+        mergedUnitRead($two, $mutants, Units::none(), MutantIds::none()),
+    ])))->toBe(['src/Kernel: 7 survived, 3 survived', 'src/KernelX.php: 2 survived']);
 });
 
 it('runs no unit a shard that holds it left no result for, or ran out of time before', function () use ($plan): void {

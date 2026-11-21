@@ -196,9 +196,9 @@ final readonly class MergedParts
         $made = [];
 
         foreach ($located as $id => $location) {
-            $made = $lines->makes($location->file(), $location->start(), $location->last())
-                ? [...$made, strval($id)]
-                : $made;
+            if ($lines->makes($location->file(), $location->start(), $location->last())) {
+                $made[] = strval($id);
+            }
         }
 
         sort($made, SORT_STRING);
