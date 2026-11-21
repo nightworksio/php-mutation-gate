@@ -218,13 +218,14 @@ final readonly class PlanFile
         }
 
         $commit = Commit::parse($file->field('commit')->text());
+        $briefing = BriefingRecord::read($file);
         $plan = Plan::of(
             $commit instanceof Commit
                 ? $commit->revision()
                 : throw NotInShape::at($file->field('commit')->at(), 'a commit'),
             Digest::of($file->field(self::BASE)->text()),
             KeysRecord::read($file->field('keys')),
-            Shards::of(...$shards),
+            Shards::of(...$shards)->tailing($briefing->learned()->tail()),
         )
             ->on(RunOnRecord::read($file))
             ->considering(
@@ -237,7 +238,7 @@ final readonly class PlanFile
             );
         $digests = $file->field(self::DIGESTS);
         $plan = $digests->isPresent() ? $plan->digesting(DigestsRecord::readRun($digests)) : $plan;
-        $plan = $plan->briefed(BriefingRecord::read($file));
+        $plan = $plan->briefed($briefing);
         $named = self::namedIn($plan, $file);
 
         return $plan->digest()->value() === $file->field(self::DIGEST)->text()
