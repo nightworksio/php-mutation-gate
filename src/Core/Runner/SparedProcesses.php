@@ -65,8 +65,9 @@ final readonly class SparedProcesses
     {
         $parents = $listing->parents();
         $spared = [$self => true];
+        $pid = $self;
 
-        for ($pid = $self; array_key_exists($pid, $parents) && ! array_key_exists($parents[$pid], $spared);) {
+        while (array_key_exists($pid, $parents) && ! array_key_exists($parents[$pid], $spared)) {
             $pid = $parents[$pid];
             $spared[$pid] = true;
         }
