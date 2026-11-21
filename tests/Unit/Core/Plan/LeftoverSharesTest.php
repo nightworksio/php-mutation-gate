@@ -57,3 +57,18 @@ it('cannot read shares of another format, or not shaped as shares', function (st
     'another format' => ['{"format": 2, "plan": "a", "shares": []}', 'the file.format is not format 1.'],
     'no list' => ['{"format": 1, "plan": "a", "shares": "x"}', 'the file.shares is not a list.'],
 ]);
+
+it('reads back which shares\' jobs run their own tail, and a share written without it as one that stops', function (): void {
+    $written = LeftoverShares::cut(
+        Digest::sha256Of('plan'),
+        LeftoverShare::of(ShardId::of(1), 1, leftoverShareMutant(1))->runningItsTail(),
+        LeftoverShare::of(ShardId::of(1), 2, leftoverShareMutant(2)),
+    );
+    $read = LeftoverShares::decode($written->encode());
+    $shares = $read instanceof LeftoverShares ? $read->ofShard(ShardId::of(1)) : [];
+
+    expect($read)->toEqual($written)
+        ->and(array_map(static fn(LeftoverShare $share): bool => $share->runsItsTail(), $shares))->toBe([true, false])
+        ->and($written->encode())->toContain('"ownTail":true')
+        ->and(substr_count($written->encode(), '"ownTail"'))->toBe(1);
+});

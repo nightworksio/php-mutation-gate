@@ -36,7 +36,7 @@ use function sprintf;
  * and those the units do not fill are empty and say so. Where a run that
  * splits its streams shards by tests (ADR-0117), each of a package's shards
  * takes every unit of it and its own part of the test files, n parts for n
- * shards, its cost the package's over n. Packages never share a shard,
+ * shards, each unit priced by its tests there. Packages never share a shard,
  * because a shard runs in one package's directory; floors may, because the
  * verdict adds up each mutant itself.
  *
@@ -86,6 +86,15 @@ final readonly class Cut
         return $this->testParts
             ? new self($this->sizing->streamedOver($wall), $this->testParts, $this->item, $this->heldWhole)
             : $this;
+    }
+
+    /**
+     * This cut, its jobs' tail decided by this rule (ADR-0303): where they
+     * run their own tail and come to more than the pool, cut to the pool.
+     */
+    public function tailing(TailRule $tail): self
+    {
+        return new self($this->sizing->tailing($tail), $this->testParts, $this->item, $this->heldWhole);
     }
 
     /** This cut, making no shard whose share of the cost is below this many times its overhead: `shards.cutAt`. */
@@ -144,7 +153,7 @@ final readonly class Cut
                 count($packages),
                 count($packages),
             ))
-            : $this->made($packages, $trees);
+            : $this->made($packages, $trees)->tailing($this->sizing->tail($packages));
     }
 
     /** @param list<PackageWork> $packages */

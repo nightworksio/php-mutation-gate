@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
+use NightWorksIO\MutationGate\Adapter\Pest\ChangeTable;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
@@ -17,6 +18,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Config\PestWorkers;
+use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -48,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\PartNarrowing;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
@@ -58,6 +61,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package as TreePackage;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -404,7 +408,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
 // Every part reads one coverage map, handed over as a plan hands its shards
 // theirs, so each cuts the test files alike; every test in it takes the same
 // time, so the cut is the same on every run.
-it('reports the same records for every mutant Pest makes of the library\'s files from split streams across parts of the test files, each part making the mutants of its tests\' lines and of lines no test covers alone, merged as the verdict merges them, as from one part, whether or not they record each test\'s lines', function (int $parts, bool $recording): void {
+it('reports the same records for every mutant Pest makes of the library\'s files from split streams across parts of the test files, each part making the mutants of its tests\' lines and of lines no test covers alone, merged as the verdict merges them, as from one part, whether or not they record each test\'s lines, and whether the plan tabled each file\'s change places or each part makes its files whole', function (int $parts, bool $recording, bool $tabled): void {
     Library::patched();
     $files = Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php'));
     $library = Library::pest(Patching::on(Library::canary())->splitting(
@@ -422,19 +426,30 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     );
     $part = $recording ? PartNarrowing::whole()->recordingInto(LineRecording::standingIn(Scratch::directory())) : PartNarrowing::whole();
     $run = static fn(TestPart $testPart): MutationResult|CannotJudge => $library->mutate(
-        sprintf('every mutant, split, part %d of %d%s', $testPart->number(), $testPart->parts(), $recording ? ', recording' : ''),
+        sprintf(
+            'every mutant, split, part %d of %d%s%s',
+            $testPart->number(),
+            $testPart->parts(),
+            $recording ? ', recording' : '',
+            $tabled && ! $testPart->isWhole() ? ', tabled' : '',
+        ),
         MutationRequest::of($files, WholeSuite::tests())
             ->narrowedTo($files, Narrowing::none()->within($part->inTestPart($testPart)))
             ->across(Pool::of(ProcessCount::of(2), Workers::Fork))
             ->reusingCoverage(Handed::maps($handed, $handed)),
     );
     $whole = $run(TestPart::whole());
+    $table = Tree::at(sprintf('%s/.mutation-gate/%s', Library::DIRECTORY, ChangeTable::FILE));
+    $sites = $tabled
+        ? $library->runner()->behaviour()->opening()->made($files, Narrowing::none()->mutators(), Withheld::nothing())
+        : MutantSites::none();
     $shards = [];
     $read = [];
 
     $unrun = [];
     $unreached = 0;
     $partial = 0;
+    $warned = [];
 
     foreach (range(1, $parts) as $number) {
         $shard = Shard::of(
@@ -457,7 +472,13 @@ it('reports the same records for every mutant Pest makes of the library\'s files
         $read[] = [$shard, ShardResult::of(Digest::sha256Of('plan'), $shard->id(), Keys::none(), $mutated, $measured), $mutated];
         $unreached += $mutated->mutants()->counting(MutantStatus::NotReached);
         $partial += $mutated->made()->isWhole() ? 0 : 1;
+        $warned = [...$warned, ...array_filter(
+            array_map(static fn(Warning $warning): string => $warning->text(), [...$mutated->warnings()]),
+            static fn(string $text): bool => str_contains($text, 'whole to number the mutants'),
+        )];
     }
+
+    is_file($table) ? unlink($table) : null;
 
     $merged = MergedUnits::of(Plan::of(Revision::ref('HEAD'), Digest::sha256Of('base'), Keys::none(), Shards::of(...$shards)), $read);
     $records = $merged instanceof CannotJudge ? [$merged->why()] : Library::records(Mutants::of(...array_merge(...array_map(
@@ -469,11 +490,16 @@ it('reports the same records for every mutant Pest makes of the library\'s files
         ->and($records)->toEqualCanonicalizing($whole instanceof MutationResult ? Library::records($whole->mutants()) : [$whole])
         ->and($whole instanceof MutationResult ? $whole->mutants()->counting(MutantStatus::NotReached) : 1)->toBe(0)
         ->and($unreached > 0)->toBe(! $recording)
-        ->and($partial > 0)->toBe(! $recording);
+        ->and($partial > 0)->toBe(! $recording)
+        ->and($warned !== [])->toBe(! $tabled && ! $recording)
+        ->and($sites instanceof MutantSites ? $sites->count() > 0 : $sites->why())->toBe($tabled);
 })->with([
     'two parts' => [2, false],
     'three parts' => [3, false],
     'two parts, recording each test\'s lines in place of the suite\'s coverage report' => [2, true],
+])->with([
+    'the plan\'s table placing each part\'s mutants' => [true],
+    'each part making its files whole' => [false],
 ])->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',

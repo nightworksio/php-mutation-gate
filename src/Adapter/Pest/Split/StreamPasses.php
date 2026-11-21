@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_last;
 use function explode;
 use function file_get_contents;
 use function file_put_contents;
 use function is_file;
 use function is_string;
+use function max;
 
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
@@ -30,6 +32,8 @@ use function unlink;
  * moment the pass ends, so a run stopped in its second pass keeps its
  * first's; read by the gate as steps within the run's mutation step, the
  * first pass from that step's start and the second from the first's end.
+ * Each pass is also listed as it starts, so a pass the stop cut short is
+ * read as running to the mutation step's end (ADR-0304).
  *
  * @internal
  */
@@ -37,6 +41,9 @@ final readonly class StreamPasses
 {
     /** The file beside a run's results its passes are listed in. */
     private const string LISTED = '%s.passes';
+
+    /** Where a row lists a pass as it starts. */
+    private const string BEGUN = 'begun';
 
     /** No pass listed beside a run's results, as a run starts. */
     public static function cleared(string $results): void
@@ -48,6 +55,13 @@ final readonly class StreamPasses
         }
     }
 
+    /** One pass as it starts, listed beside the run's results the gate names; none where it names no file. */
+    public static function started(string|false $results, Step $pass, int $mutants, float $bound): void
+    {
+        $step = StepTime::of($pass, Seconds::none(), Seconds::none(), $mutants)->bounded(Seconds::of($bound));
+        self::listed($results, JsonText::compact([...StepsRecord::rowOf($step), self::BEGUN => true]));
+    }
+
     /** One pass, listed beside the run's results the gate names; none where it names no file. */
     public static function ended(
         string|false $results,
@@ -56,30 +70,75 @@ final readonly class StreamPasses
         int $mutants,
         float $bound,
     ): void {
+        $step = StepTime::of($pass, Seconds::none(), Seconds::of($seconds), $mutants)->bounded(Seconds::of($bound));
+        self::listed($results, JsonText::compact(StepsRecord::rowOf($step)));
+    }
+
+    /**
+     * The passes listed beside a run's results, as steps within its mutation
+     * step: each that ended as it ended, and one that started and never
+     * ended as running to the mutation step's end; none where none started.
+     */
+    public static function within(string $results, StepTime $mutation): StepTimes
+    {
+        $rows = self::rowsOf($results, $mutation->since());
+        $ended = [];
+
+        foreach ($rows as [$step, $starts]) {
+            $ended = $starts ? $ended : [...$ended, $step];
+        }
+
+        $last = array_last($rows);
+        $end = $mutation->since()->seconds() + $mutation->took()->seconds();
+
+        return StepTimes::of(...$last !== null && $last[1]
+            ? [...$ended, self::cutShort($last[0], $end - $last[0]->since()->seconds())]
+            : $ended);
+    }
+
+    /**
+     * Each pass listed beside a run's results, each from where the one
+     * before it ended, and whether it lists the pass as it starts.
+     *
+     * @return list<array{StepTime, bool}>
+     */
+    private static function rowsOf(string $results, Seconds $from): array
+    {
+        $listed = sprintf(self::LISTED, $results);
+        $text = is_file($listed) ? file_get_contents($listed) : false;
+        $rows = [];
+        $since = $from->seconds();
+
+        foreach (explode("\n", is_string($text) ? $text : '') as $line) {
+            $node = Node::decode($line);
+            $step = self::stepOf($node, Seconds::of($since));
+
+            if ($step instanceof StepTime) {
+                $rows[] = [$step, $node->field(self::BEGUN)->isPresent()];
+                $since += $step->took()->seconds();
+            }
+        }
+
+        return $rows;
+    }
+
+    /** A pass the stop cut short, as running this long. */
+    private static function cutShort(StepTime $started, float $seconds): StepTime
+    {
+        $cut = StepTime::of($started->step(), $started->since(), Seconds::of(max(0.0, $seconds)), $started->count());
+        $bound = $started->bound();
+
+        return $bound instanceof Seconds ? $cut->bounded($bound) : $cut;
+    }
+
+    /** One line of JSON, listed beside the run's results the gate names; none where it names no file. */
+    private static function listed(string|false $results, string $row): void
+    {
         if (! is_string($results) || $results === '') {
             return;
         }
 
-        $step = StepTime::of($pass, Seconds::none(), Seconds::of($seconds), $mutants)->bounded(Seconds::of($bound));
-        $line = sprintf("%s\n", JsonText::compact(StepsRecord::rowOf($step)));
-        file_put_contents(sprintf(self::LISTED, $results), $line, FILE_APPEND | LOCK_EX);
-    }
-
-    /** The passes listed beside a run's results, as steps within its mutation step; none where none ended. */
-    public static function within(string $results, StepTime $mutation): StepTimes
-    {
-        $listed = sprintf(self::LISTED, $results);
-        $text = is_file($listed) ? file_get_contents($listed) : false;
-        $steps = [];
-        $since = $mutation->since()->seconds();
-
-        foreach (explode("\n", is_string($text) ? $text : '') as $line) {
-            $step = self::stepOf(Node::decode($line), Seconds::of($since));
-            $steps = $step instanceof StepTime ? [...$steps, $step] : $steps;
-            $since += $step instanceof StepTime ? $step->took()->seconds() : 0.0;
-        }
-
-        return StepTimes::of(...$steps);
+        file_put_contents(sprintf(self::LISTED, $results), sprintf("%s\n", $row), FILE_APPEND | LOCK_EX);
     }
 
     /** The pass a line lists, started this long after its shard began; none where the line lists none. */

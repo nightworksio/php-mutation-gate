@@ -3,10 +3,14 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
+use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\HandedAsIs;
@@ -14,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\Parallelism;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\ShardOpening;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestCases;
@@ -79,10 +84,16 @@ it('opens each shard on the map it is handed, unless the runner readies the map 
         {
             return $whole;
         }
+
+        public function made(Paths $files, Mutators $mutators, Withheld $withheld): MutantSites
+        {
+            return MutantSites::inFile(Path::of('src/Money.php'), Line::of(3));
+        }
     };
     $map = CoverageMap::of();
 
     expect(RunnerBehaviour::standard()->opening()->readied($map, Paths::none(), TestCases::unknown()))->toEqual(NotGiven::value())
+        ->and(RunnerBehaviour::standard()->opening()->made(Paths::of(Path::of('src/Money.php')), Mutators::all(), Withheld::nothing()))->toEqual(MutantSites::none())
         ->and(RunnerBehaviour::standard()->readyingOpening($readied)->opening())->toBe($readied)
         ->and(RunnerBehaviour::standard()->readyingOpening($readied)->runningPerCore()->selecting(new ExactRun())->opening())->toBe($readied);
 });

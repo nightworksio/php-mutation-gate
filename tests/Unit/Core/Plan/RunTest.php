@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Plan\PartPrices;
 use NightWorksIO\MutationGate\Core\Plan\Run;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -42,7 +43,7 @@ it('is the shard that mutates it, of its units\' package, or an empty shard wher
 });
 
 it('is the shard of its part of the test files, each unit weighed at its share of that part', function () use ($weighed): void {
-    $run = Run::inPart(TestPart::of(2, 4), $weighed('a/A.php', 8.0), $weighed('a/B.php', 4.0));
+    $run = Run::inPart(TestPart::of(2, 4), PartPrices::alike(), $weighed('a/A.php', 8.0), $weighed('a/B.php', 4.0));
     $shard = $run->shard(ShardId::of(2), 'a, part 2 of 4');
 
     expect($run->cost())->toEqual(Seconds::of(3.0))

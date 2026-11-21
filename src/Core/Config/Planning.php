@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Plan\Batching;
 use NightWorksIO\MutationGate\Core\Plan\ShardSizing;
+use NightWorksIO\MutationGate\Core\Plan\TailRule;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\TimingWeight;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -17,8 +18,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use function sprintf;
 
 /**
- * How a run plans its work and learns what it costs: `plan`, `timing` and `shards.cutAt`, which the `Shards` part
- * holds.
+ * How a run plans its work and learns what it costs: `plan`, `timing`, `shards.cutAt` and `shards.fill`, which the
+ * `Shards` part holds.
  */
 final readonly class Planning
 {
@@ -28,6 +29,7 @@ final readonly class Planning
         private float|int|Absent $cutAt,
         private float|int|Absent $newest,
         private int|Absent $startUpSamples,
+        private float|int|Absent $fill,
     ) {
     }
 
@@ -37,8 +39,9 @@ final readonly class Planning
         float|int|Absent $cutAt = new Absent(),
         float|int|Absent $newest = new Absent(),
         int|Absent $startUpSamples = new Absent(),
+        float|int|Absent $fill = new Absent(),
     ): self {
-        return new self($chunkMinutes, $provingRange, $cutAt, $newest, $startUpSamples);
+        return new self($chunkMinutes, $provingRange, $cutAt, $newest, $startUpSamples, $fill);
     }
 
     /** Every key at the value it takes where every layer leaves it out. */
@@ -50,6 +53,7 @@ final readonly class Planning
             ShardSizing::WORK_PER_OVERHEAD,
             Timing::NEWEST,
             StartUpSamples::STANDARD,
+            TailRule::FILL,
         );
     }
 
@@ -61,6 +65,7 @@ final readonly class Planning
             Absent::laid($this->cutAt, $later->cutAt),
             Absent::laid($this->newest, $later->newest),
             Absent::laid($this->startUpSamples, $later->startUpSamples),
+            Absent::laid($this->fill, $later->fill),
         );
     }
 
@@ -84,6 +89,12 @@ final readonly class Planning
         return $this->cutAt instanceof Absent ? ShardSizing::WORK_PER_OVERHEAD : $this->cutAt;
     }
 
+    /** `shards.fill`: the share of its stop the cut fills a job that runs its own tail with (ADR-0303). */
+    public function fill(): float
+    {
+        return $this->fill instanceof Absent ? TailRule::FILL : $this->fill;
+    }
+
     /** `timing.newest`: the weight a unit's newest measurement takes in its smoothed timing. */
     public function newest(): TimingWeight
     {
@@ -102,6 +113,12 @@ final readonly class Planning
     public function cutAtWritten(): Member
     {
         return Member::of('cutAt', $this->cutAt);
+    }
+
+    /** The `shards.fill` member, which the `shards` section writes beside its own. */
+    public function fillWritten(): Member
+    {
+        return Member::of('fill', $this->fill);
     }
 
     /** The `plan` and `timing` sections; nothing of one that sets no key. */
@@ -130,6 +147,7 @@ final readonly class Planning
             ...$this->called('Plan::chunkMinutes(%s)', $this->chunkMinutes),
             ...$this->called('Plan::provingRange(%s)', $this->provingRange),
             ...$this->called('Shards::cutAt(%s)', $this->cutAt),
+            ...$this->called('Shards::fill(%s)', $this->fill),
             ...$this->called('Timing::newest(%s)', $this->newest),
             ...$this->called('Timing::startUpSamples(%s)', $this->startUpSamples),
         ]);

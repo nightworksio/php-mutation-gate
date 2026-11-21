@@ -63,6 +63,21 @@ final readonly class JobStop
         };
     }
 
+    /**
+     * How long the gate runs before it stops where its job runs its own tail
+     * (ADR-0303): `shards.jobLimit` where the config sets it, otherwise this
+     * limit of its job less this setup, this wind-down and `shards.margin`.
+     */
+    public function tailAfter(Seconds $limit, Seconds $setup, Seconds $windDown): Seconds
+    {
+        return $this->jobLimit instanceof Seconds
+            ? $this->jobLimit
+            : Seconds::of(max(
+                0.0,
+                $limit->seconds() - $setup->seconds() - $windDown->seconds() - $this->margin->seconds(),
+            ));
+    }
+
     /** How long the gate runs before it stops, where no job measured the wind-down. */
     public function unmeasured(Seconds $setup): Seconds
     {

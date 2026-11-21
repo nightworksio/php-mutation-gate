@@ -151,7 +151,11 @@ final readonly class Pest implements ControlsSideBySide, LeavesPhpReport, ListsS
             ->holdingAsLoaded()
             ->runningPerCore()
             ->writingTestsIn(AssertionStyle::Pest)
-            ->readyingOpening(new ReadersOpening($this->project, $this->patching));
+            ->readyingOpening(new ReadersOpening(
+                $this->project,
+                $this->patching,
+                new ChangeTabling($this->project, $this->shell, $this->patching, $this->bridges),
+            ));
 
         return $canary instanceof Group ? $pest->readingInEveryKey($canary) : $pest->openingEachShard();
     }

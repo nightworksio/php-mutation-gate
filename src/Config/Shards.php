@@ -22,6 +22,15 @@ final readonly class Shards implements Setting
         return new self(Json::object(Member::of('shards', Json::object(Member::of('setup', $duration)))));
     }
 
+    /**
+     * `shards.fill`: the share of its stop the cut fills a job that runs its
+     * own tail with, above 0 and at most 1; 0.92 (ADR-0303).
+     */
+    public static function fill(float $share): self
+    {
+        return new self(Json::at('shards.fill', $share));
+    }
+
     /** `shards.cutAt`: how many times its overhead a shard's share of the cost must be at least; 2.0. */
     public static function cutAt(float $times): self
     {
@@ -74,6 +83,12 @@ final readonly class Shards implements Setting
     public static function margin(string $duration): self
     {
         return new self(Json::at('shards.margin', $duration));
+    }
+
+    /** `shards.tail`: `auto`, `stop` or `run`, whether a job runs its own tail to its job's limit (ADR-0303). */
+    public static function tail(string $tail): self
+    {
+        return new self(Json::at('shards.tail', $tail));
     }
 
     /** `shards.progress`: how long a CI shard waits between two artifacts saying how far it got; `0s` for none. */

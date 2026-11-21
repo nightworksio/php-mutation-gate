@@ -13,12 +13,10 @@ use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\LeftoverCutting;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\JobStop;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShares;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\StreamWall;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
@@ -85,8 +83,10 @@ final readonly class LeftoversCommand
 
     /**
      * The shares cut from the results the options name, for jobs that stop
-     * where the plan's learned jobs leave them, priced at the second pass's
-     * factor the plan learned; or why none could be cut.
+     * where the plan's learned jobs leave them, each shard's priced at the
+     * second pass's factor its job measured, where none did at the run's
+     * median, and at the factor the plan learned where no job measured one;
+     * or why none could be cut.
      */
     private static function cut(Composed $composed, InputInterface $input): LeftoverShares|CannotJudge
     {
@@ -96,19 +96,14 @@ final readonly class LeftoversCommand
             return $plan;
         }
 
-        $shards = $composed->settings->shards();
-        $jobs = $plan->briefing()->learned()->jobs();
-        $passTwo = $jobs->passTwo();
+        $passTwo = $plan->briefing()->learned()->jobs()->passTwo();
         $processes = $composed->adapters->processes()->count();
 
         return new LeftoverCutting($composed->adapters)->cut(
             $plan,
             FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results()),
             FlowOptions::path($input, FlowOptions::COVERAGE, Workspace::coverage()),
-            $shards->stop()->after(
-                $jobs->setupOr($shards->setup()),
-                $jobs->windDownOr(Seconds::of(JobStop::WIND_DOWN_SECONDS)),
-            ),
+            $composed->settings->shards(),
             is_float($passTwo) ? StreamWall::of($processes, $passTwo) : StreamWall::of($processes),
         );
     }

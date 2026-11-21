@@ -4,34 +4,30 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
-use function array_fill;
 use function array_key_exists;
 use function array_map;
 use function array_sum;
-use function count;
 use function crc32;
-use function max;
-use function min;
 
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Mutant\TestShare;
+use NightWorksIO\MutationGate\Core\Test\TestFileParts;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
-
-use function uksort;
 
 /**
  * The test files of a coverage map cut into the parts a run's shards each
  * stream one of (ADR-0117), and the part this shard streams. Each test file,
- * by the file that declares a test's class, goes, longest first by the map's
- * times and files of equal time by path, to the part with the least time so
- * far, of those the fewest files, of those the lowest, so every shard cuts
- * the same map alike. A test belongs to the part of its file, and a test
+ * by the file that declares a test's class, is placed by the map's times as
+ * {@see TestFileParts} places test files, so every shard cuts the same map
+ * alike. A test belongs to the part of its file, and a test
  * of the map declared in no test file the process loaded to the first part,
  * the rest cut as ever (ADR-0171). Judging whole, the shard judges by every
  * covering test each mutant it owns, and leaves the rest; judging parted, it
  * judges every mutant its part's tests cover by those tests (ADR-0174). The
  * lines of a source file no test covers fall to one part alone, where the
- * parts make the mutants their tests reach (ADR-0193).
+ * parts make the mutants their tests reach (ADR-0193); a run that makes only
+ * the mutants it is told to, as a share of the second wave does, owns every
+ * such line, since each mutant it is told to make is one its part owned.
  *
  * @internal
  */
@@ -47,6 +43,7 @@ final readonly class TestParts
         private array $parts,
         private StreamJudging $judging,
         private array $uncovered,
+        private bool $toldWhat = false,
     ) {
     }
 
@@ -87,20 +84,22 @@ final readonly class TestParts
      */
     public function sharingUncovered(array $uncovered): self
     {
-        uksort(
-            $uncovered,
-            static fn(string $one, string $two): int => [$uncovered[$two], $one] <=> [$uncovered[$one], $two],
+        return new self(
+            $this->part,
+            $this->parts,
+            $this->judging,
+            array_map(static fn(int $at): int => $at + 1, TestFileParts::placed($uncovered, $this->part->parts())),
+            $this->toldWhat,
         );
-        $loads = array_fill(0, $this->part->parts(), [0.0, 0]);
-        $falls = [];
+    }
 
-        foreach ($uncovered as $file => $lines) {
-            $least = self::leastOf($loads);
-            $loads[$least] = [$loads[$least][0] + $lines, $loads[$least][1] + 1];
-            $falls[$file] = $least + 1;
-        }
-
-        return new self($this->part, $this->parts, $this->judging, $falls);
+    /**
+     * These parts, in a run that makes only the mutants it is told to: its
+     * part makes and owns the lines no test covers of every file.
+     */
+    public function makingWhatItIsTold(): self
+    {
+        return new self($this->part, $this->parts, $this->judging, $this->uncovered, toldWhat: true);
     }
 
     /**
@@ -109,7 +108,9 @@ final readonly class TestParts
      */
     public function makesUncovered(string $file): bool
     {
-        return ! array_key_exists($file, $this->uncovered) || $this->uncovered[$file] === $this->part->number();
+        return $this->toldWhat
+            || ! array_key_exists($file, $this->uncovered)
+            || $this->uncovered[$file] === $this->part->number();
     }
 
     /**
@@ -121,15 +122,17 @@ final readonly class TestParts
      */
     public function ownsUncovered(string $mutant, string $file): bool
     {
-        return array_key_exists($file, $this->uncovered)
-            ? $this->uncovered[$file] === $this->part->number()
-            : crc32($mutant) % $this->part->parts() + 1 === $this->part->number();
+        return match (true) {
+            $this->toldWhat => true,
+            array_key_exists($file, $this->uncovered) => $this->uncovered[$file] === $this->part->number(),
+            default => crc32($mutant) % $this->part->parts() + 1 === $this->part->number(),
+        };
     }
 
     /**
-     * Each test file's place among at most this many parts, counted from 0:
-     * longest first, files of equal time by path, each to the part with the
-     * least time so far, of those the fewest files, of those the lowest.
+     * Each test file's place among at most this many parts, counted from 0,
+     * by the seconds of the tests it declares, as {@see TestFileParts} places
+     * test files.
      *
      * @param  array<string, array{files: list<string>, tests: list<string>}> $units
      * @param  array<string, float>                                           $times
@@ -146,20 +149,7 @@ final readonly class TestParts
             ));
         }
 
-        uksort(
-            $seconds,
-            static fn(string $one, string $two): int => [$seconds[$two], $one] <=> [$seconds[$one], $two],
-        );
-        $loads = array_fill(0, min(max(1, $parts), max(1, count($units))), [0.0, 0]);
-        $assigned = [];
-
-        foreach ($seconds as $file => $time) {
-            $least = self::leastOf($loads);
-            $loads[$least] = [$loads[$least][0] + $time, $loads[$least][1] + 1];
-            $assigned[$file] = $least;
-        }
-
-        return $assigned;
+        return TestFileParts::placed($seconds, $parts);
     }
 
     /** Whether the shard's part holds this test. */
@@ -247,23 +237,6 @@ final readonly class TestParts
             $this->owns($covering, $mutant, $killer) => TestShare::OwnedPart,
             default => TestShare::OtherPart,
         };
-    }
-
-    /**
-     * The part with the least time so far, of those the fewest files, of
-     * those the lowest.
-     *
-     * @param list<array{float, int}> $loads each part's time and files so far
-     */
-    private static function leastOf(array $loads): int
-    {
-        $least = 0;
-
-        foreach ($loads as $at => $load) {
-            $least = $load < $loads[$least] ? $at : $least;
-        }
-
-        return $least;
     }
 
     /** The part a test belongs to; the first, for a test of no file cut. */

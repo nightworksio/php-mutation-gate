@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\PackageWork;
+use NightWorksIO\MutationGate\Core\Plan\Run;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -44,4 +48,19 @@ it('groups its units by package, packages and units each in path order', functio
         ['packages/a/src/A.php'],
         ['packages/b/src/B.php'],
     ]);
+});
+
+it('prices each package\'s parts of the test files by the coverage map it is timed by', function () use ($weighed): void {
+    $map = CoverageMap::of()
+        ->covered(Path::of('src/A.php'), Line::of(1), TestId::of('ATest::one'))
+        ->timed(TestId::of('ATest::one'), Seconds::of(1.0))
+        ->timed(TestId::of('BTest::one'), Seconds::of(1.0));
+    $work = Workload::of($weighed('src/A.php', '.'));
+    $costs = static fn(Workload $work): array => array_map(
+        static fn(Run $run): float => $run->cost()->seconds(),
+        $work->byPackage()[0]->parts(2),
+    );
+
+    expect($costs($work->timedBy($map)))->toBe([1.0, 0.0])
+        ->and($costs($work))->toBe([0.5, 0.5]);
 });

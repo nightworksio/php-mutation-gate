@@ -310,6 +310,7 @@ final class Records
         $id = $record->field(RecordField::Id->value)->text();
         $start = $record->field(RecordField::Start->value);
         $end = $record->field(RecordField::End->value);
+        $place = $record->field(RecordField::Place->value);
 
         if ($start->integer() < 1) {
             throw NotInShape::at($start->at(), 'a line of a file, which counts from 1');
@@ -327,6 +328,7 @@ final class Records
             $record->field(RecordField::Mutator->value)->text(),
             $record->field(RecordField::Diff->value)->text(),
             DiskPath::of($record->field(RecordField::Mutated->value)->text()),
+            $place->isPresent() ? $place->integer() : NotGiven::value(),
         );
 
         if ($record->field(RecordField::Event->value)->text() === RecordEvent::Twin->value) {

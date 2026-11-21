@@ -59,7 +59,7 @@ final readonly class Plan implements Countable, IteratorAggregate
             $base,
             RunOn::detached(CannotTell::because('The plan was made without asking what it runs on.')),
             $keys,
-            Shards::of(...array_values($numbered)),
+            Shards::of(...array_values($numbered))->tailing($shards->tail()),
             Considered::everything(),
             CannotJudge::because(self::UNNAMED),
             Undigested::proof(),

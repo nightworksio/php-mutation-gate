@@ -38,7 +38,12 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * went on for once it stopped, in seconds, which each job's stop is read
  * from, and the median factor of their covering tests' seconds second passes
  * took, which the second wave's shares are priced by; a file without one
- * learned none (ADR-0196). `unchangedSince` or `reachedNothingSince` holds the
+ * learned none (ADR-0196). `tailLimit` and `tailPool` hold the longest a
+ * job may run, in seconds, and how many jobs run at once, which a job that
+ * runs its own tail stops by and a second wave folds its shares to, and
+ * `ownTail`, `true` where the plan's jobs run their own tail; a file without
+ * them stops its jobs at their target and cuts its second wave as before
+ * (ADR-0303). `unchangedSince` or `reachedNothingSince` holds the
  * commit whose verdict stands for a plan that runs nothing, by why it stands
  * ({@see StandsBecause}, {@see PassedRecord}), `at` among its fields; a plan
  * without either runs what it plans. `held` holds what the plan measured of
@@ -63,6 +68,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  *     learnedSetup?: float,
  *     learnedWindDown?: float,
  *     learnedPassTwo?: float,
+ *     tailLimit?: float,
+ *     tailPool?: int,
+ *     ownTail?: true,
  *     unchangedSince?: PassedWritten,
  *     reachedNothingSince?: PassedWritten,
  *     held?: HeldWritten,
@@ -106,6 +114,7 @@ final readonly class BriefingRecord
             ...$multiple instanceof NotGiven ? [] : [self::MULTIPLE => $multiple->times()],
             ...$pace instanceof NotGiven ? [] : [self::PACE => $pace->times()],
             ...self::jobsOf($briefing->learned()->jobs()),
+            ...JobTailRecord::of($briefing->learned()->tail()),
             ...$unchanged instanceof Unchanged
                 ? [$unchanged->because()->value => PassedRecord::of($unchanged->base())]
                 : [],
@@ -130,7 +139,9 @@ final readonly class BriefingRecord
             : $briefing;
         $briefing = RunProfileRecord::isTrue($file->field(self::EARLY)) ? $briefing->plannedEarly() : $briefing;
         $briefing = RunProfileRecord::isTrue($file->field(self::WAITS)) ? $briefing->waitingForAMap() : $briefing;
-        $briefing = $briefing->learning(self::killsIn($file)->timing(self::jobsIn($file)));
+        $briefing = $briefing->learning(
+            self::killsIn($file)->timing(self::jobsIn($file))->tailing(JobTailRecord::read($file)),
+        );
         $held = $file->field(MeasuredHoldsRecord::FIELD);
         $briefing = $held->isPresent() ? $briefing->measuring(MeasuredHoldsRecord::read($held)) : $briefing;
 

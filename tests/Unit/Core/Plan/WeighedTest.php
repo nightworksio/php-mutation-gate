@@ -32,6 +32,18 @@ it('weighs its unit at an alike share of each part of the test files, on the sam
         ->and($weighed->sharedAmong(TestPart::whole())->cost())->toEqual(Seconds::of(12.0));
 });
 
+it('weighs its unit at a share of a whole of its cost, on the same basis, keeping its control', function (): void {
+    $weighed = Weighed::of(Unit::file(Path::of('src/Money.php')), Package::at(Path::root()), Estimated::of(Seconds::of(12.0), CostBasis::Measured))
+        ->controlledWithin(Seconds::of(10.0));
+    $shared = $weighed->sharedAs(3.0, 4.0);
+
+    expect($shared->cost())->toEqual(Seconds::of(9.0))
+        ->and($shared->estimated()->basis())->toBe(CostBasis::Measured)
+        ->and($shared->control())->toEqual(Seconds::of(10.0))
+        ->and($shared->unit())->toBe($weighed->unit())
+        ->and($weighed->sharedAs(0.0, 4.0)->cost())->toEqual(Seconds::of(0.0));
+});
+
 it('asks for no control until one is given, and keeps it whole across the parts of the test files', function (): void {
     $weighed = Weighed::of(Unit::file(Path::of('src/Money.php')), Package::at(Path::root()), Estimated::of(Seconds::of(12.0), CostBasis::Learned));
     $controlled = $weighed->controlledWithin(Seconds::of(10.0));

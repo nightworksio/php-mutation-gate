@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Order\RiskOrder;
@@ -62,15 +63,22 @@ final readonly class PlannedShards
         Cut $cut,
         Seconds $suite,
         RiskOrder $order,
+        CoverageMap $map,
     ): Shards|CannotJudge {
         $opening = $this->adapters->runner->behaviour()->opensEachShard() ? $suite : Seconds::none();
         $unmarked = new RunnerMarkers($this->adapters, $this->settings)->refusing($toRun);
         $shards = $unmarked instanceof Units
-            ? $cut->opening($opening)->cut($this->workload($unmarked, $trees, $ledgers, $firstRun), $trees)
+            ? $cut->opening($opening)
+                ->cut($this->workload($unmarked, $trees, $ledgers, $firstRun)->timedBy($map), $trees)
             : $unmarked;
-        $rooted = $shards instanceof Shards ? $this->rooted($shards, $order) : $shards;
 
-        return $rooted instanceof Shards ? $this->opened($rooted, $opening) : $rooted;
+        if (! $shards instanceof Shards) {
+            return $shards;
+        }
+
+        $rooted = $this->rooted($shards, $order);
+
+        return $rooted instanceof Shards ? $this->opened($rooted, $opening)->tailing($shards->tail()) : $rooted;
     }
 
     /**

@@ -9,6 +9,7 @@ use function array_key_exists;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function usort;
 
@@ -33,6 +34,7 @@ final readonly class PlannedMutant
         private DiskPath $mutated,
         private int $occurrence = 0,
         private bool $twin = false,
+        private int|NotGiven $place = new NotGiven(),
     ) {
     }
 
@@ -44,8 +46,9 @@ final readonly class PlannedMutant
         string $mutator,
         string $diff,
         DiskPath $mutated,
+        int|NotGiven $place = new NotGiven(),
     ): self {
-        return new self($id, $file, $start, $end, $mutator, $diff, $mutated);
+        return new self($id, $file, $start, $end, $mutator, $diff, $mutated, place: $place);
     }
 
     /**
@@ -64,6 +67,7 @@ final readonly class PlannedMutant
             $this->mutated,
             $this->occurrence,
             twin: true,
+            place: $this->place,
         );
     }
 
@@ -83,6 +87,7 @@ final readonly class PlannedMutant
             $copy,
             $this->occurrence,
             $this->twin,
+            $this->place,
         );
     }
 
@@ -139,6 +144,7 @@ final readonly class PlannedMutant
                 $mutant->mutated,
                 $occurrence,
                 $mutant->twin,
+                $mutant->place,
             );
             $seen[$mutant->id] = $occurrence + 1;
         }
@@ -178,6 +184,15 @@ final readonly class PlannedMutant
     public function occurrence(): int
     {
         return $this->occurrence;
+    }
+
+    /**
+     * Its place among the mutants of its whole file that make its change, as
+     * the run that made it placed it (ADR-0306); none where it did not.
+     */
+    public function place(): int|NotGiven
+    {
+        return $this->place;
     }
 
     public function file(): DiskPath

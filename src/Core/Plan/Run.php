@@ -38,11 +38,11 @@ final readonly class Run implements Countable, IteratorAggregate
         return new self(array_values($units), TestPart::whole());
     }
 
-    /** These units, each weighed at its share of this part of the test files, which judges them (ADR-0117). */
-    public static function inPart(TestPart $part, Weighed ...$units): self
+    /** These units, each weighed at its price in this part of the test files, which judges them (ADR-0117). */
+    public static function inPart(TestPart $part, PartPrices $prices, Weighed ...$units): self
     {
         return new self(
-            array_map(static fn(Weighed $unit): Weighed => $unit->sharedAmong($part), array_values($units)),
+            array_map(static fn(Weighed $unit): Weighed => $prices->weighed($unit, $part), array_values($units)),
             $part,
         );
     }
