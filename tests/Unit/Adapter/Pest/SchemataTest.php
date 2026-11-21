@@ -104,7 +104,7 @@ it('keeps the schemata of the files it is asked for, and the switches of their m
         ->and(Schemata::variablesOf($tax))->toBe([]);
 });
 
-it('writes the schemata of two files beside a folder of copies not made yet', function (): void {
+it('writes the schemata of two files beside a folder of copies not made yet, in a directory not made yet either', function (): void {
     $root = Scratch::directory();
     $code = "<?php\n\nreturn 1 + 2;\n";
     $plus = generatedNode($code, Plus::class);
@@ -115,11 +115,11 @@ it('writes the schemata of two files beside a folder of copies not made yet', fu
         $file = strval(realpath(sprintf('%s/src/%s.php', $root, $name)));
         $mutant = Mutations::mutation($file, $name, 3);
         Schemata::sited($mutant, $plus, new Minus($plus->left, $plus->right));
-        Schemata::written($file, $code, sprintf('%s/mutations', $root));
+        Schemata::written($file, $code, sprintf('%s/temporary/mutations', $root));
         $schemata[] = Schemata::variablesOf($mutant)[GateVariable::Schema->value];
     }
 
-    expect(is_dir(sprintf('%s/mutations', $root)))->toBeTrue()
+    expect(is_dir(sprintf('%s/temporary/mutations', $root)))->toBeTrue()
         ->and(array_map(static fn(string $schema): string|false => file_get_contents($schema), $schemata))
         ->each->toContain('? (1 - 2) : (1 + 2)');
 });

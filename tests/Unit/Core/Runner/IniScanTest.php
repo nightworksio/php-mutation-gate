@@ -38,9 +38,30 @@ it('gives a process started from one that added a directory what PHP scanned bef
     'set' => ['/etc/php.d'],
 ]);
 
-it('restores nothing where no run added a directory, and leaves the variable as it is where it no longer holds what the run made of it', function (): void {
+it('restores nothing where no run added a directory, and leaves the variable as it is where it no longer starts with what the run made of it', function (): void {
     $added = IniScan::adding('/off', [IniScan::VARIABLE => '/etc/php.d']);
 
     expect(IniScan::restored([IniScan::VARIABLE => '/etc/php.d']))->toBe([])
-        ->and(IniScan::restored([...$added, IniScan::VARIABLE => '/elsewhere']))->toBe([IniScan::KEPT => false, IniScan::ADDED => false]);
+        ->and(IniScan::restored([...$added, IniScan::VARIABLE => '/elsewhere']))->toBe([IniScan::KEPT => false, IniScan::ADDED => false])
+        ->and(IniScan::restored([...$added, IniScan::VARIABLE => '/etc/php.d:/offer']))->toBe([IniScan::KEPT => false, IniScan::ADDED => false]);
+});
+
+it('drops only the run\'s directory where another was added after it, keeping that one after what PHP scanned before', function (string|false $before, string $kept): void {
+    $inherited = scanningBefore($before);
+    $added = [...$inherited, ...IniScan::adding('/off', $inherited)];
+    $capped = [...$added, IniScan::VARIABLE => sprintf('%s:/cap:/children', $added[IniScan::VARIABLE])];
+
+    expect(IniScan::restored($capped))->toBe([IniScan::VARIABLE => $kept, IniScan::KEPT => false, IniScan::ADDED => false]);
+})->with([
+    'unset' => [false, ':/cap:/children'],
+    'empty' => ['', '/cap:/children'],
+    'set' => ['/etc/php.d', '/etc/php.d:/cap:/children'],
+]);
+
+it('drops only the run\'s directory where it was added after another, as a memory cap\'s', function (): void {
+    $capped = [IniScan::VARIABLE => ':/cap'];
+    $added = [...$capped, ...IniScan::adding('/off', $capped)];
+
+    expect(IniScan::restored([...$added, IniScan::VARIABLE => sprintf('%s:/children', $added[IniScan::VARIABLE])]))
+        ->toBe([IniScan::VARIABLE => ':/cap:/children', IniScan::KEPT => false, IniScan::ADDED => false]);
 });
