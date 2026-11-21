@@ -120,6 +120,35 @@ final readonly class Patch
 
     private const string MUTATION = 'Mutation.php';
 
+    private const string NODE_VISITOR = 'Support/NodeVisitor.php';
+
+    private const string SPANNED_SHIPS = <<<'PHP'
+                if ($this->linesToMutate !== [] && array_filter(
+        PHP;
+
+    private const string SPANNED_BECOMES = <<<'PHP'
+                {MARK} a node's mutant is made where a line its mutant spans is one to mutate (ADR-0307).
+                if ($this->linesToMutate !== [] && class_exists(\%1$s::class)) {
+                    if (! \%1$s::touches($node, $this->linesToMutate)) {
+                        return null;
+                    }
+                } elseif ($this->linesToMutate !== [] && array_filter(
+        PHP;
+
+    private const string LAST_SHIPS = <<<'PHP'
+                $endLine = $originalNode->getEndLine();
+
+                if (
+        PHP;
+
+    private const string LAST_BECOMES = <<<'PHP'
+                {MARK} a mutant's last line is counted by the rule its making is filtered by (ADR-0307).
+                $endLine = class_exists(\%1$s::class) ? \%1$s::lastOf($originalNode) : $originalNode->getEndLine();
+
+                if (
+                    ! class_exists(\%1$s::class) &&
+        PHP;
+
     private const string PARSE_SHIPS = <<<'PHP'
                             $stmts = $parser->parse($contents);
         PHP;
@@ -888,6 +917,8 @@ final readonly class Patch
             Hunk::in(self::GENERATOR, self::PARSE_SHIPS, sprintf(self::PARSE_BECOMES, ParsedSource::class)),
             Hunk::in(self::GENERATOR, self::TAKEN_SHIPS, sprintf(self::TAKEN_BECOMES, ParsedSource::class)),
             Hunk::in(self::MUTATION, self::PRINTED_SHIPS, sprintf(self::PRINTED_BECOMES, ParsedSource::class)),
+            Hunk::in(self::MUTATION, self::LAST_SHIPS, sprintf(self::LAST_BECOMES, MutantSpan::class)),
+            Hunk::in(self::NODE_VISITOR, self::SPANNED_SHIPS, sprintf(self::SPANNED_BECOMES, MutantSpan::class)),
             Hunk::in(self::MUTATION_TEST, self::SWITCHED_SHIPS, sprintf(self::SWITCHED_BECOMES, Schemata::class)),
         ];
     }

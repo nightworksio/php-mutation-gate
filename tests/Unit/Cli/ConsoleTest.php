@@ -133,5 +133,5 @@ it('patches Pest in the vendor directory Composer installed the project into', f
     MutatePlugin::pristine()->into(sprintf('%s/lib/vendor', $project));
 
     expect(Commands::run($project, 'pest:patch')->output)
-        ->toBe("pest:patch patched 6 of the 6 files it changes in pest-plugin-mutate. pest:patch patched 4 of the 4 files it changes in pest.\n");
+        ->toBe("pest:patch patched 7 of the 7 files it changes in pest-plugin-mutate. pest:patch patched 4 of the 4 files it changes in pest.\n");
 });
