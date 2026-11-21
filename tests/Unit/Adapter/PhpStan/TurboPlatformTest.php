@@ -11,6 +11,7 @@ it('names the platform PHPStan builds its turbo extension for by the machine, it
     'an Intel Linux on glibc' => ['x86_64', System::Linux, false, 'linux-gnu-x86_64'],
     'an amd64 Linux on musl' => ['AMD64', System::Linux, true, 'linux-musl-x86_64'],
     'an ARM Linux' => ['aarch64', System::Linux, false, 'linux-gnu-arm64'],
+    'an ARM Linux on musl' => ['arm64', System::Linux, true, 'linux-musl-arm64'],
     'an ARM Mac' => ['arm64', System::Darwin, false, 'macos-arm64'],
     'an Intel Mac' => ['x86_64', System::Darwin, false, ''],
     'an Intel Windows' => ['AMD64', System::Windows, false, 'windows-x86_64'],

@@ -11,10 +11,6 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use function proc_close;
 use function proc_open;
 
-use const STDERR;
-use const STDIN;
-use const STDOUT;
-
 /**
  * A program run on this process's own standard streams, as a command that
  * hands the terminal over runs it, and waited for.
@@ -31,7 +27,7 @@ final readonly class Attached
     public static function exitOf(array $line): int|NotGiven
     {
         $pipes = [];
-        $process = proc_open($line, [STDIN, STDOUT, STDERR], $pipes);
+        $process = proc_open($line, [], $pipes);
 
         return is_resource($process) ? proc_close($process) : NotGiven::value();
     }

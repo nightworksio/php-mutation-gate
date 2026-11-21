@@ -45,7 +45,7 @@ it('lists the files inside a unit as within answers: its own file, or each file 
         ->with(MadeFile::of(Path::of('src/Kernel/A.php'), Line::of(7)))
         ->with(MadeFile::of(Path::of('123'), Line::of(2)));
 
-    expect(array_map(static fn(MadeFile $file): string => $file->path()->value(), $made->inside(Path::of($unit))))->toBe($inside);
+    expect(array_map(static fn(MadeFile $file): string => $file->path()->value(), [...$made->inside(Path::of($unit))]))->toBe($inside);
 })->with([
     'its own file' => ['src/KernelX.php', ['src/KernelX.php']],
     'a file named as a number' => ['123', ['123']],

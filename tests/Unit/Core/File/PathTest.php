@@ -92,7 +92,7 @@ describe('Path', function (): void {
         $differing = [];
 
         foreach ($paths as $one) {
-            $enclosing = array_map(static fn(Path $path): string => $path->value(), Path::of($one)->enclosing());
+            $enclosing = array_map(static fn(Path $path): string => $path->value(), [...Path::of($one)->enclosing()]);
 
             foreach ($paths as $other) {
                 $within = Path::of($one)->within(Path::of($other));
@@ -103,7 +103,7 @@ describe('Path', function (): void {
         }
 
         expect($differing)->toBe([])
-            ->and(array_map(static fn(Path $path): string => $path->value(), Path::of('src/Core/Money.php')->enclosing()))
+            ->and(array_map(static fn(Path $path): string => $path->value(), [...Path::of('src/Core/Money.php')->enclosing()]))
             ->toBe(['src/Core/Money.php', 'src/Core', 'src', '.']);
     });
 

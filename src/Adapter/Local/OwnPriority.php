@@ -89,7 +89,7 @@ final class OwnPriority
     /** This process at this niceness, where it is above the one it has. */
     private function niced(int $nice): void
     {
-        $now = function_exists('pcntl_getpriority') ? pcntl_getpriority($this->process) : false;
+        $now = function_exists('pcntl_getpriority') ? pcntl_getpriority($this->process) : $nice;
 
         if (is_int($now) && $nice > $now) {
             pcntl_setpriority($nice, $this->process);

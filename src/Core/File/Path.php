@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\File;
 
 use function array_filter;
+use function array_key_exists;
 use function array_last;
 use function array_map;
 use function array_pop;
@@ -87,16 +88,10 @@ final readonly class Path
 
     /**
      * Every path this one is within, as `within` answers it: itself, each
-     * directory above it and the root.
-     *
-     * @return list<self>
+     * directory above it and the root, in that order.
      */
-    public function enclosing(): array
+    public function enclosing(): Paths
     {
-        if ($this->value === self::ROOT) {
-            return [$this];
-        }
-
         $enclosing = [$this];
         $above = $this->value;
         $slash = mb_strrpos($above, '/');
@@ -107,7 +102,7 @@ final readonly class Path
             $slash = mb_strrpos($above, '/');
         }
 
-        return [...$enclosing, new self(self::ROOT)];
+        return Paths::of(...$enclosing)->with(new self(self::ROOT));
     }
 
     /** This path as a directory it is inside spells it; a path not inside it is answered as it is. */
@@ -211,7 +206,11 @@ final readonly class Path
         $base = $directory->segments();
         $shared = 0;
 
-        while ($shared < count($base) && $shared < count($target) && $base[$shared] === $target[$shared]) {
+        foreach ($base as $segment) {
+            if (! array_key_exists($shared, $target) || $target[$shared] !== $segment) {
+                break;
+            }
+
             $shared++;
         }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Adapter\Serve\OutbreakDaemon;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\CacheStore;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Outbreak as OutbreakSettings;
 use NightWorksIO\MutationGate\Core\Config\OutbreakServe;
@@ -30,6 +31,9 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\CacheClass;
+use NightWorksIO\MutationGate\Core\Proof\CacheRequest;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Reach\GraphAnswer;
 use NightWorksIO\MutationGate\Core\Reach\GraphQuestion;
 use NightWorksIO\MutationGate\Core\Reach\ReachGraph;
@@ -365,4 +369,17 @@ it('starts the binary on a report\'s outline at once and waits for its answer on
 
     expect($none)->toEqual(NotGiven::value())
         ->and($pending->outline())->toEqual(MapOutline::listed(TestIds::of(), [], []));
+})->group(...$holds);
+
+it('asks the binary to pull and push the proof cache\'s packs, and says there is no binary where there is none', function (): void {
+    $request = CacheRequest::to(CacheStore::Actions, NotGiven::value(), Digest::of(str_repeat('b', 64)), LedgerLimits::standard())
+        ->for(CacheClass::Trusted, Path::of('pulled.pack'), Path::of('restored'));
+    $pulling = OutbreakStandIn::answering('{"outbreak":1,"pulled":2}');
+    $none = NotWritten::because('No Outbreak binary is in use.');
+
+    expect(Outbreak::at($pulling->binary(), '/project')->pulled($request))
+        ->toEqual(Written::noting('/project', 'Outbreak pulled 2 of the proof cache\'s packs.'))
+        ->and($pulling->arguments())->toBe('cache pull')
+        ->and(Outbreak::none('/project')->pulled($request))->toEqual($none)
+        ->and(Outbreak::none('/project')->pushed($request))->toEqual($none);
 })->group(...$holds);

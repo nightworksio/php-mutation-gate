@@ -95,21 +95,3 @@ it('keeps the mutants a shard\'s part of the test files reached, in their order'
     expect($natives(Mutants::of($at('a', MutantStatus::Survived), $at('b', MutantStatus::NotReached), $at('c', MutantStatus::Killed))->reached()))
         ->toBe(['a', 'c']);
 });
-
-it('holds the mutants inside each unit, by its path, in their order: its own file\'s, or those of every file inside its held path', function (): void {
-    $mutant = static fn(string $file, int $line): Mutant => Mutant::of(
-        MutantId::hash(Path::of($file), 'Minus', '- a + b', $line),
-        sprintf('%s-%d', $file, $line),
-        Location::of(Path::of($file), Line::of($line), Line::of($line)),
-        Mutation::of('Minus', MutatorFamily::Arithmetic, '- a + b'),
-        MutantStatus::Survived,
-        Unmeasured::duration(),
-    );
-    $inside = Mutants::of($mutant('src/KernelX.php', 2), $mutant('src/Kernel/Deep/B.php', 7), $mutant('src/Kernel/A.php', 3), $mutant('2026', 1))
-        ->inside(Path::of('src/Kernel'), Path::of('src/KernelX.php'), Path::of('2026'), Path::of('src/Other.php'));
-
-    expect(array_map(
-        static fn(array $mutants): array => array_map(static fn(Mutant $one): int => $one->location()->start()->number(), $mutants),
-        $inside,
-    ))->toBe(['src/Kernel' => [7, 3], 'src/KernelX.php' => [2], '2026' => [1], 'src/Other.php' => []]);
-});

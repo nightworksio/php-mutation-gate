@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MergedParts;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantsInside;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -91,11 +92,11 @@ final readonly class MergedUnits
         $ran = [];
 
         foreach ($read as [$shard, $result, $mutated]) {
-            $inside = $mutated->mutants()->inside(...$shard->units()->paths());
+            $inside = MutantsInside::of($mutated->mutants(), ...$shard->units()->paths());
 
             foreach ($shard->units() as $unit) {
                 if (! $result->held()->misses()->misses($unit->path()) && ! $result->unjudged()->has($unit->path())) {
-                    $ran[$unit->path()->value()][] = [$result, $mutated, $inside[$unit->path()->value()]];
+                    $ran[$unit->path()->value()][] = [$result, $mutated, [...$inside->in($unit->path())]];
                 }
             }
         }

@@ -15,7 +15,6 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
-use NightWorksIO\MutationGate\Core\File\Path;
 use Traversable;
 
 /**
@@ -83,31 +82,6 @@ final readonly class Mutants implements Countable, IteratorAggregate
     public function counting(MutantStatus $status): int
     {
         return count(array_filter($this->mutants, static fn(Mutant $mutant): bool => $mutant->status() === $status));
-    }
-
-    /**
-     * These mutants inside each of these units, by the unit's path, in their
-     * order: those of its file, or of the files inside its held path.
-     *
-     * @return array<string, list<Mutant>>
-     */
-    public function inside(Path ...$units): array
-    {
-        $inside = [];
-
-        foreach ($units as $unit) {
-            $inside[$unit->value()] = [];
-        }
-
-        foreach ($this->mutants as $mutant) {
-            foreach ($mutant->location()->file()->enclosing() as $unit) {
-                if (array_key_exists($unit->value(), $inside)) {
-                    $inside[$unit->value()][] = $mutant;
-                }
-            }
-        }
-
-        return $inside;
     }
 
     /** @return Traversable<int, Mutant> */

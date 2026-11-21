@@ -61,14 +61,12 @@ final readonly class MadeLines implements IteratorAggregate
     /**
      * The files it made on some lines alone that are inside a unit: the
      * unit's own file, or each file inside its held path, in their order.
-     *
-     * @return list<MadeFile>
      */
-    public function inside(Path $unit): array
+    public function inside(Path $unit): self
     {
-        return array_key_exists($unit->value(), $this->files)
-            ? [$this->files[$unit->value()]]
-            : array_values(array_filter($this->files, static fn(MadeFile $file): bool => $file->path()->within($unit)));
+        return new self(array_key_exists($unit->value(), $this->files)
+            ? [$unit->value() => $this->files[$unit->value()]]
+            : array_filter($this->files, static fn(MadeFile $file): bool => $file->path()->within($unit)));
     }
 
     /** @return Traversable<int, MadeFile> */
