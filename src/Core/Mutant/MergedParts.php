@@ -14,6 +14,9 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sort;
+
+use const SORT_STRING;
+
 use function sprintf;
 use function strval;
 
@@ -193,12 +196,12 @@ final readonly class MergedParts
         $made = [];
 
         foreach ($located as $id => $location) {
-            $made = $lines->makes($location->file(), $location->start(), $location->last())
-                ? [...$made, strval($id)]
-                : $made;
+            if ($lines->makes($location->file(), $location->start(), $location->last())) {
+                $made[] = strval($id);
+            }
         }
 
-        sort($made);
+        sort($made, SORT_STRING);
 
         return $made;
     }
@@ -216,7 +219,7 @@ final readonly class MergedParts
             $ids[] = $mutant->id()->value();
         }
 
-        sort($ids);
+        sort($ids, SORT_STRING);
 
         return $ids;
     }

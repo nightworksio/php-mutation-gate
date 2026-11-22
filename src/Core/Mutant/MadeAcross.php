@@ -64,7 +64,7 @@ final readonly class MadeAcross
         $listed = [];
 
         foreach ($made as $lines) {
-            foreach ($lines as $file) {
+            foreach ($lines->inside($unit) as $file) {
                 $listed[$file->path()->value()][] = $file;
             }
         }
@@ -72,7 +72,7 @@ final readonly class MadeAcross
         $byAll = [];
 
         foreach ($listed as $file => $parts) {
-            $byAll += count($parts) === count($made) && Path::of($file)->within($unit) ? [$file => $parts] : [];
+            $byAll += count($parts) === count($made) ? [$file => $parts] : [];
         }
 
         return $byAll;

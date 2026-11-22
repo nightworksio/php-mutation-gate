@@ -135,4 +135,14 @@ describe('Shards', function (): void {
         expect(Shards::of(planning: Planning::of(chunkMinutes: 30))->planning()->chunk())->toEqual(Seconds::of(1800))
             ->and(Shards::none()->planning())->toEqual(Planning::of());
     });
+
+    it('stops a job at shards.jobLimit alone where no target is set, and at the sooner of the two where one is', function (): void {
+        $setup = Seconds::of(60.0);
+        $windDown = Seconds::of(35.0);
+        $limited = Shards::of(jobLimit: Seconds::minutes(50))->stop();
+        $targeted = Shards::of(target: Seconds::minutes(20), jobLimit: Seconds::minutes(50))->stop();
+
+        expect($limited->after($setup, $windDown))->toEqual(Seconds::minutes(50))
+            ->and($targeted->after($setup, $windDown))->toEqual(Seconds::of(1200.0 - 60.0 - 35.0 - $targeted->margin()->seconds()));
+    });
 })->group('holds:src/Core/Config/Shards.php');

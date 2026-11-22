@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
 use NightWorksIO\MutationGate\Core\OwnScript;
+use NightWorksIO\MutationGate\Core\Runner\IniScan;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -155,6 +156,28 @@ it('hands Pest none of the variables it is told to withhold, and every other', f
     expect($environment)->toMatchArray(['DEPLOY_KEY' => false, 'DEPLOY_HOST' => false])
         ->and($environment)->not->toHaveKey('AWS_SECRET_ACCESS_KEY');
 });
+
+it('starts Pest from a mutation run\'s process scanning what PHP scanned before the run, and every directory added after the run\'s own', function (string $scanned, string|false $restored): void {
+    $names = [IniScan::VARIABLE, IniScan::KEPT, IniScan::ADDED];
+    $before = array_map(getenv(...), $names);
+
+    try {
+        putenv(sprintf('%s=%s', IniScan::VARIABLE, $scanned));
+        putenv(sprintf('%s=%s', IniScan::KEPT, 'unset'));
+        putenv(sprintf('%s=%s', IniScan::ADDED, '/off'));
+
+        $environment = Command::pest('pest', Withheld::standard())->environment();
+    } finally {
+        foreach ($names as $at => $name) {
+            putenv(is_string($before[$at]) ? sprintf('%s=%s', $name, $before[$at]) : $name);
+        }
+    }
+
+    expect($environment)->toMatchArray([IniScan::VARIABLE => $restored, IniScan::KEPT => false, IniScan::ADDED => false]);
+})->with([
+    'the run\'s alone' => [':/off', false],
+    'a memory cap\'s after it' => [':/off:/cap', ':/cap'],
+]);
 
 it('runs Pest through the client of the warm worker its slot tells it, inside the launcher where it has one, and runs anything else as it is', function (): void {
     $pest = Command::pest('vendor/bin/pest', Withheld::standard(), '--bail', 'tests')->within(Seconds::of(5.0))->with(['A' => 'b']);

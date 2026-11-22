@@ -1772,12 +1772,12 @@
                                 "packed": {
                                     "type": "integer",
                                     "minimum": 1,
-                                    "default": 4200000
+                                    "default": 8100000
                                 },
                                 "unpacked": {
                                     "type": "integer",
                                     "minimum": 1,
-                                    "default": 85000000
+                                    "default": 201200000
                                 }
                             },
                             "additionalProperties": false

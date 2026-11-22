@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_fill_keys;
 use function array_filter;
+
+use const ARRAY_FILTER_USE_BOTH;
+
 use function array_map;
 use function array_slice;
 use function array_values;
@@ -77,7 +80,8 @@ final readonly class Command
         return self::of(PHP_BINARY, ...$arguments)->with([
             ...array_filter(
                 Withholding::of($withheld->and(Withheld::otherRuns()), getenv()),
-                static fn(string|false $value): bool => $value === false,
+                static fn(string|false $value, string $name): bool => $value !== getenv($name),
+                ARRAY_FILTER_USE_BOTH,
             ),
             ...self::unset(),
             SearchPath::VARIABLE => SearchPath::phpFirst(sprintf('%s', getenv(SearchPath::VARIABLE))),

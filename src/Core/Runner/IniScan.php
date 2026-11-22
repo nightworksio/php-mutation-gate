@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_key_exists;
+use function is_string;
 use function mb_strlen;
 use function mb_substr;
 use function sprintf;
@@ -41,8 +42,10 @@ final readonly class IniScan
     /**
      * What a process started in this environment changes so it scans what
      * PHP scanned before a run added its directory; nothing where no run
-     * added one. Where the variable no longer holds what the run made of it,
-     * it is left as it is.
+     * added one. A directory added after the run's, as a memory cap's or a
+     * served child's, is kept after what PHP scanned before. Where the
+     * variable no longer starts with what the run made of it, it is left as
+     * it is.
      *
      * @param  array<string, string>       $inherited
      * @return array<string, string|false>
@@ -56,9 +59,15 @@ final readonly class IniScan
         $before = self::before($inherited[self::KEPT]);
         $made = self::scanned($before, $inherited[self::ADDED]);
         $current = array_key_exists(self::VARIABLE, $inherited) ? $inherited[self::VARIABLE] : false;
+        $after = sprintf(self::BETWEEN, $made, '');
 
         return [
-            ...$current === $made ? [self::VARIABLE => $before] : [],
+            ...match (true) {
+                $current === $made => [self::VARIABLE => $before],
+                is_string($current) && str_starts_with($current, $after)
+                    => [self::VARIABLE => self::scanned($before, mb_substr($current, mb_strlen($after)))],
+                default => [],
+            },
             self::KEPT => false,
             self::ADDED => false,
         ];

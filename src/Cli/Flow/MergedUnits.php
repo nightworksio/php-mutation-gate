@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function array_filter;
 use function array_key_exists;
 use function count;
 
@@ -13,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MergedParts;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantsInside;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -82,19 +82,21 @@ final readonly class MergedUnits
     }
 
     /**
-     * Each shard's result and mutants, by the path of each unit it ran.
+     * Each shard's result and mutants, with the mutants inside the unit, by the path of each unit it ran.
      *
-     * @param  list<array{Shard, ShardResult, MutationResult}>            $read
-     * @return array<string, list<array{ShardResult, MutationResult}>>
+     * @param  list<array{Shard, ShardResult, MutationResult}>                      $read
+     * @return array<string, list<array{ShardResult, MutationResult, list<Mutant>}>>
      */
     private static function ran(array $read): array
     {
         $ran = [];
 
         foreach ($read as [$shard, $result, $mutated]) {
+            $inside = MutantsInside::of($mutated->mutants(), ...$shard->units()->paths());
+
             foreach ($shard->units() as $unit) {
                 if (! $result->held()->misses()->misses($unit->path()) && ! $result->unjudged()->has($unit->path())) {
-                    $ran[$unit->path()->value()][] = [$result, $mutated];
+                    $ran[$unit->path()->value()][] = [$result, $mutated, [...$inside->in($unit->path())]];
                 }
             }
         }
@@ -105,14 +107,14 @@ final readonly class MergedUnits
     /**
      * A unit, its mutants merged across the shards that ran it.
      *
-     * @param non-empty-list<array{ShardResult, MutationResult}> $parts
+     * @param non-empty-list<array{ShardResult, MutationResult, list<Mutant>}> $parts
      */
     private static function merged(Unit $unit, array $parts): UnitResults|CannotJudge
     {
         $mutants = [];
 
-        foreach ($parts as [, $mutated]) {
-            $mutants[] = [self::mutantsOf($unit, $mutated->mutants()), $mutated->made()];
+        foreach ($parts as [, $mutated, $inside]) {
+            $mutants[] = [Mutants::of(...$inside), $mutated->made()];
         }
 
         $merged = MergedParts::made($unit->path(), $mutants);
@@ -127,14 +129,5 @@ final readonly class MergedUnits
                 ->withFlaky($flaky)
                 ->judgedBy($parts[0][0]->held()->covered()->testsOf($unit->path())),
         );
-    }
-
-    /** The mutants of a unit: those of its file, or of the files inside its held path. */
-    private static function mutantsOf(Unit $unit, Mutants $mutants): Mutants
-    {
-        return Mutants::of(...array_filter(
-            [...$mutants],
-            static fn(Mutant $mutant): bool => $mutant->location()->file()->within($unit->path()),
-        ));
     }
 }

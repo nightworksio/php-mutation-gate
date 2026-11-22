@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_map;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\MutantTimes;
@@ -13,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\KillPace;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
@@ -148,22 +151,24 @@ final readonly class Learning
         Plan $plan,
     ): Ledger|CannotJudge {
         $pruned = $plan->considered()->pruned()->files();
+        $limits = Handoff::limits();
         $handoff = new Handoff(
             $this->adapters->project,
-            Handoff::limits(),
+            $limits,
             $this->adapters->maps,
             $this->settings->proofs()->coverageCompressionLevel(),
         );
         $times = MutantTimes::none();
         $timings = Timings::none();
+        $read = $results->shards();
+        $shards = array_map(static fn(array $one): ShardId => $one[0]->id(), $read);
 
-        foreach ($results->shards() as [$shard, $result, $mutated]) {
-            $map = $handoff->read($shard->id());
-
+        foreach (new HandedEach($handoff, $this->adapters->project, $limits)->read(...$shards) as $at => $map) {
             if ($map instanceof CannotJudge) {
                 return $map;
             }
 
+            [$shard, $result, $mutated] = $read[$at];
             $reached = $mutated->mutants()->reached();
             $ran = $shard->units()->except($result->unjudged());
             $times = $times->and(MutantTimes::of($reached, $map, $result->measured()->spent()));

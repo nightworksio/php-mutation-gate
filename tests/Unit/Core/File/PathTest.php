@@ -87,6 +87,26 @@ describe('Path', function (): void {
             ->and(Path::of('src')->within(Path::of('src/Money.php')))->toBeFalse();
     });
 
+    it('encloses itself, each directory above it and the root, as every path it is within', function (): void {
+        $paths = ['.', 'src', 'src/Money.php', 'src/Core/Money.php', 'srcs/Money.php', 'src/Core', '/abs/src/Money.php', '/abs', '/', '123', '123/4.php', 'C:/src/Money.php', 'C:'];
+        $differing = [];
+
+        foreach ($paths as $one) {
+            $enclosing = array_map(static fn(Path $path): string => $path->value(), [...Path::of($one)->enclosing()]);
+
+            foreach ($paths as $other) {
+                $within = Path::of($one)->within(Path::of($other));
+                $differing = $within === in_array(Path::of($other)->value(), $enclosing, strict: true) && count(array_unique($enclosing)) === count($enclosing)
+                    ? $differing
+                    : [...$differing, sprintf('%s in %s', $one, $other)];
+            }
+        }
+
+        expect($differing)->toBe([])
+            ->and(array_map(static fn(Path $path): string => $path->value(), [...Path::of('src/Core/Money.php')->enclosing()]))
+            ->toBe(['src/Core/Money.php', 'src/Core', 'src', '.']);
+    });
+
     it('is spelt from a directory it is inside', function (): void {
         expect(Path::of('packages/money/composer.json')->relativeTo(Path::of('packages/money'))->value())->toBe('composer.json')
             ->and(Path::of('packages/money/tests/Pest.php')->relativeTo(Path::of('packages'))->value())->toBe('money/tests/Pest.php');

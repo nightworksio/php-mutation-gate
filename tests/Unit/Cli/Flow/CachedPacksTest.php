@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Cli\Flow\Ledgers;
 use NightWorksIO\MutationGate\Cli\Flow\Standing;
 use NightWorksIO\MutationGate\Config\Outbreak as OutbreakSettings;
 use NightWorksIO\MutationGate\Config\OutbreakCache;
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -129,3 +131,31 @@ it('says how many units the plan proved by a pack\'s proof alone, and nothing wh
 
     expect($lines)->toBe($ledgered ? [] : ['The proof cache proved 1 units no ledger the run reads holds a proof of.']);
 })->with(['by a pack alone' => [false], 'by a ledger too' => [true]]);
+
+it('reads the trusted pack alone on the default branch and in a merge group, and the branch pack after it anywhere else', function (): void {
+    $packs = new CachedPacks(Flows::adapters(Flows::project()), Flows::settings(OutbreakSettings::on(), OutbreakCache::storedInActions(), OutbreakCache::trustingTheDefaultBranch()));
+    $on = static fn(RunOn $run): array => $packs->classes(Standing::planned(Planned::of()->on($run)));
+
+    expect($on(RunOn::at(Scope::branch('main'), Scope::branch('main'))))->toBe([CacheClass::Trusted])
+        ->and($on(RunOn::mergeGroup(Revision::ref('refs/heads/main'), Scope::branch('main'))))->toBe([CacheClass::Trusted])
+        ->and($on(RunOn::at(Scope::branch('feature'), Scope::branch('main'))))->toBe([CacheClass::Trusted, CacheClass::Branch]);
+});
+
+it('removes each pack the run reads before the binary takes it, and asks for each into its place', function (): void {
+    $project = Flows::project();
+    $engine = new CachingEngine();
+    Scratch::write($project, '.mutation-gate/cache/trusted.pack', 'stale');
+    Scratch::write($project, '.mutation-gate/cache/branch.pack', 'stale');
+    $standing = Standing::planned(Planned::of()->on(RunOn::at(Scope::branch('feature'), Scope::branch('main'))));
+
+    $pulled = new CachedPacks(Flows::adapters($project, [], $engine), Flows::settings(OutbreakSettings::on(), OutbreakCache::storedInActions()))
+        ->pulled($standing, Planned::of()->base());
+
+    expect($pulled)->toBeInstanceOf(Written::class)
+        ->and([is_file(sprintf('%s/.mutation-gate/cache/trusted.pack', $project)), is_file(sprintf('%s/.mutation-gate/cache/branch.pack', $project))])
+        ->toBe([false, false])
+        ->and(array_map(static fn(CacheRequest $request): array => $request->packs(), $engine->pulls))->toEqual([[
+            'trusted' => Path::of('.mutation-gate/cache/trusted.pack'),
+            'branch' => Path::of('.mutation-gate/cache/branch.pack'),
+        ]]);
+});

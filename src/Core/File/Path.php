@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\File;
 
 use function array_filter;
+use function array_key_exists;
 use function array_last;
 use function array_map;
 use function array_pop;
@@ -16,6 +17,7 @@ use function explode;
 use function implode;
 use function in_array;
 use function mb_strlen;
+use function mb_strrpos;
 use function mb_substr;
 use function sprintf;
 use function str_ends_with;
@@ -82,6 +84,25 @@ final readonly class Path
         return $directory->value === self::ROOT
             || $this->value === $directory->value
             || str_starts_with($this->value, sprintf('%s/', $directory->value));
+    }
+
+    /**
+     * Every path this one is within, as `within` answers it: itself, each
+     * directory above it and the root, in that order.
+     */
+    public function enclosing(): Paths
+    {
+        $enclosing = [$this];
+        $above = $this->value;
+        $slash = mb_strrpos($above, '/');
+
+        while ($slash !== false && $slash > 0) {
+            $above = mb_substr($above, 0, $slash);
+            $enclosing[] = new self($above);
+            $slash = mb_strrpos($above, '/');
+        }
+
+        return Paths::of(...$enclosing)->with(new self(self::ROOT));
     }
 
     /** This path as a directory it is inside spells it; a path not inside it is answered as it is. */
@@ -185,7 +206,11 @@ final readonly class Path
         $base = $directory->segments();
         $shared = 0;
 
-        while ($shared < count($base) && $shared < count($target) && $base[$shared] === $target[$shared]) {
+        foreach ($base as $segment) {
+            if (! array_key_exists($shared, $target) || $target[$shared] !== $segment) {
+                break;
+            }
+
             $shared++;
         }
 

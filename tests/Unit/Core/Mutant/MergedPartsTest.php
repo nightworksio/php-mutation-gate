@@ -39,6 +39,21 @@ function mergedPart(int $line, MutantStatus $status, string $native = ''): Mutan
     );
 }
 
+/** The mutant with this id on a line of src/Money.php, with this status, in one part. */
+function mergedPartAs(string $id, int $line, MutantStatus $status): Mutant
+{
+    $parsed = MutantId::parse($id);
+
+    return Mutant::of(
+        $parsed instanceof MutantId ? $parsed : throw new RuntimeException($parsed->why()),
+        sprintf('native-%d', $line),
+        Location::of(mergedUnit(), Line::of($line), Line::of($line)),
+        Mutation::of('Minus', MutatorFamily::Arithmetic, '- a + b'),
+        $status,
+        Unmeasured::duration(),
+    );
+}
+
 /**
  * A part's made lines: these spans of src/Money.php, each a first and last line, of a file of this many lines.
  *
@@ -205,4 +220,60 @@ it('reads a part that made a file whole as making every mutant of it, and a file
     ]);
 
     expect(mergedOutcomes($merged))->toEqualCanonicalizing([[5, 'killed'], [15, 'survived']]);
+});
+
+it('merges parts that hold the same mutants in forty orders, whatever their ids read as numbers', function (): void {
+    $ids = [
+        '0393fbdb7276', '27848a53dd70', 'e99a9631fbd0', '105436102654', '06270e550940', '097b2ebee2d4',
+        '000000000123', '1e0000000001', '0ef606e40458', '3293443e2dd6', '0a1b2c3d4e5f', '9e9999999999',
+    ];
+    $first = [];
+    $second = [];
+
+    foreach ($ids as $at => $id) {
+        $first = $at < 8 ? [...$first, mergedPartAs($id, $at + 1, MutantStatus::Killed)] : $first;
+        $second = $at >= 5 ? [...$second, mergedPartAs($id, $at + 1, MutantStatus::Survived)] : $second;
+    }
+
+    $outcomes = [];
+
+    foreach (range(1, 40) as $seed) {
+        mt_srand($seed);
+        shuffle($first);
+        shuffle($second);
+
+        $merged = MergedParts::made(mergedUnit(), [
+            [Mutants::of(...$first), mergedMade(12, [[1, 8]])],
+            [Mutants::of(...$second), mergedMade(12, [[6, 12]])],
+        ]);
+        $outcome = mergedOutcomes($merged);
+
+        if (is_array($outcome)) {
+            sort($outcome);
+        }
+
+        $outcomes[] = $outcome;
+    }
+
+    expect(array_values(array_unique(array_map(serialize(...), $outcomes))))->toBe([serialize($outcomes[0])])
+        ->and($outcomes[0])->toHaveCount(12);
+});
+
+it('merges parts made on some lines alone of a file whose path reads as a number', function (): void {
+    $file = Path::of('2026');
+    $mutant = static fn(int $line, MutantStatus $status): Mutant => Mutant::of(
+        MutantId::hash($file, 'Minus', '- a + b', $line),
+        sprintf('native-%d', $line),
+        Location::of($file, Line::of($line), Line::of($line)),
+        Mutation::of('Minus', MutatorFamily::Arithmetic, '- a + b'),
+        $status,
+        Unmeasured::duration(),
+    );
+
+    $merged = MergedParts::made($file, [
+        [Mutants::of($mutant(2, MutantStatus::Killed)), mergedMadeIn($file, 6, [[1, 3]])],
+        [Mutants::of($mutant(5, MutantStatus::Survived)), mergedMadeIn($file, 6, [[4, 6]])],
+    ]);
+
+    expect(mergedOutcomes($merged))->toBe([[2, 'killed'], [5, 'survived']]);
 });

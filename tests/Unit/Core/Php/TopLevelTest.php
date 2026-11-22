@@ -89,7 +89,7 @@ describe('TopLevel', function (): void {
         expect($top("<?php\n\nclass Money {}\n?>\n")->onlyDeclares())->toBeTrue();
     });
 
-    it('names each class, interface, trait, enum and function declared at the top, as written', function () use ($top): void {
+    it('names each class, interface, trait, enum and function declared at the top, as written and by its name in the namespace', function () use ($top): void {
         $code = <<<'PHP'
             <?php
 
@@ -115,7 +115,8 @@ describe('TopLevel', function (): void {
             });
             PHP;
 
-        expect($top($code)->declared())->toBe(['Money', 'Priced', 'Counted', 'Currency', 'format']);
+        expect($top($code)->declared())->toBe(['Money', 'Priced', 'Counted', 'Currency', 'format'])
+            ->and($top($code)->declares()->all())->toBe(['app\\money', 'app\\priced', 'app\\counted', 'app\\currency', 'app\\format']);
     });
 
     it('names what is declared before a last statement with no end', function () use ($top): void {

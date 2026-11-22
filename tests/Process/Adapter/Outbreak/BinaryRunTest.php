@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Outbreak\BinaryRun;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\OutbreakStandIn;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Symfony\Component\Process\Process;
@@ -50,3 +52,24 @@ it('says why the binary could not be started where its working directory is gone
 
     expect($started instanceof BinaryRun ? 'started' : $started->why())->toContain('cwd');
 })->group(...$holds);
+
+it('cannot start the binary where this process can open no file to hand it its input', function (): void {
+    $limit = posix_getrlimit();
+    $soft = is_array($limit) ? $limit['soft openfiles'] : 'unlimited';
+    $hard = is_array($limit) ? $limit['hard openfiles'] : 'unlimited';
+    posix_setrlimit(POSIX_RLIMIT_NOFILE, 0, $hard === 'unlimited' ? POSIX_RLIMIT_INFINITY : (int) $hard);
+
+    try {
+        $started = BinaryRun::started('/bin/true', ['contract'], '', Seconds::of(5.0));
+    } finally {
+        posix_setrlimit(POSIX_RLIMIT_NOFILE, $soft === 'unlimited' ? POSIX_RLIMIT_INFINITY : (int) $soft, $hard === 'unlimited' ? POSIX_RLIMIT_INFINITY : (int) $hard);
+    }
+
+    expect($started)->toEqual(NotWritten::because('No file could be made to hand Outbreak its input.'));
+})->group(...$holds);
+
+it('takes no answer that names no contract, or one that is not a number', function (string $answer): void {
+    $ran = BinaryRun::ran(OutbreakStandIn::answering($answer)->binary(), ['map', 'split'], '', Seconds::of(5.0));
+
+    expect($ran)->toEqual(NotWritten::because($answer));
+})->with(['no contract' => ['{"written":2}'], 'a contract in words' => ['{"outbreak":"one"}']])->group(...$holds);

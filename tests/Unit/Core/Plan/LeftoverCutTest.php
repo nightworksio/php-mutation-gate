@@ -159,3 +159,33 @@ it('stops growing at a share for each shard, where the shards alone are more tha
     expect(count($cut->matrix()))->toBe(LeftoverCut::MATRIX_MOST + 4)
         ->and(leftoverCutShares($cut->ofShard(ShardId::of(1))))->toBe(['1.1: 1 2']);
 });
+
+it('closes the oldest share whole once more than the latest few are open, and still joins a later group to the open share holding its test file', function (): void {
+    $files = [];
+    $left = [];
+    $lines = [];
+
+    foreach (range(1, 70) as $line) {
+        $files[sprintf('T%d', $line)] = 50.0 - $line / 10;
+        $left[] = leftoverCutMutant($line, sprintf('src/S%d.php', $line), [sprintf('T%d', $line)]);
+    }
+
+    $left[] = leftoverCutMutant(71, 'src/Late.php', ['T70']);
+
+    foreach (range(1, 71) as $line) {
+        $lines[leftoverCutId($line)->value()] = $line;
+    }
+
+    $shares = LeftoverCut::of(Digest::sha256Of('plan'), [1 => $left], $files, [1 => Seconds::of(60.0)], StreamWall::of(1))
+        ->ofShard(ShardId::of(1));
+    $listed = array_map(static fn(LeftoverShare $share): array => [
+        $share->number(),
+        $share->predicted()->first()->seconds(),
+        array_map(static fn(MutantId $id): int => $lines[$id->value()], [...$share->mutants()]),
+    ], $shares);
+
+    expect($listed)->toBe([
+        ...array_map(static fn(int $line): array => [$line, 50.0 - $line / 10, [$line]], range(1, 69)),
+        [70, 43.0, [70, 71]],
+    ]);
+});

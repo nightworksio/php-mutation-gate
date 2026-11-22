@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Reporting;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\LocalWork;
+use NightWorksIO\MutationGate\Core\Config\SpeedUps;
 use NightWorksIO\MutationGate\Core\Local\LocalLoop;
 use NightWorksIO\MutationGate\Core\Local\OnBattery;
 use NightWorksIO\MutationGate\Core\Local\Power;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Local\Priority;
 use NightWorksIO\MutationGate\Core\Local\System;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Watch\Watched;
@@ -135,3 +137,24 @@ it('stops holding where the wait says to stop, and holds nothing where it reduce
     'reduce' => [OnBattery::Reduce, Power::Saving],
     'run' => [OnBattery::Run, Power::Mains],
 ]);
+
+it('tells a round\'s runner the digest of the test files to list them by where local.listOnce reuses a listing, and none where it does not', function () use ($asleep, $battery, $load, $composed): void {
+    $sys = Scratch::directory();
+    $seen = Watched::in(Flows::trees());
+    $battery($sys, discharging: false);
+    $lowered = $asleep();
+    $keys = [];
+
+    try {
+        foreach ([true, false] as $listOnce) {
+            $load(LocalWork::of(speedUps: SpeedUps::of(listOnce: $listOnce)), $sys, $lowered)->fitted($composed(), Power::Mains, $seen);
+            $keys[] = getenv(ChildVariable::TestsKey->value);
+        }
+    } finally {
+        $lowered->stop(0);
+        putenv(ChildVariable::TestsKey->value);
+    }
+
+    expect($seen->testsDigest())->not->toBe('')
+        ->and($keys)->toBe([$seen->testsDigest(), '']);
+});

@@ -37,3 +37,19 @@ it('takes a later run\'s account of a file both list, and keeps every other', fu
         ->and($made->makes(Path::of('src/Money.php'), Line::of(4), Line::of(4)))->toBeFalse()
         ->and($made->makes(Path::of('src/Money.php'), Line::of(11), Line::of(11)))->toBeTrue();
 });
+
+it('lists the files inside a unit as within answers: its own file, or each file inside its held path, in their order', function (string $unit, array $inside): void {
+    $made = MadeLines::whole()
+        ->with(MadeFile::of(Path::of('src/Kernel/Deep/B.php'), Line::of(9)))
+        ->with(MadeFile::of(Path::of('src/KernelX.php'), Line::of(4)))
+        ->with(MadeFile::of(Path::of('src/Kernel/A.php'), Line::of(7)))
+        ->with(MadeFile::of(Path::of('123'), Line::of(2)));
+
+    expect(array_map(static fn(MadeFile $file): string => $file->path()->value(), [...$made->inside(Path::of($unit))]))->toBe($inside);
+})->with([
+    'its own file' => ['src/KernelX.php', ['src/KernelX.php']],
+    'a file named as a number' => ['123', ['123']],
+    'a held path' => ['src/Kernel', ['src/Kernel/Deep/B.php', 'src/Kernel/A.php']],
+    'the root' => ['.', ['src/Kernel/Deep/B.php', 'src/KernelX.php', 'src/Kernel/A.php', '123']],
+    'a file it made whole' => ['src/Tax.php', []],
+]);

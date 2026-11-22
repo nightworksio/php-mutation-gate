@@ -104,7 +104,7 @@ it('reads what a ledger keeps and how large what the gate reads may be, each at 
 
     expect([$standard->killers(), $standard->bases(), $standard->proofs(), $standard->functions()])->toBe([PHP_INT_MAX, 5, 20000, 5000])
         ->and([$standard->ledgerPacked(), $standard->ledgerUnpacked()])->toBe([11000000, 38000000])
-        ->and([$standard->mapPacked(), $standard->mapUnpacked()])->toBe([4200000, 85000000])
+        ->and([$standard->mapPacked(), $standard->mapUnpacked()])->toBe([8100000, 201200000])
         ->and($standard->handoffPacked())->toBe(256000000)
         ->and($standard->handoffUnpacked())->toBeInstanceOf(Absent::class)
         ->and([$set->killers(), $set->bases(), $set->proofs(), $set->functions()])->toBe([100, 2, 30, 40])
