@@ -100,18 +100,21 @@ final readonly class RunRecords
         $output = $ran->output();
 
         return match (true) {
-            Exhaustion::isOf(Exhaustion::in($output), $this->cap) => self::died(
-                sprintf(self::OUT_OF_MEMORY, $this->cap->written(), Exhaustion::ADVICE, $output),
-                $made,
-            ),
+            Exhaustion::isOf(Exhaustion::in($output), $this->cap) => $this->died($this->exhausted($output), $made),
             $this->opening instanceof OpeningIssues && $this->opening->endedAfterOpening($ran)
                 => $this->opening->why($ran),
-            default => self::died(sprintf(self::FAILED, self::ended($ran), $output), $made),
+            default => $this->died(sprintf(self::FAILED, $this->ended($ran), $output), $made),
         };
     }
 
+    /** That Pest's own process ran out of the memory cap, with what it said. */
+    private function exhausted(string $output): string
+    {
+        return sprintf(self::OUT_OF_MEMORY, $this->cap->written(), Exhaustion::ADVICE, $output);
+    }
+
     /** How the run's process ended: its exit code, and the signal where one ended it; nothing where none was read. */
-    private static function ended(Ran $ran): string
+    private function ended(Ran $ran): string
     {
         $code = $ran->exitCode();
 
@@ -123,7 +126,7 @@ final readonly class RunRecords
     }
 
     /** Why a run that died cannot be judged: it crashed, where it had made its mutants. */
-    private static function died(string $why, bool $made): CannotJudge
+    private function died(string $why, bool $made): CannotJudge
     {
         return $made ? CannotJudge::crashed($why) : CannotJudge::because($why);
     }
