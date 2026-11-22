@@ -32,9 +32,11 @@ use function sprintf;
  * The result a shard left for the verdict, read from its file: one of
  * another plan, of another shard or of other units cannot stand for it, nor
  * one whose runner could not judge it or skipped mutants it kept no record
- * of. Where the plan's shards pull their work (ADR-0134), an item's result is
- * the first readable one any job left, its own job's first, each mutant
- * another job's run of it judged otherwise counted flaky.
+ * of; one whose runner crashed judges none of its mutants, and voids
+ * nothing else (ADR-0330). Where the plan's shards pull their work
+ * (ADR-0134), an item's result is the first readable one any job left, its
+ * own job's first, each mutant another job's run of it judged otherwise
+ * counted flaky.
  *
  * @internal
  */
@@ -63,12 +65,16 @@ final readonly class LeftResults
         SAID;
 
     /**
-     * A shard's result; or why it cannot be judged; or the file it is missing from.
+     * A shard's result; or why it cannot be judged; or that its runner crashed; or the file it is missing from.
      *
-     * @return array{ShardResult, MutationResult}|CannotJudge|Path
+     * @return array{ShardResult, MutationResult}|CannotJudge|Crashed|Path
      */
-    public static function of(Plan $plan, Shard $shard, Path $directory, Directory $project): array|CannotJudge|Path
-    {
+    public static function of(
+        Plan $plan,
+        Shard $shard,
+        Path $directory,
+        Directory $project,
+    ): array|CannotJudge|Crashed|Path {
         return $plan->shards()->pulls()
             ? self::pulledOf($plan, $shard, $directory, $project)
             : self::readOf($plan, $shard, Workspace::result($directory, $shard->id()), $project);
@@ -79,16 +85,20 @@ final readonly class LeftResults
      * that judged a share of the mutants it left leaves one (ADR-0190); or
      * why it cannot be judged; or the file, where it is missing.
      *
-     * @return array{ShardResult, MutationResult}|CannotJudge|Path
+     * @return array{ShardResult, MutationResult}|CannotJudge|Crashed|Path
      */
-    public static function at(Plan $plan, Shard $shard, Path $file, Directory $project): array|CannotJudge|Path
+    public static function at(Plan $plan, Shard $shard, Path $file, Directory $project): array|CannotJudge|Crashed|Path
     {
         return self::readOf($plan, $shard, $file, $project);
     }
 
-    /** @return array{ShardResult, MutationResult}|CannotJudge|Path the result; or the file it is missing from */
-    private static function readOf(Plan $plan, Shard $shard, Path $file, Directory $project): array|CannotJudge|Path
-    {
+    /** @return array{ShardResult, MutationResult}|CannotJudge|Crashed|Path the result; or the file it lacks */
+    private static function readOf(
+        Plan $plan,
+        Shard $shard,
+        Path $file,
+        Directory $project,
+    ): array|CannotJudge|Crashed|Path {
         $contents = $project->read($file);
 
         return $contents instanceof Contents ? self::resultOf($plan, $shard, $contents) : $file;
@@ -101,14 +111,14 @@ final readonly class LeftResults
      * flaky; or why none can be judged; or the file its own job's is
      * missing from, where no job left one.
      *
-     * @return array{ShardResult, MutationResult}|CannotJudge|Path
+     * @return array{ShardResult, MutationResult}|CannotJudge|Crashed|Path
      */
     private static function pulledOf(
         Plan $plan,
         Shard $item,
         Path $directory,
         Directory $project,
-    ): array|CannotJudge|Path {
+    ): array|CannotJudge|Crashed|Path {
         $own = $item->worker()->number();
         $jobs = [$own, ...array_diff(array_keys(PlanJobs::of($plan)), [$own])];
         $read = [];
@@ -169,8 +179,8 @@ final readonly class LeftResults
         return $statuses;
     }
 
-    /** @return array{ShardResult, MutationResult}|CannotJudge */
-    private static function resultOf(Plan $plan, Shard $shard, Contents $contents): array|CannotJudge
+    /** @return array{ShardResult, MutationResult}|CannotJudge|Crashed */
+    private static function resultOf(Plan $plan, Shard $shard, Contents $contents): array|CannotJudge|Crashed
     {
         $result = ShardResultFile::decode($contents->text());
 
@@ -187,6 +197,7 @@ final readonly class LeftResults
             ! $result->units()->equals($plan->keys()->of($shard->units())) => CannotJudge::because(
                 sprintf(self::OTHER_UNITS, $shard->id()->number()),
             ),
+            $outcome instanceof CannotJudge && $outcome->isCrashed() => Crashed::of($result, $outcome->why()),
             $outcome instanceof CannotJudge => CannotJudge::because(
                 sprintf(self::RUNNER, $shard->id()->number(), $shard->label(), $outcome->why()),
             ),

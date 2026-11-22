@@ -335,6 +335,30 @@ it('cannot judge a run that failed, with what Pest said', function () use ($read
         ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nTests: 1 failed"));
 });
 
+it('says how a failed run\'s process ended, by its exit code and by the signal where one ended it', function () use ($read): void {
+    [$project, $results] = interpretedRun([], []);
+    PestRun::write($results, [PestRun::made(0)]);
+    $exited = $read($project, Ran::exited(255, 'x.'), $results);
+    $signalled = $read($project, Ran::signalled(11, 'x.'), $results);
+
+    expect($exited)->toEqual(CannotJudge::crashed("Pest's mutation run failed (exit code 255). Pest said:\nx."))
+        ->and($signalled)
+        ->toEqual(CannotJudge::crashed("Pest's mutation run failed (ended by signal 11, exit code 139). Pest said:\nx."));
+});
+
+it('says a run that failed after it made its mutants crashed, out of memory or otherwise, and one that failed before did not', function (bool $made, string $output) use ($read): void {
+    [$project, $results] = interpretedRun([], []);
+    PestRun::write($results, $made ? [PestRun::made(0)] : []);
+    $said = $read($project, Ran::finished(succeeded: false, output: $output), $results);
+
+    expect($said instanceof CannotJudge && $said->isCrashed())->toBe($made)
+        ->and($said instanceof CannotJudge && str_ends_with($said->why(), $output))->toBeTrue();
+})->with([
+    'made, failed' => [true, 'Segmentation fault'],
+    'made, out of memory' => [true, 'PHP Fatal error:  Allowed memory size of 67108864 bytes exhausted (tried to allocate 4096 bytes)'],
+    'not made, failed' => [false, 'Segmentation fault'],
+]);
+
 it('reads a kill whose own process ran out of exactly the gate\'s cap as out of memory, with the cap, and no other', function () use (
     $mutant,
     $plan,

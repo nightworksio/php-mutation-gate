@@ -208,7 +208,7 @@ it('keeps what Pest said of a run whose tests failed, and runs nothing again', f
     $said = "  Tests:    1 failed, 2 passed (3 assertions)\n";
 
     expect(openingRead(openingProject(), $shell, openingRan($said)))
-        ->toEqual(CannotJudge::because(sprintf("Pest's mutation run failed. Pest said:\n%s", $said)))
+        ->toEqual(CannotJudge::because(sprintf("Pest's mutation run failed (exit code 1). Pest said:\n%s", $said)))
         ->and($shell->commands())->toBe([]);
 });
 

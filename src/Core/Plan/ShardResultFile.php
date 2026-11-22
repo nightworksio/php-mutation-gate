@@ -71,6 +71,9 @@ final readonly class ShardResultFile
 
     private const string CANNOT_JUDGE = 'cannotJudge';
 
+    /** Whether the runner that could not judge the shard died while it judged its mutants (ADR-0330). */
+    private const string CRASHED = 'crashed';
+
     private const string MEASURED = 'measured';
 
     /** Where a shard's measurement names the gate that made it, as its version spells it. */
@@ -112,7 +115,10 @@ final readonly class ShardResultFile
                 ),
                 ...JobTimesRecord::of($result->measured()->job()),
             ],
-            ...$outcome instanceof CannotJudge ? [self::CANNOT_JUDGE => $outcome->why()] : [
+            ...$outcome instanceof CannotJudge ? [
+                self::CANNOT_JUDGE => $outcome->why(),
+                self::CRASHED => $outcome->isCrashed(),
+            ] : [
                 'mutants' => array_map(
                     static fn(Mutant $mutant): array => [
                         ...MutantRecord::full($mutant),
@@ -241,7 +247,10 @@ final readonly class ShardResultFile
     private static function outcomeIn(Node $file): MutationResult|CannotJudge
     {
         if ($file->field(self::CANNOT_JUDGE)->isPresent()) {
-            return CannotJudge::because($file->field(self::CANNOT_JUDGE)->text());
+            return CannotJudge::told(
+                $file->field(self::CANNOT_JUDGE)->text(),
+                crashed: $file->field(self::CRASHED)->isPresent() && $file->field(self::CRASHED)->boolean(),
+            );
         }
 
         $mutants = [];

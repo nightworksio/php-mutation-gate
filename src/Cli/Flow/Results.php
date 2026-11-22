@@ -30,7 +30,7 @@ use function sprintf;
 
 /**
  * Every shard's result, read from the files the shards left. The verdict
- * requires one for every shard in the plan: a shard that crashed, was
+ * requires one for every shard in the plan: a shard whose job was lost,
  * cancelled or never started left none, and the verdict cannot judge,
  * naming how the CI said each such shard's job ended where it said so
  * (see LeftNone), unless another shard stopped once the run could not pass
@@ -39,9 +39,11 @@ use function sprintf;
  * are stopped, as the units the doomed shard did not run are, since the
  * verdict fails whatever they come to. Nor can it judge a shard whose
  * runner skipped mutants it kept no record of: they are unjudged, and
- * belong to no unit. Where a run cuts its test files across its shards,
- * each unit's mutants are merged across the shards that hold it (see
- * MergedUnits, ADR-0117).
+ * belong to no unit. A shard whose runner crashed left a result that
+ * judged none of its units: they stay unjudged, and the other shards'
+ * results stand (ADR-0330). Where a run cuts its test files across its
+ * shards, each unit's mutants are merged across the shards that hold it
+ * (see MergedUnits, ADR-0117).
  *
  * @internal
  */
@@ -224,6 +226,7 @@ final readonly class Results
             match (true) {
                 $result instanceof Path => $missing = $missing->with($shard, $result, $project),
                 $result instanceof CannotJudge => $unjudged[] = $result->why(),
+                $result instanceof Crashed => $read[] = [$shard, ...$result->ofShard($shard)],
                 default => $read[] = [$shard, ...$result],
             };
         }

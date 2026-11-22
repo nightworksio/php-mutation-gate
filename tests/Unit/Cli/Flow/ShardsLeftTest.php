@@ -64,3 +64,39 @@ it('says where each result was written after why the job ran its own items alone
     ]))
         ->and(ShardsLeft::none(ShardId::of(3))->said())->toBe('Shard 3 ran no item: the other shards took every one.');
 });
+
+it('does not fail the job whose runner the deadline stopped before it could judge', function (): void {
+    $left = ShardLeft::after(
+        ShardResult::of(
+            Digest::sha256Of('plan'),
+            ShardId::of(20),
+            Keys::none(),
+            CannotJudge::atTheDeadline('The deadline passed.'),
+            Measurement::of(Seconds::of(1.0), 'fake', Instant::at(new DateTimeImmutable('2026-11-05T12:00:00Z'))),
+        ),
+        Written::to('.mutation-gate/results/20.json'),
+    );
+
+    expect($left instanceof ShardLeft ? $left->doomed() : $left->why())->toBe('');
+});
+
+it('fails the job whose result holds why its runner could not judge the shard, crashed or not, saying why', function (bool $crashed): void {
+    $left = ShardLeft::after(
+        ShardResult::of(
+            Digest::sha256Of('plan'),
+            ShardId::of(20),
+            Keys::none(),
+            CannotJudge::told('Pest died.', crashed: $crashed),
+            Measurement::of(Seconds::of(1.0), 'fake', Instant::at(new DateTimeImmutable('2026-11-05T12:00:00Z'))),
+        ),
+        Written::to('.mutation-gate/results/20.leftover-3.json'),
+    );
+
+    expect($left instanceof ShardLeft ? $left->doomed() : $left->why())
+        ->toBe("The runner could not judge shard 20 in this job, so the job fails:\nPest died.")
+        ->and($left instanceof ShardLeft ? ShardsLeft::none(ShardId::of(1))->with(shardLeftOf(1, doomed: false))->with($left)->doomed() : '')
+        ->toBe("The runner could not judge shard 20 in this job, so the job fails:\nPest died.");
+})->with([
+    'crashed' => [true],
+    'not crashed' => [false],
+]);

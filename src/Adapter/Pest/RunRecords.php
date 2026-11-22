@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function is_file;
+use function is_int;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
@@ -17,13 +18,17 @@ use function sprintf;
  * The records of a Pest mutation run the gate judges, failing closed: a run
  * that failed, or records that do not add up to Pest's own summary, cannot
  * be judged; one whose own process ran out of the memory cap says to raise
- * it.
+ * it. One that died after it had made its mutants crashed (ADR-0330).
  *
  * @internal
  */
 final readonly class RunRecords
 {
-    private const string FAILED = "Pest's mutation run failed. Pest said:\n%s";
+    private const string FAILED = "Pest's mutation run failed%s. Pest said:\n%s";
+
+    private const string EXITED = ' (exit code %d)';
+
+    private const string SIGNALLED = ' (ended by signal %d, exit code %d)';
 
     private const string UNCOUNTED = "Pest's records of its mutants do not add up to its summary. Pest said:\n%s";
 
@@ -51,7 +56,7 @@ final readonly class RunRecords
             $records instanceof CannotJudge => $this->unread($ran, $records, $results),
             $ran->wasStopped() => $records->allMade() ? $records : $this->stoppedEarly($ran),
             $ran->succeeded() || $records->ended() => $this->counted($records, $ran),
-            default => $this->failed($ran),
+            default => $this->failed($ran, $records->allMade()),
         };
     }
 
@@ -65,7 +70,7 @@ final readonly class RunRecords
         return match (true) {
             $this->atTheDeadline($ran) && ! is_file($results) => CannotJudge::atTheDeadline($unread->why()),
             $ran->succeeded() || $ran->wasStopped() => $unread,
-            default => $this->failed($ran),
+            default => $this->failed($ran, made: false),
         };
     }
 
@@ -86,20 +91,41 @@ final readonly class RunRecords
     /**
      * Why a run that failed cannot be judged: Pest's own process out of the
      * memory cap; the issues of an opening run that failed no test, where
-     * the run ended after it (see OpeningIssues); or what Pest said.
+     * the run ended after it (see OpeningIssues); or what Pest said. Where
+     * Pest had made its mutants, a run out of memory or failed otherwise
+     * crashed.
      */
-    private function failed(Ran $ran): CannotJudge
+    private function failed(Ran $ran, bool $made): CannotJudge
     {
         $output = $ran->output();
 
         return match (true) {
-            Exhaustion::isOf(Exhaustion::in($output), $this->cap) => CannotJudge::because(
+            Exhaustion::isOf(Exhaustion::in($output), $this->cap) => self::died(
                 sprintf(self::OUT_OF_MEMORY, $this->cap->written(), Exhaustion::ADVICE, $output),
+                $made,
             ),
             $this->opening instanceof OpeningIssues && $this->opening->endedAfterOpening($ran)
                 => $this->opening->why($ran),
-            default => CannotJudge::because(sprintf(self::FAILED, $output)),
+            default => self::died(sprintf(self::FAILED, self::ended($ran), $output), $made),
         };
+    }
+
+    /** How the run's process ended: its exit code, and the signal where one ended it; nothing where none was read. */
+    private static function ended(Ran $ran): string
+    {
+        $code = $ran->exitCode();
+
+        return match (true) {
+            ! is_int($code) => '',
+            $ran->endedBySignal() => sprintf(self::SIGNALLED, $code - Ran::SIGNALLED, $code),
+            default => sprintf(self::EXITED, $code),
+        };
+    }
+
+    /** Why a run that died cannot be judged: it crashed, where it had made its mutants. */
+    private static function died(string $why, bool $made): CannotJudge
+    {
+        return $made ? CannotJudge::crashed($why) : CannotJudge::because($why);
     }
 
     private function counted(Records $records, Ran $ran): Records|CannotJudge

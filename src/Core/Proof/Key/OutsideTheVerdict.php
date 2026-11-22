@@ -91,6 +91,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/Ledgers.php',
             'src/Cli/Flow/LearnedCosts.php',
             'src/Cli/Flow/LeftNone.php',
+            'src/Cli/Flow/Crashed.php',
             'src/Cli/Flow/LeftResults.php',
             'src/Cli/Flow/LeftoverCutting.php',
             'src/Cli/Flow/LeftoverParts.php',

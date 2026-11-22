@@ -142,10 +142,22 @@ it('writes why the runner could not judge instead of mutants', function () use (
                 "runner": "pest",
                 "at": "2026-09-29T20:48:17Z"
             },
-            "cannotJudge": "Pest stopped."
+            "cannotJudge": "Pest stopped.",
+            "crashed": false
         }
         JSON);
 });
+
+it('writes that the runner crashed beside why it could not judge, and reads it back', function (bool $crashed) use ($makeMeasured): void {
+    $why = $crashed ? CannotJudge::crashed('Pest died.') : CannotJudge::because('Pest died.');
+    $result = ShardResult::of(Digest::of('9c1e'), ShardId::of(1), Keys::none(), $why, $makeMeasured());
+    $read = ShardResultFile::decode(ShardResultFile::encode($result));
+    $outcome = $read instanceof ShardResult ? $read->outcome() : $read;
+
+    expect(str_contains(ShardResultFile::encode($result), '"crashed": true'))->toBe($crashed)
+        ->and($outcome instanceof CannotJudge && $outcome->isCrashed())->toBe($crashed)
+        ->and($read)->toEqual($result);
+})->with(['crashed' => [true], 'not crashed' => [false]]);
 
 it('reads back a finished shard it wrote', function () use ($finished, $makeSurvivor, $makeMeasured): void {
     $survivor = $makeSurvivor();

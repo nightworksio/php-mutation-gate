@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -220,4 +221,127 @@ it('carries what each share\'s job measured of its own time onto its shard\'s re
     }
 
     expect($shares)->toEqual([JobTimes::of('p', Seconds::of(40.0), NotGiven::value(), 0.6)]);
+});
+
+/** @return list<string> every unit's mutants, by their file and native ids, each with its status */
+function everyStatus(Results $results): array
+{
+    $statuses = [];
+
+    foreach ($results->units() as $unit) {
+        foreach ($unit->mutants() as $mutant) {
+            $statuses[] = sprintf('%s %s %s', $unit->unit()->path()->value(), $mutant->nativeId(), $mutant->status()->value);
+        }
+    }
+
+    sort($statuses);
+
+    return $statuses;
+}
+
+/** Writes this shard result's own file, or this share's of it, as a runner that crashed leaves it. */
+function crashedResult(string $project, ShardResult $whole, string $file): void
+{
+    Scratch::write(
+        $project,
+        $file,
+        ShardResultFile::encode(ShardResult::of(
+            $whole->plan(),
+            $whole->shard(),
+            $whole->units(),
+            CannotJudge::crashed('Pest died.'),
+            $whole->measured(),
+        )),
+    );
+}
+
+/**
+ * @param  list<string> $statuses
+ * @param  list<string> $mutants  each a file and a native id
+ * @return list<string> the statuses of these mutants where `$of`, of every other where not
+ */
+function statusesAmong(array $statuses, array $mutants, bool $of): array
+{
+    return array_values(array_filter(
+        $statuses,
+        static fn(string $status): bool => in_array(
+            implode(' ', array_slice(explode(' ', $status), 0, 2)),
+            $mutants,
+            strict: true,
+        ) === $of,
+    ));
+}
+
+it('leaves each mutant a crashed share lists unjudged, kills none of them, and keeps every other share\'s and shard\'s judgements', function (array $shares, int $crashed): void {
+    /** @var array<int, list<string>> $shares */
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    leftoverShares($project, $plan, $whole, $shares, $shares);
+    $judged = Results::read($plan, Workspace::results(), Directory::at($project));
+    crashedResult(
+        $project,
+        $whole,
+        LeftoverParts::resultOf(Workspace::results(), LeftoverShare::of($whole->shard(), $crashed))->value(),
+    );
+    $read = Results::read($plan, Workspace::results(), Directory::at($project));
+    $lost = array_map(static fn(string $native): string => sprintf('src/Money.php %s', $native), $shares[$crashed]);
+    $after = $read instanceof Results ? everyStatus($read) : [];
+    $before = $judged instanceof Results ? everyStatus($judged) : [];
+
+    expect($read)->toBeInstanceOf(Results::class)
+        ->and(statusesAmong($after, $lost, of: false))->toBe(statusesAmong($before, $lost, of: false))
+        ->and(statusesAmong($after, $lost, of: true))
+        ->toBe(array_map(static fn(string $mutant): string => sprintf('%s unjudged', $mutant), $lost))
+        ->and($read instanceof Results ? array_map(static fn(Warning $warning): string => $warning->text(), [...$read->warnings()]) : [])
+        ->toContain(sprintf(
+            "Share %d of the mutants shard 1 (money) left crashed, so its %d mutants are unjudged. Its runner said:\nPest died.",
+            $crashed,
+            count($shares[$crashed]),
+        ));
+})->with([
+    'the one share' => [[1 => LeftAtTheDeadline::LEFT], 1],
+    'the first of two' => [[1 => ['GreaterThan-16'], 2 => ['Minus-21']], 1],
+    'the second of two' => [[1 => ['GreaterThan-16'], 2 => ['Minus-21']], 2],
+    'the second of two, in the other order' => [[1 => ['Minus-21'], 2 => ['GreaterThan-16']], 2],
+]);
+
+/**
+ * @param  list<string> $statuses
+ * @return list<string> those of no mutant of src/Money.php
+ */
+function ofOtherFiles(array $statuses): array
+{
+    return array_values(array_filter(
+        $statuses,
+        static fn(string $status): bool => ! str_starts_with($status, 'src/Money.php'),
+    ));
+}
+
+it('leaves each unit of a crashed shard unjudged and keeps every other shard\'s judgements', function (): void {
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    $judged = Results::read($plan, Workspace::results(), Directory::at($project));
+    crashedResult($project, $whole, Workspace::result(Workspace::results(), $whole->shard())->value());
+    $read = Results::read($plan, Workspace::results(), Directory::at($project));
+    $after = $read instanceof Results ? ofOtherFiles(everyStatus($read)) : [];
+    $before = $judged instanceof Results ? ofOtherFiles(everyStatus($judged)) : [];
+
+    expect($read)->toBeInstanceOf(Results::class)
+        ->and($after)->toBe($before)
+        ->and($after)->not->toBe([])
+        ->and($read instanceof Results ? array_map(static fn(Unit $unit): string => $unit->path()->value(), [...$read->unjudged()]) : [])
+        ->toBe(['src/Money.php'])
+        ->and($read instanceof Results ? array_map(static fn(Warning $warning): string => $warning->text(), [...$read->warnings()]) : [])
+        ->toContain("Shard 1 (money) crashed, so each of its units is unjudged. Its runner said:\nPest died.");
+});
+
+it('still cannot judge a share whose runner could not judge it for another reason than a crash', function (): void {
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    leftoverShares($project, $plan, $whole, [1 => LeftAtTheDeadline::LEFT], []);
+    Scratch::write(
+        $project,
+        LeftoverParts::resultOf(Workspace::results(), LeftoverShare::of(ShardId::of(1), 1))->value(),
+        ShardResultFile::encode(ShardResult::of($whole->plan(), $whole->shard(), $whole->units(), CannotJudge::because('No plugin.'), $whole->measured())),
+    );
+
+    expect(leftoverStatuses(Results::read($plan, Workspace::results(), Directory::at($project))))
+        ->toBe(['Shard 1 (money) could not be judged: No plugin.']);
 });
