@@ -182,11 +182,12 @@ mod tests {
     use std::collections::BTreeSet;
     use std::io::{Error, ErrorKind};
     use std::path::{Path, PathBuf};
+    use std::time::Duration;
 
     use kqueue::{Event, EventData, Ident, Vnode};
     use rustix::process::{Resource, Rlimit, getrlimit, setrlimit};
 
-    use super::{Kqueue, OPEN_MAX, changed_by, raised, watched};
+    use super::{Kqueue, Notices, OPEN_MAX, changed_by, raised, watched};
 
     #[test]
     fn watches_the_entries_a_changed_directory_holds_now() {
@@ -199,6 +200,29 @@ mod tests {
 
         assert_eq!(armed.handled(root.join("src"), false), Ok(()));
         assert!(armed.known.contains(&root.join("src/A.php")));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn watches_a_file_replaced_at_its_path_anew() {
+        let root =
+            std::env::temp_dir().join(format!("outbreak-kqueue-replaced-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/A.php"), "").unwrap();
+        let mut armed =
+            Kqueue::armed(&BTreeSet::from([root.join("src")]), &root.join("skipped")).unwrap();
+        std::fs::write(root.join("src/A.new"), "").unwrap();
+        std::fs::rename(root.join("src/A.new"), root.join("src/A.php")).unwrap();
+        while armed
+            .watcher
+            .poll(Some(Duration::from_millis(100)))
+            .is_some()
+        {}
+
+        assert_eq!(armed.handled(root.join("src/A.php"), true), Ok(()));
+        std::fs::write(root.join("src/A.php"), "<?php").unwrap();
+        assert_eq!(armed.next(Duration::from_secs(1)), Ok(true));
         std::fs::remove_dir_all(&root).unwrap();
     }
 
