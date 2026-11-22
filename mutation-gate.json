@@ -89,7 +89,8 @@
     },
     "shards": {
         "max": "learned",
-        "jobLimit": "8m"
+        "jobLimit": "45m",
+        "fill": 0.3
     },
     "timeouts": {
         "seconds": "learned",

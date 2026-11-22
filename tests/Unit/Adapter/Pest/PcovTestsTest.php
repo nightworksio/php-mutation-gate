@@ -83,11 +83,11 @@ it('starts a process of tests that read the driver with pcov as PHP is configure
     Scratch::write($directory, 'Reads.php', "<?php\n\\pcov\\start();\n");
     $found = PcovTests::found([sprintf('%s/Reads.php', $directory) => [2 => ['T::reads']]]);
     $told = Environment::during(
-        [GateVariable::PcovOff->value => '/off', IniScan::VARIABLE => '/etc/php.d'],
+        [GateVariable::PcovOff->value => '/off', IniScan::VARIABLE => '/etc/php.d', IniScan::KEPT => null, IniScan::ADDED => null],
         static fn(): ArrayObject => new ArrayObject([$found->variablesFor(['T::reads']), $found->variablesFor(['T::other'])]),
     );
     $untold = Environment::during(
-        [GateVariable::PcovOff->value => null],
+        [GateVariable::PcovOff->value => null, IniScan::KEPT => null, IniScan::ADDED => null],
         static fn(): ArrayObject => new ArrayObject($found->variablesFor(['T::other'])),
     );
 

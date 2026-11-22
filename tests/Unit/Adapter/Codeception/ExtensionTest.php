@@ -186,7 +186,11 @@ it('measures over the driver PHP has where it is handed nothing to measure with'
     selectingTheFirst($root, [Option::Coverage->value => $map, Option::Vendor->value => '/p/vendor'])->written();
 
     expect(is_file($map))->toBeTrue();
-})->skip(fn(): bool => ! extension_loaded('pcov') && ! extension_loaded('xdebug'), 'only a PHP with a coverage driver');
+})->skip(
+    fn(): bool => ! (extension_loaded('pcov') && ini_get('pcov.enabled') === '1')
+        && ! (extension_loaded('xdebug') && in_array('coverage', xdebug_info('mode'), true)),
+    'only a PHP whose coverage driver is switched on',
+);
 
 it('notes in the guard file whether opcache on its command line could serve an original', function (): void {
     $guard = sprintf('%s/guard.txt', Scratch::directory());
