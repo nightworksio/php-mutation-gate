@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Runner\InertSetting;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Tests\Support\GzipBomb;
 use Symfony\Component\Process\Process;
 
 $holds = [
@@ -23,7 +24,7 @@ it('is the PHP a runner starts, which a setting of the gate\'s own PHP never rea
         ->getOutput();
     $settings = ini_get_all();
     $before = ini_get('memory_limit');
-    ini_set('memory_limit', $before === '-1' ? '1G' : '-1');
+    ini_set('memory_limit', $before === '-1' ? GzipBomb::limitAboveUse() : '-1');
     $started = Platform::describedBy($describe());
     ini_set('memory_limit', $before);
     $text = $started instanceof Platform ? $started->text() : '';
