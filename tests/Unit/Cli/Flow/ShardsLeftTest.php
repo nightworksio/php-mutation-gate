@@ -6,9 +6,16 @@ use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\ShardsLeft;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
@@ -17,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\DoomedBy;
 use NightWorksIO\MutationGate\Core\Written;
@@ -65,6 +73,33 @@ it('says where each result was written after why the job ran its own items alone
         ->and(ShardsLeft::none(ShardId::of(3))->said())->toBe('Shard 3 ran no item: the other shards took every one.');
 });
 
+it('fails the job whose mutation run crashed, naming its shard, and no job whose run left mutants for the time alone', function (): void {
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '1', 0),
+        '1',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, ''),
+        MutantStatus::Unjudged,
+        Unmeasured::duration(),
+    );
+    $left = static fn(OutOfTime $by): ShardLeft|CannotJudge => ShardLeft::after(
+        ShardResult::of(
+            Digest::sha256Of('plan'),
+            ShardId::of(14),
+            Keys::none(),
+            MutationResult::skippingNone(Mutants::of($mutant->unjudged($by))),
+            Measurement::of(Seconds::of(1.0), 'fake', Instant::at(new DateTimeImmutable('2026-11-05T12:00:00Z'))),
+        ),
+        Written::to('.mutation-gate/results/14.json'),
+    );
+    $crashed = $left(OutOfTime::Crashed);
+    $stopped = $left(OutOfTime::BeforeRunning);
+
+    expect($crashed instanceof ShardLeft ? $crashed->doomed() : $crashed->why())
+        ->toBe('The mutation run of shard 14 crashed in this job, so the job fails; a later wave judges what it left.')
+        ->and($stopped instanceof ShardLeft ? $stopped->doomed() : $stopped->why())->toBe('');
+});
+
 it('does not fail the job whose runner the deadline stopped before it could judge', function (): void {
     $left = ShardLeft::after(
         ShardResult::of(
@@ -80,13 +115,13 @@ it('does not fail the job whose runner the deadline stopped before it could judg
     expect($left instanceof ShardLeft ? $left->doomed() : $left->why())->toBe('');
 });
 
-it('fails the job whose result holds why its runner could not judge the shard, crashed or not, saying why', function (bool $crashed): void {
+it('fails the job whose result holds why its runner could not judge the shard, saying why', function (): void {
     $left = ShardLeft::after(
         ShardResult::of(
             Digest::sha256Of('plan'),
             ShardId::of(20),
             Keys::none(),
-            CannotJudge::told('Pest died.', crashed: $crashed),
+            CannotJudge::because('Pest died.'),
             Measurement::of(Seconds::of(1.0), 'fake', Instant::at(new DateTimeImmutable('2026-11-05T12:00:00Z'))),
         ),
         Written::to('.mutation-gate/results/20.leftover-3.json'),
@@ -96,7 +131,4 @@ it('fails the job whose result holds why its runner could not judge the shard, c
         ->toBe("The runner could not judge shard 20 in this job, so the job fails:\nPest died.")
         ->and($left instanceof ShardLeft ? ShardsLeft::none(ShardId::of(1))->with(shardLeftOf(1, doomed: false))->with($left)->doomed() : '')
         ->toBe("The runner could not judge shard 20 in this job, so the job fails:\nPest died.");
-})->with([
-    'crashed' => [true],
-    'not crashed' => [false],
-]);
+});

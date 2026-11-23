@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MadeLines;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
@@ -72,6 +73,41 @@ final readonly class MutationResult
         }
 
         return $this->withMutants($this->mutants->replacing(Mutants::of(...$left)));
+    }
+
+    /**
+     * This result of a run that crashed: each mutant the run never told of,
+     * and each it told of as survived, unjudged by the crash, for a later
+     * wave to judge. A kill stands: a test failed to make it. A survival
+     * does not: a child a stray signal ended reads as a test that passed
+     * (ADR-0330).
+     */
+    public function crashed(): self
+    {
+        $left = [];
+
+        foreach ($this->mutants as $mutant) {
+            $untold = $mutant->status() === MutantStatus::Unjudged && $mutant->reason() instanceof Unreported;
+            $left = $untold || $mutant->status() === MutantStatus::Survived
+                ? [...$left, $mutant->unjudged(OutOfTime::Crashed)]
+                : $left;
+        }
+
+        return $this->withMutants($this->mutants->replacing(Mutants::of(...$left)));
+    }
+
+    /** Whether a crash left any of its mutants unjudged. */
+    public function hasCrashed(): bool
+    {
+        foreach ($this->mutants as $mutant) {
+            $reason = $mutant->reason();
+
+            if ($reason instanceof Reason && $reason->outOfTime() === OutOfTime::Crashed) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

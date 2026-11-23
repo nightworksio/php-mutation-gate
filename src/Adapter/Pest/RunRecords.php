@@ -18,7 +18,7 @@ use function sprintf;
  * The records of a Pest mutation run the gate judges, failing closed: a run
  * that failed, or records that do not add up to Pest's own summary, cannot
  * be judged; one whose own process ran out of the memory cap says to raise
- * it. One that died after it had made its mutants crashed (ADR-0330).
+ * it. One that crashed after it had made its mutants hands its records on (ADR-0330).
  *
  * @internal
  */
@@ -56,8 +56,25 @@ final readonly class RunRecords
             $records instanceof CannotJudge => $this->unread($ran, $records, $results),
             $ran->wasStopped() => $records->allMade() ? $records : $this->stoppedEarly($ran),
             $ran->succeeded() || $records->ended() => $this->counted($records, $ran),
-            default => $this->failed($ran, $records->allMade()),
+            $this->crashed($ran, $records) !== '' => $records,
+            default => $this->failed($ran),
         };
+    }
+
+    /**
+     * What a run that crashed said: one that failed, without reaching its
+     * end, after Pest had written every mutant it made, other than by the
+     * issues of its opening run. Nothing of any other run (ADR-0330).
+     */
+    public function crashed(Ran $ran, Records $records): string
+    {
+        $crashed = ! $ran->succeeded()
+            && ! $ran->wasStopped()
+            && ! $records->ended()
+            && $records->allMade()
+            && (!$this->opening instanceof OpeningIssues || !$this->opening->endedAfterOpening($ran));
+
+        return $crashed ? $this->died($ran) : '';
     }
 
     /**
@@ -70,7 +87,7 @@ final readonly class RunRecords
         return match (true) {
             $this->atTheDeadline($ran) && ! is_file($results) => CannotJudge::atTheDeadline($unread->why()),
             $ran->succeeded() || $ran->wasStopped() => $unread,
-            default => $this->failed($ran, made: false),
+            default => $this->failed($ran),
         };
     }
 
@@ -91,20 +108,23 @@ final readonly class RunRecords
     /**
      * Why a run that failed cannot be judged: Pest's own process out of the
      * memory cap; the issues of an opening run that failed no test, where
-     * the run ended after it (see OpeningIssues); or what Pest said. Where
-     * Pest had made its mutants, a run out of memory or failed otherwise
-     * crashed.
+     * the run ended after it (see OpeningIssues); or what Pest said.
      */
-    private function failed(Ran $ran, bool $made): CannotJudge
+    private function failed(Ran $ran): CannotJudge
+    {
+        return $this->opening instanceof OpeningIssues && $this->opening->endedAfterOpening($ran)
+            ? $this->opening->why($ran)
+            : CannotJudge::because($this->died($ran));
+    }
+
+    /** How a run died: its own process out of the memory cap, or what Pest said and how its process ended. */
+    private function died(Ran $ran): string
     {
         $output = $ran->output();
 
-        return match (true) {
-            Exhaustion::isOf(Exhaustion::in($output), $this->cap) => $this->died($this->exhausted($output), $made),
-            $this->opening instanceof OpeningIssues && $this->opening->endedAfterOpening($ran)
-                => $this->opening->why($ran),
-            default => $this->died(sprintf(self::FAILED, $this->ended($ran), $output), $made),
-        };
+        return Exhaustion::isOf(Exhaustion::in($output), $this->cap)
+            ? $this->exhausted($output)
+            : sprintf(self::FAILED, $this->ended($ran), $output);
     }
 
     /** That Pest's own process ran out of the memory cap, with what it said. */
@@ -123,12 +143,6 @@ final readonly class RunRecords
             $ran->endedBySignal() => sprintf(self::SIGNALLED, $code - Ran::SIGNALLED, $code),
             default => sprintf(self::EXITED, $code),
         };
-    }
-
-    /** Why a run that died cannot be judged: it crashed, where it had made its mutants. */
-    private function died(string $why, bool $made): CannotJudge
-    {
-        return $made ? CannotJudge::crashed($why) : CannotJudge::because($why);
     }
 
     private function counted(Records $records, Ran $ran): Records|CannotJudge

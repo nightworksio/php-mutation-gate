@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Written;
 
@@ -21,6 +22,10 @@ use function sprintf;
  */
 final readonly class ShardLeft
 {
+    private const string CRASHED = <<<'SAID'
+        The mutation run of shard %d crashed in this job, so the job fails; a later wave judges what it left.
+        SAID;
+
     private const string UNJUDGED = "The runner could not judge shard %d in this job, so the job fails:\n%s";
 
     private function __construct(private ShardResult $result, private Written $written)
@@ -57,6 +62,7 @@ final readonly class ShardLeft
                 $number,
                 $outcome->why(),
             ),
+            $outcome instanceof MutationResult && $outcome->hasCrashed() => sprintf(self::CRASHED, $number),
             default => '',
         };
     }

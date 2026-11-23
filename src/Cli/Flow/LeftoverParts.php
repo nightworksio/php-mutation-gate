@@ -26,7 +26,6 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
-use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 use function sprintf;
@@ -38,11 +37,8 @@ use function sprintf;
  * no mutant is listed twice and the shares list exactly the mutants the
  * shard left; what each share's job warned of and its static checks came
  * to join the shard's. A share whose job left no result, or a listed mutant
- * its result lacks, stays as the shard left it: unjudged. A share whose
- * runner crashed leaves each mutant it lists unjudged for the crash, and
- * warns of it; the other shares' results stand (ADR-0330). Without shares,
- * or with shares cut from another plan, each result stands as its shard
- * left it.
+ * its result lacks, stays as the shard left it: unjudged. Without shares, or with shares cut from another plan, each
+ * result stands as its shard left it.
  *
  * @internal
  */
@@ -181,7 +177,7 @@ final readonly class LeftoverParts
             return CannotJudge::because(sprintf(self::NOT_THE_LEFT, $shard->id()->number()));
         }
 
-        $judged = self::sharesOf($plan, [$shard, $mutated], $shares, $directory, $project);
+        $judged = self::sharesOf($plan, $shard, $shares, $directory, $project);
 
         return $judged instanceof CannotJudge ? $judged : [
             $shard,
@@ -214,76 +210,51 @@ final readonly class LeftoverParts
     /**
      * The mutants the shares' results judged, those they found flaky, what
      * they warned of, what their static checks came to and what their jobs
-     * measured of their time; none of a share whose job left no result; each
-     * a crashed share lists unjudged for the crash, with a warning of it.
+     * measured of their time; none of a share whose job left no result.
      *
-     * @param  array{Shard, MutationResult}                                                $left a shard, and its left
      * @param  list<LeftoverShare>                                                         $shares
      * @return array{Mutants, MutantIds, Warnings, SurvivorChecks, list<JobTimes>}|CannotJudge
      */
     private static function sharesOf(
         Plan $plan,
-        array $left,
+        Shard $shard,
         array $shares,
         Path $directory,
         Directory $project,
     ): array|CannotJudge {
-        [$shard, $mutated] = $left;
         $judged = [Mutants::none(), MutantIds::none(), Warnings::none(), SurvivorChecks::none(), []];
 
         foreach ($shares as $share) {
             $read = LeftResults::at($plan, $shard, self::resultOf($directory, $share), $project);
-            $one = self::shareResult($shard, $share, $read);
+            $left = self::shareResult($shard, $share, $read);
 
-            if ($one instanceof CannotJudge) {
-                return $one;
+            if ($left instanceof CannotJudge) {
+                return $left;
             }
 
-            $judged = match (true) {
-                $one instanceof Path => $judged,
-                $one instanceof Crashed => self::crashedInto($judged, $one->ofShare($shard, $share, $mutated)),
-                default => [
-                    Mutants::of(...$judged[0], ...$one[1]->mutants()),
-                    $judged[1]->and($one[0]->flaky()),
-                    $judged[2]->and($one[0]->warnings()),
-                    $judged[3]->plus($one[0]->checks()),
-                    [...$judged[4], $one[0]->measured()->job()],
-                ],
-            };
+            $judged = $left instanceof Path ? $judged : [
+                Mutants::of(...$judged[0], ...$left[1]->mutants()),
+                $judged[1]->and($left[0]->flaky()),
+                $judged[2]->and($left[0]->warnings()),
+                $judged[3]->plus($left[0]->checks()),
+                [...$judged[4], $left[0]->measured()->job()],
+            ];
         }
 
         return $judged;
     }
 
     /**
-     * What the shares judged so far, with a crashed share's mutants unjudged and its warning.
+     * One share's result, or the file its job left none at; or why it cannot stand.
      *
-     * @param  array{Mutants, MutantIds, Warnings, SurvivorChecks, list<JobTimes>} $judged
-     * @param  array{Mutants, Warning}                                             $crashed
-     * @return array{Mutants, MutantIds, Warnings, SurvivorChecks, list<JobTimes>}
-     */
-    private static function crashedInto(array $judged, array $crashed): array
-    {
-        return [
-            Mutants::of(...$judged[0], ...$crashed[0]),
-            $judged[1],
-            $judged[2]->with($crashed[1]),
-            $judged[3],
-            $judged[4],
-        ];
-    }
-
-    /**
-     * One share's result, or the file its job left none at, or that its runner crashed; or why it cannot stand.
-     *
-     * @param  array{ShardResult, MutationResult}|CannotJudge|Crashed|Path $left
-     * @return array{ShardResult, MutationResult}|CannotJudge|Crashed|Path
+     * @param  array{ShardResult, MutationResult}|CannotJudge|Path $left
+     * @return array{ShardResult, MutationResult}|CannotJudge|Path
      */
     private static function shareResult(
         Shard $shard,
         LeftoverShare $share,
-        array|CannotJudge|Crashed|Path $left,
-    ): array|CannotJudge|Crashed|Path {
+        array|CannotJudge|Path $left,
+    ): array|CannotJudge|Path {
         return is_array($left) && self::idsOf($left[1]->mutants())->without($share->mutants())->count() > 0
             ? CannotJudge::because(sprintf(self::OTHER_MUTANTS, $share->number(), $shard->id()->number()))
             : $left;

@@ -31,12 +31,17 @@ enum OutOfTime: string
     /** The mutant was killed, and the run that vouches for the kill, which would let it stand, did not fit. */
     case BeforeVouching = 'before-vouching';
 
+    /** The run of the mutant's unit crashed before it judged the mutant, which a later wave judges (ADR-0330). */
+    case Crashed = 'crashed';
+
     private const string SAID = 'The time budget ran out before %s. A larger --budget judges it.';
+
+    private const string CRASHED = 'Its run crashed before it judged this mutant. Another run judges it.';
 
     /** Why the mutant is unjudged, and what judges it. */
     public function reason(): Reason
     {
-        return Reason::ranOutOf($this, sprintf(self::SAID, $this->before()));
+        return Reason::ranOutOf($this, $this === self::Crashed ? self::CRASHED : sprintf(self::SAID, $this->before()));
     }
 
     /** Whether a time budget left this mutant unjudged, as its reason records. */
@@ -53,7 +58,7 @@ enum OutOfTime: string
     public function isUnrun(): bool
     {
         return match ($this) {
-            self::BeforeMutating, self::BeforeRunning => true,
+            self::BeforeMutating, self::BeforeRunning, self::Crashed => true,
             self::BeforeConfirming, self::BeforeChecking, self::BeforeControlling, self::BeforeVouching => false,
         };
     }
@@ -68,6 +73,7 @@ enum OutOfTime: string
             self::BeforeChecking => 'static analysis could check it',
             self::BeforeControlling => 'its tests could run unmutated to judge it',
             self::BeforeVouching => 'its kill could be vouched for',
+            self::Crashed => 'its crashed run judged it',
         };
     }
 }

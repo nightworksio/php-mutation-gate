@@ -335,29 +335,36 @@ it('cannot judge a run that failed, with what Pest said', function () use ($read
         ->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nTests: 1 failed"));
 });
 
-it('says how a failed run\'s process ended, by its exit code and by the signal where one ended it', function () use ($read): void {
-    [$project, $results] = interpretedRun([], []);
-    PestRun::write($results, [PestRun::made(0)]);
-    $exited = $read($project, Ran::exited(255, 'x.'), $results);
-    $signalled = $read($project, Ran::signalled(11, 'x.'), $results);
+it('leaves what a crashed run had not killed for a later wave, keeps its kills, and warns how its process ended', function () use ($six, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
+    PestRun::write($results, array_slice($six($root), 0, -2));
+    $result = $read($project, Ran::signalled(9, 'x.'), $results);
+    $told = [];
 
-    expect($exited)->toEqual(CannotJudge::crashed("Pest's mutation run failed (exit code 255). Pest said:\nx."))
-        ->and($signalled)
-        ->toEqual(CannotJudge::crashed("Pest's mutation run failed (ended by signal 11, exit code 139). Pest said:\nx."));
+    foreach ($result instanceof MutationResult ? $result->mutants() : [] as $each) {
+        $reason = $each->reason();
+        $told[$each->nativeId()] = $reason instanceof Reason && $reason->outOfTime() === OutOfTime::Crashed
+            ? 'crashed'
+            : $each->status()->value;
+    }
+
+    expect($told['n1'] ?? '')->toBe(MutantStatus::Killed->value)
+        ->and($told['n3'] ?? '')->toBe('crashed')
+        ->and($told['n6'] ?? '')->toBe('crashed')
+        ->and($result instanceof MutationResult && $result->hasCrashed())->toBeTrue()
+        ->and($result instanceof MutationResult ? array_map(static fn(Warning $warning): string => $warning->text(), [...$result->warnings()]) : [])
+        ->toContain("The mutation run crashed, so the mutants it had not killed are left unjudged for a later wave.\nPest's mutation run failed (ended by signal 9, exit code 137). Pest said:\nx.");
 });
 
-it('says a run that failed after it made its mutants crashed, out of memory or otherwise, and one that failed before did not', function (bool $made, string $output) use ($read): void {
+it('cannot judge a run that failed before it made its mutants, saying how its process ended', function () use ($read): void {
     [$project, $results] = interpretedRun([], []);
-    PestRun::write($results, $made ? [PestRun::made(0)] : []);
-    $said = $read($project, Ran::finished(succeeded: false, output: $output), $results);
+    PestRun::write($results, []);
 
-    expect($said instanceof CannotJudge && $said->isCrashed())->toBe($made)
-        ->and($said instanceof CannotJudge && str_ends_with($said->why(), $output))->toBeTrue();
-})->with([
-    'made, failed' => [true, 'Segmentation fault'],
-    'made, out of memory' => [true, 'PHP Fatal error:  Allowed memory size of 67108864 bytes exhausted (tried to allocate 4096 bytes)'],
-    'not made, failed' => [false, 'Segmentation fault'],
-]);
+    expect($read($project, Ran::exited(255, 'x.'), $results))
+        ->toEqual(CannotJudge::because("Pest's mutation run failed (exit code 255). Pest said:\nx."))
+        ->and($read($project, Ran::signalled(11, 'x.'), $results))
+        ->toEqual(CannotJudge::because("Pest's mutation run failed (ended by signal 11, exit code 139). Pest said:\nx."));
+});
 
 it('reads a kill whose own process ran out of exactly the gate\'s cap as out of memory, with the cap, and no other', function () use (
     $mutant,
