@@ -11,6 +11,8 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Adapter\Process\Saying':
+                    - SHOWN # the characters of a running command a progress line shows, not a cgroup name's most bytes
                 'NightWorksIO\MutationGate\Core\Config\Planning':
                     - CONFIRM # the share of a job's time left its run again of doubtful kills takes, not a timeout's headroom
                 'NightWorksIO\MutationGate\Core\Runner\ProcessListing':
