@@ -198,6 +198,10 @@ It takes the action's inputs less `shard`, `deliver`, `install`,
 `runs-on`, `keyed-runs-on`, `plan-timeout` (60), `shard-timeout` (360),
 `verdict-timeout` (30) and `download-timeout` (2), how long each artifact
 download may take before it is tried once again, each in minutes,
+`keep-logs` (`false`), with which each shard's job and each job of the wave
+after uploads the JUnit logs of the unmutated runs behind its kills as
+`mutation-gate-logs-*`, kept one day, as the repository variable
+`MUTATION_GATE_KEEP_LOGS` set to `true` does without a change to the caller,
 `plan-coverage` (`pcov`), the driver
 the plan sets up, `publish-branch` (`mutation-gate`), where publish writes
 the badge and trend, `early-only` (`false`), with which the plan plans

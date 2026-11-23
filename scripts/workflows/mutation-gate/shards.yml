@@ -88,6 +88,16 @@
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && (inputs.keep-logs || vars.MUTATION_GATE_KEEP_LOGS == 'true') }}
+        with:
+          name: mutation-gate-logs-${{ needs.plan.outputs.attempt }}-${{ matrix.shard.id }}
+          path: |
+            .mutation-gate/pest/alone
+            .mutation-gate/pest/controls
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1
       - name: Remove the services
         if: always() && inputs.services-start != 'job'
         shell: /usr/bin/env -i PATH=/usr/bin:/bin /bin/bash --noprofile --norc -eo pipefail {0}
@@ -262,6 +272,16 @@
         with:
           name: mutation-gate-result-${{ needs.plan.outputs.attempt }}-${{ matrix.share.shard }}-leftover-${{ matrix.share.share }}
           path: .mutation-gate/results/${{ matrix.share.shard }}.leftover-${{ matrix.share.share }}.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && (inputs.keep-logs || vars.MUTATION_GATE_KEEP_LOGS == 'true') }}
+        with:
+          name: mutation-gate-logs-${{ needs.plan.outputs.attempt }}-${{ matrix.share.shard }}-leftover-${{ matrix.share.share }}
+          path: |
+            .mutation-gate/pest/alone
+            .mutation-gate/pest/controls
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
