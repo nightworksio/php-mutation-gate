@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Plan\TailRule;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\TimingWeight;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Share;
 
 use function sprintf;
 
@@ -23,6 +24,9 @@ use function sprintf;
  */
 final readonly class Planning
 {
+    /** `shards.confirm` where the config sets none: a tenth of the time a first-wave job has left. */
+    public const float CONFIRM = 0.1;
+
     private function __construct(
         private int|Absent $chunkMinutes,
         private int|Absent $provingRange,
@@ -30,6 +34,7 @@ final readonly class Planning
         private float|int|Absent $newest,
         private int|Absent $startUpSamples,
         private float|int|Absent $fill,
+        private float|int|Absent $confirm = new Absent(),
     ) {
     }
 
@@ -40,8 +45,9 @@ final readonly class Planning
         float|int|Absent $newest = new Absent(),
         int|Absent $startUpSamples = new Absent(),
         float|int|Absent $fill = new Absent(),
+        float|int|Absent $confirm = new Absent(),
     ): self {
-        return new self($chunkMinutes, $provingRange, $cutAt, $newest, $startUpSamples, $fill);
+        return new self($chunkMinutes, $provingRange, $cutAt, $newest, $startUpSamples, $fill, $confirm);
     }
 
     /** Every key at the value it takes where every layer leaves it out. */
@@ -54,6 +60,7 @@ final readonly class Planning
             Timing::NEWEST,
             StartUpSamples::STANDARD,
             TailRule::FILL,
+            self::CONFIRM,
         );
     }
 
@@ -66,6 +73,7 @@ final readonly class Planning
             Absent::laid($this->newest, $later->newest),
             Absent::laid($this->startUpSamples, $later->startUpSamples),
             Absent::laid($this->fill, $later->fill),
+            Absent::laid($this->confirm, $later->confirm),
         );
     }
 
@@ -95,6 +103,15 @@ final readonly class Planning
         return $this->fill instanceof Absent ? TailRule::FILL : $this->fill;
     }
 
+    /**
+     * `shards.confirm`: the share of the time a first-wave job has left that its run again of doubtful kills,
+     * with every test file, may take; what does not fit is left to the wave after (ADR-0332).
+     */
+    public function confirm(): Share
+    {
+        return Share::of($this->confirm instanceof Absent ? self::CONFIRM : (float) $this->confirm);
+    }
+
     /** `timing.newest`: the weight a unit's newest measurement takes in its smoothed timing. */
     public function newest(): TimingWeight
     {
@@ -119,6 +136,12 @@ final readonly class Planning
     public function fillWritten(): Member
     {
         return Member::of('fill', $this->fill);
+    }
+
+    /** The `shards.confirm` member, which the `shards` section writes beside its own. */
+    public function confirmWritten(): Member
+    {
+        return Member::of('confirm', $this->confirm);
     }
 
     /** The `plan` and `timing` sections; nothing of one that sets no key. */
@@ -147,7 +170,8 @@ final readonly class Planning
             ...$this->called('Plan::chunkMinutes(%s)', $this->chunkMinutes),
             ...$this->called('Plan::provingRange(%s)', $this->provingRange),
             ...$this->called('Shards::cutAt(%s)', $this->cutAt),
-            ...$this->called('Shards::fill(%s)', $this->fill),
+            ...$this->called('ShardShares::fill(%s)', $this->fill),
+            ...$this->called('ShardShares::confirm(%s)', $this->confirm),
             ...$this->called('Timing::newest(%s)', $this->newest),
             ...$this->called('Timing::startUpSamples(%s)', $this->startUpSamples),
         ]);

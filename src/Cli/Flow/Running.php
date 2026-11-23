@@ -356,6 +356,7 @@ final readonly class Running
             ->controllingKills($this->settings->triage()->flaky()->killControls());
         $search = $held instanceof Subsumption ? $search->holdingBack($held) : $search;
         $scope = LeftoverScope::of($this->share);
+        $search = $scope->confirming($search, $stop instanceof ShardDeadline, $this->settings->shards()->planning());
         $outcome = $map instanceof CoverageMap
             ? new Mutating(
                 $this->adapters,

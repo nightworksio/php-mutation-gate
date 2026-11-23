@@ -156,9 +156,10 @@ final readonly class VouchedKills
         $unvouched = MutationResult::skippingNone(
             FoundAgain::among($doubtful, Mutants::none(), OutOfTime::BeforeVouching->reason()),
         );
+        $within = $request->search()->confirmShare()->taken($left);
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
             ? $unvouched
-            : $this->again($doubtful, $this->confirming($request, $left));
+            : $this->again($doubtful, $this->confirming($request, $within));
         $again = $again instanceof CannotJudge && $again->isAtTheDeadline() ? $unvouched : $again;
         $runs = new AloneRuns($this->project, $this->tail, $this->remembered);
         $again = $again instanceof CannotJudge

@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\KillControl;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
+use NightWorksIO\MutationGate\Core\Time\Share;
 
 /**
  * How a runner looks for the tests that kill each mutant: the order it runs
@@ -24,31 +25,47 @@ final readonly class KillSearch
         private Ordering $ordering,
         private MatrixKind $matrix,
         private Subsumption|NotGiven $held,
-        private KillControl $killControls = KillControl::Order,
+        private KillControl $killControls,
+        private Share $confirmShare,
     ) {
     }
 
     /** The runner's own order, stopping at the first killer. */
     public static function standard(): self
     {
-        return new self(Ordering::runner(), MatrixKind::FirstKiller, NotGiven::value());
+        return self::of(Ordering::runner(), MatrixKind::FirstKiller);
     }
 
     public static function of(Ordering $ordering, MatrixKind $matrix): self
     {
-        return new self($ordering, $matrix, NotGiven::value());
+        return new self($ordering, $matrix, NotGiven::value(), KillControl::Order, Share::whole());
     }
 
     /** This search, running each mutant another the run offers subsumes after the others (ADR-0079). */
     public function holdingBack(Subsumption $held): self
     {
-        return new self($this->ordering, $this->matrix, $held, $this->killControls);
+        return new self($this->ordering, $this->matrix, $held, $this->killControls, $this->confirmShare);
     }
 
     /** This search, whose kills are controlled so (ADR-0108). */
     public function controllingKills(KillControl $killControls): self
     {
-        return new self($this->ordering, $this->matrix, $this->held, $killControls);
+        return new self($this->ordering, $this->matrix, $this->held, $killControls, $this->confirmShare);
+    }
+
+    /**
+     * This search, whose run again of doubtful kills with every test file takes at most this share of the time
+     * the run has left as it starts (ADR-0332).
+     */
+    public function confirmingWithin(Share $share): self
+    {
+        return new self($this->ordering, $this->matrix, $this->held, $this->killControls, $share);
+    }
+
+    /** The share of the time left the run again of doubtful kills may take: all of it where none is set. */
+    public function confirmShare(): Share
+    {
+        return $this->confirmShare;
     }
 
     /** What a kill's unmutated control runs. */

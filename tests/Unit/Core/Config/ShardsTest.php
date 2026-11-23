@@ -22,10 +22,13 @@ use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Config\Reports;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Config\ShardTail;
 use NightWorksIO\MutationGate\Core\Config\Table;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Share;
 
 describe('Shards', function (): void {
     it('stays as it is under a part of another kind', function (Part $part): void {
@@ -76,7 +79,9 @@ describe('Shards', function (): void {
             surviving: 0.05,
             shardOverhead: 2,
             progress: Seconds::minutes(5),
+            margin: Seconds::of(90),
             costMode: CostMode::Minutes,
+            tail: ShardTail::from('run'),
         );
 
         expect($shards->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith(
@@ -86,6 +91,8 @@ describe('Shards', function (): void {
             "Shards::setup('3m')",
             "Shards::jobLimit('50m')",
             "Shards::progress('5m')",
+            "Shards::margin('1m30s')",
+            "Shards::tail('run')",
             "Costs::secondsPerLine('', 0.25)",
             "Costs::secondsPerLine('src/Legacy', 2)",
             "Costs::perRunnerMinute(0.008, 'USD')",
@@ -134,6 +141,19 @@ describe('Shards', function (): void {
     it('holds how a run plans its work, and plans as it always has where no layer says how', function (): void {
         expect(Shards::of(planning: Planning::of(chunkMinutes: 30))->planning()->chunk())->toEqual(Seconds::of(1800))
             ->and(Shards::none()->planning())->toEqual(Planning::of());
+    });
+
+    it('fills a job and confirms doubtful kills by the shares a layer sets, a later layer\'s first, and by the standard ones where none does', function (): void {
+        $set = Planning::of(fill: 0.5, confirm: 0.25);
+
+        expect(Planning::of()->confirm())->toEqual(Share::of(Planning::CONFIRM))
+            ->and(Planning::standard()->confirm())->toEqual(Share::of(0.1))
+            ->and($set->confirm())->toEqual(Share::of(0.25))
+            ->and($set->fill())->toBe(0.5)
+            ->and($set->over(Planning::of(confirm: 1))->confirm())->toEqual(Share::whole())
+            ->and($set->over(Planning::of())->confirm())->toEqual(Share::of(0.25))
+            ->and($set->confirmWritten())->toEqual(Member::of('confirm', 0.25))
+            ->and($set->php())->toEqual(PhpCalls::inWith('ShardShares::fill(0.5)', 'ShardShares::confirm(0.25)'));
     });
 
     it('stops a job at shards.jobLimit alone where no target is set, and at the sooner of the two where one is', function (): void {

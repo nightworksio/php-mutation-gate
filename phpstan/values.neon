@@ -11,6 +11,8 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Config\Planning':
+                    - CONFIRM # the share of a job's time left its run again of doubtful kills takes, not a timeout's headroom
                 'NightWorksIO\MutationGate\Core\Runner\ProcessListing':
                     - GROUP # the place of a process's group in Linux's stat file, not an argument or an exit code
                     - STARTED # the place of a process's start in Linux's stat file, not a ledger level

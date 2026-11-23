@@ -90,6 +90,7 @@ final readonly class SettingsCases
             "setup": "1m",
             "cutAt": 2.0,
             "fill": 0.92,
+            "confirm": 0.1,
             "pull": "auto",
             "progress": "3m",
             "margin": "45s",
