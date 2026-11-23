@@ -431,6 +431,32 @@ it('bounds the run again of a narrowed kill by the search\'s share of the time l
         ->toEqual([Seconds::of(180.0), Seconds::of(80.0), Seconds::of(5.0)]);
 });
 
+it('bounds the control of a kill run again by what is left of the search\'s share of the time, and by all the time left with no share', function (float $share, array $deadlines): void {
+    $at = PestCases::project();
+    $shell = adapterEndedTwice($at, killedAgain: true);
+    $clock = new class implements Clock {
+        private float $read = 0.0;
+
+        public function seconds(): float
+        {
+            return $this->read += 10.0;
+        }
+    };
+    $money = PestCases::money()->within(Seconds::of(400.0));
+
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)
+        ->mutate($money->searching($money->search()->confirmingWithin(Share::of($share))));
+
+    expect(array_map(static function (Command $command): float {
+        $deadline = $command->deadline();
+
+        return $deadline instanceof Seconds ? $deadline->seconds() : INF;
+    }, $shell->commands()))->toBe($deadlines);
+})->with([
+    'the whole of it' => [1.0, [380.0, 240.0, 140.0]],
+    'half of it' => [0.5, [380.0, 110.0, 10.0]],
+]);
+
 it('names the steps a patched run\'s time went to, each timed from when the run began', function (): void {
     $at = PestCases::project();
     $shell = PestCases::narrowedKill($at, passAlone: false);
