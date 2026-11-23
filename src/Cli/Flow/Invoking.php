@@ -85,7 +85,23 @@ final readonly class Invoking
     {
         $result = $this->mutated($request);
 
-        return $result instanceof CannotJudge ? $result : $this->triaged($result, $request);
+        if ($result instanceof CannotJudge) {
+            return $result;
+        }
+
+        $limits = $this->settings->triage()->limits();
+        $suspects = new CrashSuspects(
+            fn(Mutants $crashed): Mutants|CannotJudge => $this->adapters->runner->retry(
+                $this->timeLeft()->retimed($request),
+                $crashed,
+                $limits->most(),
+            ),
+            $this->timeLeft(),
+            $limits->limit(),
+            $this->stopwatch,
+        );
+
+        return $this->triaged($suspects->settled($result), $request);
     }
 
     /**

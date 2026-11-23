@@ -33,15 +33,19 @@ enum OutOfTime: string
 
     /** The run of the mutant's unit crashed before it judged the mutant, which a later wave judges (ADR-0330). */
     case Crashed = 'crashed';
+    /** The mutant's run, of it alone, crashed, and the unmutated control that judges that has not run (ADR-0333). */
+    case CrashedAlone = 'crashed-alone';
 
     private const string SAID = 'The time budget ran out before %s. A larger --budget judges it.';
 
     private const string CRASHED = 'Its run crashed before it judged this mutant. Another run judges it.';
+    private const string CRASHED_ALONE
+        = 'Its run, of this mutant alone, crashed, and its tests have not run unmutated yet. Another run judges it.';
 
     /** Why the mutant is unjudged, and what judges it. */
     public function reason(): Reason
     {
-        return Reason::ranOutOf($this, $this === self::Crashed ? self::CRASHED : sprintf(self::SAID, $this->before()));
+        return Reason::ranOutOf($this, $this->said());
     }
 
     /** Whether a time budget left this mutant unjudged, as its reason records. */
@@ -58,8 +62,23 @@ enum OutOfTime: string
     public function isUnrun(): bool
     {
         return match ($this) {
-            self::BeforeMutating, self::BeforeRunning, self::Crashed => true,
+            self::BeforeMutating, self::BeforeRunning, self::Crashed, self::CrashedAlone => true,
             self::BeforeConfirming, self::BeforeChecking, self::BeforeControlling, self::BeforeVouching => false,
+        };
+    }
+
+    /** What its reason says. */
+    private function said(): string
+    {
+        return match ($this) {
+            self::Crashed => self::CRASHED,
+            self::CrashedAlone => self::CRASHED_ALONE,
+            self::BeforeMutating,
+            self::BeforeConfirming,
+            self::BeforeRunning,
+            self::BeforeChecking,
+            self::BeforeControlling,
+            self::BeforeVouching => sprintf(self::SAID, $this->before()),
         };
     }
 
@@ -74,6 +93,7 @@ enum OutOfTime: string
             self::BeforeControlling => 'its tests could run unmutated to judge it',
             self::BeforeVouching => 'its kill could be vouched for',
             self::Crashed => 'its crashed run judged it',
+            self::CrashedAlone => 'its tests could run unmutated to judge its crash',
         };
     }
 }

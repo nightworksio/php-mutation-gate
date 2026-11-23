@@ -107,6 +107,7 @@ enum VerdictSet
                 'src/Cli/Flow/Ruling.php',
                 'src/Cli/Flow/RunRequest.php',
                 'src/Cli/Flow/Invoking.php',
+                'src/Cli/Flow/CrashSuspects.php',
                 'src/Cli/Flow/Controlling.php',
                 'src/Cli/Flow/TimeLeft.php',
                 'src/Cli/Flow/PreChecking.php',

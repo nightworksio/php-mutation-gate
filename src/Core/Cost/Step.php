@@ -78,6 +78,9 @@ enum Step: string
     /** Proving an invocation's survivors equivalent to their originals, before they run again (ADR-0013). */
     case Equivalence = 'equivalence';
 
+    /** The runs again, by halves, of the mutants a crashed run left unjudged (ADR-0333). */
+    case Suspects = 'suspects';
+
     /** The run again of each survivor, alone, in a process of its own (ADR-0008, ADR-0070). */
     case Survivors = 'survivors';
 

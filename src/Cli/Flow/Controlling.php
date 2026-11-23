@@ -15,11 +15,13 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\Toggle;
+use NightWorksIO\MutationGate\Core\Control\AbnormalEnds;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlKind;
 use NightWorksIO\MutationGate\Core\Control\ControlKinds;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
+use NightWorksIO\MutationGate\Core\Control\CrashControls;
 use NightWorksIO\MutationGate\Core\Control\HeavyMutants;
 use NightWorksIO\MutationGate\Core\Control\KillControls;
 use NightWorksIO\MutationGate\Core\Control\MemoryControls;
@@ -161,7 +163,7 @@ final readonly class Controlling
      * @return array{
      *     TimeoutControls,
      *     KillControls,
-     *     MemoryControls,
+     *     AbnormalEnds,
      *     UnnamedKillControls,
      *     HeavyMutants,
      *     list<Control>,
@@ -198,7 +200,10 @@ final readonly class Controlling
             $this->settings->triage()->flaky()->killControls(),
             $this->settings->effective()->running()->pest()->longFilter(),
         );
-        $memory = MemoryControls::of($outOfMemory, $unfiltered, $this->map, $this->held, $run, $bounds);
+        $memory = AbnormalEnds::of(
+            MemoryControls::of($outOfMemory, $unfiltered, $this->map, $this->held, $run, $bounds),
+            CrashControls::of($controllable, $unfiltered, $this->map, $this->held, $run, $bounds),
+        );
         $unnamed = UnnamedKillControls::of($killed, $evidence, $this->map, $this->held, $run, $controls);
         $asked = [...Controls::of(...[
             ...$timeouts->asked(),
@@ -209,8 +214,8 @@ final readonly class Controlling
         $kinds = ControlKinds::otherwise(ControlKind::Kills)
             ->asking(ControlKind::Timeout, $timeouts->asked())
             ->asking(ControlKind::Kills, $kills->asked())
-            ->asking(ControlKind::UnnamedKill, $unnamed->asked())
-            ->asking(ControlKind::Memory, $memory->asked());
+            ->asking(ControlKind::UnnamedKill, $unnamed->asked());
+        $kinds = $memory->asking($kinds);
 
         return [$timeouts, $kills, $memory, $unnamed, $heavy, $asked, $kinds];
     }

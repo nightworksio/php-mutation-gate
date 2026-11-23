@@ -62,7 +62,7 @@ final readonly class Interpretation
 
     /** What a result warns of where its run crashed (ADR-0330). */
     private const string CRASHED = <<<'SAID'
-        The mutation run crashed, so the mutants it had not killed are left unjudged for a later wave.
+        The mutation run crashed, so the mutants it had not killed run again.
         %s
         SAID;
 

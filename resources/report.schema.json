@@ -1468,6 +1468,7 @@
                                                 "baselines",
                                                 "confirmation",
                                                 "equivalence",
+                                                "suspects",
                                                 "survivors",
                                                 "controls",
                                                 "heavy parts",
@@ -1500,6 +1501,7 @@
                                                                 "kill",
                                                                 "unnamed kill",
                                                                 "memory",
+                                                                "crash",
                                                                 "heavy part"
                                                             ]
                                                         }
