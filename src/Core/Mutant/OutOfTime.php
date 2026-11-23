@@ -73,27 +73,12 @@ enum OutOfTime: string
         return match ($this) {
             self::Crashed => self::CRASHED,
             self::CrashedAlone => self::CRASHED_ALONE,
-            self::BeforeMutating,
-            self::BeforeConfirming,
-            self::BeforeRunning,
-            self::BeforeChecking,
-            self::BeforeControlling,
-            self::BeforeVouching => sprintf(self::SAID, $this->before()),
-        };
-    }
-
-    /** What the budget ran out before. */
-    private function before(): string
-    {
-        return match ($this) {
-            self::BeforeMutating => 'this run mutated its unit',
-            self::BeforeRunning => 'its own run finished',
-            self::BeforeConfirming => 'its survival could be confirmed',
-            self::BeforeChecking => 'static analysis could check it',
-            self::BeforeControlling => 'its tests could run unmutated to judge it',
-            self::BeforeVouching => 'its kill could be vouched for',
-            self::Crashed => 'its crashed run judged it',
-            self::CrashedAlone => 'its tests could run unmutated to judge its crash',
+            self::BeforeMutating => sprintf(self::SAID, 'this run mutated its unit'),
+            self::BeforeRunning => sprintf(self::SAID, 'its own run finished'),
+            self::BeforeConfirming => sprintf(self::SAID, 'its survival could be confirmed'),
+            self::BeforeChecking => sprintf(self::SAID, 'static analysis could check it'),
+            self::BeforeControlling => sprintf(self::SAID, 'its tests could run unmutated to judge it'),
+            self::BeforeVouching => sprintf(self::SAID, 'its kill could be vouched for'),
         };
     }
 }
