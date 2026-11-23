@@ -95,6 +95,14 @@ inputs:
       (ADR-0186); on keeps pcov as PHP is configured.
     required: false
     default: 'off'
+  contain:
+    description: >-
+      Whether a shard's run is kept in a process namespace of its own, so that no test of a mutant can signal a process
+      outside the run, the runner's own included (ADR-0331): auto, the default, does where the runner is Linux, has
+      unshare and setpriv and lets the job use sudo without a password, and says so where it does not; on fails the job where it
+      cannot; off never does.
+    required: false
+    default: 'auto'
   job-started:
     description: >-
       When the shard's job began, as seconds since the epoch: the shard stops at shards.target less the time since
@@ -370,6 +378,7 @@ runs:
         SHARD: ${{ inputs.shard }}
         LEFTOVER: ${{ inputs.leftover }}
         GATE_PCOV: ${{ inputs.gate-pcov }}
+        CONTAIN: ${{ inputs.contain }}
         MUTATION_GATE_ARTIFACT_SERVICE: ${{ runner.temp }}/mutation-gate-artifact-service.json
         MUTATION_GATE_WATCH_JOBS: ${{ inputs.watch-jobs }}
         MUTATION_GATE_JOB_STARTED: ${{ inputs.job-started }}
@@ -381,7 +390,24 @@ runs:
         [ "${GATE_PCOV}" = "on" ] || own=(-d pcov.enabled=0)
         share=()
         [ -z "${LEFTOVER}" ] || share=(--leftover="${LEFTOVER}")
-        php "${own[@]}" "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${share[@]}" "${arguments[@]}" || code=$?
+        # The run in a process namespace of its own, as the user the job runs as and as the namespace's first
+        # process: a signal a mutant's test sends reaches nothing outside it and cannot end the gate itself, and the
+        # namespace ends with the run (ADR-0331).
+        contained=()
+        if [ "${CONTAIN}" != "off" ]; then
+          if [ "$(uname -s)" = "Linux" ] && command -v unshare > /dev/null && command -v setpriv > /dev/null && sudo -n true 2> /dev/null; then
+            contained=(
+              sudo -n -E unshare --pid --fork --mount-proc --kill-child --
+              setpriv --reuid="$(id -u)" --regid="$(id -g)" --init-groups env "PATH=${PATH}" "HOME=${HOME}"
+            )
+          elif [ "${CONTAIN}" = "on" ]; then
+            echo "::error::contain is on, and this runner cannot keep the run in a process namespace: it needs Linux, unshare, setpriv and sudo without a password."
+            exit 1
+          else
+            echo "::notice::The run is not kept in a process namespace of its own: this runner is not Linux, has no unshare or setpriv, or asks a password for sudo."
+          fi
+        fi
+        "${contained[@]}" php "${own[@]}" "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${share[@]}" "${arguments[@]}" || code=$?
         if [ -z "${LEFTOVER}" ] && [ -f ".mutation-gate/results/${SHARD}.json" ]; then
           echo "${GITHUB_RUN_ATTEMPT}" > ".mutation-gate/results/${SHARD}.attempt"
         fi

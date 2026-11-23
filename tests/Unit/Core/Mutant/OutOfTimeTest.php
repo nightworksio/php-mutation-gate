@@ -33,7 +33,13 @@ it('says what the budget ran out before, and the command that judges it', functi
 
 it('knows a budget that left a mutant before its own run told anything of it', function (): void {
     expect(array_map(static fn(OutOfTime $before): bool => $before->isUnrun(), OutOfTime::cases()))
-        ->toBe([true, false, true, false, false, false]);
+        ->toBe([true, false, true, false, false, false, true]);
+});
+
+it('says a crash left a mutant for another run to judge, and that a budget did not', function (): void {
+    expect(OutOfTime::Crashed->reason())
+        ->toEqual(Reason::ranOutOf(OutOfTime::Crashed, 'Its run crashed before it judged this mutant. Another run judges it.'))
+        ->and(OutOfTime::Crashed->reason()->outOfTime())->toBe(OutOfTime::Crashed);
 });
 
 $mutant = static fn(MutantStatus $status): Mutant => Mutant::of(

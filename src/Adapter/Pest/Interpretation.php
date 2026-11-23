@@ -60,6 +60,12 @@ final readonly class Interpretation
 
     private const string RAN_NO_TEST = 'its own run ran no test';
 
+    /** What a result warns of where its run crashed (ADR-0330). */
+    private const string CRASHED = <<<'SAID'
+        The mutation run crashed, so the mutants it had not killed are left unjudged for a later wave.
+        %s
+        SAID;
+
     /** The key of a span of a file's lines, whose covering tests every mutant on it shares. */
     private const string SPAN = '%s:%d:%d';
 
@@ -82,7 +88,8 @@ final readonly class Interpretation
     /** A run's records, read with the covering tests of the run's opening map. */
     public function of(Ran $ran, string $results, Covering|CannotJudge $coverage): MutationResult|CannotJudge
     {
-        $records = new RunRecords($this->cap, $this->opening)->of($ran, $results);
+        $reading = new RunRecords($this->cap, $this->opening);
+        $records = $reading->of($ran, $results);
 
         $result = match (true) {
             $records instanceof CannotJudge => $records,
@@ -93,7 +100,16 @@ final readonly class Interpretation
         $counted = $records instanceof Records ? $records->forkStates() : NotGiven::value();
         $result = $result instanceof MutationResult ? $this->besides($result, $counted, $results) : $result;
 
-        return $result instanceof MutationResult && $ran->wasStopped() ? $result->stoppedAtDeadline() : $result;
+        $crashed = $records instanceof Records ? $reading->crashed($ran, $records) : '';
+
+        return match (true) {
+            ! $result instanceof MutationResult => $result,
+            $crashed !== '' => $result->crashed()->withWarnings(
+                $result->warnings()->with(Warning::that(sprintf(self::CRASHED, $crashed))),
+            ),
+            $ran->wasStopped() => $result->stoppedAtDeadline(),
+            default => $result,
+        };
     }
 
     /** A mutant the gate made before, now unjudged, saying why. */

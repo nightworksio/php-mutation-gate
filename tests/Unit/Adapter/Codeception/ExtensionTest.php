@@ -61,6 +61,21 @@ function skipOf(Extension $extension, string $method, string ...$modules): strin
     return $event->getTest()->getMetadata()->getSkip() ?? '';
 }
 
+/** Whether pcov is loaded and switched on. */
+function measuringByPcov(): bool
+{
+    return extension_loaded('pcov') && ini_get('pcov.enabled') === '1';
+}
+
+/** Whether Xdebug is loaded in coverage mode, as `XDEBUG_MODE` or else `xdebug.mode` sets it. */
+function measuringByXdebug(): bool
+{
+    $told = getenv('XDEBUG_MODE');
+    $mode = is_string($told) && $told !== '' ? $told : ini_get('xdebug.mode');
+
+    return extension_loaded('xdebug') && is_string($mode) && str_contains($mode, 'coverage');
+}
+
 it('hears each test start, end and outcome, each suite start, and the run\'s end', function (): void {
     expect(Extension::$events)->toBe([
         Events::SUITE_BEFORE => 'suite',
@@ -186,7 +201,7 @@ it('measures over the driver PHP has where it is handed nothing to measure with'
     selectingTheFirst($root, [Option::Coverage->value => $map, Option::Vendor->value => '/p/vendor'])->written();
 
     expect(is_file($map))->toBeTrue();
-})->skip(fn(): bool => ! extension_loaded('pcov') && ! extension_loaded('xdebug'), 'only a PHP with a coverage driver');
+})->skip(fn(): bool => ! measuringByPcov() && ! measuringByXdebug(), 'only a PHP whose coverage driver is switched on');
 
 it('notes in the guard file whether opcache on its command line could serve an original', function (): void {
     $guard = sprintf('%s/guard.txt', Scratch::directory());

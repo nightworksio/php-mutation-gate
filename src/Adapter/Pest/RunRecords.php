@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function is_file;
+use function is_int;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -17,13 +19,17 @@ use function sprintf;
  * The records of a Pest mutation run the gate judges, failing closed: a run
  * that failed, or records that do not add up to Pest's own summary, cannot
  * be judged; one whose own process ran out of the memory cap says to raise
- * it.
+ * it. One that crashed after it had made its mutants hands its records on (ADR-0330).
  *
  * @internal
  */
 final readonly class RunRecords
 {
-    private const string FAILED = "Pest's mutation run failed. Pest said:\n%s";
+    private const string FAILED = "Pest's mutation run failed%s. Pest said:\n%s";
+
+    private const string EXITED = ' (exit code %d)';
+
+    private const string SIGNALLED = ' (ended by signal %d, exit code %d)';
 
     private const string UNCOUNTED = "Pest's records of its mutants do not add up to its summary. Pest said:\n%s";
 
@@ -51,8 +57,24 @@ final readonly class RunRecords
             $records instanceof CannotJudge => $this->unread($ran, $records, $results),
             $ran->wasStopped() => $records->allMade() ? $records : $this->stoppedEarly($ran),
             $ran->succeeded() || $records->ended() => $this->counted($records, $ran),
+            $this->crashed($ran, $records) !== '' => $records,
             default => $this->failed($ran),
         };
+    }
+
+    /**
+     * What a run that crashed said: one that failed, without reaching its
+     * end, after Pest had written every mutant it made, other than by the
+     * issues of its opening run. Nothing of any other run (ADR-0330).
+     */
+    public function crashed(Ran $ran, Records $records): string
+    {
+        $crashed = $ran->ending() === Ending::Failed
+            && ! $records->ended()
+            && $records->allMade()
+            && (!$this->opening instanceof OpeningIssues || !$this->opening->endedAfterOpening($ran));
+
+        return $crashed ? $this->died($ran) : '';
     }
 
     /**
@@ -90,15 +112,36 @@ final readonly class RunRecords
      */
     private function failed(Ran $ran): CannotJudge
     {
+        return $this->opening instanceof OpeningIssues && $this->opening->endedAfterOpening($ran)
+            ? $this->opening->why($ran)
+            : CannotJudge::because($this->died($ran));
+    }
+
+    /** How a run died: its own process out of the memory cap, or what Pest said and how its process ended. */
+    private function died(Ran $ran): string
+    {
         $output = $ran->output();
 
+        return Exhaustion::isOf(Exhaustion::in($output), $this->cap)
+            ? $this->exhausted($output)
+            : sprintf(self::FAILED, $this->ended($ran), $output);
+    }
+
+    /** That Pest's own process ran out of the memory cap, with what it said. */
+    private function exhausted(string $output): string
+    {
+        return sprintf(self::OUT_OF_MEMORY, $this->cap->written(), Exhaustion::ADVICE, $output);
+    }
+
+    /** How the run's process ended: its exit code, and the signal where one ended it; nothing where none was read. */
+    private function ended(Ran $ran): string
+    {
+        $code = $ran->exitCode();
+
         return match (true) {
-            Exhaustion::isOf(Exhaustion::in($output), $this->cap) => CannotJudge::because(
-                sprintf(self::OUT_OF_MEMORY, $this->cap->written(), Exhaustion::ADVICE, $output),
-            ),
-            $this->opening instanceof OpeningIssues && $this->opening->endedAfterOpening($ran)
-                => $this->opening->why($ran),
-            default => CannotJudge::because(sprintf(self::FAILED, $output)),
+            ! is_int($code) => '',
+            $ran->endedBySignal() => sprintf(self::SIGNALLED, $code - Ran::SIGNALLED, $code),
+            default => sprintf(self::EXITED, $code),
         };
     }
 

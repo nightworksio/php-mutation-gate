@@ -113,6 +113,34 @@ it('leaves each mutant a run stopped at its deadline never told of unjudged by t
         ->and($stopped->skipped())->toBe(2);
 });
 
+it('leaves what a crashed run never told of, and what it said survived, for a later wave, and keeps its kills', function (): void {
+    $mutant = static fn(string $id, MutantStatus $status): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', sprintf("-a\n+%s\n", $id), 0),
+        $id,
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, $id),
+        $status,
+        Seconds::of(1.0),
+    );
+    $untold = $mutant('untold', MutantStatus::Unjudged);
+    $survived = $mutant('survived', MutantStatus::Survived);
+    $killed = $mutant('killed', MutantStatus::Killed);
+    $timedOut = $mutant('slow', MutantStatus::TimedOut);
+
+    $crashed = MutationResult::of(Mutants::of($untold, $survived, $killed, $timedOut), 2)->crashed();
+
+    expect([...$crashed->mutants()])->toEqual([
+        $untold->unjudged(OutOfTime::Crashed),
+        $survived->unjudged(OutOfTime::Crashed),
+        $killed,
+        $timedOut,
+    ])
+        ->and($crashed->skipped())->toBe(2)
+        ->and($crashed->hasCrashed())->toBeTrue()
+        ->and(MutationResult::of(Mutants::of($untold, $survived, $killed), 0)->stoppedAtDeadline()->hasCrashed())->toBeFalse()
+        ->and(MutationResult::skippingNone(Mutants::none())->crashed()->hasCrashed())->toBeFalse();
+});
+
 it('keeps the lines its runner made each file on through what it is given, and joins a later run\'s after them', function (): void {
     $money = MadeFile::of(Path::of('src/Money.php'), Line::of(9), LineSpan::of(Line::of(1), Line::of(3)));
     $tax = MadeFile::of(Path::of('src/Tax.php'), Line::of(4));

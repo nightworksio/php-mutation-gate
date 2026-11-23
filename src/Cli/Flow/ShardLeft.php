@@ -6,17 +6,28 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Written;
 
+use function sprintf;
+
 /**
  * One shard's result as `run --plan` left it (ADR-0103): where it was written,
- * and why the shard's job fails, where a survivor leaves its run no way to pass.
+ * and why the shard's job fails, where a survivor leaves its run no way to
+ * pass, or its runner could not judge it, as a runner that crashed cannot
+ * (ADR-0330).
  *
  * @internal
  */
 final readonly class ShardLeft
 {
+    private const string CRASHED = <<<'SAID'
+        The mutation run of shard %d crashed in this job, so the job fails; a later wave judges what it left.
+        SAID;
+
+    private const string UNJUDGED = "The runner could not judge shard %d in this job, so the job fails:\n%s";
+
     private function __construct(private ShardResult $result, private Written $written)
     {
     }
@@ -37,11 +48,22 @@ final readonly class ShardLeft
         return $this->written->said();
     }
 
-    /** Why the job fails, where the run cannot pass; nothing where it still can. */
+    /** Why the job fails, where the run cannot pass or the runner could not judge the shard; nothing otherwise. */
     public function doomed(): string
     {
         $doomed = $this->result->doomed();
+        $outcome = $this->result->outcome();
+        $number = $this->result->shard()->number();
 
-        return $doomed instanceof Doomed ? $doomed->failing($this->result->shard()->number()) : '';
+        return match (true) {
+            $doomed instanceof Doomed => $doomed->failing($number),
+            $outcome instanceof CannotJudge && ! $outcome->isAtTheDeadline() => sprintf(
+                self::UNJUDGED,
+                $number,
+                $outcome->why(),
+            ),
+            $outcome instanceof MutationResult && $outcome->hasCrashed() => sprintf(self::CRASHED, $number),
+            default => '',
+        };
     }
 }
