@@ -55,6 +55,18 @@ final readonly class Sampling implements Setting
         return new self(Json::at('sampling.autoRuns', Json::items(...$kinds)));
     }
 
+    /** `sampling.top` true: a run that samples also samples a tree held to a floor of 100 (ADR-0334). */
+    public static function samplingTheTop(): self
+    {
+        return new self(Json::at('sampling.top', value: true));
+    }
+
+    /** `sampling.top` false, as by default: a tree held to a floor of 100 runs whole. */
+    public static function keepingTheTopWhole(): self
+    {
+        return new self(Json::at('sampling.top', value: false));
+    }
+
     /** `sampling.seed`: what the sample is drawn from, in place of the run's base or commit. */
     public static function seed(string $seed): self
     {

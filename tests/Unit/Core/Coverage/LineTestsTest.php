@@ -151,3 +151,20 @@ describe('LineTests', function (): void {
             ->and(Growth::of(500, $holding))->toBeLessThan(Growth::LINEAR);
     });
 })->group('holds:src/Core/Coverage/LineTests.php');
+
+it('names the tests that ran a span of lines in the order of the lines, whatever order the lines were covered in', function (): void {
+    $file = Path::of('src/Money.php');
+    $lines = LineTests::none()
+        ->covered($file, Line::of(9), TestId::of('MoneyTest::last'))
+        ->covered($file, Line::of(3), TestId::of('MoneyTest::first'))
+        ->covered($file, Line::of(5), TestId::of('MoneyTest::middle'));
+    $running = static fn(int $from, int $to): array => array_map(
+        static fn(TestId $test): string => $test->value(),
+        [...$lines->running($file, Line::of($from), Line::of($to))],
+    );
+
+    expect($running(1, 2000))->toBe(['MoneyTest::first', 'MoneyTest::middle', 'MoneyTest::last'])
+        ->and($running(3, 5))->toBe(['MoneyTest::first', 'MoneyTest::middle'])
+        ->and($running(4, 9))->toBe(['MoneyTest::middle', 'MoneyTest::last'])
+        ->and($running(6, 8))->toBe([]);
+});

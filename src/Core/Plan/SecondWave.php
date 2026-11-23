@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_key_exists;
 use function array_keys;
-use function array_values;
 use function count;
 use function is_float;
 use function is_int;
@@ -98,7 +97,7 @@ final readonly class SecondWave
      */
     private static function walls(array $left, StreamWall $wall, array $jobs): array
     {
-        $median = JobsLearned::of(...array_values($jobs))->passTwo();
+        $median = JobsLearned::of(...$jobs)->passTwo();
         $run = is_float($median) ? $wall->passingTwiceAt($median) : $wall;
         $walls = [];
 

@@ -150,6 +150,27 @@ it('runs every unit of a tree held to 100, declared or by its baseline', functio
         ->and([$sampledOf($baseline), $unsampledOf($baseline), count($unitsOf($baseline))])->toBe([[], [], 2]);
 });
 
+it('samples a tree held to 100 too where sampling.top says so, and keeps it whole where it says not', function () use ($plan, $killedAll, $unitsOf, $sampledOf, $unsampledOf): void {
+    $held = static fn(): TreeSourceFake => new TreeSourceFake(Trees::of(Tree::at(Path::of('src'), Floor::of(100), Package::at(Path::root()))));
+    $top = $plan(
+        Flows::project(),
+        Mode::full()->sampled(),
+        Flows::settings(Sampling::minUnits(1), Sampling::samplingTheTop()),
+        $killedAll(Planned::money(), Planned::held()),
+        $held(),
+    );
+    $whole = $plan(
+        Flows::project(),
+        Mode::full()->sampled(),
+        Flows::settings(Sampling::minUnits(1), Sampling::keepingTheTopWhole()),
+        $killedAll(Planned::money(), Planned::held()),
+        $held(),
+    );
+
+    expect([count($sampledOf($top)), count($unsampledOf($top)), $unitsOf($top)])->toBe([1, 1, $sampledOf($top)])
+        ->and([$sampledOf($whole), $unsampledOf($whole), count($unitsOf($whole))])->toBe([[], [], 2]);
+});
+
 it('cannot draw a sample where the committed baseline cannot be read', function () use ($plan): void {
     $project = Flows::project();
     Scratch::write($project, 'mutation-gate.baseline.json', 'not json');

@@ -104,9 +104,21 @@ final readonly class Estimate
             $floor instanceof Exempt => Judgement::Exempt,
             $this->score() instanceof NothingToMutate => Judgement::NothingToMutate,
             ! $floor instanceof Floor, $this->lower() >= $floor->hundredths() => Judgement::Passed,
+            $this->isSampled() && $floor->hundredths() === Floor::whole()->hundredths() => $this->heldAtTheTop(),
             $this->upper() < $floor->hundredths() => Judgement::Failed,
             default => Judgement::Undecided,
         };
+    }
+
+    /**
+     * A sampled tree held to a floor of 100 (ADR-0334): passed where no mutant its exact units or its sample
+     * counted survived, and failed where one did, which no unsampled unit can undo.
+     */
+    private function heldAtTheTop(): Judgement
+    {
+        return $this->exact->killed() === $this->exact->counted() && $this->stratum->isSpotless()
+            ? Judgement::Passed
+            : Judgement::Failed;
     }
 
     /** The tree's score, in percent, where its sampled stratum kills this share of its mutants. */

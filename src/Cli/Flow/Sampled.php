@@ -186,11 +186,16 @@ final readonly class Sampled
         return $exact;
     }
 
-    /** Whether a tree is held to a floor of 100, which no sample can show holds, so it runs whole. */
+    /**
+     * Whether a tree is held to a floor of 100, which no sample can show holds, so it runs whole, unless
+     * `sampling.top` has a sampling run sample it too (ADR-0334).
+     */
     private function isWhole(Tree $tree, Baseline $baseline): bool
     {
         $floor = HeldFloor::of($tree->declared(), $baseline->floorOf($tree->path()))->floor();
 
-        return $floor instanceof Floor && $floor->hundredths() === Floor::whole()->hundredths();
+        return $floor instanceof Floor
+            && $floor->hundredths() === Floor::whole()->hundredths()
+            && ! $this->settings->reach()->sampling()->samplesTheTop();
     }
 }

@@ -321,6 +321,8 @@ it('offers no part past its cap, and offers the parts ahead while a part\'s cont
 
     expect(partedTests(partedCapped(2)->ahead(ControlRuns::none())))->toBe(['LoopTest::b'])
         ->and(partedCapped(1)->ahead(ControlRuns::none()))->toBe([])
+        ->and(partedCapped(0)->ahead(ControlRuns::none()))->toBe([])
+        ->and(partedTests(partedCapped(3)->after(ControlRun::passed(Seconds::of(1.0)))->ahead(ControlRuns::none())))->toBe(['LoopTest::c'])
         ->and(partedTests($controlling->ahead(ControlRuns::none())))->toBe(['LoopTest::b', 'LoopTest::c', 'LoopTest::d']);
 });
 

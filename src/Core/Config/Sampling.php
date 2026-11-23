@@ -45,6 +45,7 @@ final readonly class Sampling
         private string|Absent $seed,
         private AutoSample|Absent $auto,
         private Listed|Absent $autoRuns,
+        private bool|Absent $top,
     ) {
     }
 
@@ -56,8 +57,9 @@ final readonly class Sampling
         string|Absent $seed = new Absent(),
         AutoSample|Absent $auto = new Absent(),
         Listed|Absent $autoRuns = new Absent(),
+        bool|Absent $top = new Absent(),
     ): self {
-        return new self($confidence, $margin, $minUnits, $seed, $auto, $autoRuns);
+        return new self($confidence, $margin, $minUnits, $seed, $auto, $autoRuns, $top);
     }
 
     /** This, with what a later layer sets laid over it, key by key. */
@@ -70,6 +72,7 @@ final readonly class Sampling
             Absent::laid($this->seed, $later->seed),
             Absent::laid($this->auto, $later->auto),
             Absent::laid($this->autoRuns, $later->autoRuns),
+            Absent::laid($this->top, $later->top),
         );
     }
 
@@ -119,6 +122,15 @@ final readonly class Sampling
         return $this->autoRuns instanceof Listed ? $this->autoRuns : Listed::of(...self::AUTO_RUNS);
     }
 
+    /**
+     * `sampling.top`: whether a run that samples also samples a tree held to a floor of 100, which then passes
+     * where no mutant it ran survives (ADR-0334); never by default, so such a tree runs whole.
+     */
+    public function samplesTheTop(): bool
+    {
+        return $this->top === true;
+    }
+
     /** The `sampling` member a config writes; nothing where no key is set. */
     public function written(): Member
     {
@@ -137,6 +149,7 @@ final readonly class Sampling
                     'autoRuns',
                     $this->autoRuns instanceof Listed ? Json::items(...$this->runNames()) : $this->autoRuns,
                 ),
+                Member::of('top', $this->top),
             ),
         );
     }
@@ -154,6 +167,11 @@ final readonly class Sampling
             ...is_int($this->minUnits) ? [sprintf('Sampling::minUnits(%d)', $this->minUnits)] : [],
             ...is_string($this->seed) ? [sprintf('Sampling::seed(%s)', PhpCalls::literal($this->seed))] : [],
             ...$this->autoCalls(),
+            ...match ($this->top) {
+                true => ['Sampling::samplingTheTop()'],
+                false => ['Sampling::keepingTheTopWhole()'],
+                default => [],
+            },
         ]);
     }
 

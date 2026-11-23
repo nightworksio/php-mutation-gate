@@ -4564,6 +4564,9 @@
                     "default": [
                         "pullRequests"
                     ]
+                },
+                "top": {
+                    "type": "boolean"
                 }
             },
             "additionalProperties": false
@@ -9239,6 +9242,9 @@
                                     "branches"
                                 ]
                             }
+                        },
+                        "top": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false

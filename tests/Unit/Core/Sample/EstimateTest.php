@@ -96,3 +96,23 @@ it('counts an exact tree as a census would, where a share in floating point woul
 it('is sampled where its stratum holds a single unit', function () use ($sample): void {
     expect(Estimate::of(Tally::of(1, 2), 1, Stratum::of(1, 3, Spread::of()), $sample())->isSampled())->toBeTrue();
 });
+
+it('holds a sampled tree to a floor of 100 by what it ran: passed where nothing it counted survived, failed where anything did', function () use ($sample): void {
+    $of = static fn(Tally $exact, Tally ...$sampled): Judgement => Estimate::of(
+        $exact,
+        5,
+        Stratum::of(10, 100, Spread::of(...$sampled)),
+        $sample(),
+    )->judgement(Floor::of(100));
+
+    expect($of(Tally::of(50, 50), Tally::of(10, 10), Tally::of(10, 10)))->toBe(Judgement::Passed)
+        ->and($of(Tally::of(50, 50), Tally::of(10, 10), Tally::of(9, 10)))->toBe(Judgement::Failed)
+        ->and($of(Tally::of(49, 50), Tally::of(10, 10), Tally::of(10, 10)))->toBe(Judgement::Failed)
+        ->and($of(Tally::of(0, 0), Tally::of(10, 10)))->toBe(Judgement::Passed);
+});
+
+it('leaves a sampled tree below 100 undecided where its floor lies within the interval, though nothing it counted survived', function () use ($sample): void {
+    $spotless = Estimate::of(Tally::of(50, 50), 5, Stratum::of(10, 100, Spread::of(Tally::of(10, 10))), $sample());
+
+    expect($spotless->judgement(Floor::of(99.99)))->toBe(Judgement::Undecided);
+});

@@ -172,3 +172,15 @@ describe('Path', function (): void {
             ->and(Path::of('Money.php')->directory())->toEqual(Path::root());
     });
 })->group('holds:src/Core/File/Path.php');
+
+
+it('is within its own directory, however short that directory\'s name', function (): void {
+    $values = static fn(Path $path): array => array_map(static fn(Path $one): string => $one->value(), [...$path->enclosing()]);
+
+    expect($values(Path::of('a/b')))->toBe(['a/b', 'a', Path::root()->value()])
+        ->and($values(Path::of('a')))->toBe(['a', Path::root()->value()]);
+});
+
+it('shares with a directory only the segments both start with, however a later one of theirs matches', function (): void {
+    expect(Path::of('a/b')->from(Path::of('x/a'))->value())->toBe('../../a/b');
+});

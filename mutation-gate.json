@@ -28,6 +28,15 @@
     "baseline": {
         "improvement": "report"
     },
+    "sampling": {
+        "auto": "10m",
+        "top": true
+    },
+    "proofs": {
+        "ignore": [
+            ".docs/decisions/**"
+        ]
+    },
     "reach": {
         "everything": [
             "src/Adapter/Pest/Warm/**",

@@ -62,7 +62,7 @@ final readonly class ShardOverheads
      */
     public function fewestMinutes(array $packages, array $counts, int $most): array
     {
-        $room = max(0, $most - array_sum($counts));
+        $room = $most - array_sum($counts);
         $fewest = [];
 
         foreach ($packages as $at => $package) {
@@ -70,7 +70,9 @@ final readonly class ShardOverheads
             $best = $fits;
             $last = min($fits + $room, $this->mostWorth($package, $fits + $room));
 
-            for ($count = $fits + 1; $count <= $last; $count++) {
+            $count = $fits;
+
+            while (++$count <= $last) {
                 $best = $this->billedAt($package, $count) <= $this->billedAt($package, $best) ? $count : $best;
             }
 

@@ -98,7 +98,7 @@ final readonly class LineTests
 
         foreach ($covered as $line) {
             foreach ($line as $test) {
-                $tests[$test] = true;
+                $tests[$test] = $test;
             }
         }
 

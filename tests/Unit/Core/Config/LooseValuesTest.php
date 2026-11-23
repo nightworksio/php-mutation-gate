@@ -37,6 +37,8 @@ it('names each loose value in force', function (array $config, array $loose): vo
     ],
     'their own-scope proofs, without them' => [['ci' => ['mergedOwnScopeProofs' => 'trust']], []],
     'a lock move that loads' => [['reach' => ['lockMoves' => 'loaded']], ['reach.lockMoves: loaded']],
+    'a tree held to 100 sampled' => [['sampling' => ['top' => true]], ['sampling.top: true']],
+    'a tree held to 100 kept whole, as by default' => [['sampling' => ['top' => false]], []],
     'a boot once in streams' => [['splitStream' => ['enabled' => true, 'bootOnce' => true]], ['splitStream.bootOnce: true']],
     'a boot once with no stream' => [['splitStream' => ['enabled' => false, 'bootOnce' => true]], []],
     'a reconnect in streams, as by default' => [['splitStream' => ['enabled' => true, 'reconnect' => true]], []],
