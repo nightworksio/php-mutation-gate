@@ -75,6 +75,7 @@ final readonly class BuilderClasses
         'Runner' => self::BUILDER,
         'Sampling' => self::BUILDER,
         'Shards' => self::BUILDER,
+        'ShardShares' => self::BUILDER,
         'Source' => self::BUILDER,
         'SplitStream' => self::BUILDER,
         'StreamShards' => self::BUILDER,

@@ -9,10 +9,12 @@ use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\Config\Planning;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Plan\JobTail;
 use NightWorksIO\MutationGate\Core\Plan\LeftMutant;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
@@ -25,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Share;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -168,4 +171,15 @@ it('runs the tail of the plan\'s jobs where the share\'s job runs its own, and l
     expect(LeftoverScope::of($share->runningItsTail())->learned($learned)->tail()->runs())->toBeTrue()
         ->and(LeftoverScope::of($share)->learned($learned))->toBe($learned)
         ->and(LeftoverScope::of(new NotGiven())->learned($learned))->toBe($learned);
+});
+
+it('holds a first-wave job\'s run again of doubtful kills to the config\'s share, and no job of the wave after or with no wave to follow', function (): void {
+    $planning = Planning::of(confirm: 0.25);
+    $search = KillSearch::standard();
+    $share = LeftoverShare::of(ShardId::of(1), 1);
+
+    expect(LeftoverScope::of(new NotGiven())->confirming($search, stopsForAWave: true, planning: $planning)->confirmShare())->toEqual(Share::of(0.25))
+        ->and(LeftoverScope::of(new NotGiven())->confirming($search, stopsForAWave: true, planning: Planning::of())->confirmShare())->toEqual(Share::of(Planning::CONFIRM))
+        ->and(LeftoverScope::of(new NotGiven())->confirming($search, stopsForAWave: false, planning: $planning))->toBe($search)
+        ->and(LeftoverScope::of($share)->confirming($search, stopsForAWave: true, planning: $planning))->toBe($search);
 });

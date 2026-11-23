@@ -34,7 +34,7 @@ use function sprintf;
 final readonly class Saying
 {
     /** How many characters of the longest-running command a line shows. */
-    private const int SHOWN = 140;
+    private const int SHOWN = 512;
 
     private const string LINE = 'mutation-gate: %d of %d processes ended, %d running%s; the longest for %s: %s%s';
 

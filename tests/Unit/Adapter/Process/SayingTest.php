@@ -68,9 +68,9 @@ it('says nothing until a minute after the wait began, then once a minute: what e
         ]);
 });
 
-it('shows a long command cut short at 140 characters', function (): void {
+it('shows a long command cut short at 512 characters', function (): void {
     $file = sprintf('%s/said.log', Scratch::directory());
-    $long = ProcessCommand::of('/p', 'php', str_repeat('a', 300));
+    $long = ProcessCommand::of('/p', 'php', str_repeat('a', 900));
     Saying::on(ErrorOutputLog::to($file), new ScriptedClock('2026-10-26T10:00:00Z', 0, 0, 61), GaugeFake::silent())
         ->at([], [$long], 0, new Unwatched())
         ->at([0], [$long], 0, new Unwatched())
@@ -78,7 +78,7 @@ it('shows a long command cut short at 140 characters', function (): void {
     $said = saidAt($file);
 
     expect($said)->toHaveCount(1)
-        ->and($said[0])->toEndWith(sprintf(': php %s…', str_repeat('a', 135)));
+        ->and($said[0])->toEndWith(sprintf(': php %s…', str_repeat('a', 507)));
 });
 
 it('says what the machine has left of its memory, swap and disk on each line, as the gauge reads it then', function (): void {

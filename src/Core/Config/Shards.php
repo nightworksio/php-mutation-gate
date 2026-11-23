@@ -277,6 +277,7 @@ final readonly class Shards implements Part
                     Member::of('setup', $this->durationWritten($this->setup)),
                     $this->planning->cutAtWritten(),
                     $this->planning->fillWritten(),
+                    $this->planning->confirmWritten(),
                     Member::of(
                         'jobLimit',
                         $this->durationWritten($this->jobLimit),

@@ -10,6 +10,7 @@ use function array_values;
 use Closure;
 
 use function count;
+use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
@@ -156,21 +157,35 @@ final readonly class VouchedKills
         $unvouched = MutationResult::skippingNone(
             FoundAgain::among($doubtful, Mutants::none(), OutOfTime::BeforeVouching->reason()),
         );
+        $within = $request->search()->confirmShare()->taken($left);
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
             ? $unvouched
-            : $this->again($doubtful, $this->confirming($request, $left));
+            : $this->again($doubtful, $this->confirming($request, $within));
         $again = $again instanceof CannotJudge && $again->isAtTheDeadline() ? $unvouched : $again;
         $runs = new AloneRuns($this->project, $this->tail, $this->remembered);
         $again = $again instanceof CannotJudge
             ? $again
             : $again->withMutants(
-                $controls->applied($again->mutants(), $runs, $request, ($this->left)(), $results),
+                $controls->applied($again->mutants(), $runs, $request, $this->remaining($within, $left), $results),
             );
 
         return $again instanceof CannotJudge ? $again : $result
             ->withMutants(FoundAgain::replacing($result->mutants(), $again->mutants()))
             ->withEvidence($again->evidence())
             ->withSteps(StepTimes::of($laps->lap(Step::Confirmation, $from, count($doubtful))));
+    }
+
+    /**
+     * What is left of the time the confirmation may take, of which this much was left as it began: that time less
+     * what has passed since, and no limit where it has none.
+     */
+    private function remaining(Seconds|Unlimited $within, Seconds|Unlimited $began): Seconds|Unlimited
+    {
+        $now = ($this->left)();
+
+        return $within instanceof Seconds && $began instanceof Seconds && $now instanceof Seconds
+            ? Seconds::of(max(0.0, $within->seconds() - ($began->seconds() - $now->seconds())))
+            : $now;
     }
 
     /** The request the doubtful kills run again by: within the time left, in the pool the tail runs in. */

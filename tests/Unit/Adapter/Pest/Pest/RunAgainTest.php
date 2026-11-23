@@ -54,6 +54,7 @@ use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Share;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
@@ -409,6 +410,52 @@ it('bounds the mutation run, the run of a narrowed kill\'s files alone and its r
     expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $shell->commands()))
         ->toEqual([Seconds::of(180.0), Seconds::of(80.0), Seconds::of(30.0)]);
 });
+
+it('bounds the run again of a narrowed kill by the search\'s share of the time left as it starts, and no run before it', function (): void {
+    $at = PestCases::project();
+    $shell = PestCases::narrowedKill($at, passAlone: false);
+    $clock = new class implements Clock {
+        private float $read = 0.0;
+
+        public function seconds(): float
+        {
+            return $this->read += 10.0;
+        }
+    };
+    $money = PestCases::money()->within(Seconds::of(200.0));
+    $request = $money->searching($money->search()->confirmingWithin(Share::of(0.5)));
+
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)->mutate($request);
+
+    expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $shell->commands()))
+        ->toEqual([Seconds::of(180.0), Seconds::of(80.0), Seconds::of(5.0)]);
+});
+
+it('bounds the control of a kill run again by what is left of the search\'s share of the time, and by all the time left with no share', function (float $share, array $deadlines): void {
+    $at = PestCases::project();
+    $shell = adapterEndedTwice($at, killedAgain: true);
+    $clock = new class implements Clock {
+        private float $read = 0.0;
+
+        public function seconds(): float
+        {
+            return $this->read += 10.0;
+        }
+    };
+    $money = PestCases::money()->within(Seconds::of(400.0));
+
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)
+        ->mutate($money->searching($money->search()->confirmingWithin(Share::of($share))));
+
+    expect(array_map(static function (Command $command): float {
+        $deadline = $command->deadline();
+
+        return $deadline instanceof Seconds ? $deadline->seconds() : INF;
+    }, $shell->commands()))->toBe($deadlines);
+})->with([
+    'the whole of it' => [1.0, [380.0, 240.0, 140.0]],
+    'half of it' => [0.5, [380.0, 110.0, 10.0]],
+]);
 
 it('names the steps a patched run\'s time went to, each timed from when the run began', function (): void {
     $at = PestCases::project();

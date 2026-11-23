@@ -7,9 +7,11 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Planning;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Plan\LeftoverShare;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanLearned;
@@ -65,6 +67,18 @@ final readonly class LeftoverScope
         return $this->share instanceof LeftoverShare && $this->share->runsItsTail()
             ? $learned->tailing($learned->tail()->running())
             : $learned;
+    }
+
+    /**
+     * The search, its run again of doubtful kills held to `shards.confirm` of the time left where the job is a
+     * first-wave shard's that stops at its deadline, the wave after taking what it leaves; a share's job, and a
+     * job no wave follows, confirm with all the time they have left (ADR-0332).
+     */
+    public function confirming(KillSearch $search, bool $stopsForAWave, Planning $planning): KillSearch
+    {
+        return $stopsForAWave && $this->share instanceof NotGiven
+            ? $search->confirmingWithin($planning->confirm())
+            : $search;
     }
 
     public function made(): MadeMutants
