@@ -178,8 +178,9 @@ it('holds a first-wave job\'s run again of doubtful kills to the config\'s share
     $search = KillSearch::standard();
     $share = LeftoverShare::of(ShardId::of(1), 1);
 
-    expect(LeftoverScope::of(new NotGiven())->confirming($search, stopsForAWave: true, planning: $planning)->confirmShare())->toEqual(Share::of(0.25))
-        ->and(LeftoverScope::of(new NotGiven())->confirming($search, stopsForAWave: true, planning: Planning::of())->confirmShare())->toEqual(Share::of(Planning::CONFIRM))
-        ->and(LeftoverScope::of(new NotGiven())->confirming($search, stopsForAWave: false, planning: $planning))->toBe($search)
-        ->and(LeftoverScope::of($share)->confirming($search, stopsForAWave: true, planning: $planning))->toBe($search);
+    expect(LeftoverScope::of(new NotGiven())->confirming($search, stopsAtADeadline: true, planning: $planning)->confirmShare())->toEqual(Share::of(0.25))
+        ->and(LeftoverScope::of(new NotGiven())->confirming($search, stopsAtADeadline: true, planning: Planning::of())->confirmShare())->toEqual(Share::of(Planning::CONFIRM))
+        ->and(LeftoverScope::of(new NotGiven())->confirming($search, stopsAtADeadline: false, planning: $planning))->toBe($search)
+        ->and(LeftoverScope::of($share)->confirming($search, stopsAtADeadline: true, planning: $planning)->confirmShare())->toEqual(Share::of(0.25))
+        ->and(LeftoverScope::of($share)->confirming($search, stopsAtADeadline: false, planning: $planning))->toBe($search);
 });

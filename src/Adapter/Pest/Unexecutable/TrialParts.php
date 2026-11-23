@@ -22,9 +22,10 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * The trials of a mutant of a line that is not executable, in the order
- * they run (ADR-0008): its test files in one trial where their tests fit in
- * one run under `timeouts.most`, and in parts that each fit where they do
- * not, nearest the mutant's file first, then the fastest (see MutantParts),
+ * they run (ADR-0008), nearest the mutant's file first, then the fastest
+ * (see MutantParts): where their tests fit in one run under `timeouts.most`,
+ * the files whose tests fit the shortest run a mutant is allowed, then the
+ * rest; and in parts that each fit where they do not,
  * each file whole in the first part that holds any of its tests, and the
  * files that hold no test the map times in the last. Each is allowed the
  * standard limit of the own time of the tests its files hold, kept between
@@ -54,7 +55,7 @@ final readonly class TrialParts
         $parts = MutantParts::under($this->map, $this->bounds);
         $sets = $parts->overflow($this->tests->holding($files, $this->map))
             ? $this->split($parts, $files, $original)
-            : [$files];
+            : $this->fastestFirst($files, $original);
 
         return array_map(
             fn(Paths $set): TrialRun => TrialRun::of($set, $original, $copy, $this->limitOf($set)),
@@ -75,6 +76,37 @@ final readonly class TrialParts
     }
 
     /**
+     * These files in two trials where they hold more than the shortest run a
+     * mutant is allowed takes: the files, nearest and fastest first, whose
+     * tests fit that run, at least one, then the rest; so a mutant a fast
+     * test kills waits on no slow one.
+     *
+     * @return non-empty-list<Paths>
+     */
+    private function fastestFirst(Paths $files, Path $original): array
+    {
+        $places = $this->placesOf($files);
+        $shortest = MutantParts::under($this->map, $this->bounds->upToInstead($this->bounds->floor()));
+        $parts = $shortest->of($original, $this->tests->holding($files, $this->map), $places);
+        $first = $parts === [] ? Paths::none() : $this->filesOf($parts[0], $places);
+        $rest = $files->without($first);
+
+        return count($first) === 0 || count($rest) === 0 ? [$files] : [$first, $rest];
+    }
+
+    /** Where the tests each of these files holds are. */
+    private function placesOf(Paths $files): TestPlaces
+    {
+        $places = TestPlaces::none();
+
+        foreach ($files as $file) {
+            $places = $places->placing($file, $this->tests->holding(Paths::of($file), $this->map));
+        }
+
+        return $places;
+    }
+
+    /**
      * These files in parts that each fit, each file in the first part that
      * holds any of its tests, and those that hold no test the map times
      * added to the last.
@@ -83,12 +115,7 @@ final readonly class TrialParts
      */
     private function split(MutantParts $parts, Paths $files, Path $original): array
     {
-        $places = TestPlaces::none();
-
-        foreach ($files as $file) {
-            $places = $places->placing($file, $this->tests->holding(Paths::of($file), $this->map));
-        }
-
+        $places = $this->placesOf($files);
         $sets = [];
         $placed = Paths::none();
 

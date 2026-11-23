@@ -59,9 +59,23 @@ function trialPart(float $limit, string ...$files): TrialRun
     return TrialRun::of(trialPartsFiles(...$files), Path::of('src/Money.php'), '/results/mutant.php', Seconds::of($limit));
 }
 
-it('tries the files whose tests fit in one run as one trial, allowed the standard limit of their tests', function (): void {
+it('tries the files whose tests fit in one run in two trials, the fastest file first, each allowed the standard limit of its tests', function (): void {
     expect(trialPartsOf(['ASpec' => ['a' => 0.5], 'BSpec' => ['b' => 1.0]], 'ASpec', 'BSpec'))
-        ->toEqual([trialPart(4.8, 'ASpec', 'BSpec')]);
+        ->toEqual([trialPart(1.8, 'ASpec'), trialPart(3.3, 'BSpec')])
+        ->and(trialPartsOf(['ASpec' => ['a' => 1.0], 'BSpec' => ['b' => 0.5]], 'ASpec', 'BSpec'))
+        ->toEqual([trialPart(1.8, 'BSpec'), trialPart(3.3, 'ASpec')]);
+});
+
+it('tries first every file whose tests together fit the shortest run a mutant is allowed, then the rest, files the map times no test of last', function (): void {
+    $specs = ['ASpec' => ['a' => 0.1], 'BSpec' => ['b' => 0.1], 'CSpec' => ['c' => 1.0]];
+
+    expect(trialPartsOf($specs, 'CSpec', 'HelpedSpec', 'BSpec', 'ASpec'))
+        ->toEqual([trialPart(1.0, 'ASpec', 'BSpec'), trialPart(3.3, 'CSpec', 'HelpedSpec')]);
+});
+
+it('tries files whose tests all fit the shortest run a mutant is allowed as one trial', function (): void {
+    expect(trialPartsOf(['ASpec' => ['a' => 0.1], 'BSpec' => ['b' => 0.1]], 'ASpec', 'BSpec'))
+        ->toEqual([trialPart(1.0, 'ASpec', 'BSpec')]);
 });
 
 it('tries files whose tests do not fit in one run in parts that each fit, the fastest first, and files the map times no test of last', function (): void {

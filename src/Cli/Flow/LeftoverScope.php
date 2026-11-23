@@ -70,15 +70,13 @@ final readonly class LeftoverScope
     }
 
     /**
-     * The search, its run again of doubtful kills held to `shards.confirm` of the time left where the job is a
-     * first-wave shard's that stops at its deadline, the wave after taking what it leaves; a share's job, and a
-     * job no wave follows, confirm with all the time they have left (ADR-0332).
+     * The search, keeping `shards.confirm` of its time back from its mutants' own run to vouch for its kills in,
+     * where its job stops at a deadline, a shard's of the first wave or a share's of the wave after alike
+     * (ADR-0335); a job with no deadline has all the time it takes.
      */
-    public function confirming(KillSearch $search, bool $stopsForAWave, Planning $planning): KillSearch
+    public function confirming(KillSearch $search, bool $stopsAtADeadline, Planning $planning): KillSearch
     {
-        return $stopsForAWave && $this->share instanceof NotGiven
-            ? $search->confirmingWithin($planning->confirm())
-            : $search;
+        return $stopsAtADeadline ? $search->confirmingWithin($planning->confirm()) : $search;
     }
 
     public function made(): MadeMutants

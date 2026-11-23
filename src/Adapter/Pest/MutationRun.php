@@ -338,7 +338,9 @@ final readonly class MutationRun
             $this->project,
         );
         $ran = $this->shell->run(
-            $drivers->mutating($command->with($told)->within($this->left($request, $started))),
+            $drivers->mutating($command->with($told)->within(
+                $request->search()->confirmShare()->leaving($this->left($request, $started), $request->deadline()),
+            )),
             new MutantsProgress($results, $handOff instanceof HandOff ? $handOff : new Unwatched()),
         );
         $mutation = $laps->lap(Step::Mutation, $from);
