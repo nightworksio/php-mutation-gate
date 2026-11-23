@@ -8,6 +8,7 @@ use function is_file;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Runner\Ending;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -68,8 +69,7 @@ final readonly class RunRecords
      */
     public function crashed(Ran $ran, Records $records): string
     {
-        $crashed = ! $ran->succeeded()
-            && ! $ran->wasStopped()
+        $crashed = $ran->ending() === Ending::Failed
             && ! $records->ended()
             && $records->allMade()
             && (!$this->opening instanceof OpeningIssues || !$this->opening->endedAfterOpening($ran));

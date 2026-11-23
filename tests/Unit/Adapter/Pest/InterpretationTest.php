@@ -356,6 +356,14 @@ it('leaves what a crashed run had not killed for a later wave, keeps its kills, 
         ->toContain("The mutation run crashed, so the mutants it had not killed are left unjudged for a later wave.\nPest's mutation run failed (ended by signal 9, exit code 137). Pest said:\nx.");
 });
 
+it('reads no run its pool halted as crashed', function () use ($six, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
+    PestRun::write($results, array_slice($six($root), 0, -2));
+    $result = $read($project, Ran::halted('x.'), $results);
+
+    expect($result instanceof MutationResult && $result->hasCrashed())->toBeFalse();
+});
+
 it('cannot judge a run that failed before it made its mutants, saying how its process ended', function () use ($read): void {
     [$project, $results] = interpretedRun([], []);
     PestRun::write($results, []);
