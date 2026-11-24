@@ -171,12 +171,14 @@ final readonly class Project
      * The file the plugin writes a run's results to, with no earlier run's
      * results, map, list of mutants to make, mutated copies, error logs or
      * killer files left beside it, or why an earlier run's are still there.
+     * A run again keeps the mutated copies: the trials of the run it follows
+     * serve them (ADR-0335), and it writes its own over those it makes again.
      */
-    public function freshResults(): string|CannotJudge
+    public function freshResults(bool $keepingCopies = false): string|CannotJudge
     {
         $results = $this->results();
         $this->directory(Path::of(dirname($results)));
-        $copies = glob(Recorder::mutantBeside($results, '*'));
+        $copies = $keepingCopies ? [] : glob(Recorder::mutantBeside($results, '*'));
         $logs = glob(Recorder::everyErrorLogBeside($results));
         $replays = glob(PrefixReplays::everyBeside($results));
         $killers = glob(KillerFile::everyBeside($results));

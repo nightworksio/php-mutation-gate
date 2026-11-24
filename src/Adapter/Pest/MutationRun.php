@@ -206,7 +206,7 @@ final readonly class MutationRun
         }
 
         $started = $this->clock->seconds();
-        $results = $this->project->freshResults();
+        $results = $this->project->freshResults(keepingCopies: $this->only !== []);
 
         if ($results instanceof CannotJudge) {
             return $results;
