@@ -158,7 +158,7 @@ it('kills a reporter that outlives its grace, which leaves its artifact where it
 
         return $listed()->listed();
     });
-    $progress = $reporter($file, Seconds::of(0.3), listing: $deaf, grace: Seconds::of(0.2));
+    $progress = $reporter($file, Seconds::of(60.0), listing: $deaf, grace: Seconds::of(0.2));
     $calls($file, 'upload ');
     $started = hrtime(as_number: true);
     $progress->stop();
