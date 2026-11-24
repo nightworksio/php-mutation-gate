@@ -119,6 +119,12 @@
         "pr": {
             "run": {
                 "failFast": "off"
+            },
+            "pest": {
+                "narrowedKills": "trust"
+            },
+            "flaky": {
+                "killControls": "alone"
             }
         }
     }
