@@ -25,7 +25,11 @@ a share of the time left, which by then was none.
 3. **The run again of doubtful kills and its controls take, together, at
    most the share kept back, and no more than is left.** The run again
    itself keeps nothing back.
-4. **`shards.confirm` still changes when a kill is vouched for, and never
+4. **A run vouches for its kills before its trials.** The trials of the
+   mutants on lines that are not executable (ADR-0004) take what time is
+   left after that, and those that do not start are left to the wave
+   after, whose own run is shorter.
+5. **`shards.confirm` still changes when a kill is vouched for, and never
    its status.**
 
 ## Consequences

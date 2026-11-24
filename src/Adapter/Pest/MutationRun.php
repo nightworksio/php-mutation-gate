@@ -215,11 +215,21 @@ final readonly class MutationRun
         $laps = Laps::since(fn(): Seconds => Seconds::of($this->clock->seconds()), Seconds::of($started));
         $opened = $this->shardMap()->of($request, $laps);
         $shared = $opened->map();
-        $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started, $laps);
-
-        return $result instanceof CannotJudge
-            ? $result
-            : $this->judged($result->withStepsBefore($opened->steps()), $request, $results, $shared, $started, $laps);
+        return $shared instanceof CannotJudge ? $shared : $this->ran(
+            $request,
+            $results,
+            $shared,
+            $started,
+            $laps,
+            fn(MutationResult $read): MutationResult|CannotJudge => $this->judged(
+                $read->withStepsBefore($opened->steps()),
+                $request,
+                $results,
+                $shared,
+                $started,
+                $laps,
+            ),
+        );
     }
 
     /**
@@ -310,12 +320,17 @@ final readonly class MutationRun
             : CoverageFile::at(Recorder::coverageBeside($results));
     }
 
+    /**
+     * @param Closure(MutationResult): (MutationResult|CannotJudge) $vouching what the run's own mutants come to,
+     *                                                                   before its trials
+     */
     private function ran(
         MutationRequest $request,
         string $results,
         CoverageMap|Unshared $shared,
         float $started,
         Laps $laps,
+        Closure $vouching,
     ): MutationResult|CannotJudge {
         $scanned = $this->scanned($request, $results, $shared);
 
@@ -365,7 +380,7 @@ final readonly class MutationRun
         $reading = $laps->lap(Step::Reading, $from);
 
         if ($result instanceof CannotJudge || $coverage instanceof CannotJudge) {
-            return $result;
+            return $result instanceof CannotJudge ? $result : $vouching($result);
         }
 
         $read = $result
@@ -374,7 +389,9 @@ final readonly class MutationRun
                 ->and(StepTimes::of($reading)))
             ->withWarnings($warned);
 
-        return $this->patching->steps()->on(Toggle::PestTrials)
+        $vouched = $vouching($read);
+
+        return $vouched instanceof MutationResult && $this->patching->steps()->on(Toggle::PestTrials)
             ? new Trials(
                 $this->project,
                 $this->tail($request),
@@ -382,8 +399,8 @@ final readonly class MutationRun
                 $bounds,
                 $this->remembered,
                 $this->patching->steps()->on(Toggle::PestShardScan),
-            )->of($read, $request, $results, $coverage, $shared, $laps, $left)
-            : $read;
+            )->of($vouched, $request, $results, $coverage, $shared, $laps, $left)
+            : $vouched;
     }
 
     /**

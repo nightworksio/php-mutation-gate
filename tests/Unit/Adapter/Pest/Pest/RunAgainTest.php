@@ -408,7 +408,7 @@ it('bounds the mutation run, the run of a narrowed kill\'s files alone and its r
     new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of(200.0)));
 
     expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $shell->commands()))
-        ->toEqual([Seconds::of(180.0), Seconds::of(80.0), Seconds::of(30.0)]);
+        ->toEqual([Seconds::of(180.0), Seconds::of(130.0), Seconds::of(80.0)]);
 });
 
 it('ends the mutants\' own run sooner by the search\'s share of the request\'s time, kept back to vouch for its kills in', function (): void {
@@ -428,7 +428,7 @@ it('ends the mutants\' own run sooner by the search\'s share of the request\'s t
     new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds(), $clock)->mutate($request);
 
     expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $shell->commands()))
-        ->toEqual([Seconds::of(80.0), Seconds::of(80.0), Seconds::of(30.0)]);
+        ->toEqual([Seconds::of(80.0), Seconds::of(130.0), Seconds::of(80.0)]);
 });
 
 it('bounds a kill\'s run again and its control by the share of the request\'s time the search kept back, and by all the time left with no share', function (float $share, array $deadlines): void {
@@ -453,11 +453,11 @@ it('bounds a kill\'s run again and its control by the share of the request\'s ti
         return $deadline instanceof Seconds ? $deadline->seconds() : INF;
     }, $shell->commands()))->toBe($deadlines);
 })->with([
-    'the whole of it' => [1.0, [380.0, 240.0, 140.0]],
+    'the whole of it' => [1.0, [380.0, 290.0, 190.0]],
     'half of it' => [0.5, [180.0, 180.0, 80.0]],
 ]);
 
-it('names the steps a patched run\'s time went to, each timed from when the run began', function (): void {
+it('names the steps a patched run\'s time went to, its kills vouched for before its trials, each timed from when the run began', function (): void {
     $at = PestCases::project();
     $shell = PestCases::narrowedKill($at, passAlone: false);
     $clock = new class implements Clock {
@@ -478,10 +478,10 @@ it('names the steps a patched run\'s time went to, each timed from when the run 
     expect($steps)->toBe([
         [Step::Mutation, 10.0, 10.0, 1],
         [Step::Reading, 30.0, 10.0, 1],
-        [Step::TrialCoverage, 50.0, 10.0, 1],
-        [Step::Trials, 70.0, 10.0, 1],
-        [Step::Baselines, 90.0, 10.0, 1],
-        [Step::Confirmation, 110.0, 100.0, 1],
+        [Step::Baselines, 50.0, 10.0, 1],
+        [Step::Confirmation, 70.0, 100.0, 1],
+        [Step::TrialCoverage, 180.0, 10.0, 1],
+        [Step::Trials, 200.0, 10.0, 1],
     ]);
 });
 

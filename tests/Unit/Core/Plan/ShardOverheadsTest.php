@@ -52,3 +52,11 @@ it('raises no count where the counts already come to the most there may be, or t
     expect($billed()->fewestMinutes([overheadPackage(600.0)], [1], 1))->toBe([1])
         ->and($billed()->fewestMinutes([overheadPackage(600.0), overheadPackage(600.0)], [3, 1], 1))->toBe([3, 1]);
 });
+
+it('lowers a count to the most shards whose share of the cost is worth their overhead, as a wall second holds of the cost', function (): void {
+    $worth = ShardOverheads::of(Seconds::of(10.0), 2.0, 3.0);
+
+    expect($worth->worthCutting([overheadPackage(600.0)], [20]))->toBe([10])
+        ->and($worth->worthCutting([overheadPackage(600.0)], [4]))->toBe([4])
+        ->and(ShardOverheads::of(Seconds::none(), 2.0, 3.0)->worthCutting([overheadPackage(600.0)], [20]))->toBe([20]);
+});
