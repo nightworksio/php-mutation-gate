@@ -213,14 +213,24 @@ final class ServedProjects
      */
     public static function answering(string ...$lines): string
     {
+        return self::answeringAfter(Seconds::of(0.0), ...$lines);
+    }
+
+    /**
+     * A daemon stood in for as {@see answering()} does, quiet this long
+     * between the request and its answer: the file.
+     */
+    public static function answeringAfter(Seconds $quiet, string ...$lines): string
+    {
         self::socket()->removed();
         $listener = Listener::boundTo(self::SOCKET);
         $heard = sprintf('%s/heard-%s', (string) getcwd(), sodium_bin2hex(random_bytes(4)));
-        $child = self::aside(static function () use ($listener, $heard, $lines): void {
+        $child = self::aside(static function () use ($listener, $heard, $lines, $quiet): void {
             $connection = $listener instanceof Listener ? self::acceptedFrom($listener) : NotGiven::value();
 
             if ($connection instanceof Connection) {
                 file_put_contents($heard, self::lineOf($connection->waitingAtMost(5)));
+                Waiting::between($quiet);
                 array_map($connection->sent(...), $lines);
                 $connection->closed();
             }

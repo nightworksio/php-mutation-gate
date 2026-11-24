@@ -56,7 +56,7 @@ final readonly class ServeClient
 
     private function read(Connection $connection): int|ServeRefusal|CannotJudge
     {
-        while (is_string($line = $connection->line())) {
+        while (is_string($line = $connection->lineWhenItComes())) {
             $frame = ServeFrame::readFrom($line);
             $ended = $frame instanceof ServeFrame ? $this->passed($frame) : NotGiven::value();
 
