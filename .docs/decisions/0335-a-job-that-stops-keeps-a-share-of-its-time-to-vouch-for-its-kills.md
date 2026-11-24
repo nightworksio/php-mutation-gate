@@ -32,6 +32,15 @@ a share of the time left, which by then was none.
 5. **`shards.confirm` still changes when a kill is vouched for, and never
    its status.**
 
+6. **A stream runs its test files fastest first.** A part's files ran in
+   the order of their paths, which put the slowest suites first. They run
+   by the time the map gives their tests, a file it timed no test of after
+   every one it did, then by path: a mutant a fast test kills is killed
+   before the slow ones run, and the run a replay repeats to vouch for it
+   is short. The tests a mutant is judged by are the same.
+7. **A run again keeps the mutated copies beside its results.** The trials
+   after it serve them.
+
 ## Consequences
 
 - A job judges slightly fewer mutants in its own run, and leaves far fewer

@@ -9,7 +9,6 @@ use function array_fill;
 use function array_filter;
 use function array_keys;
 use function array_map;
-use function array_unique;
 use function array_values;
 use function count;
 
@@ -45,7 +44,6 @@ use Pest\Mutate\Plugins\Mutate;
 
 use const PHP_BINARY;
 
-use function sort;
 use function sprintf;
 use function str_starts_with;
 use function strval;
@@ -168,8 +166,11 @@ final readonly class Streaming
     /**
      * The test files, cut into at most as many parts as there are processes,
      * each file going to the part with least time so far, longest first, each
-     * part beside the tests of its files the units name; one part of none
-     * where no file is known, which runs the whole suite.
+     * part beside the tests of its files the units name, its files in the
+     * order it runs them: the fastest first, so a mutant a fast test kills is
+     * killed before the slow ones run and its run is short to replay, a file
+     * the map did not time after every one it did, then by path; one part of
+     * none where no file is known, which runs the whole suite.
      *
      * @param  array<string, array{files: list<string>, tests: list<string>}> $units
      * @param  array<string, float>                                           $times
@@ -177,21 +178,16 @@ final readonly class Streaming
      */
     public static function cut(array $units, array $times, int $processes): array
     {
-        $parts = array_fill(0, min(max(1, $processes), max(1, count($units))), ['files' => [], 'tests' => []]);
+        $parts = array_fill(0, min(max(1, $processes), max(1, count($units))), []);
 
         foreach (TestParts::assigned($units, $times, $processes) as $file => $at) {
-            $parts[$at] = [
-                'files' => [...$parts[$at]['files'], ...$units[$file]['files']],
-                'tests' => [...$parts[$at]['tests'], ...$units[$file]['tests']],
-            ];
+            $parts[$at][] = $file;
         }
 
         $cut = [];
 
-        foreach ($parts as $part) {
-            $files = array_values(array_unique($part['files']));
-            sort($files);
-            $cut[] = ['files' => $files, 'tests' => array_values(array_unique($part['tests']))];
+        foreach ($parts as $held) {
+            $cut[] = TestParts::fastestFirst($held, $units, $times);
         }
 
         return array_values(array_filter(

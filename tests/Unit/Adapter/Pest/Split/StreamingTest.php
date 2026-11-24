@@ -29,8 +29,30 @@ it('cuts the test files into parts of about the same time, longest first, each b
 
     expect(Streaming::cut($units, $times, 2))->toBe([
         ['files' => ['tests/A.php'], 'tests' => ['A::one', 'A::two']],
-        ['files' => ['tests/B.php', 'tests/C.php', 'tests/Helper.php'], 'tests' => ['B::one', 'C::one']],
+        ['files' => ['tests/C.php', 'tests/Helper.php', 'tests/B.php'], 'tests' => ['C::one', 'B::one']],
     ]);
+});
+
+it('runs a part\'s files fastest first, one the map timed no test of after every one it did, then by path', function (): void {
+    $units = [
+        'tests/Contract/SlowTest.php' => ['files' => ['tests/Contract/SlowTest.php'], 'tests' => ['Slow::one', 'Slow::two']],
+        'tests/Unit/FastTest.php' => ['files' => ['tests/Unit/FastTest.php'], 'tests' => ['Fast::one']],
+        'tests/Unit/NewTest.php' => ['files' => ['tests/Unit/NewTest.php'], 'tests' => ['New::one']],
+        'tests/Unit/AlsoNewTest.php' => ['files' => ['tests/Unit/AlsoNewTest.php'], 'tests' => ['AlsoNew::one']],
+        'tests/Unit/EvenTest.php' => ['files' => ['tests/Unit/EvenTest.php'], 'tests' => ['Even::one']],
+    ];
+    $times = ['Slow::one' => 30.0, 'Slow::two' => 30.0, 'Fast::one' => 0.1, 'Even::one' => 0.1];
+
+    expect(Streaming::cut($units, $times, 1))->toBe([[
+        'files' => [
+            'tests/Unit/EvenTest.php',
+            'tests/Unit/FastTest.php',
+            'tests/Contract/SlowTest.php',
+            'tests/Unit/AlsoNewTest.php',
+            'tests/Unit/NewTest.php',
+        ],
+        'tests' => ['Even::one', 'Fast::one', 'Slow::one', 'Slow::two', 'AlsoNew::one', 'New::one'],
+    ]]);
 });
 
 it('makes no more parts than there are test files', function (): void {

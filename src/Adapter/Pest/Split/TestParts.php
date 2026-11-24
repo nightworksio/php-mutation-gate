@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_flip;
+use function array_intersect_key;
 use function array_key_exists;
 use function array_map;
+use function array_merge;
 use function array_sum;
+use function array_unique;
+use function array_values;
 use function crc32;
 
 use NightWorksIO\MutationGate\Core\Config\StreamJudging;
 use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\Test\TestFileParts;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
+
+use function usort;
 
 /**
  * The test files of a coverage map cut into the parts a run's shards each
@@ -237,6 +244,40 @@ final readonly class TestParts
             $this->owns($covering, $mutant, $killer) => TestShare::OwnedPart,
             default => TestShare::OtherPart,
         };
+    }
+
+    /**
+     * A part of these test files and the tests of theirs the units name, in
+     * the order a stream runs them: the file whose tests the map timed
+     * fastest first, one it timed no test of after every one it did, then by
+     * path.
+     *
+     * @param  list<string>                                                   $files
+     * @param  array<string, array{files: list<string>, tests: list<string>}> $units
+     * @param  array<string, float>                                           $times
+     * @return array{files: list<string>, tests: list<string>}
+     */
+    public static function fastestFirst(array $files, array $units, array $times): array
+    {
+        $took = [];
+
+        foreach ($files as $file) {
+            $timed = array_intersect_key($times, array_flip($units[$file]['tests']));
+            $took[$file] = $timed === [] ? INF : array_sum($timed);
+        }
+
+        usort($files, static fn(string $one, string $other): int => [$took[$one], $one] <=> [$took[$other], $other]);
+
+        return [
+            'files' => array_values(array_unique(array_merge(...array_map(
+                static fn(string $file): array => $units[$file]['files'],
+                $files,
+            )))),
+            'tests' => array_values(array_unique(array_merge(...array_map(
+                static fn(string $file): array => $units[$file]['tests'],
+                $files,
+            )))),
+        ];
     }
 
     /** The part a test belongs to; the first, for a test of no file cut. */
