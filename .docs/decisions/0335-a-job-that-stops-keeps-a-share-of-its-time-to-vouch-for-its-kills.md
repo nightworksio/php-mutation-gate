@@ -41,6 +41,16 @@ a share of the time left, which by then was none.
 7. **A run again keeps the mutated copies beside its results.** The trials
    after it serve them.
 
+8. **A control of some tests alone loads the files those tests are in.**
+   Under Pest a control that selects its tests by their ids named no test
+   file, so its run loaded every test file of its suites to filter a few,
+   and spent its limit starting. Its request tells the file each test is
+   in, and the control names those files where each of its tests has one;
+   where one has none it loads every test file, as it did. A control that
+   fails or runs out leaves its kill unjudged, so a test that needs a file
+   it no longer loads counts no kill. A runner whose controls load only
+   what they run is asked for no places.
+
 ## Consequences
 
 - A job judges slightly fewer mutants in its own run, and leaves far fewer

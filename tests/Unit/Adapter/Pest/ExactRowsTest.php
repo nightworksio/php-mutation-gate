@@ -101,5 +101,6 @@ it('counts each map\'s tests apart, asked over one map and then another', functi
 it('replays the kills its run records', function (): void {
     [$files] = exactRowsOver();
 
-    expect(new ExactRows($files)->replaysKills())->toBeTrue();
+    expect(new ExactRows($files)->replaysKills())->toBeTrue()
+        ->and(new ExactRows($files)->loadsTheFilesOfItsTests())->toBeTrue();
 });

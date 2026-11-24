@@ -30,4 +30,9 @@ final readonly class EveryRow implements RunSelection
     {
         return true;
     }
+
+    public function loadsTheFilesOfItsTests(): bool
+    {
+        return true;
+    }
 }

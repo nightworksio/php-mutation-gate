@@ -37,6 +37,11 @@ final readonly class EveryRowOfTheMethod implements RunSelection
         return false;
     }
 
+    public function loadsTheFilesOfItsTests(): bool
+    {
+        return false;
+    }
+
     private static function methodOf(TestId $test): string
     {
         $method = TestMethod::of($test);

@@ -21,5 +21,6 @@ it('runs the tests of the map that judge a mutant, every row of their data sets,
         TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds#dataset "a"'),
         TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds#dataset "b"'),
     )))
-        ->and(new EveryRow()->replaysKills())->toBeTrue();
+        ->and(new EveryRow()->replaysKills())->toBeTrue()
+        ->and(new EveryRow()->loadsTheFilesOfItsTests())->toBeTrue();
 });

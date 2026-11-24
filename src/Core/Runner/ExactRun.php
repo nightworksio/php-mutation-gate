@@ -26,4 +26,9 @@ final readonly class ExactRun implements RunSelection
     {
         return false;
     }
+
+    public function loadsTheFilesOfItsTests(): bool
+    {
+        return false;
+    }
 }

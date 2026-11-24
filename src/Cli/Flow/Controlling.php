@@ -331,7 +331,7 @@ final readonly class Controlling
         $ran = Controls::of(...array_slice($asked, 0, $fitting), ...$room);
         $runs = $fitting === 0
             ? ControlRuns::none()
-            : $this->adapters->runner->controls($this->timeLeft->retimed($request), $ran);
+            : $this->adapters->runner->controls($this->parted->placed($this->timeLeft->retimed($request), $ran), $ran);
         $times = $runs instanceof ControlRuns ? $kinds->timesOf($ran, $runs) : [];
 
         $this->stopwatch->handled($step, $from, $fitting + count($room), ...$times);

@@ -24,4 +24,9 @@ final readonly class LoadingUnfiltered implements RunSelection
     {
         return false;
     }
+
+    public function loadsTheFilesOfItsTests(): bool
+    {
+        return false;
+    }
 }

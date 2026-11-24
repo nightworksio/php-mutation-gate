@@ -222,7 +222,7 @@ final readonly class UnmutatedRuns
             : NotGiven::value();
 
         return Invocation::of($this->project)->judging(
-            $by instanceof Paths ? $by : Paths::none(),
+            $this->loaded($control, $request),
             $judgedBy,
             $request->withheld(),
             ...[
@@ -234,6 +234,23 @@ final readonly class UnmutatedRuns
                     : [],
             ],
         )->within($control->limit());
+    }
+
+    /**
+     * The test files a control's run loads: those its mutant's run loaded,
+     * where it selects by them; the files its tests are in, where it
+     * selects some tests alone and the request places each of them; none
+     * otherwise, which loads every test file of its suites.
+     */
+    private function loaded(Control $control, MutationRequest $request): Paths
+    {
+        $by = $control->selected();
+
+        if (! $by instanceof NotGiven) {
+            return $by instanceof Paths ? $by : Paths::none();
+        }
+
+        return $request->narrowing()->places()->of($control->tests());
     }
 
     /**

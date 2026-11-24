@@ -18,12 +18,15 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\NoProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
+use NightWorksIO\MutationGate\Core\Test\TestFiles;
 
 use function sprintf;
 
@@ -96,12 +99,39 @@ final readonly class PartedRuns
         return $heavy->applied($mutants);
     }
 
-    /** The text a mutant is served as, as its runner gives it to a static analyser; or why it cannot be. */
-    private function served(Mutant $mutant): Contents|CannotJudge
+    /**
+     * The request, its runner told the file each test is in, where one of
+     * these controls selects some tests alone: such a control then loads the
+     * files of its tests and no other test file.
+     */
+    public function placed(MutationRequest $request, Controls $ran): MutationRequest
     {
-        $checkable = $this->adapters->runner->checkable($mutant);
+        if (! $this->adapters->runner->behaviour()->selection()->loadsTheFilesOfItsTests()) {
+            return $request;
+        }
 
-        return $checkable instanceof Checkable ? $checkable->mutant() : $checkable;
+        foreach ($ran as $control) {
+            if ($control->selected() instanceof NotGiven) {
+                return $request
+                    ->narrowedTo($request->files(), $request->narrowing()->placing($this->testFiles()))
+                    ->leavingOut($request->leftOut());
+            }
+        }
+
+        return $request;
+    }
+
+    /** The file of each test the runner places, as a request tells its runner. */
+    private function testFiles(): TestFiles
+    {
+        $places = $this->places();
+        $files = TestFiles::none();
+
+        foreach ($places->files() as $file) {
+            $files = $files->placing($file, $places->in($file));
+        }
+
+        return $files;
     }
 
     /** The file each test of the map is in, as the runner places it; none where the suite cannot be read. */
@@ -112,5 +142,13 @@ final readonly class PartedRuns
         return $inventory instanceof Inventory
             ? TestsOfTheSuite::placed($this->adapters, $inventory->suite, $this->map)
             : TestPlaces::none();
+    }
+
+    /** The text a mutant is served as, as its runner gives it to a static analyser; or why it cannot be. */
+    private function served(Mutant $mutant): Contents|CannotJudge
+    {
+        $checkable = $this->adapters->runner->checkable($mutant);
+
+        return $checkable instanceof Checkable ? $checkable->mutant() : $checkable;
     }
 }
