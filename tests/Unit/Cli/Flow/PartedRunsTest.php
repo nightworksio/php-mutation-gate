@@ -19,14 +19,12 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
-use NightWorksIO\MutationGate\Core\Runner\RunSelection;
 use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -34,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\LoadingTheFilesOfItsTests;
 
 /** The fixture's first mutant of src/Money.php, timed out at the most of six seconds. */
 function partedRunsHeavy(): Mutant
@@ -189,22 +188,7 @@ it('runs one part at a time under timeouts.heavyFill off, and stops at timeouts.
 });
 
 it('tells a control request the file each test is in only where the runner loads them and a control selects some tests alone', function (): void {
-    $placing = new class implements RunSelection {
-        public function of(TestIds $judging, CoverageMap $map, Paths|WholeSuite|NotGiven $unfiltered): RunTests
-        {
-            return RunTests::of($judging);
-        }
-
-        public function replaysKills(): bool
-        {
-            return false;
-        }
-
-        public function loadsTheFilesOfItsTests(): bool
-        {
-            return true;
-        }
-    };
+    $placing = new LoadingTheFilesOfItsTests();
     $runner = RunnerFake::ofTheFixture();
     $parted = static fn(RunnerFake $runner): PartedRuns => new PartedRuns(
         Flows::adapters(Flows::project(), [], $runner),

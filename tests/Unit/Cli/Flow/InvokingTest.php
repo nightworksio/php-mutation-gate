@@ -50,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\LoadingTheFilesOfItsTests;
 use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
@@ -517,3 +518,31 @@ it('stops the controls it started beside its survivors\' runs again where those 
     expect($invoked)->toBeInstanceOf(CannotJudge::class)
         ->and($runner->calls())->toBe(['started', 'retry', 'stopped']);
 });
+
+it('tells the controls it starts beside its survivors\' runs again the file each test is in, where the runner loads the files of a control\'s tests', function (bool $loads, int $placed): void {
+    $scripted = ScriptedRunner::fixture()->answering(Mutants::of(
+        invokedMutant('src/Money.php', 'a', MutantStatus::Survived),
+        invokedMutant('src/Money.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of(6.0)),
+    ), 0);
+    $scripted = $loads
+        ? $scripted->behaving($scripted->behaviour()->selecting(new LoadingTheFilesOfItsTests()))
+        : $scripted;
+    $clock = new StoppedClock('2026-09-30T12:00:00+00:00');
+    $adapters = Flows::adapters(Flows::project(), [], SideBySideRunner::over($scripted));
+    $stopwatch = new Stopwatch($clock, $clock->now());
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+
+    new Invoking(
+        $adapters,
+        Flows::settings(),
+        $clock,
+        Unlimited::time(),
+        $stopwatch,
+        $map,
+        HeldCovered::none(),
+        new SurvivorChecking($adapters, $clock, Unlimited::time(), Seconds::of(60.0), $stopwatch),
+        new PartedRuns($adapters, Flows::settings(), $map, HeldCovered::none()),
+    )->invoked(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(4), Workers::Fork)));
+
+    expect($scripted->controlled()[0][1]->narrowing()->places()->count())->toBe($placed);
+})->with(['a runner that loads them' => [true, 1], 'a runner that loads every file' => [false, 0]]);

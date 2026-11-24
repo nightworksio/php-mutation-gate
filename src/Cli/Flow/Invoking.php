@@ -217,9 +217,10 @@ final readonly class Invoking
         $share = (int) round($places * $survivors / ($survivors + count($asked)));
         $taken = ProcessCount::of(max(1, min($places - 1, $share)));
         $from = $this->stopwatch->now();
+        $controls = Controls::of(...$asked);
         $pending = $runner->controlsStarted(
-            $request->across($request->pool()->besideTaking($taken)),
-            Controls::of(...$asked),
+            $this->parted->placed($request, $controls)->across($request->pool()->besideTaking($taken)),
+            $controls,
         );
 
         return StepsOverlap::started(
