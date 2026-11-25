@@ -281,19 +281,19 @@ it('leaves a timeout unjudged where its control would not fit in the time the bu
         ->and($timedOut->reason())->toEqual(OutOfTime::BeforeControlling->reason());
 });
 
-it('runs as many controls as fit in the time the budget has left side by side in the pool, round after round', function (
+it('runs the controls that fit in the time the budget has left, each by its own limit, side by side in the pool', function (
     bool $perCore,
     int $asked,
 ): void {
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->behaving($perCore ? RunnerBehaviour::standard()->runningPerCore() : RunnerBehaviour::standard());
 
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('15s')), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('14s')), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
     expect(controlKeysAsked($runner))->toHaveCount($asked);
 })->with([
-    'one at a time, one 10 s control in 15 s' => [false, 1],
+    'one at a time, the second no longer fitting after the first' => [false, 1],
     'two at a time, both in one round' => [true, 2],
 ]);
 

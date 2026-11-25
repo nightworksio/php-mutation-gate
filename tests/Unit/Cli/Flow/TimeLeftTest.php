@@ -32,3 +32,13 @@ it('fits one run where its whole length fits in the time left, however much more
         ->and($makeLeft(9.5)->fits(Seconds::of(10.0)))->toBeFalse()
         ->and($unlimited->fits(Seconds::of(10.0)))->toBeTrue();
 });
+
+it('fits each run by its own length in the time left, passing over one too long for it, and every one without a budget', function () use ($makeLeft): void {
+    $unlimited = new TimeLeft(Unlimited::time(), new StoppedClock('2026-09-30T10:00:00Z'));
+    $each = [Seconds::of(300.0), Seconds::of(10.0), Seconds::of(20.0), Seconds::of(20.0)];
+
+    expect($makeLeft(25.0)->fittingEach($each, ProcessCount::single()))->toBe([1])
+        ->and($makeLeft(25.0)->fittingEach($each, ProcessCount::of(2)))->toBe([1, 2])
+        ->and($makeLeft(25.0)->fittingEach([], ProcessCount::of(2)))->toBe([])
+        ->and($unlimited->fittingEach($each, ProcessCount::single()))->toBe([0, 1, 2, 3]);
+});

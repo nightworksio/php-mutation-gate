@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Time;
 
+use function array_fill;
+use function array_keys;
+
 use DateTimeImmutable;
 
 use function floor;
@@ -68,6 +71,49 @@ final readonly class Deadline
             $each->seconds() <= 0.0 => $wanted,
             default => min($wanted, (int) floor($left->seconds() / $each->seconds()) * $abreast),
         };
+    }
+
+    /**
+     * Of these runs, in turn, each of which may take its own time, run this
+     * many side by side, each started where the first of them is free, those
+     * that end within the time left at this moment, by their places: none
+     * once the deadline has passed. One that does not fit is passed over, so
+     * a long run keeps no shorter one after it from running.
+     *
+     * @param  list<Seconds> $each
+     * @param  positive-int  $abreast
+     * @return list<int>
+     */
+    public function fittingEach(array $each, DateTimeImmutable $now, int $abreast = 1): array
+    {
+        return self::fittingEachIn($this->left($now), $each, $abreast);
+    }
+
+    /**
+     * Of these runs, in turn, each of which may take its own time, run this
+     * many side by side, those that end within this much time, by their
+     * places: none where there is no time.
+     *
+     * @param  list<Seconds> $each
+     * @param  positive-int  $abreast
+     * @return list<int>
+     */
+    public static function fittingEachIn(Seconds $left, array $each, int $abreast = 1): array
+    {
+        $busy = array_fill(0, $abreast, 0.0);
+        $fitting = [];
+
+        foreach ($each as $place => $run) {
+            $free = array_keys($busy, min($busy), strict: true)[0];
+            $ends = $busy[$free] + $run->seconds();
+
+            if ($left->seconds() > 0.0 && $ends <= $left->seconds()) {
+                $busy[$free] = $ends;
+                $fitting[] = $place;
+            }
+        }
+
+        return $fitting;
     }
 
     /** How long past the deadline this moment is; none before it. */

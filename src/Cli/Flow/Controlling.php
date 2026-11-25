@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_diff_key;
 use function array_filter;
+use function array_flip;
+use function array_intersect_key;
 use function array_map;
-use function array_slice;
 use function array_values;
 use function count;
-use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -304,8 +305,9 @@ final readonly class Controlling
     /**
      * What these controls found, those that fit in the time left run side by
      * side in the request's pool and timed as this step, the controls of the
-     * request's first files first (ADR-0146), and those the time left had no
-     * room for. Where they all fit, those beside them that fit in the time
+     * request's first files first (ADR-0146), each allowed its own limit, and
+     * those the time left had no room for: a control too long for it keeps
+     * no shorter one after it from running. Where they all fit, those beside them that fit in the time
      * left run too, in the pool's spare room. The step records where each
      * control's time went, as what asked for it (ADR-0167).
      *
@@ -320,23 +322,24 @@ final readonly class Controlling
         Step $step = Step::Controls,
         array $beside = [],
     ): array {
-        $longest = max(array_map(static fn(Control $control): float => $control->limit()->seconds(), $asked));
         $asked = $this->inOrderOf($asked, $request->files());
-        $fitting = $this->timeLeft->fitting(count($asked), Seconds::of($longest), $request->pool()->processes());
-        $room = $fitting === count($asked) ? array_values(array_filter(
+        $limits = array_map(static fn(Control $control): Seconds => $control->limit(), $asked);
+        $places = array_flip($this->timeLeft->fittingEach($limits, $request->pool()->processes()));
+        $fitting = array_values(array_intersect_key($asked, $places));
+        $room = count($fitting) === count($asked) ? array_values(array_filter(
             $beside,
             fn(Control $control): bool => $this->timeLeft->fits($control->limit()),
         )) : [];
         $from = $this->stopwatch->now();
-        $ran = Controls::of(...array_slice($asked, 0, $fitting), ...$room);
-        $runs = $fitting === 0
+        $ran = Controls::of(...$fitting, ...$room);
+        $runs = $fitting === []
             ? ControlRuns::none()
             : $this->adapters->runner->controls($this->parted->placed($this->timeLeft->retimed($request), $ran), $ran);
         $times = $runs instanceof ControlRuns ? $kinds->timesOf($ran, $runs) : [];
 
-        $this->stopwatch->handled($step, $from, $fitting + count($room), ...$times);
+        $this->stopwatch->handled($step, $from, count($fitting) + count($room), ...$times);
 
-        return [$runs, Controls::of(...array_slice($asked, $fitting))];
+        return [$runs, Controls::of(...array_values(array_diff_key($asked, $places)))];
     }
 
     /**

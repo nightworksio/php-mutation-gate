@@ -137,7 +137,7 @@ it('runs again only the survivors that fit in the time left, first to last, and 
         ->toBe([MutantStatus::Survived, MutantStatus::Survived, MutantStatus::Unjudged]);
 });
 
-it('runs only the controls that fit in the time left, at the longest limit among them', function (float $short, float $long, array $run): void {
+it('runs only the controls that fit in the time left, each by its own limit, a longer one keeping no shorter one from running', function (float $short, float $long, array $run): void {
     $runner = ScriptedRunner::fixture()->answering(Mutants::of(
         invokedMutant('src/Money.php', 'a', MutantStatus::TimedOut)->withLimit(Seconds::of($short)),
         invokedMutant('src/Held.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of($long)),
@@ -148,7 +148,8 @@ it('runs only the controls that fit in the time left, at the longest limit among
     expect(controlsRun($runner))->toBe($run);
 })->with([
     'one of two alike' => [6.0, 6.0, [1]],
-    'none, the longer not fitting' => [2.0, 20.0, []],
+    'the shorter one, the longer not fitting' => [2.0, 20.0, [1]],
+    'neither, both too long' => [12.0, 20.0, []],
 ]);
 
 it('controls first the kills of the files the batch took first, so a saved unit\'s kills stand where the time left holds one control', function (): void {
