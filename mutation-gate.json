@@ -116,6 +116,11 @@
         "holding": ["Process", "Contract"]
     },
     "contexts": {
+        "local": {
+            "tests": {
+                "holding": []
+            }
+        },
         "pr": {
             "run": {
                 "failFast": "off"

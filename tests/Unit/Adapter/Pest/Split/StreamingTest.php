@@ -33,6 +33,21 @@ it('cuts the test files into parts of about the same time, longest first, each b
     ]);
 });
 
+it('gives its parts in their own order, whichever file the map lists first, and one empty part where there is no test file', function (): void {
+    $units = [
+        'tests/Short.php' => ['files' => ['tests/Short.php'], 'tests' => ['Short::one']],
+        'tests/Long.php' => ['files' => ['tests/Long.php'], 'tests' => ['Long::one']],
+    ];
+    $times = ['Short::one' => 1.0, 'Long::one' => 9.0];
+
+    expect(Streaming::cut($units, $times, 2))->toBe([
+        ['files' => ['tests/Long.php'], 'tests' => ['Long::one']],
+        ['files' => ['tests/Short.php'], 'tests' => ['Short::one']],
+    ])
+        ->and(Streaming::cut($units, $times, 0))->toBe(Streaming::cut($units, $times, 1))
+        ->and(Streaming::cut([], [], 3))->toBe([['files' => [], 'tests' => []]]);
+});
+
 it('runs a part\'s files fastest first, one the map timed no test of after every one it did, then by path', function (): void {
     $units = [
         'tests/Contract/SlowTest.php' => ['files' => ['tests/Contract/SlowTest.php'], 'tests' => ['Slow::one', 'Slow::two']],

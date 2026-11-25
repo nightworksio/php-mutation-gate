@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_count_values;
-use function array_fill;
 use function array_filter;
 use function array_keys;
 use function array_map;
@@ -23,7 +22,6 @@ use const JSON_THROW_ON_ERROR;
 use const JSON_UNESCAPED_SLASHES;
 
 use function max;
-use function min;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
@@ -178,22 +176,16 @@ final readonly class Streaming
      */
     public static function cut(array $units, array $times, int $processes): array
     {
-        $parts = array_fill(0, min(max(1, $processes), max(1, count($units))), []);
+        $parts = [];
 
         foreach (TestParts::assigned($units, $times, $processes) as $file => $at) {
             $parts[$at][] = $file;
         }
 
-        $cut = [];
-
-        foreach ($parts as $held) {
-            $cut[] = TestParts::fastestFirst($held, $units, $times);
-        }
-
-        return array_values(array_filter(
-            $cut,
-            static fn(array $part): bool => $part['files'] !== [] || $units === [],
-        ));
+        return array_map(
+            static fn(array $held): array => TestParts::fastestFirst($held, $units, $times),
+            $units === [] ? [[]] : array_values($parts),
+        );
     }
 
     /**
