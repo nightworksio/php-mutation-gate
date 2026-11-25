@@ -2,7 +2,6 @@
     "$schema": "resources/mutation-gate.schema.json",
     "runner": {
         "use": "pest",
-        "workers": "mutants",
         "memory": "4G"
     },
     "ci": {
