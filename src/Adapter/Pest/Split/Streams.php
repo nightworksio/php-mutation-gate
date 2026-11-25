@@ -136,6 +136,7 @@ final readonly class Streams
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $left, $verdicts);
         StreamPasses::ended($results, Step::SecondPass, microtime(as_float: true) - $from, count($again), $bound);
         self::given($verdicts, array_diff_key($byId, $settled), $covering);
+        self::ownRunsStarted($results, $verdicts, $byId, $covering, $bound);
 
         ForkStatesLine::writtenFor($verdicts, $results);
         StreamProgress::unnamed($results);
@@ -168,6 +169,31 @@ final readonly class Streams
         }
 
         return $seconds / max(1, $processes);
+    }
+
+    /**
+     * Lists the own runs of the mutants no stream decided as they start,
+     * where any is left: how many there are (ADR-0117).
+     *
+     * @param array<string, MutationTest> $mutants
+     * @param array<string, list<string>> $covering
+     */
+    private static function ownRunsStarted(
+        string|false $results,
+        StreamVerdicts $verdicts,
+        array $mutants,
+        array $covering,
+        float $bound,
+    ): void {
+        $own = 0;
+
+        foreach (array_keys($mutants) as $mutant) {
+            $own += $verdicts->runsItsOwn($mutant, $covering[$mutant]) ? 1 : 0;
+        }
+
+        if ($own > 0) {
+            StreamPasses::started($results, Step::OwnRuns, $own, $bound);
+        }
     }
 
     /**

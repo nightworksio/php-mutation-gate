@@ -57,6 +57,13 @@ enum Step: string
      */
     case SecondPass = 'second pass';
 
+    /**
+     * A split stream run's own runs, within the mutation step, from its
+     * second pass's end: each mutant no stream judged, in a run of its own
+     * (ADR-0117), counted as they start.
+     */
+    case OwnRuns = 'own runs';
+
     /** Reading what the mutants' runs left, with any run that shows why a run failed. */
     case Reading = 'reading';
 

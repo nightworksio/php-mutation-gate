@@ -8,6 +8,7 @@ use function array_last;
 use function explode;
 use function file_get_contents;
 use function file_put_contents;
+use function in_array;
 use function is_file;
 use function is_string;
 use function max;
@@ -41,6 +42,9 @@ final readonly class StreamPasses
 {
     /** The file beside a run's results its passes are listed in. */
     private const string LISTED = '%s.passes';
+
+    /** The steps a run lists: its passes, and the own runs of the mutants they left. */
+    private const array LISTED_STEPS = [Step::FirstPass, Step::SecondPass, Step::OwnRuns];
 
     /** Where a row lists a pass as it starts. */
     private const string BEGUN = 'begun';
@@ -150,6 +154,6 @@ final readonly class StreamPasses
             return false;
         }
 
-        return $step->step() === Step::FirstPass || $step->step() === Step::SecondPass ? $step->later($since) : false;
+        return in_array($step->step(), self::LISTED_STEPS, strict: true) ? $step->later($since) : false;
     }
 }

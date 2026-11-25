@@ -130,12 +130,12 @@ final class StreamVerdicts
      */
     public function give(string $mutant, MutationTest $test, array $covering): void
     {
-        $events = Facade::instance();
-        $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
-
-        if ($killer !== '' && $this->touches($mutant, $killer)) {
+        if ($this->runsItsOwn($mutant, $covering)) {
             return;
         }
+
+        $events = Facade::instance();
+        $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
 
         if ($killer !== '') {
             $this->note($test, KillerFile::line(RecordEvent::Killed, $killer, Placed::unplaced(0)));
@@ -156,11 +156,30 @@ final class StreamVerdicts
             return;
         }
 
-        if (! $this->leavesForItsOwnRun($mutant, $covering)) {
-            $this->note($test, '');
-            $test->updateResult(MutationTestResult::Untested);
-            $events->emitter()->mutationEscaped($test);
+        $this->note($test, '');
+        $test->updateResult(MutationTestResult::Untested);
+        $events->emitter()->mutationEscaped($test);
+    }
+
+    /**
+     * Whether the streams leave a mutant for a run of its own: one whose
+     * killer's test touched what a child shares with its parent, or one no
+     * child killed or overran in whose covering tests a stream could not
+     * fork (ADR-0117).
+     *
+     * @param list<string> $covering the tests that cover it, by their ids
+     */
+    public function runsItsOwn(string $mutant, array $covering): bool
+    {
+        $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
+
+        if ($killer !== '') {
+            return $this->touches($mutant, $killer);
         }
+
+        $overran = static fn(ChildEnd $end): bool => $end === ChildEnd::TimedOut;
+
+        return $this->firstEnding($mutant, $covering, $overran) === '' && $this->leavesForItsOwnRun($mutant, $covering);
     }
 
     /**

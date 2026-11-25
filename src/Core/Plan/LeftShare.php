@@ -22,13 +22,21 @@ final readonly class LeftShare
         private float $longest,
         private float $killers,
         private float $covering,
+        private float $alone = 0.0,
     ) {
     }
 
     /** The price of a share of this group alone, by this wall. */
     public static function of(LeftGroup $group, StreamWall $wall): self
     {
-        return new self($wall, $group->seconds(), $group->longest(), $group->killers(), $group->covering());
+        return new self(
+            $wall,
+            $group->seconds(),
+            $group->longest(),
+            $group->killers(),
+            $group->covering(),
+            $group->alone(),
+        );
     }
 
     public function first(): float
@@ -43,7 +51,7 @@ final readonly class LeftShare
 
     public function wall(): float
     {
-        return $this->first() + $this->second();
+        return $this->first() + $this->second() + $this->wall->alone($this->alone);
     }
 
     /** The price of this share with a group joined to it, whose test files add these seconds. */
@@ -55,6 +63,7 @@ final readonly class LeftShare
             max($this->longest, $group->longest()),
             $this->killers + $group->killers(),
             $this->covering + $group->covering(),
+            $this->alone + $group->alone(),
         );
     }
 }
