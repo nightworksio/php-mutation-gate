@@ -144,6 +144,11 @@ final readonly class SurvivorChecking
         return $warm instanceof WarmedUp
             ? new SurvivorBatch($this->adapters, $this->clock, $this->deadline, $this->perCheck)
                 ->checked($warm, $mutants, $survivors)
-            : Checked::leaving($mutants, $survivors, $warm);
+            : Checked::leaving(
+                $mutants,
+                $survivors,
+                $warm->isAtTheDeadline() ? Unchecked::OutOfTime : Unchecked::NoWarmUp,
+                $warm->why(),
+            );
     }
 }

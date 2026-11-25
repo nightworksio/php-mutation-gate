@@ -305,7 +305,7 @@ it('leaves a flaky survivor to its second answer, unchecked', function (): void 
     expect(array_map(static fn(array $check): string => $check[0], $checker->asked()))->toBe(['src/Money.php']);
 });
 
-it('leaves every survivor unchecked where the analyser cannot say who it is, or cannot run over the originals', function (): void {
+it('leaves every survivor unchecked where the analyser cannot say who it is, or cannot run over the originals, saying what the analyser said', function (): void {
     $project = Scratch::directory();
     $mutants = checkedMutants();
     $unnamed = new RecordingChecker(new StaticCheckerFake(CannotJudge::because('No version.'), checkedOriginals(), []), $project);
@@ -319,10 +319,23 @@ it('leaves every survivor unchecked where the analyser cannot say who it is, or 
     ])
         ->and($unnamed->warmUps())->toBe([])
         ->and(checkedWarnings($unwarmed))->toBe([
-            'Static analysis left 2 survivors unchecked, as the analyser\'s run over the original files failed: src/Held.php, src/Money.php.',
+            'Static analysis left 2 survivors unchecked, as the analyser\'s run over the original files failed: src/Held.php, src/Money.php. It crashed.',
         ])
         ->and($cold->asked())->toBe([])
         ->and([$unidentified->mutants, $unwarmed->mutants])->toEqual([$mutants, $mutants]);
+});
+
+it('leaves every survivor out of time, for a later wave, where the analyser\'s run over the originals was cut at the deadline', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $cut = new RecordingChecker(new StaticCheckerFake(checkedIdentity(), CannotJudge::atTheDeadline('Stopped at the deadline.'), []), $project);
+
+    $unwarmed = checking($project, $cut, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
+
+    expect(checkedWarnings($unwarmed))->toBe([
+        'Static analysis left 2 survivors unchecked, as the time budget ran out before their checks: src/Held.php, src/Money.php. Stopped at the deadline.',
+    ])
+        ->and($cut->asked())->toBe([]);
 });
 
 it('leaves a survivor unchecked, and says why, where its runner cannot give it, within a deadline or not, its file is out of scope, or its check cannot run', function (): void {

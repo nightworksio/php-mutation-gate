@@ -44,3 +44,27 @@ it('spreads own runs over a job\'s processes, scaled by no pass\'s factor, and h
         ->and(StreamWall::of(4, 0.01)->worth(30.0))->toBe(120.0)
         ->and(StreamWall::of(0, 1.0)->worth(30.0))->toBe(30.0);
 });
+
+it('times its covering test files once each, a file the map timed no test of at nothing, and takes the longest of them', function (): void {
+    $wall = StreamWall::of(2, 0.5);
+    $timed = ['QuickTest' => 0.25, 'SlowTest' => 0.75];
+    $group = LeftGroup::of([leftGroupMutant('a')], ['QuickTest', 'SlowTest', 'QuickTest', 'UntimedTest'], $timed, LeftForks::atEveryTest(0.0));
+    $none = LeftGroup::of([leftGroupMutant('b')], [], $timed, LeftForks::atEveryTest(0.0));
+
+    expect($group->first($wall))->toBe($wall->first(1.0, 0.75, 0.0))
+        ->and($group->first($wall))->not->toBe($wall->first(1.0, 1.0, 0.0))
+        ->and($group->first(StreamWall::of(1, 0.5)))->toBe(1.0)
+        ->and($none->first($wall))->toBe($wall->first(0.0, 0.0, 0.0))
+        ->and($none->alone())->toBe(0.0);
+});
+
+it('adds for another group only the test files it does not run yet, one the map timed no test of at nothing', function (): void {
+    $timed = ['MoneyTest' => 0.5, 'OtherTest' => 0.25];
+    $one = LeftGroup::of([leftGroupMutant('a')], ['MoneyTest'], $timed, LeftForks::atEveryTest(0.0));
+    $other = LeftGroup::of([leftGroupMutant('b')], ['MoneyTest', 'OtherTest', 'UntimedTest'], $timed, LeftForks::atEveryTest(0.0));
+
+    expect($one->added($other, $timed))->toBe(0.25)
+        ->and($other->added($one, $timed))->toBe(0.0)
+        ->and($one->added($one, $timed))->toBe(0.0)
+        ->and(LeftGroup::addedTo([], $other, $timed))->toBe(0.75);
+});

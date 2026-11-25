@@ -97,3 +97,23 @@ it('fits no run, of whatever length, once the deadline has passed or where there
         ->and(Deadline::fittingEachIn(Seconds::of(0.0), $each))->toBe([])
         ->and(Deadline::fittingEachIn(Seconds::of(-1.0), $each, 4))->toBe([]);
 });
+
+it('fits each run one after another where it is told no number side by side, and a run of no length in whatever time is left', function () use ($makeStarted): void {
+    $started = $makeStarted();
+    $deadline = Deadline::after($started, Seconds::of(90.0));
+    $each = [Seconds::of(40.0), Seconds::of(40.0), Seconds::of(40.0)];
+
+    expect($deadline->fittingEach($each, $started))->toBe([0, 1])
+        ->and(Deadline::fittingEachIn(Seconds::of(90.0), $each))->toBe([0, 1])
+        ->and(Deadline::fittingEachIn(Seconds::of(0.5), [Seconds::of(0.0), Seconds::of(0.25), Seconds::of(0.5)]))->toBe([0, 1])
+        ->and(Deadline::fittingEachIn(Seconds::of(0.5), [Seconds::of(0.25), Seconds::of(0.25)], 2))->toBe([0, 1]);
+});
+
+it('says how long past the deadline a moment is, and none before it or at it', function () use ($makeStarted): void {
+    $deadline = Deadline::after($makeStarted(), Seconds::of(90.0));
+
+    expect($deadline->overrunAt(new DateTimeImmutable('2026-09-30T10:02:00.250000Z')))->toBe(30.0)
+        ->and($deadline->overrunAt(new DateTimeImmutable('2026-09-30T10:01:30.250000Z')))->toBe(0.0)
+        ->and($deadline->overrunAt(new DateTimeImmutable('2026-09-30T10:01:29.750000Z')))->toBe(0.0)
+        ->and($deadline->overrunAt(new DateTimeImmutable('2026-09-30T10:01:30.750000Z')))->toBe(0.5);
+});

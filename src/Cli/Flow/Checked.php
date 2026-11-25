@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_map;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * What static analysis's checks of a shard's survivors came to: its mutants,
@@ -34,12 +36,19 @@ final readonly class Checked
     }
 
     /** These mutants, with every survivor taken up and left unchecked for the same reason. */
-    public static function leaving(Mutants $mutants, Mutants $survivors, Unchecked $why): self
-    {
+    public static function leaving(
+        Mutants $mutants,
+        Mutants $survivors,
+        Unchecked $why,
+        string|NotGiven $reason = new NotGiven(),
+    ): self {
         $checks = SurvivorChecks::none();
 
         foreach ($survivors as $survivor) {
-            $checks = $checks->leaving(UncheckedSurvivor::of($why, $survivor->location()->file()));
+            $file = $survivor->location()->file();
+            $checks = $checks->leaving(
+                is_string($reason) ? UncheckedSurvivor::told($why, $reason, $file) : UncheckedSurvivor::of($why, $file),
+            );
         }
 
         return new self($mutants, $checks, $survivors, UncheckedIds::none()->and($why, self::idsOf($survivors)));

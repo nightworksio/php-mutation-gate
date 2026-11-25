@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Time;
 
-use function array_fill;
 use function array_keys;
+use function array_pad;
 
 use DateTimeImmutable;
 
@@ -100,7 +100,7 @@ final readonly class Deadline
      */
     public static function fittingEachIn(Seconds $left, array $each, int $abreast = 1): array
     {
-        $busy = array_fill(0, $abreast, 0.0);
+        $busy = array_pad([], $abreast, 0.0);
         $fitting = [];
 
         foreach ($each as $place => $run) {
