@@ -189,6 +189,62 @@ it('gives a job of the second wave the limit less the time its shard took to sta
     'opened past the limit: a share each' => [150.0, 2],
 ]);
 
+it('prices a mutant its shard left unrun once its own runs began at what each finished own run took, at its covering tests\' seconds where none finished, and counts the share\'s time from when they began', function (array $passes, float $limit, int $shares): void {
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    leftoverCuttingApart($project, $whole);
+    $file = sprintf('%s/1.json', Workspace::results()->value());
+    $stopped = ShardResultFile::decode((string) file_get_contents(sprintf('%s/%s', $project, $file)));
+    $steps = StepTimes::of(StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(400.0)), ...$passes);
+    Scratch::write($project, $file, $stopped instanceof ShardResult ? ShardResultFile::encode(ShardResult::of(
+        $stopped->plan(),
+        $stopped->shard(),
+        $stopped->units(),
+        $stopped->outcome(),
+        $stopped->measured()->withSteps($steps),
+    )) : '');
+    leftoverCuttingMap($project, ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]]);
+
+    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), ShardSettings::of(jobLimit: Seconds::of($limit)), StreamWall::of(1, 0.0));
+
+    expect($cut instanceof LeftoverShares ? count($cut->ofShard(ShardId::of(1))) : $cut)->toBe($shares);
+})->with([
+    'three of five own runs finished in 300 s: 100 s each, past a share' => [
+        [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 5)],
+        250.0,
+        2,
+    ],
+    'the same, in a job long enough for both' => [
+        [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 5)],
+        300.0,
+        1,
+    ],
+    'none of two finished: each at its covering tests, past a share' => [
+        [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 2)],
+        160.0,
+        2,
+    ],
+    'none of two finished, in a job long enough for both' => [
+        [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 2)],
+        190.0,
+        1,
+    ],
+    'stopped in its second pass: no own run began, priced by its streams' => [
+        [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(400.0))],
+        160.0,
+        1,
+    ],
+    'own runs began 140 s in: 170 s left of 310' => [
+        [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(140.0)), StepTime::of(Step::OwnRuns, Seconds::of(140.0), Seconds::of(260.0), 2)],
+        310.0,
+        2,
+    ],
+    'own runs began 120 s in: 190 s left of 310' => [
+        [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(120.0)), StepTime::of(Step::OwnRuns, Seconds::of(120.0), Seconds::of(280.0), 2)],
+        310.0,
+        1,
+    ],
+]);
+
 it('prices a left mutant\'s first fork at the likely killer its shard\'s handed ledger names among its covering tests, and its second pass at every covering test, named or not', function (bool $named, float $passTwo, float $limit, int $shares): void {
     [$project, $plan, $whole] = LeftAtTheDeadline::run();
     leftoverCuttingApart($project, $whole);
