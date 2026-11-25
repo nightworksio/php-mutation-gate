@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Runtime;
+namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
 use function file_get_contents;
 use function in_array;

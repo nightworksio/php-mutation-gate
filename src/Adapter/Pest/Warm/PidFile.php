@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
 use function is_int;
 
-use NightWorksIO\MutationGate\Adapter\Runtime\Living;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;

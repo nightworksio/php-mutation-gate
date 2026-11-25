@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Runtime\Living;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Living;
 use NightWorksIO\MutationGate\Tests\Support\Passing;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -45,4 +45,4 @@ it('says a child that ended and was not collected has ended, where Linux tells i
     }
 
     expect($ended)->toBeTrue();
-})->skip(! is_readable(sprintf(Living::STAT, (int) getmypid())), 'this system tells no process state in /proc');
+})->skip(fn(): bool => ! is_readable(sprintf(Living::STAT, (int) getmypid())), 'this system tells no process state in /proc');

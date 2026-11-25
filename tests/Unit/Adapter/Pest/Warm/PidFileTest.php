@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Living;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\PidFile;
-use NightWorksIO\MutationGate\Adapter\Runtime\Living;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Passing;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -55,4 +55,4 @@ it('takes a process that ended and was not collected as no longer running, where
     }
 
     expect($began)->toBeTrue()->and($running)->toBeFalse();
-})->skip(! is_readable(sprintf(Living::STAT, (int) getmypid())), 'this system tells no process state in /proc');
+})->skip(fn(): bool => ! is_readable(sprintf(Living::STAT, (int) getmypid())), 'this system tells no process state in /proc');
