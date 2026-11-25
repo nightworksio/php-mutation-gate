@@ -219,16 +219,23 @@ it('says a mutant runs its own run where no stream gave it a result, and none a 
     ],
 ]);
 
-it('counts the mutants the streams leave for a run of their own, one of no covering test among them', function (): void {
+it('counts the mutants the streams leave for a run of their own, one whose id is all digits among them and none of no covering test', function (): void {
     $verdicts = streamResults(
         StreamLine::parent('T::one', passed: true, seconds: 0.1),
         StreamLine::child('k', 'T::one', failed: true, seconds: 0.1),
         StreamLine::child('s', 'T::one', failed: false, seconds: 0.1),
     );
-    $covering = ['k' => ['T::one'], 's' => ['T::one'], 'o' => ['T::one', 'T::three'], 'p' => ['T::four']];
+    $covering = ['k' => ['T::one'], 's' => ['T::one'], 'o' => ['T::one', 'T::three'], '407712' => ['T::four']];
+    $tests = [];
 
-    expect(OwnRuns::leftBy($verdicts, ['k', 's', 'o', 'p'], $covering))->toBe(2)
-        ->and(OwnRuns::leftBy($verdicts, ['k', 's'], $covering))->toBe(0)
-        ->and(OwnRuns::leftBy($verdicts, [], $covering))->toBe(0)
-        ->and(OwnRuns::leftBy($verdicts, ['u'], $covering))->toBe($verdicts->runsItsOwn('u', []) ? 1 : 0);
+    foreach (['k', 's', 'o', '407712', 'u'] as $id) {
+        $tests[$id] = new MutationTest(Mutations::mutation('src/Money.php', $id, 11, sprintf('%s/copy.php', Scratch::directory())));
+    }
+
+    expect(array_keys($tests))->toContain(407712)
+        ->and(OwnRuns::leftBy($verdicts, $tests, $covering))->toBe(2)
+        ->and(OwnRuns::leftBy($verdicts, [$tests['u']], $covering))->toBe(0)
+        ->and(OwnRuns::leftBy($verdicts, [$tests['k'], $tests['s']], $covering))->toBe(0)
+        ->and(OwnRuns::leftBy($verdicts, [$tests[407712]], $covering))->toBe(1)
+        ->and(OwnRuns::leftBy($verdicts, [], $covering))->toBe(0);
 });
