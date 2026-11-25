@@ -136,7 +136,7 @@ final readonly class Streams
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $left, $verdicts);
         StreamPasses::ended($results, Step::SecondPass, microtime(as_float: true) - $from, count($again), $bound);
         self::given($verdicts, array_diff_key($byId, $settled), $covering);
-        StreamPasses::ownRunsStarted($results, OwnRuns::leftBy($verdicts, $byId, $covering), $bound);
+        StreamPasses::ownRunsStarted($results, OwnRuns::leftBy($byId), $bound);
 
         ForkStatesLine::writtenFor($verdicts, $results);
         StreamProgress::unnamed($results);

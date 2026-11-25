@@ -219,23 +219,35 @@ it('says a mutant runs its own run where no stream gave it a result, and none a 
     ],
 ]);
 
-it('counts the mutants the streams leave for a run of their own, one whose id is all digits among them and none of no covering test', function (): void {
+it('counts as own runs every mutant the verdicts gave no result, whatever kept a stream from judging it, one whose id is all digits among them', function (): void {
     $verdicts = streamResults(
         StreamLine::parent('T::one', passed: true, seconds: 0.1),
         StreamLine::child('k', 'T::one', failed: true, seconds: 0.1),
         StreamLine::child('s', 'T::one', failed: false, seconds: 0.1),
     );
-    $covering = ['k' => ['T::one'], 's' => ['T::one'], 'o' => ['T::one', 'T::three'], '407712' => ['T::four']];
+    $covering = ['k' => ['T::one'], 's' => ['T::one'], 'o' => ['T::one', 'T::three'], '407712' => ['T::four'], 'u' => []];
     $tests = [];
+    putenv(sprintf('%s=%s/results.jsonl', GateVariable::Results->value, Scratch::directory()));
+    $events = new ReflectionProperty(Facade::class, 'instance');
+    $held = $events->getValue();
+    $events->setValue(null, null);
 
-    foreach (['k', 's', 'o', '407712', 'u'] as $id) {
-        $tests[$id] = new MutationTest(Mutations::mutation('src/Money.php', $id, 11, sprintf('%s/copy.php', Scratch::directory())));
+    try {
+        foreach (['k', 's', 'o', '407712', 'u'] as $id) {
+            $tests[$id] = new MutationTest(Mutations::mutation('src/Money.php', $id, 11, sprintf('%s/copy-%s.php', Scratch::directory(), $id)));
+            $verdicts->give($id, $tests[$id], $covering[$id]);
+        }
+    } finally {
+        $events->setValue(null, $held);
     }
 
+    $unjudged = array_keys(array_filter($tests, static fn(MutationTest $test): bool => $test->result() === MutationTestResult::None));
+
     expect(array_keys($tests))->toContain(407712)
-        ->and(OwnRuns::leftBy($verdicts, $tests, $covering))->toBe(2)
-        ->and(OwnRuns::leftBy($verdicts, [$tests['u']], $covering))->toBe(0)
-        ->and(OwnRuns::leftBy($verdicts, [$tests['k'], $tests['s']], $covering))->toBe(0)
-        ->and(OwnRuns::leftBy($verdicts, [$tests[407712]], $covering))->toBe(1)
-        ->and(OwnRuns::leftBy($verdicts, [], $covering))->toBe(0);
+        ->and(OwnRuns::leftBy($tests))->toBe(count($unjudged))
+        ->and($unjudged)->toContain('o', 407712)
+        ->and($unjudged)->not->toContain('k', 's')
+        ->and(OwnRuns::leftBy([$tests['k'], $tests['s']]))->toBe(0)
+        ->and(OwnRuns::leftBy([$tests[407712]]))->toBe(1)
+        ->and(OwnRuns::leftBy([]))->toBe(0);
 });
