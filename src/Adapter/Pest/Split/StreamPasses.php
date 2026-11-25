@@ -66,6 +66,14 @@ final readonly class StreamPasses
         self::listed($results, JsonText::compact([...StepsRecord::rowOf($step), self::BEGUN => true]));
     }
 
+    /** A run's own runs as they start, this many of them (ADR-0117), listed as a pass is; none where there is none. */
+    public static function ownRunsStarted(string|false $results, int $mutants, float $bound): void
+    {
+        if ($mutants > 0) {
+            self::started($results, Step::OwnRuns, $mutants, $bound);
+        }
+    }
+
     /** One pass, listed beside the run's results the gate names; none where it names no file. */
     public static function ended(
         string|false $results,

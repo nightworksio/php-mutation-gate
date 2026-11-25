@@ -194,7 +194,10 @@ it('prices a mutant its shard left unrun once its own runs began at what each fi
     leftoverCuttingApart($project, $whole);
     $file = sprintf('%s/1.json', Workspace::results()->value());
     $stopped = ShardResultFile::decode((string) file_get_contents(sprintf('%s/%s', $project, $file)));
-    $steps = StepTimes::of(StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(400.0)), ...$passes);
+    $steps = StepTimes::of(
+        StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(400.0)),
+        ...array_filter($passes, static fn(mixed $pass): bool => $pass instanceof StepTime),
+    );
     Scratch::write($project, $file, $stopped instanceof ShardResult ? ShardResultFile::encode(ShardResult::of(
         $stopped->plan(),
         $stopped->shard(),

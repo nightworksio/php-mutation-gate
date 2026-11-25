@@ -172,14 +172,12 @@ final class StreamVerdicts
     public function runsItsOwn(string $mutant, array $covering): bool
     {
         $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
+        $late = static fn(ChildEnd $end): bool => $end === ChildEnd::TimedOut;
+        $overran = $this->firstEnding($mutant, $covering, $late);
 
-        if ($killer !== '') {
-            return $this->touches($mutant, $killer);
-        }
-
-        $overran = static fn(ChildEnd $end): bool => $end === ChildEnd::TimedOut;
-
-        return $this->firstEnding($mutant, $covering, $overran) === '' && $this->leavesForItsOwnRun($mutant, $covering);
+        return $killer !== ''
+            ? $this->touches($mutant, $killer)
+            : $overran === '' && $this->leavesForItsOwnRun($mutant, $covering);
     }
 
     /**

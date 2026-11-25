@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Noted;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnRuns;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamVerdicts;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
@@ -176,4 +177,58 @@ it('counts the forks whose parent and child both read their state, and those tha
     );
 
     expect($verdicts->forkStates())->toBe([2, 1]);
+});
+
+it('says a mutant runs its own run where no stream gave it a result, and none a stream killed, timed out or let survive', function (array $lines, array $covering, bool $own): void {
+    $verdicts = streamResults(...array_filter($lines, is_string(...)));
+    $tests = array_values(array_filter($covering, is_string(...)));
+    $given = streamGiven($verdicts, $tests)[0];
+
+    expect($verdicts->runsItsOwn('m', $tests))->toBe($own)
+        ->and($given === MutationTestResult::None)->toBe($own);
+})->with([
+    'killed' => [
+        [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::child('m', 'T::one', failed: true, seconds: 0.1)],
+        ['T::one'],
+        false,
+    ],
+    'timed out' => [
+        [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::timedOut('m', 'T::one')],
+        ['T::one'],
+        false,
+    ],
+    'survived every covering test' => [
+        [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::child('m', 'T::one', failed: false, seconds: 0.1)],
+        ['T::one'],
+        false,
+    ],
+    'a covering test forked nothing' => [
+        [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::parent('T::two', passed: true, seconds: 0.1), StreamLine::fallback('T::two')],
+        ['T::one', 'T::two'],
+        true,
+    ],
+    'a covering test no stream ran' => [
+        [StreamLine::parent('T::one', passed: true, seconds: 0.1)],
+        ['T::one', 'T::three'],
+        true,
+    ],
+    'timed out at one test, another forked nothing' => [
+        [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::timedOut('m', 'T::one'), StreamLine::fallback('T::two')],
+        ['T::one', 'T::two'],
+        false,
+    ],
+]);
+
+it('counts the mutants the streams leave for a run of their own, one of no covering test among them', function (): void {
+    $verdicts = streamResults(
+        StreamLine::parent('T::one', passed: true, seconds: 0.1),
+        StreamLine::child('k', 'T::one', failed: true, seconds: 0.1),
+        StreamLine::child('s', 'T::one', failed: false, seconds: 0.1),
+    );
+    $covering = ['k' => ['T::one'], 's' => ['T::one'], 'o' => ['T::one', 'T::three'], 'p' => ['T::four']];
+
+    expect(OwnRuns::leftBy($verdicts, ['k', 's', 'o', 'p'], $covering))->toBe(2)
+        ->and(OwnRuns::leftBy($verdicts, ['k', 's'], $covering))->toBe(0)
+        ->and(OwnRuns::leftBy($verdicts, [], $covering))->toBe(0)
+        ->and(OwnRuns::leftBy($verdicts, ['u'], $covering))->toBe($verdicts->runsItsOwn('u', []) ? 1 : 0);
 });
