@@ -30,6 +30,27 @@ it('says a process has ended where its state is an ended one, whatever its comma
     'no file' => ['', true],
 ]);
 
+it('says nothing has ended, and raises nothing, where the state can be found and not read', function (): void {
+    $own = (int) getmypid();
+    $unreadable = sprintf('%s/%%d', Scratch::directory());
+    mkdir(sprintf($unreadable, $own));
+    $raised = [];
+    set_error_handler(static function (int $level, string $said) use (&$raised): bool {
+        $raised[] = $said;
+
+        return true;
+    });
+
+    try {
+        $ended = Living::hasEnded($own, $unreadable);
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($ended)->toBeFalse()
+        ->and($raised)->toBe([]);
+});
+
 it('says a child that ended and was not collected has ended, where Linux tells its state', function (): void {
     $started = proc_open(['sleep', '0.2'], [], $pipes);
     $child = is_resource($started) ? proc_get_status($started)['pid'] : Passing::NONE;

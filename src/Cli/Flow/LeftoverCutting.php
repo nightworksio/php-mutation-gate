@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\StreamedOut;
 use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Proof\KillHistoryFile;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
@@ -102,9 +103,7 @@ final readonly class LeftoverCutting
             $read = LeftResults::of($plan, $shard, $results, $this->adapters->project);
             $number = $shard->id()->number();
             $history = $this->historyIn($coverage, $shard->id());
-            $left[$number] = is_array($read)
-                ? $this->leftIn($map, $history, [...$read[1]->mutants()], $read[0], $wall)
-                : [];
+            $left[$number] = is_array($read) ? $this->leftIn($map, $history, $read[1], $read[0], $wall) : [];
             $started[$number] = is_array($read) ? $this->startedAfter($read[0]) : Seconds::none();
             $jobs += is_array($read) ? [$number => $read[0]->measured()->job()] : [];
         }
@@ -124,17 +123,17 @@ final readonly class LeftoverCutting
     /**
      * The mutants of a result left at its deadline, each with the test files covering its lines and its forks.
      *
-     * @param  list<Mutant>                                     $mutants
      * @return list<array{LeftMutant, list<string>, LeftForks}>
      */
     private function leftIn(
         CoverageMap $map,
         KillHistory $history,
-        array $mutants,
+        MutationResult $judged,
         ShardResult $result,
         StreamWall $wall,
     ): array {
         $left = [];
+        $mutants = [...$judged->mutants()];
         $own = StreamedOut::of($result, $mutants);
 
         foreach ($mutants as $mutant) {

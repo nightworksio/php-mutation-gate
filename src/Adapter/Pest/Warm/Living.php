@@ -10,6 +10,8 @@ use function is_readable;
 use function is_string;
 use function mb_strrpos;
 use function mb_substr;
+use function restore_error_handler;
+use function set_error_handler;
 use function sprintf;
 
 /**
@@ -36,10 +38,21 @@ final readonly class Living
         return in_array(self::stateIn(sprintf($stat, $pid)), self::ENDED, strict: true);
     }
 
-    /** The state a process's stat file names; empty where it cannot be read or names none. */
+    /**
+     * The state a process's stat file names; empty where it cannot be read
+     * or names none, as where its process is gone between finding the file
+     * and reading it, which the read says with a notice.
+     */
     private static function stateIn(string $file): string
     {
-        $read = is_readable($file) ? file_get_contents($file) : false;
+        set_error_handler(static fn(): bool => true);
+
+        try {
+            $read = is_readable($file) ? file_get_contents($file) : false;
+        } finally {
+            restore_error_handler();
+        }
+
         $ends = is_string($read) ? mb_strrpos($read, self::COMMAND_ENDS) : false;
 
         return is_string($read) && $ends !== false ? mb_substr($read, $ends + 2, 1) : '';
