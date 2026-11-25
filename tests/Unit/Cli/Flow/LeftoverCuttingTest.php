@@ -231,6 +231,16 @@ it('prices a mutant its shard left unrun once its own runs began at what each fi
         190.0,
         1,
     ],
+    'a hundred quick own runs finished: each still at no less than its own covering tests, past a share' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 102)],
+        160.0,
+        2,
+    ],
+    'a hundred quick own runs finished, in a job long enough for both' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 102)],
+        190.0,
+        1,
+    ],
     'stopped in its second pass: no own run began, priced by its streams' => [
         static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(400.0))],
         160.0,

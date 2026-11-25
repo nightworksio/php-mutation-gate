@@ -99,6 +99,7 @@
     "shards": {
         "max": "learned",
         "jobLimit": "45m",
+        "confirm": 0.2,
         "fill": 0.3
     },
     "timeouts": {

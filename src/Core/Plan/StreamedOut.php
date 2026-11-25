@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_filter;
 use function count;
+use function max;
 
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -20,7 +21,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * its own lets no stream fork in it. Such a run is of the mutant's covering
  * tests in a process of its own, whatever a pass of streams took: priced at
  * the wall seconds each own run the job finished took, as the job measured
- * them, and at its covering tests' seconds where it finished none.
+ * them, and never below its own covering tests' seconds, which a mutant
+ * its tests do not kill runs whole.
  *
  * @internal
  */
@@ -62,7 +64,7 @@ final readonly class StreamedOut
             return NotGiven::value();
         }
 
-        return $this->each > 0.0 ? $wall->worth($this->each) : $covering;
+        return max($wall->worth($this->each), $covering);
     }
 
     /** The seconds each of this many finished runs took of these; none where none finished. */
