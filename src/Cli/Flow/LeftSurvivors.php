@@ -27,6 +27,12 @@ final readonly class LeftSurvivors
         return new self(SurvivorChecks::none(), UncheckedIds::none());
     }
 
+    /** What an earlier round of checks left, for the round after it to add to. */
+    public static function of(Checked $earlier): self
+    {
+        return new self($earlier->checks, $earlier->unchecked);
+    }
+
     /** These, with a survivor left unchecked. */
     public function leaving(UncheckedSurvivor $left, MutantId $survivor): self
     {
