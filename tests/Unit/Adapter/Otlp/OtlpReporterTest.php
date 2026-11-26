@@ -221,7 +221,8 @@ it('names an endpoint by its scheme, host and port alone, so a key in it reaches
 
     expect($sent)->toEqual(Written::to('https://otel.example:4318'))
         ->and($refused)->toEqual(NotWritten::because('https://otel.example:4318 answered 403: no'))
-        ->and($traces->getRequestUrl())->toBe('https://user:s3cr3t@otel.example:4318/otlp/v1/traces?api-key=k3y')
+        ->and($traces->getRequestUrl())->toBe('https://otel.example:4318/otlp/v1/traces?api-key=k3y')
+        ->and(json_encode($traces->getRequestOptions()['normalized_headers']))->toMatch('~"Authorization: Basic [A-Za-z0-9+/=]{8,}"~')
         ->and($said)->not->toContain('s3cr3t')
         ->and($said)->not->toContain('k3y')
         ->and($said)->not->toContain('/otlp');
