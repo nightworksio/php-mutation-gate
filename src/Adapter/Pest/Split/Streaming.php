@@ -239,15 +239,15 @@ final readonly class Streaming
         $times = LoadedMap::timed();
         $costs = PartCosts::of($times, $forks);
         $cores = new CpuCoreCounter()->getCountWithFallback(1);
-        $depth = max(1, $this->pace->partsPerProcess);
         [$reading, $others] = $this->pcov instanceof PcovTests ? $this->pcov->split($units) : [[], $units];
         $readers = PcovTests::processesFor($reading, $others, $times, $this->processes);
-        $keeping = $reading === [] ? [] : self::cut($reading, $costs->byTest(), $readers * $depth);
+        [$forReaders, $forOthers] = PartCounts::of($this->processes, $readers, $this->pace->partsPerProcess);
+        $keeping = $reading === [] ? [] : self::cut($reading, $costs->byTest(), $forReaders);
         $parts = [
             ...$keeping,
             ...$others === [] && $reading !== []
                 ? []
-                : self::cut($others, $costs->byTest(), max(1, $this->processes - $readers) * $depth),
+                : self::cut($others, $costs->byTest(), $forOthers),
         ];
         $kept = count($keeping);
         $queued = [];
