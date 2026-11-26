@@ -141,8 +141,9 @@ it('starts a stream on a plan that holds what it was told, written with its slas
     $held = [];
 
     foreach ([Mutate::ENV_MUTATION_TESTING => '1', GateVariable::Results->value => '/tmp/results.jsonl', GateVariable::StepFloor->value => '3'] as $name => $value) {
-        $held[$name] = getenv($name);
+        $held[$name] = [getenv($name), array_key_exists($name, $_SERVER) ? $_SERVER[$name] : NotGiven::value()];
         putenv(sprintf('%s=%s', $name, $value));
+        $_SERVER[$name] = $value;
     }
 
     try {
@@ -150,8 +151,13 @@ it('starts a stream on a plan that holds what it was told, written with its slas
         new Streaming($directory, [], ['-r', $reads, '--'], 1, 1, new LiveProcesses())
             ->pass(1, ['m1' => ['f1', 1, '', []]], ['m1' => [$test]], StreamVerdicts::none());
     } finally {
-        foreach ($held as $name => $value) {
+        foreach ($held as $name => [$value, $served]) {
             putenv($value === false ? $name : sprintf('%s=%s', $name, $value));
+            unset($_SERVER[$name]);
+
+            if (! $served instanceof NotGiven) {
+                $_SERVER[$name] = $served;
+            }
         }
     }
 
