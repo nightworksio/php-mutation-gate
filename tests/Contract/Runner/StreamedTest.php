@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
@@ -41,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Arithmetic\MultiplicationToDivision;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
@@ -96,7 +98,10 @@ it('kills in its stream a mutant a test tells apart, or whose test ends its own 
     copy(Tree::at('tests/Contract/Runner/streamed/src/Streamed.php'), $source);
     copy(Tree::at('tests/Contract/Runner/streamed/tests/StreamedSpec.php'), $test);
     Library::patched();
-    $before = glob(sprintf('%s/mutation-gate-split-*', sys_get_temp_dir()));
+    $own = Scratch::directory();
+    $held = [getenv('TMPDIR'), array_key_exists('TMPDIR', $_SERVER) ? $_SERVER['TMPDIR'] : NotGiven::value()];
+    putenv(sprintf('TMPDIR=%s', $own));
+    $_SERVER['TMPDIR'] = $own;
 
     try {
         $result = Library::pest(Patching::on(Library::canary())->splitting(
@@ -114,6 +119,12 @@ it('kills in its stream a mutant a test tells apart, or whose test ends its own 
     } finally {
         unlink($source);
         unlink($test);
+        putenv($held[0] === false ? 'TMPDIR' : sprintf('TMPDIR=%s', $held[0]));
+        unset($_SERVER['TMPDIR']);
+
+        if (! $held[1] instanceof NotGiven) {
+            $_SERVER['TMPDIR'] = $held[1];
+        }
     }
 
     $judged = array_map(static fn(Mutant $mutant): array => [
@@ -137,7 +148,7 @@ it('kills in its stream a mutant a test tells apart, or whose test ends its own 
         'second pass' => [0, true],
         'own runs' => [3, true],
     ])
-        ->and(glob(sprintf('%s/mutation-gate-split-*', sys_get_temp_dir())))->toBe($before)
+        ->and(glob(sprintf('%s/mutation-gate-split-*', $own)))->toBe([])
         ->and($judged)->toBe([
             [17, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_adds'], true],
             [24, MutantStatus::TimedOut, [], true],
