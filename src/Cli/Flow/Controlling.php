@@ -325,11 +325,11 @@ final readonly class Controlling
         $asked = $this->inOrderOf($asked, $request->files());
         $limits = array_map(static fn(Control $control): Seconds => $control->limit(), $asked);
         $places = array_flip($this->timeLeft->fittingEach($limits, $request->pool()->processes()));
-        $fitting = array_values(array_intersect_key($asked, $places));
-        $room = count($fitting) === count($asked) ? array_values(array_filter(
+        $fitting = array_intersect_key($asked, $places);
+        $room = count($fitting) === count($asked) ? array_filter(
             $beside,
             fn(Control $control): bool => $this->timeLeft->fits($control->limit()),
-        )) : [];
+        ) : [];
         $from = $this->stopwatch->now();
         $ran = Controls::of(...$fitting, ...$room);
         $runs = $fitting === []
@@ -339,7 +339,7 @@ final readonly class Controlling
 
         $this->stopwatch->handled($step, $from, count($fitting) + count($room), ...$times);
 
-        return [$runs, Controls::of(...array_values(array_diff_key($asked, $places)))];
+        return [$runs, Controls::of(...array_diff_key($asked, $places))];
     }
 
     /**

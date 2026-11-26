@@ -161,9 +161,13 @@ final readonly class LeftoverCutting
         $seconds = [];
 
         foreach ($map->testsCovering($location->file(), $location->start(), $location->last()) as $test) {
-            $files[TestMethod::classOf($test)] = true;
+            $file = TestMethod::classOf($test);
+            $files[$file] = $file;
             $timed = $durations->of($test);
-            $seconds[$test->value()] = $timed instanceof Seconds ? $timed->seconds() : 0.0;
+
+            if ($timed instanceof Seconds) {
+                $seconds[$test->value()] = $timed->seconds();
+            }
         }
 
         $alone = $own->priceOf($mutant, array_sum($seconds), $wall);
@@ -200,8 +204,10 @@ final readonly class LeftoverCutting
         foreach ($durations->tests() as $test) {
             $timed = $durations->of($test);
             $file = TestMethod::classOf($test);
-            $files[$file] = (array_key_exists($file, $files) ? $files[$file] : 0.0)
-                + ($timed instanceof Seconds ? $timed->seconds() : 0.0);
+
+            if ($timed instanceof Seconds) {
+                $files[$file] = (array_key_exists($file, $files) ? $files[$file] : 0.0) + $timed->seconds();
+            }
         }
 
         return $files;
