@@ -83,3 +83,46 @@ it('lists no own runs where a run\'s streams left none', function (): void {
         StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(30.0), 4)->bounded(Seconds::of(9.0)),
     ));
 });
+
+it('lists a single own run, as it lists many', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $mutation = StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(100.0));
+
+    StreamPasses::ownRunsStarted($results, 1, 9.0);
+
+    expect(StreamPasses::within($results, $mutation))->toEqual(StepTimes::of(
+        StepTime::of(Step::OwnRuns, Seconds::of(0.0), Seconds::of(100.0), 1)->bounded(Seconds::of(9.0)),
+    ));
+});
+
+it('reads a pass that started after the mutation step it is read within had ended as taking no time', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $mutation = StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(10.0));
+
+    StreamPasses::ended($results, Step::FirstPass, 30.0, 4, 9.0);
+    StreamPasses::started($results, Step::SecondPass, 2, 9.0);
+
+    expect(StreamPasses::within($results, $mutation))->toEqual(StepTimes::of(
+        StepTime::of(Step::FirstPass, Seconds::of(0.0), Seconds::of(30.0), 4)->bounded(Seconds::of(9.0)),
+        StepTime::of(Step::SecondPass, Seconds::of(30.0), Seconds::of(0.0), 2)->bounded(Seconds::of(9.0)),
+    ));
+});
+
+it('writes no list where the run names an empty results file', function (): void {
+    $beside = sprintf('%s/.passes', (string) getcwd());
+
+    if (is_file($beside)) {
+        unlink($beside);
+    }
+
+    StreamPasses::started('', Step::FirstPass, 4, 9.0);
+    StreamPasses::ended('', Step::FirstPass, 4.0, 4, 9.0);
+    StreamPasses::ownRunsStarted('', 3, 9.0);
+    $written = is_file($beside);
+
+    if ($written) {
+        unlink($beside);
+    }
+
+    expect($written)->toBeFalse();
+});

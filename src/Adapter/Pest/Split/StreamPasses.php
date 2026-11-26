@@ -63,7 +63,7 @@ final readonly class StreamPasses
     public static function started(string|false $results, Step $pass, int $mutants, float $bound): void
     {
         $step = StepTime::of($pass, Seconds::none(), Seconds::none(), $mutants)->bounded(Seconds::of($bound));
-        self::listed($results, JsonText::compact([...StepsRecord::rowOf($step), self::BEGUN => true]));
+        self::listed($results, JsonText::compact([...StepsRecord::rowOf($step), self::BEGUN => $pass->value]));
     }
 
     /** A run's own runs as they start, this many of them (ADR-0117), listed as a pass is; none where there is none. */
