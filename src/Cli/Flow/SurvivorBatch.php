@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_slice;
-use function ceil;
 use function count;
-use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
@@ -57,9 +55,9 @@ final readonly class SurvivorBatch
      * file, side by side too. The survivors are taken in turn while the
      * time left has room for their checks (see CheckRoom), each taken to be
      * as long as the warm-up, which no check outlasts; those it has no room
-     * for are then fitted again, each as long as a round of the checks just
-     * run took, where the clock says they took any time, and what that has
-     * no room for is left.
+     * for are then fitted again, each as long as the checks just run took
+     * together, which none of them outlasted, where the clock says they took
+     * any time, and what that has no room for is left.
      */
     public function checked(WarmedUp $warm, Mutants $mutants, Mutants $survivors): Checked
     {
@@ -91,8 +89,8 @@ final readonly class SurvivorBatch
 
         $started = $this->clock->now();
         $first = $this->batched($warm, $mutants, $survivors, $fitting, $left);
-        $round = Seconds::between($started, $this->clock->now())->seconds() / $this->rounds(count($fitting));
-        $more = $round > 0.0 ? $room->fitting($rest, Seconds::of($round)) : [];
+        $took = Seconds::between($started, $this->clock->now());
+        $more = $took->seconds() > 0.0 ? $room->fitting($rest, $took) : [];
         $left = $this->outOfTime(LeftSurvivors::of($first), array_slice($rest, count($more)));
 
         return $this->batched($warm, $first->mutants, $survivors, $more, $left);
@@ -110,12 +108,6 @@ final readonly class SurvivorBatch
         }
 
         return $left;
-    }
-
-    /** How many rounds this many checks take, as many at once as the machine has cores. */
-    private function rounds(int $checks): int
-    {
-        return max(1, (int) ceil($checks / $this->adapters->cores->count()));
     }
 
     /**

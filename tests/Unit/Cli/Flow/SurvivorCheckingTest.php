@@ -497,7 +497,7 @@ it('starts as many checks as the time left has room for, each as long as the run
     ],
 ]);
 
-it('fits the survivors a first round had no room for again, each as long as that round took, and leaves what still does not fit', function (
+it('fits the survivors the first checks had no room for again, each as long as those took together, and leaves what still does not fit', function (
     ScriptedClock $clock,
     bool $second,
 ): void {
@@ -561,7 +561,7 @@ it('keeps what the first round found where a second round follows it: a survivor
         ->and(array_map(static fn(array $check): string => $check[1], $failing->asked()))->toContain(checkedAt($held));
 });
 
-it('takes a round of the first checks to be as long as they took together over the rounds the cores ran them in', function (): void {
+it('takes each later check to be as long as the first checks took together, however many cores ran them', function (): void {
     $project = Scratch::directory();
     $two = checkedMutants();
     $again = checkedAgain(checkedSurvivor($two, 'src/Money.php'));
@@ -572,7 +572,7 @@ it('takes a round of the first checks to be as long as they took together over t
         checkedAt($again) => checkedOriginals(),
     ]);
     $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(20.0));
-    // a warm-up of 4s, then 5s left: one round of two checks on 2 cores, which takes 2s; then 1s is left, less than a round
+    // a warm-up of 4s, then 5s left: one round of two checks on 2 cores, which takes 2s; then 1s is left, less than those took
     $clock = new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 4, 15, 15, 15, 17, 17, 19);
 
     $left = checking($project, $checker, ScriptedRunner::fixture(), $deadline, $clock)->checked($mutants, MutantIds::none());

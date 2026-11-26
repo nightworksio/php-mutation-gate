@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_filter;
+use function array_map;
 use function count;
 use function max;
 
@@ -28,7 +29,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  */
 final readonly class StreamedOut
 {
-    private function __construct(private bool $began, private float $each)
+    /** @param list<float> $each what each finished own run took; none where none finished */
+    private function __construct(private bool $began, private array $each)
     {
     }
 
@@ -50,7 +52,7 @@ final readonly class StreamedOut
             }
         }
 
-        return new self(began: false, each: 0.0);
+        return new self(began: false, each: []);
     }
 
     /**
@@ -64,13 +66,17 @@ final readonly class StreamedOut
             return NotGiven::value();
         }
 
-        return max($wall->worth($this->each), $covering);
+        return max([$covering, ...array_map($wall->worth(...), $this->each)]);
     }
 
-    /** The seconds each of this many finished runs took of these; none where none finished. */
-    private static function eachOf(float $seconds, int $finished): float
+    /**
+     * The seconds each of this many finished runs took of these; none where none finished.
+     *
+     * @return list<float>
+     */
+    private static function eachOf(float $seconds, int $finished): array
     {
-        return $finished > 0 ? $seconds / $finished : 0.0;
+        return $finished > 0 ? [$seconds / $finished] : [];
     }
 
     /** Whether the job stopped before the mutant's own run finished. */
