@@ -96,6 +96,7 @@ it('kills in its stream a mutant a test tells apart, or whose test ends its own 
     copy(Tree::at('tests/Contract/Runner/streamed/src/Streamed.php'), $source);
     copy(Tree::at('tests/Contract/Runner/streamed/tests/StreamedSpec.php'), $test);
     Library::patched();
+    $before = glob(sprintf('%s/mutation-gate-split-*', sys_get_temp_dir()));
 
     try {
         $result = Library::pest(Patching::on(Library::canary())->splitting(
@@ -125,16 +126,27 @@ it('kills in its stream a mutant a test tells apart, or whose test ends its own 
     ], $result instanceof MutationResult ? [...$result->mutants()] : []);
     usort($judged, static fn(array $one, array $other): int => $one[0] <=> $other[0]);
     $seesClients = is_dir('/proc/self/fd') || function_exists('outbreak_descriptors');
+    $steps = [];
 
-    expect($judged)->toBe([
-        [17, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_adds'], true],
-        [24, MutantStatus::TimedOut, [], true],
-        [33, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_doubles_while_it_holds_a_socket'], false],
-        [38, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_triples_while_it_holds_a_writable_file'], false],
-        [43, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_quadruples_while_it_holds_a_file_backed_SQLite_database'], ! $seesClients],
-        [48, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_shifts_while_it_reads_a_file'], true],
-        [53, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_raises__ending_its_own_process_where_it_raises_wrong'], true],
-    ]);
+    foreach ($result instanceof MutationResult ? $result->steps() : [] as $step) {
+        $steps[$step->step()->value] = [$step->count(), $step->took()->seconds() < 600.0];
+    }
+
+    expect(array_intersect_key($steps, ['first pass' => 0, 'second pass' => 0, 'own runs' => 0]))->toBe([
+        'first pass' => [7, true],
+        'second pass' => [0, true],
+        'own runs' => [3, true],
+    ])
+        ->and(glob(sprintf('%s/mutation-gate-split-*', sys_get_temp_dir())))->toBe($before)
+        ->and($judged)->toBe([
+            [17, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_adds'], true],
+            [24, MutantStatus::TimedOut, [], true],
+            [33, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_doubles_while_it_holds_a_socket'], false],
+            [38, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_triples_while_it_holds_a_writable_file'], false],
+            [43, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_quadruples_while_it_holds_a_file_backed_SQLite_database'], ! $seesClients],
+            [48, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_shifts_while_it_reads_a_file'], true],
+            [53, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_raises__ending_its_own_process_where_it_raises_wrong'], true],
+        ]);
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
