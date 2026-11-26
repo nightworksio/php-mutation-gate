@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_keys;
 use function array_map;
-use function array_values;
 use function dirname;
 use function file_put_contents;
 use function getmypid;
@@ -74,7 +73,7 @@ final readonly class UnmutatedRuns
         [$runs, $commands, $ranWith] = $this->prepared($controls, $request, $scan, dirname($beside), $launcher);
         $ends = $commands === []
             ? ProcessEnds::of()
-            : $this->shell->sideBySide($this->slotsOf($request), $request->deadline(), ...array_values($commands));
+            : $this->shell->sideBySide($this->slotsOf($request), $request->deadline(), ...$commands);
         $runs = $commands === [] ? $runs : $this->read($runs, $ends, $commands, $ranWith);
         $scan->remove();
 
@@ -103,7 +102,7 @@ final readonly class UnmutatedRuns
             return PendingControls::ran($runs);
         }
 
-        $started = $this->shell->started($this->slotsOf($request), $request->deadline(), ...array_values($commands));
+        $started = $this->shell->started($this->slotsOf($request), $request->deadline(), ...$commands);
 
         return PendingControls::taking(
             function () use ($runs, $started, $commands, $ranWith, $scan): ControlRuns {
