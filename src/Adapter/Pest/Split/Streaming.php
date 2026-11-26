@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_count_values;
-use function array_filter;
 use function array_keys;
 use function array_map;
 use function array_values;
@@ -15,7 +14,6 @@ use Fidry\CpuCoreCounter\CpuCoreCounter;
 
 use function file_put_contents;
 use function getenv;
-use function is_string;
 use function json_encode;
 
 use const JSON_THROW_ON_ERROR;
@@ -43,7 +41,6 @@ use Pest\Mutate\Plugins\Mutate;
 use const PHP_BINARY;
 
 use function sprintf;
-use function str_starts_with;
 use function strval;
 
 use Symfony\Component\Process\Process;
@@ -386,9 +383,9 @@ final readonly class Streaming
         $process = new Process(
             [
                 PHP_BINARY,
-                ...$this->counting(),
+                ...StreamArguments::loading(getenv(GateVariable::StreamExtension->value)),
                 ...$this->reach($fields['recording']),
-                ...$this->runArguments($this->arguments),
+                ...StreamArguments::ofRun($this->arguments),
                 ...$files,
             ],
             env: [
@@ -406,19 +403,6 @@ final readonly class Streaming
     }
 
     /**
-     * What loads `outbreak.so` into a stream, where the gate asks it to watch
-     * states or touches (ADR-0130); nothing otherwise.
-     *
-     * @return list<string>
-     */
-    private function counting(): array
-    {
-        $extension = getenv(GateVariable::StreamExtension->value);
-
-        return is_string($extension) && $extension !== '' ? ['-d', sprintf('extension=%s', $extension)] : [];
-    }
-
-    /**
      * What has pcov collect from every tree of the project, and from the
      * schemata the stream serves, where the stream records its tests' lines;
      * nothing otherwise.
@@ -428,23 +412,6 @@ final readonly class Streaming
     private function reach(string $recording): array
     {
         return $recording === '' ? [] : StreamReach::options();
-    }
-
-    /**
-     * A stream's arguments: a mutant's own run's, without what Pest's own
-     * process alone takes.
-     *
-     * @param  list<string> $arguments
-     * @return list<string>
-     */
-    private function runArguments(array $arguments): array
-    {
-        return array_values(array_filter(
-            $arguments,
-            static fn(string $argument): bool => ! str_starts_with($argument, '--coverage')
-                && ! str_starts_with($argument, '--mutate')
-                && ! str_starts_with($argument, '--parallel'),
-        ));
     }
 
     /**
