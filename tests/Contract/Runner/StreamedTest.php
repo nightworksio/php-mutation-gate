@@ -64,6 +64,9 @@ const CHEAPEST_SLOW = 'P\\Tests\\CheapestSpec::__pest_evaluable_it_doubles_an_am
 /** The fixture's fast covering test of Cheapest. */
 const CHEAPEST_FAST = 'P\\Tests\\CheapestSpec::__pest_evaluable_it_doubles_and_triples_into_whole_numbers__and_quadruples_two';
 
+/** The fixture's test of Booted, which the application's boot readies. */
+const BOOTED_KILLER = 'P\\Tests\\BootedSpec::__pest_evaluable_it_readies_the_services';
+
 /** The fixture's likely killer of a change to Fallen::tripled, which holds a writable file, so no stream forks there. */
 const FALLEN_KILLER = 'P\\Tests\\FallenSpec::__pest_evaluable_it_triples_while_it_holds_a_writable_file';
 
@@ -429,7 +432,7 @@ it('judges a mutant whose test reads its coverage through pcov alike whether pes
     'the runner contracts job installs the fixture library, split streams need a PHP that forks, and the test needs pcov on',
 )->group(...$holds);
 
-it('leaves a mutant whose site the application\'s boot runs to a second pass that boots in every test, under splitStream.bootOnce', function (): void {
+it('leaves a mutant whose site the application\'s boot runs to a second pass that boots in every test, whether its first pass runs every covering file or its likely killer alone, under splitStream.bootOnce', function (bool $killers): void {
     $copied = [
         'src/Booted.php' => 'tests/Contract/Runner/streamed/src/Booted.php',
         'tests/BootedSpec.php' => 'tests/Contract/Runner/streamed/tests/BootedSpec.php',
@@ -443,16 +446,32 @@ it('leaves a mutant whose site the application\'s boot runs to a second pass tha
     }
 
     Library::patched();
+    $request = MutationRequest::of(Paths::of(Path::of('src/Booted.php')), WholeSuite::tests())->narrowedTo(
+        Paths::of(Path::of('src/Booted.php')),
+        Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)),
+    );
+    $streams = static fn(bool $killers): StreamSettings => StreamSettings::of(
+        enabled: true,
+        children: 1,
+        changeCheck: false,
+        killersFirst: $killers,
+        killerStreams: $killers,
+        bootOnce: true,
+    );
 
     try {
-        $result = Library::pest(Patching::on(Library::canary())->splitting(
-            StreamSettings::of(enabled: true, children: 1, changeCheck: false, killersFirst: false, bootOnce: true),
-        ))->runner()->mutate(
-            MutationRequest::of(Paths::of(Path::of('src/Booted.php')), WholeSuite::tests())->narrowedTo(
-                Paths::of(Path::of('src/Booted.php')),
-                Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)),
-            ),
-        );
+        $result = Library::pest(Patching::on(Library::canary())->splitting($streams(killers: false)))->runner()->mutate($request);
+        $history = KillHistory::none();
+
+        foreach ($killers && $result instanceof MutationResult ? $result->mutants() : [] as $mutant) {
+            $history = $history->withMutant($mutant->id(), Ranking::of(Kills::of(TestId::of(BOOTED_KILLER), 3)));
+        }
+
+        $result = $killers
+            ? Library::pest(Patching::on(Library::canary())->splitting($streams(killers: true)))->runner()->mutate(
+                $request->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, $history), MatrixKind::FirstKiller)),
+            )
+            : $result;
     } finally {
         foreach (array_keys($copied) as $into) {
             unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
@@ -461,9 +480,12 @@ it('leaves a mutant whose site the application\'s boot runs to a second pass tha
         rmdir($bootstrap);
     }
 
-    expect(streamedJudged($result))->toBe([12 => [MutantStatus::Killed, ['P\\Tests\\BootedSpec::__pest_evaluable_it_readies_the_services'], true]])
+    expect(streamedJudged($result))->toBe([12 => [MutantStatus::Killed, [BOOTED_KILLER], true]])
         ->and(streamedPasses($result))->toBe([[Step::FirstPass, 1], [Step::SecondPass, 1]]);
-})->skip(
+})->with([
+    'every covering file' => [false],
+    'its likely killer alone' => [true],
+])->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);
