@@ -143,11 +143,17 @@ it('kills in its stream a mutant a test tells apart, or whose test ends its own 
         $steps[$step->step()->value] = [$step->count(), $step->took()->seconds() < 600.0];
     }
 
+    $beside = Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl', Library::DIRECTORY));
+    $listed = sprintf('%s.passes', $beside);
+    preg_match_all('~"begun":"([a-z ]+)"~', is_file($listed) ? sprintf('%s', file_get_contents($listed)) : '', $begun);
+
     expect(array_intersect_key($steps, ['first pass' => 0, 'second pass' => 0, 'own runs' => 0]))->toBe([
         'first pass' => [7, true],
         'second pass' => [0, true],
         'own runs' => [3, true],
     ])
+        ->and($begun[1])->toBe(['first pass', 'second pass', 'own runs'])
+        ->and(is_file(sprintf('%s.streams', $beside)))->toBeFalse()
         ->and(glob(sprintf('%s/mutation-gate-split-*', $own)))->toBe([])
         ->and($judged)->toBe([
             [17, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_adds'], true],
@@ -547,14 +553,24 @@ it('gives a mutant the first pass settled its verdict before the second pass sta
         )
         : $result->why();
     $settled = [MutantStatus::Killed, ['P\\Tests\\SettledSpec::__pest_evaluable_it_adds_one'], true];
+    $passes = static fn(MutationResult|CannotJudge $result): array => $result instanceof MutationResult
+        ? array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], array_values(array_filter(
+            [...$result->steps()],
+            static fn(StepTime $step): bool => $step->step() === Step::FirstPass || $step->step() === Step::SecondPass,
+        )))
+        : [];
 
-    expect($judged($whole))->toBe([
-        'src/Settled.php:15' => $settled,
-        'src/Waited.php:16' => [MutantStatus::Killed, ['P\\Tests\\WaitedSlowSpec::__pest_evaluable_it_doubles_two_into_four__slowly'], true],
-    ])->and($judged($stopped))->toBe([
-        'src/Settled.php:15' => $settled,
-        'src/Waited.php:16' => [MutantStatus::Unjudged, [], false],
-    ]);
+    $named = Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl.streams', Library::DIRECTORY));
+
+    expect($passes($stopped))->toBe([[Step::FirstPass, 2], [Step::SecondPass, 1]])
+        ->and(is_file($named) ? file_get_contents($named) : '')->toMatch('~/mutation-gate-split-[0-9a-f]{32}$~')
+        ->and($judged($whole))->toBe([
+            'src/Settled.php:15' => $settled,
+            'src/Waited.php:16' => [MutantStatus::Killed, ['P\\Tests\\WaitedSlowSpec::__pest_evaluable_it_doubles_two_into_four__slowly'], true],
+        ])->and($judged($stopped))->toBe([
+            'src/Settled.php:15' => $settled,
+            'src/Waited.php:16' => [MutantStatus::Unjudged, [], false],
+        ]);
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
