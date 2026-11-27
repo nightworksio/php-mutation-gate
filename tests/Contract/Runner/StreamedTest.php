@@ -92,6 +92,25 @@ function streamedJudged(MutationResult|CannotJudge $result): array|string
     return $judged;
 }
 
+/**
+ * The sites each of a run's two stream passes took, in the order the run timed them; none where it judged none.
+ *
+ * @return list<array{Step, int}>
+ */
+function streamedPasses(MutationResult|CannotJudge $result): array
+{
+    if (! $result instanceof MutationResult) {
+        return [];
+    }
+
+    $passes = array_filter(
+        [...$result->steps()],
+        static fn(StepTime $step): bool => $step->step() === Step::FirstPass || $step->step() === Step::SecondPass,
+    );
+
+    return array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], array_values($passes));
+}
+
 it('kills in its stream a mutant a test tells apart, or whose test ends its own process, stops at its limit one that never ends, and runs on its own one only a test holding a socket, a writable file or a file-backed database reaches', function (): void {
     $source = Tree::at(sprintf('%s/src/Streamed.php', Library::DIRECTORY));
     $test = Tree::at(sprintf('%s/tests/StreamedSpec.php', Library::DIRECTORY));
@@ -186,17 +205,11 @@ it('forks a first pass at each likely killer alone, and a second at every coveri
             ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large')))
             ->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, $history), MatrixKind::FirstKiller)),
     );
-    $passes = $result instanceof MutationResult ? array_values(array_filter(
-        [...$result->steps()],
-        static fn(StepTime $step): bool => $step->step() === Step::FirstPass || $step->step() === Step::SecondPass,
-    )) : [];
-
     expect(streamedJudged($result))->toBe([
         11 => [MutantStatus::Killed, [STREAMED_TWICE], true],
         16 => [MutantStatus::Survived, [], true],
     ])
-        ->and(array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], $passes))
-        ->toBe([[Step::FirstPass, 2], [Step::SecondPass, 1]]);
+        ->and(streamedPasses($result))->toBe([[Step::FirstPass, 2], [Step::SecondPass, 1]]);
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
@@ -448,7 +461,8 @@ it('leaves a mutant whose site the application\'s boot runs to a second pass tha
         rmdir($bootstrap);
     }
 
-    expect(streamedJudged($result))->toBe([12 => [MutantStatus::Killed, ['P\\Tests\\BootedSpec::__pest_evaluable_it_readies_the_services'], true]]);
+    expect(streamedJudged($result))->toBe([12 => [MutantStatus::Killed, ['P\\Tests\\BootedSpec::__pest_evaluable_it_readies_the_services'], true]])
+        ->and(streamedPasses($result))->toBe([[Step::FirstPass, 1], [Step::SecondPass, 1]]);
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
@@ -553,16 +567,10 @@ it('gives a mutant the first pass settled its verdict before the second pass sta
         )
         : $result->why();
     $settled = [MutantStatus::Killed, ['P\\Tests\\SettledSpec::__pest_evaluable_it_adds_one'], true];
-    $passes = static fn(MutationResult|CannotJudge $result): array => $result instanceof MutationResult
-        ? array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], array_values(array_filter(
-            [...$result->steps()],
-            static fn(StepTime $step): bool => $step->step() === Step::FirstPass || $step->step() === Step::SecondPass,
-        )))
-        : [];
 
     $named = Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl.streams', Library::DIRECTORY));
 
-    expect($passes($stopped))->toBe([[Step::FirstPass, 2], [Step::SecondPass, 1]])
+    expect(streamedPasses($stopped))->toBe([[Step::FirstPass, 2], [Step::SecondPass, 1]])
         ->and(is_file($named) ? file_get_contents($named) : '')->toMatch('~/mutation-gate-split-[0-9a-f]{32}$~')
         ->and($judged($whole))->toBe([
             'src/Settled.php:15' => $settled,
