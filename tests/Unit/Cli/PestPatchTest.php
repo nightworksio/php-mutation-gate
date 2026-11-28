@@ -45,3 +45,27 @@ it('fails the install, with the reason on its error output, when it cannot patch
             $vendor,
         ));
 });
+
+it('passes an install without dev packages that left pest-plugin-mutate out, saying it patched nothing', function (): void {
+    $vendor = Scratch::directory();
+    $tester = new CommandTester(PestPatch::command($vendor, new PackageDirectory(), '0'));
+
+    expect($tester->execute([]))->toBe(0)
+        ->and(Printed::by($tester->getOutput()))->toBe(
+            "pest:patch patched nothing: Composer installed no dev packages, and pest-plugin-mutate is not among the rest.\n",
+        );
+});
+
+it('patches pest-plugin-mutate where an install without dev packages still holds it', function (): void {
+    $vendor = MutatePlugin::pristine()->vendor();
+    $tester = new CommandTester(PestPatch::command($vendor, new PackageDirectory(), '0'));
+
+    expect($tester->execute([]))->toBe(0)
+        ->and(Printed::by($tester->getOutput()))->toContain('pest:patch patched 7 of the 7 files it changes in pest-plugin-mutate.');
+});
+
+it('fails an install with dev packages that holds no pest-plugin-mutate', function (string|false $devMode): void {
+    $tester = new CommandTester(PestPatch::command(Scratch::directory(), new PackageDirectory(), $devMode));
+
+    expect($tester->execute([], ['capture_stderr_separately' => true]))->toBe(2);
+})->with(['with dev packages' => ['1'], 'outside a Composer script' => [false], 'an empty value' => ['']]);
