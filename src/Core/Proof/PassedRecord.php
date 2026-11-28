@@ -21,7 +21,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * the map the scope keeps, `at`, the instant it passed, where it is known,
  * `gate`, the release of the gate that judged it, where it is known, and
  * `ownScopeUnits`, the paths of the units it took from its own scope's proofs,
- * where it took any (ADR-0139).
+ * where it took any (ADR-0139), and the fields of the run that judged it
+ * ({@see JudgingRunRecord}).
  *
  * @internal the shape of the ledger and plan files
  *
@@ -33,6 +34,9 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     at?: string,
  *     gate?: string,
  *     ownScopeUnits?: list<string>,
+ *     inputs?: string,
+ *     run?: string,
+ *     whole?: true,
  * }
  */
 final readonly class PassedRecord
@@ -68,6 +72,7 @@ final readonly class PassedRecord
             ...$units instanceof Paths && $units->count() > 0
                 ? [self::OWN_SCOPE_UNITS => array_map(static fn(Path $path): string => $path->value(), [...$units])]
                 : [],
+            ...JudgingRunRecord::of($passed->judging()),
         ];
     }
 
@@ -97,6 +102,7 @@ final readonly class PassedRecord
         $read = $units->isPresent() ? $read->takingOwnScope(self::units($units)) : $read;
         $gate = $record->field(self::GATE);
         $read = $gate->isPresent() ? $read->judgedBy(GateRelease::spelt($gate->text())) : $read;
+        $read = $read->judgedIn(JudgingRunRecord::read($record));
         $at = $record->field(self::AT);
 
         if (! $at->isPresent()) {

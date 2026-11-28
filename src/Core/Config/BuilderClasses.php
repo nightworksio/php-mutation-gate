@@ -72,6 +72,7 @@ final readonly class BuilderClasses
         'Reach' => self::BUILDER,
         'Report' => self::BUILDER,
         'Retention' => self::BUILDER,
+        'Reuse' => self::BUILDER,
         'Runner' => self::BUILDER,
         'Sampling' => self::BUILDER,
         'Shards' => self::BUILDER,

@@ -1973,6 +1973,29 @@
                 ],
                 "additionalProperties": false
             }
+        },
+        "reused": {
+            "type": "object",
+            "properties": {
+                "commit": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "inputs": {
+                    "type": "string"
+                },
+                "run": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "commit",
+                "from",
+                "inputs"
+            ],
+            "additionalProperties": false
         }
     },
     "required": [

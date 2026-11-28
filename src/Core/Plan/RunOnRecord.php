@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Proof\RunProfileRecord;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 /**
@@ -18,12 +19,13 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
  * `ref`, the run's scope, `defaultBranch`, and `target`, the branch a pull
  * request merges into, each as a full ref where it is named; and
  * `mergeGroup`, the commit a merge group was built on, which only a merge
- * group's plan holds (ADR-0022). A plan with neither `ref` nor `mergeGroup`
- * was made on a detached `HEAD`.
+ * group's plan holds (ADR-0022); and `fork`, true only for a pull request
+ * from a fork (ADR-0198). A plan with neither `ref` nor `mergeGroup` was made
+ * on a detached `HEAD`.
  *
  * @internal the shape of the run's fields of the plan file
  *
- * @phpstan-type Written array{ref?: string, defaultBranch?: string, target?: string, mergeGroup?: string}
+ * @phpstan-type Written array{ref?: string, defaultBranch?: string, target?: string, mergeGroup?: string, fork?: true}
  */
 final readonly class RunOnRecord
 {
@@ -34,6 +36,8 @@ final readonly class RunOnRecord
     private const string TARGET = 'target';
 
     private const string MERGE_GROUP = 'mergeGroup';
+
+    private const string FORK = 'fork';
 
     private const string UNNAMED = 'The plan names no default branch.';
 
@@ -50,6 +54,7 @@ final readonly class RunOnRecord
             ...$defaultBranch instanceof Scope ? [self::DEFAULT_BRANCH => $defaultBranch->ref()] : [],
             ...$target instanceof Scope ? [self::TARGET => $target->ref()] : [],
             ...$group instanceof Revision ? [self::MERGE_GROUP => $group->name()] : [],
+            ...$runOn->isFromAFork() ? [self::FORK => true] : [],
         ];
     }
 
@@ -71,7 +76,9 @@ final readonly class RunOnRecord
             default => RunOn::detached($defaultBranch),
         };
 
-        return $target->isPresent() ? $run->withTarget(self::scopeIn($target)) : $run;
+        $run = $target->isPresent() ? $run->withTarget(self::scopeIn($target)) : $run;
+
+        return RunProfileRecord::isTrue($file->field(self::FORK)) ? $run->fromAFork() : $run;
     }
 
     /** @throws NotInShape */

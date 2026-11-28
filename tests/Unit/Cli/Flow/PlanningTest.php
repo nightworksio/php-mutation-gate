@@ -873,8 +873,9 @@ it('keys the project\'s coverage entries once a plan, for measuring against the 
 
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner, $store);
 
+    // ADR-0198: the digest of the run's inputs reads the runner's identity once more.
     expect($planned)->toBeInstanceOf(Plan::class)
-        ->and($runner->identified())->toHaveCount(4);
+        ->and($runner->identified())->toHaveCount(5);
 });
 
 it('briefs a plan measured against the map its own scope keeps as such, and one measured against the default branch\'s as not', function (
@@ -901,7 +902,7 @@ it('briefs a plan measured against the map its own scope keeps as such, and one 
     $on = new CiPlanFake(RunOn::at(Scope::branch('feature'), Scope::branch('main')));
     $planned = $plan($project, Mode::full(), Cut::exactly(1), $store, $checkout, $on);
 
-    expect($planned instanceof Plan ? $planned->briefing()->isOnOwnScopeCoverage() : $planned)->toBe($own);
+    expect($planned instanceof Plan ? $planned->briefing()->inputs()->isOnOwnScopeCoverage() : $planned)->toBe($own);
 })->with(['its own scope\'s map' => [true], 'the default branch\'s map' => [false]]);
 
 it('proves a unit by the proof outbreak serve keeps under its key where no ledger holds one', function () use ($makeMoney): void {

@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\JudgingRun;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
@@ -49,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\PassedRecord;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -965,4 +967,24 @@ it('keeps each well-formed pair of the subsumption section, and drops anything e
     expect(LedgerFile::decode($written($file))->learned()->subsumption())->toEqual(Subsumption::learned($by, $of))
         ->and(LedgerFile::decode($written([...$data(), 'subsumption' => 'none']))->learned()->subsumption())
         ->toEqual(Subsumption::none());
+});
+
+it('writes the passes that record their inputs in their own section, the newest first, at most ten, and reads them back', function () use ($makeLedger, $data, $written): void {
+    $pass = static fn(int $at): Passed => Passed::of(Revision::ref(str_repeat(dechex($at % 16), 40)), 'mutation / verdict', 0)
+        ->passedAt(Moment::at(sprintf('2026-11-%02dT12:00:00Z', $at)))
+        ->judgedIn(JudgingRun::of(Digest::sha256Of(sprintf('inputs %d', $at)), '', whole: false));
+    $runs = ScopeRuns::none();
+
+    foreach (range(1, 12) as $at) {
+        $runs = $runs->passing($pass($at));
+    }
+
+    $read = LedgerFile::decode(LedgerFile::encode($makeLedger()->withRuns($runs)))->runs();
+    $spoilt = LedgerFile::decode($written([...$data(), 'reusable' => [['commit' => 'no commit'], PassedRecord::of($pass(3))]]))->runs();
+
+    expect(array_map(static fn(Passed $passed): Instant|NotGiven => $passed->at(), [...$read->reusable()]))
+        ->toEqual(array_map(static fn(int $at): Instant|NotGiven => $pass($at)->at(), range(12, 3, -1)))
+        ->and($read->passed())->toEqual($pass(12))
+        ->and([...$spoilt->reusable()])->toEqual([$pass(3)])
+        ->and(LedgerFile::decode($written([...$data(), 'reusable' => 'none']))->runs()->reusable()->count())->toBe(0);
 });

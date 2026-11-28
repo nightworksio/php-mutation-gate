@@ -89,9 +89,18 @@ shortcut.
   ([ADR-0103](../decisions/0103-a-doomed-shard-fails-fast.md)).
 - **Merge queues**: a `merge_group` run is change-scoped from its base and
   carries from the default branch's ledger, trusting no pull request's own
-  proofs. Under `ci.trustMergedPullRequests`, off by default, a group whose
-  tree is the one its pull request passed on reaches nothing
-  ([ADR-0022](../decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md)).
+  proofs. A group whose run reads inputs identical to its pull request's
+  passing run reuses that verdict
+  ([ADR-0022](../decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md),
+  [ADR-0198](../decisions/0198-a-run-whose-every-input-is-identical-reuses-the-verdict.md)).
+- **An identical run is not run again**: a pull request pushed again with
+  the same tree, a re-land, a revert, and the push of a pull request merged
+  as it was judged reuse the verdict of the earlier run that read every
+  input identically: the files, the config, the gate's release, PHP, the
+  installed packages and the runner's image. A push whose tree differs
+  borrows the merged pull request's results that still match their keys
+  (`reuse.identical`,
+  [ADR-0198](../decisions/0198-a-run-whose-every-input-is-identical-reuses-the-verdict.md)).
 
 ## What a run saved
 

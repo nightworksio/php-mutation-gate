@@ -1374,22 +1374,6 @@
                     "minLength": 1,
                     "default": "mutation / verdict"
                 },
-                "trustMergedPullRequests": {
-                    "enum": [
-                        false,
-                        true,
-                        "delta"
-                    ],
-                    "default": false
-                },
-                "mergedOwnScopeProofs": {
-                    "enum": [
-                        "reach",
-                        "refuse",
-                        "trust"
-                    ],
-                    "default": "reach"
-                },
                 "schedule": {
                     "type": "string",
                     "minLength": 1,
@@ -1471,6 +1455,50 @@
                         }
                     },
                     "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
+        },
+        "reuse": {
+            "type": "object",
+            "properties": {
+                "identical": {
+                    "enum": [
+                        "on",
+                        "pulls",
+                        "off"
+                    ],
+                    "default": "on"
+                },
+                "forks": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "ownScopeProofs": {
+                    "enum": [
+                        "reach",
+                        "refuse",
+                        "trust"
+                    ],
+                    "default": "reach"
+                },
+                "delta": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "environment": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    },
+                    "default": []
+                },
+                "passes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 10
                 }
             },
             "additionalProperties": false
@@ -6229,20 +6257,6 @@
                             "type": "string",
                             "minLength": 1
                         },
-                        "trustMergedPullRequests": {
-                            "enum": [
-                                false,
-                                true,
-                                "delta"
-                            ]
-                        },
-                        "mergedOwnScopeProofs": {
-                            "enum": [
-                                "reach",
-                                "refuse",
-                                "trust"
-                            ]
-                        },
                         "schedule": {
                             "type": "string",
                             "minLength": 1,
@@ -6317,6 +6331,44 @@
                                 }
                             },
                             "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "reuse": {
+                    "type": "object",
+                    "properties": {
+                        "identical": {
+                            "enum": [
+                                "on",
+                                "pulls",
+                                "off"
+                            ]
+                        },
+                        "forks": {
+                            "type": "boolean"
+                        },
+                        "ownScopeProofs": {
+                            "enum": [
+                                "reach",
+                                "refuse",
+                                "trust"
+                            ]
+                        },
+                        "delta": {
+                            "type": "boolean"
+                        },
+                        "environment": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                            }
+                        },
+                        "passes": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false

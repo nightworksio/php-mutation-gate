@@ -29,13 +29,17 @@ it('names each loose value in force', function (array $config, array $loose): vo
 })->with([
     'kills uncontrolled' => [['controls' => ['kills' => false]], ['controls.kills: false']],
     'narrowed kills trusted' => [['pest' => ['narrowedKills' => 'trust']], ['pest.narrowedKills: trust']],
-    'merged pull requests trusted' => [['ci' => ['trustMergedPullRequests' => true]], ['ci.trustMergedPullRequests: true']],
-    'their deltas' => [['ci' => ['trustMergedPullRequests' => 'delta']], ['ci.trustMergedPullRequests: delta']],
-    'their own-scope proofs, with them' => [
-        ['ci' => ['trustMergedPullRequests' => true, 'mergedOwnScopeProofs' => 'trust']],
-        ['ci.trustMergedPullRequests: true', 'ci.mergedOwnScopeProofs: trust'],
+    'merged deltas' => [['reuse' => ['delta' => true]], ['reuse.delta: true']],
+    'forks' => [['reuse' => ['forks' => true]], ['reuse.forks: true']],
+    'merged own-scope proofs' => [['reuse' => ['ownScopeProofs' => 'trust']], ['reuse.ownScopeProofs: trust']],
+    'all three, reusing on pull requests alone' => [
+        ['reuse' => ['identical' => 'pulls', 'delta' => true, 'forks' => true, 'ownScopeProofs' => 'trust']],
+        ['reuse.forks: true'],
     ],
-    'their own-scope proofs, without them' => [['ci' => ['mergedOwnScopeProofs' => 'trust']], []],
+    'all three, reusing nothing' => [
+        ['reuse' => ['identical' => 'off', 'delta' => true, 'forks' => true, 'ownScopeProofs' => 'trust']],
+        [],
+    ],
     'a lock move that loads' => [['reach' => ['lockMoves' => 'loaded']], ['reach.lockMoves: loaded']],
     'a boot once in streams' => [['splitStream' => ['enabled' => true, 'bootOnce' => true]], ['splitStream.bootOnce: true']],
     'a boot once with no stream' => [['splitStream' => ['enabled' => false, 'bootOnce' => true]], []],
@@ -52,11 +56,11 @@ it('names trials off and held coverage from the map only where uncovered mutants
 it('says what each lets count or carry', function (): void {
     $loose = [...LooseValues::in(Configs::settings(['runner' => 'pest', 'controls' => ['kills' => false]]))];
 
-    $merged = static fn(bool|string $trust): string => [...LooseValues::in(Configs::settings(['runner' => 'pest', 'ci' => ['trustMergedPullRequests' => $trust]]))][0]->noted();
+    $reused = static fn(string $key): string => [...LooseValues::in(Configs::settings(['runner' => 'pest', 'reuse' => [$key => true]]))][0]->noted();
 
     expect($loose[0]->noted())->toBe('controls.kills is false, a loose value: a kill counts without its control on the unmutated code')
-        ->and($merged(trust: 'delta'))->toEndWith('a merged pull request whose landed tree differs carries what the change from its judged head does not reach')
-        ->and($merged(trust: true))->toEndWith('a pushed tree a merged pull request\'s verdict passed on is not judged again');
+        ->and($reused('delta'))->toEndWith('a merged pull request whose landed tree differs carries what the change from its judged head does not reach')
+        ->and($reused('forks'))->toEndWith('a verdict or results a fork\'s run recorded are reused');
 });
 
 it('counts the loose values in force', function (): void {

@@ -49,7 +49,10 @@ final readonly class DeliverLater
         }
 
         $delivery = DeliveryDirectory::of($composed->adapters->project, $stage)
-            ->keeping(LedgerRetention::kept($composed->settings->proofs()->retained()));
+            ->keeping(LedgerRetention::kept(
+                $composed->settings->proofs()->retained(),
+                $composed->settings->ci()->reuse()->passes(),
+            ));
         $begun = $delivery->begun();
 
         return $begun instanceof CannotJudge ? $begun : $composed->deliveringLater($delivery);

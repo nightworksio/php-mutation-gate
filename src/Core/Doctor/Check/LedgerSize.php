@@ -41,7 +41,7 @@ final readonly class LedgerSize
         $ledgers = $observed->ledgers();
         $settings = $observed->config()->settings();
         $limits = $settings instanceof Settings
-            ? LedgerLimits::kept($settings->proofs()->retained())
+            ? LedgerLimits::kept($settings->proofs()->retained(), $settings->ci()->reuse()->passes())
             : LedgerLimits::standard();
         $large = [];
 

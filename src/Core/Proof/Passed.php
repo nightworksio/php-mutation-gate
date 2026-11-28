@@ -17,7 +17,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * reported under, how many proofs of the scope's own ledger it used, whether its
  * coverage map was measured against the map the scope keeps, when the verdict
  * passed and the release of the gate that judged it, and the units whose results
- * it took from its own scope's proofs, where the record says so. A passing run
+ * it took from its own scope's proofs, where the record says so, and what it
+ * says of the run that judged it ({@see JudgingRun}). A passing run
  * of another scope is trusted only where it used neither, which its own code
  * could have written (ADR-0007).
  */
@@ -31,6 +32,7 @@ final readonly class Passed
         private Instant|NotGiven $at,
         private GateRelease $gate,
         private Paths|NotGiven $ownScopeUnits,
+        private JudgingRun $judging,
     ) {
     }
 
@@ -44,6 +46,7 @@ final readonly class Passed
             at: NotGiven::value(),
             gate: GateRelease::unrecorded(),
             ownScopeUnits: NotGiven::value(),
+            judging: JudgingRun::unrecorded(),
         );
     }
 
@@ -58,6 +61,7 @@ final readonly class Passed
             at: $this->at,
             gate: $this->gate,
             ownScopeUnits: $this->ownScopeUnits,
+            judging: $this->judging,
         );
     }
 
@@ -72,6 +76,7 @@ final readonly class Passed
             $at,
             $this->gate,
             $this->ownScopeUnits,
+            $this->judging,
         );
     }
 
@@ -86,6 +91,7 @@ final readonly class Passed
             $this->at,
             $gate,
             $this->ownScopeUnits,
+            $this->judging,
         );
     }
 
@@ -103,7 +109,29 @@ final readonly class Passed
             $this->at,
             $this->gate,
             $units->count() > 0 ? $units : NotGiven::value(),
+            $this->judging,
         );
+    }
+
+    /** This pass, judged by this run (ADR-0198). */
+    public function judgedIn(JudgingRun $judging): self
+    {
+        return new self(
+            $this->commit,
+            $this->check,
+            $this->ownScopeProofs,
+            $this->ownScopeCoverage,
+            $this->at,
+            $this->gate,
+            $this->ownScopeUnits,
+            $judging,
+        );
+    }
+
+    /** The run that judged it, as far as its record says (ADR-0198). */
+    public function judging(): JudgingRun
+    {
+        return $this->judging;
     }
 
     /** The units whose results it took from its own scope's proofs; none given where the record does not list them. */
@@ -154,7 +182,7 @@ final readonly class Passed
     }
 
     /**
-     * The results of its ledger this pass spares a commit with, as `ci.mergedOwnScopeProofs` takes them: under
+     * The results of its ledger this pass spares a commit with, as `reuse.ownScopeProofs` takes them: under
      * `refuse`, all where it used nothing of its own scope; under `reach`, all but the units it took from its own
      * scope, where its map was not measured on it and it lists them; under `trust`, all (ADR-0139).
      */

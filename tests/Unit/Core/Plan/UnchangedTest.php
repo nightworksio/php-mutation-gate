@@ -3,15 +3,20 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
+use NightWorksIO\MutationGate\Core\Proof\JudgingRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\ReusablePass;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Day;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
@@ -42,6 +47,7 @@ it('says the verdict of the commit that passed stands, why, and when it passed',
 })->with([
     'nothing judged changed' => [StandsBecause::NothingJudgedChanged, 'Nothing the gate judges changed since %s, whose verdict passed at 2026-10-01T12:00:00Z, so its verdict stands.'],
     'nothing reached' => [StandsBecause::NothingReached, 'The change since %s, whose verdict passed at 2026-10-01T12:00:00Z, reaches no unit, so its verdict stands.'],
+    'identical inputs, unrecorded' => [StandsBecause::IdenticalInputs, 'Every input of the run is identical to those of %s, which passed at 2026-10-01T12:00:00Z, so its verdict is reused.'],
 ]);
 
 it('says whose earlier verdict stands, naming its commit', function (StandsBecause $because, string $said) use ($instant): void {
@@ -52,6 +58,7 @@ it('says whose earlier verdict stands, naming its commit', function (StandsBecau
 })->with([
     'nothing judged changed' => [StandsBecause::NothingJudgedChanged, 'The earlier verdict at %s stands.'],
     'nothing reached' => [StandsBecause::NothingReached, 'The default branch\'s earlier verdict at %s stands.'],
+    'identical inputs' => [StandsBecause::IdenticalInputs, 'The verdict at %s is reused: every input is identical.'],
 ]);
 
 it('stands because nothing the gate judges changed, where it is made since a commit alone', function () use ($unchanged): void {
@@ -106,4 +113,36 @@ it('records the commit it stands for as passed by the release that judged the co
         ->judgedBy(GateRelease::spelt('v0.1.0'));
 
     expect(Unchanged::since($base, $at)->passing(Revision::ref('head'), $at)->gate())->toEqual(GateRelease::spelt('v0.1.0'));
+});
+
+/** The pull request of this number. */
+function unchangedPullRequest(int $number): PullRequestNumber
+{
+    $pullRequest = PullRequestNumber::of($number);
+
+    return $pullRequest instanceof PullRequestNumber ? $pullRequest : throw new LogicException($pullRequest->why());
+}
+
+it('reuses a pass whose run read identical inputs, naming where it was read, the run that judged it and its inputs', function () use ($instant): void {
+    $at = $instant('2026-11-19T12:00:00Z');
+    $inputs = Digest::sha256Of('every input');
+    $passed = Passed::of(Revision::ref(UNCHANGED_COMMIT), 'mutation / verdict', 0)
+        ->passedAt($at)
+        ->judgedIn(JudgingRun::of($inputs, '', whole: false));
+    $judged = $passed->judgedIn(JudgingRun::of($inputs, 'https://github.com/octo/gate/actions/runs/9', whole: true));
+    $reused = Unchanged::standing(StandsBecause::IdenticalInputs, $judged, $at, ReusablePass::ofPullRequest($judged, unchangedPullRequest(7))->from());
+    $own = Unchanged::standing(StandsBecause::IdenticalInputs, $passed, $at, ReusablePass::inScope($passed, Scope::branch('main'))->from());
+    $recorded = $reused->passing(Revision::ref(str_repeat('c', 40)), $instant('2026-11-19T13:00:00Z'));
+
+    expect($reused->reason()->text())->toBe(sprintf(
+        'Every input of the run is identical to those of %s, which passed at 2026-11-19T12:00:00Z, so its verdict is reused. The pass was read from pull request #7, and judged in https://github.com/octo/gate/actions/runs/9 (inputs %s).',
+        UNCHANGED_COMMIT,
+        substr($inputs->value(), 0, 12),
+    ))
+        ->and([$reused->because(), $reused->from(), $own->from()])->toBe([StandsBecause::IdenticalInputs, 'pull request #7', 'refs/heads/main'])
+        ->and($own->reason()->text())->toContain('read from refs/heads/main, and judged in a run its record does not name')
+        ->and(Unchanged::standing(StandsBecause::IdenticalInputs, $passed, $at)->reason()->text())->toContain('read from its own scope')
+        ->and($recorded->judging())->toEqual($judged->judging())
+        ->and(Unchanged::since($judged, $at)->passing(Revision::ref(str_repeat('c', 40)), $at)->judging())->toEqual(JudgingRun::unrecorded())
+        ->and(Unchanged::since($judged, $at)->from())->toBe('');
 });

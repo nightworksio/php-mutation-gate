@@ -24,7 +24,7 @@ final readonly class DefaultBranch
     /** The branch the config names, else the first of these that is one, else `main`. */
     public static function of(string|Absent $configured, Scope|CannotTell ...$detected): Scope
     {
-        $named = $configured instanceof Absent ? $configured : RunOn::branchNamed($configured);
+        $named = $configured instanceof Absent ? $configured : Scope::branchNamed($configured);
 
         foreach ([$named, ...$detected] as $branch) {
             if ($branch instanceof Scope) {

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Retained;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -20,12 +21,16 @@ use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
+use NightWorksIO\MutationGate\Core\Proof\JudgingRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\Passes;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -150,7 +155,7 @@ it('keeps the killers of at most the twenty thousand mutants and five thousand f
         ->withLearned(learnedInTurn(0, 20_000, static fn(int $made): KillHistory => KillHistory::none()->withMutant($id($made), $ranking))
             ->and(learnedInTurn(0, 5_000, static fn(int $made): KillHistory => KillHistory::none()
                 ->withFunction(Enclosing::named(Path::of('src/A.php'), sprintf('f%d', $made)), $ranking))));
-    $kept = LedgerRetention::kept(Retained::of(killers: 20_000))->killersOf($ledger);
+    $kept = LedgerRetention::kept(Retained::of(killers: 20_000), LedgerRetention::PASSED)->killersOf($ledger);
 
     expect(iterator_count(LedgerRetention::standard()->killersOf($ledger)->mutants()))->toBe(20_001)
         ->and(iterator_count($kept->mutants()))->toBe(20_000)
@@ -185,10 +190,27 @@ it('keeps one killer, function, kill and run where proofs.keep keeps one of each
         ->withLearned(LimitHistory::none()
             ->afterKills(Multiple::of(1.5), Multiple::of(2.0))
             ->afterRuns(ShardsAtOnce::of(4), ShardsAtOnce::of(6)));
-    $one = LedgerRetention::kept(Retained::of(killers: 1, functions: 1, kills: 1, runs: 1));
+    $one = LedgerRetention::kept(Retained::of(killers: 1, functions: 1, kills: 1, runs: 1), 1);
     $killers = $one->killersOf($ledger);
     $limits = $one->limitsOf($ledger);
 
     expect([iterator_count($killers->mutants()), iterator_count($killers->functions()), $limits->killCount(), $limits->runCount()])
         ->toBe([1, 1, 1, 1]);
+});
+
+it('keeps the ten newest passes that record their inputs, or as many as reuse.passes says', function (): void {
+    $runs = ScopeRuns::none();
+
+    foreach (range(1, 12) as $at) {
+        $runs = $runs->passing(Passed::of(Revision::ref(sprintf('%07d', $at)), 'mutation / verdict', 0)
+            ->judgedIn(JudgingRun::of(Digest::sha256Of(sprintf('%d', $at)), '', whole: false)));
+    }
+
+    $ledger = Ledger::empty()->withRuns($runs);
+    $commits = static fn(Passes $kept): array => array_map(static fn(Passed $passed): string => $passed->commit()->name(), [...$kept]);
+
+    expect($commits(LedgerRetention::standard()->reusableOf($ledger)))->toBe(array_map(static fn(int $at): string => sprintf('%07d', $at), range(12, 3, -1)))
+        ->and($commits(LedgerRetention::kept(Retained::of(), 2)->reusableOf($ledger)))->toBe(['0000012', '0000011'])
+        ->and(LedgerRetention::kept(Retained::of(), LedgerRetention::PASSED)->reusableOf($ledger))->toHaveCount(10)
+        ->and(LedgerRetention::kept(Retained::of(), 0)->reusableOf($ledger))->toHaveCount(1);
 });

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -18,7 +19,8 @@ use NightWorksIO\MutationGate\Port\ProofStore;
 /**
  * Another store, whose default branch's ledger is read with the results the pull requests it merged carry, as
  * {@see MergedHeads} trusts them, so a unit the push does not reach carries the result its pull request's verdict
- * judged (ADR-0139). Everything else is the other store's.
+ * judged (ADR-0139), or, where the push is judged, lent, so they prove a unit only where their key matches
+ * (ADR-0198). Everything else is the other store's.
  *
  * @internal
  */
@@ -38,8 +40,12 @@ final readonly class MergedLedgers implements ProofStore
         $read = $this->store->read($scope);
         $default = $this->merged->defaultBranch();
 
-        return $read instanceof Ledger && $default instanceof Scope && $scope->equals($default)
-            ? $read->withProofs($this->merged->carriedOnto($read))
+        $merged = $read instanceof Ledger && $default instanceof Scope && $scope->equals($default)
+            ? $this->merged->mergedOnto($read)
+            : NotGiven::value();
+
+        return $read instanceof Ledger && $merged instanceof MergedRange
+            ? $read->withProofs($merged->carried())->lending($merged->lent())
             : $read;
     }
 

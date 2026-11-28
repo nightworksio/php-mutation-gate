@@ -15,18 +15,18 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
  * about how they ran: the most memory the unmutated suite's largest process
  * held in the coverage run the plan was made from, which every shard's memory
  * triage weighs its mutants against (ADR-0004), the kind of run
- * it is ({@see RunProfile}), whether its coverage map was measured against
- * the map its own scope keeps (ADR-0023), and, for a plan that
+ * it is ({@see RunProfile}), and, for a plan that
  * runs nothing because nothing the gate judges changed, the commit whose
- * verdict stands ({@see Unchanged}), and what it learned from the ledgers'
- * kills ({@see PlanLearned}).
+ * verdict stands ({@see Unchanged}), what it learned from the ledgers'
+ * kills ({@see PlanLearned}), and what its run reads ({@see InputsRead}),
+ * which a passing verdict records.
  */
 final readonly class Briefing
 {
     private function __construct(
         private MemoryCap|NotGiven $peak,
         private RunProfile $kind,
-        private bool $ownScopeCoverage,
+        private InputsRead $inputs,
         private Unchanged|NotGiven $unchanged,
         private PlanLearned $kills,
         private bool $early = false,
@@ -44,7 +44,7 @@ final readonly class Briefing
         return new self(
             NotGiven::value(),
             RunProfile::standard(),
-            ownScopeCoverage: false,
+            InputsRead::none(),
             unchanged: NotGiven::value(),
             kills: PlanLearned::none(),
         );
@@ -56,7 +56,7 @@ final readonly class Briefing
         return new self(
             $peak,
             $this->kind,
-            $this->ownScopeCoverage,
+            $this->inputs,
             $this->unchanged,
             $this->kills,
             $this->early,
@@ -71,7 +71,7 @@ final readonly class Briefing
         return new self(
             $this->peak,
             $kind,
-            $this->ownScopeCoverage,
+            $this->inputs,
             $this->unchanged,
             $this->kills,
             $this->early,
@@ -86,7 +86,7 @@ final readonly class Briefing
         return new self(
             $this->peak,
             $this->kind->recording($matrix),
-            $this->ownScopeCoverage,
+            $this->inputs,
             $this->unchanged,
             $this->kills,
             $this->early,
@@ -98,25 +98,6 @@ final readonly class Briefing
 
 
     /**
-     * This briefing, for a run whose coverage map was measured against the
-     * map its own scope keeps, which its own code could have written, so its
-     * verdict counts as one that used its own scope (ADR-0007).
-     */
-    public function onOwnScopeCoverage(): self
-    {
-        return new self(
-            $this->peak,
-            $this->kind,
-            ownScopeCoverage: true,
-            unchanged: $this->unchanged,
-            kills: $this->kills,
-            early: $this->early,
-            waits: $this->waits,
-            held: $this->held,
-        );
-    }
-
-    /**
      * This briefing, for a full split-stream run planned without a fresh
      * map: it takes no proof, its streams record the lines each test
      * executes, and its verdict keys by the map they recorded (ADR-0135).
@@ -126,7 +107,7 @@ final readonly class Briefing
         return new self(
             $this->peak,
             $this->kind,
-            $this->ownScopeCoverage,
+            $this->inputs,
             $this->unchanged,
             $this->kills,
             early: true,
@@ -145,7 +126,7 @@ final readonly class Briefing
         return new self(
             $this->peak,
             $this->kind,
-            $this->ownScopeCoverage,
+            $this->inputs,
             $this->unchanged,
             $this->kills,
             $this->early,
@@ -163,7 +144,7 @@ final readonly class Briefing
         return new self(
             $this->peak,
             $this->kind,
-            $this->ownScopeCoverage,
+            $this->inputs,
             $this->unchanged,
             $this->kills,
             $this->early,
@@ -196,7 +177,7 @@ final readonly class Briefing
         return new self(
             $this->peak,
             $this->kind,
-            $this->ownScopeCoverage,
+            $this->inputs,
             $this->unchanged,
             $kills,
             $this->early,
@@ -218,7 +199,7 @@ final readonly class Briefing
         return new self(
             $this->peak,
             $this->kind,
-            $this->ownScopeCoverage,
+            $this->inputs,
             $unchanged,
             $this->kills,
             $this->early,
@@ -239,16 +220,35 @@ final readonly class Briefing
         return $planned->held instanceof MeasuredHolds ? $standing->measuring($planned->held) : $standing;
     }
 
+    /**
+     * This briefing, telling the verdict this of what its run reads: the digest of every input (ADR-0198), and
+     * whether its coverage map was measured against the map its own scope keeps, which its own code could have
+     * written, so its verdict counts as one that used its own scope (ADR-0007).
+     */
+    public function reading(InputsRead $inputs): self
+    {
+        return new self(
+            $this->peak,
+            $this->kind,
+            $inputs,
+            $this->unchanged,
+            $this->kills,
+            $this->early,
+            $this->waits,
+            $this->held,
+        );
+    }
+
+    /** What the plan tells the verdict of what its run reads. */
+    public function inputs(): InputsRead
+    {
+        return $this->inputs;
+    }
+
     /** The commit whose verdict stands for a plan that runs nothing; none where the plan runs what it plans. */
     public function unchanged(): Unchanged|NotGiven
     {
         return $this->unchanged;
-    }
-
-    /** Whether the run's coverage map was measured against the map its own scope keeps. */
-    public function isOnOwnScopeCoverage(): bool
-    {
-        return $this->ownScopeCoverage;
     }
 
     /** The kind of run the plan is for. */

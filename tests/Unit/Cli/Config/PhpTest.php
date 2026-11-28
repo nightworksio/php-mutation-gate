@@ -66,10 +66,10 @@ it('writes a config that reads back into the same effective config', function (a
         'ci' => [
             'plan' => 'gitlab',
             'defaultBranch' => 'trunk',
-            'trustMergedPullRequests' => true,
             'gitlab' => ['template' => '.gitlab/gate.yml'],
             'buildkite' => ['step' => ['agents' => ['queue' => 'mutation'], 'soft_fail' => true, 'tags' => ['a', 'b']]],
         ],
+        'reuse' => ['identical' => 'pulls', 'forks' => true, 'delta' => true, 'environment' => ['APP_ENV']],
         'proofs' => [
             'store' => ['use' => 's3', 'with' => ['bucket' => 'proofs', 'endpoint' => 'https://r2.example.com']],
             'ignore' => ['docs/**'],
@@ -135,9 +135,9 @@ it('writes a config that reads back into the same effective config', function (a
         'costs' => ['perRunnerMinute' => ['amount' => 0.008, 'currency' => 'USD']],
         'ci' => [
             'check' => 'gate / verdict',
-            'trustMergedPullRequests' => false,
             'buildkite' => ['definition' => '.buildkite/mutation.yml'],
         ],
+        'reuse' => ['identical' => 'off', 'ownScopeProofs' => 'refuse'],
         'proofs' => ['store' => ['use' => 's3', 'with' => [
             'bucket' => 'proofs',
             'prefix' => 'gate',

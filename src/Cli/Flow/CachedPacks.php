@@ -129,7 +129,7 @@ final readonly class CachedPacks
             return $cached;
         }
 
-        $limits = LedgerLimits::kept($this->settings->proofs()->retained());
+        $limits = LedgerLimits::kept($this->settings->proofs()->retained(), $this->settings->ci()->reuse()->passes());
 
         foreach ($this->classes($standing) as $class) {
             $bytes = $this->adapters->project->read($this->pack($class));
@@ -211,7 +211,7 @@ final readonly class CachedPacks
             $store,
             $this->settings->shards()->outbreak()->cache()->registry(),
             $base,
-            LedgerLimits::kept($this->settings->proofs()->retained()),
+            LedgerLimits::kept($this->settings->proofs()->retained(), $this->settings->ci()->reuse()->passes()),
         );
     }
 

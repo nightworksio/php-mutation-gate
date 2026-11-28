@@ -99,7 +99,7 @@ it('marks nothing where the change moved a setting that affects results or decid
     'what reaches everything' => ['{"runner": "pest", "trees": [{"path": "src"}], "reach": {"everything": ["bootstrap/**"]}}'],
     'the check whose proofs it reads' => ['{"runner": "pest", "trees": [{"path": "src"}], "ci": {"check": "other"}}'],
     'the default branch' => ['{"runner": "pest", "trees": [{"path": "src"}], "ci": {"defaultBranch": "develop"}}'],
-    'trusting merged pull requests' => ['{"runner": "pest", "trees": [{"path": "src"}], "ci": {"trustMergedPullRequests": true}}'],
+    'reusing identical verdicts' => ['{"runner": "pest", "trees": [{"path": "src"}], "reuse": {"identical": "off"}}'],
     'the paths proofs ignore' => ['{"runner": "pest", "trees": [{"path": "src"}], "proofs": {"ignore": ["docs/**"]}}'],
     'the proof store' => ['{"runner": "pest", "trees": [{"path": "src"}], "proofs": {"store": {"use": "directory", "with": {"path": "elsewhere"}}}}'],
     'kept coverage' => ['{"runner": "pest", "trees": [{"path": "src"}], "coverage": {"incremental": false}}'],

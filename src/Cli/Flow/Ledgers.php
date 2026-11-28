@@ -175,12 +175,17 @@ final readonly class Ledgers
      * Of these units, those a proof whose key still matches covers, and those
      * left to run, from the proofs that stand for a run of this kind. A
      * ledger with no proof at the base the keys are built on is not looked
-     * in, since none of its proofs can match. A proof read from the cache
-     * proves after the ledger it follows, a branch's as an own scope's does.
+     * in, since none of its proofs can match. A proof a merged pull request's
+     * pass lends the default branch proves after its own (ADR-0198), and a
+     * proof read from the cache after the ledger it follows, a branch's as an
+     * own scope's does.
      */
     public function proving(Units $units, Keys $keys, Digest $base, RunProfile $kind): Proving
     {
-        $defaultBranch = $this->defaultBranch->proofs()->before($this->cached->trusted())->standingFor($kind);
+        $defaultBranch = $this->defaultBranch->proofs()
+            ->before($this->defaultBranch->lent())
+            ->before($this->cached->trusted())
+            ->standingFor($kind);
         $own = $this->own->proofs()->before($this->cached->branch())->standingFor($kind);
 
         return Proving::of(

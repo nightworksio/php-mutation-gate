@@ -80,6 +80,9 @@ final readonly class LedgerFile
 
     public const string PASSED = 'passed';
 
+    /** The newest passes that record their inputs, the newest first (ADR-0198). */
+    public const string REUSABLE = 'reusable';
+
     public const string PROOFS = 'proofs';
 
     /** The earlier format a ledger may still be read in, until each scope's next run writes it anew. */
@@ -222,9 +225,25 @@ final readonly class LedgerFile
     private static function passedIn(Node $file): ScopeRuns
     {
         try {
-            return ScopeRuns::none()->passing(PassedRecord::read($file->field(self::PASSED)));
+            $runs = ScopeRuns::none()->passing(PassedRecord::read($file->field(self::PASSED)));
         } catch (NotInShape) {
-            return ScopeRuns::none();
+            $runs = ScopeRuns::none();
+        }
+
+        foreach (self::itemsOf($file->field(self::REUSABLE)) as $item) {
+            $runs = self::reusingIn($runs, $item);
+        }
+
+        return $runs;
+    }
+
+    /** These runs, with the pass an item of `reusable` holds after those held; as they are where it holds none. */
+    private static function reusingIn(ScopeRuns $runs, Node $item): ScopeRuns
+    {
+        try {
+            return $runs->reusing(PassedRecord::read($item));
+        } catch (NotInShape) {
+            return $runs;
         }
     }
 

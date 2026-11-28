@@ -116,13 +116,13 @@ it('reads what a ledger keeps and how large what the gate reads may be, each at 
 
 it('lays what a ledger keeps through the limits a store is given, and each store keeps to them', function (): void {
     $retained = Retained::of(killers: 3, bases: 1, proofs: 2, functions: 4, ledgerPacked: 5, ledgerUnpacked: 6, mapPacked: 7, mapUnpacked: 8);
-    $limits = LedgerLimits::kept($retained);
+    $limits = LedgerLimits::kept($retained, LedgerRetention::PASSED);
 
-    expect($limits->retention())->toEqual(LedgerRetention::kept($retained))
+    expect($limits->retention())->toEqual(LedgerRetention::kept($retained, LedgerRetention::PASSED))
         ->and([$limits->packed(), $limits->unpacked()])->toBe([5, 6])
         ->and($limits->map())->toEqual(MapLimits::of(7, 8))
         ->and(MapLimits::kept($retained))->toEqual(MapLimits::of(7, 8))
-        ->and(LedgerLimits::standard()->keeping(LedgerRetention::kept($retained))->retention())->toEqual(LedgerRetention::kept($retained));
+        ->and(LedgerLimits::standard()->keeping(LedgerRetention::kept($retained, LedgerRetention::PASSED))->retention())->toEqual(LedgerRetention::kept($retained, LedgerRetention::PASSED));
 });
 
 it('lays a later layer\'s tuning over an earlier one, key by key', function (): void {
@@ -250,7 +250,7 @@ it('reads how much of its limits a ledger keeps, and how long a read of one may 
     $standard = Configs::settings(['runner' => 'pest'])->proofs()->retained();
 
     expect([$kept->kills(), $kept->runs(), $kept->read()->seconds()])->toBe([50, 3, 90.0])
-        ->and(LedgerLimits::kept($kept)->seconds())->toBe(90.0)
+        ->and(LedgerLimits::kept($kept, LedgerRetention::PASSED)->seconds())->toBe(90.0)
         ->and([$standard->kills(), $standard->runs(), $standard->read()->seconds()])->toBe([2000, 10, 60.0]);
 });
 
