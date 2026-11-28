@@ -432,6 +432,8 @@ in its third decision.
 
   Every anchor is checked before anything is written, and one that has moved
   fails the install: a patch that quietly matched nothing is worse than none.
+  An install without dev packages (`composer install --no-dev`) that left
+  pest-plugin-mutate out has nothing to patch: `pest:patch` says so and passes.
   With patching enabled, a canary group with no test in it is *cannot
   judge*. Without patching, every shard runs its own opening suite, and a
   line past the filter limit is *cannot judge* with a message pointing at
