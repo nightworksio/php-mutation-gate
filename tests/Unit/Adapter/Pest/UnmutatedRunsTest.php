@@ -315,6 +315,19 @@ it('caps each control\'s process at the request\'s memory cap, as a mutant\'s ow
         ->and(is_dir(MemoryScan::directoryBeside(sprintf('%s/.mutation-gate/pest/controls/runs', $at->root()))))->toBeFalse();
 });
 
+it('removes the memory cap at once where none of the controls it is to start can run', function (): void {
+    $at = unmutatedProject();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    new UnmutatedRuns($at, $shell, new CapDirectory())->started(
+        unmutatedRequest()->cappedAt(MemoryCap::of(64, MemoryUnit::Megabytes)),
+        Controls::of(pestControl('src/Gone.php')),
+    );
+
+    expect($shell->commands())->toBe([])
+        ->and(is_dir(MemoryScan::directoryBeside(sprintf('%s/.mutation-gate/pest/controls/runs', $at->root()))))->toBeFalse();
+});
+
 it('cannot run the controls where an earlier run left a file in their place that cannot be removed', function (): void {
     $at = unmutatedProject();
     $place = sprintf('%s/.mutation-gate/pest/controls/runs', $at->root());
@@ -501,4 +514,16 @@ it('names a control\'s tests in a file beside its log under pest.longFilter: set
 
     expect($ids)->toHaveCount(1)
         ->and(is_array($listed) ? count($listed) : 0)->toBe(2000);
+});
+
+it('names a control\'s tests in no file unless it is told to, however many they are', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $many = array_map(static fn(int $test): string => sprintf('it_adds_case_%04d_of_a_long_data_set', $test), range(1, 2000));
+
+    new UnmutatedRuns(unmutatedProject(), $shell, new CapDirectory())
+        ->of(unmutatedRequest(), Controls::of(pestControl('src/Money.php', 5.0, ...$many)));
+    $named = sprintf('%s=', PhpUnitOption::TestIdFilterFile->value);
+
+    expect(array_filter($shell->commands()[0]->arguments(), static fn(string $argument): bool => str_starts_with($argument, $named)))
+        ->toBe([]);
 });
