@@ -251,3 +251,21 @@ it('counts as own runs every mutant the verdicts gave no result, whatever kept a
         ->and(OwnRuns::leftBy([$tests[407712]]))->toBe(1)
         ->and(OwnRuns::leftBy([]))->toBe(0);
 });
+
+it('gives a mutant no test executed its result uncovered, noted as a stream\'s with no killer', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
+    $test = new MutationTest(Mutations::mutation('src/Money.php', 'm', 11, sprintf('%s/copy.php', Scratch::directory())));
+    $events = new ReflectionProperty(Facade::class, 'instance');
+    $held = $events->getValue();
+    $events->setValue(null, null);
+
+    try {
+        StreamVerdicts::none()->uncovered($test);
+    } finally {
+        $events->setValue(null, $held);
+    }
+
+    expect($test->result())->toBe(MutationTestResult::Uncovered)
+        ->and(Noted::taken(KillerFile::beside($results, $test->mutation->modifiedSourcePath)))->toBe(KillerFile::streamed());
+});

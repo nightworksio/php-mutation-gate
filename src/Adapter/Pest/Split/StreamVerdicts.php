@@ -60,8 +60,8 @@ final class StreamVerdicts
     private array $touched = [];
 
     /**
-     * @var array<string, array{0?: string, 1?: string}> the digest of the state each fork's call left, in the
-     *                                                   parent then the child, by mutant and test (H5)
+     * @var array<string, list<string>> the digest of the state each fork's call left, as its parent and its
+     *                                 child wrote it, by mutant and test (H5)
      */
     private array $states = [];
 
@@ -297,7 +297,7 @@ final class StreamVerdicts
         }
 
         if ($read->kind === StreamLine::STATE) {
-            $this->states[sprintf('%s %s', $read->mutant, $read->test)][$read->child ? 1 : 0] = $read->digest;
+            $this->states[sprintf('%s %s', $read->mutant, $read->test)][] = $read->digest;
         }
     }
 
