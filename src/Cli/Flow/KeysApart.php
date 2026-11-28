@@ -41,8 +41,9 @@ final readonly class KeysApart
         RunProfile $kind,
         Digests|Undigested $now,
         bool $offTheDefaultBranch,
+        bool $suggesting,
     ): Reasons {
-        if (! $offTheDefaultBranch) {
+        if (! $offTheDefaultBranch || ! $suggesting) {
             return $reasons;
         }
 

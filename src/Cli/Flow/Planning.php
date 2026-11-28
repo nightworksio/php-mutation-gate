@@ -355,7 +355,8 @@ final readonly class Planning
             $ledgers->defaultBranch(),
             $kind,
             $now,
-            $ledgers->readsOwnScope() && $this->settings->effective()->output()->reports()->suggest()->enabled(),
+            $ledgers->readsOwnScope(),
+            $this->settings->effective()->output()->reports()->suggest()->enabled(),
         );
         $selection = Selection::of(
             $toRun,
