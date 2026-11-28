@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use DateTimeImmutable;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
@@ -70,6 +71,12 @@ final readonly class Composition
                 : DecidingConfig::unread(),
             StartedGate::in($this->project),
         );
+    }
+
+    /** The time on the clock every flow it composes reads, such as when a command begins, before it composes. */
+    public function now(): DateTimeImmutable
+    {
+        return $this->clock->now();
     }
 
     public function compose(InputInterface $input): Composed|Invalid|CannotJudge

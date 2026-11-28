@@ -112,7 +112,8 @@ final readonly class SettingsCases
         },
         "timing": {
             "newest": 0.9,
-            "startUpSamples": 3
+            "startUpSamples": 3,
+            "planSteps": true
         },
         "processes": {
             "group": "auto",
