@@ -337,7 +337,7 @@ final readonly class Controlling
             : $this->adapters->runner->controls($this->parted->placed($this->timeLeft->retimed($request), $ran), $ran);
         $times = $runs instanceof ControlRuns ? $kinds->timesOf($ran, $runs) : [];
 
-        $this->stopwatch->handled($step, $from, count($fitting) + count($room), ...$times);
+        $this->stopwatch->handled($step, $from, count($ran), ...$times);
 
         return [$runs, Controls::of(...array_diff_key($asked, $places))];
     }
