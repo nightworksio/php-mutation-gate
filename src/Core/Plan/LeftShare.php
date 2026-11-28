@@ -22,7 +22,7 @@ final readonly class LeftShare
         private float $longest,
         private float $killers,
         private float $covering,
-        private float $alone = 0.0,
+        private float $alone,
     ) {
     }
 
