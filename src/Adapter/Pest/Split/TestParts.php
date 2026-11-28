@@ -132,7 +132,7 @@ final readonly class TestParts
         return match (true) {
             $this->toldWhat => true,
             array_key_exists($file, $this->uncovered) => $this->uncovered[$file] === $this->part->number(),
-            default => crc32($mutant) % $this->part->parts() + 1 === $this->part->number(),
+            default => $this->fallsToItsPart($mutant),
         };
     }
 
@@ -225,7 +225,7 @@ final readonly class TestParts
     public function owns(array $covering, string $mutant, string $killer): bool
     {
         return match (true) {
-            $covering === [] => $this->ownsUncovered($mutant, ''),
+            $covering === [] => $this->toldWhat || $this->fallsToItsPart($mutant),
             $killer !== '' && $this->judging === StreamJudging::Whole => $this->holds($killer),
             default => $this->holds($covering[0]),
         };
@@ -278,6 +278,12 @@ final readonly class TestParts
                 $files,
             )))),
         ];
+    }
+
+    /** Whether a mutant's id falls to the shard's part, so the parts share such mutants alike (ADR-0171). */
+    private function fallsToItsPart(string $mutant): bool
+    {
+        return crc32($mutant) % $this->part->parts() + 1 === $this->part->number();
     }
 
     /** The part a test belongs to; the first, for a test of no file cut. */

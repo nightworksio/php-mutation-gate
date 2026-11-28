@@ -96,7 +96,8 @@ it('judges whole in the part of its first covering test a mutant the ledger name
     expect($first->judgedBy($covering, 'a', ''))->toBe($covering)
         ->and($second->judgedBy($covering, 'a', ''))->toBe([])
         ->and($first->owns([], 'a', ''))->toBeFalse()
-        ->and($second->owns([], 'a', ''))->toBeTrue();
+        ->and($second->owns([], 'a', ''))->toBeTrue()
+        ->and($first->makingWhatItIsTold()->owns([], 'a', ''))->toBeTrue();
 });
 
 it('judges parted by its own part\'s covering tests, and seeks a killer among those alone', function () use ($files, $times): void {
