@@ -138,6 +138,16 @@ it('cuts the mutants each shard left by the seconds the plan\'s map timed the te
         [['GreaterThan-16'], ['Minus-21']],
     ],
     'no map: one share' => [[], 60.0, [['GreaterThan-16', 'Minus-21']]],
+    'two files a second over the limit together: a share each' => [
+        ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]],
+        89.0,
+        [['GreaterThan-16'], ['Minus-21']],
+    ],
+    'two files at the limit together: one share' => [
+        ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]],
+        90.0,
+        [['GreaterThan-16', 'Minus-21']],
+    ],
     'one test file covering both: one share' => [
         ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'MoneyTest::subtracts' => [40.0, 'src/Other.php', 21]],
         100.0,
