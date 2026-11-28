@@ -87,6 +87,9 @@ final readonly class Console
 
     private const string DEFAULT = 'run';
 
+    /** Composer's own variable for its scripts, which says whether it installs dev packages. */
+    private const string COMPOSER_DEV_MODE = 'COMPOSER_DEV_MODE';
+
     /**
      * The command line of a project, with the extensions found for it, the vendor directory it was installed
      * into, the clock it reads the time from, the environment it was started in and how its daemon forks.
@@ -135,7 +138,11 @@ final readonly class Console
             default: false,
         ));
 
-        $application->addCommand(PestPatch::command(ComposerVendor::on($project), new PackageDirectory()));
+        $application->addCommand(PestPatch::command(
+            ComposerVendor::on($project),
+            new PackageDirectory(),
+            getenv(self::COMPOSER_DEV_MODE),
+        ));
         $application->addCommand(InfectionPatch::command(ComposerVendor::on($project), new PackageDirectory()));
         $application->addCommand(HookCommand::command($project));
 
