@@ -97,3 +97,8 @@ it('is a program stopped where a test ran past its own limit, which names the te
         ->and(Ran::silenced('quiet')->overrun())->toEqual(NotGiven::value())
         ->and(Ran::overran($overrun, 'both')->printed())->toBe('both');
 });
+
+it('says nothing where it was halted with nothing to say', function (): void {
+    expect(Ran::halted()->output())->toBe('')
+        ->and(Ran::halted('late')->output())->toBe('late');
+});

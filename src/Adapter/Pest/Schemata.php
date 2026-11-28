@@ -10,7 +10,6 @@ use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_merge;
-use function array_values;
 
 use Closure;
 
@@ -189,7 +188,7 @@ final class Schemata
                     static fn(string $file, string $path): Member
                         => Member::of(ByteText::of($file), ByteText::of($path)),
                     array_keys($written),
-                    array_values($written),
+                    $written,
                 )),
             ),
             Member::of(self::SWITCHED, Json::object(...array_merge(...$switched))),

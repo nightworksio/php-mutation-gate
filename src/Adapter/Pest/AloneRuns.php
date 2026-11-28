@@ -71,7 +71,7 @@ final readonly class AloneRuns
     {
         if ($left instanceof Seconds && $left->seconds() <= 0.0) {
             return array_map(
-                static fn(): ControlRun => ControlRun::ofProcess(Ran::halted(''), TestIds::none()),
+                static fn(): ControlRun => ControlRun::ofProcess(Ran::halted(), TestIds::none()),
                 $controls,
             );
         }
