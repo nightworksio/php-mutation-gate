@@ -51,7 +51,8 @@ function crashedSuspects(string ...$nativeIds): Mutants
 /**
  * A run again that kills each mutant before the first of these killers, as
  * many as it tells of, and leaves the rest as its crash does; with what it
- * was asked to run, each time.
+ * was asked to run, each time. It refuses to be asked more often than any
+ * search through these few mutants takes, so a search that never ends fails.
  *
  * @param  list<string>                                                 $killers
  * @return array{Closure(Mutants): Mutants, ArrayObject<int, list<string>>}
@@ -64,6 +65,11 @@ function crashingAt(array $killers, int $told = PHP_INT_MAX): array
     return [static function (Mutants $mutants) use ($killers, $told, $asked): Mutants {
         $ids = array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$mutants]);
         $asked->append($ids);
+
+        if (count($asked) > 32) {
+            throw new LogicException('The suspects were run again more often than a search through them takes.');
+        }
+
         $at = array_find_key($ids, static fn(string $id): bool => in_array($id, $killers, strict: true));
         $judged = [];
 
