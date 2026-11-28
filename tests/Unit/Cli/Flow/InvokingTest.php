@@ -152,6 +152,18 @@ it('runs only the controls that fit in the time left, each by its own limit, a l
     'neither, both too long' => [12.0, 20.0, []],
 ]);
 
+it('runs the control that fits where one before it does not, the one before it left unjudged', function (): void {
+    $runner = ScriptedRunner::fixture()->answering(Mutants::of(
+        invokedMutant('src/Money.php', 'a', MutantStatus::TimedOut)->withLimit(Seconds::of(20.0)),
+        invokedMutant('src/Held.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of(2.0)),
+    ), 0);
+
+    invokedWithin($runner, Seconds::of(10.0), invokedMap('src/Money.php', 'src/Held.php'));
+
+    expect(array_map(static fn(Control $control): string => $control->file()->value(), [...$runner->controlled()[0][0]]))
+        ->toBe(['src/Held.php']);
+});
+
 it('controls first the kills of the files the batch took first, so a saved unit\'s kills stand where the time left holds one control', function (): void {
     $other = invokedMutant('src/Other.php', 'other', MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('OtherTest::runs')));
     $saved = invokedMutant('src/Saved.php', 'saved', MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('SavedTest::runs')));
