@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
+use NightWorksIO\MutationGate\Core\Cost\Route;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -15,7 +16,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * runner gave one; and `ended`, with `code`, `signalled` and `fatal`, whether
  * PHP recorded a fatal error, where the runner read them, and `tail`, the
  * last 2 KiB its process printed, where the runner gave that and it held no
- * secret (see Secrets). A record of an earlier gate holds neither, and reads
+ * secret (see Secrets); and `route`, the route that judged it, where the
+ * runner named one (ADR-0230). A record of an earlier gate holds none, and reads
  * as no evidence.
  *
  * @internal the shape of a shard result's mutant record
@@ -23,6 +25,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * @phpstan-type Written array{
  *     prefix?: array{at: int, key?: string},
  *     ended?: array{code?: int, signalled?: bool, fatal?: bool, tail?: string},
+ *     route?: string,
  * }
  */
 final readonly class EvidenceRecord
@@ -43,15 +46,19 @@ final readonly class EvidenceRecord
 
     private const string TAIL = 'tail';
 
+    private const string ROUTE = 'route';
+
     /** @return Written */
     public static function of(Evidence $evidence): array
     {
         $prefix = $evidence->prefix();
         $ended = $evidence->ended();
+        $route = $evidence->route();
 
         return [
             ...$prefix instanceof Prefix ? [self::PREFIX => self::prefix($prefix)] : [],
             ...$ended instanceof Ended ? [self::ENDED => self::ended($ended)] : [],
+            ...$route instanceof Route ? [self::ROUTE => $route->value] : [],
         ];
     }
 
@@ -64,9 +71,12 @@ final readonly class EvidenceRecord
     {
         $prefix = $record->field(self::PREFIX);
         $ended = $record->field(self::ENDED);
+        $route = $record->field(self::ROUTE);
         $evidence = $prefix->isPresent() ? Evidence::none()->withPrefix(self::prefixIn($prefix)) : Evidence::none();
 
-        return $ended->isPresent() ? $evidence->withEnded(self::endedIn($ended)) : $evidence;
+        $evidence = $ended->isPresent() ? $evidence->withEnded(self::endedIn($ended)) : $evidence;
+
+        return $route->isPresent() ? $evidence->routed(self::routeIn($route)) : $evidence;
     }
 
     /** @return array{at: int, key?: string} */
@@ -91,6 +101,12 @@ final readonly class EvidenceRecord
             ...$fatal instanceof NotGiven ? [] : [self::FATAL => $fatal],
             ...$tail instanceof NotGiven ? [] : [self::TAIL => $tail],
         ];
+    }
+
+    /** @throws NotInShape */
+    private static function routeIn(Node $route): Route
+    {
+        return Route::tryFrom($route->text()) ?? throw NotInShape::at($route->at(), 'a route');
     }
 
     /** @throws NotInShape */

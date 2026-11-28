@@ -382,7 +382,8 @@ final readonly class Running
             Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended))
                 ->withSteps($stopwatch->steps())
                 ->measuredBy(GateRelease::of($this->setup->gate))
-                ->timingTheJob($this->jobTimes($stop, $identity, $stopwatch, $ended)),
+                ->timingTheJob($this->jobTimes($stop, $identity, $stopwatch, $ended))
+                ->onCores(Cores::counted()),
         );
         $result = $this->left($result, $outcome);
 

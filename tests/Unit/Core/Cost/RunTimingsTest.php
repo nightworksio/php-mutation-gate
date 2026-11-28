@@ -10,12 +10,14 @@ use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Unidentified;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Support\CostReports;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -108,4 +110,16 @@ it('counts a shard from how long after its instant it began, and one that ends a
         ->and($timings($shard(1, 0.0, 60.0), $shard(2, 30.0, 60.0)))->toBe(2)
         ->and($timings($shard(1, 100.0, 60.0), $shard(2, 0.0, 30.0)))->toBe(1)
         ->and($timings($shard(1, 0.0, 60.0), $shard(2, 90.0, 30.0, '2026-09-30T12:02:00Z')))->toBe(1);
+});
+
+it('keeps where the run\'s minutes went through its plan, shards, verdict and runner, and none until told', function (): void {
+    $timings = RunTimings::of('local', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)));
+    $report = CostReports::sample();
+    $reported = $timings->withReport($report)
+        ->withPlan(Phase::of(Moment::at('2026-11-19T10:00:00Z'), Seconds::of(1.0)))
+        ->withShard(Verdicts::shard())
+        ->withVerdict(Phase::of(Moment::at('2026-11-19T10:01:00Z'), Seconds::of(1.0)))
+        ->ranBy(Identity::of('pest', Versions::of(), Digest::of('php')));
+
+    expect($timings->report())->toEqual(NotGiven::value())->and($reported->report())->toBe($report);
 });

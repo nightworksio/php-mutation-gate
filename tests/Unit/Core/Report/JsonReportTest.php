@@ -5,7 +5,9 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\Rate;
+use NightWorksIO\MutationGate\Core\Cost\RoutedMutant;
 use NightWorksIO\MutationGate\Core\Cost\RunAccount;
+use NightWorksIO\MutationGate\Core\Cost\RunSpend;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
@@ -24,10 +26,12 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
@@ -56,6 +60,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
+use NightWorksIO\MutationGate\Tests\Support\CostReports;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\Owners;
@@ -314,6 +319,72 @@ it('writes the run\'s timings, what it cost and what it saved, each in the shape
             'saved' => ['reachSeconds' => 4800.0, 'proofsSeconds' => 420.0],
             'sharding' => ['waitSavedSeconds' => 2280.0, 'setupSeconds' => 180.0],
         ]);
+});
+
+it('writes where the run\'s minutes went, in the shape the schema holds it to, and nothing of it where the run gave none', function (): void {
+    $verdict = Verdicts::failing();
+    $sample = CostReports::sample();
+    $report = JsonReport::encode($verdict->withAccount($verdict->account()->withTimings(
+        CostReports::timings()->withReport($sample),
+    )));
+    $mutant = [...$sample->mutants()][0]->mutant();
+
+    expect(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and(Decoded::at($report, 'costReport'))->toBe([
+            'forkFloorSeconds' => 0.03,
+            'routes' => [
+                ['route' => 'stream first pass', 'mutants' => 1, 'seconds' => 30.0, 'coreSeconds' => 120.0, 'coreSecondsPerMutant' => 120.0],
+                ['route' => 'stream second pass', 'mutants' => 1, 'seconds' => 20.0, 'coreSeconds' => 80.0, 'coreSecondsPerMutant' => 80.0],
+                ['route' => 'fresh run', 'mutants' => 0, 'seconds' => 15.0, 'coreSeconds' => 30.0],
+                ['route' => 'own run', 'mutants' => 1, 'seconds' => 60.0, 'coreSeconds' => 180.0, 'coreSecondsPerMutant' => 180.0],
+                ['route' => 'static check', 'mutants' => 1, 'seconds' => 5.0, 'coreSeconds' => 20.0, 'coreSecondsPerMutant' => 20.0],
+            ],
+            'outsideRoutesSeconds' => 20.0,
+            'mutants' => [
+                ['id' => $mutant->id()->value(), 'file' => 'src/Money.php', 'line' => 9, 'mutator' => 'LessThan', 'seconds' => 2.0, 'route' => 'stream second pass'],
+                ['id' => [...$sample->mutants()][1]->mutant()->id()->value(), 'file' => 'src/Money.php', 'line' => 11, 'mutator' => 'LessThan', 'seconds' => 1.0, 'route' => 'static check'],
+            ],
+            'tests' => [
+                ['test' => 'PriceTest::adds', 'ownSeconds' => 2.0, 'mutants' => 2, 'atMostSeconds' => 4.0],
+                ['test' => 'MoneyTest::fits', 'ownSeconds' => 0.25, 'mutants' => 3, 'atMostSeconds' => 0.75],
+            ],
+            'wallSeconds' => 200.0,
+            'runnerSeconds' => 400.0,
+            'jobs' => 5,
+            'rounds' => 2,
+            'unjudged' => 1,
+            'coreSeconds' => 1_000.0,
+            'suiteSeconds' => 2.25,
+            'suiteMultiple' => 1_000.0 / 2.25,
+        ])
+        ->and(JsonReport::encode(Verdicts::named('accounted')))->not->toContain('costReport');
+});
+
+it('writes a costly mutant no route ran with no route, and a report whose map timed no test with no multiple', function (): void {
+    $verdict = Verdicts::failing();
+    $bare = RunSpend::report(
+        [],
+        [RoutedMutant::of(CostReports::mutant(3, MutantStatus::Killed, Seconds::of(1.0)), NotGiven::value())],
+        CostReports::timings(),
+        JudgedMutants::none(),
+        CoverageMap::of(),
+        ProcessCount::of(1),
+        1,
+    );
+    $report = JsonReport::encode($verdict->withAccount($verdict->account()->withTimings(
+        CostReports::timings()->withReport($bare),
+    )));
+
+    expect(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and(Decoded::at($report, 'costReport', 'mutants', 0))->toBe([
+            'id' => [...$bare->mutants()][0]->mutant()->id()->value(),
+            'file' => 'src/Money.php',
+            'line' => 3,
+            'mutator' => 'LessThan',
+            'seconds' => 1.0,
+        ])
+        ->and(Decoded::at($report, 'costReport', 'suiteMultiple'))->toBeNull()
+        ->and(Decoded::at($report, 'costReport', 'suiteSeconds'))->toBe(0.0);
 });
 
 it('prices each cost where the team gives a rate, and says a timed run with no history has none', function (): void {

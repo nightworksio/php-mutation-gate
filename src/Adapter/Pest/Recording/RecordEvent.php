@@ -79,6 +79,9 @@ enum RecordEvent: string
     /** A split stream judged the mutant whose copy Pest serves for it, against its own unmutated stream (ADR-0117). */
     case Streamed = 'streamed';
 
+    /** A split stream judged the mutant in its second pass, forking it at every covering test (ADR-0196, ADR-0230). */
+    case SecondPass = 'second-pass';
+
     /**
      * No test of the run's part of the test files covers the mutant, and
      * another part owns it, so the run left it to that part (ADR-0117).

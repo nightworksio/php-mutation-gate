@@ -57,6 +57,12 @@ enum Step: string
      */
     case SecondPass = 'second pass';
 
+    /**
+     * The fresh runs of mutants whose file was loaded before their tests
+     * began, each in a process of its own (ADR-0148).
+     */
+    case FreshRuns = 'fresh runs';
+
     /** Reading what the mutants' runs left, with any run that shows why a run failed. */
     case Reading = 'reading';
 

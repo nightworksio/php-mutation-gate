@@ -7,13 +7,16 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use NightWorksIO\MutationGate\Core\Cost\RunAccount;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Report\MutatorReport;
 
 use function sprintf;
 
 /**
  * What a run writes beside the reports a config lists: `outputs`, which the `Reports` part holds. `verdictOnly` writes
  * neither the reports where the run is nor those the action asks for; `automatic` names those a run writes because
- * of where it is; `actionReports` those the action asks for; `costs` whether the reports say what the run cost.
+ * of where it is; `actionReports` those the action asks for; `costs` whether the reports say what the run cost;
+ * `costReport` whether they say where its minutes went, and `costliest` how many of its costliest mutants and tests
+ * they name (ADR-0230).
  */
 final readonly class Outputs
 {
@@ -24,6 +27,12 @@ final readonly class Outputs
         BuiltinReporter::GitHubComment->value,
         BuiltinReporter::Badge->value,
     ];
+
+    /**
+     * How many of its costliest mutants and tests the cost report names, where the config does not say: as many
+     * as the summary names of the costliest mutators.
+     */
+    private const int COSTLIEST = MutatorReport::COSTLIEST;
 
     /** The reports the action asks of the verdict, where the config does not say. */
     private const array ACTION_REPORTS = [
@@ -41,6 +50,8 @@ final readonly class Outputs
         private Listed|Absent $automatic,
         private Listed|Absent $actionReports,
         private bool|Absent $costs,
+        private bool|Absent $costReport = new Absent(),
+        private int|Absent $costliest = new Absent(),
     ) {
     }
 
@@ -53,8 +64,10 @@ final readonly class Outputs
         Listed|Absent $automatic = new Absent(),
         Listed|Absent $actionReports = new Absent(),
         bool|Absent $costs = new Absent(),
+        bool|Absent $costReport = new Absent(),
+        int|Absent $costliest = new Absent(),
     ): self {
-        return new self($verdictOnly, $automatic, $actionReports, $costs);
+        return new self($verdictOnly, $automatic, $actionReports, $costs, $costReport, $costliest);
     }
 
     /** Every key at the value it takes where every layer leaves it out. */
@@ -65,6 +78,8 @@ final readonly class Outputs
             automatic: Listed::of(...self::AUTOMATIC),
             actionReports: Listed::of(...self::ACTION_REPORTS),
             costs: true,
+            costReport: true,
+            costliest: self::COSTLIEST,
         );
     }
 
@@ -75,6 +90,8 @@ final readonly class Outputs
             Absent::laid($this->automatic, $later->automatic),
             Absent::laid($this->actionReports, $later->actionReports),
             Absent::laid($this->costs, $later->costs),
+            Absent::laid($this->costReport, $later->costReport),
+            Absent::laid($this->costliest, $later->costliest),
         );
     }
 
@@ -98,6 +115,18 @@ final readonly class Outputs
         return $this->costs === false ? $account->uncosted() : $account;
     }
 
+    /** Whether a costed run reports where its minutes went, as `outputs.costReport` says (ADR-0230). */
+    public function reportsCosts(): bool
+    {
+        return $this->costReport !== false;
+    }
+
+    /** How many of its costliest mutants and tests the cost report names, as `outputs.costliest` says (ADR-0230). */
+    public function costliest(): int
+    {
+        return $this->costliest instanceof Absent ? self::COSTLIEST : $this->costliest;
+    }
+
     /** The `outputs` member a config writes; nothing where no key is set. */
     public function written(): Member
     {
@@ -108,6 +137,8 @@ final readonly class Outputs
                 Member::of('automatic', $this->names($this->automatic)),
                 Member::of('actionReports', $this->names($this->actionReports)),
                 Member::of('costs', $this->costs),
+                Member::of('costReport', $this->costReport),
+                Member::of('costliest', $this->costliest),
             ),
         );
     }
@@ -127,6 +158,12 @@ final readonly class Outputs
                 false => ['Outputs::withoutCosts()'],
                 default => [],
             },
+            ...match ($this->costReport) {
+                true => ['Outputs::withCostReport()'],
+                false => ['Outputs::withoutCostReport()'],
+                default => [],
+            },
+            ...$this->costliest instanceof Absent ? [] : [sprintf('Outputs::costliest(%d)', $this->costliest)],
         ]);
     }
 
