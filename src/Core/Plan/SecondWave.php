@@ -67,7 +67,6 @@ final readonly class SecondWave
 
         $outnumbers = is_int($pool) && count($shares->matrix()) > $pool;
         $folds = ! $tail->runs()
-            && $tail->limit() instanceof Seconds
             && $settings->tail()->runs($outnumbers, $settings->costs()->mode())
             && $outnumbers;
 
