@@ -76,4 +76,19 @@ final readonly class StreamWall
     {
         return $covering * $this->passTwo / $this->processes;
     }
+
+    /**
+     * The wall seconds of the runs of mutants no stream judges (ADR-0117), each its own run of its covering
+     * tests, taking these seconds together: shared by the job's processes, and scaled by no pass's factor.
+     */
+    public function alone(float $seconds): float
+    {
+        return $seconds / $this->processes;
+    }
+
+    /** The process seconds these wall seconds of a job hold: its processes' together. */
+    public function worth(float $seconds): float
+    {
+        return $seconds * $this->processes;
+    }
 }

@@ -44,6 +44,9 @@ final readonly class LooseValues implements Countable, IteratorAggregate
 
     private const string LOCK = 'a moved package reaches less than every unit';
 
+    private const string TOP
+        = 'a run that samples passes a tree held to 100 where no mutant it ran survived, though it ran a sample';
+
     private const string ALONE = <<<'SAID'
         a kill's control runs its killers alone, so a test that fails only after the tests before it counts as a kill
         SAID;
@@ -125,6 +128,10 @@ final readonly class LooseValues implements Countable, IteratorAggregate
             ...self::when(
                 $split->enabled() && $split->bootOnce(),
                 LooseValue::of('splitStream.bootOnce', 'true', self::BOOT_ONCE),
+            ),
+            ...self::when(
+                $reach->sampling()->samplesTheTop(),
+                LooseValue::of('sampling.top', 'true', self::TOP),
             ),
             ...self::when(
                 $reach->lockMoves() !== LockMoveReach::Everything,

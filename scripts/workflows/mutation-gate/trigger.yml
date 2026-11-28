@@ -125,6 +125,13 @@ on:
           in failure, a shard starts no further item (ADR-0135). Where empty, the default, no shard watches a job.
         type: string
         default: ''
+      keep-logs:
+        description: >-
+          Whether each shard's job and each job of the wave after uploads the JUnit logs of the unmutated runs that
+          vouched for or controlled its kills, as `mutation-gate-logs-*`, kept one day. Where false, the default,
+          none is uploaded unless the repository variable `MUTATION_GATE_KEEP_LOGS` is `true`.
+        type: boolean
+        default: false
       download-timeout:
         description: How many minutes each artifact download may take before it is tried once again.
         type: number

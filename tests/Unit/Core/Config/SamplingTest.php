@@ -146,3 +146,35 @@ it('refuses a threshold of no mutants, and a kind of run that never samples by i
         'sampling.autoRuns[0]: expected "pullRequests", "mergeGroups" or "branches", got "defaultBranch"',
     ]);
 });
+
+it('keeps a tree held to 100 whole unless sampling.top says otherwise, a later layer deciding', function (): void {
+    $sampling = static fn(array $config): Sampling => Configs::settings(['runner' => 'pest', ...$config])->reach()->sampling();
+
+    expect(Sampling::of()->samplesTheTop())->toBeFalse()
+        ->and($sampling([])->samplesTheTop())->toBeFalse()
+        ->and($sampling(['sampling' => ['top' => true]])->samplesTheTop())->toBeTrue()
+        ->and($sampling(['sampling' => ['top' => false]])->samplesTheTop())->toBeFalse()
+        ->and(Sampling::of(top: true)->over(Sampling::of())->samplesTheTop())->toBeTrue()
+        ->and(Sampling::of(top: true)->over(Sampling::of(top: false))->samplesTheTop())->toBeFalse()
+        ->and(Sampling::of()->over(Sampling::of(top: true))->samplesTheTop())->toBeTrue();
+});
+
+it('writes sampling.top, and the builder call for it, only where it is set', function (): void {
+    $layer = static fn(Sampling $sampling): Layer => Layer::of(Reach::of(sampling: $sampling));
+    $on = $layer(Sampling::of(top: true));
+    $off = $layer(Sampling::of(top: false));
+    $unset = $layer(Sampling::of(minUnits: 3));
+
+    expect($on->written(ProjectRoot::origin())->line())->toBe('{"sampling":{"top":true}}')
+        ->and($on->php(ProjectRoot::origin())->code())->toContain('Sampling::samplingTheTop()')
+        ->and($on->php(ProjectRoot::origin())->code())->not->toContain('Sampling::keepingTheTopWhole()')
+        ->and($off->written(ProjectRoot::origin())->line())->toBe('{"sampling":{"top":false}}')
+        ->and($off->php(ProjectRoot::origin())->code())->toContain('Sampling::keepingTheTopWhole()')
+        ->and($off->php(ProjectRoot::origin())->code())->not->toContain('Sampling::samplingTheTop()')
+        ->and($unset->written(ProjectRoot::origin())->line())->toBe('{"sampling":{"minUnits":3}}')
+        ->and($unset->php(ProjectRoot::origin())->code())->not->toContain('TheTop');
+});
+
+it('refuses a sampling.top that is no boolean', function (): void {
+    expect(Configs::problems(Configs::layer(['sampling' => ['top' => 'yes']])))->toHaveCount(1);
+});

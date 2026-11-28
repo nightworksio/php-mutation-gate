@@ -72,6 +72,11 @@ final readonly class ReplayingRun implements RunSelection
     {
         return true;
     }
+
+    public function loadsTheFilesOfItsTests(): bool
+    {
+        return false;
+    }
 }
 
 /** The kill controls of a runner that replays each kill's own order itself. */

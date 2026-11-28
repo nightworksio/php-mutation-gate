@@ -11,6 +11,9 @@ use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -18,13 +21,18 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\LoadingTheFilesOfItsTests;
 
 /** The fixture's first mutant of src/Money.php, timed out at the most of six seconds. */
 function partedRunsHeavy(): Mutant
@@ -177,4 +185,39 @@ it('runs one part at a time under timeouts.heavyFill off, and stops at timeouts.
         ->and($rounds)->toBe([[1, 0]])
         ->and($cappedJudged instanceof Mutants ? [...$cappedJudged][0]->status() : $cappedJudged)->toBe(MutantStatus::Unjudged)
         ->and($reason instanceof Reason && $reason->isAtThePartCap())->toBeTrue();
+});
+
+it('tells a control request the file each test is in only where the runner loads them and a control selects some tests alone', function (): void {
+    $placing = new LoadingTheFilesOfItsTests();
+    $runner = RunnerFake::ofTheFixture();
+    $parted = static fn(RunnerFake $runner): PartedRuns => new PartedRuns(
+        Flows::adapters(Flows::project(), [], $runner),
+        Flows::settings(),
+        CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds')),
+        HeldCovered::none(),
+        new class implements ProcessLog {
+            public function say(string $line): void
+            {
+            }
+        },
+    );
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->leavingOut(Paths::of(Path::of('src/Money/Held.php')));
+    $alone = Controls::of(Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('MoneyTest::adds')), Seconds::of(5.0)));
+    $byFiles = Controls::of(Control::running(
+        Path::of('src/Money.php'),
+        RunTests::loading(TestIds::of(TestId::of('MoneyTest::adds')), WholeSuite::tests()),
+        Seconds::of(5.0),
+    ));
+    $loading = $parted($runner->behaving(RunnerBehaviour::standard()->selecting($placing)));
+    $told = $loading->placed($request, $alone);
+
+    expect($parted($runner)->placed($request, $alone))->toBe($request)
+        ->and($loading->placed($request, $byFiles))->toBe($request)
+        ->and($loading->placed($request, Controls::none()))->toBe($request)
+        ->and($told)->not->toBe($request)
+        ->and($told->leftOut())->toEqual($request->leftOut())
+        ->and($told->files())->toEqual($request->files())
+        ->and($told->narrowing()->places()->count())->toBeGreaterThan(0)
+        ->and($request->narrowing()->places()->count())->toBe(0);
 });

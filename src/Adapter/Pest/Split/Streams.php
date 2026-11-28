@@ -6,12 +6,10 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_diff_key;
 use function array_filter;
-use function array_key_exists;
 use function array_keys;
 use function count;
 use function getcwd;
 use function getenv;
-use function max;
 use function microtime;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
@@ -123,7 +121,7 @@ final readonly class Streams
             PcovTests::of($coveredLines),
             StreamSlowdown::carried($settings->pace()->carry, $results),
         );
-        $bound = self::boundOf($covering, $processes);
+        $bound = PassBound::of($covering, LoadedMap::timed(), $processes);
         $from = microtime(as_float: true);
         StreamPasses::started($results, Step::FirstPass, count($sites), $bound);
         [$verdicts, $unrun] = self::firstPass($streaming, $sites, self::firstHeld($held, $sites, $cheapest), $settings);
@@ -136,6 +134,7 @@ final readonly class Streams
         $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $left, $verdicts);
         StreamPasses::ended($results, Step::SecondPass, microtime(as_float: true) - $from, count($again), $bound);
         self::given($verdicts, array_diff_key($byId, $settled), $covering);
+        StreamPasses::ownRunsStarted($results, OwnRuns::leftBy($byId), $bound);
 
         ForkStatesLine::writtenFor($verdicts, $results);
         StreamProgress::unnamed($results);
@@ -147,27 +146,6 @@ final readonly class Streams
     public static function parts(StreamSettings $settings): TestParts
     {
         return self::partsOf($settings->part(), $settings);
-    }
-
-    /**
-     * The wall seconds a pass would take were each mutant forked at every
-     * covering test the shard judges it by, those tests' seconds by the map
-     * shared by the run's processes (ADR-0196).
-     *
-     * @param array<string, list<string>> $covering
-     */
-    private static function boundOf(array $covering, int $processes): float
-    {
-        $times = LoadedMap::timed();
-        $seconds = 0.0;
-
-        foreach ($covering as $tests) {
-            foreach ($tests as $test) {
-                $seconds += array_key_exists($test, $times) ? $times[$test] : 0.0;
-            }
-        }
-
-        return $seconds / max(1, $processes);
     }
 
     /**

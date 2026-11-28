@@ -68,3 +68,12 @@ it('prints no verdict as events, which said every mutant as it was judged, and s
         ->and($events->events())->toBeTrue()
         ->and($events->endsRounds(asked: true))->toBeFalse();
 });
+
+
+it('ends a round of watch with its verdict as problems always, as the console\'s report where asked, and never as events', function (): void {
+    $ends = static fn(VerdictOutput $output, bool $asked): bool => Printing::of($output, ProblemsShown::All)->endsRounds($asked);
+
+    expect([$ends(VerdictOutput::Problems, asked: false), $ends(VerdictOutput::Problems, asked: true)])->toBe([true, true])
+        ->and([$ends(VerdictOutput::Console, asked: false), $ends(VerdictOutput::Console, asked: true)])->toBe([false, true])
+        ->and([$ends(VerdictOutput::Events, asked: false), $ends(VerdictOutput::Events, asked: true)])->toBe([false, false]);
+});

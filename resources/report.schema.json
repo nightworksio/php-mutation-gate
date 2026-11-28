@@ -1462,12 +1462,14 @@
                                                 "mutation",
                                                 "first pass",
                                                 "second pass",
+                                                "own runs",
                                                 "reading",
                                                 "trial coverage",
                                                 "trials",
                                                 "baselines",
                                                 "confirmation",
                                                 "equivalence",
+                                                "suspects",
                                                 "survivors",
                                                 "controls",
                                                 "heavy parts",
@@ -1500,6 +1502,7 @@
                                                                 "kill",
                                                                 "unnamed kill",
                                                                 "memory",
+                                                                "crash",
                                                                 "heavy part"
                                                             ]
                                                         }

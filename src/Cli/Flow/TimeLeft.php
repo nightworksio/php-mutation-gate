@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_keys;
+
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
@@ -44,6 +46,21 @@ final readonly class TimeLeft
         return $this->deadline instanceof Deadline
             ? $this->deadline->fitting($wanted, $each, $this->clock->now(), $abreast->count())
             : $wanted;
+    }
+
+    /**
+     * Of these runs, in turn, each of which may take its own time, run this
+     * many side by side, the places of those that fit in the time left:
+     * every one without a budget.
+     *
+     * @param  list<Seconds> $each
+     * @return list<int>
+     */
+    public function fittingEach(array $each, ProcessCount $abreast): array
+    {
+        return $this->deadline instanceof Deadline
+            ? $this->deadline->fittingEach($each, $this->clock->now(), $abreast->count())
+            : array_keys($each);
     }
 
     /** Whether one run that may take this long fits in the time left: always without a budget. */

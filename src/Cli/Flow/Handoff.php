@@ -328,13 +328,18 @@ final readonly class Handoff
      */
     private function filesOf(Units $units, CoverageMap $map): Paths
     {
-        $named = Paths::none();
+        $paths = [];
         $held = [];
 
         foreach ($units as $unit) {
-            $named = $named->with($unit->path());
-            $held = $unit->isHeld() ? [...$held, $unit->path()] : $held;
+            $paths[] = $unit->path();
+
+            if ($unit->isHeld()) {
+                $held[] = $unit->path();
+            }
         }
+
+        $named = Paths::of(...$paths);
 
         $files = [];
 

@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Support\Explained;
 
 it('says what the budget ran out before, and the command that judges it', function (OutOfTime $before, string $said): void {
     expect($before->reason())->toEqual(Reason::ranOutOf(
@@ -33,7 +34,7 @@ it('says what the budget ran out before, and the command that judges it', functi
 
 it('knows a budget that left a mutant before its own run told anything of it', function (): void {
     expect(array_map(static fn(OutOfTime $before): bool => $before->isUnrun(), OutOfTime::cases()))
-        ->toBe([true, false, true, false, false, false, true]);
+        ->toBe([true, false, true, false, false, false, true, true]);
 });
 
 it('says a crash left a mutant for another run to judge, and that a budget did not', function (): void {
@@ -64,3 +65,12 @@ it('knows a mutant or a kill a time budget left unjudged by what its reason reco
     'a survivor whose reason is the budget\'s' => [fn(): Mutant => $mutant(MutantStatus::Survived)->because(OutOfTime::BeforeConfirming->reason()), false],
     'a mutant the runner left unjudged in the budget\'s words' => [fn(): Mutant => $mutant(MutantStatus::Unjudged)->because(Reason::that(OutOfTime::BeforeConfirming->reason()->text())), false],
 ]);
+
+it('says a mutant whose run alone crashed waits for its unmutated control, and is left as a budget leaves one', function (): void {
+    $mutant = Explained::mutant(MutantStatus::Unjudged)->unjudged(OutOfTime::CrashedAlone);
+
+    expect(OutOfTime::CrashedAlone->reason()->text())
+        ->toBe('Its run, of this mutant alone, crashed, and its tests have not run unmutated yet. Another run judges it.')
+        ->and(OutOfTime::CrashedAlone->reason()->outOfTime())->toBe(OutOfTime::CrashedAlone)
+        ->and(OutOfTime::left($mutant))->toBeTrue();
+});

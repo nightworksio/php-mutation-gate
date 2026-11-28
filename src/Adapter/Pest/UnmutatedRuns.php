@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_keys;
 use function array_map;
-use function array_values;
 use function dirname;
 use function file_put_contents;
 use function getmypid;
@@ -74,7 +73,7 @@ final readonly class UnmutatedRuns
         [$runs, $commands, $ranWith] = $this->prepared($controls, $request, $scan, dirname($beside), $launcher);
         $ends = $commands === []
             ? ProcessEnds::of()
-            : $this->shell->sideBySide($this->slotsOf($request), $request->deadline(), ...array_values($commands));
+            : $this->shell->sideBySide($this->slotsOf($request), $request->deadline(), ...$commands);
         $runs = $commands === [] ? $runs : $this->read($runs, $ends, $commands, $ranWith);
         $scan->remove();
 
@@ -103,7 +102,7 @@ final readonly class UnmutatedRuns
             return PendingControls::ran($runs);
         }
 
-        $started = $this->shell->started($this->slotsOf($request), $request->deadline(), ...array_values($commands));
+        $started = $this->shell->started($this->slotsOf($request), $request->deadline(), ...$commands);
 
         return PendingControls::taking(
             function () use ($runs, $started, $commands, $ranWith, $scan): ControlRuns {
@@ -222,7 +221,7 @@ final readonly class UnmutatedRuns
             : NotGiven::value();
 
         return Invocation::of($this->project)->judging(
-            $by instanceof Paths ? $by : Paths::none(),
+            $this->loaded($control, $request),
             $judgedBy,
             $request->withheld(),
             ...[
@@ -234,6 +233,23 @@ final readonly class UnmutatedRuns
                     : [],
             ],
         )->within($control->limit());
+    }
+
+    /**
+     * The test files a control's run loads: those its mutant's run loaded,
+     * where it selects by them; the files its tests are in, where it
+     * selects some tests alone and the request places each of them; none
+     * otherwise, which loads every test file of its suites.
+     */
+    private function loaded(Control $control, MutationRequest $request): Paths
+    {
+        $by = $control->selected();
+
+        if (! $by instanceof NotGiven) {
+            return $by instanceof Paths ? $by : Paths::none();
+        }
+
+        return $request->narrowing()->places()->of($control->tests());
     }
 
     /**

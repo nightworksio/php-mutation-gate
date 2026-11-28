@@ -10,7 +10,7 @@ use function array_values;
 use Closure;
 
 use function count;
-use function max;
+use function min;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Share;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 /**
@@ -157,7 +158,7 @@ final readonly class VouchedKills
         $unvouched = MutationResult::skippingNone(
             FoundAgain::among($doubtful, Mutants::none(), OutOfTime::BeforeVouching->reason()),
         );
-        $within = $request->search()->confirmShare()->taken($left);
+        $within = $this->kept($request, $left);
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
             ? $unvouched
             : $this->again($doubtful, $this->confirming($request, $within));
@@ -176,6 +177,19 @@ final readonly class VouchedKills
     }
 
     /**
+     * The time the run again and its controls have: the share of the
+     * request's time it kept back for them, and no more than is left.
+     */
+    private function kept(MutationRequest $request, Seconds|Unlimited $left): Seconds|Unlimited
+    {
+        $kept = $request->search()->confirmShare()->taken($request->deadline());
+
+        return $kept instanceof Seconds && $left instanceof Seconds
+            ? Seconds::of(min($kept->seconds(), $left->seconds()))
+            : $left;
+    }
+
+    /**
      * What is left of the time the confirmation may take, of which this much was left as it began: that time less
      * what has passed since, and no limit where it has none.
      */
@@ -184,14 +198,19 @@ final readonly class VouchedKills
         $now = ($this->left)();
 
         return $within instanceof Seconds && $began instanceof Seconds && $now instanceof Seconds
-            ? Seconds::of(max(0.0, $within->seconds() - ($began->seconds() - $now->seconds())))
+            ? Seconds::of($within->seconds() - ($began->seconds() - $now->seconds()))
             : $now;
     }
 
-    /** The request the doubtful kills run again by: within the time left, in the pool the tail runs in. */
+    /**
+     * The request the doubtful kills run again by: within the time left, all
+     * of it its mutants' own, in the pool the tail runs in.
+     */
     private function confirming(MutationRequest $request, Seconds|Unlimited $left): MutationRequest
     {
-        return ($left instanceof Seconds ? $request->within($left) : $request)->across($request->pool()->tail());
+        $whole = $request->searching($request->search()->confirmingWithin(Share::whole()));
+
+        return ($left instanceof Seconds ? $whole->within($left) : $whole)->across($request->pool()->tail());
     }
 
     /**

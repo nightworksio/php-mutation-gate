@@ -6,7 +6,10 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_key_exists;
 use function array_keys;
+use function array_sum;
+use function in_array;
 use function is_array;
+use function is_float;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Shards;
@@ -27,8 +30,10 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\SecondWave;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
+use NightWorksIO\MutationGate\Core\Plan\StreamedOut;
 use NightWorksIO\MutationGate\Core\Plan\StreamWall;
 use NightWorksIO\MutationGate\Core\Proof\KillHistoryFile;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
@@ -98,7 +103,7 @@ final readonly class LeftoverCutting
             $read = LeftResults::of($plan, $shard, $results, $this->adapters->project);
             $number = $shard->id()->number();
             $history = $this->historyIn($coverage, $shard->id());
-            $left[$number] = is_array($read) ? $this->leftIn($map, $history, [...$read[1]->mutants()]) : [];
+            $left[$number] = is_array($read) ? $this->leftIn($map, $history, $read[1], $read[0], $wall) : [];
             $started[$number] = is_array($read) ? $this->startedAfter($read[0]) : Seconds::none();
             $jobs += is_array($read) ? [$number => $read[0]->measured()->job()] : [];
         }
@@ -118,15 +123,21 @@ final readonly class LeftoverCutting
     /**
      * The mutants of a result left at its deadline, each with the test files covering its lines and its forks.
      *
-     * @param  list<Mutant>                                     $mutants
      * @return list<array{LeftMutant, list<string>, LeftForks}>
      */
-    private function leftIn(CoverageMap $map, KillHistory $history, array $mutants): array
-    {
+    private function leftIn(
+        CoverageMap $map,
+        KillHistory $history,
+        MutationResult $judged,
+        ShardResult $result,
+        StreamWall $wall,
+    ): array {
         $left = [];
+        $mutants = [...$judged->mutants()];
+        $own = StreamedOut::of($result, $mutants);
 
         foreach ($mutants as $mutant) {
-            $left = OutOfTime::left($mutant) ? [...$left, $this->leftOf($map, $history, $mutant)] : $left;
+            $left = OutOfTime::left($mutant) ? [...$left, $this->leftOf($map, $history, $mutant, $own, $wall)] : $left;
         }
 
         return $left;
@@ -137,23 +148,36 @@ final readonly class LeftoverCutting
      *
      * @return array{LeftMutant, list<string>, LeftForks}
      */
-    private function leftOf(CoverageMap $map, KillHistory $history, Mutant $mutant): array
-    {
+    private function leftOf(
+        CoverageMap $map,
+        KillHistory $history,
+        Mutant $mutant,
+        StreamedOut $own,
+        StreamWall $wall,
+    ): array {
         $location = $mutant->location();
         $durations = $map->durations();
         $files = [];
         $seconds = [];
 
         foreach ($map->testsCovering($location->file(), $location->start(), $location->last()) as $test) {
-            $files[TestMethod::classOf($test)] = true;
+            $file = TestMethod::classOf($test);
+            $files[$file] = $file;
             $timed = $durations->of($test);
-            $seconds[$test->value()] = $timed instanceof Seconds ? $timed->seconds() : 0.0;
+
+            if ($timed instanceof Seconds) {
+                $seconds[$test->value()] = $timed->seconds();
+            }
         }
+
+        $alone = $own->priceOf($mutant, array_sum($seconds), $wall);
 
         return [
             LeftMutant::of($mutant->id(), $mutant->nativeId(), $location->file()),
             array_keys($files),
-            LeftForks::byKillers($history->likelyKillers($mutant->id(), Nameless::code()), $seconds),
+            is_float($alone)
+                ? LeftForks::alone($alone)
+                : LeftForks::byKillers($history->likelyKillers($mutant->id(), Nameless::code()), $seconds),
         ];
     }
 
@@ -180,23 +204,30 @@ final readonly class LeftoverCutting
         foreach ($durations->tests() as $test) {
             $timed = $durations->of($test);
             $file = TestMethod::classOf($test);
-            $files[$file] = (array_key_exists($file, $files) ? $files[$file] : 0.0)
-                + ($timed instanceof Seconds ? $timed->seconds() : 0.0);
+
+            if ($timed instanceof Seconds) {
+                $files[$file] = (array_key_exists($file, $files) ? $files[$file] : 0.0) + $timed->seconds();
+            }
         }
 
         return $files;
     }
 
-    /** How long the shard took to start judging; none where it recorded no mutation step. */
+    /**
+     * How long the shard took to start judging what it left: to its own runs, where its streams left it any, as a
+     * share's streams take as long over the same mutants before its own; else to its mutation step; none where
+     * it recorded neither.
+     */
     private function startedAfter(ShardResult $result): Seconds
     {
+        $started = Seconds::none();
+
         foreach ($result->measured()->steps() as $step) {
-            if ($step->step() === Step::Mutation) {
-                return $step->since();
-            }
+            $begins = in_array($step->step(), [Step::Mutation, Step::OwnRuns], strict: true);
+            $started = $begins ? $step->since() : $started;
         }
 
-        return Seconds::none();
+        return $started;
     }
 
     /** The plan's map in this directory; an empty one where none can be read. */

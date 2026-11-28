@@ -32,6 +32,7 @@ use Socket;
 use function socket_get_option;
 use function socket_import_stream;
 use function sprintf;
+use function stream_get_meta_data;
 use function stream_set_timeout;
 use function stream_socket_client;
 
@@ -113,6 +114,20 @@ final readonly class Connection
         return is_string($line) ? $line : NotGiven::value();
     }
 
+    /**
+     * The next line, however long the other end is quiet before it; or none,
+     * once the other end has closed it. A read gives up after its wait, and
+     * a daemon that runs a round may say nothing for longer than that.
+     */
+    public function lineWhenItComes(): string|NotGiven
+    {
+        do {
+            $line = $this->line();
+        } while (! is_string($line) && $this->isOnlyQuiet());
+
+        return $line;
+    }
+
     /** Whether the other end has closed it, once a look found something to read: nothing follows a request. */
     public function hasEnded(): bool
     {
@@ -160,6 +175,12 @@ final readonly class Connection
         if (is_resource($this->stream)) {
             fclose($this->stream);
         }
+    }
+
+    /** Whether the last read gave up on its wait with the other end still there. */
+    private function isOnlyQuiet(): bool
+    {
+        return stream_get_meta_data($this->stream)['timed_out'] && ! feof($this->stream);
     }
 
     /**

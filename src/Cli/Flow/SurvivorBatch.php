@@ -53,7 +53,11 @@ final readonly class SurvivorBatch
      * on the machine's cores: the warm-up's for a file as written, and for
      * one printed as the runner prints, the print's, found once for each
      * file, side by side too. The survivors are taken in turn while the
-     * time left has room for their checks (see CheckRoom); the rest are left.
+     * time left has room for their checks (see CheckRoom), each taken to be
+     * as long as the warm-up, which no check outlasts; those it has no room
+     * for are then fitted again, each as long as the checks just run took
+     * together, which none of them outlasted, where the clock says they took
+     * any time, and what that has no room for is left.
      */
     public function checked(WarmedUp $warm, Mutants $mutants, Mutants $survivors): Checked
     {
@@ -75,13 +79,35 @@ final readonly class SurvivorBatch
             );
         }
 
-        $fitting = new CheckRoom($this->deadline, $this->clock, $this->adapters->cores)->fitting($offered, $warm->took);
+        $room = new CheckRoom($this->deadline, $this->clock, $this->adapters->cores);
+        $fitting = $room->fitting($offered, $warm->took);
+        $rest = array_slice($offered, count($fitting));
 
-        foreach (array_slice($offered, count($fitting)) as $unfitting) {
-            $left = $left->leaving($this->left(Unchecked::OutOfTime, $unfitting), $unfitting->mutant()->id());
+        if ($fitting === [] || $rest === []) {
+            return $this->batched($warm, $mutants, $survivors, $fitting, $this->outOfTime($left, $rest));
         }
 
-        return $this->batched($warm, $mutants, $survivors, $fitting, $left);
+        $started = $this->clock->now();
+        $first = $this->batched($warm, $mutants, $survivors, $fitting, $left);
+        $took = Seconds::between($started, $this->clock->now());
+        $more = $took->seconds() > 0.0 ? $room->fitting($rest, $took) : [];
+        $left = $this->outOfTime(LeftSurvivors::of($first), array_slice($rest, count($more)));
+
+        return $this->batched($warm, $first->mutants, $survivors, $more, $left);
+    }
+
+    /**
+     * These, with each of these survivors left out of time.
+     *
+     * @param list<CheckableSurvivor> $unfitting
+     */
+    private function outOfTime(LeftSurvivors $left, array $unfitting): LeftSurvivors
+    {
+        foreach ($unfitting as $survivor) {
+            $left = $left->leaving($this->left(Unchecked::OutOfTime, $survivor), $survivor->mutant()->id());
+        }
+
+        return $left;
     }
 
     /**

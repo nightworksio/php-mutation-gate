@@ -57,6 +57,13 @@ enum Step: string
      */
     case SecondPass = 'second pass';
 
+    /**
+     * A split stream run's own runs, within the mutation step, from its
+     * second pass's end: each mutant no stream judged, in a run of its own
+     * (ADR-0117), counted as they start.
+     */
+    case OwnRuns = 'own runs';
+
     /** Reading what the mutants' runs left, with any run that shows why a run failed. */
     case Reading = 'reading';
 
@@ -77,6 +84,9 @@ enum Step: string
 
     /** Proving an invocation's survivors equivalent to their originals, before they run again (ADR-0013). */
     case Equivalence = 'equivalence';
+
+    /** The runs again, by halves, of the mutants a crashed run left unjudged (ADR-0333). */
+    case Suspects = 'suspects';
 
     /** The run again of each survivor, alone, in a process of its own (ADR-0008, ADR-0070). */
     case Survivors = 'survivors';

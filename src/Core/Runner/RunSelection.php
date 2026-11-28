@@ -29,4 +29,11 @@ interface RunSelection
      * control, so that control need only run the killers (ADR-0108).
      */
     public function replaysKills(): bool;
+
+    /**
+     * Whether a control of some tests alone loads only the files those
+     * tests are in, where its request tells which those are: a runner that
+     * loads every test file to filter a few starts each such control slowly.
+     */
+    public function loadsTheFilesOfItsTests(): bool;
 }

@@ -33,6 +33,7 @@ final readonly class SamplingKeys
         $seed = Field::optional('seed', Text::of('a seed, any text'), $judges);
         $auto = Field::optional('auto', SampleThreshold::written(), $judges);
         $autoRuns = Field::optional('autoRuns', Items::of(Enumerated::of(SampledRun::cases())), $judges);
+        $top = Field::optional('top', Flag::boolean(), $judges);
 
         return [Field::section(
             'sampling',
@@ -44,6 +45,7 @@ final readonly class SamplingKeys
                     $seed,
                     $auto,
                     $autoRuns,
+                    $top,
                 ): Layer|Invalid {
                     $sure = $confidence->read($sampling);
                     $wide = $margin->read($sampling);
@@ -51,6 +53,7 @@ final readonly class SamplingKeys
                     $drawn = $seed->read($sampling);
                     $itself = $auto->read($sampling);
                     $kinds = $autoRuns->read($sampling);
+                    $whole = $top->read($sampling);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Reach::of(sampling: Sampling::of(
@@ -60,6 +63,7 @@ final readonly class SamplingKeys
                             $drawn->value(),
                             $itself->value(),
                             $kinds->value(),
+                            $whole->value(),
                         ))),
                         $sure,
                         $wide,
@@ -67,6 +71,7 @@ final readonly class SamplingKeys
                         $drawn,
                         $itself,
                         $kinds,
+                        $whole,
                     );
                 },
                 $confidence,
@@ -75,6 +80,7 @@ final readonly class SamplingKeys
                 $seed,
                 $auto,
                 $autoRuns,
+                $top,
             ),
         )];
     }

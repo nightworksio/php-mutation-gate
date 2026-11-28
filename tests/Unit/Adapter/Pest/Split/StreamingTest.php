@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Streaming;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPace;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamPlanFile;
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\SlowdownCarry;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Pest\Mutate\Plugins\Mutate;
 
 afterEach(function (): void {
     CoveringFiles::forget();
@@ -29,8 +31,45 @@ it('cuts the test files into parts of about the same time, longest first, each b
 
     expect(Streaming::cut($units, $times, 2))->toBe([
         ['files' => ['tests/A.php'], 'tests' => ['A::one', 'A::two']],
-        ['files' => ['tests/B.php', 'tests/C.php', 'tests/Helper.php'], 'tests' => ['B::one', 'C::one']],
+        ['files' => ['tests/C.php', 'tests/Helper.php', 'tests/B.php'], 'tests' => ['C::one', 'B::one']],
     ]);
+});
+
+it('gives its parts in their own order, whichever file the map lists first, and one empty part where there is no test file', function (): void {
+    $units = [
+        'tests/Short.php' => ['files' => ['tests/Short.php'], 'tests' => ['Short::one']],
+        'tests/Long.php' => ['files' => ['tests/Long.php'], 'tests' => ['Long::one']],
+    ];
+    $times = ['Short::one' => 1.0, 'Long::one' => 9.0];
+
+    expect(Streaming::cut($units, $times, 2))->toBe([
+        ['files' => ['tests/Long.php'], 'tests' => ['Long::one']],
+        ['files' => ['tests/Short.php'], 'tests' => ['Short::one']],
+    ])
+        ->and(Streaming::cut($units, $times, 0))->toBe(Streaming::cut($units, $times, 1))
+        ->and(Streaming::cut([], [], 3))->toBe([['files' => [], 'tests' => []]]);
+});
+
+it('runs a part\'s files fastest first, one the map timed no test of after every one it did, then by path', function (): void {
+    $units = [
+        'tests/Contract/SlowTest.php' => ['files' => ['tests/Contract/SlowTest.php'], 'tests' => ['Slow::one', 'Slow::two']],
+        'tests/Unit/FastTest.php' => ['files' => ['tests/Unit/FastTest.php'], 'tests' => ['Fast::one']],
+        'tests/Unit/NewTest.php' => ['files' => ['tests/Unit/NewTest.php'], 'tests' => ['New::one']],
+        'tests/Unit/AlsoNewTest.php' => ['files' => ['tests/Unit/AlsoNewTest.php'], 'tests' => ['AlsoNew::one']],
+        'tests/Unit/EvenTest.php' => ['files' => ['tests/Unit/EvenTest.php'], 'tests' => ['Even::one']],
+    ];
+    $times = ['Slow::one' => 30.0, 'Slow::two' => 30.0, 'Fast::one' => 0.1, 'Even::one' => 0.1];
+
+    expect(Streaming::cut($units, $times, 1))->toBe([[
+        'files' => [
+            'tests/Unit/EvenTest.php',
+            'tests/Unit/FastTest.php',
+            'tests/Contract/SlowTest.php',
+            'tests/Unit/AlsoNewTest.php',
+            'tests/Unit/NewTest.php',
+        ],
+        'tests' => ['Even::one', 'Fast::one', 'Slow::one', 'Slow::two', 'AlsoNew::one', 'New::one'],
+    ]]);
 });
 
 it('makes no more parts than there are test files', function (): void {
@@ -88,6 +127,48 @@ it('names each stream\'s covering tests by their ids where it runs them alone, a
     'whole files' => [false, false, false],
     'lines recorded for a kept map' => [true, true, false],
 ]);
+
+it('starts a stream on a plan that holds what it was told, written with its slashes plain, and without the variables that make Pest\'s own process mutate', function (): void {
+    $directory = Scratch::directory();
+    $test = sprintf('%s::it_streams', $this::class);
+    $seen = sprintf('%s/seen.json', $directory);
+    $reads = sprintf(
+        'file_put_contents(%s, json_encode([getenv(%s), getenv(%s)]));',
+        var_export($seen, return: true),
+        var_export(Mutate::ENV_MUTATION_TESTING, return: true),
+        var_export(GateVariable::Results->value, return: true),
+    );
+    $held = [];
+
+    foreach ([Mutate::ENV_MUTATION_TESTING => '1', GateVariable::Results->value => '/tmp/results.jsonl', GateVariable::StepFloor->value => '3'] as $name => $value) {
+        $held[$name] = [getenv($name), array_key_exists($name, $_SERVER) ? $_SERVER[$name] : NotGiven::value()];
+        putenv(sprintf('%s=%s', $name, $value));
+        $_SERVER[$name] = $value;
+    }
+
+    try {
+        CoveringFiles::forget(Tree::at('tests/Unit/Adapter/Pest/Split'));
+        new Streaming($directory, [], ['-r', $reads, '--'], 1, 1, new LiveProcesses())
+            ->pass(1, ['m1' => ['f1', 1, '', []]], ['m1' => [$test]], StreamVerdicts::none());
+    } finally {
+        foreach ($held as $name => [$value, $served]) {
+            putenv($value === false ? $name : sprintf('%s=%s', $name, $value));
+            unset($_SERVER[$name]);
+
+            if (! $served instanceof NotGiven) {
+                $_SERVER[$name] = $served;
+            }
+        }
+    }
+
+    $written = (string) file_get_contents(sprintf('%s/plan-1-0.json', $directory));
+    $plan = json_decode($written, associative: true);
+
+    expect($written)->toContain(sprintf('"live":"%s"', $directory))
+        ->and(is_array($plan) ? array_intersect_key($plan, ['multiple' => 0, 'stepFloor' => 0, 'bootOnce' => 0, 'recording' => 0]) : [])
+        ->toBe(['multiple' => 0, 'stepFloor' => 3, 'recording' => '', 'bootOnce' => false])
+        ->and(json_decode((string) file_get_contents($seen), associative: true))->toBe([false, false]);
+});
 
 it('starts each stream in a stopped one\'s place at the backoff times the slowdown the stopped one reached, so repeated stops grow it', function (): void {
     $directory = Scratch::directory();

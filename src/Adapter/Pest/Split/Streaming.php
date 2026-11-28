@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_count_values;
-use function array_fill;
-use function array_filter;
 use function array_keys;
 use function array_map;
-use function array_unique;
 use function array_values;
 use function count;
 
@@ -17,14 +14,12 @@ use Fidry\CpuCoreCounter\CpuCoreCounter;
 
 use function file_put_contents;
 use function getenv;
-use function is_string;
 use function json_encode;
 
 use const JSON_THROW_ON_ERROR;
 use const JSON_UNESCAPED_SLASHES;
 
 use function max;
-use function min;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
@@ -45,9 +40,7 @@ use Pest\Mutate\Plugins\Mutate;
 
 use const PHP_BINARY;
 
-use function sort;
 use function sprintf;
-use function str_starts_with;
 use function strval;
 
 use Symfony\Component\Process\Process;
@@ -168,8 +161,11 @@ final readonly class Streaming
     /**
      * The test files, cut into at most as many parts as there are processes,
      * each file going to the part with least time so far, longest first, each
-     * part beside the tests of its files the units name; one part of none
-     * where no file is known, which runs the whole suite.
+     * part beside the tests of its files the units name, its files in the
+     * order it runs them: the fastest first, so a mutant a fast test kills is
+     * killed before the slow ones run and its run is short to replay, a file
+     * the map did not time after every one it did, then by path; one part of
+     * none where no file is known, which runs the whole suite.
      *
      * @param  array<string, array{files: list<string>, tests: list<string>}> $units
      * @param  array<string, float>                                           $times
@@ -177,27 +173,16 @@ final readonly class Streaming
      */
     public static function cut(array $units, array $times, int $processes): array
     {
-        $parts = array_fill(0, min(max(1, $processes), max(1, count($units))), ['files' => [], 'tests' => []]);
+        $parts = [];
 
         foreach (TestParts::assigned($units, $times, $processes) as $file => $at) {
-            $parts[$at] = [
-                'files' => [...$parts[$at]['files'], ...$units[$file]['files']],
-                'tests' => [...$parts[$at]['tests'], ...$units[$file]['tests']],
-            ];
+            $parts[$at][] = $file;
         }
 
-        $cut = [];
-
-        foreach ($parts as $part) {
-            $files = array_values(array_unique($part['files']));
-            sort($files);
-            $cut[] = ['files' => $files, 'tests' => array_values(array_unique($part['tests']))];
-        }
-
-        return array_values(array_filter(
-            $cut,
-            static fn(array $part): bool => $part['files'] !== [] || $units === [],
-        ));
+        return array_map(
+            static fn(array $held): array => TestParts::fastestFirst($held, $units, $times),
+            $units === [] ? [[]] : array_values($parts),
+        );
     }
 
     /**
@@ -254,15 +239,15 @@ final readonly class Streaming
         $times = LoadedMap::timed();
         $costs = PartCosts::of($times, $forks);
         $cores = new CpuCoreCounter()->getCountWithFallback(1);
-        $depth = max(1, $this->pace->partsPerProcess);
         [$reading, $others] = $this->pcov instanceof PcovTests ? $this->pcov->split($units) : [[], $units];
         $readers = PcovTests::processesFor($reading, $others, $times, $this->processes);
-        $keeping = $reading === [] ? [] : self::cut($reading, $costs->byTest(), $readers * $depth);
+        [$forReaders, $forOthers] = PartCounts::of($this->processes, $readers, $this->pace->partsPerProcess);
+        $keeping = $reading === [] ? [] : self::cut($reading, $costs->byTest(), $forReaders);
         $parts = [
             ...$keeping,
             ...$others === [] && $reading !== []
                 ? []
-                : self::cut($others, $costs->byTest(), max(1, $this->processes - $readers) * $depth),
+                : self::cut($others, $costs->byTest(), $forOthers),
         ];
         $kept = count($keeping);
         $queued = [];
@@ -398,9 +383,9 @@ final readonly class Streaming
         $process = new Process(
             [
                 PHP_BINARY,
-                ...$this->counting(),
+                ...StreamArguments::loading(getenv(GateVariable::StreamExtension->value)),
                 ...$this->reach($fields['recording']),
-                ...$this->runArguments($this->arguments),
+                ...StreamArguments::ofRun($this->arguments),
                 ...$files,
             ],
             env: [
@@ -418,19 +403,6 @@ final readonly class Streaming
     }
 
     /**
-     * What loads `outbreak.so` into a stream, where the gate asks it to watch
-     * states or touches (ADR-0130); nothing otherwise.
-     *
-     * @return list<string>
-     */
-    private function counting(): array
-    {
-        $extension = getenv(GateVariable::StreamExtension->value);
-
-        return is_string($extension) && $extension !== '' ? ['-d', sprintf('extension=%s', $extension)] : [];
-    }
-
-    /**
      * What has pcov collect from every tree of the project, and from the
      * schemata the stream serves, where the stream records its tests' lines;
      * nothing otherwise.
@@ -440,23 +412,6 @@ final readonly class Streaming
     private function reach(string $recording): array
     {
         return $recording === '' ? [] : StreamReach::options();
-    }
-
-    /**
-     * A stream's arguments: a mutant's own run's, without what Pest's own
-     * process alone takes.
-     *
-     * @param  list<string> $arguments
-     * @return list<string>
-     */
-    private function runArguments(array $arguments): array
-    {
-        return array_values(array_filter(
-            $arguments,
-            static fn(string $argument): bool => ! str_starts_with($argument, '--coverage')
-                && ! str_starts_with($argument, '--mutate')
-                && ! str_starts_with($argument, '--parallel'),
-        ));
     }
 
     /**

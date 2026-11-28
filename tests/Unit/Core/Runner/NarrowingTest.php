@@ -18,6 +18,9 @@ use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestCases;
+use NightWorksIO\MutationGate\Core\Test\TestFiles;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -103,4 +106,15 @@ it('judges by every test file by default, and by the part of them it is told, ke
         ->and($parted->part())->toBe($part)
         ->and($parted->toMutators(Mutators::all())->toSuite(SuiteName::of('unit'))->pruning(Pruned::none())->part())->toBe($part)
         ->and($parted->amongTestCases(TestCases::unknown())->amongSuites(JudgingSuites::every())->part())->toBe($part);
+});
+
+it('tells the file each test is in, which narrows nothing and is kept as it narrows further', function (): void {
+    $places = TestFiles::none()->placing(Path::of('tests/MoneyTest.php'), TestIds::of(TestId::of('MoneyTest::adds')));
+    $told = Narrowing::none()->placing($places);
+
+    expect($told->places())->toEqual($places)
+        ->and($told->isNone())->toBeTrue()
+        ->and(Narrowing::none()->places())->toEqual(TestFiles::none())
+        ->and($told->toMutators(Mutators::named('Plus'))->places())->toEqual($places)
+        ->and($told->amongTestCases(TestCases::unknown())->places())->toEqual($places);
 });

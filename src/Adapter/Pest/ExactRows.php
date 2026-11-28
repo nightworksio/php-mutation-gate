@@ -50,4 +50,9 @@ final readonly class ExactRows implements RunSelection
     {
         return true;
     }
+
+    public function loadsTheFilesOfItsTests(): bool
+    {
+        return true;
+    }
 }

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
+use ArrayObject;
 use Closure;
+
+use function count;
+
 use NightWorksIO\MutationGate\Adapter\Local\PowerSource;
 use NightWorksIO\MutationGate\Adapter\Outbreak\HeldLedgers;
 use NightWorksIO\MutationGate\Cli\ExitCode;
@@ -39,8 +43,6 @@ use NightWorksIO\MutationGate\Core\Watch\Watched;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Output\OutputInterface;
-
 /**
  * `mutation-gate watch` judges what each save reaches (ADR-0010). It looks
  * at the files of the trees and the test directories by their digests,
@@ -58,7 +60,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  * judged is printed as it ends, one block per unit, or one line of JSON per
  * mutant with `--output=events` (ADR-0120, ADR-0146); the whole report ends
  * a round only with `--report`, as problems, or where batches are not
- * printed.
+ * printed. With `--output=events` a round ends with one more line, how it
+ * ended and how many mutants it said (see RoundEvent), so one that reached
+ * nothing says so.
  * The coverage map is built in the first round and kept: a change to
  * tests or test support measures the tests it touched again, and a change
  * that reaches everything builds it again. Under `local.quick` each round
@@ -73,6 +77,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * @internal
  */
+use Symfony\Component\Console\Output\OutputInterface;
+
 final readonly class WatchCommand
 {
     private const string NAME = Verb::Watch->value;
@@ -228,7 +234,8 @@ final readonly class WatchCommand
         $arrived = $local->cancelsByUnit()
             ? Interruption::byUnit($looks->moved(...), $composed->adapters->project, $local->watchPoll())
             : Interruption::when($looks->arrived(...));
-        $running = Running::composed($composed)->interrupted($arrived)->telling($this->told($local));
+        $said = new ArrayObject();
+        $running = Running::composed($composed)->interrupted($arrived)->telling($this->told($local, $said));
         $this->printing->begin($this->output, $composed->adapters->project);
         $made = new Planning($composed->adapters, $composed->settings, $composed->setup)
             ->plan(
@@ -245,6 +252,13 @@ final readonly class WatchCommand
             : $plan;
 
         $this->ended($looks->arrived(), $local, $judged, $composed);
+
+        if ($this->printing->events()) {
+            $this->output->writeln(
+                RoundEvent::line($looks->arrived(), $judged, count($said)),
+                OutputInterface::OUTPUT_RAW,
+            );
+        }
 
         return new RoundEnd($plan instanceof Plan, $judged);
     }
@@ -266,12 +280,20 @@ final readonly class WatchCommand
         }
     }
 
-    /** What each batch of a round tells as it ends: one line of JSON per mutant with events, its blocks otherwise. */
-    private function told(Local $local): BatchEnds
+    /**
+     * What each batch of a round tells as it ends: one line of JSON per
+     * mutant with events, each kept in `$said`; its blocks otherwise.
+     *
+     * @param ArrayObject<int, string> $said
+     */
+    private function told(Local $local, ArrayObject $said): BatchEnds
     {
         return $this->printing->events()
             ? BatchLines::events(
-                fn(string $line) => $this->output->writeln($line, OutputInterface::OUTPUT_RAW),
+                function (string $line) use ($said): void {
+                    $said->append($line);
+                    $this->output->writeln($line, OutputInterface::OUTPUT_RAW);
+                },
                 $local->quick(),
             )
             : BatchLines::streamed(

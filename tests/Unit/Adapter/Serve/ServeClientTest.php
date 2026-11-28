@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Serve\ServeIdentity;
 use NightWorksIO\MutationGate\Core\Serve\ServeRefusal;
 use NightWorksIO\MutationGate\Core\Serve\ServeRequest;
 use NightWorksIO\MutationGate\Core\Serve\ServeStream;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedProjects;
 
@@ -66,6 +67,19 @@ it('says why the daemon refused, and that the answer broke off where it ends wit
     expect($client->answered($preCommit()))
         ->toEqual(CannotJudge::because('The daemon ended the run before it said its exit code.'))
         ->and($kept['output'])->toBe('half');
+});
+
+it('waits for the exit code of a run whose daemon says nothing for longer than a read waits', function () use ($keeping, $preCommit): void {
+    ServedProjects::entered();
+    $waited = ini_set('default_socket_timeout', '1');
+    ServedProjects::answeringAfter(Seconds::of(1.5), ServeFrame::exited(4)->line());
+    [$client] = $keeping();
+
+    try {
+        expect($client->answered($preCommit()))->toBe(4);
+    } finally {
+        ini_set('default_socket_timeout', (string) $waited);
+    }
 });
 
 it('sends nothing where no daemon listens, or where the socket is not its user\'s own', function () use ($keeping, $preCommit): void {

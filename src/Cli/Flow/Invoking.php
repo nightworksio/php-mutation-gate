@@ -85,7 +85,23 @@ final readonly class Invoking
     {
         $result = $this->mutated($request);
 
-        return $result instanceof CannotJudge ? $result : $this->triaged($result, $request);
+        if ($result instanceof CannotJudge) {
+            return $result;
+        }
+
+        $limits = $this->settings->triage()->limits();
+        $suspects = new CrashSuspects(
+            fn(Mutants $crashed): Mutants|CannotJudge => $this->adapters->runner->retry(
+                $this->timeLeft()->retimed($request),
+                $crashed,
+                $limits->most(),
+            ),
+            $this->timeLeft(),
+            $limits->limit(),
+            $this->stopwatch,
+        );
+
+        return $this->triaged($suspects->settled($result), $request);
     }
 
     /**
@@ -201,9 +217,10 @@ final readonly class Invoking
         $share = (int) round($places * $survivors / ($survivors + count($asked)));
         $taken = ProcessCount::of(max(1, min($places - 1, $share)));
         $from = $this->stopwatch->now();
+        $controls = Controls::of(...$asked);
         $pending = $runner->controlsStarted(
-            $request->across($request->pool()->besideTaking($taken)),
-            Controls::of(...$asked),
+            $this->parted->placed($request, $controls)->across($request->pool()->besideTaking($taken)),
+            $controls,
         );
 
         return StepsOverlap::started(

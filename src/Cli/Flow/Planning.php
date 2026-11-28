@@ -355,7 +355,8 @@ final readonly class Planning
             $ledgers->defaultBranch(),
             $kind,
             $now,
-            $ledgers->readsOwnScope() && $this->settings->effective()->output()->reports()->suggest()->enabled(),
+            $ledgers->readsOwnScope(),
+            $this->settings->effective()->output()->reports()->suggest()->enabled(),
         );
         $selection = Selection::of(
             $toRun,
@@ -379,7 +380,7 @@ final readonly class Planning
             $quick,
             $map,
             $ledgers->costs($this->setup->gate)->untimed($toRun),
-            $quick ? MutantSites::none() : $this->made($map, $toRun),
+            $toRun,
         );
         $planned = new PlannedShards($this->adapters, $this->settings, $this->setup);
         $shards = $planned->of(
@@ -482,13 +483,13 @@ final readonly class Planning
      * What the plan measures of the first run of these units, untimed so
      * far; nothing in a quick round, whose one shard no estimate cuts.
      */
-    private function firstRun(bool $quick, CoverageMap $map, Units $untimed, MutantSites $made): FirstRun
+    private function firstRun(bool $quick, CoverageMap $map, Units $untimed, Units $toRun): FirstRun
     {
         return $quick ? FirstRun::unmeasured() : new FirstRuns(
             $this->adapters,
             $this->settings->shards()->planning()->startUpSamples(),
             $this->settings->shards()->costs()->firstRunShape(),
-        )->measured($map, $untimed, $made);
+        )->measured($map, $untimed, $this->made($map, $toRun));
     }
 
     /**

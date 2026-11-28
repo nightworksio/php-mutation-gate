@@ -22,6 +22,9 @@ enum ControlKind: string
     /** A mutant out of memory (see MemoryControls). */
     case Memory = 'memory';
 
+    /** A mutant whose run, of it alone, crashed (see CrashControls). */
+    case Crash = 'crash';
+
     /** A part of a heavy mutant's run, or its control (see HeavyMutants). */
     case HeavyPart = 'heavy part';
 }

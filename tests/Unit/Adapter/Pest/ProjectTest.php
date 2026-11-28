@@ -97,6 +97,22 @@ it('names a results file with no earlier run\'s results, map, list of mutants, l
         ->and($at->freshResults())->toBe($results);
 });
 
+it('keeps the mutated copies for a run again, whose trials serve them, and clears the rest', function () use ($project): void {
+    $at = $project();
+    $results = $at->results();
+    mkdir(sprintf('%s/mutants', dirname($results)), 0o777, recursive: true);
+    file_put_contents($results, 'earlier');
+    file_put_contents(sprintf('%s/mutants/n1.php', dirname($results)), 'earlier');
+    file_put_contents(sprintf('%s.replay-0', $results), 'earlier');
+
+    expect($at->freshResults(keepingCopies: true))->toBe($results)
+        ->and(is_file($results))->toBeFalse()
+        ->and(is_file(sprintf('%s.replay-0', $results)))->toBeFalse()
+        ->and(is_file(sprintf('%s/mutants/n1.php', dirname($results))))->toBeTrue()
+        ->and($at->freshResults(keepingCopies: false))->toBe($results)
+        ->and(is_file(sprintf('%s/mutants/n1.php', dirname($results))))->toBeFalse();
+});
+
 it('makes the directory a results file goes in', function () use ($project): void {
     $at = $project();
 

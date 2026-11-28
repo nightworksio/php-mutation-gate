@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestCases;
+use NightWorksIO\MutationGate\Core\Test\TestFiles;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -37,6 +38,7 @@ final readonly class Narrowing
         private Pruned $pruned,
         private TestCases $cases,
         private PartNarrowing $part,
+        private TestFiles $places,
     ) {
     }
 
@@ -50,6 +52,7 @@ final readonly class Narrowing
             Pruned::none(),
             TestCases::unknown(),
             PartNarrowing::whole(),
+            TestFiles::none(),
         );
     }
 
@@ -63,6 +66,7 @@ final readonly class Narrowing
             $this->pruned,
             $this->cases,
             $this->part,
+            $this->places,
         );
     }
 
@@ -76,6 +80,7 @@ final readonly class Narrowing
             $this->pruned,
             $this->cases,
             $this->part,
+            $this->places,
         );
     }
 
@@ -89,6 +94,7 @@ final readonly class Narrowing
             $this->pruned,
             $this->cases,
             $this->part,
+            $this->places,
         );
     }
 
@@ -102,7 +108,32 @@ final readonly class Narrowing
             $this->pruned,
             $cases,
             $this->part,
+            $this->places,
         );
+    }
+
+    /**
+     * This narrowing, its runner told the file each test is in: a control of
+     * some tests then loads those files alone, where each of its tests is in
+     * one, in place of every test file of its suites.
+     */
+    public function placing(TestFiles $places): self
+    {
+        return new self(
+            $this->mutators,
+            $this->suite,
+            $this->suites,
+            $this->pruned,
+            $this->cases,
+            $this->part,
+            $places,
+        );
+    }
+
+    /** The file each test is in; none known, unless it was told. */
+    public function places(): TestFiles
+    {
+        return $this->places;
     }
 
     /** Which files the suite runs as files of test cases; none known, unless it was told. */
@@ -121,6 +152,7 @@ final readonly class Narrowing
             $pruned,
             $this->cases,
             $this->part,
+            $this->places,
         );
     }
 
@@ -138,6 +170,7 @@ final readonly class Narrowing
             $this->pruned,
             $this->cases,
             $part,
+            $this->places,
         );
     }
 

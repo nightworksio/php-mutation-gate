@@ -81,7 +81,12 @@ what a source file declares, without running anything.
    `survived`, `timeout`, `pending` or `equivalent`, `by` the killing test,
    `digest` the digest the plan took of the unit's file; a mutant a marker
    ignores is no event; a survivor's verification run is inside its batch,
-   so its event says what the verification judged. The PHP `serve` that
+   so its event says what the verification judged. A round ends with one
+   more line, `{"round", "mutants", "why"}`: `round` is `judged`,
+   `changed` where a change stopped it, `invalid` or `unjudged`, `mutants`
+   how many events it printed, `why` the reason of one it could not judge;
+   so a round that reached nothing says so. A reader of mutants passes
+   over it, as the language server does. The PHP `serve` that
    `outbreak serve` starts sends the same lines to every client (ADR-0133
    decision 9). The console prints one block per unit as each batch ends,
    and ends a round with the whole report only with `watch --whole-report`, or

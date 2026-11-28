@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function max;
+
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\DependentCap;
-use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -26,7 +27,7 @@ use Psr\Clock\ClockInterface;
  */
 final class AnalyserWarmUp
 {
-    /** @var list<WarmedUp|Unchecked> the run, once made */
+    /** @var list<WarmedUp|CannotJudge> the run, once made, or why it could not be */
     private array $made = [];
 
     public function __construct(private readonly int $dependents = DependentCap::STANDARD)
@@ -44,15 +45,15 @@ final class AnalyserWarmUp
         AnalyserIdentity $identity,
         Adapters $adapters,
         ClockInterface $clock,
-    ): WarmedUp|Unchecked {
+    ): WarmedUp|CannotJudge {
         if ($this->made === []) {
             $started = $clock->now();
             $found = $checker->findings(Paths::none(), $adapters->withheld);
             $own = Seconds::between($started, $clock->now());
             $planned = PlannedWarmUp::secondsFor($adapters->project, $identity);
-            $took = $planned instanceof Seconds && $planned->seconds() > $own->seconds() ? $planned : $own;
+            $took = $planned instanceof Seconds ? Seconds::of(max($planned->seconds(), $own->seconds())) : $own;
             $this->made = [$found instanceof CannotJudge
-                ? Unchecked::NoWarmUp
+                ? $found
                 : new WarmedUp(
                     $checker,
                     $identity,

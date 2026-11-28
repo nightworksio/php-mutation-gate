@@ -59,3 +59,9 @@ it('allows any share where its sample counted no mutant', function (): void {
     expect($bounds->lower())->toBe(0.0)
         ->and($bounds->upper())->toBe(1.0);
 });
+
+it('is spotless only where every mutant its sampled units counted was killed', function (): void {
+    expect(Stratum::of(10, 100, Spread::of(Tally::of(10, 10), Tally::of(7, 7)))->isSpotless())->toBeTrue()
+        ->and(Stratum::of(10, 100, Spread::of(Tally::of(10, 10), Tally::of(6, 7)))->isSpotless())->toBeFalse()
+        ->and(Stratum::of(10, 100, Spread::of())->isSpotless())->toBeTrue();
+});

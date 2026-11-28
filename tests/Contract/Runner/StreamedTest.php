@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
@@ -41,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Arithmetic\MultiplicationToDivision;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
@@ -61,6 +63,9 @@ const CHEAPEST_SLOW = 'P\\Tests\\CheapestSpec::__pest_evaluable_it_doubles_an_am
 
 /** The fixture's fast covering test of Cheapest. */
 const CHEAPEST_FAST = 'P\\Tests\\CheapestSpec::__pest_evaluable_it_doubles_and_triples_into_whole_numbers__and_quadruples_two';
+
+/** The fixture's test of Booted, which the application's boot readies. */
+const BOOTED_KILLER = 'P\\Tests\\BootedSpec::__pest_evaluable_it_readies_the_services';
 
 /** The fixture's likely killer of a change to Fallen::tripled, which holds a writable file, so no stream forks there. */
 const FALLEN_KILLER = 'P\\Tests\\FallenSpec::__pest_evaluable_it_triples_while_it_holds_a_writable_file';
@@ -90,12 +95,35 @@ function streamedJudged(MutationResult|CannotJudge $result): array|string
     return $judged;
 }
 
+/**
+ * The sites each of a run's two stream passes took, in the order the run timed them; none where it judged none.
+ *
+ * @return list<array{Step, int}>
+ */
+function streamedPasses(MutationResult|CannotJudge $result): array
+{
+    if (! $result instanceof MutationResult) {
+        return [];
+    }
+
+    $passes = array_filter(
+        [...$result->steps()],
+        static fn(StepTime $step): bool => $step->step() === Step::FirstPass || $step->step() === Step::SecondPass,
+    );
+
+    return array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], array_values($passes));
+}
+
 it('kills in its stream a mutant a test tells apart, or whose test ends its own process, stops at its limit one that never ends, and runs on its own one only a test holding a socket, a writable file or a file-backed database reaches', function (): void {
     $source = Tree::at(sprintf('%s/src/Streamed.php', Library::DIRECTORY));
     $test = Tree::at(sprintf('%s/tests/StreamedSpec.php', Library::DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/streamed/src/Streamed.php'), $source);
     copy(Tree::at('tests/Contract/Runner/streamed/tests/StreamedSpec.php'), $test);
     Library::patched();
+    $own = Scratch::directory();
+    $held = [getenv('TMPDIR'), array_key_exists('TMPDIR', $_SERVER) ? $_SERVER['TMPDIR'] : NotGiven::value()];
+    putenv(sprintf('TMPDIR=%s', $own));
+    $_SERVER['TMPDIR'] = $own;
 
     try {
         $result = Library::pest(Patching::on(Library::canary())->splitting(
@@ -113,6 +141,12 @@ it('kills in its stream a mutant a test tells apart, or whose test ends its own 
     } finally {
         unlink($source);
         unlink($test);
+        putenv($held[0] === false ? 'TMPDIR' : sprintf('TMPDIR=%s', $held[0]));
+        unset($_SERVER['TMPDIR']);
+
+        if (! $held[1] instanceof NotGiven) {
+            $_SERVER['TMPDIR'] = $held[1];
+        }
     }
 
     $judged = array_map(static fn(Mutant $mutant): array => [
@@ -125,16 +159,33 @@ it('kills in its stream a mutant a test tells apart, or whose test ends its own 
     ], $result instanceof MutationResult ? [...$result->mutants()] : []);
     usort($judged, static fn(array $one, array $other): int => $one[0] <=> $other[0]);
     $seesClients = is_dir('/proc/self/fd') || function_exists('outbreak_descriptors');
+    $steps = [];
 
-    expect($judged)->toBe([
-        [17, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_adds'], true],
-        [24, MutantStatus::TimedOut, [], true],
-        [33, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_doubles_while_it_holds_a_socket'], false],
-        [38, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_triples_while_it_holds_a_writable_file'], false],
-        [43, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_quadruples_while_it_holds_a_file_backed_SQLite_database'], ! $seesClients],
-        [48, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_shifts_while_it_reads_a_file'], true],
-        [53, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_raises__ending_its_own_process_where_it_raises_wrong'], true],
-    ]);
+    foreach ($result instanceof MutationResult ? $result->steps() : [] as $step) {
+        $steps[$step->step()->value] = [$step->count(), $step->took()->seconds() < 600.0];
+    }
+
+    $beside = Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl', Library::DIRECTORY));
+    $listed = sprintf('%s.passes', $beside);
+    preg_match_all('~"begun":"([a-z ]+)"~', is_file($listed) ? sprintf('%s', file_get_contents($listed)) : '', $begun);
+
+    expect(array_intersect_key($steps, ['first pass' => 0, 'second pass' => 0, 'own runs' => 0]))->toBe([
+        'first pass' => [7, true],
+        'second pass' => [0, true],
+        'own runs' => [3, true],
+    ])
+        ->and($begun[1])->toBe(['first pass', 'second pass', 'own runs'])
+        ->and(is_file(sprintf('%s.streams', $beside)))->toBeFalse()
+        ->and(glob(sprintf('%s/mutation-gate-split-*', $own)))->toBe([])
+        ->and($judged)->toBe([
+            [17, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_adds'], true],
+            [24, MutantStatus::TimedOut, [], true],
+            [33, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_doubles_while_it_holds_a_socket'], false],
+            [38, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_triples_while_it_holds_a_writable_file'], false],
+            [43, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_quadruples_while_it_holds_a_file_backed_SQLite_database'], ! $seesClients],
+            [48, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_shifts_while_it_reads_a_file'], true],
+            [53, MutantStatus::Killed, ['P\\Tests\\StreamedSpec::__pest_evaluable_it_raises__ending_its_own_process_where_it_raises_wrong'], true],
+        ]);
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
@@ -157,17 +208,11 @@ it('forks a first pass at each likely killer alone, and a second at every coveri
             ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large')))
             ->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, $history), MatrixKind::FirstKiller)),
     );
-    $passes = $result instanceof MutationResult ? array_values(array_filter(
-        [...$result->steps()],
-        static fn(StepTime $step): bool => $step->step() === Step::FirstPass || $step->step() === Step::SecondPass,
-    )) : [];
-
     expect(streamedJudged($result))->toBe([
         11 => [MutantStatus::Killed, [STREAMED_TWICE], true],
         16 => [MutantStatus::Survived, [], true],
     ])
-        ->and(array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], $passes))
-        ->toBe([[Step::FirstPass, 2], [Step::SecondPass, 1]]);
+        ->and(streamedPasses($result))->toBe([[Step::FirstPass, 2], [Step::SecondPass, 1]]);
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
@@ -387,7 +432,7 @@ it('judges a mutant whose test reads its coverage through pcov alike whether pes
     'the runner contracts job installs the fixture library, split streams need a PHP that forks, and the test needs pcov on',
 )->group(...$holds);
 
-it('leaves a mutant whose site the application\'s boot runs to a second pass that boots in every test, under splitStream.bootOnce', function (): void {
+it('leaves a mutant whose site the application\'s boot runs to a second pass that boots in every test, whether its first pass runs every covering file or its likely killer alone, under splitStream.bootOnce', function (bool $killers): void {
     $copied = [
         'src/Booted.php' => 'tests/Contract/Runner/streamed/src/Booted.php',
         'tests/BootedSpec.php' => 'tests/Contract/Runner/streamed/tests/BootedSpec.php',
@@ -401,16 +446,32 @@ it('leaves a mutant whose site the application\'s boot runs to a second pass tha
     }
 
     Library::patched();
+    $request = MutationRequest::of(Paths::of(Path::of('src/Booted.php')), WholeSuite::tests())->narrowedTo(
+        Paths::of(Path::of('src/Booted.php')),
+        Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)),
+    );
+    $streams = static fn(bool $killers): StreamSettings => StreamSettings::of(
+        enabled: true,
+        children: 1,
+        changeCheck: false,
+        killersFirst: $killers,
+        killerStreams: $killers,
+        bootOnce: true,
+    );
 
     try {
-        $result = Library::pest(Patching::on(Library::canary())->splitting(
-            StreamSettings::of(enabled: true, children: 1, changeCheck: false, killersFirst: false, bootOnce: true),
-        ))->runner()->mutate(
-            MutationRequest::of(Paths::of(Path::of('src/Booted.php')), WholeSuite::tests())->narrowedTo(
-                Paths::of(Path::of('src/Booted.php')),
-                Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)),
-            ),
-        );
+        $result = Library::pest(Patching::on(Library::canary())->splitting($streams(killers: false)))->runner()->mutate($request);
+        $history = KillHistory::none();
+
+        foreach ($killers && $result instanceof MutationResult ? $result->mutants() : [] as $mutant) {
+            $history = $history->withMutant($mutant->id(), Ranking::of(Kills::of(TestId::of(BOOTED_KILLER), 3)));
+        }
+
+        $result = $killers
+            ? Library::pest(Patching::on(Library::canary())->splitting($streams(killers: true)))->runner()->mutate(
+                $request->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, $history), MatrixKind::FirstKiller)),
+            )
+            : $result;
     } finally {
         foreach (array_keys($copied) as $into) {
             unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $into)));
@@ -419,8 +480,12 @@ it('leaves a mutant whose site the application\'s boot runs to a second pass tha
         rmdir($bootstrap);
     }
 
-    expect(streamedJudged($result))->toBe([12 => [MutantStatus::Killed, ['P\\Tests\\BootedSpec::__pest_evaluable_it_readies_the_services'], true]]);
-})->skip(
+    expect(streamedJudged($result))->toBe([12 => [MutantStatus::Killed, [BOOTED_KILLER], true]])
+        ->and(streamedPasses($result))->toBe([[Step::FirstPass, 1], [Step::SecondPass, 1]]);
+})->with([
+    'every covering file' => [false],
+    'its likely killer alone' => [true],
+])->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);
@@ -525,13 +590,17 @@ it('gives a mutant the first pass settled its verdict before the second pass sta
         : $result->why();
     $settled = [MutantStatus::Killed, ['P\\Tests\\SettledSpec::__pest_evaluable_it_adds_one'], true];
 
-    expect($judged($whole))->toBe([
-        'src/Settled.php:15' => $settled,
-        'src/Waited.php:16' => [MutantStatus::Killed, ['P\\Tests\\WaitedSlowSpec::__pest_evaluable_it_doubles_two_into_four__slowly'], true],
-    ])->and($judged($stopped))->toBe([
-        'src/Settled.php:15' => $settled,
-        'src/Waited.php:16' => [MutantStatus::Unjudged, [], false],
-    ]);
+    $named = Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl.streams', Library::DIRECTORY));
+
+    expect(streamedPasses($stopped))->toBe([[Step::FirstPass, 2], [Step::SecondPass, 1]])
+        ->and(is_file($named) ? file_get_contents($named) : '')->toMatch('~/mutation-gate-split-[0-9a-f]{32}$~')
+        ->and($judged($whole))->toBe([
+            'src/Settled.php:15' => $settled,
+            'src/Waited.php:16' => [MutantStatus::Killed, ['P\\Tests\\WaitedSlowSpec::__pest_evaluable_it_doubles_two_into_four__slowly'], true],
+        ])->and($judged($stopped))->toBe([
+            'src/Settled.php:15' => $settled,
+            'src/Waited.php:16' => [MutantStatus::Unjudged, [], false],
+        ]);
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and split streams need a PHP that forks',

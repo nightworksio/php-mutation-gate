@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Living;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\PidFile;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Passing;
@@ -36,3 +37,22 @@ it('tells whether the process a file names is still there', function (): void {
         ->and(PidFile::isRunning($file))->toBeFalse()
         ->and(PidFile::isRunning(sprintf('%s/2.pid', Scratch::directory())))->toBeFalse();
 });
+
+it('takes a process that ended and was not collected as no longer running, where Linux tells its state', function (): void {
+    $file = sprintf('%s/1.pid', Scratch::directory());
+    $started = proc_open(['sleep', '0.2'], [], $pipes);
+    file_put_contents($file, (string) (is_resource($started) ? proc_get_status($started)['pid'] : Passing::NONE));
+    $began = PidFile::isRunning($file);
+    $until = hrtime(as_number: true) + 5_000_000_000;
+    $running = $began;
+
+    while ($running && hrtime(as_number: true) < $until) {
+        $running = PidFile::isRunning($file);
+    }
+
+    if (is_resource($started)) {
+        proc_close($started);
+    }
+
+    expect($began)->toBeTrue()->and($running)->toBeFalse();
+})->skip(fn(): bool => ! is_readable(sprintf(Living::STAT, (int) getmypid())), 'this system tells no process state in /proc');

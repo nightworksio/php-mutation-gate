@@ -60,8 +60,8 @@ final class StreamVerdicts
     private array $touched = [];
 
     /**
-     * @var array<string, array{0?: string, 1?: string}> the digest of the state each fork's call left, in the
-     *                                                   parent then the child, by mutant and test (H5)
+     * @var array<string, list<string>> the digest of the state each fork's call left, as its parent and its
+     *                                 child wrote it, by mutant and test (H5)
      */
     private array $states = [];
 
@@ -130,12 +130,12 @@ final class StreamVerdicts
      */
     public function give(string $mutant, MutationTest $test, array $covering): void
     {
-        $events = Facade::instance();
-        $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
-
-        if ($killer !== '' && $this->touches($mutant, $killer)) {
+        if ($this->runsItsOwn($mutant, $covering)) {
             return;
         }
+
+        $events = Facade::instance();
+        $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
 
         if ($killer !== '') {
             $this->note($test, KillerFile::line(RecordEvent::Killed, $killer, Placed::unplaced(0)));
@@ -156,11 +156,28 @@ final class StreamVerdicts
             return;
         }
 
-        if (! $this->leavesForItsOwnRun($mutant, $covering)) {
-            $this->note($test, '');
-            $test->updateResult(MutationTestResult::Untested);
-            $events->emitter()->mutationEscaped($test);
-        }
+        $this->note($test, '');
+        $test->updateResult(MutationTestResult::Untested);
+        $events->emitter()->mutationEscaped($test);
+    }
+
+    /**
+     * Whether the streams leave a mutant for a run of its own: one whose
+     * killer's test touched what a child shares with its parent, or one no
+     * child killed or overran in whose covering tests a stream could not
+     * fork (ADR-0117).
+     *
+     * @param list<string> $covering the tests that cover it, by their ids
+     */
+    public function runsItsOwn(string $mutant, array $covering): bool
+    {
+        $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
+        $late = static fn(ChildEnd $end): bool => $end === ChildEnd::TimedOut;
+        $overran = $this->firstEnding($mutant, $covering, $late);
+
+        return $killer !== ''
+            ? $this->touches($mutant, $killer)
+            : $overran === '' && $this->leavesForItsOwnRun($mutant, $covering);
     }
 
     /**
@@ -280,7 +297,7 @@ final class StreamVerdicts
         }
 
         if ($read->kind === StreamLine::STATE) {
-            $this->states[sprintf('%s %s', $read->mutant, $read->test)][$read->child ? 1 : 0] = $read->digest;
+            $this->states[sprintf('%s %s', $read->mutant, $read->test)][] = $read->digest;
         }
     }
 

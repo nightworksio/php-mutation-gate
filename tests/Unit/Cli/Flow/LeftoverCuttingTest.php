@@ -138,6 +138,16 @@ it('cuts the mutants each shard left by the seconds the plan\'s map timed the te
         [['GreaterThan-16'], ['Minus-21']],
     ],
     'no map: one share' => [[], 60.0, [['GreaterThan-16', 'Minus-21']]],
+    'two files a second over the limit together: a share each' => [
+        ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]],
+        89.0,
+        [['GreaterThan-16'], ['Minus-21']],
+    ],
+    'two files at the limit together: one share' => [
+        ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]],
+        90.0,
+        [['GreaterThan-16', 'Minus-21']],
+    ],
     'one test file covering both: one share' => [
         ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'MoneyTest::subtracts' => [40.0, 'src/Other.php', 21]],
         100.0,
@@ -187,6 +197,92 @@ it('gives a job of the second wave the limit less the time its shard took to sta
     'no opening: the whole limit' => [0.0, 1],
     'opened 30 s: 70 s left' => [30.0, 2],
     'opened past the limit: a share each' => [150.0, 2],
+]);
+
+it('prices a mutant its shard left unrun once its own runs began at what each finished own run took, at its covering tests\' seconds where none finished, and counts the share\'s time from when they began', function (Closure $passes, float $limit, int $shares, int $processes = 1): void {
+    [$project, $plan, $whole] = LeftAtTheDeadline::run();
+    leftoverCuttingApart($project, $whole);
+    $file = sprintf('%s/1.json', Workspace::results()->value());
+    $stopped = ShardResultFile::decode((string) file_get_contents(sprintf('%s/%s', $project, $file)));
+    $steps = StepTimes::of(
+        StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(400.0)),
+        ...array_filter(is_array($made = $passes()) ? $made : [], static fn(mixed $pass): bool => $pass instanceof StepTime),
+    );
+    Scratch::write($project, $file, $stopped instanceof ShardResult ? ShardResultFile::encode(ShardResult::of(
+        $stopped->plan(),
+        $stopped->shard(),
+        $stopped->units(),
+        $stopped->outcome(),
+        $stopped->measured()->withSteps($steps),
+    )) : '');
+    leftoverCuttingMap($project, ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]]);
+
+    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), ShardSettings::of(jobLimit: Seconds::of($limit)), StreamWall::of($processes, 0.0));
+
+    expect($cut instanceof LeftoverShares ? count($cut->ofShard(ShardId::of(1))) : $cut)->toBe($shares);
+})->with([
+    'three of five own runs finished in 300 s: 100 s each, past a share' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 5)],
+        250.0,
+        2,
+    ],
+    'the same, in a job long enough for both' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 5)],
+        300.0,
+        1,
+    ],
+    'one of three own runs finished in 300 s: each at that, past a share a job long enough for their covering tests holds' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 3)],
+        190.0,
+        2,
+    ],
+    'none of two finished: each at its covering tests, past a share' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 2)],
+        160.0,
+        2,
+    ],
+    'none of two finished, in a job long enough for both' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 2)],
+        190.0,
+        1,
+    ],
+    'a hundred quick own runs finished: each still at no less than its own covering tests, past a share' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 102)],
+        160.0,
+        2,
+    ],
+    'a hundred quick own runs finished, in a job long enough for both' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 102)],
+        190.0,
+        1,
+    ],
+    'three of five own runs finished in 300 s of a job of two processes: each at both processes\' seconds, past a share' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 5)],
+        200.0,
+        2,
+        2,
+    ],
+    'the same, in a job of two processes long enough for both' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 5)],
+        300.0,
+        1,
+        2,
+    ],
+    'stopped in its second pass: no own run began, priced by its streams' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(400.0))],
+        160.0,
+        1,
+    ],
+    'own runs began 140 s in: 170 s left of 310' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(140.0)), StepTime::of(Step::OwnRuns, Seconds::of(140.0), Seconds::of(260.0), 2)],
+        310.0,
+        2,
+    ],
+    'own runs began 120 s in: 190 s left of 310' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(120.0)), StepTime::of(Step::OwnRuns, Seconds::of(120.0), Seconds::of(280.0), 2)],
+        310.0,
+        1,
+    ],
 ]);
 
 it('prices a left mutant\'s first fork at the likely killer its shard\'s handed ledger names among its covering tests, and its second pass at every covering test, named or not', function (bool $named, float $passTwo, float $limit, int $shares): void {

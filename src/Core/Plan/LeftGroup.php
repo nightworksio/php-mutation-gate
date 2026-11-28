@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 use function array_diff_key;
 use function array_key_exists;
 use function array_keys;
+use function array_unique;
 use function max;
 
 /**
@@ -32,6 +33,7 @@ final readonly class LeftGroup
         private float $longest,
         private float $killers,
         private float $covering,
+        private float $alone,
     ) {
     }
 
@@ -46,20 +48,16 @@ final readonly class LeftGroup
     public static function of(array $mutants, array $covering, array $timed, LeftForks $forks): self
     {
         $files = [];
+        $seconds = $longest = 0.0;
 
-        foreach ($covering as $file) {
+        foreach (array_unique($covering) as $file) {
+            $took = array_key_exists($file, $timed) ? $timed[$file] : 0.0;
             $files[$file] = true;
+            $seconds += $took;
+            $longest = max($longest, $took);
         }
 
-        $none = new self([], [], 0.0, 0.0, 0.0, 0.0);
-        $seconds = $none->added(new self([], $files, 0.0, 0.0, 0.0, 0.0), $timed);
-        $longest = 0.0;
-
-        foreach (array_keys($files) as $file) {
-            $longest = max($longest, array_key_exists($file, $timed) ? $timed[$file] : 0.0);
-        }
-
-        return new self($mutants, $files, $seconds, $longest, $forks->killers, $forks->covering);
+        return new self($mutants, $files, $seconds, $longest, $forks->killers, $forks->covering, $forks->alone);
     }
 
     /** @return list<LeftMutant> */
@@ -80,10 +78,10 @@ final readonly class LeftGroup
         return $wall->second($this->covering);
     }
 
-    /** The wall seconds a job takes over these mutants, both passes. */
+    /** The wall seconds a job takes over these mutants: both passes, and the runs of those no stream judges. */
     public function wall(StreamWall $wall): float
     {
-        return $this->first($wall) + $this->second($wall);
+        return $this->first($wall) + $this->second($wall) + $wall->alone($this->alone);
     }
 
     /**
@@ -114,6 +112,11 @@ final readonly class LeftGroup
     public function covering(): float
     {
         return $this->covering;
+    }
+
+    public function alone(): float
+    {
+        return $this->alone;
     }
 
     /**

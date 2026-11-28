@@ -20,8 +20,14 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  */
 final readonly class LeftForks
 {
-    private function __construct(public float $killers, public float $covering)
+    private function __construct(public float $killers, public float $covering, public float $alone = 0.0)
     {
+    }
+
+    /** A mutant no stream judged (ADR-0117), whose own run of its covering tests takes these seconds. */
+    public static function alone(float $seconds): self
+    {
+        return new self(0.0, 0.0, $seconds);
     }
 
     /** A mutant the ledger names a likely killer of, taking these seconds, its covering tests taking these. */
@@ -56,6 +62,10 @@ final readonly class LeftForks
     /** These forks with another mutant's. */
     public function and(self $other): self
     {
-        return new self($this->killers + $other->killers, $this->covering + $other->covering);
+        return new self(
+            $this->killers + $other->killers,
+            $this->covering + $other->covering,
+            $this->alone + $other->alone,
+        );
     }
 }

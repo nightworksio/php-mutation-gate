@@ -8,6 +8,7 @@ use function array_last;
 use function explode;
 use function file_get_contents;
 use function file_put_contents;
+use function in_array;
 use function is_file;
 use function is_string;
 use function max;
@@ -42,6 +43,9 @@ final readonly class StreamPasses
     /** The file beside a run's results its passes are listed in. */
     private const string LISTED = '%s.passes';
 
+    /** The steps a run lists: its passes, and the own runs of the mutants they left. */
+    private const array LISTED_STEPS = [Step::FirstPass, Step::SecondPass, Step::OwnRuns];
+
     /** Where a row lists a pass as it starts. */
     private const string BEGUN = 'begun';
 
@@ -59,7 +63,15 @@ final readonly class StreamPasses
     public static function started(string|false $results, Step $pass, int $mutants, float $bound): void
     {
         $step = StepTime::of($pass, Seconds::none(), Seconds::none(), $mutants)->bounded(Seconds::of($bound));
-        self::listed($results, JsonText::compact([...StepsRecord::rowOf($step), self::BEGUN => true]));
+        self::listed($results, JsonText::compact([...StepsRecord::rowOf($step), self::BEGUN => $pass->value]));
+    }
+
+    /** A run's own runs as they start, this many of them (ADR-0117), listed as a pass is; none where there is none. */
+    public static function ownRunsStarted(string|false $results, int $mutants, float $bound): void
+    {
+        if ($mutants > 0) {
+            self::started($results, Step::OwnRuns, $mutants, $bound);
+        }
     }
 
     /** One pass, listed beside the run's results the gate names; none where it names no file. */
@@ -150,6 +162,6 @@ final readonly class StreamPasses
             return false;
         }
 
-        return $step->step() === Step::FirstPass || $step->step() === Step::SecondPass ? $step->later($since) : false;
+        return in_array($step->step(), self::LISTED_STEPS, strict: true) ? $step->later($since) : false;
     }
 }

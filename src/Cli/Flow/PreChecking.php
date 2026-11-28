@@ -102,7 +102,7 @@ final class PreChecking implements PreChecker
     {
         $warm = $this->warmUp->of($checker, $identity, $this->adapters, $this->clock);
 
-        return $warm instanceof WarmedUp ? $warm->took : $warm;
+        return $warm instanceof WarmedUp ? $warm->took : Unchecked::NoWarmUp;
     }
 
     /**

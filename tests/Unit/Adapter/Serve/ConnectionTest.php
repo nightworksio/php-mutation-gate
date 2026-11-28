@@ -200,6 +200,22 @@ it('gives up a read on a quiet peer once its wait is up, and tells a quiet peer 
         ->and($waited)->toBeLessThan(5.0);
 });
 
+it('waits for a line through a peer\'s quiet longer than a read\'s wait, and gives none once the peer has closed', function (): void {
+    ServedProjects::entered();
+    [$listener, $client, $daemon] = ServedProjects::connectedPair();
+    $child = ServedProjects::aside(static function () use ($daemon): void {
+        Waiting::between(Seconds::of(1.5));
+        $daemon->sent("late\n");
+    });
+    unset($daemon, $listener);
+
+    $line = $client->waitingAtMost(1)->lineWhenItComes();
+    ServedProjects::waitedFor($child);
+
+    expect($line)->toBe("late\n")
+        ->and($client->lineWhenItComes())->toEqual(NotGiven::value());
+});
+
 it('tells a client waiting on the listener apart from a connection that has something to read, by the connection\'s key', function (): void {
     ServedProjects::entered();
     [$listener, $client, $daemon] = ServedProjects::connectedPair();

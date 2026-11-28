@@ -353,7 +353,7 @@ it('leaves what a crashed run had not killed for a later wave, keeps its kills, 
         ->and($told['n6'] ?? '')->toBe('crashed')
         ->and($result instanceof MutationResult && $result->hasCrashed())->toBeTrue()
         ->and($result instanceof MutationResult ? array_map(static fn(Warning $warning): string => $warning->text(), [...$result->warnings()]) : [])
-        ->toContain("The mutation run crashed, so the mutants it had not killed are left unjudged for a later wave.\nPest's mutation run failed (ended by signal 9, exit code 137). Pest said:\nx.");
+        ->toContain("The mutation run crashed, so the mutants it had not killed run again.\nPest's mutation run failed (ended by signal 9, exit code 137). Pest said:\nx.");
 });
 
 it('reads no run its pool halted as crashed', function () use ($six, $read): void {

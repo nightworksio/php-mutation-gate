@@ -79,7 +79,7 @@ final readonly class Ran
      * A process halted where it ran past the time its pool started no more
      * commands by its grace, before its own deadline (ADR-0197).
      */
-    public static function halted(string $output, string|NotGiven $printed = new NotGiven()): self
+    public static function halted(string $output = '', string|NotGiven $printed = new NotGiven()): self
     {
         return new self($output, Ending::Halted, NotGiven::value(), Unmeasured::duration(), $printed);
     }

@@ -21,6 +21,7 @@ it('takes the standard wind-down where none was measured, and says what it is cu
     $jobStop = new JobStop(Seconds::of(600.0), Seconds::of(45.0), Absent::setting());
 
     expect($jobStop->unmeasured(Seconds::of(60.0)))->toEqual(Seconds::of(600.0 - 60.0 - JobStop::WIND_DOWN_SECONDS - 45.0))
+        ->and($jobStop->unmeasured(Seconds::of(60.0)))->toEqual(Seconds::of(460.0))
         ->and($jobStop->target())->toEqual(Seconds::of(600.0))
         ->and($jobStop->margin())->toEqual(Seconds::of(45.0))
         ->and($jobStop->jobLimit())->toEqual(Absent::setting());

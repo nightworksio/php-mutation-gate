@@ -41,6 +41,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\AnsweringDaemon;
+use NightWorksIO\MutationGate\Tests\Support\CallLimit;
 use NightWorksIO\MutationGate\Tests\Support\ChangingCheckout;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
@@ -75,6 +76,23 @@ function waitsChanging(ChangingCheckout $checkout, int $waits): Closure
         $checkout->change();
 
         return $waited <= $waits;
+    };
+}
+
+/**
+ * A wait that always says to go on, and refuses to be asked more often than
+ * the rounds a test counts take, so a watch that never ends fails.
+ *
+ * @return Closure(): bool
+ */
+function waitsOn(): Closure
+{
+    $limit = new CallLimit(64, 'The watch waited more often than the rounds it was to run take.');
+
+    return static function () use ($limit): bool {
+        $limit->called();
+
+        return true;
     };
 }
 
@@ -531,7 +549,7 @@ it('ends after the rounds --rounds counts though the wait goes on, passed where 
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     $composition = FlowCommands::watching(watchedProject(), $runner, new ProofStoreFake(), $changing());
 
-    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => true, watchOnMains()), '--rounds=1');
+    $ran = FlowCommands::run(WatchCommand::command($composition, waitsOn(), watchOnMains()), '--rounds=1');
 
     expect([$ran->code, $ran->errors])->toBe([0, ''])
         ->and(substr_count($ran->output, 'mutation-gate: '))->toBe(1)
@@ -542,7 +560,7 @@ it('fails where the last round --rounds counts could not judge, saying why', fun
     $failing = new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('1 test failed.'));
     $composition = FlowCommands::watching(watchedProject(), $failing, new ProofStoreFake(), $changing());
 
-    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => true, watchOnMains()), '--rounds=1');
+    $ran = FlowCommands::run(WatchCommand::command($composition, waitsOn(), watchOnMains()), '--rounds=1');
 
     expect($ran->code)->not->toBe(0)
         ->and(sprintf('%s%s', $ran->output, $ran->errors))->toContain('1 test failed.');
@@ -607,7 +625,7 @@ function watchEvents(string $output): array
 {
     $events = [];
 
-    foreach (array_filter(explode("\n", $output), static fn(string $line): bool => $line !== '') as $line) {
+    foreach (array_filter(explode("\n", $output), static fn(string $line): bool => str_contains($line, '"mutant":"')) as $line) {
         $event = Node::decode($line);
         $by = $event->field('by');
         $events[] = sprintf(
@@ -635,6 +653,17 @@ it('says each mutant a batch judged as one line of JSON with --output=events, an
             'src/Money.php:21 survived by none',
             'src/Money.php:27 timeout by none',
         ]);
+});
+
+it('ends each round with one event line with --output=events: how it ended and how many mutants it said', function () use ($changing): void {
+    $composition = FlowCommands::watching(watchedProject(), ScriptedRunner::fixture(), new ProofStoreFake(), $changing());
+
+    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false, watchOnMains()), '--output=events');
+    $lines = array_values(array_filter(explode("\n", $ran->output), static fn(string $line): bool => $line !== ''));
+
+    expect($ran->code)->toBe(0)
+        ->and(array_slice($lines, -1))->toBe(['{"round":"judged","mutants":5,"why":null}'])
+        ->and(count($lines))->toBe(6);
 });
 
 it('takes each round after one that planned as quick under local.quick, the saved file first, each event saying so', function (): void {

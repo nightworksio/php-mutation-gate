@@ -53,6 +53,12 @@ final readonly class Stratum
         return $this->mutants;
     }
 
+    /** Whether every mutant its sampled units counted was killed. */
+    public function isSpotless(): bool
+    {
+        return $this->sampled->sum()->killed() === $this->sampled->sum()->counted();
+    }
+
     /** The share of its mutants estimated killed. */
     public function share(): float
     {

@@ -305,7 +305,7 @@ it('leaves a flaky survivor to its second answer, unchecked', function (): void 
     expect(array_map(static fn(array $check): string => $check[0], $checker->asked()))->toBe(['src/Money.php']);
 });
 
-it('leaves every survivor unchecked where the analyser cannot say who it is, or cannot run over the originals', function (): void {
+it('leaves every survivor unchecked where the analyser cannot say who it is, or cannot run over the originals, saying what the analyser said', function (): void {
     $project = Scratch::directory();
     $mutants = checkedMutants();
     $unnamed = new RecordingChecker(new StaticCheckerFake(CannotJudge::because('No version.'), checkedOriginals(), []), $project);
@@ -319,10 +319,23 @@ it('leaves every survivor unchecked where the analyser cannot say who it is, or 
     ])
         ->and($unnamed->warmUps())->toBe([])
         ->and(checkedWarnings($unwarmed))->toBe([
-            'Static analysis left 2 survivors unchecked, as the analyser\'s run over the original files failed: src/Held.php, src/Money.php.',
+            'Static analysis left 2 survivors unchecked, as the analyser\'s run over the original files failed: src/Held.php, src/Money.php. It crashed.',
         ])
         ->and($cold->asked())->toBe([])
         ->and([$unidentified->mutants, $unwarmed->mutants])->toEqual([$mutants, $mutants]);
+});
+
+it('leaves every survivor out of time, for a later wave, where the analyser\'s run over the originals was cut at the deadline', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $cut = new RecordingChecker(new StaticCheckerFake(checkedIdentity(), CannotJudge::atTheDeadline('Stopped at the deadline.'), []), $project);
+
+    $unwarmed = checking($project, $cut, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
+
+    expect(checkedWarnings($unwarmed))->toBe([
+        'Static analysis left 2 survivors unchecked, as the time budget ran out before their checks: src/Held.php, src/Money.php. Stopped at the deadline.',
+    ])
+        ->and($cut->asked())->toBe([]);
 });
 
 it('leaves a survivor unchecked, and says why, where its runner cannot give it, within a deadline or not, its file is out of scope, or its check cannot run', function (): void {
@@ -483,6 +496,90 @@ it('starts as many checks as the time left has room for, each as long as the run
         '',
     ],
 ]);
+
+it('fits the survivors the first checks had no room for again, each as long as those took together, and leaves what still does not fit', function (
+    ScriptedClock $clock,
+    bool $second,
+): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $money = checkedSurvivor($mutants, 'src/Money.php');
+    $held = checkedSurvivor($mutants, 'src/Held.php');
+    $checker = checkedBy($project, [
+        checkedAt($money) => checkedOriginals(),
+        checkedAt($held) => checkedOriginals(),
+        CheckedFiles::original($money->id())->value() => checkedOriginals(),
+        CheckedFiles::original($held->id())->value() => checkedOriginals(),
+    ]);
+    $printed = ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')));
+    $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(20.0));
+
+    $left = checking($project, $checker, $printed, $deadline, $clock)->checked($mutants, MutantIds::none());
+
+    expect(in_array(checkedAt($held), array_map(static fn(array $check): string => $check[1], $checker->asked()), strict: true))->toBe($second)
+        ->and(in_array(checkedAt($money), array_map(static fn(array $check): string => $check[1], $checker->asked()), strict: true))->toBeTrue()
+        ->and($left->unchecked->for(Unchecked::OutOfTime))->toEqual($second ? MutantIds::none() : MutantIds::of($held->id()));
+})->with([
+    // a warm-up of 4s, then 7s left: one round of two checks of 4s on 2 cores, the first file's print and its mutant
+    'the round took 1s, and 6s are left for the second file' => [
+        fn(): ScriptedClock => new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 4, 13, 13, 13, 14, 14, 14),
+        true,
+    ],
+    'the round took 6s, and 1s is left' => [
+        fn(): ScriptedClock => new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 4, 13, 13, 13, 19, 19, 19),
+        false,
+    ],
+    'the clock says the round took no time' => [
+        fn(): ScriptedClock => new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 4, 13, 13, 13, 13, 13, 13),
+        false,
+    ],
+]);
+
+it('keeps what the first round found where a second round follows it: a survivor it killed, and one it could not check', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $money = checkedSurvivor($mutants, 'src/Money.php');
+    $held = checkedSurvivor($mutants, 'src/Held.php');
+    $new = Finding::error(Path::of('src/Money.php'), 'new', 'Only the mutant has this.');
+    $printed = ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')));
+    $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(20.0));
+    $originals = [
+        CheckedFiles::original($money->id())->value() => checkedOriginals(),
+        CheckedFiles::original($held->id())->value() => checkedOriginals(),
+        checkedAt($held) => checkedOriginals(),
+    ];
+    $rounds = static fn(): ScriptedClock => new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 4, 13, 13, 13, 14, 14, 14);
+    $killing = checkedBy($project, [...$originals, checkedAt($money) => Findings::of(...checkedOriginals(), ...Findings::of($new))]);
+    $failing = checkedBy($project, $originals);
+
+    $killed = checking($project, $killing, $printed, $deadline, $rounds())->checked($mutants, MutantIds::none());
+    $failed = checking($project, $failing, $printed, $deadline, $rounds())->checked($mutants, MutantIds::none());
+
+    expect($killed->mutants)->toEqual($mutants->replacing(Mutants::of($money->rejected(Rejection::by('fake', $new)))))
+        ->and(array_map(static fn(array $check): string => $check[1], $killing->asked()))->toContain(checkedAt($held))
+        ->and($failed->unchecked->for(Unchecked::Failed))->toEqual(MutantIds::of($money->id()))
+        ->and(array_map(static fn(array $check): string => $check[1], $failing->asked()))->toContain(checkedAt($held));
+});
+
+it('takes each later check to be as long as the first checks took together, however many cores ran them', function (): void {
+    $project = Scratch::directory();
+    $two = checkedMutants();
+    $again = checkedAgain(checkedSurvivor($two, 'src/Money.php'));
+    $mutants = $two->with($again);
+    $checker = checkedBy($project, [
+        checkedAt(checkedSurvivor($two, 'src/Money.php')) => checkedOriginals(),
+        checkedAt(checkedSurvivor($two, 'src/Held.php')) => checkedOriginals(),
+        checkedAt($again) => checkedOriginals(),
+    ]);
+    $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(20.0));
+    // a warm-up of 4s, then 5s left: one round of two checks on 2 cores, which takes 2s; then 1s is left, less than those took
+    $clock = new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 4, 15, 15, 15, 17, 17, 19);
+
+    $left = checking($project, $checker, ScriptedRunner::fixture(), $deadline, $clock)->checked($mutants, MutantIds::none());
+
+    expect($checker->asked())->toHaveCount(2)
+        ->and([...$left->unchecked->for(Unchecked::OutOfTime)])->toHaveCount(1);
+});
 
 it('checks a printed file\'s first survivor where the time left has room for exactly its print and its mutant', function (): void {
     $project = Scratch::directory();

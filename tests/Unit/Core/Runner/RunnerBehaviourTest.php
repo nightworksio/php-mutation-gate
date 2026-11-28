@@ -97,3 +97,8 @@ it('opens each shard on the map it is handed, unless the runner readies the map 
         ->and(RunnerBehaviour::standard()->readyingOpening($readied)->opening())->toBe($readied)
         ->and(RunnerBehaviour::standard()->readyingOpening($readied)->runningPerCore()->selecting(new ExactRun())->opening())->toBe($readied);
 });
+
+it('loads every test file for a control of some tests alone, as a runner does that places none', function (): void {
+    expect(new ExactRun()->loadsTheFilesOfItsTests())->toBeFalse()
+        ->and(new ExactRun()->replaysKills())->toBeFalse();
+});

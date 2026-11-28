@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_filter;
 use function array_map;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
@@ -82,10 +81,10 @@ final readonly class SurvivorChecking
         return new Checked(
             $checked->mutants->replacing(Mutants::of(...array_map(
                 static fn(Mutant $mutant): Mutant => $mutant->unjudged(OutOfTime::BeforeChecking),
-                array_values(array_filter(
+                array_filter(
                     [...$checked->mutants],
                     static fn(Mutant $mutant): bool => $late->has($mutant->id()),
-                )),
+                ),
             ))),
             $checked->checks,
             $checked->examined,
@@ -144,6 +143,11 @@ final readonly class SurvivorChecking
         return $warm instanceof WarmedUp
             ? new SurvivorBatch($this->adapters, $this->clock, $this->deadline, $this->perCheck)
                 ->checked($warm, $mutants, $survivors)
-            : Checked::leaving($mutants, $survivors, $warm);
+            : Checked::leaving(
+                $mutants,
+                $survivors,
+                $warm->isAtTheDeadline() ? Unchecked::OutOfTime : Unchecked::NoWarmUp,
+                $warm->why(),
+            );
     }
 }

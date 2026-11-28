@@ -61,6 +61,7 @@ it('says how many of the units a run mutates the default branch proved of their 
         RunProfile::standard(),
         keysApartNow(...explode(',', $toRun)),
         offTheDefaultBranch: true,
+        suggesting: true,
     );
 
     expect($reasons)->toEqual(Reasons::of(Reason::that('reached'), Reason::that(sprintf(<<<'SAID'
@@ -74,13 +75,14 @@ it('says how many of the units a run mutates the default branch proved of their 
     'one unit of two' => ['src/B.php', 'src/A.php,src/B.php', '1 of the units'],
 ]);
 
-it('says nothing where the default branch proved none of the units under another key, or the plan is on the default branch', function (string $proved, bool $off): void {
+it('says nothing where the default branch proved none of the units under another key, the plan is on the default branch, or reports suggest nothing', function (string $proved, bool $off, bool $suggesting): void {
     $reasons = Reasons::of(Reason::that('reached'));
     $ledger = $proved === '' ? keysApartLedger() : keysApartLedger($proved);
 
-    expect(KeysApart::said($reasons, keysApartUnits('src/A.php'), $ledger, RunProfile::standard(), keysApartNow('src/A.php'), $off))
+    expect(KeysApart::said($reasons, keysApartUnits('src/A.php'), $ledger, RunProfile::standard(), keysApartNow('src/A.php'), $off, $suggesting))
         ->toBe($reasons);
 })->with([
-    'none proved' => ['', true],
-    'on the default branch' => ['src/A.php', false],
+    'none proved' => ['', true, true],
+    'on the default branch' => ['src/A.php', false, true],
+    'suggesting nothing' => ['src/A.php', true, false],
 ]);

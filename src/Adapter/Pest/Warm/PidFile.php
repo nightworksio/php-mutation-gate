@@ -28,11 +28,11 @@ final readonly class PidFile
         return $at instanceof Node && $at->kind() === Kind::Integer ? $at->integer() : NotGiven::value();
     }
 
-    /** Whether the process the file names is still there: signal 0 tells, and sends nothing. */
+    /** Whether the process the file names still runs: one that ended, yet to be collected, does not (see Living). */
     public static function isRunning(string $file): bool
     {
         $pid = self::read($file);
 
-        return is_int($pid) && posix_kill($pid, 0);
+        return is_int($pid) && posix_kill($pid, 0) && ! Living::hasEnded($pid);
     }
 }

@@ -31,9 +31,11 @@ use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\RunnerPace;
+use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestFiles;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -202,4 +204,40 @@ it('starts the unmutated controls of a run beside its survivors\' runs again, an
 
     expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::ofProcess(Ran::finished(succeeded: true, output: '')->took(Seconds::of(1.5)), TestIds::none()))
         ->and($shell->handled())->toBe([[true, false]]);
+});
+
+it('loads only the files a control\'s tests are in where the request places each of them, every test file where one has no place, and its run\'s own files where it selects by them', function (): void {
+    $at = PestCases::project();
+    $adds = TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds');
+    $books = TestId::of('P\Tests\LedgerSpec::__pest_evaluable_it_books');
+    $money = PestCases::money();
+    $placed = $money->narrowedTo($money->files(), $money->narrowing()->placing(
+        TestFiles::none()->placing(Path::of('tests/MoneySpec.php'), TestIds::of($adds)),
+    ));
+    $named = static function (MutationRequest $request, TestId ...$tests) use ($at): array {
+        $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
+        $control = Control::of(Path::of('src/Money.php'), TestIds::of(...$tests), Seconds::of(5.0));
+        new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
+            ->controls($request, UnmutatedControls::of($control));
+
+        return array_values(array_filter(
+            $shell->commands()[0]->arguments(),
+            static fn(string $argument): bool => str_ends_with($argument, 'Spec.php'),
+        ));
+    };
+
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
+    $byItsFiles = Control::running(
+        Path::of('src/Money.php'),
+        RunTests::loading(TestIds::of($adds), Paths::of(Path::of('tests/LedgerSpec.php'))),
+        Seconds::of(5.0),
+    );
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->limits()->bounds())
+        ->controls($placed, UnmutatedControls::of($byItsFiles));
+
+    expect($named($placed, $adds))->toBe(['tests/MoneySpec.php'])
+        ->and($named($placed, $adds, $books))->toBe([])
+        ->and($named($money, $adds))->toBe([])
+        ->and(array_values(array_filter($shell->commands()[0]->arguments(), static fn(string $argument): bool => str_ends_with($argument, 'Spec.php'))))
+        ->toBe(['tests/LedgerSpec.php']);
 });

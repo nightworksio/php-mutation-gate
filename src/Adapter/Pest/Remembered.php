@@ -264,7 +264,7 @@ final class Remembered
             fn(string $key): ControlRun => match (true) {
                 array_key_exists($key, $this->baselines) => $this->baselines[$key],
                 array_key_exists($key, $found) => $found[$key],
-                default => ControlRun::ofProcess(Ran::halted(''), TestIds::none()),
+                default => ControlRun::ofProcess(Ran::halted(), TestIds::none()),
             },
             $keys,
         );

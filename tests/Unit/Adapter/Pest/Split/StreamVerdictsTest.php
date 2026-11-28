@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Noted;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnRuns;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamVerdicts;
 use NightWorksIO\MutationGate\Tests\Support\Mutations;
@@ -176,4 +177,95 @@ it('counts the forks whose parent and child both read their state, and those tha
     );
 
     expect($verdicts->forkStates())->toBe([2, 1]);
+});
+
+it('says a mutant runs its own run where no stream gave it a result, and none a stream killed, timed out or let survive', function (Closure $lines, array $covering, bool $own): void {
+    $verdicts = streamResults(...array_filter(is_array($made = $lines()) ? $made : [], is_string(...)));
+    $tests = array_values(array_filter($covering, is_string(...)));
+    $given = streamGiven($verdicts, $tests)[0];
+
+    expect($verdicts->runsItsOwn('m', $tests))->toBe($own)
+        ->and($given === MutationTestResult::None)->toBe($own);
+})->with([
+    'killed' => [
+        static fn(): array => [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::child('m', 'T::one', failed: true, seconds: 0.1)],
+        ['T::one'],
+        false,
+    ],
+    'timed out' => [
+        static fn(): array => [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::timedOut('m', 'T::one')],
+        ['T::one'],
+        false,
+    ],
+    'survived every covering test' => [
+        static fn(): array => [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::child('m', 'T::one', failed: false, seconds: 0.1)],
+        ['T::one'],
+        false,
+    ],
+    'a covering test forked nothing' => [
+        static fn(): array => [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::parent('T::two', passed: true, seconds: 0.1), StreamLine::fallback('T::two')],
+        ['T::one', 'T::two'],
+        true,
+    ],
+    'a covering test no stream ran' => [
+        static fn(): array => [StreamLine::parent('T::one', passed: true, seconds: 0.1)],
+        ['T::one', 'T::three'],
+        true,
+    ],
+    'timed out at one test, another forked nothing' => [
+        static fn(): array => [StreamLine::parent('T::one', passed: true, seconds: 0.1), StreamLine::timedOut('m', 'T::one'), StreamLine::fallback('T::two')],
+        ['T::one', 'T::two'],
+        false,
+    ],
+]);
+
+it('counts as own runs every mutant the verdicts gave no result, whatever kept a stream from judging it, one whose id is all digits among them', function (): void {
+    $verdicts = streamResults(
+        StreamLine::parent('T::one', passed: true, seconds: 0.1),
+        StreamLine::child('k', 'T::one', failed: true, seconds: 0.1),
+        StreamLine::child('s', 'T::one', failed: false, seconds: 0.1),
+    );
+    $covering = ['k' => ['T::one'], 's' => ['T::one'], 'o' => ['T::one', 'T::three'], '407712' => ['T::four'], 'u' => []];
+    $tests = [];
+    putenv(sprintf('%s=%s/results.jsonl', GateVariable::Results->value, Scratch::directory()));
+    $events = new ReflectionProperty(Facade::class, 'instance');
+    $held = $events->getValue();
+    $events->setValue(null, null);
+
+    try {
+        foreach (['k', 's', 'o', '407712', 'u'] as $id) {
+            $tests[$id] = new MutationTest(Mutations::mutation('src/Money.php', $id, 11, sprintf('%s/copy-%s.php', Scratch::directory(), $id)));
+            $verdicts->give($id, $tests[$id], $covering[$id]);
+        }
+    } finally {
+        $events->setValue(null, $held);
+    }
+
+    $unjudged = array_keys(array_filter($tests, static fn(MutationTest $test): bool => $test->result() === MutationTestResult::None));
+
+    expect(array_keys($tests))->toContain(407712)
+        ->and(OwnRuns::leftBy($tests))->toBe(count($unjudged))
+        ->and($unjudged)->toContain('o', 407712)
+        ->and($unjudged)->not->toContain('k', 's')
+        ->and(OwnRuns::leftBy([$tests['k'], $tests['s']]))->toBe(0)
+        ->and(OwnRuns::leftBy([$tests[407712]]))->toBe(1)
+        ->and(OwnRuns::leftBy([]))->toBe(0);
+});
+
+it('gives a mutant no test executed its result uncovered, noted as a stream\'s with no killer', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
+    $test = new MutationTest(Mutations::mutation('src/Money.php', 'm', 11, sprintf('%s/copy.php', Scratch::directory())));
+    $events = new ReflectionProperty(Facade::class, 'instance');
+    $held = $events->getValue();
+    $events->setValue(null, null);
+
+    try {
+        StreamVerdicts::none()->uncovered($test);
+    } finally {
+        $events->setValue(null, $held);
+    }
+
+    expect($test->result())->toBe(MutationTestResult::Uncovered)
+        ->and(Noted::taken(KillerFile::beside($results, $test->mutation->modifiedSourcePath)))->toBe(KillerFile::streamed());
 });

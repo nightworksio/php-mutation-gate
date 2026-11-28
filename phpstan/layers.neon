@@ -230,6 +230,10 @@ parameters:
                 # restored before the answer is read (ADR-0078).
                 - src/Adapter/Serve/Connection.php
                 - src/Adapter/Serve/Listener.php
+                # file_get_contents raises a warm worker that is gone between the finding of its state's file and the
+                # read of it as a notice as well as answering false; the handler that keeps it from a run's output is
+                # restored before the answer is read.
+                - src/Adapter/Pest/Warm/Living.php
                 # stream_select raises a pause a wake's own signal cut short as a warning as well as answering false;
                 # the handler that keeps it from a warm worker's or its client's output is restored before the pause
                 # ends (ADR-0120).

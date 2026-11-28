@@ -61,6 +61,7 @@ it('reads how a runner paces its work, each key at its default where no layer se
         ->and($set->pace(Seconds::of(9.0)))->toEqual(RunnerPace::of(8, Seconds::minutes(2), Seconds::of(20.0), Seconds::of(3.0)))
         ->and($set->poll())->toEqual(Seconds::of(0.05))
         ->and($set->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(3))
+        ->and($settings(['runner' => ['use' => 'pest', 'processes' => 1]])->runner()->processes(ProcessCount::of(8)))->toEqual(ProcessCount::single())
         ->and(RunnerPacing::of(processes: 1)->processes(ProcessCount::of(8)))->toEqual(ProcessCount::single())
         ->and(RunnerPacing::of(processes: 0)->processes(ProcessCount::of(8)))->toEqual(ProcessCount::of(8));
 });
@@ -228,6 +229,7 @@ it('refuses a tuning key out of its range', function (array $config, string $pro
     'a notice below none' => [['ignores' => ['notice' => -1]], 'ignores.notice: expected an integer of at least 0, got -1'],
     'a pace of no runs' => [['runner' => ['use' => 'pest', 'recycleAfter' => 0]], 'runner.recycleAfter: expected an integer of at least 1, got 0'],
     'a poll of no time' => [['runner' => ['use' => 'pest', 'poll' => 0]], 'runner.poll: expected a number above 0 and at most 60, got 0'],
+    'no process to run in' => [['runner' => ['use' => 'pest', 'processes' => 0]], 'runner.processes: expected an integer of at least 1, got 0'],
 ]);
 
 it('holds the values no config can write to what they must be', function (): void {

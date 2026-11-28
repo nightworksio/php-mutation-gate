@@ -50,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\LoadingTheFilesOfItsTests;
 use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
@@ -136,7 +137,7 @@ it('runs again only the survivors that fit in the time left, first to last, and 
         ->toBe([MutantStatus::Survived, MutantStatus::Survived, MutantStatus::Unjudged]);
 });
 
-it('runs only the controls that fit in the time left, at the longest limit among them', function (float $short, float $long, array $run): void {
+it('runs only the controls that fit in the time left, each by its own limit, a longer one keeping no shorter one from running', function (float $short, float $long, array $run): void {
     $runner = ScriptedRunner::fixture()->answering(Mutants::of(
         invokedMutant('src/Money.php', 'a', MutantStatus::TimedOut)->withLimit(Seconds::of($short)),
         invokedMutant('src/Held.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of($long)),
@@ -147,8 +148,21 @@ it('runs only the controls that fit in the time left, at the longest limit among
     expect(controlsRun($runner))->toBe($run);
 })->with([
     'one of two alike' => [6.0, 6.0, [1]],
-    'none, the longer not fitting' => [2.0, 20.0, []],
+    'the shorter one, the longer not fitting' => [2.0, 20.0, [1]],
+    'neither, both too long' => [12.0, 20.0, []],
 ]);
+
+it('runs the control that fits where one before it does not, the one before it left unjudged', function (): void {
+    $runner = ScriptedRunner::fixture()->answering(Mutants::of(
+        invokedMutant('src/Money.php', 'a', MutantStatus::TimedOut)->withLimit(Seconds::of(20.0)),
+        invokedMutant('src/Held.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of(2.0)),
+    ), 0);
+
+    invokedWithin($runner, Seconds::of(10.0), invokedMap('src/Money.php', 'src/Held.php'));
+
+    expect(array_map(static fn(Control $control): string => $control->file()->value(), [...$runner->controlled()[0][0]]))
+        ->toBe(['src/Held.php']);
+});
 
 it('controls first the kills of the files the batch took first, so a saved unit\'s kills stand where the time left holds one control', function (): void {
     $other = invokedMutant('src/Other.php', 'other', MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('OtherTest::runs')));
@@ -517,3 +531,31 @@ it('stops the controls it started beside its survivors\' runs again where those 
     expect($invoked)->toBeInstanceOf(CannotJudge::class)
         ->and($runner->calls())->toBe(['started', 'retry', 'stopped']);
 });
+
+it('tells the controls it starts beside its survivors\' runs again the file each test is in, where the runner loads the files of a control\'s tests', function (bool $loads, int $placed): void {
+    $scripted = ScriptedRunner::fixture()->answering(Mutants::of(
+        invokedMutant('src/Money.php', 'a', MutantStatus::Survived),
+        invokedMutant('src/Money.php', 'b', MutantStatus::TimedOut)->withLimit(Seconds::of(6.0)),
+    ), 0);
+    $scripted = $loads
+        ? $scripted->behaving($scripted->behaviour()->selecting(new LoadingTheFilesOfItsTests()))
+        : $scripted;
+    $clock = new StoppedClock('2026-09-30T12:00:00+00:00');
+    $adapters = Flows::adapters(Flows::project(), [], SideBySideRunner::over($scripted));
+    $stopwatch = new Stopwatch($clock, $clock->now());
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+
+    new Invoking(
+        $adapters,
+        Flows::settings(),
+        $clock,
+        Unlimited::time(),
+        $stopwatch,
+        $map,
+        HeldCovered::none(),
+        new SurvivorChecking($adapters, $clock, Unlimited::time(), Seconds::of(60.0), $stopwatch),
+        new PartedRuns($adapters, Flows::settings(), $map, HeldCovered::none()),
+    )->invoked(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(4), Workers::Fork)));
+
+    expect($scripted->controlled()[0][1]->narrowing()->places()->count())->toBe($placed);
+})->with(['a runner that loads them' => [true, 1], 'a runner that loads every file' => [false, 0]]);
