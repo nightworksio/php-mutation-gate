@@ -23,3 +23,8 @@ it('expects a shard to take its cost as its wall time, spread over the processes
     'a second pass half as long' => [4, 0.5, 1600.0, 200.0],
     'a measured factor of none, held to the least' => [4, 0.0, 1600.0, 20.0],
 ]);
+
+it('scales a second pass by no factor below nothing', function (): void {
+    expect(StreamWall::of(2, -0.5)->second(10.0))->toBe(0.0)
+        ->and(StreamWall::of(2, 0.5)->second(10.0))->toBe(2.5);
+});

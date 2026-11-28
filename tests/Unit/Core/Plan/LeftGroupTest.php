@@ -55,7 +55,9 @@ it('times its covering test files once each, a file the map timed no test of at 
         ->and($group->first($wall))->not->toBe($wall->first(1.0, 1.0, 0.0))
         ->and($group->first(StreamWall::of(1, 0.5)))->toBe(1.0)
         ->and($none->first($wall))->toBe($wall->first(0.0, 0.0, 0.0))
-        ->and($none->alone())->toBe(0.0);
+        ->and($none->alone())->toBe(0.0)
+        ->and($group->files())->toBe(['QuickTest' => true, 'SlowTest' => true, 'UntimedTest' => true])
+        ->and($none->files())->toBe([]);
 });
 
 it('adds for another group only the test files it does not run yet, one the map timed no test of at nothing', function (): void {
@@ -67,4 +69,10 @@ it('adds for another group only the test files it does not run yet, one the map 
         ->and($other->added($one, $timed))->toBe(0.0)
         ->and($one->added($one, $timed))->toBe(0.0)
         ->and(LeftGroup::addedTo([], $other, $timed))->toBe(0.75);
+});
+
+it('forks a mutant no stream judged at no killer and no covering test, its own run alone taking its seconds', function (): void {
+    $alone = LeftForks::alone(3.0);
+
+    expect([$alone->killers, $alone->covering, $alone->alone])->toBe([0.0, 0.0, 3.0]);
 });

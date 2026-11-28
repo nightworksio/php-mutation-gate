@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Test;
 
 use function array_key_exists;
-use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -64,6 +63,6 @@ final readonly class TestFiles
             $files[$this->fileOf[$test->value()]->value()] = $this->fileOf[$test->value()];
         }
 
-        return Paths::of(...array_values($files));
+        return Paths::of(...$files);
     }
 }
