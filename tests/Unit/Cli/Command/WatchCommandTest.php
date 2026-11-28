@@ -41,6 +41,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\AnsweringDaemon;
+use NightWorksIO\MutationGate\Tests\Support\CallLimit;
 use NightWorksIO\MutationGate\Tests\Support\ChangingCheckout;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
@@ -86,12 +87,10 @@ function waitsChanging(ChangingCheckout $checkout, int $waits): Closure
  */
 function waitsOn(): Closure
 {
-    $waited = 0;
+    $limit = new CallLimit(64, 'The watch waited more often than the rounds it was to run take.');
 
-    return static function () use (&$waited): bool {
-        if (++$waited > 64) {
-            throw new LogicException('The watch waited more often than the rounds it was to run take.');
-        }
+    return static function () use ($limit): bool {
+        $limit->called();
 
         return true;
     };

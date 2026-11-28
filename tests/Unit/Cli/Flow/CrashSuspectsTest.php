@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Support\CallLimit;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 
 /** A mutant of `src/Money.php` by its native id, as a run reported it. */
@@ -61,14 +62,13 @@ function crashingAt(array $killers, int $told = PHP_INT_MAX): array
 {
     /** @var ArrayObject<int, list<string>> $asked */
     $asked = new ArrayObject();
+    $limit = new CallLimit(32, 'The suspects were run again more often than a search through them takes.');
 
-    return [static function (Mutants $mutants) use ($killers, $told, $asked): Mutants {
+    return [static function (Mutants $mutants) use ($killers, $told, $asked, $limit): Mutants {
         $ids = array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$mutants]);
         $asked->append($ids);
 
-        if (count($asked) > 32) {
-            throw new LogicException('The suspects were run again more often than a search through them takes.');
-        }
+        $limit->called();
 
         $at = array_find_key($ids, static fn(string $id): bool => in_array($id, $killers, strict: true));
         $judged = [];

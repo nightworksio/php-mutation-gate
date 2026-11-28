@@ -193,7 +193,7 @@ it('remembers a control\'s run apart for each set of withheld variables', functi
 it('halts each control, running none and saying nothing, where no time is left', function (): void {
     $root = (string) realpath(Scratch::directory());
     $at = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
-    $shell = new ShellFake(static fn(): Ran => throw new LogicException('No control runs where no time is left.'));
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $control = Control::of(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneyTest.php')), WholeSuite::tests());
 
     $ended = new AloneRuns($at, $shell, new Remembered())->ended(
@@ -206,5 +206,5 @@ it('halts each control, running none and saying nothing, where no time is left',
     expect($ended)->toEqual([
         ControlRun::ofProcess(Ran::halted(''), TestIds::none()),
         ControlRun::ofProcess(Ran::halted(''), TestIds::none()),
-    ]);
+    ])->and($shell->commands())->toBe([]);
 });
