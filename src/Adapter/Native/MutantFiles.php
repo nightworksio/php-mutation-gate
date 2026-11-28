@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Native\Guard;
+use NightWorksIO\MutationGate\Core\Native\MutantDirectory;
 use NightWorksIO\MutationGate\Core\Native\PlacedMutant;
 use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\Runner\StartUp;
@@ -50,12 +51,16 @@ final readonly class MutantFiles implements PlacedMutant
     ) {
     }
 
-    /** The files for a run of the tests this selection lists. */
-    public static function selecting(Project $project, MadeMutant $mutant, Selection $selection): self|CannotJudge
-    {
+    /** The files for a run of the tests this selection lists, in a part of its directory where one is named. */
+    public static function selecting(
+        Project $project,
+        MadeMutant $mutant,
+        Selection $selection,
+        string $part = '',
+    ): self|CannotJudge {
         return self::written(
             $project,
-            $mutant->id()->value(),
+            MutantDirectory::of($mutant->id()->value(), $part),
             $mutant->location()->file(),
             $mutant->mutated(),
             $selection,

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
+use function array_key_exists;
 use function array_key_first;
 use function array_keys;
 use function array_values;
+
+use Closure;
+
 use function count;
 use function getenv;
 
@@ -105,6 +109,11 @@ final class Started implements StartedProcesses
 
     public function ends(): ProcessEnds
     {
+        return $this->endsSettling(static fn(): array => []);
+    }
+
+    public function endsSettling(Closure $settled): ProcessEnds
+    {
         $halting = Halting::listened();
 
         try {
@@ -115,6 +124,7 @@ final class Started implements StartedProcesses
                 }
 
                 $this->step();
+                $this->letGo($this->ended === [] ? [] : $settled($this->ends));
             }
         } finally {
             $halting->letGo();
@@ -137,6 +147,32 @@ final class Started implements StartedProcesses
         }
 
         $this->running = [];
+    }
+
+    /**
+     * The commands at these positions let go: each running one stopped, its
+     * place freed, and each waiting one never started, its end a stop with
+     * nothing printed, so the ends keep their positions.
+     *
+     * @param list<int> $positions
+     */
+    private function letGo(array $positions): void
+    {
+        foreach ($positions as $at) {
+            if (array_key_exists($at, $this->waiting)) {
+                unset($this->waiting[$at]);
+                $this->ends[$at] = Ran::stopped('');
+            }
+
+            if (! array_key_exists($at, $this->running)) {
+                continue;
+            }
+
+            $process = $this->running[$at];
+            $this->ends[$at] = $process->stop($this->now());
+            $this->free[$process->place()] = $this->places[$process->place()];
+            unset($this->running[$at]);
+        }
     }
 
     /** Whether any command waits to start or runs. */

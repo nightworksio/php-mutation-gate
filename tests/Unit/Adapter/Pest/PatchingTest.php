@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\Duplicates;
 use NightWorksIO\MutationGate\Core\Config\LongFilter;
 use NightWorksIO\MutationGate\Core\Config\NarrowedKillTrust;
 use NightWorksIO\MutationGate\Core\Config\PestWorkers;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Toggles;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -63,7 +64,7 @@ it('compiles schemata where it is on, unless told not to, keeping its other sett
         $on->working(PestWorkers::of(schemata: false))->working(PestWorkers::of(bootTail: false))->schemata(),
         $on->working(PestWorkers::of(schemata: false))->working(PestWorkers::of(workerOpcache: true))->schemata(),
         Patching::off()->schemata(),
-    ])->toBe([['MUTATION_GATE_SCHEMATA' => '1'], [], true, false, [], [], []]);
+    ])->toBe([['MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_SWITCH_GUARD' => '1'], [], true, false, [], [], []]);
 });
 
 it('boots mutants\' workers where it is on, unless told not to, keeping its other settings as they were', function (): void {
@@ -131,7 +132,7 @@ it('splits its streams where it is on, compiles schemata and is told to, keeping
         Patching::off()->splitting($splitting)->splitsStreams(),
         Patching::off()->splitting($splitting)->schemata(),
     ])->toBe([true, true, true, false, [], false, true, false, []])
-        ->and($on->schemata())->toBe(['MUTATION_GATE_SCHEMATA' => '1', ...$splitting->variables()]);
+        ->and($on->schemata())->toBe(['MUTATION_GATE_SCHEMATA' => '1', 'MUTATION_GATE_SWITCH_GUARD' => '1', ...$splitting->variables()]);
 });
 
 it('keeps a shard\'s mutants\' workers for its next chunk only where pest.bootChunks asks and they boot and cache nothing', function (): void {
@@ -145,4 +146,15 @@ it('keeps a shard\'s mutants\' workers for its next chunk only where pest.bootCh
         $kept->working(PestWorkers::of(workerOpcache: true))->stepping($asking)->keepsChunkWorkers(),
         Patching::off()->stepping($asking)->keepsChunkWorkers(),
     ])->toBe([true, false, false, false, false]);
+});
+
+it('guards no switch of its schemata under pest.switchGuard off', function (): void {
+    $patching = Patching::on(Group::named('canary'))->stepping(PestSteps::of(
+        Toggles::of(Toggle::PestSwitchGuard, on: false),
+        NarrowedKillTrust::Vouch,
+        LongFilter::Files,
+        Duplicates::JudgeOnce,
+    ));
+
+    expect($patching->schemata())->toBe(['MUTATION_GATE_SCHEMATA' => '1']);
 });

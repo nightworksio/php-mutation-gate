@@ -130,7 +130,7 @@ final readonly class Seeder
                 version(),
                 $history->likelyKillers($ids[$at], $in),
                 $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
-                $coverage,
+                $coverage->secondsOf(...),
             );
         }
     }

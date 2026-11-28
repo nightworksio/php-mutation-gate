@@ -6,7 +6,10 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 
-/** How a heavy mutant's parts run (ADR-0114): `timeouts.heavyFill` and `timeouts.heavyParts`. */
+/**
+ * How a heavy mutant's parts run (ADR-0114): `timeouts.heavyFill`, `timeouts.heavyParts` and
+ * `timeouts.heavyBeside`.
+ */
 final readonly class HeavyMutants implements Setting
 {
     private function __construct(private Json $json)
@@ -32,6 +35,21 @@ final readonly class HeavyMutants implements Setting
     public static function partsAtMost(int $parts): self
     {
         return new self(Json::at('timeouts.heavyParts', $parts));
+    }
+
+    /**
+     * `timeouts.heavyBeside`, `true`: the first round of heavy mutants' parts runs in the controls' pool, behind
+     * them, as by default (ADR-0201).
+     */
+    public static function firstRoundBesideControls(): self
+    {
+        return new self(Json::at('timeouts.heavyBeside', value: true));
+    }
+
+    /** `timeouts.heavyBeside`, `false`: the first round of heavy mutants' parts starts once the controls have ended. */
+    public static function firstRoundAfterControls(): self
+    {
+        return new self(Json::at('timeouts.heavyBeside', value: false));
     }
 
     public function written(): Json

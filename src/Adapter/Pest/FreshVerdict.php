@@ -114,6 +114,12 @@ final readonly class FreshVerdict
         };
     }
 
+    /** Whether it is a kill a covering test is named for. */
+    public function killsByName(): bool
+    {
+        return $this->verdict === MutantStatus::Killed && ! $this->unnamed;
+    }
+
     /** Whether it is a kill no test is named for that no unmutated run has vouched for yet. */
     public function needsControl(): bool
     {

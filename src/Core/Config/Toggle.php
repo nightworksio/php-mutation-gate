@@ -27,6 +27,12 @@ enum Toggle: string
     /** A patched mutant's own run loads only the test files its covering tests need. */
     case PestNarrow = 'pest.narrow';
 
+    /** A fresh run asks Pest for its likely killers first, the rest fastest first, as its own run does (ADR-0202). */
+    case PestFreshOrder = 'pest.freshOrder';
+
+    /** A fresh run's covering tests also run in parts on idle places, a vouched kill settling the mutant (ADR-0203). */
+    case PestFreshRace = 'pest.freshRace';
+
     /** A survivor the analyser rejects counts as killed by static analysis (ADR-0020). */
     case StaticCheckAfter = 'staticCheck.after';
 
@@ -35,6 +41,9 @@ enum Toggle: string
 
     /** A mutant's start-up is measured once, as the plan is made, for every shard of its platform (ADR-0165). */
     case TimeoutsStartUpAtPlan = 'timeouts.startUpAtPlan';
+
+    /** The first round of an invocation's heavy mutants' parts runs in its controls' pool, behind them (ADR-0201). */
+    case TimeoutsHeavyBeside = 'timeouts.heavyBeside';
 
     /** The verdict notes each loose value in force (ADR-0142). */
     case SuggestLooseValues = 'suggest.looseValues';
@@ -56,6 +65,9 @@ enum Toggle: string
 
     /** An invocation's controls run beside its survivors' runs again, each in a share of the pool. */
     case PestOverlapSteps = 'pest.overlapSteps';
+
+    /** A schema's switch is guarded, so a site decided in this process makes no call (ADR-0204). */
+    case PestSwitchGuard = 'pest.switchGuard';
 
     /** A mutation run starts with pcov off, unless its streams record lines with pcov (ADR-0147). */
     case PestPcovOff = 'pest.pcovOff';
@@ -88,12 +100,15 @@ enum Toggle: string
             self::PestTrials,
             self::PestValueReaders,
             self::PestNarrow,
+            self::PestFreshOrder,
+            self::PestFreshRace,
             self::PestShardScan,
             self::PestReadyAtPlan,
             self::PestMakeSideBySide,
             self::PestLongestFirst,
             self::PestRemember,
             self::PestOverlapSteps,
+            self::PestSwitchGuard,
             self::PestPcovOff,
             self::PestXdebugOff => true,
             self::ControlsKills,
@@ -101,6 +116,7 @@ enum Toggle: string
             self::StaticCheckAfter,
             self::TimeoutsParts,
             self::TimeoutsStartUpAtPlan,
+            self::TimeoutsHeavyBeside,
             self::SuggestLooseValues,
             self::StaticCheckTurbo,
             self::StaticCheckWarmAtPlan => false,
@@ -122,12 +138,16 @@ enum Toggle: string
             self::StaticCheckTurbo,
             self::StaticCheckWarmAtPlan,
             self::TimeoutsStartUpAtPlan,
+            self::TimeoutsHeavyBeside,
+            self::PestFreshOrder,
+            self::PestFreshRace,
             self::PestShardScan,
             self::PestReadyAtPlan,
             self::PestMakeSideBySide,
             self::PestLongestFirst,
             self::PestRemember,
             self::PestOverlapSteps,
+            self::PestSwitchGuard,
             self::PestPcovOff,
             self::PestXdebugOff => true,
             self::ControlsKills,
@@ -159,6 +179,8 @@ enum Toggle: string
             self::ControlsMemory,
             self::PestValueReaders,
             self::PestNarrow,
+            self::PestFreshOrder,
+            self::PestFreshRace,
             self::StaticCheckAfter,
             self::TimeoutsParts,
             self::SuggestLooseValues,
@@ -168,11 +190,13 @@ enum Toggle: string
             self::PestLongestFirst,
             self::PestRemember,
             self::PestOverlapSteps,
+            self::PestSwitchGuard,
             self::PestPcovOff,
             self::PestXdebugOff,
             self::StaticCheckTurbo,
             self::StaticCheckWarmAtPlan,
-            self::TimeoutsStartUpAtPlan => false,
+            self::TimeoutsStartUpAtPlan,
+            self::TimeoutsHeavyBeside => false,
         };
     }
 
@@ -185,9 +209,12 @@ enum Toggle: string
             self::PestTrials => 'Pest::trying()',
             self::PestValueReaders => 'Pest::readingValues()',
             self::PestNarrow => 'Pest::narrowing()',
+            self::PestFreshOrder => 'FreshRunSpeedUps::killersFirst()',
+            self::PestFreshRace => 'FreshRunSpeedUps::racing()',
             self::StaticCheckAfter => 'CheckTiming::checkingSurvivors()',
             self::TimeoutsParts => 'Timeouts::inParts()',
             self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringAtPlan()',
+            self::TimeoutsHeavyBeside => 'HeavyMutants::firstRoundBesideControls()',
             self::SuggestLooseValues => 'Suggest::looseValuesNoted()',
             self::StaticCheckTurbo => 'StaticCheck::turbo()',
             self::StaticCheckWarmAtPlan => 'StaticCheck::warmingAtPlan()',
@@ -197,6 +224,7 @@ enum Toggle: string
             self::PestLongestFirst => 'PestSpeedUps::longestFirst()',
             self::PestRemember => 'PestSpeedUps::remembering()',
             self::PestOverlapSteps => 'PestSpeedUps::overlappingSteps()',
+            self::PestSwitchGuard => 'SchemaSwitches::guarded()',
             self::PestPcovOff => 'PestSpeedUps::pcovOff()',
             self::PestXdebugOff => 'PestSpeedUps::xdebugOff()',
         };
@@ -211,9 +239,12 @@ enum Toggle: string
             self::PestTrials => 'Pest::withoutTrials()',
             self::PestValueReaders => 'Pest::withoutValueReaders()',
             self::PestNarrow => 'Pest::unnarrowed()',
+            self::PestFreshOrder => 'FreshRunSpeedUps::pestsOwnOrder()',
+            self::PestFreshRace => 'FreshRunSpeedUps::runningAlone()',
             self::StaticCheckAfter => 'CheckTiming::survivorsUnchecked()',
             self::TimeoutsParts => 'Timeouts::neverInParts()',
             self::TimeoutsStartUpAtPlan => 'TimeoutSpeedUps::measuringInEachShard()',
+            self::TimeoutsHeavyBeside => 'HeavyMutants::firstRoundAfterControls()',
             self::SuggestLooseValues => 'Suggest::looseValuesSilent()',
             self::StaticCheckTurbo => 'StaticCheck::withoutTurbo()',
             self::StaticCheckWarmAtPlan => 'StaticCheck::warmingInEachShard()',
@@ -223,6 +254,7 @@ enum Toggle: string
             self::PestLongestFirst => 'PestSpeedUps::inTheirOrder()',
             self::PestRemember => 'PestSpeedUps::forgetting()',
             self::PestOverlapSteps => 'PestSpeedUps::stepByStep()',
+            self::PestSwitchGuard => 'SchemaSwitches::unguarded()',
             self::PestPcovOff => 'PestSpeedUps::pcovOn()',
             self::PestXdebugOff => 'PestSpeedUps::xdebugAsConfigured()',
         };

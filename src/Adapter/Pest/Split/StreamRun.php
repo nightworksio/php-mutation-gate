@@ -81,6 +81,8 @@ final class StreamRun
 
     private readonly ParentDeadline $deadline;
 
+    private readonly SiteGuard $guard;
+
     private function __construct(
         private readonly StreamPlan $plan,
         private readonly Children $children,
@@ -94,6 +96,7 @@ final class StreamRun
         $this->processes = StartedProcesses::beside($plan->results);
         $this->fallbacks = new ForkFallbacks($plan, $this->lines);
         $this->deadline = ParentDeadline::of($plan, $plan->places->mark());
+        $this->guard = SiteGuard::of($plan);
     }
 
     /**
@@ -136,6 +139,7 @@ final class StreamRun
     public function booting(bool $booting): void
     {
         $this->boot->booting($booting);
+        SchemaSwitch::lifting($booting);
     }
 
     /**
@@ -159,6 +163,7 @@ final class StreamRun
         }
 
         $this->kills->failedIn($this->children->reapedAll());
+        $this->guard->killed(...$this->kills->taken());
         $this->lines->finished();
         $this->processes->unwatched();
         SchemaSwitch::unsplit();
@@ -239,6 +244,7 @@ final class StreamRun
         $this->children->ended($test->id, $seconds);
         $this->test = CurrentTest::none();
         $this->kills->failedIn($this->children->reaped(blocking: false));
+        $this->guard->killed(...$this->kills->taken());
 
         if ($this->testProcess) {
             $this->children->reapedAll();

@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Order;
 
 use function basename;
+
+use Closure;
+
 use function copy;
 use function file_put_contents;
 use function is_dir;
 use function json_encode;
 use function mkdir;
 
-use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sprintf;
@@ -66,14 +69,34 @@ final readonly class Seed
         return sprintf('%s/%s', $directory, basename($mutated));
     }
 
-    /** Writes a mutant's order where its own process reads it, from the tests that cover it. */
+    /**
+     * Writes a mutant's order where its own process reads it, from the tests that cover it.
+     *
+     * @param Closure(TestId): float $secondsOf each covering test's time
+     */
     public static function write(
         string $seed,
         string $version,
         TestIds $killers,
         TestIds $covering,
-        CoverageFile $coverage,
+        Closure $secondsOf,
     ): void {
+        if (! is_dir($seed)) {
+            mkdir($seed, recursive: true);
+        }
+
+        $history = self::history($version, $killers, $covering, $secondsOf);
+        file_put_contents(sprintf('%s/%s', $seed, self::HISTORY), $history);
+    }
+
+    /**
+     * A mutant's order as the history Pest reads: its likely killers as defects, the first ahead of the rest, and each
+     * covering test's time.
+     *
+     * @param Closure(TestId): float $secondsOf each covering test's time
+     */
+    public static function history(string $version, TestIds $killers, TestIds $covering, Closure $secondsOf): string
+    {
         $defects = [];
         $times = [];
 
@@ -82,11 +105,7 @@ final readonly class Seed
         }
 
         foreach ($covering as $test) {
-            $times[HistoryId::of($test->value())] = $coverage->secondsOf($test);
-        }
-
-        if (! is_dir($seed)) {
-            mkdir($seed, recursive: true);
+            $times[HistoryId::of($test->value())] = $secondsOf($test);
         }
 
         $history = [
@@ -95,6 +114,6 @@ final readonly class Seed
             'times' => $times === [] ? new stdClass() : $times,
         ];
 
-        file_put_contents(sprintf('%s/%s', $seed, self::HISTORY), json_encode($history, RecordLine::FLAGS));
+        return (string) json_encode($history, RecordLine::FLAGS);
     }
 }

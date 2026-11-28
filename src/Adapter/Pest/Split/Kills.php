@@ -24,6 +24,9 @@ final class Kills
     /** @var array<string, list<string>> the mutants a child failed, by the test the parent is still in */
     private array $pending = [];
 
+    /** @var list<string> the mutants killed since they were last taken */
+    private array $fresh = [];
+
     /**
      * Children failed or ended in these tests: each mutant is killed where the
      * parent passed its test, or once the parent does.
@@ -39,8 +42,9 @@ final class Kills
                 continue;
             }
 
-            if ($this->passed[$test]) {
+            if ($this->passed[$test] && ! array_key_exists($mutant, $this->killed)) {
                 $this->killed[$mutant] = true;
+                $this->fresh[] = $mutant;
             }
         }
     }
@@ -55,6 +59,18 @@ final class Kills
         foreach ($waiting as $mutant) {
             $this->failedIn([[$mutant, $test]]);
         }
+    }
+
+    /**
+     * The mutants killed since this was last asked.
+     *
+     * @return list<string>
+     */
+    public function taken(): array
+    {
+        [$fresh, $this->fresh] = [$this->fresh, []];
+
+        return $fresh;
     }
 
     public function has(string $mutant): bool

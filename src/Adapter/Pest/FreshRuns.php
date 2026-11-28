@@ -14,6 +14,7 @@ use function count;
 use function getmypid;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Toggle;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -136,15 +137,24 @@ final readonly class FreshRuns
         MemoryScan $scan,
         ServedChildren $children,
     ): FreshBatch {
+        $map = $coverage->map($this->project);
+
         return new FreshBatch(
             $request,
             $coverage,
-            $coverage->map($this->project),
+            $map,
             Suite::of($coverage->tests()),
             $request->pool()->bounding($this->bounds),
             $override,
             $scan,
             $children,
+            FreshOrder::of(
+                $this->project,
+                $this->placement,
+                $request,
+                $map->durations(),
+                $this->patching->steps()->on(Toggle::PestFreshOrder),
+            ),
         );
     }
 
@@ -213,8 +223,8 @@ final readonly class FreshRuns
         }
 
         $slots = WorkerSlots::inPool($batch->request->pool(), strval(getmypid()));
-        $commands = array_map(static fn(FreshRun $run): Command => $run->command(), $runs);
-        $ended = [...$this->sideBySide($slots, $left(), $commands)];
+        [$runs, $ended] = new FreshRacing($this->shell, $this->preparing, $this->patching)
+            ->raced($slots, $left, $runs, $batch);
         $verdicts = $this->verdictsOf($ended, $runs, $batch->request->memory());
         $steps = StepTimes::of($laps->lap(Step::Mutation, $from, count($runs)));
         $asked = array_keys(array_filter(
@@ -230,7 +240,8 @@ final readonly class FreshRuns
         $batch->children->remove();
 
         return $this->settled($result, $judged, $runs, $ended, $controlled, $batch->request->memory())
-            ->withSteps($steps);
+            ->withSteps($steps)
+            ->withWarnings($batch->order->notes());
     }
 
     /**
