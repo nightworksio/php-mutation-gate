@@ -10,7 +10,6 @@ use function array_values;
 use Closure;
 
 use function count;
-use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -199,7 +198,7 @@ final readonly class VouchedKills
         $now = ($this->left)();
 
         return $within instanceof Seconds && $began instanceof Seconds && $now instanceof Seconds
-            ? Seconds::of(max(0.0, $within->seconds() - ($began->seconds() - $now->seconds())))
+            ? Seconds::of($within->seconds() - ($began->seconds() - $now->seconds()))
             : $now;
     }
 
