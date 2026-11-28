@@ -199,7 +199,7 @@ it('gives a job of the second wave the limit less the time its shard took to sta
     'opened past the limit: a share each' => [150.0, 2],
 ]);
 
-it('prices a mutant its shard left unrun once its own runs began at what each finished own run took, at its covering tests\' seconds where none finished, and counts the share\'s time from when they began', function (Closure $passes, float $limit, int $shares): void {
+it('prices a mutant its shard left unrun once its own runs began at what each finished own run took, at its covering tests\' seconds where none finished, and counts the share\'s time from when they began', function (Closure $passes, float $limit, int $shares, int $processes = 1): void {
     [$project, $plan, $whole] = LeftAtTheDeadline::run();
     leftoverCuttingApart($project, $whole);
     $file = sprintf('%s/1.json', Workspace::results()->value());
@@ -217,7 +217,7 @@ it('prices a mutant its shard left unrun once its own runs began at what each fi
     )) : '');
     leftoverCuttingMap($project, ['MoneyTest::compares' => [50.0, 'src/Money.php', 16], 'OtherTest::subtracts' => [40.0, 'src/Other.php', 21]]);
 
-    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), ShardSettings::of(jobLimit: Seconds::of($limit)), StreamWall::of(1, 0.0));
+    $cut = new LeftoverCutting(Flows::adapters($project))->cut($plan, Workspace::results(), Workspace::coverage(), ShardSettings::of(jobLimit: Seconds::of($limit)), StreamWall::of($processes, 0.0));
 
     expect($cut instanceof LeftoverShares ? count($cut->ofShard(ShardId::of(1))) : $cut)->toBe($shares);
 })->with([
@@ -255,6 +255,18 @@ it('prices a mutant its shard left unrun once its own runs began at what each fi
         static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 102)],
         190.0,
         1,
+    ],
+    'three of five own runs finished in 300 s of a job of two processes: each at both processes\' seconds, past a share' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 5)],
+        200.0,
+        2,
+        2,
+    ],
+    'the same, in a job of two processes long enough for both' => [
+        static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(10.0)), StepTime::of(Step::OwnRuns, Seconds::of(10.0), Seconds::of(300.0), 5)],
+        300.0,
+        1,
+        2,
     ],
     'stopped in its second pass: no own run began, priced by its streams' => [
         static fn(): array => [StepTime::of(Step::SecondPass, Seconds::of(0.0), Seconds::of(400.0))],
