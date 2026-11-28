@@ -79,6 +79,25 @@ function waitsChanging(ChangingCheckout $checkout, int $waits): Closure
 }
 
 /**
+ * A wait that always says to go on, and refuses to be asked more often than
+ * the rounds a test counts take, so a watch that never ends fails.
+ *
+ * @return Closure(): bool
+ */
+function waitsOn(): Closure
+{
+    $waited = 0;
+
+    return static function () use (&$waited): bool {
+        if (++$waited > 64) {
+            throw new LogicException('The watch waited more often than the rounds it was to run take.');
+        }
+
+        return true;
+    };
+}
+
+/**
  * A project of the flows whose config holds these members, each round
  * judging by the config as it stands, ending with its whole report and
  * stopped whole by a change, unless the members set `local.quick`,
@@ -531,7 +550,7 @@ it('ends after the rounds --rounds counts though the wait goes on, passed where 
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     $composition = FlowCommands::watching(watchedProject(), $runner, new ProofStoreFake(), $changing());
 
-    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => true, watchOnMains()), '--rounds=1');
+    $ran = FlowCommands::run(WatchCommand::command($composition, waitsOn(), watchOnMains()), '--rounds=1');
 
     expect([$ran->code, $ran->errors])->toBe([0, ''])
         ->and(substr_count($ran->output, 'mutation-gate: '))->toBe(1)
@@ -542,7 +561,7 @@ it('fails where the last round --rounds counts could not judge, saying why', fun
     $failing = new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('1 test failed.'));
     $composition = FlowCommands::watching(watchedProject(), $failing, new ProofStoreFake(), $changing());
 
-    $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => true, watchOnMains()), '--rounds=1');
+    $ran = FlowCommands::run(WatchCommand::command($composition, waitsOn(), watchOnMains()), '--rounds=1');
 
     expect($ran->code)->not->toBe(0)
         ->and(sprintf('%s%s', $ran->output, $ran->errors))->toContain('1 test failed.');
