@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\PcovTests;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
@@ -328,6 +329,16 @@ it('removes the memory cap at once where none of the controls it is to start can
         ->and(is_dir(MemoryScan::directoryBeside(sprintf('%s/.mutation-gate/pest/controls/runs', $at->root()))))->toBeFalse();
 });
 
+it('starts a control that runs a test the run listed as reading pcov with the mark that keeps the driver on, and no other', function (): void {
+    $at = unmutatedProject();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    Scratch::write($at->root(), mb_substr(sprintf('%s.pcov-tests', $at->results()), mb_strlen($at->root()) + 1), 'P\\Tests\\MoneySpec::__pest_evaluable_it_reads');
+
+    unmutatedRuns($at, $shell, Controls::of(pestControl('src/Money.php', 5.0, 'it_reads'), pestControl('src/Tax.php')), unmutatedRequest());
+
+    expect(array_map(PcovTests::keeps(...), $shell->commands()))->toBe([true, false]);
+});
+
 it('cannot run the controls where an earlier run left a file in their place that cannot be removed', function (): void {
     $at = unmutatedProject();
     $place = sprintf('%s/.mutation-gate/pest/controls/runs', $at->root());
@@ -514,6 +525,17 @@ it('names a control\'s tests in a file beside its log under pest.longFilter: set
 
     expect($ids)->toHaveCount(1)
         ->and(is_array($listed) ? count($listed) : 0)->toBe(2000);
+});
+
+it('names a control\'s tests in no file where Pest\'s filter holds them, though it is told it may', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    new UnmutatedRuns(unmutatedProject(), $shell, new CapDirectory(), byIds: true)
+        ->of(unmutatedRequest(), Controls::of(pestControl('src/Money.php')));
+    $named = sprintf('%s=', PhpUnitOption::TestIdFilterFile->value);
+
+    expect(array_filter($shell->commands()[0]->arguments(), static fn(string $argument): bool => str_starts_with($argument, $named)))
+        ->toBe([]);
 });
 
 it('names a control\'s tests in no file unless it is told to, however many they are', function (): void {
