@@ -109,10 +109,11 @@ it('allows a mutant patched Pest times out the floor its quick tests fall under,
         ->and($again instanceof Mutants ? $limits($again) : [])->toBe([10.0]);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
-// Three tests of most of a second each cover the stalled loop: the limit
-// of all three is about 12 seconds, the silence limit of the slowest about
-// 7. The mutant hangs in its first test, so no test finishes, and patched
-// Pest stops its run at the silence limit, seconds before its own limit.
+// Three tests of more than half a second each cover the stalled loop, under a
+// start-up of a second: the limit of all three is about 6.4 seconds, the
+// silence limit of the slowest about 2.8. The mutant hangs in its first test,
+// so no test finishes, and patched Pest stops its run at the silence limit,
+// seconds before its own limit.
 it('stops a mutant\'s run where no test of it finishes for its silence limit, short of its own limit, with patched Pest', function (): void {
     $source = Tree::at(sprintf('%s/src/Stall.php', Library::DIRECTORY));
     $spec = Tree::at(sprintf('%s/tests/StallSpec.php', Library::DIRECTORY));
@@ -121,7 +122,7 @@ it('stops a mutant\'s run where no test of it finishes for its silence limit, sh
     Library::patched();
     $library = Library::pestWithin(
         Patching::on(Library::canary()),
-        LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)),
+        LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0), RunnerContracts::START_UP),
         'pest patched under a floor of a second',
     );
 
@@ -138,9 +139,9 @@ it('stops a mutant\'s run where no test of it finishes for its silence limit, sh
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->stop()->limit()), $mutants))
-        ->each->toBeGreaterThan(11.0)
+        ->each->toBeGreaterThan(6.0)
         ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
-        ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
+        ->each->toBeGreaterThan(2.5)->toBeLessThan(5.5)
         ->and(array_map(
             static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
             $mutants,
@@ -149,9 +150,9 @@ it('stops a mutant\'s run where no test of it finishes for its silence limit, sh
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 // The drained loop never ends under its mutant, and its one test takes no
-// time, so its own limit is the floor of ten seconds. Its mutator is one
-// timeouts.tighter lists, so its silence limit keeps above seven seconds
-// only, and its run is stopped there, before its own limit.
+// time, so its own limit is the floor of five seconds. Its mutator is one
+// timeouts.tighter lists, so its silence limit keeps above two seconds only,
+// and its run is stopped there, before its own limit.
 it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator, with patched Pest', function (): void {
     Library::patched();
     $library = Library::pestWithin(Patching::on(Library::canary()), RunnerContracts::tighterBounds('PostDecrementToPostIncrement'), 'pest patched, drains tighter');
@@ -160,8 +161,8 @@ it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator,
 
     expect(RunnerContracts::tighterSilenced($result))->toHaveCount(1)
         ->and(RunnerContracts::tighterSilenced($result)[0][0])->toBe(MutantStatus::TimedOut)
-        ->and(RunnerContracts::tighterSilenced($result)[0][1])->toBeLessThan(9.5)
-        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(7.0))->text());
+        ->and(RunnerContracts::tighterSilenced($result)[0][1])->toBeLessThan(3.5)
+        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(RunnerContracts::TIGHTER))->text());
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator, with PHPUnit', function (Workers $workers): void {
@@ -172,8 +173,8 @@ it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator,
 
     expect(RunnerContracts::tighterSilenced($result))->toHaveCount(1)
         ->and(RunnerContracts::tighterSilenced($result)[0][0])->toBe(MutantStatus::TimedOut)
-        ->and(RunnerContracts::tighterSilenced($result)[0][1])->toBeLessThan(9.5)
-        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(7.0))->text());
+        ->and(RunnerContracts::tighterSilenced($result)[0][1])->toBeLessThan(3.5)
+        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(RunnerContracts::TIGHTER))->text());
 })->with([
     'in a fresh process' => [Workers::Fresh],
     'forked from a warm worker' => [Workers::Fork],
@@ -186,8 +187,8 @@ it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator,
 
     expect(RunnerContracts::tighterSilenced($result))->toHaveCount(1)
         ->and(RunnerContracts::tighterSilenced($result)[0][0])->toBe(MutantStatus::TimedOut)
-        ->and(RunnerContracts::tighterSilenced($result)[0][1])->toBeLessThan(9.5)
-        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(7.0))->text());
+        ->and(RunnerContracts::tighterSilenced($result)[0][1])->toBeLessThan(3.5)
+        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(RunnerContracts::TIGHTER))->text());
 })->skip(fn(): bool => ! Library::isPhpSpecInstalled(), 'the PhpSpec runner contracts steps install its library')->group(...$holds);
 
 it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator, with Codeception', function (): void {
@@ -197,8 +198,8 @@ it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator,
 
     expect(RunnerContracts::tighterSilenced($result))->toHaveCount(1)
         ->and(RunnerContracts::tighterSilenced($result)[0][0])->toBe(MutantStatus::TimedOut)
-        ->and(RunnerContracts::tighterSilenced($result)[0][1])->toBeLessThan(9.5)
-        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(7.0))->text());
+        ->and(RunnerContracts::tighterSilenced($result)[0][1])->toBeLessThan(3.5)
+        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(RunnerContracts::TIGHTER))->text());
 })->skip(fn(): bool => ! Library::isCodeceptionInstalled(), 'the Codeception runner contracts steps install its library')->group(...$holds);
 
 // A floor of a millisecond is less than any covering test takes, so a
@@ -257,7 +258,7 @@ it('judges a mutant whose covering class takes longer than timeouts.seconds, ski
 })->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
 it('allows a mutant patched Infection times out the floor its quick tests fall under, and warns of nothing', function (): void {
-    $library = Library::infectionWithin(Triage::standard()->limits()->bounds());
+    $library = Library::infectionWithin(LimitBounds::between(Seconds::of(3.0), Seconds::of(300.0), RunnerContracts::START_UP));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains')));
     $result = RunnerContracts::withPatchedInfection(static fn(): MutationResult|CannotJudge => $library->runner()->mutate($request));
@@ -267,14 +268,15 @@ it('allows a mutant patched Infection times out the floor its quick tests fall u
         ->and(array_map(
             static fn(Mutant $mutant): float => $mutant->stop()->limit() instanceof Seconds ? $mutant->stop()->limit()->seconds() : 0.0,
             iterator_to_array($timedOut, preserve_keys: false),
-        ))->toBe([10.0])
+        ))->toBe([3.0])
         ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
 })->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
-// Three test classes of a second each cover the stalled loop: the limit of
-// all three is 14 seconds, the silence limit of the slowest 8. The mutant
-// hangs in its first test, after PHPUnit printed its header, so patched
-// Infection stops its run where it prints nothing for its silence limit.
+// Three test classes of more than half a second each cover the stalled loop,
+// under a start-up of a second: the limit of all three is about 6.4 seconds,
+// the silence limit of the slowest about 2.8. The mutant hangs in its first
+// test, after PHPUnit printed its header, so patched Infection stops its run
+// where it prints nothing for its silence limit.
 it('stops a mutant\'s run where it prints nothing for its silence limit, short of its own limit, with patched Infection', function (): void {
     $files = ['src/Stall.php' => 'stall/src/Stall.php'];
 
@@ -286,7 +288,7 @@ it('stops a mutant\'s run where it prints nothing for its silence limit, short o
         copy(Tree::at(sprintf('tests/Contract/Runner/%s', $from)), Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, $into)));
     }
 
-    $library = Library::infectionWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)));
+    $library = Library::infectionWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0), RunnerContracts::START_UP));
     $request = MutationRequest::of(Paths::of(Path::of('src/Stall.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Stall.php')), Narrowing::none()->toMutators($library->mutators('drains')));
     try {
@@ -301,7 +303,7 @@ it('stops a mutant\'s run where it prints nothing for its silence limit, short o
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
         ->and(array_map(static fn(Mutant $mutant): float => $mutant->stop()->limit() instanceof Seconds ? $mutant->stop()->limit()->seconds() : 0.0, $mutants))
-        ->each->toBeGreaterThan(13.0)
+        ->each->toBeGreaterThan(6.0)
         ->and(array_map(
             static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
             $mutants,
@@ -317,7 +319,7 @@ it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator,
 
     expect(RunnerContracts::tighterSilenced($result))->toHaveCount(1)
         ->and(RunnerContracts::tighterSilenced($result)[0][0])->toBe(MutantStatus::TimedOut)
-        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(7.0))->text());
+        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(RunnerContracts::TIGHTER))->text());
 })->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
 // A test that stats a dangling link reads it alike through patched

@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -49,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Native\PlacesMutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -226,6 +228,9 @@ final class Library
 
     /** @var array<string, MutationResult|CannotJudge> each real run's answer, by library and request */
     private static array $runs = [];
+
+    /** @var array<string, CoverageMap|CannotJudge> each coverage run's map, by library and request */
+    private static array $maps = [];
 
     /**
      * @param array<string, string>                        $vocabulary the runner's mutator for each change, by the change
@@ -678,6 +683,18 @@ final class Library
         );
 
         return $this->endsReported ? $spelling : $spelling->unmeasured();
+    }
+
+    /** A coverage run's map, measured once for this library whatever the number of tests that ask. */
+    public function covered(string $key, CoverageRun $request): CoverageMap|CannotJudge
+    {
+        $run = sprintf('%s %s', $this->name, $key);
+
+        if (! array_key_exists($run, self::$maps)) {
+            self::$maps[$run] = $this->runner->coverage($request);
+        }
+
+        return self::$maps[$run];
     }
 
     /** A request's answer, run once for this library whatever the number of tests that ask. */

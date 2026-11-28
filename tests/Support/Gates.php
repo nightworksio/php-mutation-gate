@@ -48,14 +48,14 @@ final readonly class Gates
     /** The table of the gates. */
     public const string TABLE = '.github/gates.json';
 
+    /** A job that calls another workflow, and the workflow it calls. */
+    public const string CALLED = '#^\./(\.github/workflows/[\w.-]+\.ya?ml)$#';
+
     /** The action that gathers a run's evidence into one artifact. */
     private const string GATHERS = './.github/actions/evidence';
 
     /** What gates.json says in place of a job's producers where it leaves no evidence. */
     private const string NONE = 'none';
-
-    /** A job that calls another workflow, and the workflow it calls. */
-    private const string CALLED = '#^\./(\.github/workflows/[\w.-]+\.ya?ml)$#';
 
     /**
      * Every CI job by the name its evidence goes by: a job of a workflow by
@@ -132,7 +132,7 @@ final readonly class Gates
 
         foreach ($all as $id => $job) {
             if (preg_match(self::CALLED, Lenient::text($job->field('uses')), $calls) !== 1) {
-                $jobs[$id] = self::job(self::named($job, $id), $job, Legs::neededBy($job, $all), shipped: false);
+                $jobs[$id] = self::job(self::named($job, $id), $job, Legs::neededBy($job, $all, self::jobsOf(...)), shipped: false);
 
                 continue;
             }
@@ -143,7 +143,7 @@ final readonly class Gates
                 $jobs[sprintf('%s/%s', $id, $inner)] = self::job(
                     sprintf('%s / %s', $id, self::named($called, $inner)),
                     $called,
-                    Legs::neededBy($called, $inners),
+                    Legs::neededBy($called, $inners, self::jobsOf(...)),
                     shipped: $calls[1] === self::SHIPPED,
                 );
             }
