@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function max;
+
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\DependentCap;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -49,7 +51,7 @@ final class AnalyserWarmUp
             $found = $checker->findings(Paths::none(), $adapters->withheld);
             $own = Seconds::between($started, $clock->now());
             $planned = PlannedWarmUp::secondsFor($adapters->project, $identity);
-            $took = $planned instanceof Seconds && $planned->seconds() > $own->seconds() ? $planned : $own;
+            $took = $planned instanceof Seconds ? Seconds::of(max($planned->seconds(), $own->seconds())) : $own;
             $this->made = [$found instanceof CannotJudge
                 ? $found
                 : new WarmedUp(
